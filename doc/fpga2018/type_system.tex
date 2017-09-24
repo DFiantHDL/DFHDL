@@ -1,0 +1,129 @@
+\section{The DFiant Type System}
+\label{sec:type_system}
+DFiant is a Scala library, hence it inherently supports type safe and rich language constructs. DFiant brings type driven development concepts to hardware design, by creating an extensible dataflow class hierarchy, with the trait \code{DFAny} at its head (similar concept to Scala's Unified Types hierarchy). \code{DFAny} contains all properties that are common to every dataflow variable (e.g., \code{.width} represents the number of bits contained by the variable). Fig.~\ref{fig:Inherit} illustrates a simplified inheritance diagram of DFiant's dataflow types. Further explanation is given in Section~\ref{sec:mutability}. 
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.7]{graphics/Inherit.pdf} 
+	\captionof{figure}{DFiant dataflow types: simplified inheritance diagram}
+	\label{fig:Inherit}
+\end{figure}
+
+%The basic DFiant types are DFBits and DFBool
+%Each dataflow type points to a static bits vector
+%As can be seen from Related Work, HLS "LO TAFAS". Fig. \ref{boxy}
+%WE believe one of the primary reasons is that missing features of RTL
+%In this section we will cover the RTL features of RTL and how they handled in DFiant's abstractions
+%Bring type driven development into hardware design.
+%Need inheritance tree.
+%Interactions with scala types
+
+
+\subsection{Bit-Accurate Operations, Type Inference, and Data Structures}
+All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., \code{DFBits[5]} is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (\code{DFUInt[5]}) and a signed 10-bit variable (\code{DFSInt[10]}) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking \code{.wc} from the addition.
+
+DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between \code{DFSInt} and \code{Integer} variables). A constant in the dataflow graph is a node that can produce infinite tokens of the same value.   
+
+\subsection{Mutability}
+\label{sec:mutability}
+DFiant supports dataflow variables mutability via the \code{:=} operator. Do not confuse with Scala-level mutability which is enabled by using \code{var} instead of \code{val}. Each dataflow class has two variations: an immutable class, which inherits from \code{DFAny\textbf{Val}} and a mutable class, which inherits from \code{DFAny\textbf{Var}} and accepts \code{:=}. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. Consider, for instance, the DFiant implementation of \code{g} in Table \ref{tbl:StateExDefImpl}: \code{a} is immutable because it is a RHS addition between the dataflow variable \code{i} and a literal value \code{5}. Contrarily, \code{c} is mutable, since it is a dataflow variable constructor (\code{.init} constructs a new initialized variable, while preserving the mutability trait). 
+
+Fig.~\ref{fig:Inherit} demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, \code{DFBits} and \code{DFBits.Var} are immutable and mutable classes, respectively. Constructing a new variable via \code{DFBits} (e.g, \code{val a = DFBits[5]}) returns the mutable \code{DFBits.Var[5]}. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref{sec:io_ports}).
+
+%DFiant's code safety is enforced by maintaining the 'DF-mutability' trait while aliasing (accepting the ':=' operator). This means that an alias of a \textbf{Var}, is still a \textbf{Var}, and can be assigned, while an alias of a \textbf{Val} cannot. This concept is illustrated in ???, and further explained in ???:
+
+
+
+
+\subsection{Bit Aliasing and Casting}
+Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking \code{.bits(hiIdx, loIdx)}, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as \code{DFBits}, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable variable is immutable, while an alias of a mutable variable is mutable. 
+
+
+Fig.~\ref{fig:Aliasing} demonstrates aliasing code and its effect on the contents of a dataflow variable (\code{bits128}). Each line code does as follows:
+\begin{enumerate}
+  \item Constructs a new 128-bit vector, \code{bits128}, and clears it.
+  \item Creates a new alias, \code{alias64}, which references the most significant 64 bits of \code{bits128}. Since \code{bits128} is a \code{DFBits} variable, there is no need to invoke \code{.bits()}, and we can apply the required indexes directly.
+  \item Creates a new alias, \code{alias32}, which references the least significant 32 bits of \code{alias64}, which reference bits 64 to 95 of \code{bits128}.
+  \item Constructs a new double precision floating point dataflow variable, \code{dbl}, and initialize its value as \code{1.0} (hexadecimal value of \code{0x3FF00...0}).
+  \item Modifies the least significant byte of \code{dbl}.
+  \item Sets the most significant bit of \code{bits128}.
+  \item Assigns \code{dbl} to the least significant 64 bits of \code{bits128} through casting. All the bits of \code{dbl} are selected because \code{.bits()} is invoked without index parameters.
+  \item Modifies a byte of \code{bits128}.
+  
+\end{enumerate}
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}[b][3cm][b]{0.57\linewidth}
+    \vfill
+    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
+      val bits128 = DFBits[128] := 0
+      val alias64 = bits128(127, 64)
+      val alias32 = alias64(31, 0)
+      val dbl = DFDouble := 1.0
+      dbl.bits(7,0) := 0x28
+      bits128(127) := 1
+      bits128(63, 0) := dbl.bits()
+      alias32(16, 8) := 0x57		    
+    \end{minted}
+    \vfill
+    \subcaption{DFiant code}
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[b][3cm][b]{0.42\linewidth}
+    \centering
+    \vfill
+		\includegraphics[width=\linewidth]{graphics/Aliasing.pdf} 
+    \vfill
+    \subcaption{Contents of \code{bits128}}
+  \end{minipage}
+  \captionof{figure}{Bit aliasing and casting example}
+  \label{fig:Aliasing}
+\end{figure}
+
+
+\subsection{Structural Composition and Generation}
+
+DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). Different composition examples are available in Table~\ref{tbl:Box}.
+
+\input{box_table}
+
+\subsection{IO Ports}
+\label{sec:io_ports}
+The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
+
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.4\linewidth}
+  \begin{minted}[autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
+  abstract class Box() { 
+    val iT: DFB <> IN
+    val iB: DFB <> IN
+    val oT: DFB <> OUT
+    val oB: DFB <> OUT
+  }
+  \end{minted}
+  \end{minipage}
+  \captionof{figure}{IO port annotation DFiant code example}
+  \label{fig:IOBox}
+\end{figure}
+
+
+
+%+ C has no clear input/output notation. Input array and output array are the same.
+%
+%+ IDE: Intellisense, error highlighting, code completion, watches, println.
+%+ Unified compilation
+%+ Complete project build with the IDE. Compile results.
+%Yes abstract away pipelining. No to scheduling control.
+%
+%Features we don't want
+%simulations constructs.
+%separate constraints file.
+%
+%VHDL Possible race conditions.
+%
+%
+%+Include a summary table of RTL feature abstraction and how their are defined in DFiant.
+

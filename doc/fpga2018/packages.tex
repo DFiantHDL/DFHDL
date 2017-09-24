@@ -1,0 +1,122 @@
+\usepackage{booktabs} % For formal tables
+\graphicspath{{./graphics/}}
+\DeclareGraphicsExtensions{.pdf,.jpeg,.png}
+
+
+% *** GRAPHICS RELATED PACKAGES ***
+%
+%\usepackage[pdftex]{graphicx}
+
+\usepackage[export]{adjustbox}
+\usepackage{color}
+
+
+% *** MATH PACKAGES ***
+%
+\usepackage{amsmath}
+\usepackage{amssymb}
+% A popular package from the American Mathematical Society that provides
+% many useful and powerful commands for dealing with mathematics.
+%
+% Note that the amsmath package sets \interdisplaylinepenalty to 10000
+% thus preventing page breaks from occurring within multiline equations. Use:
+%\interdisplaylinepenalty=2500
+% after loading amsmath to restore such page breaks as IEEEtran.cls normally
+% does. amsmath.sty is already installed on most LaTeX systems. The latest
+% version and documentation can be obtained at:
+% http://www.ctan.org/pkg/amsmath
+
+
+
+
+% *** ALIGNMENT PACKAGES ***
+%
+\usepackage{array}
+% Frank Mittelbach's and David Carlisle's array.sty patches and improves
+% the standard LaTeX2e array and tabular environments to provide better
+% appearance and additional user controls. As the default LaTeX2e table
+% generation code is lacking to the point of almost being broken with
+% respect to the quality of the end results, all users are strongly
+% advised to use an enhanced (at the very least that provided by array.sty)
+% set of table tools. array.sty is already installed on most systems. The
+% latest version and documentation can be obtained at:
+% http://www.ctan.org/pkg/array
+
+
+% *** FLOAT PACKAGES ***
+%
+\usepackage{fixltx2e}
+% fixltx2e, the successor to the earlier fix2col.sty, was written by
+% Frank Mittelbach and David Carlisle. This package corrects a few problems
+% in the LaTeX2e kernel, the most notable of which is that in current
+% LaTeX2e releases, the ordering of single and double column floats is not
+% guaranteed to be preserved. Thus, an unpatched LaTeX2e can allow a
+% single column figure to be placed prior to an earlier double column
+% figure.
+% Be aware that LaTeX2e kernels dated 2015 and later have fixltx2e.sty's
+% corrections already built into the system in which case a warning will
+% be issued if an attempt is made to load fixltx2e.sty as it is no longer
+% needed.
+% The latest version and documentation can be found at:
+% http://www.ctan.org/pkg/fixltx2e
+
+
+
+% *** NON FLOAT MINIPAGE ***
+\makeatletter
+\let\MYcaption\@makecaption
+\makeatother
+
+\usepackage{caption}
+\usepackage[font=footnotesize]{subcaption}
+
+\usepackage[inline]{enumitem}
+
+\makeatletter
+\let\@makecaption\MYcaption
+\makeatother
+
+
+% *** PDF, URL AND HYPERLINK PACKAGES ***
+%
+%\usepackage{hyperref}
+\usepackage{url}
+% url.sty was written by Donald Arseneau. It provides better support for
+% handling and breaking URLs. url.sty is already installed on most LaTeX
+% systems. The latest version and documentation can be obtained at:
+% http://www.ctan.org/pkg/url
+% Basically, \url{my_url_here}.
+
+
+% *** MINTED COLORED CODE ***
+\usepackage{minted} % Required to display colored code properly
+%hack for minted to get rid of syntax error boxes
+\makeatletter
+\AtBeginEnvironment{minted}{\dontdofcolorbox}
+\def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
+\makeatother
+\usepackage[utf8]{inputenc}
+
+% *** Do not adjust lengths that control margins, column widths, etc. ***
+% *** Do not use packages that alter fonts (such as pslatex).         ***
+% There should be no need to do such things with IEEEtran.cls V1.6 and later.
+% (Unless specifically asked to do so by the journal or conference you plan
+% to submit to, of course. )
+
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+% *** Custom Frame ***
+\usepackage{mdframed}
+
+% So footnotes for figures are properly placed
+\usepackage{afterpage}
+
+% correct bad hyphenation here
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+% for left justification of text
+\usepackage{ragged2e}
+
+% for footnotes inside tables
+\usepackage{threeparttable}
