@@ -2,4 +2,13 @@
 project/project
 project/target
 target/
+doc/**/_minted*/
+doc/**/*.aux
+doc/**/*.bbl
+doc/**/*.blg
+doc/**/*.log
+doc/**/*.out
+doc/**/*.synctex.gz
+doc/fpga2018/fpga2018.pdf
+
 
