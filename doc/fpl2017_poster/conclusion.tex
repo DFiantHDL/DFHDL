@@ -1,0 +1,5 @@
+\section{Conclusion}
+\label{sec:conclusion}
+In this paper, we presented DFiant, a dataflow HDL, and exposed its advantageous semantics compared to modern RTLs and C++-based HLS tools (e.g.,  VHDL and Vivado HLS). DFiant provides a seamless concurrent programming approach, and yet it still facilitates a versatile compositional and hierarchical expressiveness. 
+
+So far, we demonstrated how DFiant covers static one-to-one pure token transfer functions. Notwithstanding, functionality may require state (e.g., state-machine), upsampling (e.g., duplicate each token), downsampling (e.g., drop every third token), token arrival time dependency (e.g., priority round-robin arbiter), or token value dependency (e.g., filter out odd-valued tokens). Future work may explore expanding control over token generation and consumption. 

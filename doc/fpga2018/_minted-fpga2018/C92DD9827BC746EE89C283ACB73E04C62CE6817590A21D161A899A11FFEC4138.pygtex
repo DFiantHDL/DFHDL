@@ -1,0 +1,13 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{g} \PYG{o}{:} \PYG{k}{process}\PYG{p}{(}\PYG{n}{clk}\PYG{p}{)}
+  \PYG{k}{variable} \PYG{err}{î} \PYG{o}{:} \PYG{k+kt}{integer}\PYG{o}{:=}\PYG{l+m+mi}{0}\PYG{p}{;}
+\PYG{k}{begin}
+  \PYG{k}{if} \PYG{n}{rising\PYGZus{}edge}\PYG{p}{(}\PYG{n}{clk}\PYG{p}{)}
+  \PYG{k}{begin}
+    \PYG{n}{a} \PYG{o}{\PYGZlt{}=} \PYG{n}{i} \PYG{o}{+} \PYG{l+m+mi}{5}\PYG{p}{;}
+    \PYG{n}{b} \PYG{o}{\PYGZlt{}=} \PYG{n}{i} \PYG{o}{+} \PYG{err}{î}\PYG{p}{;}
+    \PYG{err}{î} \PYG{o}{:=} \PYG{n}{i}\PYG{p}{;}
+    \PYG{n}{c} \PYG{o}{\PYGZlt{}=} \PYG{n}{i} \PYG{o}{+} \PYG{n}{c}\PYG{p}{;}
+  \PYG{k}{end}\PYG{p}{;}
+\PYG{k}{end} \PYG{k}{process}\PYG{p}{;}
+\end{Verbatim}

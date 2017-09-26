@@ -1,0 +1,13 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n}{f}\PYG{o}{(}\PYG{n}{i} \PYG{k}{:} \PYG{k+kt}{DFSInt}\PYG{o}{[}\PYG{err}{32}\PYG{o}{])} \PYG{k}{=}
+\PYG{o}{\PYGZob{}}
+
+
+  \PYG{k}{val} \PYG{n}{a} \PYG{k}{=} \PYG{n}{i} \PYG{o}{+} \PYG{l+m+mi}{5}
+  \PYG{k}{val} \PYG{n}{b} \PYG{k}{=} \PYG{n}{a} \PYG{o}{*} \PYG{l+m+mi}{3}
+
+  \PYG{k}{val} \PYG{n}{c} \PYG{k}{=} \PYG{n}{a} \PYG{o}{+} \PYG{n}{b}
+  \PYG{k}{val} \PYG{n}{d} \PYG{k}{=} \PYG{n}{i} \PYG{o}{\PYGZhy{}} \PYG{l+m+mi}{1}
+  \PYG{o}{(}\PYG{n}{a}\PYG{o}{,}\PYG{n}{b}\PYG{o}{,}\PYG{n}{c}\PYG{o}{,}\PYG{n}{d}\PYG{o}{)} \PYG{c+c1}{//tuple of}
+\PYG{o}{\PYGZcb{}}           \PYG{c+c1}{//four}
+\end{Verbatim}

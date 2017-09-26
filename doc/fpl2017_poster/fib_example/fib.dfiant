@@ -1,0 +1,7 @@
+trait DFUInt[W]
+
+def fib() : DFUInt[64] = {
+  val out = DFUInt[64].init(1, 0)
+  out := out.prev(1) + out.prev(2)
+  out.prev(2)
+}

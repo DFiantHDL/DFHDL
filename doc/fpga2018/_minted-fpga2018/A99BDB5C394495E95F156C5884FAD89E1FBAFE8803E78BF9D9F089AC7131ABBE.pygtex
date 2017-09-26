@@ -1,0 +1,10 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{abstract} \PYG{k}{class} \PYG{n+nc}{Box123}\PYG{o}{(}\PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{,} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{)} \PYG{k}{extends} \PYG{n+nc}{Box}\PYG{o}{(}\PYG{n}{iT}\PYG{o}{,} \PYG{n}{iB}\PYG{o}{)\PYGZob{}}
+  \PYG{k}{def} \PYG{n}{b1Bld}\PYG{o}{(}\PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{,} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{)} \PYG{k}{:} \PYG{k+kt}{Box}
+  \PYG{k}{def} \PYG{n}{b3Bld}\PYG{o}{(}\PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{,} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{)} \PYG{k}{:} \PYG{k+kt}{Box}
+  \PYG{k}{val} \PYG{n}{b1} \PYG{k}{=} \PYG{n}{b1Bld}\PYG{o}{(}\PYG{n}{iT}\PYG{o}{,}     \PYG{n}{iB}\PYG{o}{)}
+  \PYG{k}{val} \PYG{n}{b2} \PYG{k}{=} \PYG{n+nc}{BoxE}\PYG{o}{(}\PYG{n}{b1}\PYG{o}{.}\PYG{n}{oB}\PYG{o}{,}   \PYG{n}{b1}\PYG{o}{.}\PYG{n}{oT}\PYG{o}{)}
+  \PYG{k}{val} \PYG{n}{b3} \PYG{k}{=} \PYG{n}{b3Bld}\PYG{o}{(}\PYG{n}{b2}\PYG{o}{.}\PYG{n}{oB}\PYG{o}{,}  \PYG{n}{b2}\PYG{o}{.}\PYG{n}{oT}\PYG{o}{)}
+  \PYG{k}{val} \PYG{o}{(}\PYG{n}{oT}\PYG{o}{,} \PYG{n}{oB}\PYG{o}{)} \PYG{k}{=} \PYG{o}{(}\PYG{n}{b3}\PYG{o}{.}\PYG{n}{oT}\PYG{o}{,} \PYG{n}{b3}\PYG{o}{.}\PYG{n}{oB}\PYG{o}{)}
+\PYG{o}{\PYGZcb{}}
+\end{Verbatim}

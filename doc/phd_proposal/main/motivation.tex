@@ -1,0 +1,139 @@
+\chapter{Motivation}
+\label{chap:motivation}
+
+\section{Main questions}
+The key motivation for this work can be captured in three questions: 
+\begin{enumerate}
+\item Why do we need to modify HDL code when changing target FPGA devices? 
+\item Why do we need to modify HDL code when changing requirements such as throughput or latency, if the functionality is unchanged? 
+\item What is the fundamental difference between hardware description language and software programming? 
+\end{enumerate}
+
+%Answer: Software coded to best utilize the given hardware, while hardware coded as the best "template" for data to pass through. FPGA design coded to best utilize the given hardware to provide the best "template" for data to pass through. 
+
+\paragraph{}We discuss these questions by examining the limitations of modern HDLs. Overcoming these limitations is a necessary step to create a good HDL. We will use these limitations in the next chapter, as a comparison tool for related work.
+
+
+\section{HDL limitation: Explicit synchronous design}
+\label{sec:limitation synchronous}
+\subsection*{Existing technologies}
+\paragraph{}Most HDLs (and the designs using them) assume the device and timing are synchronous, while there are other technologies possible to exploit. Contemporary FPGAs can have three significantly different logic architectures: 
+\begin{itemize}
+\item \textbf{Synchronous (clocked) logic} \quad Most commonly used architecture. Logic is implemented by configuring connections of a grid composed of configurable look-up tables (LUTs) and clocked registers. Each register can be clocked by one of several global clocks. Since LUTs and wires between the logic blocks impose latencies due to signal propagation delay (PD), a given function must be split into pipelined stages to match the setup and hold times of the clocked registers. 
+Register-transfer level (RTL) is the common design abstraction used to model this logic.
+\item \textbf{Asynchronous logic} \quad Only exists in Achronix FPGAs. Possesses picoPIPE building blocks that transfer data between LUTs asynchronously, using four-phase handshaking. Such basic blocks allow for an elastic pipeline which is advanced when operations are done opposed to clock-edged synchronous signaling.
+\item \textbf{Spacetime\textsuperscript{TM}\cite{tabula2014spacetime} logic} \quad Only exists in Tabula FPGAs. The basic concept is that today's technology reached a stage where wires take up the majority of the PD of logic operations (LUT PD $<<$ wire PD). Tabula's FPGA is able to reconfigure the LUTs dynamically and extremely fast, to allow several different operation results to propagate on a wire to the next logic block, elevating the wire into a shared pipeline for N operations. 
+\end{itemize}
+\paragraph{}Discussing the advantages and disadvantages of these technologies and which to choose is beyond the scope of this work. We assume they all have merit and may even coexist within the same FPGA device.  
+\paragraph{}Any HDL that explicitly uses synchronous logic structure (clocks, resets and registers) limits the designer. Attempting to utilize such design for other logic technologies takes an effort to port legacy code or forces the designer to give-up on the technology. Additionally, simulating aforementioned designs must be done at cycle granularity (aka cycle-accurate simulation), which requires significantly more computation power. On the contrary, simulating a higher level HDL is usually much quicker, and is easier to debug.   
+\paragraph{}We claim that creating device-agnostic code requires a language that expresses designs through functional code (without specifying device/technology specific primitives) and provide the constraints to have the design meet the timing requirements as well.
+
+\subsection*{Explicit clock and clock-enables}
+\paragraph{}RTL designs have clocks and clock-enables for their registers. If a designer wishes to use one or the other to drive logic, then the RTL code is described differently. Each option effects the device's clock tree, energy consumption logic utilizations and more. The best option is dependent on the application and its requirements.
+\paragraph{}For example: An RTL design is required to output a single bit communication at 1 MHz frequency while clocked by a 10 MHz oscillator. It is possible to derive a new clock at 2 MHz and toggle the output signal, or use the same the 10 MHz clock, to drive clock enable at 2 MHz. Although the functionality is the same the implementation leads to a different utilization of the target device.
+\paragraph{}In our view both clock and clock-enables serve the same purpose, when the design is required to be synchronous in some way. Even asynchronous devices and designs must have some sort of synchronization mechanism to interface the external world. However, this does not mean that the whole design needs to be synchronous. For these reasons we claim a new functional language construct is required.
+%\paragraph{}Timer is a language construct required to describe functional synchronous behavior without specifying the technology primitives to do so.
+
+\subsection*{Explicit pipelining} 
+\paragraph{} Even if the designer wishes to exclusively use synchronous technology and pipeline the design explicitly, then it is implemented according to the non-functional requirements of the design (such as throughput or latency). In modern languages it is usually impossible to set the pipeline elastically, to auto-fit any given feasible requirement. Therefore, when constructing the pipeline, the designer makes assumptions based on a specific requirement, which may not be valid when the design code is synthesized for another device. Furthermore, these assumptions may not be documented or asserted, leading to a "debug anywhere" code instead of a "run anywhere" coding concept. 
+
+\subsection*{Explicit multiple clock domains and synchronizers}
+\paragraph{}As long as the design is synchronous and has only one global clock, the synchronous logic assumption may hold well. However, if the design has more than one clock domain (common in today's designs), then clock domain crossing (CDC) signals can cause metastability in the design. The designer may need to explicitly implement synchronizers, depending on the clocks' relations, or in other words, the design is no longer synchronous in the global sense. 
+\paragraph{}There are several possibilities to implement synchronizers and the optimal one is chosen by a designer according to the clock rates, clock relations and other design requirements. A chosen synchronizer is correct only for those assumptions, forcing redesign if either changes. 
+
+\subsection*{Explicit register usage}
+\paragraph{}In a classic synchronous design, registers are used explicitly for several different purposes: 
+\begin{itemize}
+\item \textbf{Pipelining} \quad Technology limitations impose a PD on each operation, thus chaining operations limits the design throughput. Pipelining is used to break the operation and allow for an increased throughput. Pipelining a design could be extremely complex and tightly coupled to the throughput and latency requirements. For these reasons, in our view, pipelines are a necessary evil and should be handled by the tool and not by the designer.
+\item \textbf{Create synchronizers} \quad Handle multiple clock domain signaling, as we discussed above, or synchronize asynchronous external inputs. Synchronizers are usually composed of N-flop adjacent registers. Without specifically simulating metastability, lack of synchronizers does not affect simulation results, leaving a synthesizable design that may not function correctly. This is why, in our view, synchronizers should be implicitly planted by the tool, and if not, then at least type-safety should prevent us from generating design without proper synchronization, and those synchronizers should be described functionally.
+\item \textbf{Save state} \quad Most logic functions do not get all information from their input at the same time, and therefore must use some kind of memory to save old data and relate to it. Synchronous designs typically use registers for this purpose. We want the design to be device-agnostic, and therefore prefer a functional $state$ construct to be used for this purpose instead of clocked registers. 
+\item \textbf{Derive clocks and timers} \quad Some logic may be required to be timed, as a derivative of an external clock, data, or other timed signal. One method to derive these signals is to divide the clock using registers-based counter. We prefer a functional $timer$ construct to be used to describe timed events in the design.
+\item \textbf{Synchronous interface with either external IOs or internal device primitives} \quad Interfaces require specific protocol to be implemented which can be synchronous. If the protocol is synchronous it must be cycle-accurate, which is why clocked registers are used to describe it. For IO interfacing we think there should be a functional $IO$ construct to allow clock-accurate description.
+\end{itemize}
+\paragraph{}In conclusion, we detailed five functionally different explicit uses of registers in a synchronous design. We recommend two of those use-cases to be implemented implicitly by the HLS tool, given the design's non-functional requirements (throughput, latency, etc.). For the other three we recommend to use three functionally different, dedicated language constructs. Ultimately, we believe, this is crucial to allow for device-agnostic and timing-agnostic hardware description.
+ 
+
+\section{HDL limitation: Lack of common constructs across devices}
+\label{sec:limitation common constructs}
+\subsection*{Difference between devices} 
+\paragraph{}Devices with the logic architecture discussed in the previous section, can still be significantly different from one another and limit the design's portability.  
+\paragraph{}Aside from logic, contemporary FPGA devices can be regarded as a system on a chip (SoC). They include SRAM memory blocks, external memory controllers, digital signal processing (DSP) blocks, a PCI Express endpoint, gigabit transceivers, clock generators, serializers, deserializers, and more. While the functionality of these components is similar across vendors, different FPGA vendors have not set an identical interface to use them. Even for the same vendor, the components may vary significantly between device families. 
+\paragraph{}Even within the same device family we may encounter problem when transferring code from one the device to another. This is mostly due to device utilization. For example, if the design specifically uses 10 multiplier components (DSPs) in one device, then moving to a device which has only 9 requires a change in code in order to change one of the multipliers to be implemented in logic. 
+
+\subsection*{Structural design model} 
+\paragraph{}If the code is written in a low level HDL like VHDL or Verilog, then the designer is forced to use structural design model to instantiate the components for the specific device (aka blackboxes). Not only this is extremely verbose, it basically couples the code to a single device type. In our view, structural design should be avoided, unless legacy intellectual property (IP) core use is specifically required.  
+
+
+\section{HDL limitation: Use of invalid data}
+\label{sec:limitation invalid}
+\subsection*{Metastable data from a designer perspective} 
+\paragraph{}In the physical world of electrical signaling, digital signals can pickup an invalid logic level (meaning neither '1' or '0'). However, we do not want nor require an option for the design to use invalid data or reach an invalid state (untrue for low-level simulation). For example, the common practice for VHDL design is to use std\_logic signaling throughout the design. Not only this leads to longer simulation time and creates a more verbose code, it is unnecessary. As far as the designer is concerned, the design tool should prevent compilation/synthesis if the code allows a metastable signal to propagate throughout the design (at a given probability). 
+\paragraph{}Synchronizers are used to prevent metastability (set a lower probability) when sampling external inputs or passing a signal between clock domains. It is important to note that metastability issues are usually not reflected in normal simulation, and special care must be taken to verify synchronizers. The HDL must either force the designer to implement such synchronizers explicitly or, better yet, use designer constraints to implicitly apply the correct synchronizer for each synchronization junction. 
+\paragraph{}It is worth noting that std\_logic signaling may also carry other values than invalid and '0' or '1' logic levels (like 'Z' for high impedance for bidirectional line). Again, since these values are non-synthesizable and only exist at IO level, that is where the HDL language must accept them. 
+
+\subsection*{Handshake data validity from a designer perspective} 
+\paragraph{}Data may be at a valid logic level, but may be old data or an empty slot from a reset stage. The data is usually accompanied by some sort of a 'valid' signaling system. In this case we also do not want the HDL to enable us to use the data without it being valid. A proper HDL allows the compiler to know the data path dependencies and warn the designer if a mistake has been made. 
+
+\paragraph{}Using only valid data closes the gap between software programming and hardware description. In software we always assume that a variable contains valid data (aside from approximate computing), thus we expect the HDL to provide the same simplicity. 
+
+
+\section{HDL limitation: Separate the constraints from the HDL}
+\label{sec:limitation separate contraints}
+\paragraph{}Most FPGA designs are composed of an HDL code and a separate constraints file, which is used to guide the bitstream build processes. The separation comes from the (unfortunately false) assumption that VHDL/Verilog designs are inherently device-agnostic and timing-agnostic. Consequently, constraints such as IO and primitive locations, clock-rate, clock-paths relativity, false paths and others, are not embedded in the HDL code.  
+\paragraph{}Most modern design flows have no direct relations between their constraints files and HDL files. In our view, the constraints files should be derived, along with the logic, from an HDL which includes both functional code and non-functional requirements. This allows the designer to specify everything in one place, and for it to derive to both logic and rules for the build processes. 
+%\paragraph{}Creating direct relationship between constraints and HDLs prevents "net fishing" when referring to a design ever in case of name change or new 
+%\subsection*{Explicitly fixed intellectual property (IP) cores} 
+%\paragraph{}Even if we assume that the aforementioned limitations we specified in the previous sections do not inhibit us from creating a device-agnostic and timing-agnostic IP (soft) core, then we are still forced to specify different constraints for every instantiation of the IP.
+
+
+\section{HDL limitation: Explicit concurrency}
+\label{sec:limitation_concur}
+\subsection*{Concurrency is not required for hardware design}
+\paragraph{}Languages VHDL and Verilog were developed for simulation and only later adopted for RTL design. These languages have inherent constructs to express concurrency. Concurrency is a must for simulation, which requires injecting the design under test with virtually every possible input scenario. 
+\paragraph{}On the contrary, hardware \textbf{construction} does not require to be concurrent at all. Constructed hardware can have paths that are parallel to one another, but the construction process used to layout these paths can be execute sequentially and in any order. For example, imagine that the FPGA is a picture frame in which we build a puzzle. The order we layout the pieces in does not matter, as long as the picture flow is correct.
+\paragraph{}In conclusion, explicit HDL concurrency is a legacy simulation construct which is not required for design. 
+
+\subsection*{Disadvantages of explicit concurrency}
+Not only explicit concurrency is not required, it has three main disadvantages compared to sequential HDLs:
+\begin{itemize}
+\item \textbf{Simplicity} \quad Construction code is far more easier to follow in its sequential form rather than its parallel counterpart.
+\item \textbf{Limited functional data paths} \quad Hardware can have several different independent data paths that belong to the same functionality. Explicitly declaring every optional concurrency may be hard. The default and intuitive language behavior should be that everything is constructed in parallel unless there is an explicit dependency set by the designer (e.g., $c:=a+b$ sets value $c$'s dependency to be derived from sum of both $a$ and $b$).
+\item \textbf{Race conditions} \quad Explicit concurrency enables the designer to express (non-synthesizable) race conditions, which can be avoided easily in sequential code, since the latest assignment sets the value.
+\end{itemize}
+
+
+\section{HDL limitation: No blackbox support}
+\paragraph{}Blackbox is a language construct used to interface with closed implementations, either when they belong to a third party, or when they are generated by another tool flow. This is done by declaring, instantiating and interfacing a temporarily empty module. The empty module can later be filled with either a simulation model during simulation or a synthesized netlist during synthesis.
+\paragraph{}Some HLS HDLs (see \autoref{chap:relwork}) do not have an option to interface blackboxes. If a design written in such a language requires to interface a blackbox, then the design itself has to be used as a blackbox in another language or tool flow to connect both the design and the original blackbox. Typically this is done using languages like VHDL or Verilog which are supported in every tool flow. These language have many faults, which are the reasons to use HLS tools to begin with.
+\paragraph{}For this reason we conclude that no HDL is complete without blackbox support, unless it is used for a very specific domain, and not as a general purpose HDL.
+
+
+\section{HDL limitation: Lacking bit-accuracy}
+\label{sec:limitation bit-accuracy}
+\paragraph{}A lacking bit-accurate support usually occurs in HDLs that are derived from software programming languages, where there was no need for such constructs. A true bit-accurate HDL has the following features:
+\begin{itemize}
+\item Custom width integers or bit vectors, with the logic and mathematic operators to support them. This enables constructing only the necessary hardware per operation.
+\item Bit-accurate concatenation and range selection. Although these operation can be achieved using logical operations, it is too verbose and unintuitive (especially for designers who have become accustomed to VHDL and Verilog).
+\end{itemize}
+\paragraph{}In short, bit-accuracy is a must for general purpose HDL, both to save hardware and code verbosity. 
+
+
+%\section{HDL limitation: Unsynthesizable constructs}
+%\paragraph{}Many HDLs are derived either from software languages or hardware simulation languages. Consequently they possess many unsynthesizable constructs, meaning the code is valid and even passes simulation but attempting to generate hardware result in errors. 
+%These constructs often confuse beginner designers
+
+
+
+%\section{HDL limitation: All wires/nets are the same}
+%\paragraph{}Modern FPGAs have different wire types: IOs, clocks, resets, clock enables, registered signals, etc. All these types have different features and connectability.  
+%Netlist
+%unsynthesizable
+
+%\section{HDL limitation: No object oriented and type safety}
+
+
+%\section{HDL limitation: Use any software language for HDL}
+%\paragraph{}In \autoref{sec:limitation_concur} we specified why concurrency is not a requirement for HDL. Consequently, it is tempting to use any mainstream software language like C or C++ as an HLS HDL with a unique compiler. However, regular software languages may be missing crucial constructs which are necessary for hardware design.
+
+
+%\section{Characteristics of a good HDL language} 

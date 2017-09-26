@@ -1,0 +1,170 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+% This is a simple template for a LaTeX document using the "article" class.
+% See "book", "report", "letter" for other types of document.
+
+\documentclass[12pt]{article} % use larger type; default would be 10pt
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+%\usepackage{titling}
+%\usepackage{titlesec}
+
+%\titleformat{\section}[block]
+%{\normalfont\bfseries}
+%{\thesection.}{0.5em}{}
+ 
+%\titlespacing{\section}{12pc}{1.5ex plus .1ex minus .2ex}{1pc}
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+% \geometry{margins=2in} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+\usepackage{graphicx} % support the \includegraphics command and options
+
+% \usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+
+%%% PACKAGES
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+% These packages are all incorporated in the memoir class to one degree or another...
+%\usepackage{hyperref}
+\usepackage[acronym]{glossaries}
+%\makeglossaries
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+
+\usepackage{fixltx2e}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{cite}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{epstopdf}
+\usepackage{setspace}
+%\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+
+% helpful macros
+\newcommand{\hide}[1]{}
+\setlength{\marginparwidth}{2cm}
+%\newcommand{\comment}[1]{\marginpar{\footnotesize #1}}
+\renewcommand{\comment}[1]{\textcolor{red}{[#1]}}
+\renewcommand{\tilde}[0]{$\sim$}
+\newcommand{\us}[0]{$\mu s$}
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+%\setlength{\marginparwidth}{2cm}
+
+% Title reformmating
+\makeatletter
+\renewcommand\@maketitle{%
+  \centering
+  \rule{\linewidth}{0.5mm}
+  \vspace{1ex}
+
+  \Large\@title
+  
+  \vspace{1ex}%
+    
+  \normalsize\@author
+    
+  \vspace{-0.5ex}%
+  \rule{\linewidth}{0.8mm}
+
+  \large\subtitle
+  
+  \vspace{-0.5ex}%
+  \rule{\linewidth}{0.5mm} 
+}
+\makeatother
+%
+%\setlength{\droptitle}{-5cm}
+%%% END Article customizations
+
+%%% The "real" document content comes below...
+
+
+\title{DFiant: Dataflow Hardware Description Language and High-Level Synthesis Tool}
+\def \subtitle{Research Abstract}
+\author{
+  Oron Port \\
+  Advisor: Prof. Yoav Etsion \\
+  TCE Center, EE Faculty, Technion}
+\date{} 
+
+\begin{document}
+
+\maketitle
+%
+%\section{Problem Statement}
+%\doublespacing
+\newacronym{asic}{ASIC}{Application Specific Integrated Circuit}
+
+
+For the past 20 years, VHDL and Verilog have dominated as general-purpose hardware description languages (HDLs). Although initially created for simulation, these languages were adopted for hardware design by utilizing limited synthesizable register-transfer language (RTL) constructs. RTL-based design flow is broadly applied for field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC) devices. \\
+
+As hardware designs and device architectures became increasingly more complex, utilizing traditional HDLs resulted in a verbose and non-portable code, tightly coupled to a specific device and timing requirements. To raise the level of abstraction, several high-level synthesis (HLS) tools were introduced, usually via common software languages such as C or Matlab. Unfortunately, sequential software language constructs come with a price. The designer loses the ability to control hardware construction and scheduling, which is crucial in many design use-cases. \\
+
+In this research, we counter the main limitations affecting modern HDLs and HLS tools by introducing DFiant, a new Scala-based dataflow HDL and HLS tool. DFiant's frontend enables functional bit accurate dataflow programming, while maintaining a complete timing-agnostic and device-agnostic code. DFiant bridges the gap between software programming and hardware construction, driving an intuitive functional object oriented code into a high-performance hardware implementation. \\
+
+We defined a new language from the ground up, borrowing concepts from hardware, dataflow and software languages. The result is a strongly-typed, purely synthesizable extendable language frontend, fit for both general-purpose and high level hardware description.
+%We evaluated initial semantics of DFiant by implementing an Advanced Encryption Standard (AES) cipher block and an IEEE-754 Floating point multiplier. We compared both test cases against RTL-based design flows. Our results demonstrated competing performance while simplifying code verbosity significantly.\\
+
+In the scope of this research, we plan to explore the following trajectories:
+
+\begin{description}
+
+\item [Handling state in dataflow abstraction]
+	At present, we exclusively implemented pure dataflow sematics in DFiant; all functions were stateless, maintained static one-to-one in/out token-ratio and had no token flow control. Fortunately, explicit pipeline registers description was unnecessary, since DFiant's compiler auto-pipelined our designs to achieve high throughput. Unfortunately, general-purpose HDLs require state by referring to value history. E.g. the simple counter requires its previous value to calculate its new value. We already formed semantics allowing these extended abilities, and we are currently implementing them with comparable test-cases. 
+	
+
+\item [Higher functional semantics]
+	Many architectures share common problems and solutions. E.g. implementing prediction to prevent stalls in a pipeline. DFiant is an expandable type-safe library. Therefore, we can differentiate between 'predicted paths' and 'normal paths'. A predicted path cannot commit (uncompilable code) to a normal path unless special operation is used that includes a prediction-miss management. We intend to functionally code a RISC-V in DFiant and have the tool auto-pipeline it for us.
+
+\item [Backend technology exploration]
+  Most DFiant semantics are timing-agnostic, therefore enabling synchronous single-clock, multi-clock or asynchronous design patterns as a compilation backend. It is difficult to express asynchronous design directly, and finally now it is within our grasp to explore and compare against equivalent synchronous designs. 
+	
+\item [Design space exploration]
+	The DFiant code is target-agnostic and compilable to any device accommodative of the functional requirements. It is possible not only to optimally utilize a specific device given a functional requirement, but to select the optimal device for the given requirement. Heuristic algorithms can use chip price and static power consumption comparisons to reduce the overall system cost. \\
+
+\end{description}
+
+We believe that DFiant is unique and may prove to be an invaluable tool for computer architecture research, as an "easy-bake oven" for new ideas. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\newpage
+%\printglossary[type=\acronymtype]
+
+{\footnotesize \singlespacing
+\bibliography{refs}}
+\small
+
+\bibliographystyle{abbrv}
+
+
+
+
+
+\end{document}
+\grid

@@ -1,0 +1,6 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{case} \PYG{k}{class} \PYG{n+nc}{BoxYEE}\PYG{o}{(}\PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{,} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{)} \PYG{k}{extends} \PYG{n+nc}{Box123}\PYG{o}{(}\PYG{n}{iT}\PYG{o}{,} \PYG{n}{iB}\PYG{o}{)} \PYG{o}{\PYGZob{}}
+  \PYG{k}{def} \PYG{n}{b1Bld}\PYG{o}{(}\PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{,} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{)} \PYG{k}{=} \PYG{n+nc}{BoxY}\PYG{o}{(}\PYG{n}{iT}\PYG{o}{,} \PYG{n}{iB}\PYG{o}{)}
+  \PYG{k}{def} \PYG{n}{b3Bld}\PYG{o}{(}\PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{,} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB}\PYG{o}{)} \PYG{k}{=} \PYG{n+nc}{BoxE}\PYG{o}{(}\PYG{n}{iT}\PYG{o}{,} \PYG{n}{iB}\PYG{o}{)}
+\PYG{o}{\PYGZcb{}}
+\end{Verbatim}

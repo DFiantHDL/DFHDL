@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{abstract} \PYG{k}{class} \PYG{n+nc}{Box}\PYG{o}{()} \PYG{o}{\PYGZob{}}
+  \PYG{k}{val} \PYG{n}{iT}\PYG{k}{:} \PYG{k+kt}{DFB} \PYG{k+kt}{\PYGZlt{}\PYGZgt{}} \PYG{k+kt}{IN}
+  \PYG{k}{val} \PYG{n}{iB}\PYG{k}{:} \PYG{k+kt}{DFB} \PYG{k+kt}{\PYGZlt{}\PYGZgt{}} \PYG{k+kt}{IN}
+  \PYG{k}{val} \PYG{n}{oT}\PYG{k}{:} \PYG{k+kt}{DFB} \PYG{k+kt}{\PYGZlt{}\PYGZgt{}} \PYG{k+kt}{OUT}
+  \PYG{k}{val} \PYG{n}{oB}\PYG{k}{:} \PYG{k+kt}{DFB} \PYG{k+kt}{\PYGZlt{}\PYGZgt{}} \PYG{k+kt}{OUT}
+\PYG{o}{\PYGZcb{}}
+\end{Verbatim}

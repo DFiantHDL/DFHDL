@@ -1,0 +1,45 @@
+\section{Related Work}
+\label{sec:related_work}
+%Raising hardware design abstractions has well known benefits \cite{coussy2009guest}, \cite{coussy2009introduction}. Nonetheless, HLS  still do not win vs VHDL. Martin, et al.~\cite{Cong2011} explain why past generations of HLS tools were not successful and what is required of new languages and tools. Gajski, et al. \cite{gajski2010input} and Hofstra and Matthijs \cite{hofstra2012comparing} compare HDL characteristics.
+
+%DFiant is a direct continuation of our previous work \cite{Port2015}. 
+
+Recent studies~\cite{Kapre2016}\cite{Nane2016}\cite{Windh2015} surveyed a variety of HDLs and HLS tools. Neither survey had explicit conclusion which tool or language should be used for hardware design. Earlier, we focused on comparing DFiant to VHDL and C++-based HLS. In this section, we further contrast DFiant to a few key hardware design languages and tools.
+
+%Why unlike chisel. Chisel is advanced RTL. Compiled to Chisel.
+%To be completed. Main focus: Recent HLS and DSL surveys, Maxeler, Chisel/SpinalHDL, Vivado HLS, Bluespec, Synflow(Cx), OpenCL, SystemVerilog SystemC. MyHDL.
+
+%We have classified the related HDL and HSL tools into five categories, examined them against the limitations we described in \ref{chap:motivation}, and summarized the results into \ref{tbl:HDLs comparison}. The categories are: Native HDLs, Advanced HDLs, Functional HDLs, HLS Tools and Asynchronous HDLs. The following sections give more details for each category and language.
+
+
+
+%\subsection*{System C} 
+%This category of HDLs refers to modern HDLs which were not developed to provide a high level of synthesis, but to have less verbose and more easily generated RTL code, with higher level device-agnostic language constructs (FIFOs, BRAMs, etc.).
+%Our work does recognize the importance of high-level functional constructs. However, we believe that burdening the designer with low level coding, such as the need to explicitly use registers to pipeline the design (which is a target specific element), is inefficient.
+\paragraph*{\bf \em Chisel, SpinalHDL, and VeriScala}
+Chisel~\cite{Bachrach2012}, SpinalHDL~\cite{Charles2016}, and VeriScala~\cite{Liu2017} are Scala-based libraries that provide advanced HDL constructs. When compared to DFiant, all three DSL libraries resemble RTL semantics by implicitly or explicitly acknowledging existence of clocked registers, and do not auto-pipeline designs. Moreover, DFiant is an early-adopter of new Scala features such as literal types~\cite{TypeLevelScala} and operations~\cite{singleton-ops}, which further improve type safety (e.g., a \code{DFBits[5].bits(Hi,Lo)} bit selection is compile-time-constrained within the 5-bits vector width confines).
+
+%\paragraph*{\bf \em Chisel and SpinalHDL} 
+%Both Chisel and SpinalHDL~\cite{Charles2016} are Scala-based libraries that provide advanced HDL constructs. SpinalHDL focuses on a more accurate hardware description (e.g., multiple clock domains), while Chisel focuses on providing cycle accurate simulation alongside its HDL constructs (via C++ test code generation). Both libraries resemble RTL semantics and do not auto-pipeline designs. 
+%DFiant also imposes a tighter type safety, and raises most compilation errors to be asserted at the Scala compile-time.
+%DFiant simulation can be executed within the Scala IDE, including breakpoints, watches, and console printouts. 
+
+\paragraph*{\bf \em Synflow Cx} 
+Synflow developed Cx~\cite{CxLang2014} as a designer-oriented HDL with new language semantics that better fit hardware design than the classic C syntax.
+However, the concurrency in Cx limits dataflow description flexibility. A \code{fence} statement is required to force a new cycle. This statement affects all variables within a \code{task}. To avoid this, separate tasks are required, which limits functional clustering in a single task.
+Moreover, Cx is not object-oriented and has a limited type-system.
+
+\paragraph*{\bf \em MyHDL}
+MyHDL~\cite{decaluwe2004myhdl} is a Python-based HDL. MyHDL favors verification capabilities over purely synthesizable hardware constructs, in contrary to our approach in DFiant. Since MyHDL is based on Python, it also lacks type-safety. MyHDL does not support automatic pipelining.
+
+\paragraph*{\bf \em Bluespec} 
+Bluespec uses concurrent guarded atomic actions to create rules that derive hardware construction. Bluespec's rules are atomic and execute within a single clock cycle. Consequently, the rule semantics bound the design to the clock, and if the design does not meet timing constraints, the rules system must be modified. 
+%Furthermore, Bluespec's rules are not very intuitive to hardware designers, who are usually dataflow oriented. Making a mistake in the rules system may lead to guess work locating the missing or interrupting rule.
+%While it may give a high productivity in some domains, it is not as easy for all general purpose hardware designs.
+%In fact, Bluespec was the first source of inspiration for this work.
+
+\paragraph*{\bf \em Vivado HLS} 
+Vivado HLS~\cite{Vivado2012} is a mature tool that helps achieve high productivity in some domains. Nevertheless, it is not accepted as a general purpose HDL, since its C/C++ semantics are unfitting~\cite{Zhao2017} and its SystemC synthesizable constructs provide roughly identical capabilities of traditional HDLs~\cite{gajski2010input}.
+
+\paragraph*{\bf \em Maxeler} 
+The Maxeler framework~\cite{Pell2011} and its MaxJ Java-based programming language take part in acceleration systems. MaxJ is dataflow-centric, same as DFiant, but is tailored for its target use-case and does not fit as a general purpose HDL.

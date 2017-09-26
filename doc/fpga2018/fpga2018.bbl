@@ -1,0 +1,394 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{30}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{}, \showDOI{}, and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showDOI}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showDOI #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showDOI      \undefined \def \showDOI       #1{#1}\fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[\protect\citeauthoryear{Bachrach, Vo, Richards, Lee, Waterman,
+  Avi{\v{z}}ienis, Wawrzynek, and Asanovi{\'{c}}}{Bachrach
+  et~al\mbox{.}}{2012}]%
+        {Bachrach2012}
+\bibfield{author}{\bibinfo{person}{Jonathan Bachrach}, \bibinfo{person}{Huy
+  Vo}, \bibinfo{person}{Brian Richards}, \bibinfo{person}{Yunsup Lee},
+  \bibinfo{person}{Andrew Waterman}, \bibinfo{person}{Rimas Avi{\v{z}}ienis},
+  \bibinfo{person}{John Wawrzynek}, {and} \bibinfo{person}{Krste
+  Asanovi{\'{c}}}.} \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{{Chisel: Constructing Hardware in a Scala Embedded
+  Language}}. In \bibinfo{booktitle}{{\em ACM/EDAC/IEEE Design Automation
+  Conference (DAC)}}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Bhattacharyya, Brebner, Janneck, Eker,
+  Von~Platen, Mattavelli, and Raulet}{Bhattacharyya et~al\mbox{.}}{2008}]%
+        {bhattacharyya2008opendf}
+\bibfield{author}{\bibinfo{person}{Shuvra~S Bhattacharyya},
+  \bibinfo{person}{Gordon Brebner}, \bibinfo{person}{J{\"o}rn~W Janneck},
+  \bibinfo{person}{Johan Eker}, \bibinfo{person}{Carl Von~Platen},
+  \bibinfo{person}{Marco Mattavelli}, {and} \bibinfo{person}{Micka{\"e}l
+  Raulet}.} \bibinfo{year}{2008}\natexlab{}.
+\newblock \showarticletitle{OpenDF: a dataflow toolset for reconfigurable
+  hardware and multicore systems}.
+\newblock \bibinfo{journal}{{\em Computer Architecture News\/}}
+  \bibinfo{volume}{36}, \bibinfo{number}{5} (\bibinfo{year}{2008}),
+  \bibinfo{pages}{29--35}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Charles}{Charles}{2016}]%
+        {Charles2016}
+\bibfield{author}{\bibinfo{person}{Papon Charles}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \bibinfo{title}{{SpinalHDL}}.
+\newblock   (\bibinfo{year}{2016}).
+\newblock
+\showURL{%
+\url{http://spinalhdl.github.io/SpinalDoc}}
+
+
+\bibitem[\protect\citeauthoryear{Clow, Tzimpragos, Dangwal, Guo, McMahan, and
+  Sh}{Clow et~al\mbox{.}}{2017}]%
+        {Clow2017}
+\bibfield{author}{\bibinfo{person}{John Clow}, \bibinfo{person}{Georgios
+  Tzimpragos}, \bibinfo{person}{Deeksha Dangwal}, \bibinfo{person}{Sammy Guo},
+  \bibinfo{person}{Joseph McMahan}, {and} \bibinfo{person}{Timothy Sh}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{{A Pythonic Approach for Rapid Hardware Prototyping
+  and Instrumentation}}. In \bibinfo{booktitle}{{\em Intl.\ Symp.\ on Field
+  Programmable Gate Arrays}}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Danial}{Danial}{2009}]%
+        {danial2009cloc}
+\bibfield{author}{\bibinfo{person}{Al Danial}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \bibinfo{title}{{Cloc--count lines of code}}.
+\newblock   (\bibinfo{year}{2009}).
+\newblock
+\showURL{%
+\url{https://github.com/AlDanial/cloc}}
+
+
+\bibitem[\protect\citeauthoryear{Das}{Das}{2010}]%
+        {das2010fully}
+\bibfield{author}{\bibinfo{person}{Subhasis Das}.}
+  \bibinfo{year}{2010}\natexlab{}.
+\newblock \bibinfo{title}{{Fully Pipelined AES Core}}.
+\newblock   (\bibinfo{year}{2010}).
+\newblock
+\showURL{%
+\url{https://opencores.org/project,aes_pipe}}
+
+
+\bibitem[\protect\citeauthoryear{Decaluwe}{Decaluwe}{2004}]%
+        {decaluwe2004myhdl}
+\bibfield{author}{\bibinfo{person}{Jan Decaluwe}.}
+  \bibinfo{year}{2004}\natexlab{}.
+\newblock \showarticletitle{{MyHDL: a python-based hardware description
+  language}}.
+\newblock \bibinfo{journal}{{\em Linux Journal\/}} \bibinfo{number}{127}
+  (\bibinfo{year}{2004}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Eker and Janneck}{Eker and Janneck}{2003}]%
+        {eker2003cal}
+\bibfield{author}{\bibinfo{person}{Johan Eker} {and} \bibinfo{person}{Jorn
+  Janneck}.} \bibinfo{year}{2003}\natexlab{}.
+\newblock \bibinfo{booktitle}{{\em CAL language report}}.
+\newblock \bibinfo{type}{{T}echnical {R}eport}. \bibinfo{institution}{Tech.
+  Rep. ERL Technical Memo UCB/ERL}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Gajski, Austin, and Svoboda}{Gajski
+  et~al\mbox{.}}{2010}]%
+        {gajski2010input}
+\bibfield{author}{\bibinfo{person}{Dan Gajski}, \bibinfo{person}{Todd Austin},
+  {and} \bibinfo{person}{Steve Svoboda}.} \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{{What input-language is the best choice for high
+  level synthesis (HLS)?}}. In \bibinfo{booktitle}{{\em ACM/EDAC/IEEE Design
+  Automation Conference (DAC)}}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Hsing}{Hsing}{2013}]%
+        {hsing2013aes}
+\bibfield{author}{\bibinfo{person}{Homer Hsing}.}
+  \bibinfo{year}{2013}\natexlab{}.
+\newblock \bibinfo{title}{{AES Core Specification}}.
+\newblock   (\bibinfo{year}{2013}).
+\newblock
+\showURL{%
+\url{http://opencores.org/usercontent,doc,1354351714}}
+
+
+\bibitem[\protect\citeauthoryear{IEEE}{IEEE}{2008}]%
+        {IEEE2008}
+\bibfield{author}{\bibinfo{person}{IEEE}.} \bibinfo{year}{2008}\natexlab{}.
+\newblock \bibinfo{booktitle}{{\em {754-2008 - IEEE Standard for Floating-Point
+  Arithmetic}}}.
+\newblock
+\showISBNx{9780738157528}
+\showISSN{01419331}
+
+
+\bibitem[\protect\citeauthoryear{Kapre and Bayliss}{Kapre and Bayliss}{2016}]%
+        {Kapre2016}
+\bibfield{author}{\bibinfo{person}{Nachiket Kapre} {and}
+  \bibinfo{person}{Samuel Bayliss}.} \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{{Survey of domain-specific languages for FPGA
+  computing}}. In \bibinfo{booktitle}{{\em Intl.\ Conf.\ on Field Programmable
+  Logic and Applications}}.
+\newblock
+\showISBNx{9782839918442}
+
+
+\bibitem[\protect\citeauthoryear{Liu, Li, Xiong, Lai, Chen, Qi, and Guan}{Liu
+  et~al\mbox{.}}{2017}]%
+        {Liu2017}
+\bibfield{author}{\bibinfo{person}{Yanqiang Liu}, \bibinfo{person}{Yao Li},
+  \bibinfo{person}{Weilun Xiong}, \bibinfo{person}{Meng Lai},
+  \bibinfo{person}{Cheng Chen}, \bibinfo{person}{Zhengwei Qi}, {and}
+  \bibinfo{person}{Haibing Guan}.} \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{{Scala Based FPGA Design Flow (Abstract Only)}}. In
+  \bibinfo{booktitle}{{\em Intl.\ Symp.\ on Field Programmable Gate Arrays}}.
+\newblock
+\showISBNx{9781450343541}
+
+
+\bibitem[\protect\citeauthoryear{Lundgren}{Lundgren}{2014}]%
+        {lundgren2014open}
+\bibfield{author}{\bibinfo{person}{David Lundgren}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \bibinfo{title}{{Double Precision Floating Point Core VHDL}}.
+\newblock   (\bibinfo{year}{2014}).
+\newblock
+\showURL{%
+\url{http://opencores.org/project,fpu_double}}
+
+
+\bibitem[\protect\citeauthoryear{Muller and Bartky}{Muller and Bartky}{1957}]%
+        {muller1957theory}
+\bibfield{author}{\bibinfo{person}{DE Muller} {and} \bibinfo{person}{WS
+  Bartky}.} \bibinfo{year}{1957}\natexlab{}.
+\newblock \showarticletitle{A theory of asynchronous circuits II}.
+\newblock \bibinfo{journal}{{\em Digital Computer Laboratory\/}}
+  \bibinfo{volume}{78} (\bibinfo{year}{1957}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Muller, Brisebarre, De~Dinechin, Jeannerod,
+  Lefevre, Melquiond, Revol, Stehl{\'e}, and Torres}{Muller
+  et~al\mbox{.}}{2009}]%
+        {muller2009handbook}
+\bibfield{author}{\bibinfo{person}{Jean-Michel Muller},
+  \bibinfo{person}{Nicolas Brisebarre}, \bibinfo{person}{Florent De~Dinechin},
+  \bibinfo{person}{Claude-Pierre Jeannerod}, \bibinfo{person}{Vincent Lefevre},
+  \bibinfo{person}{Guillaume Melquiond}, \bibinfo{person}{Nathalie Revol},
+  \bibinfo{person}{Damien Stehl{\'e}}, {and} \bibinfo{person}{Serge Torres}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \bibinfo{booktitle}{{\em Handbook of floating-point arithmetic}}.
+\newblock \bibinfo{publisher}{Springer Science \& Business Media}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Nane, Sima, Pilato, Choi, Fort, Canis, Chen,
+  Hsiao, Brown, Ferrandi, Anderson, and Bertels}{Nane et~al\mbox{.}}{2016}]%
+        {Nane2016}
+\bibfield{author}{\bibinfo{person}{Razvan Nane}, \bibinfo{person}{Vlad~Mihai
+  Sima}, \bibinfo{person}{Christian Pilato}, \bibinfo{person}{Jongsok Choi},
+  \bibinfo{person}{Blair Fort}, \bibinfo{person}{Andrew Canis},
+  \bibinfo{person}{Yu~Ting Chen}, \bibinfo{person}{Hsuan Hsiao},
+  \bibinfo{person}{Stephen Brown}, \bibinfo{person}{Fabrizio Ferrandi},
+  \bibinfo{person}{Jason Anderson}, {and} \bibinfo{person}{Koen Bertels}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \showarticletitle{{A Survey and Evaluation of FPGA High-Level
+  Synthesis Tools}}.
+\newblock \bibinfo{journal}{{\em IEEE Trans.\ on Computer-Aided Design of
+  Integrated Circuits and Systems\/}} \bibinfo{volume}{35},
+  \bibinfo{number}{10} (\bibinfo{year}{2016}), \bibinfo{pages}{1591--1604}.
+\newblock
+\showISBNx{0278-0070 VO - PP}
+\showISSN{02780070}
+
+
+\bibitem[\protect\citeauthoryear{Nikhil}{Nikhil}{2004}]%
+        {nikhil2004bluespec}
+\bibfield{author}{\bibinfo{person}{Rishiyur Nikhil}.}
+  \bibinfo{year}{2004}\natexlab{}.
+\newblock \showarticletitle{{Bluespec System Verilog: efficient, correct RTL
+  from high level specifications}}. In \bibinfo{booktitle}{{\em ACM/IEEE Intl.\
+  Conf.\ on Formal Methods and Models for Co-Design}}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{NIST}{NIST}{2001}]%
+        {pub2001197}
+\bibfield{author}{\bibinfo{person}{NIST}.} \bibinfo{year}{2001}\natexlab{}.
+\newblock \showarticletitle{{Advanced Encryption Standard (AES)}}.
+\newblock \bibinfo{journal}{{\em Federal Information Processing Standards
+  Publication\/}} \bibinfo{volume}{197}, \bibinfo{number}{441}
+  (\bibinfo{year}{2001}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{O'Flynn}{O'Flynn}{2014}]%
+        {oflynn2014rapid}
+\bibfield{author}{\bibinfo{person}{Colin O'Flynn}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{{Rapid FPGA Design in C Using High-Level
+  Synthesis}}.
+\newblock \bibinfo{journal}{{\em Circuit Cellar\/}} \bibinfo{number}{283}
+  (\bibinfo{year}{2014}), \bibinfo{pages}{46--53}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Osheim, Leontiev, Pretty, Hupel, O'Connor,
+  Sabin, and Switzer}{Osheim et~al\mbox{.}}{2017}]%
+        {TypeLevelScala}
+\bibfield{author}{\bibinfo{person}{Erik Osheim}, \bibinfo{person}{George
+  Leontiev}, \bibinfo{person}{Jon Pretty}, \bibinfo{person}{Lars Hupel},
+  \bibinfo{person}{Mike O'Connor}, \bibinfo{person}{Miles Sabin}, {and}
+  \bibinfo{person}{Tom Switzer}.} \bibinfo{year}{2017}\natexlab{}.
+\newblock \bibinfo{title}{{Typelevel Scala}}.
+\newblock   (\bibinfo{year}{2017}).
+\newblock
+\showURL{%
+\url{https://github.com/typelevel/scala}}
+
+
+\bibitem[\protect\citeauthoryear{Pell and Mencer}{Pell and Mencer}{2011}]%
+        {Pell2011}
+\bibfield{author}{\bibinfo{person}{Oliver Pell} {and} \bibinfo{person}{Oskar
+  Mencer}.} \bibinfo{year}{2011}\natexlab{}.
+\newblock \showarticletitle{{Surviving the end of frequency scaling with
+  reconfigurable dataflow computing}}.
+\newblock \bibinfo{journal}{{\em ACM SIGARCH Computer Architecture News\/}}
+  \bibinfo{volume}{39}, \bibinfo{number}{4} (\bibinfo{year}{2011}).
+\newblock
+\showISSN{01635964}
+
+
+\bibitem[\protect\citeauthoryear{Port and Etsion}{Port and Etsion}{2017}]%
+        {Port2017}
+\bibfield{author}{\bibinfo{person}{Oron Port} {and} \bibinfo{person}{Yoav
+  Etsion}.} \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{{DFiant: A Dataflow Hardware Description
+  Language}}. In \bibinfo{booktitle}{{\em Intl.\ Conf.\ on Field Programmable
+  Logic and Applications}}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{S.~Thomas, Pocock, Aoyama, and Port}{S.~Thomas
+  et~al\mbox{.}}{2017}]%
+        {singleton-ops}
+\bibfield{author}{\bibinfo{person}{Frank S.~Thomas}, \bibinfo{person}{Matthew
+  Pocock}, \bibinfo{person}{Naoki Aoyama}, {and} \bibinfo{person}{Oron Port}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \bibinfo{title}{{singleton-ops library}}.
+\newblock   (\bibinfo{year}{2017}).
+\newblock
+\showURL{%
+\url{https://github.com/fthomas/singleton-ops}}
+
+
+\bibitem[\protect\citeauthoryear{Salah}{Salah}{2013}]%
+        {salah2013aespipe}
+\bibfield{author}{\bibinfo{person}{Amr Salah}.}
+  \bibinfo{year}{2013}\natexlab{}.
+\newblock \bibinfo{title}{{128 bit AES Pipelined Cipher}}.
+\newblock   (\bibinfo{year}{2013}).
+\newblock
+\showURL{%
+\url{http://opencores.org/usercontent,doc,1378852274}}
+
+
+\bibitem[\protect\citeauthoryear{Sutherland}{Sutherland}{2012}]%
+        {Sutherland2012}
+\bibfield{author}{\bibinfo{person}{I Sutherland}.}
+  \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{{The tyranny of the clock}}.
+\newblock \bibinfo{journal}{{\em Comm.\ ACM\/}} \bibinfo{volume}{55},
+  \bibinfo{number}{10} (\bibinfo{year}{2012}), \bibinfo{pages}{35--36}.
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Synflow}{Synflow}{2014}]%
+        {CxLang2014}
+\bibfield{author}{\bibinfo{person}{Synflow}.} \bibinfo{year}{2014}\natexlab{}.
+\newblock \bibinfo{title}{{Cx Language}}.
+\newblock   (\bibinfo{year}{2014}).
+\newblock
+\showURL{%
+\url{http://cx-lang.org/}}
+
+
+\bibitem[\protect\citeauthoryear{Windh, Ma, Halstead, Budhkar, Luna, Hussaini,
+  and Najjar}{Windh et~al\mbox{.}}{2015}]%
+        {Windh2015}
+\bibfield{author}{\bibinfo{person}{Skyler Windh}, \bibinfo{person}{Xiaoyin Ma},
+  \bibinfo{person}{Robert~J. Halstead}, \bibinfo{person}{Prerna Budhkar},
+  \bibinfo{person}{Zabdiel Luna}, \bibinfo{person}{Omar Hussaini}, {and}
+  \bibinfo{person}{Walid~A. Najjar}.} \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{{High-level language tools for reconfigurable
+  computing}}.
+\newblock \bibinfo{journal}{{\em Proc.\ of the IEEE\/}} \bibinfo{volume}{103},
+  \bibinfo{number}{3} (\bibinfo{year}{2015}), \bibinfo{pages}{390--408}.
+\newblock
+\showISSN{00189219}
+
+
+\bibitem[\protect\citeauthoryear{Xilinx}{Xilinx}{2015}]%
+        {Vivado2012}
+\bibfield{author}{\bibinfo{person}{Xilinx}.} \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{{Vivado High Level Synthesis User Guide}}.
+\newblock  (\bibinfo{year}{2015}).
+\newblock
+
+
+\bibitem[\protect\citeauthoryear{Zhao}{Zhao}{2017}]%
+        {Zhao2017}
+\bibfield{author}{\bibinfo{person}{Zhipeng Zhao}.}
+  \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{{Using Vivado-HLS for Structural Design : a NoC
+  Case Study}}. In \bibinfo{booktitle}{{\em Intl.\ Symp.\ on Field Programmable
+  Gate Arrays}}.
+\newblock
+
+
+\end{thebibliography}

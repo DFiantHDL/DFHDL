@@ -1,0 +1,15 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n}{lzcs}\PYG{o}{[}\PYG{k+kt}{N}\PYG{o}{](}\PYG{n}{num} \PYG{k}{:} \PYG{k+kt}{DFBits}\PYG{o}{[}\PYG{k+kt}{N}\PYG{o}{])} \PYG{k}{=} \PYG{o}{\PYGZob{}}
+  \PYG{k}{val} \PYG{n}{k} \PYG{k}{=} \PYG{n}{log2Up}\PYG{o}{(}\PYG{n}{num}\PYG{o}{.}\PYG{n}{width}\PYG{o}{)}
+  \PYG{k}{val} \PYG{n}{x} \PYG{k}{=} \PYG{n+nc}{DFBits}\PYG{o}{(}\PYG{n}{num}\PYG{o}{.}\PYG{n}{width}\PYG{o}{)} \PYG{o}{:=} \PYG{n}{num}
+  \PYG{k}{val} \PYG{n}{d} \PYG{k}{=} \PYG{n+nc}{DFBits}\PYG{o}{(}\PYG{n}{k}\PYG{o}{)} \PYG{o}{:=} \PYG{l+m+mi}{0}
+
+  \PYG{k}{for} \PYG{o}{(}\PYG{n}{i} \PYG{k}{\PYGZlt{}\PYGZhy{}} \PYG{n}{k}\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{1} \PYG{n}{downto} \PYG{l+m+mi}{0}\PYG{o}{)} \PYG{o}{\PYGZob{}}
+    \PYG{n}{ifdf} \PYG{o}{(}\PYG{n}{x}\PYG{o}{.}\PYG{n}{msbits}\PYG{o}{(}\PYG{l+m+mi}{2}\PYG{o}{\PYGZti{}\PYGZca{}}\PYG{n}{i}\PYG{o}{)} \PYG{o}{==} \PYG{l+m+mi}{0}\PYG{o}{)} \PYG{o}{\PYGZob{}}
+      \PYG{n}{d}\PYG{o}{(}\PYG{n}{i}\PYG{o}{)} \PYG{o}{:=} \PYG{l+m+mi}{1}
+      \PYG{n}{x} \PYG{o}{:=} \PYG{n}{x} \PYG{o}{\PYGZlt{}\PYGZlt{}} \PYG{l+m+mi}{2}\PYG{o}{\PYGZti{}\PYGZca{}}\PYG{n}{i}
+    \PYG{o}{\PYGZcb{}}
+  \PYG{o}{\PYGZcb{}}
+  \PYG{o}{(}\PYG{n}{d}\PYG{o}{,} \PYG{n}{x}\PYG{o}{)}
+\PYG{o}{\PYGZcb{}}
+\end{Verbatim}

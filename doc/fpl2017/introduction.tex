@@ -1,0 +1,45 @@
+\section{Introduction}
+%For the past two decades, VHDL and Verilog have governed as hardware description languages (HDLs) for field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC) devices. Originally developed for simulation, these languages have limited synthesizable register-transfer language (RTL) constructs.
+
+%RTLs are very limited due to their explicit expressiveness. For example, vector addition is pipelined, either by coding a registered logic path, or by instancing a pipelined library component. Such components are typically coupled to a specific vendor, device family, or even a given device. Furthermore, clock-latency must be balanced between converging pipelines. Synthesis retiming can assist, provided that the designer places enough registers beforehand.
+
+Low-level hardware description languages (HDLs) such as Verilog and VHDL have been dominating the field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC) domains for decades.
+These languages burden designers with explicitly clocked constructs that do not distinguish between design functionality and implementation constraints (e.g., timing, target device).
+For example, the register-transfer language (RTL) constructs of both Verilog and VHDL require designers to explicitly state the behavior of each register, regardless if it is part of the core functionality (e.g., a state-machine state register), an artifact of the timing constraints (e.g, a pipeline register), or an artifact of the target interface (e.g., a synchronous protocol cycle delay).
+%
+These semantics narrow design correctness to specific timing restrictions, while vendor library component instances couple the design to a given target device. Evidently, formulating complex portable designs is difficult, if not impossible.
+%
+Finally, these older languages do not support modern programming features that enhance productivity and correctness such as polymorphism and type safety.
+
+Emerging high-level synthesis (HLSs) tools such as Vivado HLS~\cite{Vivado2012}, Bluespec SystemVerilog~\cite{nikhil2004bluespec}, and Chisel~\cite{Bachrach2012} have been introduced in an attempt to bridge the programmability gap.
+While HLSs tend to incorporate modern programming features, they still mix functionality with timing and device constraints, or lack hardware construction and timed synchronization control. For example, designs must be explicitly pipelined in Chisel or Bluespec, while a simple task as toggling a led at a given rate is impossible to describe with C++ constructs in Vivado HLS.
+Emerging HLSs, therefore, still fail to deliver a clean separation between functionality and implementation that can yield portable code, while providing general purpose HDL constructs. We explore these gaps further in Section~\ref{sec:related_work}.
+
+In this paper, we introduce DFiant, a modern HDL whose goal is to allow designers to express portable hardware designs.
+DFiant decouples functionality from timing constraints (in an effort to end the \emph{"tyranny of the clock"}~\cite{Sutherland2012}), and offers a clean model for hardware construction, based on its core characteristics:
+\begin{enumerate*}[label=(\roman*)]
+\item
+  a clock-agnostic dataflow model enables implicit parallel data and computation scheduling. 
+\item
+  functional register/state constructs, accompanied by an automatic pipelining process, eliminate all explicit register placements along with their direct clock dependency.
+\end{enumerate*} DFiant borrows and combines constructs and semantics from software, hardware and dataflow languages. Consequently, the DFiant programming model accommodates a middle-ground approach between low-level hardware description and high-level sequential programming. 
+
+DFiant is implemented as a Scala library, and relies on Scala's strong, extensible, and polymorphic type system to provide its own hardware-focused type system (e.g., bit-accurate dataflow types, and input/output port types). Interactions between DFiant dataflow types create a dependency graph that can be simulated in the Scala integrated development environment (IDE), or compiled to an RTL top design file and a TCL constraints file, followed by a hardware synthesis process using vendor tools.
+ 
+
+The remainder of this paper is organized as follows. 
+The next two sections describe DFiant's concurrency and state abstractions, followed by Section~\ref{sec:related_work}, which contrasts DFiant with related work. 
+Section~\ref{sec:type_system} details the DFiant type system.
+Section~\ref{sec:evaluation} describes a comparative evaluation of DFiant and traditional HDLs using implementations of an Advanced Encryption Standard~\cite{pub2001197} (AES) cipher block and an IEEE-754~\cite{IEEE2008} floating point (FP) multiplier.
+Finally, Section~\ref{sec:conclusion} concludes the paper.
+%\newpage
+%Interactions between DFiant types lead to hardware construction, while non-DFiant types (e.g. Integer) are considered as constants. 
+ 
+
+%Modern designs are rich with arithmetic functionality. Surely the designer cannot explicitly pipeline everything manually and must be selective. On one hand, under-pipelining may lead to insufficient performance and redesign iterations. On the other hand, over-pipelining might lead to performance reduction due to limited room for logic and routing, in addition to wasting design time, energy, and device resources. 
+
+%Typical FPGA devices now include clock generators, serializers, PCI express cores, internal memory blocks, external memory interfaces, and many other proprietary modules. Evidently, formulating designs that are transportable across devices and timing variance is difficult, if not impossible. Complex logic design has become a task fit only for experts. 
+% The generic code annotations enabling this are cumbersome and limited. 
+
+
+

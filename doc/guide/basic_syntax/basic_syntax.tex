@@ -1,0 +1,76 @@
+\chapterimage{chapter_head_2.pdf} % Chapter heading image
+\chapter{DFiant Syntax}
+
+\section{DFiant as a Scala library}
+DFiant is a Scala library and creates its own DSL (Domain Specific Language) within Scala's syntax boundaries. DFiant extends Scala by creating its own classes, types, definition, operators, etc. Therefore, all Scala code is a valid DFiant code, as long as it does not interact with DFiant-exclusive code. Of course this will not result in any runtime DFiant produce, but will pass compilation nonetheless. DFiant requires no special parser, allowing Scala IDE's and tools to be used for DFiant code development, debugging and deployment.\\
+
+The following table is a summary of errors and their trapping mechanisms:\\
+\begin{tabular}{||c|c|c||}
+	\hline 
+	Error Level & Trapping Mechanism 				& Typical errors \\ 
+	\hline 
+	1 					& IDE Error Highlighting 		& Type safety, DFMutability safety \\ 
+	\hline 
+	2 					& Scala Compilation Error 	& Type safety, DFMutability safety \\ 
+	\hline 
+	3 					& DFiant Compiler Error 
+	              (Scala Runtime Exception) & TBD \\ 
+	\hline 
+	4 					& DFiant Simulator Error 
+	              (Scala Runtime Exception) & TBD \\ 
+	\hline 
+\end{tabular} \\
+\vfill
+\newpage
+
+The following table contains references to chapters of the \chref{http://www.scala-lang.org/files/archive/spec/2.11/}{Scala Language Specification}. Some chapters were extended in DFiant, but most remain unmodified.\\
+\begin{tabular}{||c|c|p{8cm}||}
+	\hline 
+	Chapter 		& Title 				& DFiant Extension \\ 
+	\hline 
+	1 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/01-lexical-syntax.html}{Lexical Syntax}	& Unmodified \\ 
+	\hline 
+	2 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/02-identifiers-names-and-scopes.html}{Identifiers, Names and Scopes} & Unmodified \\
+	\hline 
+	3 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/03-types.html}{Types} & Unmodified \\
+	\hline 
+	4 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/04-basic-declarations-and-definitions.html}{Basic Declarations and Definitions} & 
+	Mutable dataflow stream variables. \newline 
+	Immutable dataflow stream values. \newline 
+	Bit selection \& casting \newline
+	Temporal Past \& Future token access. \\
+	\hline 
+	5 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/05-classes-and-objects.html}{Classes and Objects} & 
+	Structural IN/OUT abstract representation \\
+	\hline 
+	6 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/06-expressions.html}{Expressions} & 
+	Dataflow 'If' expression \newline
+	Design 'If' expression \newline
+	Token temporal consumption \& production control \\
+	\hline 
+	7 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/07-implicits.html}{Implicit} & Unmodified \\
+	\hline 
+	8 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/08-pattern-matching.html}{Pattern Matching} & Unmodified \\
+	\hline 
+	9 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/09-top-level-definitions.html}{Top-Level Definitions} & Unmodified \\
+	\hline 
+	10 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/10-xml-expressions-and-patterns.html}{XML Expressions and Patterns} & Unmodified \\
+	\hline 
+	11 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/11-annotations.html}{Annotations} & 
+	DFiant Compiler Annotations \newline
+	Solution Constraints \\
+	\hline 
+	12 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/12-the-scala-standard-library.html}{The Scala Standard Library} & The DFiant Standard Library \newline
+	Basic Library \\
+	\hline 
+	13 & \chref{http://www.scala-lang.org/files/archive/spec/2.11/13-syntax-summary.html}{Syntax Summary} & Extended by DFiant \\
+	\hline 
+\end{tabular} \\
+
+
+
+\begin{minted}[tabsize=2,gobble=1,framesep=5pt]{bnf}
+	UnicodeEscape ::= ‘\’ ‘u’ {‘u’} hexDigit hexDigit hexDigit hexDigit
+	hexDigit      ::= ‘0’ | … | ‘9’ | ‘A’ | … | ‘F’ | ‘a’ | … | ‘f’
+\end{minted}
+

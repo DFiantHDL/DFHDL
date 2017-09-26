@@ -1,0 +1,828 @@
+%----------------------------------------------------------------------------------------
+%	Dataflow definition convention
+%----------------------------------------------------------------------------------------
+\chapterimage{chapter_head_2.pdf} % Chapter heading image
+\chapter{Dataflow definition convention}
+To define required dataflow functionality, we naturally use sequences to describe inputs/outputs to/from a function. We assume the sequences to be finite.\footnote{Our dataflow is used to describe hardware. Eventually all hardware stops working :-)} 
+
+\begin{definition}[Dataflow sequence]
+	A dataflow sequence of a variable $var$ at length of $N$ is defined as follows:
+	\begin{equation}
+		S_{var}^{N}\triangleq \left( var_0,var_1,\cdots,var_N \right)
+	\end{equation}
+\end{definition}
+
+\begin{definition}[Dataflow sequence set]
+	A dataflow sequence set $SS_{DF}$ is a set of finite dataflow sequences and is defined as follows:
+	\begin{equation}
+		SS_{DF}\triangleq \left\lbrace{S_{var_A}^{N_A}, S_{var_B}^{N_B},\cdots}\right\rbrace
+	\end{equation}
+\end{definition}
+
+\begin{definition}[Dataflow function]
+	A dataflow function $f_{DF}:SS_{DF,in}\rightarrow SS_{DF,out}$ defines the relation between the input sequence set $SS_{DF,in}$ and the output sequence set $SS_{DF,out}$. Each function is definable as follows:
+	\begin{equation}
+		SS_{DF,out}=f_{DF}\left(SS_{DF,in} \right) 
+	\end{equation}
+	\begin{remark}
+		If there is a condition at which an output is not defined by the function, then the output is invalid at that condition, thus the function does not fire and no output will be produced at that condition.
+	\end{remark}
+\end{definition}
+
+\begin{definition}[Dataflow Single Input, Single Output (SISO) function]
+	A dataflow SISO function has a single input sequence and a single output sequence.
+	\begin{corollary}
+		A dataflow SISO function may consume at most a single token at any given time and produce a single token at any given time.
+	\end{corollary}
+
+	\begin{notation}
+		Any dataflow function may be described as follows:
+		\begin{equation*}
+			\left( out_0,out_1,\cdots,out_T \right)=f\left( in_0,in_1,\cdots,in_N \right)
+		\end{equation*}
+	\end{notation}
+
+	\begin{notation}
+		We will usually use a shorthand approach:
+		\begin{equation*}
+			out_t = \begin{cases}
+				h_1(in_{t}, t) & condition_1 \\
+				h_2(in_{t}, t) & condition_2 \\
+				\vdots & \vdots
+			\end{cases}
+		\end{equation*}
+		If none of the conditions is matched, the function is invalid and will not fire (no token is produced).
+	\end{notation}
+	
+\end{definition}
+%----------------------------------------------------------------------------------------
+
+
+
+
+%----------------------------------------------------------------------------------------
+%	Dataflow definition convention
+%----------------------------------------------------------------------------------------
+\chapter{Scheduling Syntax}
+\section{DF implicit consumption \& production}
+Most DF scheduling in DFiant is implicit. The default scheduling behavior is detailed in this section. The behavior aims to minimize chance for deadlocks in case the designer forgets to specify the scheduling explicitly.
+
+\subsection*{Implicit consumption of a produced token}
+Every DF variable (either mutable or immutable) can produce a token. This token will always be consumed, even if not used (no read from the variable), unless specified otherwise (see TBD). 
+
+\subsection*{Implicit production of a consumable token}
+Every constructed DF mutable variable always produces the previous token value it was assigned, unless specified otherwise (see ). . This value will always be consumed, even if not used (no read from the variable), unless specified otherwise (see TBD).
+
+\section{DF conditional consumption \& production}
+\section{new <DFVar>(init) initialized constructor}
+\section{<DFVar>:= assignment}
+\section{<DFVar>.prev history value access}
+\section{<DFVar>.prevInit initialized history value access}
+\section{<DFVar>.isNotEmpty checks for a valid token at capable producer}
+\section{<DFVar>.isNotFull checks for an empty slot at capable consumer}
+\section{<DFVar>.next future value access}
+\section{<DFVar>.dontConsume prevent value consumption}
+\section{<DFVar>.dontProduce prevent value production}
+
+%----------------------------------------------------------------------------------------
+
+
+
+
+%----------------------------------------------------------------------------------------
+%	Static Scheduling
+%----------------------------------------------------------------------------------------
+\chapter{Static Scheduling}
+\section{SISO Example: Identity function}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	An identity function requires the output sequence to be identical in value and ordering to the input sequence. 
+	\paragraph{Example}
+	$myId(0,1,2,3,4,5,6) => (0,1,2,3,4,5,6)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_t=
+		myId\left(S_{in}^{N} \right)= 
+		\begin{cases}
+			in_{t} & t<N
+		\end{cases}
+	\end{equation*}
+	All produced tokens are identical to the consumed tokens. An output token is valid (produced) as long as its index is smaller than the number of input (consumed) tokens. 
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myId(in : DFBits) : DFBits = {
+			val out = DFBits(in.width) 
+			out := in
+			return out
+		}
+	\end{minted}
+	It is possible to use Scala's less verbose approach, as the following code demonstrates. Throughout the examples of this guide we will usually choose the former approach, for consistency and to aid Scala beginner coders. 
+	\paragraph{Code (less verbose)}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myId(in : DFBits) : DFBits =
+			val out = DFBits(in.width) := in
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/myId.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+\section{SISO Example: Triplet reverse ordering}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Every three numbers are reversed at the output.
+	
+	\paragraph{Example}
+	$myReverse(0,1,2,3,4,5,6) => (2,1,0,5,4,3)$\\
+	Pay notice that the 7th token (value of 6) will be consumed by the function but there will not be a 7th token produced. The function would require two more input token to be able to produce an output.
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=myReverse\left(S_{in}^{N} \right)= 
+		\begin{cases}
+			in_{t+2}        & t\;mod\;3=0,\;t<\left\lfloor N/3 \right\rfloor\cdot{3} \\
+			in_{t}          & t\;mod\;3=1,\;t<\left\lfloor N/3 \right\rfloor\cdot{3} \\
+			in_{t-2}        & t\;mod\;3=2,\;t<\left\lfloor N/3 \right\rfloor\cdot{3}
+		\end{cases}
+	\end{equation*}
+	Explanation..... 
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myReverse(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			out <-- in.getNextSeq(3).reverse
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/myReverse.pdf}
+\end{minipage}}
+
+		
+\section{SISO Example: Triplet identity function}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Every three numbers are produced AS-IS at the output.
+	
+	\paragraph{Example}
+	$myIdTriple(0,1,2,3,4,5,6,7) => (0,1,2,3,4,5)$\\
+	Pay notice that the 7th and 8th tokens (values of 6 and 7) will be consumed by the function but will not be produced. 
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=myIdTriple\left(S_{in}^{N} \right)= 
+		\begin{cases}
+			in_{t}        & t<\left\lfloor N/3 \right\rfloor\cdot{3} \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myIdTriple(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			out <-- in.getNextSeq(3)
+			return out
+		}
+	\end{minted}
+	\paragraph{Remark}
+	\begin{equation*}
+		myReverse\left ( myReverse\left (*  \right ) \right ) \equiv myIdTriple(*)\not\equiv myId(*) 
+	\end{equation*}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/myIdTriple.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+\section{SISO Example: Sum of three, sliding window}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	The output is a sliding window sum of every three consecutive inputs.
+	
+	\paragraph{Example}
+	$mySum(0,1,2,3,4,5,6,7) => (3,6,9,12,15,18)$\\
+	Pay notice that N consumed tokens will result in N-2 maximum produced tokens.
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=mySum\left(S_{in}^{N} \right)= 
+		\begin{cases}
+			in_{t}+in_{t-1}+in_{t-2}        & 2 \leq t < N \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def mySum(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			out := in + in.prev + in.prev(2)
+			return out
+		}
+	\end{minted}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySum.pdf}
+\end{minipage}}
+
+
+\section{SISO Example: Sum of three, sliding window, initialized}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	The output is a sliding window sum of every three consecutive inputs. If not enough input tokens are consumed for the first two sum procedures, the inputs are treated as zero values.
+	
+	\paragraph{Example}
+	$mySumInit(0,1,2,3,4,5,6,7) => (0,1,3,6,9,12,15,18)$\\
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=mySumInit\left(S_{in}^{N} \right)= 
+		\begin{cases}
+			in_{t} + 0 + 0     				& t = 0 < N \\
+			in_{t}+in_{t-1} + 0        		& t = 1 < N \\
+			in_{t}+in_{t-1}+in_{t-2}        & 2 \leq t < N \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def mySumInit(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			out := in + in.prev.init(0) + in.prev(2).init((0,0))
+			return out
+		}
+	\end{minted}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySumInit.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+\section{SISO Example: Sum of triplet, Downsampling 3:1}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	The output is a downsampled sum of every triplet input. 
+	
+	\paragraph{Example}
+	$mySumTriple(0,1,2,3,4,5,6) => (3,12)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=mySumTriple\left(S_{in}^{N} \right)= 
+		\begin{cases}
+			in_{3t}+in_{3t+1}+in_{3t+2}        & t<\left\lfloor N/3 \right\rfloor \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code using two adders}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def mySumTriple(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			val in_nseq = in.split(3)
+			out := in_nseq(0) + in_nseq(1) + in_nseq(2)
+			return out
+		}
+	\end{minted}
+	\paragraph{Code using a single adder from library}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		import DFiant.basiclib.{Adder, Reusable}
+		def mySumTriple(in : DFBits) : DFBits = {
+			val adder = Reusable[Adder](in.width, in.width)
+			return adder(adder(in, in.next), in.next(2))
+		}
+	\end{minted}
+	\paragraph{Code using a single adder, do it yourself}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		import DFiant.basiclib.Adder
+		case class myReusableAdder(width : Integer) {
+			//TBD
+		}
+		def mySumTriple(in : DFBits) : DFBits = {
+			val adder = myReusableAdder(in.width)
+			return adder(adder(in, in.next), in.next(2))
+		}
+	\end{minted}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySumTriple.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+
+
+\section{SISO Example: Dual increment, Upsampling 1:3}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	For each input token $in$, the output will produce three tokens: $in$, $in+1$, and $in+2$. 
+	
+	\paragraph{Example}
+	$myDualIncrement(0,3) => (0,1,2,3,4,5)$
+	\paragraph{Definition}
+	\begin{equation*}
+		\begin{split}
+		out_{t}=myDualIncrement\left(S_{in}^{N} \right)= \\
+		=\begin{cases}
+			in_{t/3}          & t\ mod\ 3 = 0, t < 3N\\
+			in_{(t-1)/3}+1    & t\ mod\ 3 = 1, t < 3N\\
+			in_{(t-2)/3}+2    & t\ mod\ 3 = 2, t < 3N\\
+		\end{cases}
+		\end{split}
+	\end{equation*}
+	\paragraph{Code using two adders}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myDualIncrement(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			out := in
+			out.assignNext(1, in + 1)
+			out.assignNext(2, in + 2)
+			return out
+		}
+	\end{minted}
+	\paragraph{Code using two adders, shorthand approach}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myDualIncrement(in : DFBits) : DFBits = {
+			return Seq(in, in + 1, in + 2).merge(in.width)
+		}
+	\end{minted}
+	\paragraph{Code using two incrementors}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myDualIncrement(in : DFBits) : DFBits = {
+			val temp = in + 1
+			return Seq(in, temp, temp + 1).merge(in.width)
+		}
+	\end{minted}
+	\paragraph{Code using a single adder}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myDualIncrement(in : DFBits) : DFBits = {
+			val adder = Reusable[Adder](in.width, in.width)
+			return Seq(in, adder(in, 1), adder(in, 2)).merge(in.width)
+		}
+	\end{minted}
+	\paragraph{Code using a single incrementor}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myDualIncrement(in : DFBits) : DFBits = {
+			val incr = Reusable[Incrementor](in.width, 1)
+			val temp = incr(in)
+			return Seq(in, temp, incr(temp)).merge(in.width)
+		}
+	\end{minted}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/myDualIncrement.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+\section{SISO Example: Place first elements}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Given an input and a constant sequence, the function will first output the constant sequence and then continue with the input's sequence.
+		
+	\paragraph{Example}
+	$placeElements\left(in=(2,3,4,5,6),con=(0,1) \right)  => (0,1,2,3,4,5,6)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=placeElements\left(S_{in}^{N}, S_{con}^{L} \right)= 
+		\begin{cases}
+			con_{t}      & t<L \\
+			in_{t-L}     & L \leq t < N+L \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[linenos,tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def placeElements(in : DFBits, con : Seq[BigInt]) 
+		: DFBits = {
+			val out = DFBits(in.width)
+			val cnt = DFBits(Log2(con.length+1), init=0)
+
+			ifdf (cnt == con.length) {
+				out := in
+			} else {
+				in.dontConsume()
+				out := con(cnt)
+				cnt := cnt + 1
+			}
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/placeElements.pdf}
+\end{minipage}}
+
+\paragraph{Notes}
+\begin{enumerate}
+	\item Line 6: Implicit assignment \textit{cnt := cnt.prev} allows us to treat \textit{cnt} as a state which holds its previous value and use \textit{cnt}, instead of the verbose \textit{cnt.prev}. Note that using \textit{cnt.prev} would have achieved the same result.
+	\item Line 9: Notice the use of \textit{dontConsume()} to prevent a token from \textit{in} variable to be consumed when the ifdf statement condition is false.
+	\item Lines 11 and 12 must be placed in this order, since assignments take effect immediately within the scope. If we would have used \textit{cnt.prev + 1}, then the result would have been the same in any order.
+	\item Initialization of \textit{cnt} using its constructor was necessary. Excluding it would have resulted in a compilation error, since without an initialization to \textit{cnt} the function would deadlock due to a missing initial token.
+\end{enumerate}
+\paragraph{Code alternative}
+\begin{minted}[tabsize=2,gobble=1,framesep=5pt]{Scala}
+	def placeElements(in : DFBits, con : Seq[BigInt]) : DFBits = {
+		return in.prevInit(con.length, con)
+	}
+\end{minted}
+
+\vfill
+\pagebreak
+
+
+\section{SISO Example: Drop first elements}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Given an input and an $L$ number of elements to drop, the function will consume the first $L$ elements from the input sequence and without producing outputs. Once the consumed number of input elements has reached $L$ the function will produce outputs as the inputs as they are consumed.
+		
+	\paragraph{Example}
+	$dropElements\left(in=(0,1,2,3,4,5,6),num=2 \right)  => (2,3,4,5,6)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=dropElements\left(S_{in}^{N}, L \right)= 
+		\begin{cases}
+			in_{t}     & L \leq t < N \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def dropElements(in : DFBits, num : Integer) 
+		: DFBits = {
+			val out = DFBits(in.width)
+			val cnt = DFBits(Log2(num+1), init=0)
+
+			ifdf (cnt == num) {
+				out := in
+			} else {
+				out.dontProduce
+				cnt := cnt + 1
+			}
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/dropElements.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+\section{SISO Example: Tokens counter}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Outputs a count of the consumed tokens.
+		
+	\paragraph{Example}
+	$tokensCounter(5,2,1,5,10,11,2) => (0,1,2,3,4,5,6)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=tokensCounter\left(S_{in}^{N}\right)= 
+		\begin{cases}
+			t     & t < N \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def tokensCounter(in : DFBits) : DFBits = {
+			val cnt = DFBits(32, init=0) 
+
+			ifdf (in.isNotEmpty()) {
+				cnt := cnt + 1
+			} elsedf {
+				in.dontConsume() 
+				cnt.dontProduce() //cnt.prev preserves latest valid value
+			}
+			return cnt
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/dropElements.pdf}
+\end{minipage}}
+
+
+\section{SISO Example: Unstuck repeater}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Any token consumed may be repeatedly produced any number of times until the next token is consumed. The consumer which reads from this function's output controls the production rate.
+		
+	\paragraph{Example}
+	$unstuckRepeater(0,1,2,3) => (0,0,0,1,1,2,3,3,3,3,3,3,...)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=unstuckRepeater\left(S_{in}^{N}\right)= ????? 
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def unstuckRepeater(in : DFBits) : DFBits = {
+			val out = DFBits(in.width) 
+
+			ifdf (in.isNotEmpty()) {
+				out := in
+			} elsedf {
+				//has implicit out := out.prev
+				in.dontConsume() 
+			}
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/dropElements.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+
+\section{MISO Example: Round robin selector}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Consumes token from $in0$ and outputs it and then consumes token from $in1$ and outputs it and vice versa. This function may hang indefinitely with tokens at its inputs, if one of the inputs is empty.
+		
+	\paragraph{Example}
+	$rrSel\left( (0,2,4,6,8,10),(1,3,5)\right)  => (0,1,2,3,4,5,6)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=rrSel\left(S_{in}^{N}\right)= ????? 
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def rrSel(in0 : DFBits, in1 : DFBits) : DFBits = {
+			val out = DFBits(max(in0.width, in1.width)) 
+			val sel = DFBits(1, init=0)
+			
+			ifdf (sel == 0) {
+				out := in0
+				in1.dontConsume()
+			} elsedf {
+				out := in1
+				in0.dontConsume()
+			}
+			sel := !sel
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/dropElements.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+
+\section{MISO Example: Round robin greedy balanced selector}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Consumes token from $in0$ and outputs it and then consumes token from $in1$ and outputs it and vice versa. If a token does not exist on the current input then skip to next input.
+		
+	\paragraph{Example}
+	$rrGBSel\left( (0,2,4,6,8,10),(1,3,5)\right)  => MANY\_OPTIONS$
+	This is a time-variant function which depends not only on order of token, but their time as well.
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=rrGBSel\left(S_{in}^{N}\right)= ????? 
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def rrGBSel(in0 : DFBits, in1 : DFBits) : DFBits = {
+			val out = DFBits(max(in0.width, in1.width)) 
+			val sel = DFBits(1, init=0)
+			
+			ifdf (sel == 0 && in0.isNotEmpty()) {
+				out := in0
+				in1.dontConsume()
+			} elseifdf (sel == 1 && in1.isNotEmpty()) {
+				out := in1
+				in0.dontConsume()
+			} elsedf {
+				out.dontProduce()
+				in0.dontConsume()
+				in1.dontConsume()
+			}
+			sel := !sel
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/dropElements.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+\section{MISO Example: Round robin greedy priority selector}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	If $in0$ has a token then consume it and output it. Otherwise, if a token exists at $in1$ then consume it and outputs it. 
+		
+	\paragraph{Example}
+	$rrGPSel\left( (0,2,4,6,8,10),(1,3,5)\right)  => MANY\_OPTIONS$
+	This is a time-variant function which depends not only on order of token, but their time as well.
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=rrGPSel\left(S_{in}^{N}\right)= ????? 
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def rrGPSel[N0, N1](in0 : DFBits[N0], in1 : DFBits[N1])
+		    : DFBits[Max[N0, N1]] = {
+			val out = DFBits[Max[N0, N1]]
+			
+			ifdf (in0.isNotEmpty()) {
+				out := in0
+				in1.dontConsume()
+			} elseifdf (in1.isNotEmpty()) {
+				out := in1
+				in0.dontConsume()
+			} elsedf {
+				out.dontProduce()
+				in0.dontConsume()
+				in1.dontConsume()
+			}
+			return out
+		}
+	\end{minted}
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/dropElements.pdf}
+\end{minipage}}
+\vfill
+\pagebreak
+
+
+\section{NISO Example: Fibonacci series generator}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Generates Fibonacci series 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ... 
+	
+	\paragraph{Example}
+	$myFib() => (0,1,1,2,3,5,8,13,21,34,...)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=myFib\left(\right)= 
+		\begin{cases}
+			0        			& t=0 \\
+			1        			& t=1 \\
+			out_{t-1}+out_{t-2} & t\geq 2 \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myFib() : DFBits[32] = {
+			val out = DFBits[32].init(Seq(0,1))
+			out := out.prev + out.prev(2)
+			return out
+		}
+	\end{minted}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySumTriple.pdf}
+\end{minipage}}
+
+\section{NISO Example: Toggling bit generator}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Generates toggling bit 0, 1, 0, 1, 0, 1, ... 
+	
+	\paragraph{Example}
+	$myToggle() => (0,1,0,1,0,1,...)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=myToggle\left(\right)= 
+		\begin{cases}
+			0        	& t=0 \\
+			!out_{t-1}  & t\geq 1 \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myToggle() : DFBool = {
+			val out = DFBool.init(false)
+			out := !out.prev
+			return out.prev
+		}
+	\end{minted}
+
+	\paragraph{Code alternative}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myToggle() : DFBool = {
+			val out = DFBool.init(false)
+			out := !out.prev
+			return out
+		}
+	\end{minted}
+		
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+		%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySumTriple.pdf}
+\end{minipage}}
+\vfill
+
+
+\pagebreak
+
+
+%------------------------------------------------
+
+
+\chapter{Dynamic Scheduling}
+
+\section{SISO Example: Odd numbers filter}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Filters out the odd numbers.  
+	
+	\paragraph{Example}
+	$myOddFilter(0,1,2,3,4,5,6) => (0,2,4,6)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=myOddFilter\left(S_{in}^{N}\right)= 
+		\begin{cases}
+			in_{t}  & ??? \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myOddFilter(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			ifdf (in.bit(0) == 0) { //Even
+				out := in
+			} elsedf {
+				out.dontProduce()
+			}
+			return out	
+		}
+	\end{minted}
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySumTriple.pdf}
+\end{minipage}}
+\vfill
+
+
+\section{SISO Example: Repeating numbers filter}
+\noindent
+\adjustbox{valign=t}{\begin{minipage}{0.65\textwidth}
+	\paragraph{Requirement}
+	Filters out duplicates of a number if occurs more than once consecutively.
+	
+	\paragraph{Example}
+	$myRepeatFilter(0,1,1,2,3,4,4,5,6,2) => (0,1,2,3,4,5,6,2)$
+	\paragraph{Definition}
+	\begin{equation*}
+		out_{t}=myRepeatFilter\left(S_{in}^{N}\right)= 
+		\begin{cases}
+			in_{t}  & ??? \\
+		\end{cases}
+	\end{equation*}
+	\paragraph{Code}
+	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
+		def myRepeatFilter(in : DFBits) : DFBits = {
+			val out = DFBits(in.width)
+			val first = DFBool(init = true)
+			ifdf (first) {
+				out := in
+				first := false
+			} elsedf {			
+				ifdf (in == in.prev) {
+					out.dontProduce()
+				} elsedf {
+					out := in
+				}
+			}
+			return out	
+		}
+	\end{minted}
+	\paragraph{Open questions}
+	Do we expect the code to produce a single output if only a single input is consumed? Is the given syntax satisfy or do we need to add for the first condition something like in.prev.dontConsume()?
+	
+\end{minipage}}\hfill%
+\adjustbox{valign=t}{\begin{minipage}{0.3\textwidth}
+	%	\adjincludegraphics[trim={0 0 0 {0.08\height}},clip,width=\textwidth]{sched/graphics/mySumTriple.pdf}
+\end{minipage}}
+\vfill
