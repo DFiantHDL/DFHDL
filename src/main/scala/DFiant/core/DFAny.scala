@@ -8,7 +8,7 @@ trait DFAny {
   type IN = TVal
   type OUT = TVar
   type TVal <: DFAny
-  type TVar <: TVal with DFAny.Var[Width, TVal, TVar]
+  type TVar <: TVal with DFAny.Var[TVal, TVar]
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
@@ -105,19 +105,19 @@ trait DFAnyW[W] extends DFAny {
   type Width = W
 }
 
+
 object DFAny {
-  trait Val[W, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, Val0, Var0]] extends DFAnyW[W] {
+  trait Val[Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[Val0, Var0]] extends DFAny {
     this : Val0 =>
     type TVal = Val0
     type TVar = Var0
   }
-
-  trait Var[W, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, Val0, Var0]] extends DFAny.Val[W, Val0, Var0] {
+  trait Var[Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[Val0, Var0]] extends DFAny.Val[Val0, Var0] {
     this : Val0 with Var0 =>
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
-//    type TUInt = DFUInt#TVar
+    //    type TUInt = DFUInt#TVar
 
     final def dontProduce() : TAlias = {
       ???
@@ -131,6 +131,15 @@ object DFAny {
       that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
       this
     }
+  }
+
+
+  trait ValW[W, Val0 <: DFAny, Var0 <: Val0 with DFAny.VarW[W, Val0, Var0]] extends DFAnyW[W] with Val[Val0, Var0] {
+    this : Val0 =>
+  }
+
+  trait VarW[W, Val0 <: DFAny, Var0 <: Val0 with DFAny.VarW[W, Val0, Var0]] extends DFAny.ValW[W, Val0, Var0] with Var[Val0, Var0] {
+    this : Val0 with Var0 =>
   }
 
   abstract class Alias(aliasedVar : DFAny, relBitHigh : Int, relBitLow : Int)

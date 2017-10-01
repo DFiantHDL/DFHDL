@@ -6,4 +6,7 @@ package object DFiant {
   val DFBits = core.DFBits
   type DFBool = core.DFBool
   val DFBool = core.DFBool
+
+//  type DFUFix[IWL, FWL] = core.DFUFix[IWL, FWL]
+//  val DFUFix = core.DFUFix
 }

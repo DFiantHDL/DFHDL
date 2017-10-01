@@ -2,14 +2,15 @@ package DFiant.core
 
 import scala.collection.immutable._
 
-sealed trait DFArray[E <: DFAny] extends DFAny.Val[WUnsafe, DFArray[E], DFArray.Var[E]] {
+import singleton.twoface._
+sealed trait DFArray[E <: DFAny] extends DFAny.ValW[WUnsafe, DFArray[E], DFArray.Var[E]] {
   type TElem = E
   type TAliasElem <: TElem#TVal
 
   val length : Int
   protected val dfVar : TElem#TVar
 
-  val width = length * dfVar.width
+  val width = length * dfVar.width.getValue
   private val arr = Vector.tabulate[TAliasElem](length)(_ => dfVar.newEmptyDFVar.asInstanceOf[TAliasElem])
   def apply(i : Int) : TAliasElem = arr(i)
   def dfTypeName : String = "DFArray"
@@ -17,7 +18,7 @@ sealed trait DFArray[E <: DFAny] extends DFAny.Val[WUnsafe, DFArray[E], DFArray.
 
 
 object DFArray {
-  case class Var[E <: DFAny](length : Int, protected val dfVar : E#TVar) extends DFAny.Var[WUnsafe, DFArray[E], DFArray.Var[E]] with DFArray[E] {
+  case class Var[E <: DFAny](length : Int, protected val dfVar : E#TVar) extends DFAny.VarW[WUnsafe, DFArray[E], DFArray.Var[E]] with DFArray[E] {
     type TAliasElem = TElem#TVar
     def newEmptyDFVar = copy()
   }

@@ -40,7 +40,7 @@ class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFrom
   property("DFBits[4].bits(2,1)") = {
     val a = DFBits[4]; val b = a.bits(2,1)
     implicitly[b.Width =:= 2]
-    a.width.getValue == 2
+    b.width.getValue == 2
   }
   property("DFBits[4].apply(2,1)") = {
     val a = DFBits[4]; val b = a(2,1)

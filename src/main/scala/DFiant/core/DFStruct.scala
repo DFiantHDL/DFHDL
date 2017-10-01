@@ -1,6 +1,6 @@
 package DFiant.core
 
-trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.Var[Val]] {
+trait DFStruct[Val <: DFAny] extends DFAny.ValW[WUnsafe, Val, Val with DFStruct.Var[Val]] {
   this : Val =>
   type TField1 <: DFAny
   type TField2 <: DFAny
@@ -58,7 +58,7 @@ trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.V
 
 
 object DFStruct {
-  abstract class Var[Val <: DFAny]() extends DFAny.Var[WUnsafe, Val, Val with DFStruct.Var[Val]] with DFStruct[Val] {
+  abstract class Var[Val <: DFAny]() extends DFAny.VarW[WUnsafe, Val, Val with DFStruct.Var[Val]] with DFStruct[Val] {
     this : Val =>
     type TAlias1 = TField1#TVar
     type TAlias2 = TField2#TVar
