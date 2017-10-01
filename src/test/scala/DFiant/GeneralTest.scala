@@ -4,6 +4,7 @@ import DFiant._
 import DFiant.core._
 import DFiant.internals._
 import singleton.twoface._
+import DFiant.fixedpoint._
 
 import scala.annotation.implicitNotFound
 /**
@@ -29,6 +30,10 @@ object GeneralTest {
   val one = 100
   d + one
   d + 1
+
+  val ee = DFUFix(2,3)
+//  val eew = ee.fw.width
+//  implicitly[ee.Width =:= 5]
 
 
 //  implicitly[e.width.T0 =:= 4]

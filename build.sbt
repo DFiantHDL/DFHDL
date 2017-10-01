@@ -9,7 +9,7 @@ scalacOptions += "-deprecation"
 
 scalacOptions += "-Yliteral-types"        // enable SIP-23 implementation
 
-scalacOptions += "-Ykind-polymorphism"    //enable Kind polymorphism
+//scalacOptions += "-Ykind-polymorphism"    //enable Kind polymorphism
 
 //enablePlugins(DottyPlugin)
 
@@ -154,6 +154,7 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 initialCommands in console :=
   """
     |import DFiant._
+    |import DFiant.fixedpoint._
     |
     |  type WorkAround0[T]
     |  object WorkAround0 extends _root_.singleton.twoface.impl.Checked0Param.Builder[Nothing, WorkAround0, WorkAround0, Nothing]
