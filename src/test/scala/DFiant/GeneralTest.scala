@@ -18,6 +18,8 @@ object GeneralTest {
 
   type WorkAround0[T]
   object WorkAround0 extends _root_.singleton.twoface.impl.Checked0Param.Builder[Nothing, WorkAround0, WorkAround0, Nothing]
+  type WorkAround1[T,P]
+  object WorkAround1 extends _root_.singleton.twoface.impl.Checked1Param.Builder[Nothing, WorkAround1, WorkAround1, Nothing, Nothing]
 
   foo(2)
   def foo[W](width : CheckedWidth[W]) : Unit = {}
@@ -30,6 +32,9 @@ object GeneralTest {
   val one = 100
   d + one
   d + 1
+
+  val ff = DFBits(8)
+  ff.bitsWL[7,1]
 
   val ee = DFUFix(2,3)
 //  val eew = ee.fw.width

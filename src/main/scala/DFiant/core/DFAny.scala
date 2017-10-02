@@ -47,6 +47,28 @@ trait DFAny {
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
+  //////////////////////////////////////////////////////////////////////////
+  // Partial Bits at Position selection
+  //////////////////////////////////////////////////////////////////////////
+  protected final def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])
+  : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
+
+  import singleton.ops.-
+  final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : CheckedBitIndex[L, Width])(
+    implicit checkRelWidth : CheckedPartWidth.Shell[W, Width - L]
+  ) = {
+    checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
+    protBitsWL(relWidth, relBitLow.unsafeCheck(width))
+  }
+
+  final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : CheckedBitIndex[L, Width],
+    checkRelWidth : CheckedPartWidth.Shell[W, Width - L], di : DummyImplicit
+  ) = {
+    checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
+    protBitsWL(relWidth, relBitLow.unsafeCheck(width))
+  }
+  //////////////////////////////////////////////////////////////////////////
+
   final def prev(step : Int = 1) : TVal = ???
   final def next(step : Int = 1) : TVal = ???
 //  final def getNextSeq(seqNum : Int, slidingWindow : Boolean = false) : Seq[TVal] = {
