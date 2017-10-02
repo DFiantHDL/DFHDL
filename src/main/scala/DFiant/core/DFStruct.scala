@@ -20,9 +20,9 @@ trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.V
 
   }
 
-  protected def insert(dfVar : DFBits[WUnsafe]#TVar) : TBits[WUnsafe] = {
+  protected def insert[WVar](dfVar : DFBits[WVar]#TVar) : TBits[WVar] = {
     privInsert(dfVar)
-    dfVar.asInstanceOf[TBits[WUnsafe]]
+    dfVar.asInstanceOf[TBits[WVar]]
   }
   protected def insert(dfVar : DFBool#TVar) : TBool = {
     privInsert(dfVar)
