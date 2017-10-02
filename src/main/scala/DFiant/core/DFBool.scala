@@ -54,5 +54,5 @@ object DFBool {
   implicit def apply() : Var = create()
 
   protected[DFiant] def alias[I](aliasedVar : DFAny, relBit : TwoFace.Int[I]) : Var =
-    new core.DFAny.Alias(aliasedVar, relBit, relBit) with Var {}
+    new core.DFAny.Alias(aliasedVar, 1, relBit) with Var {}
 }

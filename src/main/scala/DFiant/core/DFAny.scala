@@ -29,11 +29,11 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits() : TBits[Width] = DFBits.alias(this, width-1, 0).asInstanceOf[TBits[Width]]
+  final def bits() : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
 
   protected final def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L]
-  ) : TBits[relWidth.Out] = DFBits.alias(this, relBitHigh, relBitLow).asInstanceOf[TBits[relWidth.Out]]
+  ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : CheckedBitIndex[H, Width], relBitLow : CheckedBitIndex[L, Width])(
     implicit checkHiLow : CheckedBitsRange.Shell[H, L], relWidth : RelWidth.TF[H, L]
@@ -134,10 +134,10 @@ object DFAny {
     }
   }
 
-  abstract class Alias(aliasedVar : DFAny, relBitHigh : Int, relBitLow : Int)
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int)
     extends DFAny {
     override protected[DFiant] lazy val almanacEntry : AlmanacEntry =
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitHigh, relBitLow))
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow))
   }
 
   object Const {
