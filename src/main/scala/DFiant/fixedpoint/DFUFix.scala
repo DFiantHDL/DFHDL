@@ -7,7 +7,7 @@ import singleton.twoface._
 
 //DFUFix can be derived from DFStruct, however to increase (Scala) compile-time safety, we rather
 //define local field aliasing manually
-trait DFUFix[IWL, FWL] extends DFAny.ValW[IWL + FWL, DFUFix[IWL, FWL], DFUFix.Var[IWL, FWL]] {
+trait DFUFix[IWL, FWL] extends DFAny.Val[IWL + FWL, DFUFix[IWL, FWL], DFUFix.Var[IWL, FWL]] {
   val iwl : TwoFace.Int[IWL]
   val fwl : TwoFace.Int[FWL]
 
@@ -18,7 +18,7 @@ trait DFUFix[IWL, FWL] extends DFAny.ValW[IWL + FWL, DFUFix[IWL, FWL], DFUFix.Va
 }
 
 object DFUFix {
-  trait Var[IWL, FWL] extends DFUFix[IWL, FWL] with DFAny.VarW[IWL + FWL, DFUFix[IWL, FWL], DFUFix.Var[IWL, FWL]] {
+  trait Var[IWL, FWL] extends DFUFix[IWL, FWL] with DFAny.Var[IWL + FWL, DFUFix[IWL, FWL], DFUFix.Var[IWL, FWL]] {
 
   }
   def create[IWL, FWL](_iwl : TwoFace.Int[IWL], _fwl : TwoFace.Int[FWL]) : Var[IWL, FWL] = new Var[IWL, FWL] {

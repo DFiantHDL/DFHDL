@@ -3,7 +3,7 @@ package DFiant.core
 import scala.collection.immutable._
 
 import singleton.twoface._
-sealed trait DFArray[E <: DFAny] extends DFAny.ValW[WUnsafe, DFArray[E], DFArray.Var[E]] {
+sealed trait DFArray[E <: DFAny] extends DFAny.Val[WUnsafe, DFArray[E], DFArray.Var[E]] {
   type TElem = E
   type TAliasElem <: TElem#TVal
 
@@ -18,7 +18,7 @@ sealed trait DFArray[E <: DFAny] extends DFAny.ValW[WUnsafe, DFArray[E], DFArray
 
 
 object DFArray {
-  case class Var[E <: DFAny](length : Int, protected val dfVar : E#TVar) extends DFAny.VarW[WUnsafe, DFArray[E], DFArray.Var[E]] with DFArray[E] {
+  case class Var[E <: DFAny](length : Int, protected val dfVar : E#TVar) extends DFAny.Var[WUnsafe, DFArray[E], DFArray.Var[E]] with DFArray[E] {
     type TAliasElem = TElem#TVar
     def newEmptyDFVar = copy()
   }

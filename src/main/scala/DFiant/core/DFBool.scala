@@ -4,7 +4,7 @@ import DFiant.core
 import DFiant.internals._
 import singleton.twoface._
 
-sealed trait DFBool extends DFAny.ValW[DFBool.Width, DFBool, DFBool.Var] {
+sealed trait DFBool extends DFAny.Val[DFBool.Width, DFBool, DFBool.Var] {
   val width = TwoFace.Int[DFBool.Width]
 
 //  implicit def bool2Entry(dfBool: DFBool) : AlmanacEntry = dfBool.getCurrentEntry
@@ -45,7 +45,7 @@ sealed trait DFBool extends DFAny.ValW[DFBool.Width, DFBool, DFBool.Var] {
 
 object DFBool {
   type Width = 1
-  trait Var extends DFAny.VarW[DFBool.Width, DFBool, DFBool.Var] with DFBool {
+  trait Var extends DFAny.Var[DFBool.Width, DFBool, DFBool.Var] with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false

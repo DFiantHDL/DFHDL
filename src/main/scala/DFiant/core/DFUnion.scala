@@ -1,6 +1,6 @@
 package DFiant.core
 
-trait DFUnion[Val <: DFAny, Var <: Val with DFAny.VarW[WUnsafe, Val, Var]] extends DFAny.ValW[WUnsafe, Val, Var] {
+trait DFUnion[Val <: DFAny, Var <: Val with DFAny.Var[WUnsafe, Val, Var]] extends DFAny.Val[WUnsafe, Val, Var] {
   this : Val =>
   type TField1 <: DFAny
   type TField2 <: DFAny
@@ -53,7 +53,7 @@ trait DFUnion[Val <: DFAny, Var <: Val with DFAny.VarW[WUnsafe, Val, Var]] exten
   }
 }
 
-abstract class DFUnionVarA[Val <: DFAny, Var <: Val with DFAny.VarW[WUnsafe, Val, Var]] extends DFAny.VarW[WUnsafe, Val, Var] with DFUnion[Val, Var] {
+abstract class DFUnionVarA[Val <: DFAny, Var <: Val with DFAny.Var[WUnsafe, Val, Var]] extends DFAny.Var[WUnsafe, Val, Var] with DFUnion[Val, Var] {
   this : Val with Var =>
   type TAlias1 = TField1#TVar
   type TAlias2 = TField2#TVar

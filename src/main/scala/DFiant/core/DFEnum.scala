@@ -1,6 +1,6 @@
 package DFiant.core
 
-trait DFEnum[E <: Enumeration#Value] extends DFAny.ValW[WUnsafe, DFEnum[E],DFEnum.Var[E]] {
+trait DFEnum[E <: Enumeration#Value] extends DFAny.Val[WUnsafe, DFEnum[E],DFEnum.Var[E]] {
   protected val enum : Enumeration
   def == (that : E) : DFBool = ???
   val width = wOF(enum.maxId)
@@ -8,7 +8,7 @@ trait DFEnum[E <: Enumeration#Value] extends DFAny.ValW[WUnsafe, DFEnum[E],DFEnu
 }
 
 object DFEnum {
-  case class Var[E <: Enumeration#Value](protected val enum : Enumeration) extends DFAny.VarW[WUnsafe, DFEnum[E],DFEnum.Var[E]] with DFEnum[E] {
+  case class Var[E <: Enumeration#Value](protected val enum : Enumeration) extends DFAny.Var[WUnsafe, DFEnum[E],DFEnum.Var[E]] with DFEnum[E] {
     def := (that : E) : Unit = {}
     def newEmptyDFVar = copy()
   }
