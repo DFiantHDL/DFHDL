@@ -1,5 +1,6 @@
 package DFiant.core
 
+import DFiant.internals._
 trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.Var[Val]] {
   this : Val =>
   type TField1 <: DFAny
@@ -7,8 +8,7 @@ trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.V
   type TField3 <: DFAny
   type TField4 <: DFAny
   type TField5 <: DFAny
-  private var privWidth : Int = 0
-  val width = privWidth
+  private var privPosLSB : Int = 0
 
   type TAlias1 <: TField1#TVal
   type TAlias2 <: TField2#TVal
@@ -17,7 +17,8 @@ trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.V
   type TAlias5 <: TField5#TVal
 
   protected[DFiant] def privInsert(dfVar : DFAny) = {
-
+    almanacEntry.structEntryList += dfVar.almanacEntry
+    privPosLSB = privPosLSB + dfVar.width
   }
 
   protected def insert[WVar](dfVar : DFBits[WVar]#TVar) : TBits[WVar] = {
@@ -53,6 +54,9 @@ trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.V
     privInsert(dfVar)
     dfVar.asInstanceOf[TAlias5]
   }
+
+  override protected[DFiant] lazy val almanacEntry : AlmanacEntryStruct =  AlmanacEntryStruct(width)
+
   def dfTypeName : String = "DFStruct"
 }
 

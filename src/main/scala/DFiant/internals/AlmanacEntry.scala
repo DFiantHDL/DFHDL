@@ -99,3 +99,18 @@ class AlmanacEntryGetDFVar private (val varEntry : AlmanacEntry)
 object AlmanacEntryGetDFVar {
   def apply(varEntry : AlmanacEntry) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
 }
+
+
+
+import scala.collection.mutable.MutableList
+class AlmanacEntryStruct private (val width : Int, val structEntryList : MutableList[AlmanacEntry])
+                                  (implicit id : AlmanacID = AlmanacID(),
+                                   address : AlmanacAddress = AlmanacAddressLatest,
+                                   bitsRange : BitsRange = BitsRange(width-1, 0))
+  extends AlmanacEntry() {
+
+}
+
+object AlmanacEntryStruct {
+  def apply(width : Int) : AlmanacEntryStruct = Almanac.fetchEntry(new AlmanacEntryStruct(width, MutableList()))
+}
