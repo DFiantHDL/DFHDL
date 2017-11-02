@@ -76,7 +76,7 @@
         val b = i + i.init(0).prev
         val c = DFSInt[32]
         c := i + c //prev optional
-        (a,b,c) //tuple of three
+        (a,b,c.prev) //tuple of 3
       }
 		\end{minted}
 	\end{minipage}
