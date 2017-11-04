@@ -32,22 +32,23 @@ Formalism Brainstorming:
 
   * Produced when a `prev` is called on a non-initialized dataflow variable. E.g.,
 
-    | Code                                    | Init        | Token Stream          |
-    | --------------------------------------- | ----------- | --------------------- |
-    | `in : DFUInt(32)`                       | `Φ`         | `2, 3, 1, 5, 9`       |
-    | `in.prev`                               | `Φ`         | `Φ, 2, 3, 1, 5, 9`    |
-    | `in.prev(2)`                            | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
-    | `in.prev.prev`                          | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
-    | `val in1 = in.init(1); in1`             | `1`         | `2, 3, 1, 5, 9`       |
-    | `in1.prev`                              | `1`         | `1, 2, 3, 1, 5, 9`    |
-    | `in1.prev(2)`                           | `1`         | `1, 1, 2, 3, 1, 5, 9` |
-    | `in1.prev.init(8)`                      | `8`         | `1, 2, 3, 1, 5, 9`    |
-    | `val innew = DFUInt(32) := in1; innew`  | `Φ`         | `2, 3, 1, 5, 9`       |
-    | `val ins7 = in.init(Seq(7)); ins7`      | `Seq(7)`    | `2, 3, 1, 5, 9`       |
-    | `ins7.prev`                             | `Φ`         | `7, 2, 3, 1, 5, 9`    |
-    | `val ins78 = in.init(Seq(7, 8)); ins78` | `Seq(7, 8)` | `2, 3, 1, 5, 9`       |
-    | `ins78.prev`                            | `Seq(8)`    | `7, 2, 3, 1, 5, 9`    |
-    | `ins78.prev(2)`                         | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
+    | Code                                     | Init        | Token Stream          |
+    | ---------------------------------------- | ----------- | --------------------- |
+    | `in : DFUInt(32)`                        | `Φ`         | `2, 3, 1, 5, 9`       |
+    | `in.prev`                                | `Φ`         | `Φ, 2, 3, 1, 5, 9`    |
+    | `in.prev(2)`                             | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
+    | `in.prev.prev`                           | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
+    | `val in1 = in.init(1); in1`              | `1`         | `2, 3, 1, 5, 9`       |
+    | `in1.prev`                               | `1`         | `1, 2, 3, 1, 5, 9`    |
+    | `in1.prev(2)`                            | `1`         | `1, 1, 2, 3, 1, 5, 9` |
+    | `in1.prev.init(8)`                       | `8`         | `1, 2, 3, 1, 5, 9`    |
+    | `val innew = DFUInt(32) := in1; innew`   | `Φ`         | `2, 3, 1, 5, 9`       |
+    | `val ins7 = in.init(Seq(7)); ins7`       | `Seq(7)`    | `2, 3, 1, 5, 9`       |
+    | `ins7.prev`                              | `Φ`         | `7, 2, 3, 1, 5, 9`    |
+    | `val ins78 = in.init(Seq(7, 8)); ins78`  | `Seq(7, 8)` | `2, 3, 1, 5, 9`       |
+    | `ins78.prev`                             | `Seq(8)`    | `7, 2, 3, 1, 5, 9`    |
+    | `ins78.prev(2)`                          | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
+    | `in.init(Seq(7)).prev.init(Seq(8)).prev` | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
 
     ​
 
