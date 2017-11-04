@@ -20,7 +20,7 @@ Formalism Brainstorming:
 
   * `init` returns a reference to a new (initialized) dataflow variable, but maintains the *mutability* trait dataflow variable. 
 
-  * Partial bits initialization is possible. E.g. :
+  * Partial bits initialization is possible for `DFBits`. E.g. :
 
     `a.init(5,bits=(3,0))` Initializes only 
 
@@ -32,11 +32,24 @@ Formalism Brainstorming:
 
   * Produced when a `prev` is called on a non-initialized dataflow variable. E.g.,
 
-    ```scala
-    //'in' is token stream of:    2, 3, 1, 5, 9
-    //'in.prev' returns:          Φ, 2, 3, 1, 5, 9
-    //'in.init(1).prev' returns:  1, 2, 3, 1, 5, 9
-    ```
+    | Code                                    | Init        | Token Stream          |
+    | --------------------------------------- | ----------- | --------------------- |
+    | `in : DFUInt(32)`                       | `Φ`         | `2, 3, 1, 5, 9`       |
+    | `in.prev`                               | `Φ`         | `Φ, 2, 3, 1, 5, 9`    |
+    | `in.prev(2)`                            | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
+    | `in.prev.prev`                          | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
+    | `val in1 = in.init(1); in1`             | `1`         | `2, 3, 1, 5, 9`       |
+    | `in1.prev`                              | `1`         | `1, 2, 3, 1, 5, 9`    |
+    | `in1.prev(2)`                           | `1`         | `1, 1, 2, 3, 1, 5, 9` |
+    | `in1.prev.init(8)`                      | `8`         | `1, 2, 3, 1, 5, 9`    |
+    | `val innew = DFUInt(32) := in1; innew`  | `Φ`         | `2, 3, 1, 5, 9`       |
+    | `val ins7 = in.init(Seq(7)); ins7`      | `Seq(7)`    | `2, 3, 1, 5, 9`       |
+    | `ins7.prev`                             | `Φ`         | `7, 2, 3, 1, 5, 9`    |
+    | `val ins78 = in.init(Seq(7, 8)); ins78` | `Seq(7, 8)` | `2, 3, 1, 5, 9`       |
+    | `ins78.prev`                            | `Seq(8)`    | `7, 2, 3, 1, 5, 9`    |
+    | `ins78.prev(2)`                         | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
+
+    ​
 
   * Bubbles are like any regular-value tokens in terms of consumption and production rules.
 
@@ -48,9 +61,20 @@ Formalism Brainstorming:
     //'foo(in)' returns:          Φ, 5, 4, 6, 14
     ```
 
-  * It is important that `prev` maintains *Distributivity* through basic operations, e.g.: 
+  * Does `prev` maintain *Distributivity* through basic operations? e.g.: 
 
-    `(a + b).prev` ≗ `a.prev + b.prev` (timeless TS equality).
+    `(a + b).prev` ≗? `a.prev + b.prev` (timeless TS equality).
+
+    ```scala
+    val a2 = DFUInt(8) := a
+    val b2 = DFUInt(8) := b
+    (a + b).prev
+    a.prev + b.prev
+    (a2 + b2).prev
+    a2.prev + b2.prev
+    ```
+
+    ​
 
   * We probably need to add `isBubble` and `produceBubble` to create unique control logic for Bubble tokens. 
 
