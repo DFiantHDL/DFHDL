@@ -62,18 +62,21 @@ Formalism Brainstorming:
     //'foo(in)' returns:          Φ, 5, 4, 6, 14
     ```
 
-  * Does `prev` maintain *Distributivity* through basic operations? e.g.: 
+  * `prev` maintains *Distributivity* through basic operations e.g.: 
 
-    `(a + b).prev` ≗? `a.prev + b.prev` (timeless TS equality).
+    `(a + b).prev` ≗ `a.prev + b.prev` (timeless TS equality).
 
-    ```scala
-    val a2 = DFUInt(8) := a
-    val b2 = DFUInt(8) := b
-    (a + b).prev
-    a.prev + b.prev
-    (a2 + b2).prev
-    a2.prev + b2.prev
-    ```
+    | Code                                  | Init                                    | Token Stream                             |
+    | ------------------------------------- | --------------------------------------- | ---------------------------------------- |
+    | `inL : DFUInt(32)`                    | `Φ`                                     | `2, 3, 1, 5, 9`                          |
+    | `inR : DFUInt(32)`                    | `Φ`                                     | `4, 0, 2`                                |
+    | `inL + inR`                           | `Φ` `+`<br />`Φ` `=`<br />`Φ`           | `2, 3, 1, 5, 9` `+`<br />`4, 0, 2` `=`<br />`6, 3, 3` |
+    | `inL + inR.prev`                      | `Φ` `+`<br />`Φ` `=`<br />`Φ`           | `2, 3, 1, 5, 9` `+`<br />`Φ, 4, 0, 2` `=`<br />`Φ, 7, 1, 7` |
+    | `inL.init(1) + inR.init(3).prev`      | `1` `+`<br />`3` `=`<br />`4`           | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
+    | `inL.init(Seq(1)) + inR.init(3).prev` | `Seq(1)` `+`<br />`3` `=`<br />`Seq(4)` | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
+    | `inL.init(1) + inR.init(Seq(3)).prev` | `1` `+`<br />`Φ` `=`<br />`Φ`           | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
+    | `inL.init(1).prev + inR.init(3).prev` | `1` `+`<br />`3` `=`<br />`4`           | `1, 2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`4, 6, 3, 3` |
+    | `(inL.init(1) + inR.init(3)).prev`    | `1` `+`<br />`3` `=`<br />`4`           | `(2, 3, 1, 5, 9` `+`<br />`4, 0, 2)` `.prev =`<br />`4, 6, 3, 3` |
 
     ​
 
