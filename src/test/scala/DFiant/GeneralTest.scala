@@ -31,7 +31,7 @@ object GeneralTest {
   d + d// Addable.DFBitsDFBits[d.Width, (d)
   val one = 100
   d + one
-  d + 1
+//  d + (d + d).wc
 
   val ff = DFBits(8)
   ff.bitsWL[7,1]
