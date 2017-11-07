@@ -15,9 +15,11 @@ trait DFAny {
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
-  protected val protInit : DFInit[TVal] = DFInitBubble
-  def init : DFInit[TVal] = protInit
-//  def init[R](value : DFInit.Able[TVal, R])(implicit bld : DFInit.Builder[TVal, R]) : TAlias = ???
+  protected val protInit : DFInit[TVal] = DFInit.Bubble
+  final def init : DFInit[TVal] = protInit
+  final def init[R](value : DFInit.Able[TVal, R])(implicit bld : DFInit.Builder[TVal, R]) : TAlias =
+    init(bld(this.asInstanceOf[TVal], value))
+  def init(newInit : DFInit[TVal]) : TAlias = ???
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection

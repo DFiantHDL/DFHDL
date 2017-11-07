@@ -4,10 +4,14 @@ import singleton.ops._
 import singleton.twoface._
 
 trait DFInit[+Val <: DFAny] {
-
+//  def bitsInit[W](relWidth : Int, relBitLow : Int) : DFInit[DFBits[W]]
 }
 
 object DFInit {
+  case object Bubble extends DFInit[Nothing] {
+    //  def relInit(relWidth : Int, relBitLow : Int) : DFInit = DFInitBubble
+  }
+
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Implicit configuration of when operation is possible
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,18 +24,20 @@ object DFInit {
     implicit class DFBitsXInt[LW, R <: XInt](val right : R) extends Able[DFBits[LW], R]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def fromNone(none : None.type) = DFInitBubble
-  implicit def fromPosInt[W, V <: XInt](value : V)(implicit require: RequireMsgSym[V > 0, "Shit", DFInit[DFAny]]) : DFInit[DFBits[W]] = DFInitVal[DFBits[W]](value)
+  implicit def fromNone(none : None.type) = Bubble
+//  implicit def fromPosInt[W, V <: XInt](value : V)(implicit require: RequireMsgSym[V > 0, "Shit", DFInit[DFAny]]) : DFInit[DFBits[W]] = DFInitVal[DFBits[W]](value)
 
 
-  abstract class DFBitsInit[W](orig: DFBits[W], newInit: DFInit[DFBits[W]]) extends core.DFAny.Alias(orig, orig.width, 0) with DFBits[W] {
-    override protected val protInit: DFInit[DFBits[W]] = ???
+  trait Builder[L <: DFAny, R] {
+    def apply(left : L, right : Able[L, R]) : DFInit[L]
   }
+//  abstract class DFBitsInit[W](orig: DFBits[W], newInit: DFInit[DFBits[W]]) extends core.DFAny.Alias(orig, orig.width, 0) with DFBits[W] {
+//    override protected val protInit: DFInit[DFBits[W]] = ???
+//  }
 }
 
-case object DFInitBubble extends DFInit[Nothing]
 
 
-final case class DFInitVal[+Val <: DFAny](value : BigInt) extends DFInit[Val]
-
-final case class DFInitSeq[+Val <: DFAny](value : Seq[BigInt]) extends DFInit[Val]
+//final case class DFInitVal(value : BigInt) extends DFInit
+//
+//final case class DFInitSeq(value : Seq[BigInt]) extends DFInit
