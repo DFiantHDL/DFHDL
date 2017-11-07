@@ -15,11 +15,6 @@ trait DFAny {
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
-  protected val protInit : DFInit[TVal] = DFInit.Bubble
-  final def init : DFInit[TVal] = protInit
-  final def init[R](value : DFInit.Able[TVal, R])(implicit bld : DFInit.Builder[TVal, R]) : TAlias =
-    init(bld(this.asInstanceOf[TVal], value))
-  def init(newInit : DFInit[TVal]) : TAlias = ???
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
@@ -74,7 +69,22 @@ trait DFAny {
   }
   //////////////////////////////////////////////////////////////////////////
 
+  //////////////////////////////////////////////////////////////////////////
+  // Init (for use with Prev)
+  //////////////////////////////////////////////////////////////////////////
+  protected val protInit : DFInit[TVal] = DFInit.Bubble
+  final def init : DFInit[TVal] = protInit
+  final def init[R](value : DFInit.Able[TVal, R])(implicit bld : DFInit.Builder[TVal, R]) : TAlias =
+    init(bld(this.asInstanceOf[TVal], value))
+  def init(newInit : DFInit[TVal]) : TAlias = ???
+  //////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////
+  // Prev
+  //////////////////////////////////////////////////////////////////////////
   final def prev(step : Int = 1) : TVal = ???
+  //////////////////////////////////////////////////////////////////////////
+
   final def next(step : Int = 1) : TVal = ???
 //  final def getNextSeq(seqNum : Int, slidingWindow : Boolean = false) : Seq[TVal] = {
 //    val seq = Seq.tabulate(seqNum)(_ => this.newEmptyDFVar.dontProduce())
