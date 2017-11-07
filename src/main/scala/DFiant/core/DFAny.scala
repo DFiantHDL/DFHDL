@@ -167,7 +167,7 @@ object DFAny {
     }
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int)
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, initMask : InitMask = EmptyMask)
     extends DFAny {
     override protected[DFiant] lazy val almanacEntry : AlmanacEntry =
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow))

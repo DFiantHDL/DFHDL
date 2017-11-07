@@ -3,6 +3,9 @@ import DFiant.core
 import singleton.ops._
 import singleton.twoface._
 
+trait InitMask
+object EmptyMask extends InitMask
+
 trait DFInit[+Val <: DFAny] {
 //  def bitsInit[W](relWidth : Int, relBitLow : Int) : DFInit[DFBits[W]]
 }
