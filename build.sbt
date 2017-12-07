@@ -30,7 +30,7 @@ parallelExecution in Test := false
 // Singleton-ops
 ////////////////////////////////////////////////////////////////////
 libraryDependencies ++= Seq(
-  "core-act-ness" %% "singleton-ops" % "0.2.0-SNAPSHOT"
+  "eu.timepit" %% "singleton-ops" % "0.2.4-SNAPSHOT"
 )
 ////////////////////////////////////////////////////////////////////
 
