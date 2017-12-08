@@ -13,7 +13,7 @@ case class AlmanacInitValue() extends AlmanacInit {
   def prevInit : AlmanacInit = this
 }
 
-case class AlmanacInitSeq() extends AlmanacInit {
-  val initSeq = Seq[AlmanacInitValue]()
-  def currentInit : AlmanacInitValue = initSeq.head
-}
+//case class AlmanacInitSeq() extends AlmanacInit {
+//  val initSeq = Seq[AlmanacInitValue]()
+//  def currentInit : AlmanacInitValue = initSeq.head
+//}

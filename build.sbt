@@ -2,7 +2,7 @@ name := "DFiant"
 
 version := "1.0"
 
-scalaVersion := "2.12.3-bin-typelevel-4"
+scalaVersion := "2.12.4-bin-typelevel-4"
 
 //scalacOptions += "-Ypartial-unification" // enable fix for SI-2712
 scalacOptions += "-deprecation"
@@ -30,7 +30,7 @@ parallelExecution in Test := false
 // Singleton-ops
 ////////////////////////////////////////////////////////////////////
 libraryDependencies ++= Seq(
-  "core-act-ness" %% "singleton-ops" % "0.2.0-SNAPSHOT"
+  "eu.timepit" %% "singleton-ops" % "0.2.4-SNAPSHOT"
 )
 ////////////////////////////////////////////////////////////////////
 

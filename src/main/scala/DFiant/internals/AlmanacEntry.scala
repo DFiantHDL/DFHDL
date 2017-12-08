@@ -33,7 +33,7 @@ trait AlmanacGuard {
 
 
 
-abstract class AlmanacEntry(implicit val id : AlmanacID, val address : AlmanacAddress, val bitsRange : BitsRange, val init : DFI) {
+abstract class AlmanacEntry(implicit val id : AlmanacID, val address : AlmanacAddress, val bitsRange : BitsRange) {
   def simInject(that : BigInt) : Boolean = ???
   override def toString: String = s"$id[$bitsRange]"
   Almanac.addEntry(this)
