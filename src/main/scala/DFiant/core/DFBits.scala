@@ -14,8 +14,8 @@ trait DFBits[W] extends DFAny.Val[W, DFBits[W], DFBits.Var[W]] {
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
-  final def apply[I](relBit : CheckedBitIndex[I, W]) : TBool = protBit(relBit.unsafeCheck(width))
-  final def apply[I](implicit relBit : CheckedBitIndex[I, W], di : DummyImplicit, di2 : DummyImplicit) : TBool =
+  final def apply[I](relBit : BitIndex.Checked[I, W]) : TBool = protBit(relBit.unsafeCheck(width))
+  final def apply[I](implicit relBit : BitIndex.Checked[I, W], di : DummyImplicit, di2 : DummyImplicit) : TBool =
     protBit(relBit.unsafeCheck(width))
 
   final def msbit : TBool = protBit(width-1)
@@ -25,27 +25,27 @@ trait DFBits[W] extends DFAny.Val[W, DFBits[W], DFBits.Var[W]] {
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def apply[H, L](relBitHigh : CheckedBitIndex[H, W], relBitLow : CheckedBitIndex[L, W])(
-    implicit checkHiLow : CheckedBitsRange.Shell[H, L], relWidth : RelWidth.TF[H, L]
+  final def apply[H, L](relBitHigh : BitIndex.Checked[H, W], relBitLow : BitIndex.Checked[L, W])(
+    implicit checkHiLow : BitsHiLo.Checked.Shell[H, L], relWidth : RelWidth.TF[H, L]
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
 
-  final def apply[H, L](implicit relBitHigh : CheckedBitIndex[H, W], relBitLow : CheckedBitIndex[L, W],
-    checkHiLow : CheckedBitsRange[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
+  final def apply[H, L](implicit relBitHigh : BitIndex.Checked[H, W], relBitLow : BitIndex.Checked[L, W],
+    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
   final protected def protMSBits[PW](partWidth : TwoFace.Int[PW]) : TBits[PW] =
     DFBits.alias(this, partWidth, width-partWidth).asInstanceOf[TBits[PW]]
-  final def msbits[PW](partWidth : CheckedPartWidth[PW, W]) = protMSBits(partWidth.unsafeCheck(width))
-  final def msbits[PW](implicit partWidth : CheckedPartWidth[PW, W], di : DummyImplicit) =
+  final def msbits[PW](partWidth : PartWidth.Checked[PW, W]) = protMSBits(partWidth.unsafeCheck(width))
+  final def msbits[PW](implicit partWidth : PartWidth.Checked[PW, W], di : DummyImplicit) =
     protMSBits(partWidth.unsafeCheck(width))
 
   final protected def protLSBits[PW](partWidth : TwoFace.Int[PW]) : TBits[PW] =
     DFBits.alias(this, partWidth, 0).asInstanceOf[TBits[PW]]
-  final def lsbits[PW](partWidth : CheckedPartWidth[PW, W]) = protLSBits(partWidth.unsafeCheck(width))
-  final def lsbits[PW](implicit partWidth : CheckedPartWidth[PW, W], di : DummyImplicit) =
+  final def lsbits[PW](partWidth : PartWidth.Checked[PW, W]) = protLSBits(partWidth.unsafeCheck(width))
+  final def lsbits[PW](implicit partWidth : PartWidth.Checked[PW, W], di : DummyImplicit) =
     protLSBits(partWidth.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
@@ -99,8 +99,8 @@ object DFBits {
   protected[DFiant] def create[W](_width : TwoFace.Int[W]) : Var[W] = new Var[W] {
     val width : TwoFace.Int[W] = _width
   }
-  implicit def apply[W](implicit checkedWidth : CheckedWidth[W], di: DummyImplicit) : Var[W] = create(checkedWidth)
-  def apply[W](checkedWidth : CheckedWidth[W]) : Var[W] = create(checkedWidth.unsafeCheck())
+  implicit def apply[W](implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit) : Var[W] = create(checkedWidth)
+  def apply[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = create(checkedWidth.unsafeCheck())
   ///////////////////////////////////////////////////////////////////////////////////////////
 
   protected[DFiant] def alias[W, L]

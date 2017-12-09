@@ -16,13 +16,8 @@ object TestUtils {
       assert(false, "Expected assertion did not occur")
     true
   }
-
-  type WorkAround0[T]
-  object WorkAround0 extends _root_.singleton.twoface.impl.Checked0Param.Builder[Nothing, WorkAround0, WorkAround0, Nothing]
-
-  type WorkAround1[T,P]
-  object WorkAround1 extends _root_.singleton.twoface.impl.Checked1Param.Builder[Nothing, WorkAround1, WorkAround1, Nothing, Nothing]
-
+  object CheckedWorkAround0 extends impl.Checked0ParamAny.Builder[Nothing, Nothing, Nothing, Nothing]
+  object CheckedWorkAround1 extends impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
 }
 import TestUtils._
 

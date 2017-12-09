@@ -16,13 +16,11 @@ object GeneralTest {
 //  import AdderBuilder._
 //  val a = DFBits[4]; val b = a.msbits(4)
 
-  type WorkAround0[T]
-  object WorkAround0 extends _root_.singleton.twoface.impl.Checked0Param.Builder[Nothing, WorkAround0, WorkAround0, Nothing]
-  type WorkAround1[T,P]
-  object WorkAround1 extends _root_.singleton.twoface.impl.Checked1Param.Builder[Nothing, WorkAround1, WorkAround1, Nothing, Nothing]
+  object CheckedWorkAround0 extends singleton.twoface.impl.Checked0ParamAny.Builder[Nothing, Nothing, Nothing, Nothing]
+  object CheckedWorkAround1 extends singleton.twoface.impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
 
   foo(2)
-  def foo[W](width : CheckedWidth[W]) : Unit = {}
+  def foo[W](width : BitsWidth.Checked[W]) : Unit = {}
 
   foo(2)
 

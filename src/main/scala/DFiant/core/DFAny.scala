@@ -22,8 +22,8 @@ trait DFAny {
   protected final def protBit[I](relBit : TwoFace.Int[I]) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
-  final def bit[I](relBit : CheckedBitIndex[I, Width]) : TBool = protBit(relBit.unsafeCheck(width))
-  final def bit[I](implicit relBit : CheckedBitIndex[I, Width], di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](relBit : BitIndex.Checked[I, Width]) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -35,15 +35,15 @@ trait DFAny {
     implicit relWidth : RelWidth.TF[H, L]
   ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
-  final def bits[H, L](relBitHigh : CheckedBitIndex[H, Width], relBitLow : CheckedBitIndex[L, Width])(
-    implicit checkHiLow : CheckedBitsRange.Shell[H, L], relWidth : RelWidth.TF[H, L]
+  final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
+    implicit checkHiLow : BitsHiLo.Checked.Shell[H, L], relWidth : RelWidth.TF[H, L]
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
 
-  final def bits[H, L](implicit relBitHigh : CheckedBitIndex[H, Width], relBitLow : CheckedBitIndex[L, Width],
-    checkHiLow : CheckedBitsRange[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
+  final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
+    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
@@ -54,15 +54,15 @@ trait DFAny {
   : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
-  final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : CheckedBitIndex[L, Width])(
-    implicit checkRelWidth : CheckedPartWidth.Shell[W, Width - L]
+  final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
+    implicit checkRelWidth : PartWidth.Checked.Shell[W, Width - L]
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
   }
 
-  final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : CheckedBitIndex[L, Width],
-    checkRelWidth : CheckedPartWidth.Shell[W, Width - L], di : DummyImplicit
+  final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width],
+    checkRelWidth : PartWidth.Checked.Shell[W, Width - L], di : DummyImplicit
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
