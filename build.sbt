@@ -30,7 +30,7 @@ parallelExecution in Test := false
 // Singleton-ops
 ////////////////////////////////////////////////////////////////////
 libraryDependencies ++= Seq(
-  "eu.timepit" %% "singleton-ops" % "0.2.4-SNAPSHOT"
+  "eu.timepit" %% "singleton-ops" % "0.3.0-SNAPSHOT"
 )
 ////////////////////////////////////////////////////////////////////
 

@@ -16,8 +16,6 @@ object TestUtils {
       assert(false, "Expected assertion did not occur")
     true
   }
-  object CheckedWorkAround0 extends impl.Checked0ParamAny.Builder[Nothing, Nothing, Nothing, Nothing]
-  object CheckedWorkAround1 extends impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
 }
 import TestUtils._
 

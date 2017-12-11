@@ -107,56 +107,31 @@ package object internals {
     type TFAux[H, L, RetOut] = TF[H, L]{type Out = RetOut}
   }
 
-  object BitsHiLo {
+  object BitsHiLo extends Checked1Param.Int {
     type Cond[H, L] = H >= L
     type Msg[H, L] = "Low bit index " + ToString[L] + " is bigger than High bit index " + ToString[H]
     type ParamFace = Int
-    final class Checked[T, Param](val value : Int) extends AnyVal with Checked1Param.Int.CC[Checked, Cond, Msg, T, ParamFace, Param] {
-      @inline def getValue : Int = value
-    }
-    object Checked extends Checked1Param.Int.CO[Checked, Cond, Msg, ParamFace]
-    object WorkAround extends singleton.twoface.impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
   }
 
-  object BitIndex {
+  object BitIndex extends Checked1Param.Int {
     type Cond[I, W] = (I < W) && (I >= 0)
     type Msg[I, W] = "Bit index " + ToString[I] + " is out of range of width " + ToString[W]
     type ParamFace = Int
-    final class Checked[T, Param](val value : Int) extends AnyVal with Checked1Param.Int.CC[Checked, Cond, Msg, T, ParamFace, Param] {
-      @inline def getValue : Int = value
-    }
-    object Checked extends Checked1Param.Int.CO[Checked, Cond, Msg, ParamFace]
-    object WorkAround extends singleton.twoface.impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
   }
 
-  object PartWidth {
+  object PartWidth extends Checked1Param.Int {
     type Cond[PW, W] = (PW <= W) && (PW > 0)
     type Msg[PW, W] = "Partial width bit selection " + ToString[PW] + " is out of range of width " + ToString[W]
     type ParamFace = Int
-    final class Checked[T, Param](val value : Int) extends AnyVal with Checked1Param.Int.CC[Checked, Cond, Msg, T, ParamFace, Param] {
-      @inline def getValue : Int = value
-    }
-    object Checked extends Checked1Param.Int.CO[Checked, Cond, Msg, ParamFace]
-    object WorkAround extends singleton.twoface.impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
   }
 
-  object BitsWidth {
+  object BitsWidth extends Checked0Param.Int {
     type Cond[W] = (W > 0)
     type Msg[W] = "DFBits width must be positive. Found width = " + ToString[W]
-    final class Checked[T](val value : Int) extends AnyVal with Checked0Param.Int.CC[Checked, Cond, Msg, T] {
-      @inline def getValue : Int = value
-    }
-    object Checked extends Checked0Param.Int.CO[Checked, Cond, Msg]
-    object WorkAround extends singleton.twoface.impl.Checked0ParamAny.Builder[Nothing, Nothing, Nothing, Nothing]
   }
 
-  object Natural {
+  object Natural extends Checked0Param.Int {
     type Cond[N] = N >= 0
     type Msg[N] = "Number must be natural, but found " + ToString[N]
-    final class Checked[T](val value : Int) extends AnyVal with Checked0Param.Int.CC[Checked, Cond, Msg, T] {
-      @inline def getValue : Int = value
-    }
-    object Checked extends Checked0Param.Int.CO[Checked, Cond, Msg]
-    object WorkAround extends singleton.twoface.impl.Checked0ParamAny.Builder[Nothing, Nothing, Nothing, Nothing]
   }
 }

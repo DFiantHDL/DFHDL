@@ -16,9 +16,6 @@ object GeneralTest {
 //  import AdderBuilder._
 //  val a = DFBits[4]; val b = a.msbits(4)
 
-  object CheckedWorkAround0 extends singleton.twoface.impl.Checked0ParamAny.Builder[Nothing, Nothing, Nothing, Nothing]
-  object CheckedWorkAround1 extends singleton.twoface.impl.Checked1ParamAny.Builder[Nothing, Nothing, Nothing, Nothing, Nothing]
-
   foo(2)
   def foo[W](width : BitsWidth.Checked[W]) : Unit = {}
 
@@ -31,8 +28,8 @@ object GeneralTest {
   d + one
 //  d + (d + d).wc
 
-  val ff = DFBits(8)
-  ff.bitsWL[7,1]
+  val ff = DFBits[8]
+//  ff.bitsWL[7,1]
 
   val ee = DFUFix(2,3)
 //  val eew = ee.fw.width

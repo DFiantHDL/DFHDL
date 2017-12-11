@@ -26,7 +26,7 @@ trait DFBits[W] extends DFAny.Val[W, DFBits[W], DFBits.Var[W]] {
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
   final def apply[H, L](relBitHigh : BitIndex.Checked[H, W], relBitLow : BitIndex.Checked[L, W])(
-    implicit checkHiLow : BitsHiLo.Checked.Shell[H, L], relWidth : RelWidth.TF[H, L]
+    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L]
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
