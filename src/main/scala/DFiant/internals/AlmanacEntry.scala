@@ -83,7 +83,7 @@ class AlmanacEntryAliasDFVar private (val aliasedEntry : AlmanacEntry, val relBi
 
 }
 object AlmanacEntryAliasDFVar {
-  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange))
+  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, deltaStep : Int, init : AlmanacInit) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange))
 }
 
 

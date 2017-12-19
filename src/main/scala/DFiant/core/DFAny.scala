@@ -72,17 +72,18 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-  protected val protInit : DFInit[TVal] = DFInit.Bubble
-  final def init : DFInit[TVal] = protInit
-  final def init[R](value : DFInit.Able[TVal, R])(implicit bld : DFInit.Builder[TVal, R]) : TAlias =
+  protected val protInit : DFInitOf[TVal] = DFInitOf.Bubble
+  final def init : DFInitOf[TVal] = protInit
+  final def init[R](value : DFInitOf.Able[TVal, R])(implicit bld : DFInitOf.Builder[TVal, R]) : TAlias =
     init(bld(this.asInstanceOf[TVal], value))
-  def init(newInit : DFInit[TVal]) : TAlias = ???
+  def init(newInit : DFInitOf[TVal]) : TAlias = ???
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
   // Prev
   //////////////////////////////////////////////////////////////////////////
-  final def prev(step : Int = 1) : TVal = ???
+  final def prev : TVal = prev(1)
+  final def prev(step : Int) : TVal = ???
   //////////////////////////////////////////////////////////////////////////
 
   final def next(step : Int = 1) : TVal = ???
@@ -161,16 +162,22 @@ object DFAny {
     final def := (that : TVal) : TVar = assign(that)
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
-    final def <-- (that : Iterable[TVal]) : TVar = {
+    final def <-- (that : Iterable[ TVal]) : TVar = {
       that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
       this
     }
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, initMask : InitMask = EmptyMask)
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Option[DFInit] = None)
     extends DFAny {
-    override protected[DFiant] lazy val almanacEntry : AlmanacEntry =
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow))
+    override protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
+      val almanacInit : AlmanacInit = updatedInit match {
+        case Some(v) => v.almanacInit
+        case _ => aliasedVar.protInit.almanacInit
+      }
+      val step : Int = deltaStep
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), deltaStep, almanacInit)
+    }
   }
 
   object Const {

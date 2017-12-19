@@ -1,17 +1,20 @@
 package DFiant.core
 import DFiant.core
+import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 
-trait InitMask
-object EmptyMask extends InitMask
 
-trait DFInit[+Val <: DFAny] {
+trait DFInit {
+  val almanacInit : AlmanacInit = ???
+}
+
+trait DFInitOf[+Val <: DFAny] extends DFInit {
 //  def bitsInit[W](relWidth : Int, relBitLow : Int) : DFInit[DFBits[W]]
 }
 
-object DFInit {
-  case object Bubble extends DFInit[Nothing] {
+object DFInitOf {
+  case object Bubble extends DFInitOf[Nothing] {
     //  def relInit(relWidth : Int, relBitLow : Int) : DFInit = DFInitBubble
   }
 
@@ -32,7 +35,7 @@ object DFInit {
 
 
   trait Builder[L <: DFAny, R] {
-    def apply(left : L, right : Able[L, R]) : DFInit[L]
+    def apply(left : L, right : Able[L, R]) : DFInitOf[L]
   }
 //  abstract class DFBitsInit[W](orig: DFBits[W], newInit: DFInit[DFBits[W]]) extends core.DFAny.Alias(orig, orig.width, 0) with DFBits[W] {
 //    override protected val protInit: DFInit[DFBits[W]] = ???
