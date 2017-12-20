@@ -64,27 +64,10 @@ object AlmanacCondTree {
   def apply() : AlmanacCondTree = new AlmanacCondTree {protected val condVec : Vector[Cond] = Vector(Cond(0,0))}
 }
 
-sealed trait AlmanacTimeRef
-case class AlmanacTimeRefCurrent() extends AlmanacTimeRef {
-  override def toString: String = "C"
-}
-case class AlmanacTimeRefPast(idx : Int) extends AlmanacTimeRef {
-  override def toString: String = "P" + idx
-}
-case class AlmanacTimeRefFuture(idx : Int) extends AlmanacTimeRef {
-  override def toString: String = "F" + idx
-}
-
 sealed trait AlmanacAddress
 object AlmanacAddressLatest extends AlmanacAddress
 trait AlmanacAddressSpecific extends AlmanacAddress {
   self =>
-
-  //Time reference of the address
-  //Negative value - Past
-  //Zero (0) value - Current/Present time
-  //Positive value - Future
-  val timeRef : AlmanacTimeRef
 
   //Conditional Tree
   val condTree : AlmanacCondTree
@@ -93,18 +76,16 @@ trait AlmanacAddressSpecific extends AlmanacAddress {
   val assignIdx : Int
 
   def newAssignment = new AlmanacAddressSpecific {
-    val timeRef: AlmanacTimeRef = self.timeRef
     val assignIdx: Int = self.assignIdx+1
     val condTree: AlmanacCondTree = self.condTree
   }
 
-  override def toString: String = s"${timeRef}_${condTree}_$assignIdx"
+  override def toString: String = s"${condTree}_$assignIdx"
 }
 
 
 object AlmanacAddress {
   def init() : AlmanacAddressSpecific = new AlmanacAddressSpecific {
-    override val timeRef: AlmanacTimeRef = AlmanacTimeRefCurrent()
     override val assignIdx: Int = 0
     override val condTree: AlmanacCondTree = AlmanacCondTree()
   }
