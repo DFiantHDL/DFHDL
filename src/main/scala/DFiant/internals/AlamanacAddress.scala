@@ -65,7 +65,7 @@ object AlmanacCondTree {
 }
 
 sealed trait AlmanacAddress
-object AlmanacAddressLatest extends AlmanacAddress
+case object AlmanacAddressLatest extends AlmanacAddress
 trait AlmanacAddressSpecific extends AlmanacAddress {
   self =>
 

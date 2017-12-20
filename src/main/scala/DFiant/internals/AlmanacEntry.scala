@@ -1,31 +1,5 @@
 package DFiant.internals
 
-trait AlmanacID
-
-case class AlmanacIDConst(constVal : BigInt) extends AlmanacID {
-  override def toString: String = s"CONST_$constVal"
-}
-
-
-trait AlmanacIDUnique extends AlmanacID {
-  protected val unique : Int
-
-  override def toString: String = s"V$unique"
-}
-
-object AlmanacID {
-  protected var idsNum : Int = 0
-
-  def apply() : AlmanacID = {
-    val ret = new AlmanacIDUnique {protected val unique : Int = idsNum}
-    idsNum += 1
-    ret
-  }
-}
-
-
-
-
 
 trait AlmanacGuard {
 
@@ -33,7 +7,14 @@ trait AlmanacGuard {
 
 
 
-abstract class AlmanacEntry(implicit val id : AlmanacID, val address : AlmanacAddress, val bitsRange : BitsRange) {
+abstract class AlmanacEntry
+(implicit
+ val id : AlmanacID,
+ val address : AlmanacAddress,
+ val bitsRange : BitsRange,
+ val timeRef : AlmanacTimeRef = AlmanacTimeRefCurrent,
+ val init : AlmanacInit = AlmanacInitValueBubble
+) {
   def simInject(that : BigInt) : Boolean = ???
   override def toString: String = s"$id[$bitsRange]"
   Almanac.addEntry(this)

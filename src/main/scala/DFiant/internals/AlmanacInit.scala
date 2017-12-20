@@ -5,13 +5,12 @@ trait AlmanacInit {
   def prevInit : AlmanacInit
 }
 
-case class AlmanacInitValue() extends AlmanacInit {
-
-  val bitsEnableBigInt = BigInt(0)
-  val bitsValueBigInt = BigInt(0)
+class AlmanacInitValue(val bitsEnableBigInt : BigInt, val bitsValueBigInt : BigInt) extends AlmanacInit {
   def currentInit : AlmanacInitValue = this
   def prevInit : AlmanacInit = this
 }
+
+case object AlmanacInitValueBubble extends AlmanacInitValue(0, 0)
 
 //case class AlmanacInitSeq() extends AlmanacInit {
 //  val initSeq = Seq[AlmanacInitValue]()

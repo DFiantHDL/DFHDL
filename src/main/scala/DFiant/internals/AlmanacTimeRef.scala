@@ -1,19 +1,12 @@
 package DFiant.internals
 
-sealed trait AlmanacTimeRef
-case class AlmanacTimeRefCurrent() extends AlmanacTimeRef {
-  override def toString: String = "C"
-}
-case class AlmanacTimeRefPast(idx : Int) extends AlmanacTimeRef {
-  override def toString: String = "P" + idx
-}
-case class AlmanacTimeRefFuture(idx : Int) extends AlmanacTimeRef {
-  override def toString: String = "F" + idx
-}
-
-
 //Time reference of the address
-//Negative value - Past
-//Zero (0) value - Current/Present time
-//Positive value - Future
-//val timeRef : AlmanacTimeRef
+//Negative step - Prev(Past time)
+//Zero (0) step - Current(Present time)
+//Positive step - Next(Future time)
+class AlmanacTimeRef(val step : Int) {
+  override def toString: String = if(step < 0) s"P$step" else if (step == 0) "C" else s"N$step"
+  def stepBy(deltaStep : Int) = new AlmanacTimeRef(step + deltaStep)
+}
+case object AlmanacTimeRefCurrent extends AlmanacTimeRef(0)
+
