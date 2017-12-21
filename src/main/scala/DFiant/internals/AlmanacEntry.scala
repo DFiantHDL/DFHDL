@@ -12,9 +12,11 @@ abstract class AlmanacEntry
  val id : AlmanacID,
  val address : AlmanacAddress,
  val bitsRange : BitsRange,
- val timeRef : AlmanacTimeRef = AlmanacTimeRefCurrent,
- val init : AlmanacInit = AlmanacInitValueBubble
+ val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current,
+ val init : AlmanacInit = AlmanacInit.Bubble
 ) {
+  //`signed` indicates whether or not entry is signed, meaning the MSbit indicates the sign
+  val signed : Boolean = false
   def simInject(that : BigInt) : Boolean = ???
   override def toString: String = s"$id[$bitsRange]"
   Almanac.addEntry(this)
