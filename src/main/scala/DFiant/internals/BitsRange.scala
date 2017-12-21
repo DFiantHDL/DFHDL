@@ -11,9 +11,12 @@ case class BitsRange(bitHigh : Int, bitLow : Int) {
     require(relBitsRange.bitHigh < width && relBitsRange.bitLow >= 0, "Relative bit selection must be within confinement of [width-1::0]")
     BitsRange(bitLow + relBitsRange.bitLow + relBitsRange.width-1, bitLow + relBitsRange.bitLow)
   }
-  def max(that : BitsRange) : BitsRange = BitsRange(math.max(this.width, that.width)-1,0)
-  def +(that : BitsRange) : BitsRange = BitsRange(this.width + that.width - 1, 0)
-  def incBy(that : Int) : BitsRange = BitsRange(this.width + that - 1, 0)
+  def max(that : BitsRange) : BitsRange = BitsRange(math.max(this.width, that.width))
+  def +(that : BitsRange) : BitsRange = BitsRange(this.width + that.width)
+  def incBy(that : Int) : BitsRange = BitsRange(this.width + that)
   override def toString: String = if(bitLow==bitHigh) s"$bitHigh" else s"$bitHigh::$bitLow"
 }
 
+object BitsRange {
+  def apply(width : Int) : BitsRange = BitsRange(width-1, 0)
+}
