@@ -8,6 +8,8 @@ class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry) exte
   val id : AlmanacID = arg0.id
   val address : AlmanacAddress = Almanac.getCurrentAddress
   val bitsRange : BitsRange = arg0.bitsRange
+  val timeRef : AlmanacTimeRef = arg0.timeRef
+  val init : AlmanacInit = arg0.init
 
   override def toString: String = s"$arg0 := $arg1"
   if (Almanac.printEntrees) {
@@ -19,23 +21,24 @@ object AlmanacEntryAssign {
 }
 
 //Set Operation Entry. Used for an
-abstract class AlmanacEntryOp(outWidth : Int) extends AlmanacEntry {
+abstract class AlmanacEntryOp(outWidth : Int, val init : AlmanacInit) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(outWidth)
+  val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
 
   if (Almanac.printEntrees) {
     println(this)
   }
 }
 
-class AlmanacEntryOp1 private (arg0 : AlmanacEntry, opString : String, outWidth : Int) extends
-  AlmanacEntryOp(outWidth) {
+class AlmanacEntryOp1 private (arg0 : AlmanacEntry, opString : String, outWidth : Int, init : AlmanacInit) extends
+  AlmanacEntryOp(outWidth, init) {
   override def toString: String = s"${super.toString} := $opString$arg0"
 }
 object AlmanacEntryOp1 {
-  def apply(arg0 : AlmanacEntry, opString : String, outWidth : Int) : AlmanacEntryOp =
-    Almanac.fetchEntry(new AlmanacEntryOp1(arg0, opString, outWidth))
+  def apply(arg0 : AlmanacEntry, opString : String, outWidth : Int, init : AlmanacInit) : AlmanacEntryOp =
+    Almanac.fetchEntry(new AlmanacEntryOp1(arg0, opString, outWidth, init))
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -60,13 +63,13 @@ object AlmanacEntryOp1 {
 //}
 
 
-class AlmanacEntryOp2 private (arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int) extends
-  AlmanacEntryOp(outWidth) {
+class AlmanacEntryOp2 private (arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int, init : AlmanacInit) extends
+  AlmanacEntryOp(outWidth, init) {
   override def toString: String = s"${super.toString} := $arg0 $opString $arg1"
 }
 object AlmanacEntryOp2 {
-  def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int) : AlmanacEntryOp =
-    Almanac.fetchEntry(new AlmanacEntryOp2(arg0, arg1, opString, outWidth))
+  def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int, init : AlmanacInit) : AlmanacEntryOp =
+    Almanac.fetchEntry(new AlmanacEntryOp2(arg0, arg1, opString, outWidth, init))
 }
 
 //

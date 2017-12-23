@@ -72,11 +72,9 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-  protected val protInit : DFInitOf[TVal] = DFInitOf.Bubble
-  final def init : DFInitOf[TVal] = protInit
-  final def init[R](value : DFInitOf.Able[TVal, R])(implicit bld : DFInitOf.Builder[TVal, R]) : TAlias =
-    init(bld(this.asInstanceOf[TVal], value))
-  def init(newInit : DFInitOf[TVal]) : TAlias = ???
+//  protected val protInit : DFInitOf[TVal] = DFInitOf.Bubble
+//  final def init : DFInitOf[TVal] = protInit
+//  def init(newInit : DFInitOf[TVal]) : TAlias = ???
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -173,10 +171,11 @@ object DFAny {
     override protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val almanacInit : AlmanacInit = updatedInit match {
         case Some(v) => v.almanacInit
-        case _ => aliasedVar.protInit.almanacInit
+        case _ => aliasedVar.almanacEntry.init
       }
-      val step : Int = deltaStep
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), deltaStep, almanacInit)
+      val prevInit = if (deltaStep < 0) almanacInit.prevInit(-deltaStep) else almanacInit //TODO: What happens for `next`?
+      val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, almanacInit)
     }
   }
 
@@ -188,8 +187,12 @@ object DFAny {
     }
   }
 
-  abstract class Op[W](val width : TwoFace.Int[W], almanacEntryOp: AlmanacEntryOp) extends DFAnyW[W] {
-    override protected[DFiant] lazy val almanacEntry : AlmanacEntry = almanacEntryOp
+  abstract class Op[W](val width : TwoFace.Int[W], opString : String, opInit : DFInit, args : Seq[DFAny]) extends DFAnyW[W] {
+    override protected[DFiant] lazy val almanacEntry : AlmanacEntry = args.length match {
+      case 1 => AlmanacEntryOp1(args(0).almanacEntry, opString, width, opInit.almanacInit)
+      case 2 => AlmanacEntryOp2(args(0).almanacEntry, args(1).almanacEntry, opString, width, opInit.almanacInit)
+      case _ => throw new IllegalArgumentException("Unsupported number of arguments")
+    }
   }
 }
 

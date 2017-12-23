@@ -69,10 +69,7 @@ object `Op+` {
         type WCW = wcW.Out
         def apply(left : DFBits[LW], right : Able[DFBits[LW], R]) : AdderBits[ncW.Out, wcW.Out] = {
           check.unsafeCheck(left.width, right.width)
-          val outWidth = wcW(left.width, right.width)
-          val opAlmanacEntry = AlmanacEntryOp2(left.getCurrentEntry, right.currentEntry, "+", outWidth)
-
-          val wc = DFBits.op[wcW.Out](outWidth, opAlmanacEntry)
+          val wc = DFBits.op[wcW.Out](wcW(left.width, right.width), "+", DFInitOf.Bubble, left, right.asDFAny)
           new AdderBits[ncW.Out, wcW.Out](wc) {
             val width : TwoFace.Int[ncW.Out] = ncW(left.width, right.width)
           }
@@ -88,7 +85,6 @@ object `Op+` {
 
     implicit def evNum[LW, L <: DFBits[LW], RW, R <: Int](
       implicit
-
       bitsWidthOf : BitsWidthOf.IntAux[R, RW],
       ncW : AdderWidth.NC[LW, RW],
       wcW : AdderWidth.WC[LW, RW],

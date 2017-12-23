@@ -6,7 +6,7 @@ package DFiant.internals
 //Positive step - Next(Future time)
 class AlmanacTimeRef private (val step : Int) {
   override def toString: String = if(step < 0) s"P$step" else if (step == 0) "C" else s"N$step"
-  def stepBy(deltaStep : Int) = AlmanacTimeRef(step + deltaStep)
+  def stepBy(deltaStep : Int) = if (deltaStep == 0) this else AlmanacTimeRef(step + deltaStep)
 }
 
 object AlmanacTimeRef {

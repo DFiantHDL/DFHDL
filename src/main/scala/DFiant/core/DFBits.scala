@@ -113,11 +113,7 @@ object DFBits {
     new DFAny.Const.Int[C](constVal) with DFBits[bitsWidthOf.Out] {
       val width : TwoFace.Int[bitsWidthOf.Out] = bitsWidthOf(constVal)
     }
-//  implicit def constInt0[C <: XInt](constVal : C)(implicit bitsWidthOf: BitsWidthOf.Int[C]) : DFBits[bitsWidthOf.Out] =
-//    new DFAny.Const.Int[C](constVal) with DFBits[bitsWidthOf.Out] {
-//      val width : TwoFace.Int[bitsWidthOf.Out] = bitsWidthOf(constVal)
-//    }
 
-  def op[W](width : TwoFace.Int[W], almanacEntryOp: AlmanacEntryOp) : DFBits[W] =
-    new DFAny.Op[W](width, almanacEntryOp) with DFBits[W] {}
+  def op[W](width : TwoFace.Int[W], opString : String, opInit : DFInit, args : DFAny*) : DFBits[W] =
+    new DFAny.Op[W](width, opString, opInit, args) with DFBits[W] {}
 }
