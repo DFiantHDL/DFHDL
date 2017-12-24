@@ -2,6 +2,7 @@ package DFiant.core
 
 //import DFiant.basiclib.TokensCounter
 import DFiant.internals._
+import DFiant.tokens._
 import singleton.twoface._
 
 trait DFAny {
@@ -12,6 +13,7 @@ trait DFAny {
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
+  type TToken <: TokenOf[TVal]
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
@@ -72,7 +74,7 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-//  protected val protInit : DFInitOf[TVal] = DFInitOf.Bubble
+  protected val protInit : Seq[TToken] = Seq()
 //  final def init : DFInitOf[TVal] = protInit
 //  def init(newInit : DFInitOf[TVal]) : TAlias = ???
   //////////////////////////////////////////////////////////////////////////

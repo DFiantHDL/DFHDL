@@ -5,8 +5,10 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.core
+import DFiant.tokens._
 
 trait DFBits[W] extends DFAny.Val[W, DFBits[W], DFBits.Var[W]] {
+  type TToken = TokenBitsOf[TVal]
 //  implicit def bits2Entry(dfBits: DFBits[W]) : AlmanacEntry = dfBits.getCurrentEntry
 //  implicit def entry2DFBits(entry: AlmanacEntry) : DFBits[W] = DFBits.Unsafe.op(entry)
 //  implicit def entry2DFBool(entry: AlmanacEntry) : DFBool = DFBool.op(entry)
