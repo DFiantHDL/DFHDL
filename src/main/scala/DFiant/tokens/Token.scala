@@ -1,36 +1,30 @@
 package DFiant.tokens
 
-import singleton.twoface._
 import DFiant.internals._
 
 sealed trait Bubble
 object Bubble extends Bubble
 
 trait Token {
-  type Width
-  val width : TwoFace.Int[Width]
-
-//  val
-  def bits() : TokenBits[Width]
+  val bitsValue : BigInt
+  val bubbleMask : BigInt
 }
 object Token {
   def `+`(arg0 : Token, arg1 : Token) : Token = ???
   def apply(value : BigInt) : Token = ???
 }
 
-trait TokenW[W] extends Token {
-  type Width = W
-}
+trait TokenOf[DFVal] extends Token
 
 
-
-class TokenBits[W] private (val width : TwoFace.Int[W], val validMask : BigInt, val value : BigInt) extends TokenW[W] {
-  final def bits() : TokenBits[W] = this
+class TokenBits private (val bitsValue : BigInt, val bubbleMask : BigInt) extends Token {
 }
 object TokenBits {
-  implicit def fromInt[W](value : Int) : TokenBits[W] =
-    new TokenBits[W]()
-  implicit def fromBubble[W](bubble : Bubble) : TokenBits[W] = ???
+  def fromInt(value : Int) : TokenBits =
+    new TokenBits(value, 0)
+  implicit def fromBubble(bubble : Bubble) : TokenBits =
+    new TokenBits(0, 1)
+  BigInt(0).signum
 }
 
 //case object ZeroToken extends TokenBits //TODO
