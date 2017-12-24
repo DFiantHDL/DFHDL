@@ -3,7 +3,7 @@ package DFiant.internals
 import DFiant.tokens._
 
 sealed class AlmanacInit(tokenSeq : Seq[Token]) {
-  lazy val currentToken : Token = if (tokenSeq.isEmpty) BubbleToken else tokenSeq.head
+  lazy val currentToken : Token = ??? //if (tokenSeq.isEmpty) Token.Bubble else tokenSeq.head
   def prevInit(step : Int) : AlmanacInit = {
     val length = tokenSeq.length
     //No init at all, so invoking prev does not change anything (bubble tokens will be used)

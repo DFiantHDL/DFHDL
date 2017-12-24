@@ -52,7 +52,7 @@ class AlmanacEntryCreateDFVar private (width : Int) extends AlmanacEntry {
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width-1, 0)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val init : AlmanacInit = AlmanacInit(ZeroToken)
+  val init : AlmanacInit = ??? //AlmanacInit(ZeroToken)
 }
 
 object AlmanacEntryCreateDFVar {
