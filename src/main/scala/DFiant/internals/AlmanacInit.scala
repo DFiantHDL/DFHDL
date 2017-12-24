@@ -13,6 +13,8 @@ sealed class AlmanacInit(tokenSeq : Seq[Token]) {
     //More tokens are available than the step size, so we drop the first, according to the step count
     else AlmanacInit(tokenSeq.drop(step))
   }
+  def +(rhs : AlmanacInit) : AlmanacInit = ???
+  def apply(op : Seq[Token] => Token, args : AlmanacInit*) : AlmanacInit = ???
 }
 
 object AlmanacInit {

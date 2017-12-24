@@ -4,6 +4,7 @@ class Token {
 
 }
 object Token {
+  def `+`(arg0 : Token, arg1 : Token) : Token = ???
   def apply(value : BigInt) : Token = ???
 }
 case object BubbleToken extends Token //TODO
