@@ -13,7 +13,7 @@ trait DFAny {
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
-  type TToken <: TokenOf[TVal]
+  type TToken <: Token
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
