@@ -95,5 +95,11 @@ Formalism Brainstorming:
   * Bit selection/Aliasing in `Struct`, like 
   * Arithmetic result (bit shifting)
 
+* Casting:
 
+  * Parts of a bits vector can be bubbles while others normal values.
+
+  * However, when casting to a number (e.g., DFUInt), the casting must check validity of all bits.
+
+    If some of the bits are bubble then the entire number is considered as a bubble. Should there be a compilation warning/error ? 
 

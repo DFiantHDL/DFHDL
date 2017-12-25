@@ -16,6 +16,7 @@ trait AlmanacEntry {
   val init : AlmanacInit
   //`signed` indicates whether or not entry is signed, meaning the MSbit indicates the sign
   val signed : Boolean = false
+  val reversed : Boolean = false
 
   def simInject(that : BigInt) : Boolean = ???
   override def toString: String = s"$id[$bitsRange]"
@@ -34,23 +35,23 @@ trait AlmanacEntryGet extends AlmanacEntry
 //}
 
 //Set Constant Entry. Used for constant value assignment or operation.
-class AlmanacEntryConst private (constVal : BigInt) extends AlmanacEntry {
-  val id : AlmanacID = AlmanacIDConst(constVal)
+class AlmanacEntryConst private (token : Token) extends AlmanacEntry {
+  val id : AlmanacID = AlmanacIDConst(token)
   val address : AlmanacAddress = AlmanacAddressLatest
-  val bitsRange : BitsRange = BitsRange(bigIntRepWidth(constVal)-1,0)
+  val bitsRange : BitsRange = BitsRange(token.width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val init : AlmanacInit = AlmanacInit(Token(constVal))
+  val init : AlmanacInit = AlmanacInit(token)
 }
 
 object AlmanacEntryConst {
-  def apply(constVal : BigInt) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryConst(constVal))
+  def apply(token : Token) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryConst(token))
 }
 
 
 class AlmanacEntryCreateDFVar private (width : Int) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
-  val bitsRange : BitsRange = BitsRange(width-1, 0)
+  val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
   val init : AlmanacInit = ??? //AlmanacInit(ZeroToken)
 }
@@ -89,9 +90,9 @@ import scala.collection.mutable.MutableList
 class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList[AlmanacEntry]) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
-  val bitsRange : BitsRange = BitsRange(width-1, 0)
+  val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val init : AlmanacInit = ??? //Should be a concatination of the inits
+  val init : AlmanacInit = ??? //Should be a concatenation of the inits
 }
 
 object AlmanacEntryStruct {

@@ -1,9 +1,11 @@
 package DFiant.internals
 
+import DFiant.tokens._
+
 trait AlmanacID
 
-case class AlmanacIDConst(constVal : BigInt) extends AlmanacID {
-  override def toString: String = s"CONST_$constVal"
+case class AlmanacIDConst(token : Token) extends AlmanacID {
+  override def toString: String = s"CONST_$token"
 }
 
 

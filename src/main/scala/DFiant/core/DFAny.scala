@@ -123,7 +123,7 @@ trait DFAny {
     AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
     this.asInstanceOf[TVar]
   }
-  protected[DFiant] final def assign(that : BigInt) : TVar = {
+  protected[DFiant] final def assign(that : TToken) : TVar = {
     AlmanacEntryAssign(this.almanacEntry, AlmanacEntryConst(that))
     this.asInstanceOf[TVar]
   }
@@ -185,7 +185,7 @@ object DFAny {
     abstract class Int[C](constVal : TwoFace.Int[C]) extends DFAny {
 //      implicit val widthOf: BitsWidthOf.Int[C]
 //      val width = widthOf(constVal)
-      override protected[DFiant] lazy val almanacEntry : AlmanacEntry =  AlmanacEntryConst(constVal.getValue)
+      override protected[DFiant] lazy val almanacEntry : AlmanacEntry =  AlmanacEntryConst(TokenBits.fromNum(width, constVal))
     }
   }
 

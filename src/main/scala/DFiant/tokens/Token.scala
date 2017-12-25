@@ -10,26 +10,30 @@ trait Token {
   val bitsValue : BigInt
   val bubbleMask : BigInt
 
+  final def bit(relBit : Int) : TokenBool = {
+    val outBitsValue = if (bitsValue.testBit(relBit)) true else false
+    val outBubbleMask = bitsSel(bubbleMask, relBit, relBit)
+    new TokenBool(outBitsValue, outBubbleMask)
+  }
   final def bits() : TokenBits = new TokenBits(width, bitsValue, bubbleMask)
+  final def bits(relBitHigh : Int, relBitLow : Int) : TokenBits = {
+    val outWidth = relBitHigh - relBitLow + 1
+    val outBitsValue = bitsSel(bitsValue, relBitHigh, relBitLow)
+    val outBubbleMask = bitsSel(bubbleMask, relBitHigh, relBitLow)
+    new TokenBits(outWidth, outBitsValue, outBubbleMask)
+  }
+  final def == (that : this.type) : TokenBool = {
+    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBool.fromBubble()
+    else TokenBool.fromBoolean(this.bitsValue == that.bitsValue)
+  }
+  final def != (that : this.type) : TokenBool = {
+    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBool.fromBubble()
+    else TokenBool.fromBoolean(this.bitsValue != that.bitsValue)
+  }
 }
 
 object Token {
-  def `+`(arg0 : Token, arg1 : Token) : Token = ???
-  def apply(value : BigInt) : Token = ???
+//  def `+`(arg0 : Token, arg1 : Token) : Token = ???
+//  def apply(value : BigInt) : Token = ???
 }
 
-
-class TokenBits private[DFiant] (val width : Int, val bitsValue : BigInt, val bubbleMask : BigInt) extends Token {
-  def +(that : TokenBits) : TokenBits = ???
-}
-object TokenBits {
-  //Bit concatenation required additional width information
-//  def ##(leftToken : TokenBits, leftWidth : Int, rightToken : TokenBits, rightWidth : Int) : TokenBits = ???
-
-  def fromInt(width : Int, value : Int) : TokenBits =
-    new TokenBits(width, value, 0)
-  implicit def fromBubble(width : Int, bubble : Bubble) : TokenBits =
-    new TokenBits(width, 0, 1)
-}
-
-//case object ZeroToken extends TokenBits //TODO
