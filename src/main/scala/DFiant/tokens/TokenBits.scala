@@ -5,7 +5,7 @@ import DFiant.internals._
 class TokenBits private[DFiant] (val width : Int, val bitsValue : BigInt, val bubbleMask : BigInt) extends Token {
   final def + (that : TokenBits) : TokenBits = { //TODO: There is no `+` for Bits operations
     val outWidth = math.max(this.width, that.width) + 1
-    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBits.fromBubble(outWidth)
+    if (this.isBubble || that.isBubble) TokenBits.fromBubble(outWidth)
     else TokenBits.fromNum(outWidth, this.bitsValue + that.bitsValue)
   }
   final def | (that : TokenBits) : TokenBits = {

@@ -9,6 +9,7 @@ trait Token {
   val width : Int
   val bitsValue : BigInt
   val bubbleMask : BigInt
+  final def isBubble : Boolean = bubbleMask != 0
 
   final def bit(relBit : Int) : TokenBool = {
     val outBitsValue = if (bitsValue.testBit(relBit)) true else false
@@ -23,11 +24,11 @@ trait Token {
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def == (that : this.type) : TokenBool = {
-    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBool.fromBubble()
+    if (this.isBubble || that.isBubble) TokenBool.fromBubble()
     else TokenBool.fromBoolean(this.bitsValue == that.bitsValue)
   }
   final def != (that : this.type) : TokenBool = {
-    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBool.fromBubble()
+    if (this.isBubble || that.isBubble) TokenBool.fromBubble()
     else TokenBool.fromBoolean(this.bitsValue != that.bitsValue)
   }
 }

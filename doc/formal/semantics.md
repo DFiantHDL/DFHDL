@@ -2,7 +2,7 @@
 
 Semantically, each DFiant dataflow variable references a token stream (TS). 
 
-
+state-machine (SM)
 
 
 
@@ -102,4 +102,23 @@ Formalism Brainstorming:
   * However, when casting to a number (e.g., DFUInt), the casting must check validity of all bits.
 
     If some of the bits are bubble then the entire number is considered as a bubble. Should there be a compilation warning/error ? 
+
+* Invoking reinitialization:
+
+  * For dataflow variables we can request reinitialization`in.reInit(cond)`
+
+  ```scala
+  def fib(restartReq : DFBool) = {
+    val out = DFUInt(32).init(1, 0)
+    out := out.prev + out.prev(2)
+    out.reInit(restartReq) //when true, at the next iteration, prev<-1 and prev(2)<-0
+    out.prev(2)
+  }
+  ```
+
+  * Reinitialization sets the internal state-machine of `init` back to its IDLE state.
+  * Do we consider the reinitialization condition as an unstruck-repeater implicitly?
+  * Reinitialization is a local reset-like behavior that effects only the `prev` values at the next iteration.
+  * Reinitialization is a non-violent change. If there is no consumer for `out` then the reinitialization will not take place. It waits just like any value token effect.
+  * For reinitialization/reset methodology we have to consider Token Generators' state-machines separately from input-dependent state-machines. The input-dependent SM 
 

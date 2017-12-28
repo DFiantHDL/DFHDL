@@ -5,15 +5,15 @@ class TokenBool private[DFiant] (val boolValue : Boolean, val bubbleMask : BigIn
   val bitsValue : BigInt = if (boolValue) 1 else 0
 
   final def && (that : TokenBool) : TokenBool = {
-    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBool.fromBubble()
+    if (this.isBubble || that.isBubble) TokenBool.fromBubble()
     else TokenBool.fromBoolean(this.boolValue && that.boolValue)
   }
   final def || (that : TokenBool) : TokenBool = {
-    if (this.bubbleMask != 0 || that.bubbleMask != 0) TokenBool.fromBubble()
+    if (this.isBubble || that.isBubble) TokenBool.fromBubble()
     else TokenBool.fromBoolean(this.boolValue || that.boolValue)
   }
   final def unary_! : TokenBool = {
-    if (this.bubbleMask != 0) TokenBool.fromBubble()
+    if (this.isBubble) TokenBool.fromBubble()
     else TokenBool.fromBoolean(!this.boolValue)
   }
 }
