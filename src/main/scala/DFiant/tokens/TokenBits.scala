@@ -49,3 +49,4 @@ object TokenBits {
   def fromNum(width : Int, value : BigInt) : TokenBits = new TokenBits(width, value, 0)
   def fromBubble(width : Int) : TokenBits = new TokenBits(width, 0, bitsWidthToMaxBigIntBits(width))
 }
+

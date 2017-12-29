@@ -74,7 +74,7 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-  protected val protInit : Seq[TToken] = Seq()
+  val protInit : Seq[TToken] = Seq()
 //  final def init : DFInitOf[TVal] = protInit
 //  def init(newInit : DFInitOf[TVal]) : TAlias = ???
   final def reInit(cond : DFBool) : Unit = ???
