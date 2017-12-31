@@ -31,10 +31,18 @@ trait Token {
     if (this.isBubble || that.isBubble) TokenBool.fromBubble()
     else TokenBool.fromBoolean(this.bitsValue != that.bitsValue)
   }
+
+  override def toString: String = if (isBubble) "Φ" else s"0x${bitsValue.toString(16)}"
 }
 
 object Token {
 //  def `+`(arg0 : Token, arg1 : Token) : Token = ???
 //  def apply(value : BigInt) : Token = ???
+}
+
+
+abstract class TokenSeq[T <: Token](seq : Seq[T]) {
+  def applyOp[B <: Token](that : Seq[T], op : (T, T) => B) : Seq[B] =
+    seq.zipAll(that.seq, seq.last, that.seq.last).map(t => op(t._1, t._2))
 }
 

@@ -133,7 +133,7 @@ trait DFAny {
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
   def dfTypeName : String
-  override def toString: String = s"$dfTypeName@$almanacEntry"
+  override def toString: String = s"$dfTypeName@$almanacEntry#$init"
 }
 
 trait DFAnyW[W] extends DFAny {

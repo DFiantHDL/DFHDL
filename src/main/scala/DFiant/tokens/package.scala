@@ -4,17 +4,9 @@ package object tokens {
   type Φ = Bubble
   final val Φ = Bubble
 
-  abstract class TokenSeq[T <: Token](seq : Seq[T]) {
-    def applyOp(that : Seq[T], op : (T, T) => T) : Seq[T] = {
-      val (smaller, larger) = if (seq.length < that.length) (seq, that.seq) else (that.seq, seq)
-      val filler = Seq.fill(larger.length-smaller.length)(smaller.head)
-      (filler ++ smaller).zip(larger).map(t => op(t._1, t._2))
-    }
-  }
-
   implicit class TokenBitsSeq(seq : Seq[TokenBits]) extends TokenSeq(seq) {
     def + (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.+)
-    def ## (that : Seq[TokenBits]) : Seq[TokenBits] = ???
+    def ## (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.##)
   }
 
   implicit class TokenSeqInit(tokenSeq : Seq[Token]) {

@@ -41,7 +41,11 @@ class TokenBits private[DFiant] (val width : Int, val bitsValue : BigInt, val bu
 }
 
 object TokenBits {
-  def +(left : TokenBits, right : TokenBits) : TokenBits = left + right
+  def + (left : TokenBits, right : TokenBits) : TokenBits = left + right
+  def | (left : TokenBits, right : TokenBits) : TokenBits = left | right
+  def & (left : TokenBits, right : TokenBits) : TokenBits = left & right
+  def ^ (left : TokenBits, right : TokenBits) : TokenBits = left ^ right
+  def ## (left : TokenBits, right : TokenBits) : TokenBits = left ## right
   //Bit concatenation required additional width information
   //  def ##(leftToken : TokenBits, leftWidth : Int, rightToken : TokenBits, rightWidth : Int) : TokenBits = ???
 
