@@ -2,7 +2,6 @@ package DFiant.basiclib
 
 import DFiant.core._
 import DFiant.internals._
-import DFiant.tokens._
 
 import singleton.ops._
 import singleton.ops.math.Max
@@ -31,8 +30,8 @@ object `Op+` {
   @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support addition of type ${R}")
   trait Builder[L <: DFAny, R] {
     type Out[W] <: DFAnyW[W]
-    type NCW //No carry width
-    type WCW //With carry width
+    type NCW //No-carry width
+    type WCW //With-carry width
     def apply(left : L, rightAble : Able[L, R]) : AdderBits[NCW, WCW]
   }
 
