@@ -112,7 +112,7 @@ trait DFAny {
   def newEmptyDFVar : TVar
   def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
-  protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, init)
+  protected[DFiant] val almanacEntry : AlmanacEntry
 
   protected[DFiant] final def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
 
@@ -169,12 +169,14 @@ object DFAny {
     }
   }
 
-  abstract class NewVar[W](val width : TwoFace.Int[W]) extends DFAnyW[W] {}
+  abstract class NewVar[W](val width : TwoFace.Int[W]) extends DFAnyW[W] {
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, init)
+  }
 
   abstract class Alias[W](aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
     extends DFAnyW[W] {
     val width : TwoFace.Int[W] = TwoFace.Int.create[W](relWidth)
-    override protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.almanacEntry.init else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
@@ -184,11 +186,11 @@ object DFAny {
 
   abstract class Const[W](token : Token) extends DFAnyW[W] {
     val width : TwoFace.Int[W] = TwoFace.Int.create[W](token.width)
-    override protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
   abstract class Op[W](val width : TwoFace.Int[W], opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAnyW[W] {
-    override protected[DFiant] lazy val almanacEntry : AlmanacEntry = args.length match {
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = args.length match {
       case 1 => AlmanacEntryOp1(args(0).almanacEntry, opString, width, opInit)
       case 2 => AlmanacEntryOp2(args(0).almanacEntry, args(1).almanacEntry, opString, width, opInit)
       case _ => throw new IllegalArgumentException("Unsupported number of arguments")

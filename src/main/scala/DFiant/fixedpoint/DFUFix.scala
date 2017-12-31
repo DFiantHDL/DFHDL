@@ -21,12 +21,14 @@ object DFUFix {
   trait Var[IWL, FWL] extends DFUFix[IWL, FWL] with DFAny.Var[IWL + FWL, DFUFix[IWL, FWL], DFUFix.Var[IWL, FWL]] {
 
   }
-  def create[IWL, FWL](_iwl : TwoFace.Int[IWL], _fwl : TwoFace.Int[FWL]) : Var[IWL, FWL] = new Var[IWL, FWL] {
-    val width = TwoFace.Int.create[Width](_iwl + _fwl)
-    val iwl = _iwl
-    val fwl = _fwl
-    val iw : TBits[IWL] = protBits(_fwl+_iwl-1, _fwl).asInstanceOf[TBits[IWL]]
-    val fw : TBits[FWL] = protBits(_fwl-1, 0).asInstanceOf[TBits[FWL]]
+  def create[IWL, FWL](_iwl : TwoFace.Int[IWL], _fwl : TwoFace.Int[FWL]) : Var[IWL, FWL] = {
+    val width = _iwl + _fwl
+    new DFAny.NewVar[width.Out](width) with Var[IWL, FWL] {
+      val iwl = _iwl
+      val fwl = _fwl
+      val iw : TBits[IWL] = protBits(_fwl+_iwl-1, _fwl).asInstanceOf[TBits[IWL]]
+      val fw : TBits[FWL] = protBits(_fwl-1, 0).asInstanceOf[TBits[FWL]]
+    }
   }
 
   def apply[IWL, FWL](_iwl : TwoFace.Int[IWL], _fwl : TwoFace.Int[FWL]) = create(_iwl, _fwl)
