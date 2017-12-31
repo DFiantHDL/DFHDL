@@ -144,12 +144,6 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 initialCommands in console :=
   """
     |import DFiant._
-    |import DFiant.fixedpoint._
-    |
-    |  type WorkAround0[T]
-    |  object WorkAround0 extends _root_.singleton.twoface.impl.Checked0Param.Builder[Nothing, WorkAround0, WorkAround0, Nothing]
-    |  type WorkAround1[T,P]
-    |  object WorkAround1 extends _root_.singleton.twoface.impl.Checked1Param.Builder[Nothing, WorkAround1, WorkAround1, Nothing, Nothing]
     |
     |""".stripMargin
 //

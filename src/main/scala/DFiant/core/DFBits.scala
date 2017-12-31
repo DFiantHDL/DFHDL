@@ -126,6 +126,6 @@ object DFBits {
   def constInt[C](constVal : TwoFace.Int[C])(implicit bitsWidthOf: BitsWidthOf.Int[C]) : DFBits[bitsWidthOf.Out] =
     new DFAny.Const(TokenBits.fromNum(bitsWidthOf(constVal), constVal)) with DFBits[bitsWidthOf.Out]
 
-  def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[Token], args : DFAny*) : DFBits[W] =
+  def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenBits], args : DFAny*) : DFBits[W] =
     new DFAny.Op(width, opString, opInit, args) with DFBits[W]
 }
