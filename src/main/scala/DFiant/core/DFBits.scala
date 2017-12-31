@@ -113,7 +113,7 @@ object DFBits {
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
   }
   protected[DFiant] def create[W](width : TwoFace.Int[W]) : Var[W] =
-    new DFAny.NewVar(width) with Var[W]
+    new DFAny.NewVar(width, Seq(TokenBits.fromNum(width, 0))) with Var[W]
 
   implicit def apply[W](implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit) : Var[W] = create(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = create(checkedWidth.unsafeCheck())

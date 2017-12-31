@@ -50,7 +50,7 @@ object DFBool {
 //    final def clear() : Unit = this := false
   }
   protected[DFiant] def create() : Var =
-    new DFAny.NewVar(1) with Var
+    new DFAny.NewVar(1, Seq(TokenBool.fromBoolean(false))) with Var
 
   implicit def apply() : Var = create()
 
