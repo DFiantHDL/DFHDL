@@ -8,8 +8,7 @@ import DFiant.internals.RelWidth.TF
 import DFiant.{core, internals}
 import DFiant.tokens._
 
-trait DFBits[W] extends DFAny.Val[W, DFBits[W], DFBits.Var[W]] {
-  type TToken = TokenBits
+trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   //  implicit def bits2Entry(dfBits: DFBits[W]) : AlmanacEntry = dfBits.getCurrentEntry
   //  implicit def entry2DFBits(entry: AlmanacEntry) : DFBits[W] = DFBits.Unsafe.op(entry)
   //  implicit def entry2DFBool(entry: AlmanacEntry) : DFBool = DFBool.op(entry)
@@ -108,13 +107,13 @@ object DFBits {
   ///////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFBits[W] with DFAny.Var[W, DFBits[W], DFBits.Var[W]] {
+  trait Var[W] extends DFBits[W] with DFAny.Var[W, TokenBits, DFBits[W], DFBits.Var[W]] {
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
   }
   protected[DFiant] def create[W](width : TwoFace.Int[W]) : Var[W] =
-    new DFAny.NewVar[W](width) with Var[W]
+    new DFAny.NewVar(width) with Var[W]
 
   implicit def apply[W](implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit) : Var[W] = create(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = create(checkedWidth.unsafeCheck())
@@ -122,11 +121,11 @@ object DFBits {
 
   protected[DFiant] def alias[W, L]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L]) : Var[W] =
-    new DFAny.Alias[W](aliasedVar, relWidth, relBitLow) with Var[W]
+    new DFAny.Alias(aliasedVar, relWidth, relBitLow) with Var[W]
 
   def constInt[C](constVal : TwoFace.Int[C])(implicit bitsWidthOf: BitsWidthOf.Int[C]) : DFBits[bitsWidthOf.Out] =
-    new DFAny.Const[bitsWidthOf.Out](TokenBits.fromNum(bitsWidthOf(constVal), constVal)) with DFBits[bitsWidthOf.Out]
+    new DFAny.Const(TokenBits.fromNum(bitsWidthOf(constVal), constVal)) with DFBits[bitsWidthOf.Out]
 
   def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[Token], args : DFAny*) : DFBits[W] =
-    new DFAny.Op[W](width, opString, opInit, args) with DFBits[W]
+    new DFAny.Op(width, opString, opInit, args) with DFBits[W]
 }

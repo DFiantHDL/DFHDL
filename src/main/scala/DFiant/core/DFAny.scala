@@ -9,7 +9,7 @@ trait DFAny {
   type IN = TVal
   type OUT = TVar
   type TVal <: DFAny
-  type TVar <: TVal with DFAny.Var[Width, TVal, TVar]
+  type TVar <: TVal with DFAny.Var[Width, TToken, TVal, TVar]
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
@@ -140,15 +140,19 @@ trait DFAnyW[W] extends DFAny {
   type Width = W
 }
 
+trait DFAnyWT[W, T <: Token] extends DFAnyW[W] {
+  type TToken = T
+}
+
 
 object DFAny {
-  trait Val[W, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, Val0, Var0]] extends DFAnyW[W] {
+  trait Val[W, T <: Token, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAnyWT[W, T] {
     this : Val0 =>
     type TVal = Val0
     type TVar = Var0
   }
 
-  trait Var[W, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, Val0, Var0]] extends DFAny.Val[W, Val0, Var0] {
+  trait Var[W, T <: Token, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAny.Val[W, T, Val0, Var0] {
     this : Val0 with Var0 =>
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
@@ -169,13 +173,14 @@ object DFAny {
     }
   }
 
-  abstract class NewVar[W](val width : TwoFace.Int[W]) extends DFAnyW[W] {
+  abstract class NewVar(_width : Int) extends DFAny {
+    val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, init)
   }
 
-  abstract class Alias[W](aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
-    extends DFAnyW[W] {
-    val width : TwoFace.Int[W] = TwoFace.Int.create[W](relWidth)
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
+    extends DFAny {
+    val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.almanacEntry.init else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
@@ -184,12 +189,13 @@ object DFAny {
     }
   }
 
-  abstract class Const[W](token : Token) extends DFAnyW[W] {
-    val width : TwoFace.Int[W] = TwoFace.Int.create[W](token.width)
+  abstract class Const(token : Token) extends DFAny {
+    val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
-  abstract class Op[W](val width : TwoFace.Int[W], opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAnyW[W] {
+  abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAny {
+    val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = args.length match {
       case 1 => AlmanacEntryOp1(args(0).almanacEntry, opString, width, opInit)
       case 2 => AlmanacEntryOp2(args(0).almanacEntry, args(1).almanacEntry, opString, width, opInit)

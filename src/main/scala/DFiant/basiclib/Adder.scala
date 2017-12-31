@@ -24,7 +24,7 @@ object `Op+` {
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  abstract class AdderBits[NCW, WCW](val wc : DFBits[WCW]) extends DFAny.Alias[NCW](wc, wc.width-1, 0) with DFBits[NCW] {
+  abstract class AdderBits[NCW, WCW](val wc : DFBits[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFBits[NCW] {
     val c = wc.msbit
   }
 

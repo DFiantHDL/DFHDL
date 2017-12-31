@@ -3,8 +3,9 @@ package DFiant.core
 import DFiant.core
 import DFiant.internals._
 import singleton.twoface._
+import DFiant.tokens._
 
-sealed trait DFBool extends DFAny.Val[DFBool.Width, DFBool, DFBool.Var] {
+sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
 //  implicit def bool2Entry(dfBool: DFBool) : AlmanacEntry = dfBool.getCurrentEntry
 //  implicit def entry2DFBits(entry: AlmanacEntry) : DFBits.Unsafe = DFBits.Unsafe.op(entry)
 //  implicit def entry2DFBool(entry: AlmanacEntry) : DFBool = DFBool.op(entry)
@@ -43,16 +44,16 @@ sealed trait DFBool extends DFAny.Val[DFBool.Width, DFBool, DFBool.Var] {
 
 object DFBool {
   type Width = 1
-  trait Var extends DFAny.Var[DFBool.Width, DFBool, DFBool.Var] with DFBool {
+  trait Var extends DFAny.Var[DFBool.Width, TokenBool, DFBool, DFBool.Var] with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false
   }
   protected[DFiant] def create() : Var =
-    new DFAny.NewVar[Width](1) with Var
+    new DFAny.NewVar(1) with Var
 
   implicit def apply() : Var = create()
 
   protected[DFiant] def alias[I](aliasedVar : DFAny, relBit : TwoFace.Int[I]) : Var =
-    new core.DFAny.Alias[Width](aliasedVar, 1, relBit) with Var {}
+    new core.DFAny.Alias(aliasedVar, 1, relBit) with Var {}
 }
