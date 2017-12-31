@@ -74,8 +74,9 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-  val init : Seq[TToken]
-//  final def init : DFInitOf[TVal] = protInit
+  protected val protInit : Seq[TToken]
+  final def getInit : Seq[TToken] = protInit
+  def init(updatedInit : Seq[TToken]) : TAlias
 //  def init(newInit : DFInitOf[TVal]) : TAlias = ???
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -133,7 +134,7 @@ trait DFAny {
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
   def dfTypeName : String
-  override def toString: String = s"$dfTypeName@$almanacEntry#$init"
+  override def toString: String = s"$dfTypeName@$almanacEntry#$protInit"
 }
 
 trait DFAnyW[W] extends DFAny {
@@ -175,33 +176,33 @@ object DFAny {
 
   abstract class NewVar(_width : Int, _init : Seq[Token]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-    val init : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, init)
+    val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, protInit)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
-    val init : Seq[TToken] = {
+    val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.almanacEntry.init else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       prevInit.asInstanceOf[Seq[TToken]]
     }
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, init)
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit)
     }
   }
 
   abstract class Const(token : Token) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
-    val init : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
+    val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
   abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
-    val init : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
+    val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = args.length match {
       case 1 => AlmanacEntryOp1(args(0).almanacEntry, opString, width, opInit)
       case 2 => AlmanacEntryOp2(args(0).almanacEntry, args(1).almanacEntry, opString, width, opInit)

@@ -71,7 +71,7 @@ object `Op+` {
         def apply(left : DFBits[LW], rightAble : Able[DFBits[LW], R]) : AdderBits[ncW.Out, wcW.Out] = {
           val right = rightAble.asDFAny.asInstanceOf[Out[RW]]
           check.unsafeCheck(left.width, right.width)
-          val wc = DFBits.op[wcW.Out](wcW(left.width, right.width), "+", left.init + right.init, left, right)
+          val wc = DFBits.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
           new AdderBits[ncW.Out, wcW.Out](wc) {
           }
         }
