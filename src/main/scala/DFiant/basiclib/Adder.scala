@@ -2,6 +2,7 @@ package DFiant.basiclib
 
 import DFiant.core._
 import DFiant.internals._
+import DFiant.tokens._
 
 import singleton.ops._
 import singleton.ops.math.Max
@@ -23,7 +24,7 @@ object `Op+` {
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  abstract class AdderBits[NCW, WCW](val wc : DFBits[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFBits[NCW] {
+  abstract class AdderBits[NCW, WCW](val wc : DFBits[WCW]) extends DFAny.Alias[NCW](wc, wc.width-1, 0) with DFBits[NCW] {
     val c = wc.msbit
   }
 
@@ -32,7 +33,7 @@ object `Op+` {
     type Out[W] <: DFAnyW[W]
     type NCW //No carry width
     type WCW //With carry width
-    def apply(left : L, right : Able[L, R]) : AdderBits[NCW, WCW]
+    def apply(left : L, rightAble : Able[L, R]) : AdderBits[NCW, WCW]
   }
 
   object Builder {
@@ -67,11 +68,11 @@ object `Op+` {
         type Out[W] = DFBits[W]
         type NCW = ncW.Out
         type WCW = wcW.Out
-        def apply(left : DFBits[LW], right : Able[DFBits[LW], R]) : AdderBits[ncW.Out, wcW.Out] = {
+        def apply(left : DFBits[LW], rightAble : Able[DFBits[LW], R]) : AdderBits[ncW.Out, wcW.Out] = {
+          val right = rightAble.asDFAny
           check.unsafeCheck(left.width, right.width)
-          val wc = DFBits.op[wcW.Out](wcW(left.width, right.width), "+", DFInitOf.Bubble, left, right.asDFAny)
+          val wc = DFBits.op[wcW.Out](wcW(left.width, right.width), "+", left.almanacEntry.init + right.almanacEntry.init, left, right)
           new AdderBits[ncW.Out, wcW.Out](wc) {
-            val width : TwoFace.Int[ncW.Out] = ncW(left.width, right.width)
           }
         }
       }

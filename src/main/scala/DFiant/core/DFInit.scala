@@ -6,7 +6,7 @@ import singleton.twoface._
 
 
 trait DFInit {
-  val almanacInit : AlmanacInit = ???
+//  val almanacInit : AlmanacInit = ???
 }
 
 trait DFInitOf[+Val <: DFAny] extends DFInit {

@@ -5,8 +5,6 @@ import DFiant.internals._
 import singleton.twoface._
 
 sealed trait DFBool extends DFAny.Val[DFBool.Width, DFBool, DFBool.Var] {
-  val width = TwoFace.Int[DFBool.Width]
-
 //  implicit def bool2Entry(dfBool: DFBool) : AlmanacEntry = dfBool.getCurrentEntry
 //  implicit def entry2DFBits(entry: AlmanacEntry) : DFBits.Unsafe = DFBits.Unsafe.op(entry)
 //  implicit def entry2DFBool(entry: AlmanacEntry) : DFBool = DFBool.op(entry)
@@ -50,9 +48,11 @@ object DFBool {
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false
   }
-  protected[DFiant] def create() : Var = new Var {}
+  protected[DFiant] def create() : Var =
+    new DFAny.NewVar[Width](1) with Var
+
   implicit def apply() : Var = create()
 
   protected[DFiant] def alias[I](aliasedVar : DFAny, relBit : TwoFace.Int[I]) : Var =
-    new core.DFAny.Alias(aliasedVar, 1, relBit) with Var {}
+    new core.DFAny.Alias[Width](aliasedVar, 1, relBit) with Var {}
 }

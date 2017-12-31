@@ -13,7 +13,7 @@ trait AlmanacEntry {
   val address : AlmanacAddress
   val bitsRange : BitsRange
   val timeRef : AlmanacTimeRef
-  val init : AlmanacInit
+  val init : Seq[Token]
   //`signed` indicates whether or not entry is signed, meaning the MSbit indicates the sign
   val signed : Boolean = false
   val reversed : Boolean = false
@@ -40,7 +40,7 @@ class AlmanacEntryConst private (token : Token) extends AlmanacEntry {
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(token.width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val init : AlmanacInit = AlmanacInit(token)
+  val init : Seq[Token] = Seq(token)
 }
 
 object AlmanacEntryConst {
@@ -48,27 +48,26 @@ object AlmanacEntryConst {
 }
 
 
-class AlmanacEntryCreateDFVar private (width : Int) extends AlmanacEntry {
+class AlmanacEntryCreateDFVar private (width : Int, val init : Seq[Token]) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val init : AlmanacInit = ??? //AlmanacInit(ZeroToken)
 }
 
 object AlmanacEntryCreateDFVar {
-  def apply(width : Int) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryCreateDFVar(width))
+  def apply(width : Int, init : Seq[Token]) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryCreateDFVar(width, init))
 }
 
 
-class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : AlmanacInit) extends AlmanacEntry {
+class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token]) extends AlmanacEntry {
   val id : AlmanacID = aliasedEntry.id
   val address : AlmanacAddress = aliasedEntry.address
   val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(relBitsRange)
 }
 
 object AlmanacEntryAliasDFVar {
-  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : AlmanacInit) : AlmanacEntry =
+  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token]) : AlmanacEntry =
     Almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init))
 }
 
@@ -78,7 +77,7 @@ class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry) extends AlmanacEntr
   val address : AlmanacAddress = Almanac.getCurrentAddress
   val bitsRange : BitsRange = varEntry.bitsRange
   val timeRef : AlmanacTimeRef = varEntry.timeRef
-  val init : AlmanacInit = AlmanacInit.Bubble //TODO: consider changing to varEntry.init
+  val init : Seq[Token] = varEntry.init //TODO: consider changing
 }
 
 object AlmanacEntryGetDFVar {
@@ -92,7 +91,7 @@ class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val init : AlmanacInit = ??? //Should be a concatenation of the inits
+  val init : Seq[Token] = ??? //Should be a concatenation of the inits
 }
 
 object AlmanacEntryStruct {
