@@ -24,12 +24,12 @@ trait Token {
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def == (that : this.type) : TokenBool = {
-    if (this.isBubble || that.isBubble) TokenBool.fromBubble()
-    else TokenBool.fromBoolean(this.bitsValue == that.bitsValue)
+    if (this.isBubble || that.isBubble) TokenBool(Bubble)
+    else TokenBool(this.bitsValue == that.bitsValue)
   }
   final def != (that : this.type) : TokenBool = {
-    if (this.isBubble || that.isBubble) TokenBool.fromBubble()
-    else TokenBool.fromBoolean(this.bitsValue != that.bitsValue)
+    if (this.isBubble || that.isBubble) TokenBool(Bubble)
+    else TokenBool(this.bitsValue != that.bitsValue)
   }
 
   override def toString: String = if (isBubble) "Φ" else s"0x${bitsValue.toString(16)}"

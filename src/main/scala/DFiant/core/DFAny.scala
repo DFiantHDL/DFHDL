@@ -76,7 +76,10 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
-  def init(updatedInit : Seq[TToken]) : TAlias
+//  def init(updatedInit : Seq[TToken]) : TAlias
+  def init(that : DFInit.Able[TVal]*)(implicit op : DFInit.Builder[TVal]) = op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
+//  def myinit[Gen <: DFAny.Gen[Width, TToken, TVal, TVar]](updatedInit : Seq[TToken])(implicit gen : Gen) : TAlias =
+//    gen.alias(this, width, 0, 0, updatedInit).asInstanceOf[TAlias]
 //  def init(newInit : DFInitOf[TVal]) : TAlias = ???
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -209,6 +212,26 @@ object DFAny {
       case _ => throw new IllegalArgumentException("Unsupported number of arguments")
     }
   }
+
+
+//  trait Gen[Val <: DFAny] {
+//    def alias(aliasedVar : Val, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq()) : Val
+//
+//  }
+//
+//  trait Gen0[W, T <: Token, Val <: DFAnyWT[W, T], Var <: Val with DFAny.Var[W, T, Val, Var]] {
+////    def newVar(width : Int, init : Seq[Token]) : Var
+//    def alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[T] = Seq()) : Var
+////    def const(token : Token) : Val
+////    def op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) : Val
+//  }
+//
+//  trait Gen1[T <: Token, Val[W] <: DFAnyWT[W, T], Var[W] <: Val[W] with DFAny.Var[W, T, Val[W], Var[W]]] {
+//    //    def newVar(width : Int, init : Seq[Token]) : Var
+//    def alias[W](aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[T] = Seq()) : Var[W]
+//    //    def const(token : Token) : Val
+//    //    def op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) : Val
+//  }
 }
 
 

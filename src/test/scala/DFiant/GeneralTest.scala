@@ -4,6 +4,7 @@ import DFiant._
 import DFiant.core._
 import DFiant.internals._
 import singleton.twoface._
+import DFiant.tokens._
 //import DFiant.fixedpoint._
 
 import scala.annotation.implicitNotFound
@@ -27,8 +28,10 @@ object GeneralTest {
   val one = 100
   d + one
 //  d + (d + d).wc
+  val aaa = TokenBits(8, 3)
 
   val ff = DFBits[8]
+  ff.init(1, 2, one, aaa)
 //  ff.bitsWL[7,1]
 
 //  val ee = DFUFix(2,3)

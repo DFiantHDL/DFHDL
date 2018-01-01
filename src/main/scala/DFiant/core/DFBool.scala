@@ -28,9 +28,9 @@ sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Va
   def dfTypeName : String = "DFBool"
   def newEmptyDFVar = DFBool.create()
 
-  def init(updatedInit : Seq[TToken]) : TAlias = {
-    DFBool.alias(this, 0, 0, updatedInit).asInstanceOf[TAlias]
-  }
+//  def init(updatedInit : Seq[TToken]) : TAlias = {
+//    DFBool.alias(this, 0, 0, updatedInit).asInstanceOf[TAlias]
+//  }
 
   //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
 //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
@@ -54,7 +54,7 @@ object DFBool {
 //    final def clear() : Unit = this := false
   }
   protected[DFiant] def create() : Var =
-    new DFAny.NewVar(1, Seq(TokenBool.fromBoolean(false))) with Var
+    new DFAny.NewVar(1, Seq(TokenBool(false))) with Var
 
   implicit def apply() : Var = create()
 

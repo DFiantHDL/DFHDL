@@ -62,8 +62,8 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-  def init(updatedInit : Seq[TToken]) : TAlias = DFBits.alias(this, width, 0, 0, updatedInit).asInstanceOf[TAlias]
-  def init(args : Int*)(implicit di : DummyImplicit) : TAlias = init(args.map(a => TokenBits.fromNum(width, a)))
+//  def init(updatedInit : Seq[TToken]) : TAlias = DFBits.alias(this, width, 0, 0, updatedInit).asInstanceOf[TAlias]
+//  def init(args : Int*)(implicit di : DummyImplicit) : TAlias = init(args.map(a => TokenBits(width, a)))
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -121,7 +121,7 @@ object DFBits {
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
   }
   protected[DFiant] def create[W](width : TwoFace.Int[W]) : Var[W] =
-    new DFAny.NewVar(width, Seq(TokenBits.fromNum(width, 0))) with Var[W]
+    new DFAny.NewVar(width, Seq(TokenBits(width, 0))) with Var[W]
 
   implicit def apply[W](implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit) : Var[W] = create(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = create(checkedWidth.unsafeCheck())
@@ -132,7 +132,7 @@ object DFBits {
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W]
 
   def constInt[C](constVal : TwoFace.Int[C])(implicit bitsWidthOf: BitsWidthOf.Int[C]) : DFBits[bitsWidthOf.Out] =
-    new DFAny.Const(TokenBits.fromNum(bitsWidthOf(constVal), constVal)) with DFBits[bitsWidthOf.Out]
+    new DFAny.Const(TokenBits(bitsWidthOf(constVal), constVal)) with DFBits[bitsWidthOf.Out]
 
   def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenBits], args : DFAny*) : DFBits[W] =
     new DFAny.Op(width, opString, opInit, args) with DFBits[W]

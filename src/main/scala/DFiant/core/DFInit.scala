@@ -1,49 +1,92 @@
 package DFiant.core
-import DFiant.core
-import DFiant.internals._
+
+import DFiant.tokens._
 import singleton.ops._
 import singleton.twoface._
 
 
-trait DFInit {
-//  val almanacInit : AlmanacInit = ???
-}
-
-trait DFInitOf[+Val <: DFAny] extends DFInit {
-//  def bitsInit[W](relWidth : Int, relBitLow : Int) : DFInit[DFBits[W]]
-}
-
-object DFInitOf {
-  case object Bubble extends DFInitOf[Nothing] {
-    //  def relInit(relWidth : Int, relBitLow : Int) : DFInit = DFInitBubble
-  }
-
+object DFInit {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Implicit configuration of when operation is possible
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Able[L <: DFAny, R] {
-    val right : R
+  trait Able[L <: DFAny] {
+    val right : Any
   }
 
   object Able {
-    implicit class DFBitsInt[LW](val right : Int) extends Able[DFBits[LW], Int]
-    implicit class DFBitsXInt[LW, R <: XInt](val right : R) extends Able[DFBits[LW], R]
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Common
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit class AbleSeq[L <: DFAny](s : Seq[Able[L]]) {
+      private def flatten(s: Seq[Any]): Seq[Any] = s flatMap {
+        case ss: Seq[_] => flatten(ss)
+        case e => Seq(e)
+      }
+      def toSeqAny : Seq[Any] = {
+        flatten(s.map(e => e.right))
+      }
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFBits
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit class DFBitsToken[LW](val right : TokenBits) extends Able[DFBits[LW]]
+    implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]
+    implicit class DFBitsXInt[LW, R <: XInt](val right : R) extends Able[DFBits[LW]] //TODO: Compile-time checks
+    implicit class DFBitsXLong[LW, R <: XLong](val right : R) extends Able[DFBits[LW]] //TODO: Compile-time checks
+    implicit class DFBitsInt[LW](val right : Int) extends Able[DFBits[LW]]
+    implicit class DFBitsLong[LW](val right : Long) extends Able[DFBits[LW]]
+    implicit class DFBitsBigInt[LW](val right : BigInt) extends Able[DFBits[LW]]
+
+    def toTokenBitsSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[TokenBits] =
+      right.toSeqAny.map(e => e match {
+        case (t : TokenBits) => TokenBits(width, t)
+        case (t : Int) => TokenBits(width, t)
+        case (t : Long) => TokenBits(width, t)
+        case (t : BigInt) => TokenBits(width, t)
+      })
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFBool
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
+    implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
+    implicit class DFBoolXInt[R <: XInt](val right : R)(implicit r : Require[(R == 0) || (R == 1)]) extends Able[DFBool]
+    implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
+
+    def toTokenBoolSeq(right : Seq[Able[DFBool]]) : Seq[TokenBool] =
+      right.toSeqAny.map(e => e match {
+        case (t : TokenBool) => t
+        case (t : Int) => TokenBool(t)
+        case (t : Boolean) => TokenBool(t)
+      })
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def fromNone(none : None.type) = Bubble
-//  implicit def fromPosInt[W, V <: XInt](value : V)(implicit require: RequireMsgSym[V > 0, "Shit", DFInit[DFAny]]) : DFInit[DFBits[W]] = DFInitVal[DFBits[W]](value)
 
 
-  trait Builder[L <: DFAny, R] {
-    def apply(left : L, right : Able[L, R]) : DFInitOf[L]
+  trait Builder[L <: DFAny] {
+    def apply(left : L, right : Seq[Able[L]]) : L
   }
-//  abstract class DFBitsInit[W](orig: DFBits[W], newInit: DFInit[DFBits[W]]) extends core.DFAny.Alias(orig, orig.width, 0) with DFBits[W] {
-//    override protected val protInit: DFInit[DFBits[W]] = ???
-//  }
+  object Builder {
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFBits
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit def fromDFBits[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+      def apply(left : DFBits[LW], right : Seq[Able[DFBits[LW]]]) : DFBits[LW] =
+        DFBits.alias(left, left.width, 0, 0, Able.toTokenBitsSeq(left.width, right))
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFBool
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit def fromDFBool : Builder[DFBool] = new Builder[DFBool] {
+      def apply(left : DFBool, right : Seq[Able[DFBool]]) : DFBool =
+        DFBool.alias(left, 0, 0, Able.toTokenBoolSeq(right))
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+  }
 }
-
-
-
-//final case class DFInitVal(value : BigInt) extends DFInit
-//
-//final case class DFInitSeq(value : Seq[BigInt]) extends DFInit

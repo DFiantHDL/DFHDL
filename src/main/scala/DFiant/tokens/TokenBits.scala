@@ -5,8 +5,8 @@ import DFiant.internals._
 class TokenBits private[DFiant] (val width : Int, val bitsValue : BigInt, val bubbleMask : BigInt) extends Token {
   final def + (that : TokenBits) : TokenBits = { //TODO: There is no `+` for Bits operations
     val outWidth = math.max(this.width, that.width) + 1
-    if (this.isBubble || that.isBubble) TokenBits.fromBubble(outWidth)
-    else TokenBits.fromNum(outWidth, this.bitsValue + that.bitsValue)
+    if (this.isBubble || that.isBubble) TokenBits(outWidth, Bubble)
+    else TokenBits(outWidth, this.bitsValue + that.bitsValue)
   }
   final def | (that : TokenBits) : TokenBits = {
     val outWidth = math.max(this.width, that.width)
@@ -46,12 +46,17 @@ object TokenBits {
   def & (left : TokenBits, right : TokenBits) : TokenBits = left & right
   def ^ (left : TokenBits, right : TokenBits) : TokenBits = left ^ right
   def ## (left : TokenBits, right : TokenBits) : TokenBits = left ## right
-  //Bit concatenation required additional width information
-  //  def ##(leftToken : TokenBits, leftWidth : Int, rightToken : TokenBits, rightWidth : Int) : TokenBits = ???
 
-  def fromNum(width : Int, value : Int) : TokenBits = fromNum(width, BigInt(value))
-  def fromNum(width : Int, value : Long) : TokenBits = fromNum(width, BigInt(value))
-  def fromNum(width : Int, value : BigInt) : TokenBits = new TokenBits(width, value, 0)
-  def fromBubble(width : Int) : TokenBits = new TokenBits(width, 0, bitsWidthToMaxBigIntBits(width))
+  def apply(width : Int, value : Int) : TokenBits = TokenBits(width, BigInt(value))
+  def apply(width : Int, value : Long) : TokenBits = TokenBits(width, BigInt(value))
+  def apply(width : Int, value : BigInt) : TokenBits = {
+    //TODO: Boundary checks
+    new TokenBits(width, value, 0)
+  }
+  def apply(width : Int, value : Bubble) : TokenBits = new TokenBits(width, 0, bitsWidthToMaxBigIntBits(width))
+  def apply(width : Int, value : TokenBits) : TokenBits = {
+    //TODO: Boundary checks
+    value.bits(width-1, 0)
+  }
 }
 
