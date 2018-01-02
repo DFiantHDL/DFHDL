@@ -213,25 +213,6 @@ object DFAny {
     }
   }
 
-
-//  trait Gen[Val <: DFAny] {
-//    def alias(aliasedVar : Val, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq()) : Val
-//
-//  }
-//
-//  trait Gen0[W, T <: Token, Val <: DFAnyWT[W, T], Var <: Val with DFAny.Var[W, T, Val, Var]] {
-////    def newVar(width : Int, init : Seq[Token]) : Var
-//    def alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[T] = Seq()) : Var
-////    def const(token : Token) : Val
-////    def op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) : Val
-//  }
-//
-//  trait Gen1[T <: Token, Val[W] <: DFAnyWT[W, T], Var[W] <: Val[W] with DFAny.Var[W, T, Val[W], Var[W]]] {
-//    //    def newVar(width : Int, init : Seq[Token]) : Var
-//    def alias[W](aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[T] = Seq()) : Var[W]
-//    //    def const(token : Token) : Val
-//    //    def op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) : Val
-//  }
 }
 
 

@@ -1,6 +1,7 @@
 package DFiant.core
 
 import DFiant.tokens._
+import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 
@@ -31,12 +32,12 @@ object DFInit {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private type IntWithinWidth[LW] = CompileTime[Natural.Cond[GIAT0] && (BitsWidthOf.CalcInt[GIAT0] <= LW)]
+    private type LongWithinWidth[LW] = CompileTime[Natural.Cond[GIAT0] && (BitsWidthOf.CalcLong[GIAT0] <= LW)]
     implicit class DFBitsToken[LW](val right : TokenBits) extends Able[DFBits[LW]]
     implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]
-    implicit class DFBitsXInt[LW, R <: XInt](val right : R) extends Able[DFBits[LW]] //TODO: Compile-time checks
-    implicit class DFBitsXLong[LW, R <: XLong](val right : R) extends Able[DFBits[LW]] //TODO: Compile-time checks
-    implicit class DFBitsInt[LW](val right : Int) extends Able[DFBits[LW]]
-    implicit class DFBitsLong[LW](val right : Long) extends Able[DFBits[LW]]
+    implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
+    implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFBits[LW]]
     implicit class DFBitsBigInt[LW](val right : BigInt) extends Able[DFBits[LW]]
 
     def toTokenBitsSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[TokenBits] =
@@ -51,9 +52,10 @@ object DFInit {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBool
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private type IntIsBoolean = CompileTime[(GIAT0 == 0) || (GIAT0 == 1)]
     implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
     implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
-    implicit class DFBoolXInt[R <: XInt](val right : R)(implicit r : Require[(R == 0) || (R == 1)]) extends Able[DFBool]
+    implicit class DFBoolInt(val right : Int)(implicit chk : IntIsBoolean) extends Able[DFBool]
     implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 
     def toTokenBoolSeq(right : Seq[Able[DFBool]]) : Seq[TokenBool] =
