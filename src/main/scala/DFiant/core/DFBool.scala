@@ -26,7 +26,7 @@ sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Va
 //  def falling               : DFBool = !this && this.prev(1)
 
   def dfTypeName : String = "DFBool"
-  def newEmptyDFVar = DFBool.create()
+  def newEmptyDFVar = DFBool.newVar()
 
   //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
 //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
@@ -44,16 +44,29 @@ sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Va
 
 object DFBool {
   type Width = 1
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  // Var
+  ///////////////////////////////////////////////////////////////////////////////////////////
   trait Var extends DFAny.Var[DFBool.Width, TokenBool, DFBool, DFBool.Var] with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false
   }
-  protected[DFiant] def create() : Var =
+  ///////////////////////////////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  // Public Constructors
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  implicit def apply() : Var = newVar()
+  ///////////////////////////////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  // Protected Constructors
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  protected[DFiant] def newVar() : Var =
     new DFAny.NewVar(1, Seq(TokenBool(false))) with Var
 
-  implicit def apply() : Var = create()
-
-  protected[DFiant] def alias[I](aliasedVar : DFAny, relBit : TwoFace.Int[I], deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {}
+  ///////////////////////////////////////////////////////////////////////////////////////////
 }
