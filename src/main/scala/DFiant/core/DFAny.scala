@@ -77,7 +77,7 @@ trait DFAny {
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
-  def init(that : DFInit.Able[TVal]*)(implicit op : DFInit.Builder[TVal]) = op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
+  def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) = op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
 //  def myinit[Gen <: DFAny.Gen[Width, TToken, TVal, TVar]](updatedInit : Seq[TToken])(implicit gen : Gen) : TAlias =
 //    gen.alias(this, width, 0, 0, updatedInit).asInstanceOf[TAlias]
 //  def init(newInit : DFInitOf[TVal]) : TAlias = ???

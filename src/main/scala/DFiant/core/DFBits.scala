@@ -59,14 +59,6 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
   //////////////////////////////////////////////////////////////////////////
 
-  //////////////////////////////////////////////////////////////////////////
-  // Init (for use with Prev)
-  //////////////////////////////////////////////////////////////////////////
-//  def init(updatedInit : Seq[TToken]) : TAlias = DFBits.alias(this, width, 0, 0, updatedInit).asInstanceOf[TAlias]
-//  def init(args : Int*)(implicit di : DummyImplicit) : TAlias = init(args.map(a => TokenBits(width, a)))
-  //////////////////////////////////////////////////////////////////////////
-
-
   //  def extBy(numOfBits : Int)    : TBits[WUnsafe] = (DFBits.Unsafe(width + numOfBits) := this).asInstanceOf[TBits[WUnsafe]]
 
   //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
