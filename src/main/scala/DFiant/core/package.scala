@@ -15,4 +15,9 @@ package object core {
 
   type BitsRange = internals.BitsRange
   val BitsRange = internals.BitsRange
+
+  implicit class ElseIfClauseBuilder(cond : DFBool){
+    def apply(block : => Unit) : ElseIfClause = new ElseIfClause(cond, block)
+  }
+
 }

@@ -16,6 +16,7 @@ sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Va
   def && (that : DFBool) : DFBool = ??? //AlmanacEntryOpAnd(this, that)
 //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
   def unary_!               : DFBool = ??? //AlmanacEntryOpInv(this)
+//  def unary_!(a : IfBool)               : ElseIfClause = ??? //AlmanacEntryOpInv(this)
 //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
 //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
 //  def rising                : DFBool = this && !this.prev(1)
