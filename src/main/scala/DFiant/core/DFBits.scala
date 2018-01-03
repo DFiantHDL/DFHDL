@@ -70,10 +70,10 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   //  def >> (that : Int)           : DFBits.Unsafe = ??? //AlmanacEntryOpRsh(this, AlmanacEntryConst(that))
   //  def ## (that : DFBits.Unsafe)        : DFBits.Unsafe = ??? //AlmanacEntryOpCat(this, that)
   //      def ## (that : DFBool)        : DFBits.Unsafe = AlmanacEntryOpCat(this, that.bits())
-  def ==(that: WUnsafe): DFBool = ??? //__==(this, AlmanacEntryConst(that))
+  def ==(that: Int): DFBool = ??? //__==(this, AlmanacEntryConst(that))
   def ==(that: Long): DFBool = ??? //__==(this, AlmanacEntryConst(that))
   def ==(that: BigInt): DFBool = ??? //__==(this, AlmanacEntryConst(that))
-  def !=(that: WUnsafe): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
+  def !=(that: Int): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
   def !=(that: Long): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
   def !=(that: BigInt): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
   def isZero: DFBool = this == 0

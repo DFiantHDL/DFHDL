@@ -6,10 +6,6 @@ import singleton.twoface._
 import DFiant.tokens._
 
 sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
-//  implicit def bool2Entry(dfBool: DFBool) : AlmanacEntry = dfBool.getCurrentEntry
-//  implicit def entry2DFBits(entry: AlmanacEntry) : DFBits.Unsafe = DFBits.Unsafe.op(entry)
-//  implicit def entry2DFBool(entry: AlmanacEntry) : DFBool = DFBool.op(entry)
-
 //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
 //  def == (that : ZeroOrOne1)         : DFBool = __==(this, that)
 //  def == (that : 0)         : DFBool = __==(this, that)
@@ -32,15 +28,6 @@ sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Va
 //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
 }
 
-//import singleton.ops._
-//case class Foo[W](){
-////  def limitOp (that : Int)(implicit unsafe: Unsafe) : Unit = {}
-//  def limitOp [H <: XInt, L <: XInt](bitHi : H, bitLo : L)(implicit
-//  hiCheck : RequireMsg[(H < W) && (H >= 0), "High bit index is out of range"],
-//  loCheck : RequireMsg[(L < W) && (L >= 0), "Low bit index is out of range"],
-//  hiloCheck : RequireMsg[L <= H, "High bit index must not be smaller than Low bit index"],
-//  ) : Unit = {}
-//}
 
 object DFBool {
   type Width = 1
@@ -68,5 +55,11 @@ object DFBool {
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {}
+
+  protected[DFiant] def const(token : TokenBool) : DFBool =
+    new DFAny.Const(token) with DFBool
+
+  protected[DFiant] def op(opString : String, opInit : Seq[TokenBool], args : DFAny*) : DFBool =
+    new DFAny.Op(1, opString, opInit, args) with DFBool
   ///////////////////////////////////////////////////////////////////////////////////////////
 }

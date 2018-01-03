@@ -32,6 +32,7 @@ object GeneralTest {
 
   val ff = DFBits[8]
   ff.init(1, 7L, aaa, 100)
+  ff.prev(1) + 5
 //  ff.bitsWL[7,1]
 
 //  val ee = DFUFix(2,3)

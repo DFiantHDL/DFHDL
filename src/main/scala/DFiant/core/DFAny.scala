@@ -84,8 +84,9 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Prev
   //////////////////////////////////////////////////////////////////////////
-  final def prev : TVal = prev(1)
-  final def prev(step : Int) : TVal = ???
+  final def prev()(implicit op : Prev.Builder[TVal]) : TVal = prev(1)
+  final def prev[P](step : Prev.Checked[P])(implicit op : Prev.Builder[TVal]) : TVal =
+    op(this.asInstanceOf[TVal], step)
   //////////////////////////////////////////////////////////////////////////
 
   final def next(step : Int = 1) : TVal = ???

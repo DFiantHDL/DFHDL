@@ -49,6 +49,3 @@ object log2Up {
   def apply(in: Int): Int = if(in == 1) 1 else ceil(log(in.toDouble)/log(2.toDouble)).toInt
 }
 
-object wOF {
-  def apply(maxValue : Int) : Int = log2Up(maxValue)
-}

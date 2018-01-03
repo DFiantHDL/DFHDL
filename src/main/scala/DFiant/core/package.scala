@@ -13,8 +13,6 @@ package object core {
   type <>[DF <: DFAny, DIR <: DFDir] = DFPort[DF, DIR]
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  type WUnsafe = Int
-
   type BitsRange = internals.BitsRange
   val BitsRange = internals.BitsRange
 }
