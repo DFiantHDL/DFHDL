@@ -5,12 +5,19 @@ package object tokens {
   final val Φ = Bubble
 
   implicit class TokenBitsSeq(seq : Seq[TokenBits]) extends TokenSeq(seq) {
+    def unary_~ : Seq[TokenBits] = applyOp(TokenBits.unary_~)
     def + (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.+)
     def ## (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.##)
   }
 
-  implicit class TokenSeqInit(tokenSeq : Seq[Token]) {
-    def prevInit(step : Int) : Seq[Token] = {
+  implicit class TokenBoolSeq(seq : Seq[TokenBool]) extends TokenSeq(seq) {
+    def unary_! : Seq[TokenBool] = applyOp(TokenBool.unary_!)
+    def || (that : Seq[TokenBool]) : Seq[TokenBool] = applyOp(that, TokenBool.||)
+    def && (that : Seq[TokenBool]) : Seq[TokenBool] = applyOp(that, TokenBool.&&)
+  }
+  
+  implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
+    def prevInit(step : Int) : Seq[T] = {
       val length = tokenSeq.length
       //No init at all, so invoking prev does not change anything (bubble tokens will be used)
       if ((length == 0) || (step == 0)) tokenSeq

@@ -31,7 +31,7 @@ object GeneralTest {
   val aaa = TokenBits(8, 3)
 
   val ff = DFBits[8]
-  ff.init(1, 7L, aaa, 100)
+  ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
   ff.prev(1) + 5
 //  ff.bitsWL[7,1]
 

@@ -19,6 +19,10 @@ class TokenBool private[DFiant] (val boolValue : Boolean, val bubbleMask : BigIn
 }
 
 object TokenBool {
+  def || (left : TokenBool, right : TokenBool) : TokenBool = left || right
+  def && (left : TokenBool, right : TokenBool) : TokenBool = left && right
+  def unary_! (left : TokenBool) : TokenBool = !left
+
   def apply(value : Int) : TokenBool = value match {
     case 0 => TokenBool(false)
     case 1 => TokenBool(true)

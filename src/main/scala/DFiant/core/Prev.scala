@@ -1,20 +1,18 @@
 package DFiant.core
+import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 
-object Prev extends Checked0Param.Int {
-  type Cond[P] = (P >= 0)
-  type Msg[P] = "Prev step must be a natural number. Found step = " + ToString[P]
-
+object Prev {
   trait Builder[L <: DFAny] {
-    def apply[P](left : L, right : Checked[P]) : L
+    def apply[P](left : L, right : Natural.Checked[P]) : L
   }
   object Builder {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     implicit def fromDFBits[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
-      def apply[P](left : DFBits[LW], right : Checked[P]) : DFBits[LW] =
+      def apply[P](left : DFBits[LW], right : Natural.Checked[P]) : DFBits[LW] =
         DFBits.alias(left, left.width, 0, -right, left.getInit)
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,7 +21,7 @@ object Prev extends Checked0Param.Int {
     // DFBool
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     implicit def fromDFBool : Builder[DFBool] = new Builder[DFBool] {
-      def apply[P](left : DFBool, right : Checked[P]) : DFBool =
+      def apply[P](left : DFBool, right : Natural.Checked[P]) : DFBool =
         DFBool.alias(left, 0, -right, left.getInit)
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////

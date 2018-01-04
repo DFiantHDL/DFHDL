@@ -132,6 +132,11 @@ package object internals {
 
   object Natural extends Checked0Param.Int {
     type Cond[N] = N >= 0
-    type Msg[N] = "Number must be natural, but found " + ToString[N]
+    type Msg[N] = "Argument must be a natural number, but found " + ToString[N]
+  }
+
+  object Positive extends Checked0Param.Int {
+    type Cond[N] = N > 0
+    type Msg[N] = "Argument must be a positive number, but found " + ToString[N]
   }
 }

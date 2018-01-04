@@ -1,25 +1,13 @@
-//package DFiant.core
-//
-//import DFiant.internals._
+package DFiant.core
+
+import DFiant.internals._
 //
 //sealed trait DFUInt extends DFAny.Val[WUnsafe, DFUInt, DFUInt.Var] {
 //  def extBy(numOfBits : Int)     : TAlias = ???
 //  def +  (that : DFUInt)         : DFUInt = ???
-//  def +  (that : BigInt)         : DFUInt = ???
-//  def +  (that : Int)            : DFUInt = ???
-//  def +  (that : Long)           : DFUInt = ???
 //  def -  (that : DFUInt)         : DFUInt = ???
-//  def -  (that : BigInt)         : DFUInt = ???
-//  def -  (that : Int)            : DFUInt = ???
-//  def -  (that : Long)           : DFUInt = ???
 //  def *  (that : DFUInt)         : DFUInt = ???
-//  def *  (that : BigInt)         : DFUInt = ???
-//  def *  (that : Int)            : DFUInt = ???
-//  def *  (that : Long)           : DFUInt = ???
 //  def /  (that : DFUInt)         : DFUInt = ???
-//  def /  (that : BigInt)         : DFUInt = ???
-//  def /  (that : Int)            : DFUInt = ???
-//  def /  (that : Long)           : DFUInt = ???
 //  def == (that : BigInt)         : DFBool = ???
 //  def == (that : Int)            : DFBool = ???
 //  def == (that : Long)           : DFBool = ???

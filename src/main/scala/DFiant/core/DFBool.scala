@@ -6,21 +6,16 @@ import singleton.twoface._
 import DFiant.tokens._
 
 sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
+  def unary_!               : DFBool = DFBool.op("!", !this.getInit, this)
 //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
-//  def == (that : ZeroOrOne1)         : DFBool = __==(this, that)
-//  def == (that : 0)         : DFBool = __==(this, that)
-//  def == (that : 1)(implicit dummy : DummyImplicit)         : DFBool = __==(this, that)
 //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
-//  def != (that : ZeroOrOne) : DFBool = __!=(this, that)
   def || (that : DFBool) : DFBool = ??? //AlmanacEntryOpOr(this, that)
   def && (that : DFBool) : DFBool = ??? //AlmanacEntryOpAnd(this, that)
 //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
-  def unary_!               : DFBool = ??? //AlmanacEntryOpInv(this)
-//  def unary_!(a : IfBool)               : ElseIfClause = ??? //AlmanacEntryOpInv(this)
 //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
 //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-//  def rising                : DFBool = this && !this.prev(1)
-//  def falling               : DFBool = !this && this.prev(1)
+  def rising                : DFBool = this && !this.prev(1)
+  def falling               : DFBool = !this && this.prev(1)
 
   def dfTypeName : String = "DFBool"
   def newEmptyDFVar = DFBool.newVar()

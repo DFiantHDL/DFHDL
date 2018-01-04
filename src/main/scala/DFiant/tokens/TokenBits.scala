@@ -46,6 +46,7 @@ object TokenBits {
   def & (left : TokenBits, right : TokenBits) : TokenBits = left & right
   def ^ (left : TokenBits, right : TokenBits) : TokenBits = left ^ right
   def ## (left : TokenBits, right : TokenBits) : TokenBits = left ## right
+  def unary_~ (left : TokenBits) : TokenBits = ~left
 
   def apply(width : Int, value : Int) : TokenBits = TokenBits(width, BigInt(value))
   def apply(width : Int, value : Long) : TokenBits = TokenBits(width, BigInt(value))

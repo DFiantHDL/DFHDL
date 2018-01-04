@@ -53,7 +53,7 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
   //////////////////////////////////////////////////////////////////////////
 
-  //  def extBy(numOfBits : Int)    : TBits[WUnsafe] = (DFBits.Unsafe(width + numOfBits) := this).asInstanceOf[TBits[WUnsafe]]
+//  def extBy[N](numOfBits : Natural.Checked[N])(implicit )
 
   //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
   //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)

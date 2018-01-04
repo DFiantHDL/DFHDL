@@ -34,6 +34,7 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     private type IntWithinWidth[LW] = CompileTime[Natural.Cond[GIAT0] && (BitsWidthOf.CalcInt[GIAT0] <= LW)]
     private type LongWithinWidth[LW] = CompileTime[Natural.Cond[GIAT0] && (BitsWidthOf.CalcLong[GIAT0] <= LW)]
+    implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
     implicit class DFBitsToken[LW](val right : TokenBits) extends Able[DFBits[LW]]
     implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]
     implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
@@ -42,6 +43,7 @@ object Init {
 
     def toTokenBitsSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[TokenBits] =
       right.toSeqAny.map(e => e match {
+        case (t : Bubble) => TokenBits(width, t)
         case (t : TokenBits) => TokenBits(width, t)
         case (t : Int) => TokenBits(width, t)
         case (t : Long) => TokenBits(width, t)
@@ -53,6 +55,7 @@ object Init {
     // DFBool
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     private type IntIsBoolean = CompileTime[(GIAT0 == 0) || (GIAT0 == 1)]
+    implicit class DFBoolBubble(val right : Bubble) extends Able[DFBool]
     implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
     implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
     implicit class DFBoolInt(val right : Int)(implicit chk : IntIsBoolean) extends Able[DFBool]
@@ -60,6 +63,7 @@ object Init {
 
     def toTokenBoolSeq(right : Seq[Able[DFBool]]) : Seq[TokenBool] =
       right.toSeqAny.map(e => e match {
+        case (t : Bubble) => TokenBool(t)
         case (t : TokenBool) => t
         case (t : Int) => TokenBool(t)
         case (t : Boolean) => TokenBool(t)
