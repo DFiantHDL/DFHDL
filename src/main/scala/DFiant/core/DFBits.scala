@@ -18,7 +18,6 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   final def msbit: TBool = protBit(width - 1)
 
   final def lsbit: TBool = protBit(0)
-
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -50,10 +49,11 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
   final def lsbits[PW](implicit partWidth: PartWidth.Checked[PW, W], di: DummyImplicit) =
     protLSBits(partWidth.unsafeCheck(width))
-
   //////////////////////////////////////////////////////////////////////////
 
-//  def extBy[N](numOfBits : Natural.Checked[N])(implicit )
+  def extBy[N](numOfBits : Natural.Checked[N])(
+    implicit tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
+  ) : DFBits.Var[tfs.Out] = DFBits.newVar(tfs(width, numOfBits)).init(getInit).assign(this)
 
   //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
   //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)

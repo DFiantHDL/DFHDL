@@ -32,6 +32,8 @@ object GeneralTest {
 
   val ff = DFBits[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
+
+  ff.extBy(1).init(256)
   ff.prev(1) + 5
 //  ff.bitsWL[7,1]
 
