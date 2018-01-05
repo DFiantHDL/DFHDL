@@ -24,4 +24,26 @@ object GeneralTest {
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
 
   ff.prev(1) + 5
+
+
+  @scala.annotation.implicitNotFound("Type mismatch. ${T} is not supported.")
+  trait TypeOfFoo[T] {
+    def apply(foo : Foo, value : T) : T
+  }
+  trait Foo {
+    def test[T, Out <: TypeOfFoo[T]](that : T)(implicit typeOfFoo : Out) : T = that
+  }
+
+  object TypeOfFoo{
+    implicit def fromInt[R <: Int] : TypeOfFoo[R] = new TypeOfFoo[R] {
+      def apply(foo : Foo, value : R) : R = value
+    }
+  }
+
+  val foo = new Foo{}
+  final val o = 1
+  final val out = foo test o
+//  implicitly[out.type =:= 1]
+//  f == 1.0 //Type mismatch. Double is not supported.
+
 }
