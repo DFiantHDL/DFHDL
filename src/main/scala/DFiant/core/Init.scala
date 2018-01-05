@@ -69,6 +69,26 @@ object Init {
         case (t : Boolean) => TokenBool(t)
       })
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFUInt
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit class DFUIntBubble[LW](val right : Bubble) extends Able[DFUInt[LW]]
+    implicit class DFUIntToken[LW](val right : TokenUInt) extends Able[DFUInt[LW]]
+    implicit class DFUIntTokenSeq[LW](val right : Seq[TokenUInt]) extends Able[DFUInt[LW]]
+    implicit class DFUIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFUInt[LW]]
+    implicit class DFUIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFUInt[LW]]
+    implicit class DFUIntBigInt[LW](val right : BigInt) extends Able[DFUInt[LW]]
+
+    def toTokenUIntSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[TokenUInt] =
+      right.toSeqAny.map(e => e match {
+        case (t : Bubble) => TokenUInt(width, t)
+//        case (t : TokenUInt) => TokenUInt(width, t)
+        case (t : Int) => TokenUInt(width, t)
+        case (t : Long) => TokenUInt(width, t)
+        case (t : BigInt) => TokenUInt(width, t)
+      })
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -92,6 +112,15 @@ object Init {
     implicit def fromDFBool : Builder[DFBool] = new Builder[DFBool] {
       def apply(left : DFBool, right : Seq[Able[DFBool]]) : DFBool =
         DFBool.alias(left, 0, 0, Able.toTokenBoolSeq(right))
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFUInt
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit def fromDFUInt[LW] : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
+      def apply(left : DFUInt[LW], right : Seq[Able[DFUInt[LW]]]) : DFUInt[LW] =
+        DFUInt.alias(left, left.width, 0, 0, Able.toTokenUIntSeq(left.width, right))
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
   }

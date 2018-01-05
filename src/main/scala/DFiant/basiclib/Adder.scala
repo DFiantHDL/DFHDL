@@ -15,17 +15,17 @@ object `Op+` {
   trait Able[L <: DFAny, R] extends BinaryOpRight[L, R]
 
   object Able {
-    implicit class DFBitsInt[LW](right : Int) extends
-      BinaryOpRightConstInt[DFBits[LW], Int](right) with Able[DFBits[LW], Int]
-    implicit class DFBitsXInt[LW, R <: XInt](right : R) extends
-      BinaryOpRightConstInt[DFBits[LW], R](right) with Able[DFBits[LW], R]
-    implicit class DFBitsDFBits[LW, RW](right : DFBits[RW]) extends
-      BinaryOpRightDFVar[DFBits[LW], DFBits[RW]](right) with Able[DFBits[LW], DFBits[RW]]
+    implicit class DFUIntInt[LW](right : Int) extends
+      BinaryOpRightConstInt[DFUInt[LW], Int](right) with Able[DFUInt[LW], Int]
+    implicit class DFUIntXInt[LW, R <: XInt](right : R) extends
+      BinaryOpRightConstInt[DFUInt[LW], R](right) with Able[DFUInt[LW], R]
+    implicit class DFUIntDFUInt[LW, RW](right : DFUInt[RW]) extends
+      BinaryOpRightDFVar[DFUInt[LW], DFUInt[RW]](right) with Able[DFUInt[LW], DFUInt[RW]]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  abstract class AdderBits[NCW, WCW](val wc : DFBits[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFBits[NCW] {
-    val c = wc.msbit
+  abstract class AdderUInt[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+    val c = wc.bits().msbit
   }
 
   @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support addition of type ${R}")
@@ -33,7 +33,7 @@ object `Op+` {
     type Out[W] <: DFAnyW[W]
     type NCW //No-carry width
     type WCW //With-carry width
-    def apply(left : L, rightAble : Able[L, R]) : AdderBits[NCW, WCW]
+    def apply(left : L, rightAble : Able[L, R]) : AdderUInt[NCW, WCW]
   }
 
   object Builder {
@@ -58,39 +58,39 @@ object `Op+` {
       type Check[R] = Checked.Shell1Sym[Cond, Msg, Builder[_,_], R, Int]
     }
 
-    def createBits[LW, R, RW](
+    def createUInt[LW, R, RW](
       implicit
       ncW : AdderWidth.NC[LW, RW],
       wcW : AdderWidth.WC[LW, RW],
       check : `LW >= RW`.Check[LW, RW]
-    ) : Aux[DFBits[LW], R, DFBits, ncW.Out, wcW.Out] =
-      new Builder[DFBits[LW], R] {
-        type Out[W] = DFBits[W]
+    ) : Aux[DFUInt[LW], R, DFUInt, ncW.Out, wcW.Out] =
+      new Builder[DFUInt[LW], R] {
+        type Out[W] = DFUInt[W]
         type NCW = ncW.Out
         type WCW = wcW.Out
-        def apply(left : DFBits[LW], rightAble : Able[DFBits[LW], R]) : AdderBits[ncW.Out, wcW.Out] = {
+        def apply(left : DFUInt[LW], rightAble : Able[DFUInt[LW], R]) : AdderUInt[ncW.Out, wcW.Out] = {
           val right = rightAble.asDFAny.asInstanceOf[Out[RW]]
           check.unsafeCheck(left.width, right.width)
-          val wc = DFBits.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-          new AdderBits[ncW.Out, wcW.Out](wc) {
+          val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
+          new AdderUInt[ncW.Out, wcW.Out](wc) {
           }
         }
       }
 
-    implicit def evBits[LW, L <: DFBits[LW], RW, R <: DFBits[RW]](
+    implicit def evUInt[LW, L <: DFUInt[LW], RW, R <: DFUInt[RW]](
       implicit
       ncW : AdderWidth.NC[LW, RW],
       wcW : AdderWidth.WC[LW, RW],
       check : `LW >= RW`.Check[LW, RW]
-    ) = createBits[LW, DFBits[RW], RW]
+    ) = createUInt[LW, DFUInt[RW], RW]
 
-    implicit def evNum[LW, L <: DFBits[LW], RW, R <: Int](
+    implicit def evNum[LW, L <: DFUInt[LW], RW, R <: Int](
       implicit
       bitsWidthOf : BitsWidthOf.IntAux[R, RW],
       ncW : AdderWidth.NC[LW, RW],
       wcW : AdderWidth.WC[LW, RW],
       check : `LW >= RW`.Check[LW, RW]
-    ) = createBits[LW, R, RW]
+    ) = createUInt[LW, R, RW]
   }
 
 }

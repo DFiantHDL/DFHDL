@@ -6,7 +6,6 @@ package object tokens {
 
   implicit class TokenBitsSeq(seq : Seq[TokenBits]) extends TokenSeq(seq) {
     def unary_~ : Seq[TokenBits] = applyOp(TokenBits.unary_~)
-    def + (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.+)
     def ## (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.##)
   }
 
@@ -15,7 +14,12 @@ package object tokens {
     def || (that : Seq[TokenBool]) : Seq[TokenBool] = applyOp(that, TokenBool.||)
     def && (that : Seq[TokenBool]) : Seq[TokenBool] = applyOp(that, TokenBool.&&)
   }
-  
+
+  implicit class TokenUIntSeq(seq : Seq[TokenUInt]) extends TokenSeq(seq) {
+//    def unary_~ : Seq[TokenUInt] = applyOp(TokenUInt.unary_~)
+    def + (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.+)
+  }
+
   implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
     def prevInit(step : Int) : Seq[T] = {
       val length = tokenSeq.length

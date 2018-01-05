@@ -111,8 +111,8 @@ trait DFAny {
   }
   final def isNotEmpty : DFBool = ???
 //  final def tokensCounter(supremLimit : Int) : DFUInt = TokensCounter(this, supremLimit)
-  def newEmptyDFVar : TVar
-  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
+//  def newEmptyDFVar : TVar
+//  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
   protected[DFiant] val almanacEntry : AlmanacEntry
 

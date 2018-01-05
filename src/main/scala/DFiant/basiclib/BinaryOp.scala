@@ -13,7 +13,7 @@ trait BinaryOpRight[L <: DFAny, R] {
 
 abstract class BinaryOpRightConstInt[L <: DFAny, R <: Int](val right : R)(implicit bitsWidthOf: BitsWidthOf.Int[R]) extends BinaryOpRight[L, R] {
   val width : Int = bitsWidthOf(right)
-  val asDFAny : DFAny = DFBits.const[bitsWidthOf.Out](TokenBits(width, right))
+  val asDFAny : DFAny = DFUInt.const[bitsWidthOf.Out](TokenUInt(width, right))
 }
 //abstract class BinaryOpRightConstLong[L <: DFAny, R <: Long](right : R) extends BinaryOpRight[L, R] {
 //  def getCurrentEntry : AlmanacEntry = AlmanacEntryConst(right)

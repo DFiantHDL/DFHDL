@@ -58,7 +58,6 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
   //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)
   //  def & (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpAnd(this, that)
-  def +[R](that: `Op+`.Able[DFBits[W], R])(implicit op: `Op+`.Builder[DFBits[W], R]) = op(this, that)
 
   //AlmanacEntryOpAdd(this, that)
   //  def - (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpSub(this, that)
