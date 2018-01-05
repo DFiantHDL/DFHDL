@@ -32,8 +32,8 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private type IntWithinWidth[LW] = CompileTime[Natural.Cond[GIAT0] && (BitsWidthOf.CalcInt[GIAT0] <= LW)]
-    private type LongWithinWidth[LW] = CompileTime[Natural.Cond[GIAT0] && (BitsWidthOf.CalcLong[GIAT0] <= LW)]
+    private type IntWithinWidth[LW] = CompileTime[Natural.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
+    private type LongWithinWidth[LW] = CompileTime[Natural.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
     implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
     implicit class DFBitsToken[LW](val right : TokenBits) extends Able[DFBits[LW]]
     implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]
@@ -54,7 +54,7 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBool
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private type IntIsBoolean = CompileTime[(GIAT0 == 0) || (GIAT0 == 1)]
+    private type IntIsBoolean = CompileTime[(GetArg0 == 0) || (GetArg0 == 1)]
     implicit class DFBoolBubble(val right : Bubble) extends Able[DFBool]
     implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
     implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
