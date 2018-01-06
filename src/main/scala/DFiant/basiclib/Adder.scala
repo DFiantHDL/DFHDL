@@ -12,16 +12,16 @@ object `Op+` {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Implicit configuration of when operation is possible
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  trait Able[L <: DFAny, R] extends BinaryOpRight[L, R]
-//
-//  object Able {
-//    implicit class DFUIntInt[LW](right : Int) extends
-//      BinaryOpRightConstInt[DFUInt[LW], Int](right) with Able[DFUInt[LW], Int]
-//    implicit class DFUIntXInt[LW, R <: XInt](right : R) extends
-//      BinaryOpRightConstInt[DFUInt[LW], R](right) with Able[DFUInt[LW], R]
-//    implicit class DFUIntDFUInt[LW, RW](right : DFUInt[RW]) extends
-//      BinaryOpRightDFVar[DFUInt[LW], DFUInt[RW]](right) with Able[DFUInt[LW], DFUInt[RW]]
-//  }
+  trait Able[L <: DFAny, R] extends BinaryOpRight[L, R]
+
+  object Able {
+    implicit class DFUIntInt[LW](right : Int) extends
+      BinaryOpRightConstInt[DFUInt[LW], Int](right) with Able[DFUInt[LW], Int]
+    implicit class DFUIntXInt[LW, R <: XInt](right : R) extends
+      BinaryOpRightConstInt[DFUInt[LW], R](right) with Able[DFUInt[LW], R]
+    implicit class DFUIntDFUInt[LW, RW](right : DFUInt[RW]) extends
+      BinaryOpRightDFVar[DFUInt[LW], DFUInt[RW]](right) with Able[DFUInt[LW], DFUInt[RW]]
+  }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   abstract class AdderUInt[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
@@ -33,7 +33,7 @@ object `Op+` {
     type Out[W] <: DFAnyW[W]
     type NCW //No-carry width
     type WCW //With-carry width
-    def apply(left : L, rightAble : R) : AdderUInt[NCW, WCW]
+    def apply(left : L, rightAble : Able[L, R]) : AdderUInt[NCW, WCW]
   }
 
   object Builder {
@@ -58,47 +58,8 @@ object `Op+` {
       type Check[R] = Checked.Shell1Sym[Cond, Msg, Builder[_,_], R, Int]
     }
 
-    implicit def evUInt[LW, RW](
+    def createUInt[LW, R, RW](
       implicit
-      ncW : AdderWidth.NC[LW, RW],
-      wcW : AdderWidth.WC[LW, RW],
-      check : `LW >= RW`.Check[LW, RW]
-    ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt, ncW.Out, wcW.Out] =
-      new Builder[DFUInt[LW], DFUInt[RW]] {
-        type Out[W] = DFUInt[W]
-        type NCW = ncW.Out
-        type WCW = wcW.Out
-        def apply(left : DFUInt[LW], rightAble : DFUInt[RW]) : AdderUInt[ncW.Out, wcW.Out] = {
-          val right = rightAble
-          check.unsafeCheck(left.width, right.width)
-          val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-          new AdderUInt[ncW.Out, wcW.Out](wc) {
-          }
-        }
-      }
-
-    implicit def evUIntVar[LW, RW]( //TODO: Why separate for Var?!!!!
-      implicit
-      ncW : AdderWidth.NC[LW, RW],
-      wcW : AdderWidth.WC[LW, RW],
-      check : `LW >= RW`.Check[LW, RW]
-    ) : Aux[DFUInt[LW], DFUInt.Var[RW], DFUInt, ncW.Out, wcW.Out] =
-      new Builder[DFUInt[LW], DFUInt.Var[RW]] {
-        type Out[W] = DFUInt[W]
-        type NCW = ncW.Out
-        type WCW = wcW.Out
-        def apply(left : DFUInt[LW], rightAble : DFUInt.Var[RW]) : AdderUInt[ncW.Out, wcW.Out] = {
-          val right = rightAble
-          check.unsafeCheck(left.width, right.width)
-          val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-          new AdderUInt[ncW.Out, wcW.Out](wc) {
-          }
-        }
-      }
-
-    implicit def evNum[LW, RW, R <: Int](
-      implicit
-      bitsWidthOf : BitsWidthOf.IntAux[R, RW],
       ncW : AdderWidth.NC[LW, RW],
       wcW : AdderWidth.WC[LW, RW],
       check : `LW >= RW`.Check[LW, RW]
@@ -107,8 +68,8 @@ object `Op+` {
         type Out[W] = DFUInt[W]
         type NCW = ncW.Out
         type WCW = wcW.Out
-        def apply(left : DFUInt[LW], rightAble : R) : AdderUInt[ncW.Out, wcW.Out] = {
-          val right = DFUInt.const(TokenUInt(bitsWidthOf(rightAble), rightAble))
+        def apply(left : DFUInt[LW], rightAble : Able[DFUInt[LW], R]) : AdderUInt[ncW.Out, wcW.Out] = {
+          val right = rightAble.asDFAny.asInstanceOf[Out[RW]]
           check.unsafeCheck(left.width, right.width)
           val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
           new AdderUInt[ncW.Out, wcW.Out](wc) {
@@ -116,20 +77,20 @@ object `Op+` {
         }
       }
 
-//    implicit def evUInt[LW, L <: DFUInt[LW], RW, R <: DFUInt[RW]](
-//      implicit
-//      ncW : AdderWidth.NC[LW, RW],
-//      wcW : AdderWidth.WC[LW, RW],
-//      check : `LW >= RW`.Check[LW, RW]
-//    ) = createUInt[LW, DFUInt[RW], RW]
-//
-//    implicit def evNum[LW, L <: DFUInt[LW], RW, R <: Int](
-//      implicit
-//      bitsWidthOf : BitsWidthOf.IntAux[R, RW],
-//      ncW : AdderWidth.NC[LW, RW],
-//      wcW : AdderWidth.WC[LW, RW],
-//      check : `LW >= RW`.Check[LW, RW]
-//    ) = createUInt[LW, R, RW]
+    implicit def evUInt[LW, L <: DFUInt[LW], RW, R <: DFUInt[RW]](
+      implicit
+      ncW : AdderWidth.NC[LW, RW],
+      wcW : AdderWidth.WC[LW, RW],
+      check : `LW >= RW`.Check[LW, RW]
+    ) = createUInt[LW, DFUInt[RW], RW]
+
+    implicit def evNum[LW, L <: DFUInt[LW], RW, R <: Int](
+      implicit
+      bitsWidthOf : BitsWidthOf.IntAux[R, RW],
+      ncW : AdderWidth.NC[LW, RW],
+      wcW : AdderWidth.WC[LW, RW],
+      check : `LW >= RW`.Check[LW, RW]
+    ) = createUInt[LW, R, RW]
   }
 
 }

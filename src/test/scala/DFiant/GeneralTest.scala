@@ -23,7 +23,8 @@ object GeneralTest {
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
 
-  ff.prev(1) + 510
+//  d + ff
+//  ff.prev(1) + 510
 
   @scala.annotation.implicitNotFound("Type mismatch. ${T} is not supported.")
   trait TypeOfFoo[T] {
