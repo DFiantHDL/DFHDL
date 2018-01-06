@@ -23,6 +23,7 @@ object GeneralTest {
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
 
+//  ff == 1
 //  d + ff
 //  ff.prev(1) + 510
 

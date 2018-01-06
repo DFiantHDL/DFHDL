@@ -8,36 +8,23 @@ import DFiant.tokens._
 
 trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   def +[R](that: `Op+`.Able[DFUInt[W], R])(implicit op: `Op+`.Builder[DFUInt[W], R]) = op(this, that)
-  def ==[T](that: Int) : DFBool = DFBool()
 //  def extBy(numOfBits : Int)     : TAlias = ???
 //  def +  (that : DFUInt)         : DFUInt = ???
 //  def -  (that : DFUInt)         : DFUInt = ???
 //  def *  (that : DFUInt)         : DFUInt = ???
 //  def /  (that : DFUInt)         : DFUInt = ???
-//  def == (that : BigInt)         : DFBool = ???
 //  def == (that : Int)            : DFBool = ???
 //  def == (that : Long)           : DFBool = ???
-//  def != (that : BigInt)         : DFBool = ???
+//  def == (that : BigInt)         : DFBool = ???
 //  def != (that : Int)            : DFBool = ???
 //  def != (that : Long)           : DFBool = ???
+//  def != (that : BigInt)         : DFBool = ???
 //  def isZero                     : DFBool = ???
 //  def isNonZero                  : DFBool = ???
 //  def <  (that : DFUInt)         : DFBool = ???
-//  def <  (that : BigInt)         : DFBool = ???
-//  def <  (that : Int)            : DFBool = ???
-//  def <  (that : Long)           : DFBool = ???
 //  def >= (that : DFUInt)         : DFBool = ???
-//  def >= (that : BigInt)         : DFBool = ???
-//  def >= (that : Int)            : DFBool = ???
-//  def >= (that : Long)           : DFBool = ???
 //  def >  (that : DFUInt)         : DFBool = ???
-//  def >  (that : BigInt)         : DFBool = ???
-//  def >  (that : Int)            : DFBool = ???
-//  def >  (that : Long)           : DFBool = ???
 //  def <= (that : DFUInt)         : DFBool = ???
-//  def <= (that : BigInt)         : DFBool = ???
-//  def <= (that : Int)            : DFBool = ???
-//  def <= (that : Long)           : DFBool = ???
   def dfTypeName : String = "DFUInt"
 }
 

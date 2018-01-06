@@ -8,4 +8,7 @@ package object DFiant {
   val DFBits = core.DFBits
   type DFBool = core.DFBool
   val DFBool = core.DFBool
+  type DFUInt[W] = core.DFUInt[W]
+  val DFUInt = core.DFUInt
+  val ifdf = core.ifdf
 }

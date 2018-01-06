@@ -112,6 +112,8 @@ object DFBits {
   ///////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit) : Var[W] = newVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = newVar(checkedWidth.unsafeCheck())
+  def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
+  def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   ///////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////

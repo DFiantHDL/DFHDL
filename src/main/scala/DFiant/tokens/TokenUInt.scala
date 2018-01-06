@@ -3,11 +3,19 @@ package DFiant.tokens
 import DFiant.internals._
 
 class TokenUInt private[DFiant] (val width : Int, val bitsValue : BigInt, val bubbleMask : BigInt) extends Token {
-  final def + (that : TokenUInt) : TokenUInt = { //TODO: There is no `+` for UInt operations
+  final def + (that : TokenUInt) : TokenUInt = {
     val outWidth = math.max(this.width, that.width) + 1
     if (this.isBubble || that.isBubble) TokenUInt(outWidth, Bubble)
     else TokenUInt(outWidth, this.bitsValue + that.bitsValue)
   }
+  final def -  (that : TokenUInt) : TokenUInt = ???
+  final def *  (that : TokenUInt) : TokenUInt = ???
+  final def /  (that : TokenUInt) : TokenUInt = ???
+  final def %  (that : TokenUInt) : TokenUInt = ???
+  final def <  (that : TokenUInt) : TokenBool = ???
+  final def >  (that : TokenUInt) : TokenBool = ???
+  final def <= (that : TokenUInt) : TokenBool = ???
+  final def >= (that : TokenUInt) : TokenBool = ???
 //  final def unary_- : TokenSInt = {
 //    val outWidth = this.width+1
 //    val outUIntValue = ~this.bitsValue

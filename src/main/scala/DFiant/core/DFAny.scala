@@ -2,6 +2,7 @@ package DFiant.core
 
 import DFiant.internals._
 import DFiant.tokens._
+import singleton.ops._
 import singleton.twoface._
 
 trait DFAny {
@@ -130,8 +131,9 @@ trait DFAny {
     AlmanacEntryAssign(this.almanacEntry, AlmanacEntryConst(that))
     this.asInstanceOf[TVar]
   }
+//  def ==[T](that: T)(implicit r : RequireMsg[false, "Use '===' instead of '=='"]) : DFBool = ???
   final def == (that : TVal) : DFBool = ??? //DFBool.op(AlmanacEntryOpEq(this.getCurrentEntry, that.getCurrentEntry))
-  final def != (that : TVal) : DFBool = ??? //!(this == that)
+  final def != (that : TVal) : DFBool = !(this == that)
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
   def dfTypeName : String
