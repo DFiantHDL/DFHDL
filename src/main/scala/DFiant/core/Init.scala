@@ -2,6 +2,7 @@ package DFiant.core
 
 import DFiant.tokens._
 import DFiant.internals._
+import scodec.bits._
 import singleton.ops._
 import singleton.twoface._
 
@@ -39,7 +40,7 @@ object Init {
     implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]
     implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
     implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFBits[LW]]
-    implicit class DFBitsBigInt[LW](val right : BigInt) extends Able[DFBits[LW]]
+    implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
 
     def toTokenBitsSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[TokenBits] =
       right.toSeqAny.map(e => e match {
@@ -47,7 +48,7 @@ object Init {
         case (t : TokenBits) => TokenBits(width, t)
         case (t : Int) => TokenBits(width, t)
         case (t : Long) => TokenBits(width, t)
-        case (t : BigInt) => TokenBits(width, t)
+        case (t : BitVector) => TokenBits(width, t)
       })
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

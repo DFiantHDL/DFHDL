@@ -79,9 +79,9 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
   def isNonZero: DFBool = this != 0
 
-  def isAllOnes: DFBool = this == bitsWidthToMaxBigIntBits(width)
+  def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
 
-  def isNotAllOnes: DFBool = this != bitsWidthToMaxBigIntBits(width)
+  def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
   //  def < (that : DFBits.Unsafe)         : DFBool = ??? //AlmanacEntryOpLsTn(this, that)
   //  def >= (that : DFBits.Unsafe)        : DFBool = ??? //!(this < that)

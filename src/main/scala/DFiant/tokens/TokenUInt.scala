@@ -1,21 +1,30 @@
 package DFiant.tokens
 
 import DFiant.internals._
+import scodec.bits._
 
-class TokenUInt private[DFiant] (val width : Int, val bitsValue : BigInt, val bubbleMask : BigInt) extends Token {
-  final def + (that : TokenUInt) : TokenUInt = {
-    val outWidth = math.max(this.width, that.width) + 1
-    if (this.isBubble || that.isBubble) TokenUInt(outWidth, Bubble)
-    else TokenUInt(outWidth, this.bitsValue + that.bitsValue)
+class TokenUInt private[DFiant] (val width : Int, val uintValue : BigInt, val bubble : Boolean) extends Token {
+  def getBitsValue : BitVector = {
+    val vec = BitVector(uintValue.toByteArray)
+    if (width > vec.length) vec.padLeft(width - vec.length)
+    else if (width < vec.length) vec.drop(vec.length - width)
+    else vec
   }
-  final def -  (that : TokenUInt) : TokenUInt = ???
-  final def *  (that : TokenUInt) : TokenUInt = ???
-  final def /  (that : TokenUInt) : TokenUInt = ???
-  final def %  (that : TokenUInt) : TokenUInt = ???
-  final def <  (that : TokenUInt) : TokenBool = ???
-  final def >  (that : TokenUInt) : TokenBool = ???
-  final def <= (that : TokenUInt) : TokenBool = ???
-  final def >= (that : TokenUInt) : TokenBool = ???
+  def getBubbleMask: BitVector = BitVector.fill(width)(bubble)
+  def mkTokenU(that : TokenUInt, result : BigInt, resultWidth : Int) : TokenUInt = {
+    if (this.isBubble || that.isBubble) TokenUInt(resultWidth, Bubble)
+    else TokenUInt(resultWidth, result.asUnsigned)
+  }
+
+  final def + (that : TokenUInt) : TokenUInt = mkTokenU(that, this.uintValue + that.uintValue, math.max(this.width, that.width) + 1)
+  final def - (that : TokenUInt) : TokenUInt = mkTokenU(that, this.uintValue - that.uintValue, math.max(this.width, that.width) + 1)
+  final def * (that : TokenUInt) : TokenUInt = mkTokenU(that, this.uintValue * that.uintValue, this.width + that.width)
+  final def / (that : TokenUInt) : TokenUInt = mkTokenU(that, this.uintValue / that.uintValue, this.width)
+  final def % (that : TokenUInt) : TokenUInt = mkTokenU(that, this.uintValue % that.uintValue, that.width)
+  final def <  (that : TokenUInt) : TokenBool = new TokenBool(this.uintValue < that.uintValue, this.isBubble || that.isBubble)
+  final def >  (that : TokenUInt) : TokenBool = new TokenBool(this.uintValue > that.uintValue, this.isBubble || that.isBubble)
+  final def <= (that : TokenUInt) : TokenBool = new TokenBool(this.uintValue <= that.uintValue, this.isBubble || that.isBubble)
+  final def >= (that : TokenUInt) : TokenBool = new TokenBool(this.uintValue >= that.uintValue, this.isBubble || that.isBubble)
 //  final def unary_- : TokenSInt = {
 //    val outWidth = this.width+1
 //    val outUIntValue = ~this.bitsValue
@@ -31,10 +40,10 @@ object TokenUInt {
   def apply(width : Int, value : Int) : TokenUInt = TokenUInt(width, BigInt(value))
   def apply(width : Int, value : Long) : TokenUInt = TokenUInt(width, BigInt(value))
   def apply(width : Int, value : BigInt) : TokenUInt = {
-    //TODO: Boundary checks
-    new TokenUInt(width, value, 0)
+    if (value < 0 ) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
+    new TokenUInt(width, value, false)
   }
-  def apply(width : Int, value : Bubble) : TokenUInt = new TokenUInt(width, 0, bitsWidthToMaxBigIntBits(width))
+  def apply(width : Int, value : Bubble) : TokenUInt = new TokenUInt(width, 0, true)
 //  def apply(width : Int, value : TokenUInt) : TokenUInt = {
 //    //TODO: Boundary checks
 //    value.bits(width-1, 0)

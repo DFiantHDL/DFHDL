@@ -55,13 +55,30 @@ package object internals {
     type LongAux[V, Ret_Out] = Long[V] {type Out = Ret_Out}
   }
 
-  def bigIntRepWidth(value : BigInt) : Int = {
-    if (value > 0) value.bitLength
-    else if (value == 0) 1
-    else (-value).bitLength + 1
+  implicit class BigIntExtras(value : BigInt) {
+    //get the maximum BigInt given a bits width
+    private def bitsWidthToMaxBigIntBits(width : Int) : BigInt = {
+      var mask: BigInt = 2
+      mask = mask.pow(width) - 1
+      mask
+    }
+
+    def bitsWidth : Int = {
+      if (value > 0) value.bitLength
+      else if (value == 0) 1
+      else (-value).bitLength + 1
+    }
+    def asUnsigned : BigInt = {
+      if (value >= 0) value
+      else {
+        val mask = bitsWidthToMaxBigIntBits(bitsWidth)
+        BigInt(Array(0.toByte) ++ value.toByteArray) & mask
+      }
+    }
   }
+
   def bigIntToBinaryString(value : BigInt, width : Int = 0) : String = {
-    val _width = if (width <= bigIntRepWidth(value)) bigIntRepWidth(value) else width
+    val _width = if (width <= value.bitsWidth) value.bitsWidth else width
     if (value >= 0) {
       val valueBinStr = value.toString(2)
       var space = ""
@@ -76,16 +93,6 @@ package object internals {
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  //get the maximum BigInt given a bits width
-  def bitsWidthToMaxBigIntBits(width : Int) : BigInt = {
-    var mask: BigInt = 2
-    mask = mask.pow(width) - 1
-    mask
-  }
-  def bitsSel(in0 : BigInt, bitHigh : Int, bitLow : Int) : BigInt =
-    (in0 >> bitLow) & bitsWidthToMaxBigIntBits(bitHigh-bitLow+1)
-
 
   def int2hex (int : Int, nibblesMax : Int = 0): String = {
     var str = Integer.toHexString(int).toUpperCase

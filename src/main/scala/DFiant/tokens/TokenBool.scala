@@ -1,8 +1,11 @@
 package DFiant.tokens
 
-class TokenBool private[DFiant] (val boolValue : Boolean, val bubbleMask : BigInt) extends Token {
+import scodec.bits._
+
+class TokenBool private[DFiant] (val boolValue : Boolean, val bubble : Boolean) extends Token {
   val width : Int = 1
-  val bitsValue : BigInt = if (boolValue) 1 else 0
+  def getBitsValue : BitVector = BitVector.bit(boolValue)
+  def getBubbleMask: BitVector = BitVector.bit(bubble)
 
   final def && (that : TokenBool) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
@@ -27,6 +30,6 @@ object TokenBool {
     case 0 => TokenBool(false)
     case 1 => TokenBool(true)
   }
-  def apply(value : Boolean) : TokenBool = new TokenBool(value, 0)
-  def apply(value : Bubble) : TokenBool = new TokenBool(false, 1)
+  def apply(value : Boolean) : TokenBool = new TokenBool(value, false)
+  def apply(value : Bubble) : TokenBool = new TokenBool(false, true)
 }

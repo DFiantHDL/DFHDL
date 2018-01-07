@@ -1,38 +1,43 @@
 package DFiant.tokens
 
 import DFiant.internals._
+import scodec.bits._
 
 sealed trait Bubble
 object Bubble extends Bubble
 
 trait Token {
   val width : Int
-  val bitsValue : BigInt
-  val bubbleMask : BigInt
-  final def isBubble : Boolean = bubbleMask != 0
+  def getBitsValue : BitVector
+  def getBubbleMask : BitVector
+  final def isBubble : Boolean = !(getBubbleMask === BitVector.zero)
+  protected def ri(bitIdx : Int) : Int = width - 1 - bitIdx //reverse index for BitVector
 
   final def bit(relBit : Int) : TokenBool = {
-    val outBitsValue = if (bitsValue.testBit(relBit)) true else false
-    val outBubbleMask = bitsSel(bubbleMask, relBit, relBit)
+    val riRelBit = ri(relBit)
+    val outBitsValue = getBitsValue(riRelBit)
+    val outBubbleMask = getBubbleMask(riRelBit)
     new TokenBool(outBitsValue, outBubbleMask)
   }
-  final def bits() : TokenBits = new TokenBits(width, bitsValue, bubbleMask)
+  final def bits() : TokenBits = new TokenBits(width, getBitsValue, getBubbleMask)
   final def bits(relBitHigh : Int, relBitLow : Int) : TokenBits = {
     val outWidth = relBitHigh - relBitLow + 1
-    val outBitsValue = bitsSel(bitsValue, relBitHigh, relBitLow)
-    val outBubbleMask = bitsSel(bubbleMask, relBitHigh, relBitLow)
+    val riRelBitHigh = ri(relBitHigh)
+    val riRelBitLow = ri(relBitLow)
+    val outBitsValue = getBitsValue.slice(riRelBitLow, riRelBitHigh + 1)
+    val outBubbleMask = getBubbleMask.slice(riRelBitLow, riRelBitHigh + 1)
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def == (that : this.type) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
-    else TokenBool(this.bitsValue == that.bitsValue)
+    else TokenBool(this.getBitsValue == that.getBitsValue)
   }
   final def != (that : this.type) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
-    else TokenBool(this.bitsValue != that.bitsValue)
+    else TokenBool(this.getBitsValue != that.getBitsValue)
   }
 
-  override def toString: String = if (isBubble) "Φ" else s"0x${bitsValue.toString(16)}"
+  override def toString: String = if (isBubble) "Φ" else s"0x${getBitsValue.toHex}"
 }
 
 object Token {
