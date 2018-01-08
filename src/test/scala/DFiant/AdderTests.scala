@@ -10,8 +10,11 @@ object AdderTests {
   uint9 + uint8
   illTyped("""uint8 + 511""")
   uint9 + 511
+  uint9 + 511L
   val one = 1
   uint8 + one
+  val oneL = 1L
+  uint8 + oneL
   uint8 + uint8 + uint8
 
   (uint8 + uint8).wc + uint9

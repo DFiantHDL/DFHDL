@@ -73,7 +73,7 @@ object DFUInt {
   ///////////////////////////////////////////////////////////////////////////////////////////
 
 
-  object Operations {
+  protected object Operations {
     object `Op+` {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Implicit configuration of when operation is possible
@@ -83,25 +83,27 @@ object DFUInt {
       object Able {
         implicit class OfInt(right : Int) extends Able[Int](right)
         implicit class OfXInt[R <: XInt](right : R) extends Able[R](right)
+        implicit class OfLong(right : Long)(implicit di: DummyImplicit) extends Able[Long](right)
+        implicit class OfXLong[R <: XLong](right : R) extends Able[R](right)
         implicit class OfDFUInt[RW](right : DFUInt[RW]) extends Able[DFUInt[RW]](right)
       }
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      abstract class AdderUInt[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+      //NCW = No-carry width
+      //WCW = With-carry width
+      abstract class Adder[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         val c = wc.bits().msbit
       }
 
       @scala.annotation.implicitNotFound("Dataflow variable DFUInt[${LW}] does not support addition of type ${R}")
       trait Builder[LW, R] {
-        type NCW //No-carry width
-        type WCW //With-carry width
-        def apply(left : DFUInt[LW], rightAble : Able[R]) : AdderUInt[NCW, WCW]
+        type Component
+        def apply(left : DFUInt[LW], rightAble : Able[R]) : Component
       }
 
       object Builder {
-        type Aux[LW, R, Ret_NCW, Ret_WCW] = Builder[LW, R] {
-          type NCW = Ret_NCW
-          type WCW = Ret_WCW
+        type Aux[LW, R, Component0] = Builder[LW, R] {
+          type Component = Component0
         }
         object AdderWidth {
           import singleton.ops.math.Max
@@ -125,29 +127,36 @@ object DFUInt {
           ncW : AdderWidth.NC[LW, RW],
           wcW : AdderWidth.WC[LW, RW],
           check : `LW >= RW`.Check[LW, RW]
-        ) : Aux[LW, R, ncW.Out, wcW.Out] =
+        ) : Aux[LW, R, Adder[ncW.Out, wcW.Out]] =
           new Builder[LW, R] {
-            type NCW = ncW.Out
-            type WCW = wcW.Out
-            def apply(left : DFUInt[LW], rightAble : Able[R]) : AdderUInt[ncW.Out, wcW.Out] = {
+            type Component = Adder[ncW.Out, wcW.Out]
+            def apply(left : DFUInt[LW], rightAble : Able[R]) : Component = {
               val right = ra2r(rightAble)
               check.unsafeCheck(left.width, right.width)
               val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-              new AdderUInt[ncW.Out, wcW.Out](wc) {
+              new Adder[ncW.Out, wcW.Out](wc) {
               }
             }
           }
 
-        implicit def evUInt[LW, RW](
+        implicit def evDFUInt[LW, RW](
           implicit
           ncW : AdderWidth.NC[LW, RW],
           wcW : AdderWidth.WC[LW, RW],
           check : `LW >= RW`.Check[LW, RW]
         ) = createUInt[LW, DFUInt[RW], RW](t => t.right)
 
-        implicit def evNum[LW, R <: Int, RW](
+        implicit def evInt[LW, R <: Int, RW](
           implicit
           bitsWidthOf : BitsWidthOf.IntAux[R, RW],
+          ncW : AdderWidth.NC[LW, RW],
+          wcW : AdderWidth.WC[LW, RW],
+          check : `LW >= RW`.Check[LW, RW]
+        ) = createUInt[LW, R, RW](t => DFUInt.const[RW](TokenUInt(bitsWidthOf(t.right), t.right)))
+
+        implicit def evLong[LW, R <: Long, RW](
+          implicit
+          bitsWidthOf : BitsWidthOf.LongAux[R, RW],
           ncW : AdderWidth.NC[LW, RW],
           wcW : AdderWidth.WC[LW, RW],
           check : `LW >= RW`.Check[LW, RW]
