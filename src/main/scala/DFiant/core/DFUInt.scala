@@ -8,7 +8,7 @@ import DFiant.tokens._
 
 trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   import DFUInt.Operations._
-  def +[R](that: `Op+`.Able[R])(implicit op: `Op+`.Builder[W, R]) = op(this, that)
+  def +[R, RW](that: `Op+`.Able.Aux[R, RW])(implicit op: `Op+`.Builder[W, R, RW]) = op(this, that)
 //  def -[R](that: `OpEx`.Able[DFUInt[W], R])(implicit errChk: that.ErrChk) = that(this)
 //  def extBy(numOfBits : Int)     : TAlias = ???
 //  def +  (that : DFUInt)         : DFUInt = ???
@@ -78,14 +78,39 @@ object DFUInt {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Implicit configuration of when operation is possible
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      abstract class Able[R](val right : R)
+      abstract class Able[R](val right : R) {
+        type RW
+        val width : TwoFace.Int[RW]
+        def dfVar : DFUInt[RW]
+      }
 
       object Able {
-        implicit class OfInt(right : Int) extends Able[Int](right)
-        implicit class OfXInt[R <: XInt](right : R) extends Able[R](right)
-        implicit class OfLong(right : Long)(implicit di: DummyImplicit) extends Able[Long](right)
-        implicit class OfXLong[R <: XLong](right : R) extends Able[R](right)
-        implicit class OfDFUInt[RW](right : DFUInt[RW]) extends Able[DFUInt[RW]](right)
+        type Aux[R, RW0] = Able[R]{type RW = RW0}
+        implicit def ofInt(right : Int)(implicit w : BitsWidthOf.Int[Int]) : Aux[Int, w.Out] = new Able[Int](right) {
+          type RW = w.Out
+          val width : TwoFace.Int[RW] = w(right)
+          def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
+        }
+        implicit def ofXInt[R <: XInt](right : R)(implicit w : BitsWidthOf.Int[R]) : Aux[R, w.Out] = new Able[R](right) {
+          type RW = w.Out
+          val width : TwoFace.Int[RW] = w(right)
+          def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
+        }
+        implicit def ofLong(right : Long)(implicit w : BitsWidthOf.Long[Long]) : Aux[Long, w.Out] = new Able[Long](right) {
+          type RW = w.Out
+          val width : TwoFace.Int[RW] = w(right)
+          def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
+        }
+        implicit def ofXLong[R <: XLong](right : R)(implicit w : BitsWidthOf.Long[R]) : Aux[R, w.Out] = new Able[R](right) {
+          type RW = w.Out
+          val width : TwoFace.Int[RW] = w(right)
+          def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
+        }
+        implicit class OfDFUInt[RW0](right : DFUInt[RW0]) extends Able[DFUInt[RW0]](right) {
+          type RW = RW0
+          val width : TwoFace.Int[RW] = right.width
+          def dfVar : DFUInt[RW] = right
+        }
       }
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -96,13 +121,13 @@ object DFUInt {
       }
 
       @scala.annotation.implicitNotFound("Dataflow variable DFUInt[${LW}] does not support addition of type ${R}")
-      trait Builder[LW, R] {
+      trait Builder[LW, R, RW] {
         type Component
-        def apply(left : DFUInt[LW], rightAble : Able[R]) : Component
+        def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Component
       }
 
       object Builder {
-        type Aux[LW, R, Component0] = Builder[LW, R] {
+        type Aux[LW, R, RW, Component0] = Builder[LW, R, RW] {
           type Component = Component0
         }
         object AdderWidth {
@@ -114,53 +139,30 @@ object DFUInt {
         }
         object `LW >= RW` {
           type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
-          type Check[LW, RW] = Checked.Shell2Sym[>=, Msg, Builder[_,_], LW, Int, RW, Int]
+          type Check[LW, RW] = Checked.Shell2Sym[>=, Msg, Builder[_,_,_], LW, Int, RW, Int]
         }
         object `R >= 0` {
           type Cond[R] = R >= 0
           type Msg[R] = "Number must be natural. Received: " + ToString[R]
-          type Check[R] = Checked.Shell1Sym[Cond, Msg, Builder[_,_], R, Int]
+          type Check[R] = Checked.Shell1Sym[Cond, Msg, Builder[_,_,_], R, Int]
         }
 
-        def createUInt[LW, R, RW](ra2r : Able[R] => DFUInt[RW])(
+        implicit def ev[LW, R, RW](
           implicit
           ncW : AdderWidth.NC[LW, RW],
           wcW : AdderWidth.WC[LW, RW],
           check : `LW >= RW`.Check[LW, RW]
-        ) : Aux[LW, R, Adder[ncW.Out, wcW.Out]] =
-          new Builder[LW, R] {
+        ) : Aux[LW, R, RW, Adder[ncW.Out, wcW.Out]] =
+          new Builder[LW, R, RW] {
             type Component = Adder[ncW.Out, wcW.Out]
-            def apply(left : DFUInt[LW], rightAble : Able[R]) : Component = {
-              val right = ra2r(rightAble)
+            def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Component = {
+              val right = rightAble.dfVar
               check.unsafeCheck(left.width, right.width)
               val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
               new Adder[ncW.Out, wcW.Out](wc) {
               }
             }
           }
-
-        implicit def evDFUInt[LW, RW](
-          implicit
-          ncW : AdderWidth.NC[LW, RW],
-          wcW : AdderWidth.WC[LW, RW],
-          check : `LW >= RW`.Check[LW, RW]
-        ) = createUInt[LW, DFUInt[RW], RW](t => t.right)
-
-        implicit def evInt[LW, R <: Int, RW](
-          implicit
-          bitsWidthOf : BitsWidthOf.IntAux[R, RW],
-          ncW : AdderWidth.NC[LW, RW],
-          wcW : AdderWidth.WC[LW, RW],
-          check : `LW >= RW`.Check[LW, RW]
-        ) = createUInt[LW, R, RW](t => DFUInt.const[RW](TokenUInt(bitsWidthOf(t.right), t.right)))
-
-        implicit def evLong[LW, R <: Long, RW](
-          implicit
-          bitsWidthOf : BitsWidthOf.LongAux[R, RW],
-          ncW : AdderWidth.NC[LW, RW],
-          wcW : AdderWidth.WC[LW, RW],
-          check : `LW >= RW`.Check[LW, RW]
-        ) = createUInt[LW, R, RW](t => DFUInt.const[RW](TokenUInt(bitsWidthOf(t.right), t.right)))
       }
 
     }
