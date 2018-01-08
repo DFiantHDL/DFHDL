@@ -14,7 +14,7 @@ import scala.annotation.implicitNotFound
 import singleton.ops._
 object GeneralTest {
   val d = DFUInt(2)
-  d + d// Addable.DFUIntDFUInt[d.Width, (d)
+  d + 1// Addable.DFUIntDFUInt[d.Width, (d)
   val one = 100
   d + one
 //  d + (d + d).wc
@@ -22,6 +22,11 @@ object GeneralTest {
 
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
+
+  ff + d
+  val u = DFUInt(one)
+
+  DFUInt(one)
 
 //  ff == 1
 //  d + ff

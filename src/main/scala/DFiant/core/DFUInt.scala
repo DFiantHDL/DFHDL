@@ -7,7 +7,8 @@ import DFiant.basiclib._
 import DFiant.tokens._
 
 trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
-  def +[R](that: `Op+`.Able[DFUInt[W], R])(implicit op: `Op+`.Builder[DFUInt[W], R]) = op(this, that)
+  def +[R](that: `Op+`.Able[R])(implicit op: `Op+`.Builder[W, R]) = op(this, that)
+//  def -[R](that: `OpEx`.Able[DFUInt[W], R])(implicit errChk: that.ErrChk) = that(this)
 //  def extBy(numOfBits : Int)     : TAlias = ???
 //  def +  (that : DFUInt)         : DFUInt = ???
 //  def -  (that : DFUInt)         : DFUInt = ???
