@@ -7,37 +7,55 @@ sealed trait Bubble
 object Bubble extends Bubble
 
 trait Token {
+  //maximum token value width
   val width : Int
-  def getBitsValue : BitVector
-  def getBubbleMask : BitVector
-  final def isBubble : Boolean = !(getBubbleMask === BitVector.low(width))
+  final lazy val widthOfValue : Int = if (lzc == width) 1 else width - lzc
+  val valueBits : BitVector
+  val bubbleMask : BitVector
+  //leading zero counter
+  final lazy val lzc : Int = {
+    val l = for (i <- 0 until width if valueBits(i) || bubbleMask(i)) yield i
+    if (l.isEmpty) width else l.head
+  }
+  final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
   protected def ri(bitIdx : Int) : Int = width - 1 - bitIdx //reverse index for BitVector
 
   final def bit(relBit : Int) : TokenBool = {
     val riRelBit = ri(relBit)
-    val outBitsValue = getBitsValue(riRelBit)
-    val outBubbleMask = getBubbleMask(riRelBit)
+    val outBitsValue = valueBits(riRelBit)
+    val outBubbleMask = bubbleMask(riRelBit)
     new TokenBool(outBitsValue, outBubbleMask)
   }
-  final def bits() : TokenBits = new TokenBits(width, getBitsValue, getBubbleMask)
+  final def bits() : TokenBits = new TokenBits(width, valueBits, bubbleMask)
   final def bits(relBitHigh : Int, relBitLow : Int) : TokenBits = {
     val outWidth = relBitHigh - relBitLow + 1
     val riRelBitHigh = ri(relBitHigh)
     val riRelBitLow = ri(relBitLow)
-    val outBitsValue = getBitsValue.slice(riRelBitLow, riRelBitHigh + 1)
-    val outBubbleMask = getBubbleMask.slice(riRelBitLow, riRelBitHigh + 1)
+    val outBitsValue = valueBits.slice(riRelBitLow, riRelBitHigh + 1)
+    val outBubbleMask = bubbleMask.slice(riRelBitLow, riRelBitHigh + 1)
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def == (that : this.type) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
-    else TokenBool(this.getBitsValue == that.getBitsValue)
+    else TokenBool(this.valueBits == that.valueBits)
   }
   final def != (that : this.type) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
-    else TokenBool(this.getBitsValue != that.getBitsValue)
+    else TokenBool(this.valueBits != that.valueBits)
   }
 
-  override def toString: String = if (isBubble) "Φ" else s"0x${getBitsValue.toHex}"
+  def bubbleString : String = "Φ"
+  def valueString : String = {
+    val nibble = 4
+    //narrowing the vector by removing all the leftest zeros
+    val narrowVec = valueBits.takeRight(widthOfValue)
+    val paddedVecWidth = ((widthOfValue + nibble - 1) / nibble) * nibble
+    //default printing of bitvectors is padding-right in `toHex`.
+    //padding left is much more intuitive for us because we consider
+    // the leftest presented bit to be to MSbit.
+    s"0x${narrowVec.padLeft(paddedVecWidth).toHex}"
+  }
+  override def toString: String = if (isBubble) bubbleString else valueString
 }
 
 object Token {

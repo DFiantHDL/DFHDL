@@ -3,35 +3,35 @@ package DFiant.tokens
 import DFiant.internals._
 import scodec.bits._
 
-class TokenBits private[DFiant] (val width : Int, val getBitsValue : BitVector, val getBubbleMask : BitVector) extends Token {
+class TokenBits private[DFiant] (val width : Int, val valueBits : BitVector, val bubbleMask : BitVector) extends Token {
   final def | (that : TokenBits) : TokenBits = {
     val outWidth = math.max(this.width, that.width)
-    val outBitsValue = this.getBitsValue | that.getBitsValue
-    val outBubbleMask = this.getBubbleMask | that.getBubbleMask
+    val outBitsValue = this.valueBits | that.valueBits
+    val outBubbleMask = this.bubbleMask | that.bubbleMask
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def & (that : TokenBits) : TokenBits = {
     val outWidth = math.max(this.width, that.width)
-    val outBitsValue = this.getBitsValue & that.getBitsValue
-    val outBubbleMask = this.getBubbleMask | that.getBubbleMask
+    val outBitsValue = this.valueBits & that.valueBits
+    val outBubbleMask = this.bubbleMask | that.bubbleMask
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def ^ (that : TokenBits) : TokenBits = {
     val outWidth = math.max(this.width, that.width)
-    val outBitsValue = this.getBitsValue ^ that.getBitsValue
-    val outBubbleMask = this.getBubbleMask | that.getBubbleMask
+    val outBitsValue = this.valueBits ^ that.valueBits
+    val outBubbleMask = this.bubbleMask | that.bubbleMask
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def ## (that : TokenBits) : TokenBits = {
     val outWidth = this.width + that.width
-    val outBitsValue = this.getBitsValue ++ that.getBitsValue
-    val outBubbleMask = this.getBubbleMask ++ that.getBubbleMask
+    val outBitsValue = this.valueBits ++ that.valueBits
+    val outBubbleMask = this.bubbleMask ++ that.bubbleMask
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
   final def unary_~ : TokenBits = {
     val outWidth = this.width
-    val outBitsValue = ~this.getBitsValue
-    val outBubbleMask = this.getBubbleMask
+    val outBitsValue = ~this.valueBits
+    val outBubbleMask = this.bubbleMask
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
 }

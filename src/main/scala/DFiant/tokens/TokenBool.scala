@@ -2,23 +2,24 @@ package DFiant.tokens
 
 import scodec.bits._
 
-class TokenBool private[DFiant] (val boolValue : Boolean, val bubble : Boolean) extends Token {
+class TokenBool private[DFiant] (val valueBool : Boolean, val bubble : Boolean) extends Token {
   val width : Int = 1
-  def getBitsValue : BitVector = BitVector.bit(boolValue)
-  def getBubbleMask: BitVector = BitVector.bit(bubble)
+  lazy val valueBits : BitVector = BitVector.bit(valueBool)
+  lazy val bubbleMask: BitVector = BitVector.bit(bubble)
 
   final def && (that : TokenBool) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
-    else TokenBool(this.boolValue && that.boolValue)
+    else TokenBool(this.valueBool && that.valueBool)
   }
   final def || (that : TokenBool) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
-    else TokenBool(this.boolValue || that.boolValue)
+    else TokenBool(this.valueBool || that.valueBool)
   }
   final def unary_! : TokenBool = {
     if (this.isBubble) TokenBool(Bubble)
-    else TokenBool(!this.boolValue)
+    else TokenBool(!this.valueBool)
   }
+  override def valueString : String = valueBool.toString()
 }
 
 object TokenBool {
