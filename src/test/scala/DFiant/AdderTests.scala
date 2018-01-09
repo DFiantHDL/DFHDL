@@ -3,7 +3,7 @@ package DFiant
 import DFiant.core._
 import shapeless.test.illTyped
 
-object AdderTests {
+object `Op+Tests` {
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)
   illTyped("""uint8 + uint9""")
@@ -18,11 +18,7 @@ object AdderTests {
   val oneL = 1L
   uint8 + oneL
   uint8 + uint8 + uint8
-
   (uint8 + uint8).wc + uint9
-
   (uint8 + uint8).wc + (uint9 + uint9)
-
   illTyped("""(uint8 + uint8) + (uint8 + uint8).wc""")
-
 }

@@ -174,26 +174,25 @@ object DFUInt {
           checkRInt  : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
           checkRLong : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_,_], LW, RW]
-        ) : Aux[LW, R, RW, Component[ncW.Out, wcW.Out]] =
-          new Builder[LW, R, RW] {
-            type Comp = Component[ncW.Out, wcW.Out]
-            def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Comp = {
-              ////////////////////////////////////////////////////////////
-              // Completing runtime checks
-              ////////////////////////////////////////////////////////////
-              rightAble.right match {
-                case t : Int => checkRInt.unsafeCheck(t)
-                case t : Long => checkRLong.unsafeCheck(t)
-                case _ => //No other check required
-              }
-              checkLWvRW.unsafeCheck(left.width, rightAble.width)
-              ////////////////////////////////////////////////////////////
-              val right = rightAble.dfVar
-              val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-              new Component[ncW.Out, wcW.Out](wc) {
-              }
+        ) : Aux[LW, R, RW, Component[ncW.Out, wcW.Out]] = new Builder[LW, R, RW] {
+          type Comp = Component[ncW.Out, wcW.Out]
+          def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Comp = {
+            ////////////////////////////////////////////////////////////
+            // Completing runtime checks
+            ////////////////////////////////////////////////////////////
+            rightAble.right match {
+              case t : Int => checkRInt.unsafeCheck(t)
+              case t : Long => checkRLong.unsafeCheck(t)
+              case _ => //No other check required
+            }
+            checkLWvRW.unsafeCheck(left.width, rightAble.width)
+            ////////////////////////////////////////////////////////////
+            val right = rightAble.dfVar
+            val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
+            new Component[ncW.Out, wcW.Out](wc) {
             }
           }
+        }
       }
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,26 +229,25 @@ object DFUInt {
           checkRInt  : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
           checkRLong : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_,_], LW, RW]
-        ) : Aux[LW, R, RW, Component[ncW.Out, wcW.Out]] =
-          new Builder[LW, R, RW] {
-            type Comp = Component[ncW.Out, wcW.Out]
-            def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Comp = {
-              ////////////////////////////////////////////////////////////
-              // Completing runtime checks
-              ////////////////////////////////////////////////////////////
-              rightAble.right match {
-                case t : Int => checkRInt.unsafeCheck(t)
-                case t : Long => checkRLong.unsafeCheck(t)
-                case _ => //No other check required
-              }
-              checkLWvRW.unsafeCheck(left.width, rightAble.width)
-              ////////////////////////////////////////////////////////////
-              val right = rightAble.dfVar
-              val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
-              new Component[ncW.Out, wcW.Out](wc) {
-              }
+        ) : Aux[LW, R, RW, Component[ncW.Out, wcW.Out]] = new Builder[LW, R, RW] {
+          type Comp = Component[ncW.Out, wcW.Out]
+          def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Comp = {
+            ////////////////////////////////////////////////////////////
+            // Completing runtime checks
+            ////////////////////////////////////////////////////////////
+            rightAble.right match {
+              case t : Int => checkRInt.unsafeCheck(t)
+              case t : Long => checkRLong.unsafeCheck(t)
+              case _ => //No other check required
+            }
+            checkLWvRW.unsafeCheck(left.width, rightAble.width)
+            ////////////////////////////////////////////////////////////
+            val right = rightAble.dfVar
+            val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
+            new Component[ncW.Out, wcW.Out](wc) {
             }
           }
+        }
       }
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
