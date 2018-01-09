@@ -89,8 +89,10 @@ object DFUInt {
         type Msg[R] = "Number must be natural. Received: " + ToString[R]
       }
     }
+    type Enabled = DummyImplicit
+    type Disabled = Nothing
 
-    trait General {
+    trait General[IntEn, LongEn, DFUIntEn] {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Implicit configuration of when operation is possible
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,27 +104,27 @@ object DFUInt {
 
       object Able {
         type Aux[R, RW0] = Able[R]{type RW = RW0}
-        implicit def ofInt(right : Int)(implicit w : BitsWidthOf.Int[Int]) : Aux[Int, w.Out] = new Able[Int](right) {
+        implicit def ofInt(right : Int)(implicit e : IntEn, w : BitsWidthOf.Int[Int]) : Aux[Int, w.Out] = new Able[Int](right) {
           type RW = w.Out
           val width : TwoFace.Int[RW] = w(right)
           def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
         }
-        implicit def ofXInt[R <: XInt](right : R)(implicit w : BitsWidthOf.Int[R]) : Aux[R, w.Out] = new Able[R](right) {
+        implicit def ofXInt[R <: XInt](right : R)(implicit e : IntEn, w : BitsWidthOf.Int[R]) : Aux[R, w.Out] = new Able[R](right) {
           type RW = w.Out
           val width : TwoFace.Int[RW] = w(right)
           def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
         }
-        implicit def ofLong(right : Long)(implicit w : BitsWidthOf.Long[Long]) : Aux[Long, w.Out] = new Able[Long](right) {
+        implicit def ofLong(right : Long)(implicit e : LongEn, w : BitsWidthOf.Long[Long]) : Aux[Long, w.Out] = new Able[Long](right) {
           type RW = w.Out
           val width : TwoFace.Int[RW] = w(right)
           def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
         }
-        implicit def ofXLong[R <: XLong](right : R)(implicit w : BitsWidthOf.Long[R]) : Aux[R, w.Out] = new Able[R](right) {
+        implicit def ofXLong[R <: XLong](right : R)(implicit e : LongEn, w : BitsWidthOf.Long[R]) : Aux[R, w.Out] = new Able[R](right) {
           type RW = w.Out
           val width : TwoFace.Int[RW] = w(right)
           def dfVar : DFUInt[RW] = DFUInt.const[RW](TokenUInt(width, right))
         }
-        implicit class OfDFUInt[RW0](right : DFUInt[RW0]) extends Able[DFUInt[RW0]](right) {
+        implicit class OfDFUInt[RW0](right : DFUInt[RW0])(implicit e : DFUIntEn) extends Able[DFUInt[RW0]](right) {
           type RW = RW0
           val width : TwoFace.Int[RW] = right.width
           def dfVar : DFUInt[RW] = right
@@ -131,7 +133,7 @@ object DFUInt {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     }
-    object `Op+` extends General {
+    object `Op+` extends General[Enabled, Enabled, Enabled] {
 
       //NCW = No-carry width
       //WCW = With-carry width
@@ -168,7 +170,6 @@ object DFUInt {
           new Builder[LW, R, RW] {
             type Component = Adder[ncW.Out, wcW.Out]
             def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Component = {
-              val right = rightAble.dfVar
               ////////////////////////////////////////////////////////////
               // Completing runtime checks
               ////////////////////////////////////////////////////////////
@@ -177,8 +178,9 @@ object DFUInt {
                 case t : Long => checkRLong.unsafeCheck(t)
                 case _ => //No other check required
               }
-              checkLWvRW.unsafeCheck(left.width, right.width)
+              checkLWvRW.unsafeCheck(left.width, rightAble.width)
               ////////////////////////////////////////////////////////////
+              val right = rightAble.dfVar
               val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
               new Adder[ncW.Out, wcW.Out](wc) {
               }
