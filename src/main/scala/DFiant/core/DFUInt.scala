@@ -9,6 +9,7 @@ import DFiant.tokens._
 trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   import DFUInt.Operations._
   def +[R, RW](that: `Op+`.Able.Aux[R, RW])(implicit op: `Op+`.Builder[W, R, RW]) = op(this, that)
+  def -[R, RW](that: `Op-`.Able.Aux[R, RW])(implicit op: `Op-`.Builder[W, R, RW]) = op(this, that)
 //  def -[R](that: `OpEx`.Able[DFUInt[W], R])(implicit errChk: that.ErrChk) = that(this)
 //  def extBy(numOfBits : Int)     : TAlias = ???
 //  def +  (that : DFUInt)         : DFUInt = ???
@@ -76,7 +77,7 @@ object DFUInt {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected object Operations {
+  object Operations {
     object `LW >= RW` extends Checked1Param.Int {
       type Cond[LW, RW] = LW >= RW
       type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
@@ -142,7 +143,7 @@ object DFUInt {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Addition operation
+    // + operation
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object `Op+` extends General[Enabled, Enabled, Enabled] {
       //NCW = No-carry width
@@ -151,14 +152,14 @@ object DFUInt {
         val c = wc.bits().msbit
       }
 
-      @scala.annotation.implicitNotFound("Dataflow variable DFUInt[${LW}] does not support addition of type ${R}")
+      @scala.annotation.implicitNotFound("Dataflow variable DFUInt[${LW}] does not support Op+ with the type ${R}")
       trait Builder[LW, R, RW] extends BuilderTop[LW, R, RW]
 
       object Builder {
         type Aux[LW, R, RW, Comp0] = Builder[LW, R, RW] {
           type Comp = Comp0
         }
-        object AdderWidth {
+        object Inference {
           import singleton.ops.math.Max
           type CalcWC[LW, RW] = Max[LW, RW] + 1
           type WC[LW, RW] = TwoFace.Int.Shell2[CalcWC, LW, Int, RW, Int]
@@ -168,8 +169,8 @@ object DFUInt {
 
         implicit def ev[LW, R, RW](
           implicit
-          ncW : AdderWidth.NC[LW, RW],
-          wcW : AdderWidth.WC[LW, RW],
+          ncW : Inference.NC[LW, RW],
+          wcW : Inference.WC[LW, RW],
           checkRInt  : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
           checkRLong : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_,_], LW, RW]
@@ -197,5 +198,60 @@ object DFUInt {
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // - operation
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    object `Op-` extends General[Enabled, Enabled, Enabled] {
+      //NCW = No-carry width
+      //WCW = With-carry width
+      abstract class Component[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+        val c = wc.bits().msbit
+      }
+
+      @scala.annotation.implicitNotFound("Dataflow variable DFUInt[${LW}] does not support Op- with the type ${R}")
+      trait Builder[LW, R, RW] extends BuilderTop[LW, R, RW]
+
+      object Builder {
+        type Aux[LW, R, RW, Comp0] = Builder[LW, R, RW] {
+          type Comp = Comp0
+        }
+        object Inference {
+          import singleton.ops.math.Max
+          type CalcWC[LW, RW] = Max[LW, RW] + 1
+          type WC[LW, RW] = TwoFace.Int.Shell2[CalcWC, LW, Int, RW, Int]
+          type CalcNC[LW, RW] = Max[LW, RW]
+          type NC[LW, RW] = TwoFace.Int.Shell2[CalcNC, LW, Int, RW, Int]
+        }
+
+        implicit def ev[LW, R, RW](
+          implicit
+          ncW : Inference.NC[LW, RW],
+          wcW : Inference.WC[LW, RW],
+          checkRInt  : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
+          checkRLong : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
+          checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_,_], LW, RW]
+        ) : Aux[LW, R, RW, Component[ncW.Out, wcW.Out]] =
+          new Builder[LW, R, RW] {
+            type Comp = Component[ncW.Out, wcW.Out]
+            def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Comp = {
+              ////////////////////////////////////////////////////////////
+              // Completing runtime checks
+              ////////////////////////////////////////////////////////////
+              rightAble.right match {
+                case t : Int => checkRInt.unsafeCheck(t)
+                case t : Long => checkRLong.unsafeCheck(t)
+                case _ => //No other check required
+              }
+              checkLWvRW.unsafeCheck(left.width, rightAble.width)
+              ////////////////////////////////////////////////////////////
+              val right = rightAble.dfVar
+              val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
+              new Component[ncW.Out, wcW.Out](wc) {
+              }
+            }
+          }
+      }
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
 }

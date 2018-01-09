@@ -16,8 +16,15 @@ package object tokens {
   }
 
   implicit class TokenUIntSeq(seq : Seq[TokenUInt]) extends TokenSeq(seq) {
-//    def unary_~ : Seq[TokenUInt] = applyOp(TokenUInt.unary_~)
     def + (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.+)
+    def - (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.-)
+    def * (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.*)
+    def / (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt./)
+    def % (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.%)
+    def < (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.<)
+    def > (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.>)
+    def <= (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.<=)
+    def >= (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.>=)
   }
 
   implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {

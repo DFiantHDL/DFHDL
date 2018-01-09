@@ -35,6 +35,14 @@ class TokenUInt private[DFiant] (val width : Int, val uintValue : BigInt, val bu
 
 object TokenUInt {
   def + (left : TokenUInt, right : TokenUInt) : TokenUInt = left + right
+  def - (left : TokenUInt, right : TokenUInt) : TokenUInt = left - right
+  def * (left : TokenUInt, right : TokenUInt) : TokenUInt = left * right
+  def / (left : TokenUInt, right : TokenUInt) : TokenUInt = left / right
+  def % (left : TokenUInt, right : TokenUInt) : TokenUInt = left % right
+  def < (left : TokenUInt, right : TokenUInt) : TokenBool = left < right
+  def > (left : TokenUInt, right : TokenUInt) : TokenBool = left > right
+  def <= (left : TokenUInt, right : TokenUInt) : TokenBool = left <= right
+  def >= (left : TokenUInt, right : TokenUInt) : TokenBool = left >= right
 //  def unary_- (left : TokenUInt) : TokenUInt = -left
 
   def apply(width : Int, value : Int) : TokenUInt = TokenUInt(width, BigInt(value))
