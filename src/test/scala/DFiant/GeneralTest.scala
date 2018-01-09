@@ -54,3 +54,8 @@ object GeneralTest {
 //  foo test 1.0 //Type mismatch. Double is not supported.
 
 }
+
+object Bla {
+  import DFiant._
+  val a = DFBits(8).init(1)
+}

@@ -13,6 +13,8 @@ object Init {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Able[L <: DFAny] {
     val right : Any
+
+    override def toString: String = right.toString
   }
 
   object Able {
@@ -27,6 +29,8 @@ object Init {
       def toSeqAny : Seq[Any] = {
         flatten(s.map(e => e.right))
       }
+
+      override def toString: String = s.toString()
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -59,7 +63,7 @@ object Init {
     implicit class DFBoolBubble(val right : Bubble) extends Able[DFBool]
     implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
     implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
-    implicit class DFBoolInt(val right : Int)(implicit chk : IntIsBoolean) extends Able[DFBool]
+    implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends Able[DFBool]
     implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 
     def toTokenBoolSeq(right : Seq[Able[DFBool]]) : Seq[TokenBool] =

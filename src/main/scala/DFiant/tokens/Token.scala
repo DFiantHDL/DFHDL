@@ -10,7 +10,7 @@ trait Token {
   val width : Int
   def getBitsValue : BitVector
   def getBubbleMask : BitVector
-  final def isBubble : Boolean = !(getBubbleMask === BitVector.zero)
+  final def isBubble : Boolean = !(getBubbleMask === BitVector.low(width))
   protected def ri(bitIdx : Int) : Int = width - 1 - bitIdx //reverse index for BitVector
 
   final def bit(relBit : Int) : TokenBool = {
