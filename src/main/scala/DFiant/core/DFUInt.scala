@@ -74,6 +74,22 @@ object DFUInt {
 
 
   protected object Operations {
+    object `LW >= RW` extends Checked1Param.Int {
+      type Cond[LW, RW] = LW >= RW
+      type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
+      type ParamFace = Int
+    }
+    object `R >= 0` {
+      object Int extends Checked0Param.Int {
+        type Cond[R] = ITE[IsInt[R], R > 0, true]
+        type Msg[R] = "Number must be natural. Received: " + ToString[R]
+      }
+      object Long extends Checked0Param.Long {
+        type Cond[R] = ITE[IsLong[R], R > 0, true]
+        type Msg[R] = "Number must be natural. Received: " + ToString[R]
+      }
+    }
+
     trait General {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Implicit configuration of when operation is possible
@@ -140,27 +156,29 @@ object DFUInt {
           type CalcNC[LW, RW] = Max[LW, RW]
           type NC[LW, RW] = TwoFace.Int.Shell2[CalcNC, LW, Int, RW, Int]
         }
-        object `LW >= RW` {
-          type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
-          type Check[LW, RW] = Checked.Shell2Sym[>=, Msg, Builder[_,_,_], LW, Int, RW, Int]
-        }
-        object `R >= 0` {
-          type Cond[R] = R >= 0
-          type Msg[R] = "Number must be natural. Received: " + ToString[R]
-          type Check[R] = Checked.Shell1Sym[Cond, Msg, Builder[_,_,_], R, Int]
-        }
 
         implicit def ev[LW, R, RW](
           implicit
           ncW : AdderWidth.NC[LW, RW],
           wcW : AdderWidth.WC[LW, RW],
-          check : `LW >= RW`.Check[LW, RW]
+          checkRInt  : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
+          checkRLong : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
+          checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_,_], LW, RW]
         ) : Aux[LW, R, RW, Adder[ncW.Out, wcW.Out]] =
           new Builder[LW, R, RW] {
             type Component = Adder[ncW.Out, wcW.Out]
             def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Component = {
               val right = rightAble.dfVar
-              check.unsafeCheck(left.width, right.width)
+              ////////////////////////////////////////////////////////////
+              // Completing runtime checks
+              ////////////////////////////////////////////////////////////
+              rightAble.right match {
+                case t : Int => checkRInt.unsafeCheck(t)
+                case t : Long => checkRLong.unsafeCheck(t)
+                case _ => //No other check required
+              }
+              checkLWvRW.unsafeCheck(left.width, right.width)
+              ////////////////////////////////////////////////////////////
               val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
               new Adder[ncW.Out, wcW.Out](wc) {
               }

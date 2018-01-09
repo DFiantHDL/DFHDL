@@ -9,6 +9,8 @@ object AdderTests {
   illTyped("""uint8 + uint9""")
   uint9 + uint8
   illTyped("""uint8 + 511""")
+  illTyped("""uint8 + -1""")
+  illTyped("""uint8 + -1L""")
   uint9 + 511
   uint9 + 511L
   val one = 1
