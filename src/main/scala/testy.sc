@@ -1,9 +1,13 @@
 import DFiant._
-import tokens._
-TokenUInt(10,128)
+import singleton.ops._
+type DFDouble = DFUInt[W.`64`.T]
 
-val a = DFUInt(8).init(1,2,3,4,Bubble)
 
-val b = DFBool().init(true, false, true, true)
+val windowLength = 1024
+def inverse(data : DFDouble) : DFDouble = {
+  val norm = (1.0/(windowLength.toDouble/2))
+  data * norm
+}
+
 
 

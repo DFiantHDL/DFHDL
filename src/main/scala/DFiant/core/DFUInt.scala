@@ -10,6 +10,7 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   import DFUInt.Operations._
   def +[R, RW](that: `Op+`.Able.Aux[R, RW])(implicit op: `Op+`.Builder[W, R, RW]) = op(this, that)
   def -[R, RW](that: `Op-`.Able.Aux[R, RW])(implicit op: `Op-`.Builder[W, R, RW]) = op(this, that)
+  def * (that : Double) : DFUInt[W] = ???
 //  def -[R](that: `OpEx`.Able[DFUInt[W], R])(implicit errChk: that.ErrChk) = that(this)
 //  def extBy(numOfBits : Int)     : TAlias = ???
 //  def +  (that : DFUInt)         : DFUInt = ???
