@@ -14,16 +14,17 @@ import scala.annotation.implicitNotFound
 import singleton.ops._
 object GeneralTest {
   val d = DFUInt(2)
-  d + 1// Addable.DFUIntDFUInt[d.Width, (d)
+//  d + (d + d).wc
+  d + 1L// Addable.DFUIntDFUInt[d.Width, (d)
   val one = 100
-  d + one
+//  d + one
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
 
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
 
-  ff + d
+//  ff + d
   val u = DFUInt(one)
 
   DFUInt(one)

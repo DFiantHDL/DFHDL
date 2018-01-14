@@ -13,6 +13,7 @@ object `Op+Tests` {
   illTyped("""uint8 + -1L""")
   uint9 + 511
   uint9 + 511L
+  uint9 + BigInt(511)
   val one = 1
   uint8 + one
   val oneL = 1L
