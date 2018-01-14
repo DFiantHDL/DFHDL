@@ -50,6 +50,8 @@ package object internals {
         ]
     type CalcInt[V] = Calc[V, W.`32`.T]
     type CalcLong[V] = Calc[V, W.`64`.T]
+    type Arg0Int = TwoFace.Int.Shell1[CalcInt, GetArg0, scala.Int]
+    type Arg0Long = TwoFace.Int.Shell1[CalcLong, GetArg0, scala.Long]
     type Int[V] = TwoFace.Int.Shell1[CalcInt, V, scala.Int]
     type IntAux[V, Ret_Out] = Int[V] {type Out = Ret_Out}
     type Long[V] = TwoFace.Int.Shell1[CalcLong, V, scala.Long]
