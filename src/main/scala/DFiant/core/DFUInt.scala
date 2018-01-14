@@ -90,7 +90,7 @@ object DFUInt {
         type Msg[R] = "Number must be natural. Received: " + ToString[R]
       }
       object Long extends Checked0Param.Long {
-        type Cond[R] = ITE[IsLong[R], R > 0, true]
+        type Cond[R] = ITE[IsLong[R], R > 0L, true]
         type Msg[R] = "Number must be natural. Received: " + ToString[R]
       }
     }

@@ -34,9 +34,10 @@ package object internals {
   def bigIntBitsToDouble(value : BigInt) : Double = longBitsToDouble(value.toLong)
 
   object BitsWidthOf {
-    private type IsPositive[V] = V > W.`0`.T
-    private type IsZero[V] = V == W.`0`.T
-    private type One = W.`1`.T
+    private type Zero[V] = ITE[IsLong[V], 0L, 0]
+    private type IsPositive[V] = V > Zero[V]
+    private type IsZero[V] = V == Zero[V]
+    private type One = 1
     private type Calc[V, W] =
       ITE[
         IsPositive[V],
@@ -137,9 +138,15 @@ package object internals {
     type Msg[W] = "DFBits width must be positive. Found width = " + ToString[W]
   }
 
-  object Natural extends Checked0Param.Int {
-    type Cond[N] = N >= 0
-    type Msg[N] = "Argument must be a natural number, but found " + ToString[N]
+  object Natural {
+    object Int extends Checked0Param.Int {
+      type Cond[N] = N >= 0
+      type Msg[N] = "Argument must be a natural number, but found " + ToString[N]
+    }
+    object Long extends Checked0Param.Long {
+      type Cond[N] = N >= 0L
+      type Msg[N] = "Argument must be a natural number, but found " + ToString[N]
+    }
   }
 
   object Positive extends Checked0Param.Int {

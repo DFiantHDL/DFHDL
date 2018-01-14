@@ -37,8 +37,8 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private type IntWithinWidth[LW] = CompileTime[Natural.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
-    private type LongWithinWidth[LW] = CompileTime[Natural.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
+    private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
+    private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
     implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
     implicit class DFBitsToken[LW](val right : TokenBits) extends Able[DFBits[LW]]
     implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]

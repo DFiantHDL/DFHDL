@@ -51,7 +51,7 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
     protLSBits(partWidth.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
-  def extBy[N](numOfBits : Natural.Checked[N])(
+  def extBy[N](numOfBits : Natural.Int.Checked[N])(
     implicit tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
   ) : DFBits.Var[tfs.Out] = DFBits.newVar(tfs(width, numOfBits)).init(getInit).assign(this)
 
