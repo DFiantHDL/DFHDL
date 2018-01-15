@@ -29,7 +29,7 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
 //  def >  (that : DFUInt)         : DFBool = ???
 //  def <= (that : DFUInt)         : DFBool = ???
   def dfTypeName : String = "DFUInt"
-  def extendable : TAlias with DFUInt.Extendable = DFUInt.extendable[W](this).asInstanceOf[TAlias with DFUInt.Extendable]
+  def extendable : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
 }
 
 
