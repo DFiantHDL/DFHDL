@@ -214,61 +214,13 @@ object DFUInt {
         })
       }
     }
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    // - operation
-//    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    object `Op-` extends General[Enabled, Enabled, Enabled] {
-//      //NCW = No-carry width
-//      //WCW = With-carry width
-//      abstract class Component[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
-//        val c = wc.bits().msbit
-//      }
-//
-//      @scala.annotation.implicitNotFound("Dataflow variable DFUInt[${LW}] does not support Op- with the type ${R}")
-//      trait Builder[LW, R, RW] extends BuilderTop[LW, R, RW]
-//
-//      object Builder {
-//        type Aux[LW, R, RW, Comp0] = Builder[LW, R, RW] {
-//          type Comp = Comp0
-//        }
-//        object Inference {
-//          import singleton.ops.math.Max
-//          type CalcWC[LW, RW] = Max[LW, RW] + 1
-//          type WC[LW, RW] = TwoFace.Int.Shell2[CalcWC, LW, Int, RW, Int]
-//          type CalcNC[LW, RW] = Max[LW, RW]
-//          type NC[LW, RW] = TwoFace.Int.Shell2[CalcNC, LW, Int, RW, Int]
-//        }
-//
-//        implicit def ev[LW, R, RW](
-//          implicit
-//          ncW : Inference.NC[LW, RW],
-//          wcW : Inference.WC[LW, RW],
-//          checkRInt  : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
-//          checkRLong : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
-//          checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_,_], LW, RW]
-//        ) : Aux[LW, R, RW, Component[ncW.Out, wcW.Out]] = new Builder[LW, R, RW] {
-//          type Comp = Component[ncW.Out, wcW.Out]
-//          def apply(left : DFUInt[LW], rightAble : Able.Aux[R, RW]) : Comp = {
-//            ////////////////////////////////////////////////////////////
-//            // Completing runtime checks
-//            ////////////////////////////////////////////////////////////
-//            rightAble.right match {
-//              case t : Int => checkRInt.unsafeCheck(t)
-//              case t : Long => checkRLong.unsafeCheck(t)
-//              case _ => //No other check required
-//            }
-//            checkLWvRW.unsafeCheck(left.width, rightAble.width)
-//            ////////////////////////////////////////////////////////////
-//            val right = rightAble.dfVar
-//            val wc = DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
-//            new Component[ncW.Out, wcW.Out](wc) {
-//            }
-//          }
-//        }
-//      }
-//    }
-//    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // - operation
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

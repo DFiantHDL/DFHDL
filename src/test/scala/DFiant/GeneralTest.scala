@@ -14,8 +14,9 @@ import scala.annotation.implicitNotFound
 import singleton.ops._
 object GeneralTest {
   val d = DFUInt(2)
+  val d2 = DFUInt(2)
 //  d + (d + d).wc
-  d + 1L// Addable.DFUIntDFUInt[d.Width, (d)
+  d + d2
   val one = 100
 //  d + one
 //  d + (d + d).wc
