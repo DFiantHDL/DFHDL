@@ -13,10 +13,11 @@ import scala.annotation.implicitNotFound
   */
 import singleton.ops._
 object GeneralTest {
+  val two = 2
   val d = DFUInt(2)
-  val d2 = DFUInt(2)
+  val d2 = DFUInt(3)
 //  d + (d + d).wc
-  d + d2
+  d.extendable + d2
   val one = 100
 //  d + one
 //  d + (d + d).wc
