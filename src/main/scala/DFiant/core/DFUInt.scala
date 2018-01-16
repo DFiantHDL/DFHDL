@@ -17,21 +17,23 @@ sealed trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]]
   ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(this)
 //  def *  (that : DFUInt)         : DFUInt = ???
 //  def /  (that : DFUInt)         : DFUInt = ???
+
+  def <  [R](that: `Op<`.Able[R])(implicit op: `Op<`.Builder[W, Extendable, R]) = op(this, that)
+  def >  [R](that: `Op>`.Able[R])(implicit op: `Op>`.Builder[W, Extendable, R]) = op(this, that)
+  def <= [R](that: `Op<=`.Able[R])(implicit op: `Op<=`.Builder[W, Extendable, R]) = op(this, that)
+  def >= [R](that: `Op>=`.Able[R])(implicit op: `Op>=`.Builder[W, Extendable, R]) = op(this, that)
+
   def == [RW](that : DFUInt[RW])(implicit op: `Op==`.Builder[W, Extendable, DFUInt[RW]]) = op(this, that)
   def == [R](that : Int)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op==`.Builder[W, Extendable, R]) = op(this, g.value)
   def == [R](that : Long)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op==`.Builder[W, Extendable, R]) = op(this, g.value)
   def == (that : BigInt)(implicit op: `Op==`.Builder[W, Extendable, BigInt]) = op(this, that)
-//  def == (that : Long)           : DFBool = ???
-//  def == (that : BigInt)         : DFBool = ???
-//  def != (that : Int)            : DFBool = ???
-//  def != (that : Long)           : DFBool = ???
-//  def != (that : BigInt)         : DFBool = ???
-//  def isZero                     : DFBool = ???
-//  def isNonZero                  : DFBool = ???
-//  def <  (that : DFUInt)         : DFBool = ???
-//  def >= (that : DFUInt)         : DFBool = ???
-//  def >  (that : DFUInt)         : DFBool = ???
-//  def <= (that : DFUInt)         : DFBool = ???
+  def != [RW](that : DFUInt[RW])(implicit op: `Op!=`.Builder[W, Extendable, DFUInt[RW]]) = op(this, that)
+  def != [R](that : Int)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op!=`.Builder[W, Extendable, R]) = op(this, g.value)
+  def != [R](that : Long)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op!=`.Builder[W, Extendable, R]) = op(this, g.value)
+  def != (that : BigInt)(implicit op: `Op!=`.Builder[W, Extendable, BigInt]) = op(this, that)
+
+  def isZero = this == 0
+  def isNonZero = this != 0
 //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
   def dfTypeName : String = "DFUInt"
   def extendable : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
@@ -101,11 +103,11 @@ object DFUInt {
     object `R >= 0` {
       type MsgCommon[R] = "Number must be natural. Received: " + ToString[R]
       object Int extends Checked0Param.Int {
-        type Cond[R] = R > 0
+        type Cond[R] = R >= 0
         type Msg[R] = MsgCommon[R]
       }
       object Long extends Checked0Param.Long {
-        type Cond[R] = R > 0L
+        type Cond[R] = R >= 0L
         type Msg[R] = MsgCommon[R]
       }
       object BigInt extends Checked1Param.Boolean {
@@ -278,6 +280,10 @@ object DFUInt {
             kind match {
               case OpsCompare.== => DFBool.op("==", TokenUIntSeq(left.getInit) == right.getInit, left, right)
               case OpsCompare.!= => DFBool.op("!=", TokenUIntSeq(left.getInit) != right.getInit, left, right)
+              case OpsCompare.<  => DFBool.op("<",  TokenUIntSeq(left.getInit) <  right.getInit, left, right)
+              case OpsCompare.>  => DFBool.op(">",  TokenUIntSeq(left.getInit) >  right.getInit, left, right)
+              case OpsCompare.<= => DFBool.op("<=", TokenUIntSeq(left.getInit) <= right.getInit, left, right)
+              case OpsCompare.>= => DFBool.op(">=", TokenUIntSeq(left.getInit) >= right.getInit, left, right)
             }
           }
         }
@@ -289,29 +295,48 @@ object DFUInt {
 
         implicit def evInt[LW, LE, R <: Int, RW](
           implicit
+          checkR : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
           rW : BitsWidthOf.IntAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[LW, LE, R, DFBool] = create[LW, LE, R, RW](rightNum => DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
+        ) : Aux[LW, LE, R, DFBool] = create[LW, LE, R, RW](rightNum => {
+          checkR.unsafeCheck(rightNum)
+          DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+        })
 
         implicit def evLong[LW, LE, R <: Long, RW](
           implicit
+          checkR : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
           rW : BitsWidthOf.LongAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[LW, LE, R, DFBool] = create[LW, LE, R, RW](rightNum => DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
+        ) : Aux[LW, LE, R, DFBool] = create[LW, LE, R, RW](rightNum => {
+          checkR.unsafeCheck(rightNum)
+          DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+        })
 
         implicit def evBigInt[LW, LE](
           implicit
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, Int]
-        ) : Aux[LW, LE, BigInt, DFBool] = create[LW, LE, BigInt, Int](rightNum => DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum)))
+        ) : Aux[LW, LE, BigInt, DFBool] = create[LW, LE, BigInt, Int](rightNum => {
+          `R >= 0`.BigInt.unsafeCheck(rightNum)
+          DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum))
+        })
       }
     }
     protected object OpsCompare {
       sealed trait Kind
       case object == extends Kind
       case object != extends Kind
+      case object <  extends Kind
+      case object >  extends Kind
+      case object <= extends Kind
+      case object >= extends Kind
     }
     object `Op==` extends OpsCompare(OpsCompare.==)
     object `Op!=` extends OpsCompare(OpsCompare.!=)
+    object `Op<`  extends OpsCompare(OpsCompare.<)
+    object `Op>`  extends OpsCompare(OpsCompare.>)
+    object `Op<=` extends OpsCompare(OpsCompare.<=)
+    object `Op>=` extends OpsCompare(OpsCompare.>=)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
