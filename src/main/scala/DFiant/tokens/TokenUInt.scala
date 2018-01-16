@@ -25,6 +25,8 @@ class TokenUInt private[DFiant] (val width : Int, val valueUInt : BigInt, val bu
   final def >  (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt > that.valueUInt, this.isBubble || that.isBubble)
   final def <= (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt <= that.valueUInt, this.isBubble || that.isBubble)
   final def >= (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt >= that.valueUInt, this.isBubble || that.isBubble)
+  final def == (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt == that.valueUInt, this.isBubble || that.isBubble)
+  final def != (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt != that.valueUInt, this.isBubble || that.isBubble)
 //  final def unary_- : TokenSInt = {
 //    val outWidth = this.width+1
 //    val outUIntValue = ~this.bitsValue
@@ -44,6 +46,8 @@ object TokenUInt {
   def > (left : TokenUInt, right : TokenUInt) : TokenBool = left > right
   def <= (left : TokenUInt, right : TokenUInt) : TokenBool = left <= right
   def >= (left : TokenUInt, right : TokenUInt) : TokenBool = left >= right
+  def == (left : TokenUInt, right : TokenUInt) : TokenBool = left == right
+  def != (left : TokenUInt, right : TokenUInt) : TokenBool = left != right
 //  def unary_- (left : TokenUInt) : TokenUInt = -left
 
   def apply(width : Int, value : Int) : TokenUInt = TokenUInt(width, BigInt(value))

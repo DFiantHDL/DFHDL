@@ -25,6 +25,8 @@ package object tokens {
     def > (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.>)
     def <= (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.<=)
     def >= (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.>=)
+    def == (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.==)
+    def != (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.!=)
   }
 
   implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {

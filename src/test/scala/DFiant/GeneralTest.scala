@@ -18,6 +18,7 @@ object GeneralTest {
   val d2 = DFUInt(3)
 //  d + (d + d).wc
   d.extendable + d2
+  d.extendable == 100
   val one = 100
 //  d + one
 //  d + (d + d).wc
