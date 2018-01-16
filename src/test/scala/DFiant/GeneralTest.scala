@@ -24,6 +24,8 @@ object GeneralTest {
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
 
+  1.extendable + d
+
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
 
