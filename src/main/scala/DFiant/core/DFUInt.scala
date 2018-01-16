@@ -17,7 +17,7 @@ sealed trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]]
   ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(this)
 //  def *  (that : DFUInt)         : DFUInt = ???
 //  def /  (that : DFUInt)         : DFUInt = ???
-  def == [RW, R <: DFUInt[RW]](that : R)(implicit op: `Op==`.Builder[W, Extendable, R]) = op(this, that)
+  def == [RW](that : DFUInt[RW])(implicit op: `Op==`.Builder[W, Extendable, DFUInt[RW]]) = op(this, that)
   def == [R](that : Int)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op==`.Builder[W, Extendable, R]) = op(this, g.value)
   def == [R](that : Long)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op==`.Builder[W, Extendable, R]) = op(this, g.value)
   def == (that : BigInt)(implicit op: `Op==`.Builder[W, Extendable, BigInt]) = op(this, that)
@@ -285,24 +285,24 @@ object DFUInt {
         implicit def evDFUInt[LW, LE, R <: DFUInt[RW], RW](
           implicit
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = create[LW, LE, DFUInt[RW], RW](right => right)
+        ) : Aux[LW, LE, DFUInt[RW], DFBool] = create[LW, LE, DFUInt[RW], RW](right => right)
 
         implicit def evInt[LW, LE, R <: Int, RW](
           implicit
           rW : BitsWidthOf.IntAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = create[LW, LE, R, RW](rightNum => DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
+        ) : Aux[LW, LE, R, DFBool] = create[LW, LE, R, RW](rightNum => DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
 
         implicit def evLong[LW, LE, R <: Long, RW](
           implicit
           rW : BitsWidthOf.LongAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = create[LW, LE, R, RW](rightNum => DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
+        ) : Aux[LW, LE, R, DFBool] = create[LW, LE, R, RW](rightNum => DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
 
         implicit def evBigInt[LW, LE](
           implicit
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, Int]
-        ) = create[LW, LE, BigInt, Int](rightNum => DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum)))
+        ) : Aux[LW, LE, BigInt, DFBool] = create[LW, LE, BigInt, Int](rightNum => DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum)))
       }
     }
     protected object OpsCompare {
