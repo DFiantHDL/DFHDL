@@ -7,33 +7,34 @@ import DFiant.basiclib._
 import DFiant.tokens._
 
 sealed trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
+  left =>
   import DFUInt.Operations._
   type Extendable
-  def +[R](that: `Op+`.Able[R])(implicit op: `Op+`.Builder[DFUInt[W], Extendable, R]) = op(this, that)
-  def -[R](that: `Op-`.Able[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(this, that)
+  def +[R](right: `Op+`.Able[R])(implicit op: `Op+`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def -[R](right: `Op-`.Able[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
 
   def extBy[N](numOfBits : Natural.Int.Checked[N])(
     implicit tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
-  ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(this)
-//  def *  (that : DFUInt)         : DFUInt = ???
-//  def /  (that : DFUInt)         : DFUInt = ???
+  ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
+//  def *  (right : DFUInt)         : DFUInt = ???
+//  def /  (right : DFUInt)         : DFUInt = ???
 
-  def <  [R](that: `Op<`.Able[R])(implicit op: `Op<`.Builder[DFUInt[W], Extendable, R]) = op(this, that)
-  def >  [R](that: `Op>`.Able[R])(implicit op: `Op>`.Builder[DFUInt[W], Extendable, R]) = op(this, that)
-  def <= [R](that: `Op<=`.Able[R])(implicit op: `Op<=`.Builder[DFUInt[W], Extendable, R]) = op(this, that)
-  def >= [R](that: `Op>=`.Able[R])(implicit op: `Op>=`.Builder[DFUInt[W], Extendable, R]) = op(this, that)
+  def <  [R](right: `Op<`.Able[R])(implicit op: `Op<`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def >  [R](right: `Op>`.Able[R])(implicit op: `Op>`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def <= [R](right: `Op<=`.Able[R])(implicit op: `Op<=`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def >= [R](right: `Op>=`.Able[R])(implicit op: `Op>=`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
 
-  def == [RW](that : DFUInt[RW])(implicit op: `Op==`.Builder[DFUInt[W], Extendable, DFUInt[RW]]) = op(this, that)
-  def == [R](that : Int)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op==`.Builder[DFUInt[W], Extendable, R]) = op(this, g.value)
-  def == [R](that : Long)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op==`.Builder[DFUInt[W], Extendable, R]) = op(this, g.value)
-  def == (that : BigInt)(implicit op: `Op==`.Builder[DFUInt[W], Extendable, BigInt]) = op(this, that)
-  def != [RW](that : DFUInt[RW])(implicit op: `Op!=`.Builder[DFUInt[W], Extendable, DFUInt[RW]]) = op(this, that)
-  def != [R](that : Int)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op!=`.Builder[DFUInt[W], Extendable, R]) = op(this, g.value)
-  def != [R](that : Long)(implicit g : OpAuxGen[AcceptNonLiteral[GetArg0], R], op: `Op!=`.Builder[DFUInt[W], Extendable, R]) = op(this, g.value)
-  def != (that : BigInt)(implicit op: `Op!=`.Builder[DFUInt[W], Extendable, BigInt]) = op(this, that)
+  def == [RW](right : DFUInt[RW])(implicit op: `Op==`.Builder[DFUInt[W], Extendable, DFUInt[RW]]) = op(left, right)
+  def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def == (that : BigInt)(implicit op: `Op==`.Builder[DFUInt[W], Extendable, BigInt]) = op(left, that)
+  def != [RW](right : DFUInt[RW])(implicit op: `Op!=`.Builder[DFUInt[W], Extendable, DFUInt[RW]]) = op(left, right)
+  def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def != (that : BigInt)(implicit op: `Op!=`.Builder[DFUInt[W], Extendable, BigInt]) = op(left, that)
 
-  def isZero = this == 0
-  def isNonZero = this != 0
+  def isZero = left == 0
+  def isNonZero = left != 0
 //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
   def dfTypeName : String = "DFUInt"
   def extendable : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
@@ -89,45 +90,17 @@ object DFUInt {
     new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//  trait ConstBuilder[T, ] {
-//    type W
-//    def apply(value : T) : DFUInt[W]
-//  }
-//  object ConstBuilder {
-//    type Aux[T, W0] = ConstBuilder[T]{type W = W0}
-//    def ev[T](implicit w : BitsWidthOf.Int[T]) : Aux[T, w.Out] = new ConstBuilder[T] {
-//      type W = w.Out
-//      def apply(value : T) : DFUInt[W] = {
-//        val width = w(value)
-//        value match {
-//          case t : Int =>
-//          case t : Long =>
-//          case t : BigInt =>
-//        }
-//      }
-//    }
-//  }
-//
-  type Zero = 0
   implicit class FromInt(value : Int) {
     import DFUInt.Operations._
-    //    final val left = DFUInt.const[LW](TokenUInt(w(value), value))
 //    type Extendable
 //    def extendable[Out <: XInt](implicit g : OpAuxInt[AcceptNonLiteral[GetLHSArg0], Out]) : FromInt[g.Out] with DFUInt.Extendable = new FromInt[g.Out](g.value) with DFUInt.Extendable
-//    def + [L, LW, RW](that : DFUInt[RW])(implicit w : BitsWidthOf.IntAux[GetLHSArg0, LW], op: `Op+`.Builder[LW, Extendable, DFUInt[RW]]) = op(DFUInt.const[LW](TokenUInt(w(value), value)), that)
-    def + [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[Zero, L], op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def +  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def -  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def <  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op<`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def >  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op>`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def <= [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op<=`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def >= [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op>=`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
   }
-//
-//  trait Implicits {
-////    implicit def fromInt[T <: Int](value: T)(
-////      implicit
-////      checkR: CommonChecks.`R >= 0`.Int.CheckedShellSym[DFUInt[_], GetArg0],
-////      w: BitsWidthOf.Int[GetArg0]
-////    ): DFUInt[w.Out] = {
-////      //    checkR.unsafeCheck(value)
-////      DFUInt.const[w.Out](TokenUInt(w(value), value))
-////    }
-//  }
 
   object CommonChecks {
     object `LW >= RW` extends Checked1Param.Int {
@@ -136,7 +109,7 @@ object DFUInt {
       type ParamFace = Int
       type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
     }
-    object `R >= 0` {
+    object `N >= 0` {
       type MsgCommon[R] = "Number must be natural. Received: " + ToString[R]
       object Int extends Checked0Param.Int {
         type Cond[R] = R >= 0
@@ -213,15 +186,15 @@ object DFUInt {
           type NC[LW, RW] = TwoFace.Int.Shell2[CalcNC, LW, Int, RW, Int]
         }
 
-        def create[L <: DFUInt[LW], LW, LE, R, RW](properR : R => (`Ops+Or-`.Kind, DFUInt[RW]))(
+        def create[L, LW, LE, R, RW](properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW]))(
           implicit
           ncW : Inference.NC[LW, RW],
           wcW : Inference.WC[LW, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
         ) : Aux[L, LE, R, Component[ncW.Out, wcW.Out]] = new Builder[L, LE, R] {
           type Comp = Component[ncW.Out, wcW.Out]
-          def apply(left : L, rightR : R) : Comp = {
-            val (creationKind, right) = properR(rightR)
+          def apply(leftL : L, rightR : R) : Comp = {
+            val (creationKind, left, right) = properLR(leftL, rightR)
             // Completing runtime checks
             checkLWvRW.unsafeCheck(left.width, right.width)
             // Constructing op
@@ -237,75 +210,53 @@ object DFUInt {
         }
 
         import singleton.ops.math.Abs
-        implicit def evDFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
+        implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
           implicit
           ncW : Inference.NC[LW, RW],
           wcW : Inference.WC[LW, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = create[DFUInt[LW], LW, LE, DFUInt[RW], RW](right => (kind, right))
+        ) = create[DFUInt[LW], LW, LE, DFUInt[RW], RW]((left, right) => (kind, left, right))
 
-        implicit def evInt[L <: DFUInt[LW], LW, LE, R <: Int, RW](
+        implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, LE, R <: Int, RW](
           implicit
           rW : BitsWidthOf.IntAux[Abs[R], RW],
           ncW : Inference.NC[LW, RW],
           wcW : Inference.WC[LW, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = create[DFUInt[LW], LW, LE, R, RW](rightNum => {
+        ) = create[DFUInt[LW], LW, LE, R, RW]((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-          (creationKind, DFUInt.const[RW](TokenUInt(rW(right), right)))
+          (creationKind, left, DFUInt.const[RW](TokenUInt(rW(right), right)))
         })
 
-        implicit def evLong[L <: DFUInt[LW], LW, LE, R <: Long, RW](
+        implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, LE, R <: Long, RW](
           implicit
           rW : BitsWidthOf.LongAux[Abs[R], RW],
           ncW : Inference.NC[LW, RW],
           wcW : Inference.WC[LW, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = create[DFUInt[LW], LW, LE, R, RW](rightNum => {
+        ) = create[DFUInt[LW], LW, LE, R, RW]((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-          (creationKind, DFUInt.const[RW](TokenUInt(rW(right), right)))
+          (creationKind, left, DFUInt.const[RW](TokenUInt(rW(right), right)))
         })
 
-        implicit def evBigInt[L <: DFUInt[LW], LW, LE](
+        implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE](
           implicit
           ncW : Inference.NC[LW, Int],
           wcW : Inference.WC[LW, Int],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, Int]
-        ) = create[DFUInt[LW], LW, LE, BigInt, Int](rightNum => {
+        ) = create[DFUInt[LW], LW, LE, BigInt, Int]((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-          (creationKind, DFUInt.const[Int](TokenUInt(right.bitsWidth, right)))
+          (creationKind, left, DFUInt.const[Int](TokenUInt(right.bitsWidth, right)))
         })
 
-
-        implicit def createL[L, LW, LE, R <: DFUInt[RW], RW](properL : L => DFUInt[LW])(
-          implicit
-          ncW : Inference.NC[LW, RW],
-          wcW : Inference.WC[LW, RW],
-          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[L, LE, R, Component[ncW.Out, wcW.Out]] = new Builder[L, LE, R] {
-          type Comp = Component[ncW.Out, wcW.Out]
-          def apply(leftL : L, right : R) : Comp = {
-            val left = properL(leftL)
-            // Completing runtime checks
-            checkLWvRW.unsafeCheck(left.width, right.width)
-            // Constructing op
-            val wc = kind match {
-              case `Ops+Or-`.+ =>
-                DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-              case `Ops+Or-`.- =>
-                DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
-            }
-            // Creating extended component aliasing the op
-            Component[ncW.Out, wcW.Out](wc)
-          }
-        }
-        implicit def evIntDFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
+        implicit def evInt_op_DFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
           implicit
           lW : BitsWidthOf.IntAux[Abs[L], LW],
           ncW : Inference.NC[LW, RW],
           wcW : Inference.WC[LW, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) = createL[L, LW, LE, DFUInt[RW], RW](left => DFUInt.const[LW](TokenUInt(lW(left), left)))
+        ) = create[L, LW, LE, DFUInt[RW], RW]((leftNum, right) =>
+          (kind, DFUInt.const[LW](TokenUInt(lW(leftNum), leftNum)), right))
       }
     }
     protected object `Ops+Or-` {
@@ -341,13 +292,13 @@ object DFUInt {
           type Comp = Comp0
         }
 
-        def create[L <: DFUInt[LW], LW, LE, R, RW](properR : R => DFUInt[RW])(
+        def create[L, LW, LE, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(
           implicit
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
         ) : Aux[L, LE, R, DFBool] = new Builder[L, LE, R] {
           type Comp = DFBool
-          def apply(left : L, rightAble : R) : Comp = {
-            val right = properR(rightAble)
+          def apply(leftL : L, rightR : R) : Comp = {
+            val (left, right) = properLR(leftL, rightR)
             // Completing runtime checks
             checkLWvRW.unsafeCheck(left.width, right.width)
             // Constructing op
@@ -362,37 +313,48 @@ object DFUInt {
           }
         }
 
-        implicit def evDFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
+        implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
           implicit
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[DFUInt[LW], LE, DFUInt[RW], DFBool] = create[DFUInt[LW], LW, LE, DFUInt[RW], RW](right => right)
+        ) : Aux[DFUInt[LW], LE, DFUInt[RW], DFBool] =
+          create[DFUInt[LW], LW, LE, DFUInt[RW], RW]((left, right) => (left, right))
 
-        implicit def evInt[L <: DFUInt[LW], LW, LE, R <: Int, RW](
+        implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, LE, R <: Int, RW](
           implicit
-          checkR : `R >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
+          checkR : `N >= 0`.Int.CheckedShellSym[Builder[_,_,_], R],
           rW : BitsWidthOf.IntAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[DFUInt[LW], LE, R, DFBool] = create[DFUInt[LW], LW, LE, R, RW](rightNum => {
+        ) : Aux[DFUInt[LW], LE, R, DFBool] = create[DFUInt[LW], LW, LE, R, RW]((left, rightNum) => {
           checkR.unsafeCheck(rightNum)
-          DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+          (left, DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
         })
 
-        implicit def evLong[L <: DFUInt[LW], LW, LE, R <: Long, RW](
+        implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, LE, R <: Long, RW](
           implicit
-          checkR : `R >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
+          checkR : `N >= 0`.Long.CheckedShellSym[Builder[_,_,_], R],
           rW : BitsWidthOf.LongAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[DFUInt[LW], LE, R, DFBool] = create[DFUInt[LW], LW, LE, R, RW](rightNum => {
+        ) : Aux[DFUInt[LW], LE, R, DFBool] = create[DFUInt[LW], LW, LE, R, RW]((left, rightNum) => {
           checkR.unsafeCheck(rightNum)
-          DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+          (left, DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum)))
         })
 
-        implicit def evBigInt[L <: DFUInt[LW], LW, LE](
+        implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE](
           implicit
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, Int]
-        ) : Aux[DFUInt[LW], LE, BigInt, DFBool] = create[DFUInt[LW], LW, LE, BigInt, Int](rightNum => {
-          `R >= 0`.BigInt.unsafeCheck(rightNum)
-          DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum))
+        ) : Aux[DFUInt[LW], LE, BigInt, DFBool] = create[DFUInt[LW], LW, LE, BigInt, Int]((left, rightNum) => {
+          `N >= 0`.BigInt.unsafeCheck(rightNum)
+          (left, DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum)))
+        })
+
+        implicit def evInt_op_DFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
+          implicit
+          checkL : `N >= 0`.Int.CheckedShellSym[Builder[_,_,_], L],
+          lW : BitsWidthOf.IntAux[L, LW],
+          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
+        ) : Aux[L, LE, DFUInt[RW], DFBool] = create[L, LW, LE, DFUInt[RW], RW]((leftNum, right) => {
+          checkL.unsafeCheck(leftNum)
+          (DFUInt.const[LW](TokenUInt(lW(leftNum), leftNum)), right)
         })
       }
     }

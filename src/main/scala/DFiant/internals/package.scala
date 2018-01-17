@@ -24,6 +24,8 @@ package object internals {
     else Integer.toHexString(lo)
   }
 
+  type ZeroI = 0
+
   //Int conversion is done like so to avoid negative values (MSbit of Int is 1)
   def byteToBigIntBits(value : Byte) : BigInt = BigInt(value.toString)
   def intToBigIntBits(value : Int) : BigInt = BigInt(Integer.toHexString(value),16)

@@ -24,7 +24,7 @@ object GeneralTest {
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
 
-  1 + d
+  100 < d
 
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
