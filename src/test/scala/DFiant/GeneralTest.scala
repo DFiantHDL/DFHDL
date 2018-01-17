@@ -17,14 +17,14 @@ object GeneralTest {
   val d = DFUInt(2)
   val d2 = DFUInt(3)
 //  d + (d + d).wc
-  d.extendable == d2
-  d.extendable == 100
+//  d.extendable == d2
+//  d.extendable == 100
   val one = 100
 //  d + one
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
 
-  1.extendable + d
+  1 + d
 
   val ff = DFUInt[8]
   ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
