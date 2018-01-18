@@ -20,6 +20,7 @@ object GeneralTest {
 //  d.extendable == d2
 //  d.extendable == 100
   val one = 100
+//  d2 < d
 //  d + one
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
