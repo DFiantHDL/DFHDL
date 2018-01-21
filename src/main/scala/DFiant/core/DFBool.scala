@@ -5,7 +5,7 @@ import DFiant.internals._
 import singleton.twoface._
 import DFiant.tokens._
 
-sealed trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
+trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
   def unary_!               : DFBool = DFBool.op("!", !this.getInit, this)
 //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
 //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))

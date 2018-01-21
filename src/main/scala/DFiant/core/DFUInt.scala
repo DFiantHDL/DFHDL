@@ -6,7 +6,7 @@ import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.tokens._
 
-sealed trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
+trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   left =>
   import DFUInt.Operations._
   type Extendable
@@ -122,10 +122,18 @@ object DFUInt {
 
       object Able {
         implicit def fromAble[R](able : Able[R]) : R = able.right
-        implicit def ofInt(value : Int)(implicit e : IntEn, g : AcceptNonLiteral[GetArg0]) : Able[g.Out] =
-          new Able[g.Out](g.value) {}
-        implicit def ofLong(value : Long)(implicit e : LongEn, g : AcceptNonLiteral[GetArg0]) : Able[g.Out] =
-          new Able[g.Out](g.value) {}
+//        implicit def ofInt(value : Int)(implicit e : IntEn, g : AcceptNonLiteral[GetArg0]) : Able[g.Out] =
+//          new Able[g.Out](g.value) {}
+//        implicit def ofLong(value : Long)(implicit e : LongEn, g : AcceptNonLiteral[GetArg0]) : Able[g.Out] =
+//          new Able[g.Out](g.value) {}
+        implicit def ofInt(value : Int)(implicit e : IntEn) : Able[Int] =
+          new Able[Int](value) {}
+        implicit def ofXInt[R <: XInt](value : R)(implicit e : IntEn) : Able[R] =
+          new Able[R](value) {}
+        implicit def ofLong(value : Long)(implicit e : LongEn) : Able[Long] =
+          new Able[Long](value) {}
+        implicit def ofXLong[R <: XLong](value : R)(implicit e : LongEn) : Able[R] =
+          new Able[R](value) {}
         implicit def ofBigInt(value : BigInt)(implicit e : BigIntEn) : Able[BigInt] =
           new Able[BigInt](value) {}
         implicit class OfDFUInt[RW0](value : DFUInt[RW0])(implicit e : DFUIntEn) extends Able[DFUInt[RW0]](value)
@@ -316,13 +324,13 @@ object DFUInt {
 
         object `LW == RW` extends Checked1Param.Int {
           type Cond[LW, RW] = LW == RW
-          type Msg[LW, RW] = "Comparison operations do not permit different length DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+          type Msg[LW, RW] = "Comparison operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
           type ParamFace = Int
         }
 
         object `VecW >= ConstW` extends Checked1Param.Int { //Needs to be mitigated to a warning
           type Cond[VW, CW] = VW >= CW
-          type Msg[VW, CW] = "Unsigned comparison operations do not permit mid length DF variables. Found: LHS-width = "+ ToString[VW] + " and RHS-width = " + ToString[CW]
+          type Msg[VW, CW] = "A static boolean result detected, due to an unsigned comparison between a DF variable and a larger literal. Found: LHS-width = "+ ToString[VW] + " and RHS-width = " + ToString[CW]
           type ParamFace = Int
         }
 
