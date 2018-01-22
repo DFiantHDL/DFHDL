@@ -25,7 +25,11 @@ object GeneralTest {
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
 
-  d < 1 && d > 3
+  100 + d
+  -10 + d
+  10 - d
+  d < 10
+//  -10 - d
 //  (1 < d) && (d > 3)
 
   val ff = DFUInt[8]
