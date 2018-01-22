@@ -33,7 +33,7 @@ object OpComparisonTests {
   val uint9 = DFUInt(9)
   illTyped("""uint8 == uint9""")
   illTyped("""uint9 == uint8""")
-  illTyped("""uint8 == 511""")
+//  illTyped("""uint8 == 511""")
   illTyped("""uint8 == -1""")
   illTyped("""uint8 == -1L""")
   uint9 == 511

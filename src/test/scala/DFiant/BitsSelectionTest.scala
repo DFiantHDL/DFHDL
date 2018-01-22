@@ -1,23 +1,8 @@
 package DFiant
 import org.scalacheck._
 import shapeless.test.illTyped
-import singleton.twoface._
-
-object TestUtils {
-  def illRun(body: => Unit) : Boolean = {
-    val isIll = try {
-      body
-      false
-    } catch {
-      case _ : Throwable =>
-      true
-    }
-    if (!isIll)
-      assert(false, "Expected assertion did not occur")
-    true
-  }
-}
 import TestUtils._
+import singleton.twoface._
 
 class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFromSafeVarSpec") {
   property("DFBits[W] @ W < 0 compile error") = {

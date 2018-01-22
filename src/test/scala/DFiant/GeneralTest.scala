@@ -26,9 +26,10 @@ object GeneralTest {
   val aaa = TokenUInt(8, 3)
 
   100 + d
-  -10 + d
+//  -10 + d
   10 - d
-  d < 10
+  10L > d && d < 10
+//  d < 10
 //  -10 - d
 //  (1 < d) && (d > 3)
 
