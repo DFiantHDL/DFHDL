@@ -112,16 +112,54 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
 
   property("DFUInt + Int uncompilable") = wellTyped {
     val u8 = DFUInt(8)
-    val u9 : 512 = 512
+    val u9 : 511 = 511
     val u8us = DFUInt(us(8))
-    val u9us = us(512)
+    val u9us = us(511)
     illTyped { """u8 + u9""" }
     illRun(u8 + u9us)
     illRun(u8us + u9)
     illRun(u8us + u9us)
     illTyped { """u8 + -512""" }
-    illRun(u8us + -512)
-    illRun(u8us + us(-512))
+    illRun(u8us + -511)
+    illRun(u8us + us(-511))
+  }
+
+  property("Int + DFUInt compilable") = {
+    val u8 = DFUInt(8)
+    val u9 : 511 = 511
+    val u8us = DFUInt(us(8))
+    val u9us = us(511)
+    val u98 = u9 + u8
+    implicitly[u98.type <:< DFUInt[9]]
+    implicitly[u98.wc.type <:< DFUInt[10]]
+    implicitly[u98.c.type <:< DFBool]
+    val u89 = u8.extendable + u9
+    implicitly[u89.type <:< DFUInt[9]]
+    implicitly[u89.wc.type <:< DFUInt[10]]
+    val u98us = u9us + u8
+    implicitly[u98us.type <:< DFUInt[Int]]
+    implicitly[u98us.wc.type <:< DFUInt[Int]]
+    implicitly[u98us.c.type <:< DFBool]
+    u8.extendable + u9us
+    u9 + u8us
+    u8us + u8us
+    u8us.extendable + u9
+    u9us + u8us
+    u8us.extendable + u9us
+    (u9 + u8).wc + u8
+    u98us.width == 9 && u98us.wc.width == 10
+  }
+
+  property("Int + DFUInt uncompilable") = wellTyped {
+    val u8 : 200 = 200
+    val u9 = DFUInt(9)
+    val u8us = us(200)
+    val u9us = DFUInt(us(9))
+    illTyped { """u8 + u9""" }
+    illTyped { """-511 + u9""" }
+    illRun(u8 + u9us)
+    illRun(u8us + u9)
+    illRun(u8us + u9us)
   }
 }
 
