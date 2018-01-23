@@ -57,9 +57,9 @@ object TokenUInt {
     new TokenUInt(width, value, false)
   }
   def apply(width : Int, value : Bubble) : TokenUInt = new TokenUInt(width, 0, true)
-//  def apply(width : Int, value : TokenUInt) : TokenUInt = {
-//    //TODO: Boundary checks
-//    value.bits(width-1, 0)
-//  }
+  def apply(width : Int, token : TokenUInt) : TokenUInt = {
+    //TODO: Boundary checks
+    new TokenUInt(width, token.valueUInt, token.bubble)
+  }
 }
 

@@ -7,6 +7,7 @@ package object tokens {
   implicit class TokenBitsSeq(seq : Seq[TokenBits]) extends TokenSeq(seq) {
     def unary_~ : Seq[TokenBits] = applyOp(TokenBits.unary_~)
     def ## (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.##)
+    def toUInt : Seq[TokenUInt] = applyOp(TokenBits.toUInt)
   }
 
   implicit class TokenBoolSeq(seq : Seq[TokenBool]) extends TokenSeq(seq) {

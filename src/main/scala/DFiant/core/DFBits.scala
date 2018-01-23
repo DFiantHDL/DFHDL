@@ -92,6 +92,8 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
   def newEmptyDFVar = DFBits.newVar(width)
 
+  def toDFUInt : DFUInt[W] = DFUInt.newVar[W](width).init(getInit.toUInt).assign(this)
+
   //  protected[DFiant] def __!= (arg0 : DFBits.Unsafe, arg1 : DFBits.Unsafe) : DFBool = arg0!=arg1
   //  protected[DFiant] def __== (arg0 : DFBits.Unsafe, arg1 : DFBits.Unsafe) : DFBool = arg0==arg1
 }

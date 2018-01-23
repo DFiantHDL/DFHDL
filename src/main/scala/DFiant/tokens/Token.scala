@@ -65,7 +65,7 @@ object Token {
 abstract class TokenSeq[T <: Token](seq : Seq[T]) {
   def applyOp[B <: Token, T2 <: Token](that : Seq[T2], op : (T, T2) => B) : Seq[B] =
     seq.zipAll(that.seq, seq.last, that.seq.last).map(t => op(t._1, t._2))
-  def applyOp[B <: Token](op : (T) => B) : Seq[B] =
+  def applyOp[B <: Token](op : T => B) : Seq[B] =
     seq.map(t => op(t))
 }
 

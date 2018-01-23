@@ -88,7 +88,7 @@ object Init {
     def toTokenUIntSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[TokenUInt] =
       right.toSeqAny.map(e => e match {
         case (t : Bubble) => TokenUInt(width, t)
-//        case (t : TokenUInt) => TokenUInt(width, t)
+        case (t : TokenUInt) => TokenUInt(width, t)
         case (t : Int) => TokenUInt(width, t)
         case (t : Long) => TokenUInt(width, t)
         case (t : BigInt) => TokenUInt(width, t)

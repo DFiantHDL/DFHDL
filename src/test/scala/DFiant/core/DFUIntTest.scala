@@ -1,9 +1,11 @@
-package DFiant
+package DFiant.core
 
+import DFiant._
+import DFiant.TestUtils._
+import DFiant.tokens._
 import org.scalacheck._
+import scodec.bits._
 import shapeless.test.illTyped
-import singleton.twoface._
-import TestUtils._
 
 class DFUIntTest extends Properties("DFUIntTestSpec") {
   property("DFUInt[W] @ W < 0 compile error") = wellTyped {
@@ -36,6 +38,14 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     val dusL = us(16L).toDFUInt
     val dusBig = BigInt(31).toDFUInt
     dus.width == 4 && dusL.width == 5 && dusBig.width == 5
+  }
+
+  property("DFUInt conversion from DFBits") = {
+    val a = DFBits(8).init(bin"11",20,Φ,15L)
+    val b = a.toDFUInt
+    implicitly[b.type <:< DFUInt[8]]
+    val bi = b.getInit
+    bi(0).valueUInt == BigInt(3) && bi(1).valueUInt == BigInt(20) && bi(2).isBubble && bi(3).valueUInt == BigInt(15)
   }
 
   property("DFUInt conversion error") = wellTyped {

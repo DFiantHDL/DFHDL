@@ -34,6 +34,12 @@ class TokenBits private[DFiant] (val width : Int, val valueBits : BitVector, val
     val outBubbleMask = this.bubbleMask
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
+  def toUInt : TokenUInt = {
+    val outWidth = this.width
+    val outValueUInt = BigInt(this.valueBits.toByteArray)
+    val outBubble = isBubble
+    new TokenUInt(outWidth, outValueUInt, outBubble)
+  }
 }
 
 object TokenBits {
@@ -42,6 +48,7 @@ object TokenBits {
   def ^ (left : TokenBits, right : TokenBits) : TokenBits = left ^ right
   def ## (left : TokenBits, right : TokenBits) : TokenBits = left ## right
   def unary_~ (left : TokenBits) : TokenBits = ~left
+  def toUInt(left : TokenBits) : TokenUInt = left.toUInt
 
   def apply(width : Int, value : Int) : TokenBits = TokenBits(width, BitVector.fromInt(value, width, ByteOrdering.LittleEndian))
   def apply(width : Int, value : Long) : TokenBits = TokenBits(width, BitVector.fromLong(value, width, ByteOrdering.LittleEndian))
