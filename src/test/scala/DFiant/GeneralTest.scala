@@ -28,9 +28,11 @@ object GeneralTest {
   val dd = d9 + 200
   implicitly[dd.type <:< DFUInt[9]]
 //  -10 + d
-  d := -1L
+//  d := -1L
 //  10L > d && d < 10
-
+  1.toDFUInt.extendable + d
+  1L.toDFUInt.extendable + d
+  BigInt(1).toDFUInt.extendable + d
 //  d < 10
 //  -10 - d
 //  (1 < d) && (d > 3)

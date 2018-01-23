@@ -4,7 +4,9 @@
   * Created by soronpo on 08/04/2017.
   */
 
-package object DFiant extends {
+import DFiant.core.DFUInt
+
+package object DFiant extends DFUInt.Implicits {
   type DFBits[W] = core.DFBits[W]
   val DFBits = core.DFBits
   type DFBool = core.DFBool
@@ -12,6 +14,5 @@ package object DFiant extends {
   type DFUInt[W] = core.DFUInt[W]
   val DFUInt = core.DFUInt
   val ifdf = core.ifdf
-
 
 }

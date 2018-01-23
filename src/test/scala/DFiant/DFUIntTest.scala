@@ -13,6 +13,7 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     illTyped { """DFUInt(-1)""" }
     illRun(DFUInt(us(0)))
   }
+
   property("DFUInt construction") = {
     val a = DFUInt(1)
     implicitly[a.type <:< DFUInt[1]]
@@ -22,6 +23,29 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     implicitly[c.type <:< DFUInt[Int]]
     c.width == 8
   }
+
+  property("DFUInt conversion from number") = {
+    val d = 15.toDFUInt
+    implicitly[d.type <:< DFUInt[4]]
+    val d2 = 16.toDFUInt
+    implicitly[d2.type <:< DFUInt[5]]
+    val dL = 0L.toDFUInt
+    implicitly[dL.type <:< DFUInt[1]]
+    val dus = us(15).toDFUInt
+    implicitly[dus.type <:< DFUInt[Int]]
+    val dusL = us(16L).toDFUInt
+    val dusBig = BigInt(31).toDFUInt
+    dus.width == 4 && dusL.width == 5 && dusBig.width == 5
+  }
+
+  property("DFUInt conversion error") = wellTyped {
+    illTyped { """(-1).toDFUInt""" }
+    illTyped { """(-1L).toDFUInt""" }
+    illRun(us(-1).toDFUInt)
+    illRun(us(-1L).toDFUInt)
+    illRun(BigInt(-1).toDFUInt)
+  }
+
 
   property("DFUInt + DFUInt compilable") = {
     val u8 = DFUInt(8)
@@ -49,6 +73,7 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     u9us + u8us
     u8us + u8us
     u8us.extendable + u9us
+    (u9 + u8).wc + u8
     u98us.width == 9 && u98us.wc.width == 10
   }
 

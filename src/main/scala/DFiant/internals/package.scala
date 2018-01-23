@@ -157,4 +157,24 @@ package object internals {
     type Cond[N] = N > 0
     type Msg[N] = "Argument must be a positive number, but found " + ToString[N]
   }
+
+  trait `N >= 0` {
+    type MsgCommon[N]
+    object Int extends Checked0Param.Int {
+      type Cond[N] = N >= 0
+      type Msg[N] = MsgCommon[N]
+    }
+    object Long extends Checked0Param.Long {
+      type Cond[N] = N >= 0L
+      type Msg[N] = MsgCommon[N]
+    }
+    object BigInt extends Checked1Param.Boolean {
+      type Cond[T, P] = T
+      type Msg[T, P] = MsgCommon[P]
+      type ParamFace = String
+      def unsafeCheck(n : BigInt)(implicit chk : BigInt.CheckedShell[Boolean, String]) : Unit =
+        chk.unsafeCheck(n >= 0, n.toString())
+    }
+  }
+
 }
