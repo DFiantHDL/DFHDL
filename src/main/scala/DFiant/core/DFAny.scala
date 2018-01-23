@@ -119,16 +119,8 @@ trait DFAny {
 
   protected[DFiant] final def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
 
-  protected[DFiant] final def assign(that : AlmanacEntry) : TVar = {
-    AlmanacEntryAssign(this.almanacEntry, that)
-    this.asInstanceOf[TVar]
-  }
   protected[DFiant] final def assign(that : DFAny) : TVar = {
     AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
-    this.asInstanceOf[TVar]
-  }
-  protected[DFiant] final def assign(that : TToken) : TVar = {
-    AlmanacEntryAssign(this.almanacEntry, AlmanacEntryConst(that))
     this.asInstanceOf[TVar]
   }
 //  def ==[T](that: T)(implicit r : RequireMsg[false, "Use '===' instead of '=='"]) : DFBool = ???

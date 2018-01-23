@@ -28,7 +28,7 @@ object GeneralTest {
   val dd = d9 + 200
   implicitly[dd.type <:< DFUInt[9]]
 //  -10 + d
-  10 - d
+  d := -1L
 //  10L > d && d < 10
 
 //  d < 10
