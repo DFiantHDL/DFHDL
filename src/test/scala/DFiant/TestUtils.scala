@@ -1,6 +1,7 @@
 package DFiant
 
 import org.scalacheck.Prop
+import singleton.twoface.TwoFace
 
 object TestUtils {
   def sameType[A, B](implicit ev: A =:= B): Boolean = true
@@ -9,6 +10,8 @@ object TestUtils {
     body
     true
   }
+
+  implicit def tfToProp[B](tf : TwoFace.Boolean[B]) : Prop = tf.getValue
 
   //nf = unsafe. used to force a not-final value. e.g., nf(3) returns a non-literal 3
   def us[T](t : T) : T = {

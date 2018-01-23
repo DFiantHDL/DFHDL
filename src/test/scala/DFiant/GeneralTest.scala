@@ -15,7 +15,7 @@ import singleton.ops._
 object GeneralTest {
   val two = 2
   val d = DFUInt(2)
-  val d2 = DFUInt(3)
+  val d9 = DFUInt(9)
 //  d + (d + d).wc
 //  d.extendable == d2
 //  d.extendable == 100
@@ -25,10 +25,12 @@ object GeneralTest {
 //  d + (d + d).wc
   val aaa = TokenUInt(8, 3)
 
-  100 + d
+  val dd = d9 + 200
+  implicitly[dd.type <:< DFUInt[9]]
 //  -10 + d
   10 - d
-  10L > d && d < 10
+//  10L > d && d < 10
+
 //  d < 10
 //  -10 - d
 //  (1 < d) && (d > 3)

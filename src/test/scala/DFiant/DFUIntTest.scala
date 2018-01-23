@@ -6,117 +6,97 @@ import singleton.twoface._
 import TestUtils._
 
 class DFUIntTest extends Properties("DFUIntTestSpec") {
-  property("DFBits[W] @ W < 0 compile error") = {
-    illTyped { """DFBits[0]""" }
-    illTyped { """DFBits[-1]""" }
-    true
+  property("DFUInt[W] @ W < 0 compile error") = wellTyped {
+    illTyped { """DFUInt[0]""" }
+    illTyped { """DFUInt[-1]""" }
+    illTyped { """DFUInt(0)""" }
+    illTyped { """DFUInt(-1)""" }
+    illRun(DFUInt(us(0)))
   }
-  property("DFBits[4].width") = {
-    val a = DFBits[4]
-    implicitly[a.Width =:= 4]
-    a.width.getValue == 4
+  property("DFUInt construction") = {
+    val a = DFUInt(1)
+    implicitly[a.type <:< DFUInt[1]]
+    val b = DFUInt[2]
+    implicitly[b.type <:< DFUInt[2]]
+    val c = DFUInt(us(8))
+    implicitly[c.type <:< DFUInt[Int]]
+    c.width == 8
   }
-  property("DFBits[4].bits(2,1)") = {
-    val a = DFBits[4]; val b = a.bits(2,1)
-    implicitly[b.Width =:= 2]
-    b.width.getValue == 2
+
+  property("DFUInt + DFUInt compilable") = {
+    val u8 = DFUInt(8)
+    val u9 = DFUInt(9)
+    val u8us = DFUInt(us(8))
+    val u9us = DFUInt(us(9))
+    val u98 = u9 + u8
+    implicitly[u98.type <:< DFUInt[9]]
+    implicitly[u98.wc.type <:< DFUInt[10]]
+    implicitly[u98.c.type <:< DFBool]
+    val u88 = u8 + u8
+    implicitly[u88.type <:< DFUInt[8]]
+    val u89 = u8.extendable + u9
+    implicitly[u89.type <:< DFUInt[9]]
+    implicitly[u89.wc.type <:< DFUInt[10]]
+    val u98us = u9us + u8
+    implicitly[u98us.type <:< DFUInt[Int]]
+    implicitly[u98us.wc.type <:< DFUInt[Int]]
+    implicitly[u98us.c.type <:< DFBool]
+    u8 + u8
+    u8.extendable + u9us
+    u9 + u8us
+    u8us + u8us
+    u8us.extendable + u9
+    u9us + u8us
+    u8us + u8us
+    u8us.extendable + u9us
+    u98us.width == 9 && u98us.wc.width == 10
   }
-  property("DFBits[4].apply(2,1)") = {
-    val a = DFBits[4]; val b = a(2,1)
-    implicitly[b.Width =:= 2]
-    b.width.getValue == 2
+
+  property("DFUInt + DFUInt uncompilable") = wellTyped {
+    val u8 = DFUInt(8)
+    val u9 = DFUInt(9)
+    val u8us = DFUInt(us(8))
+    val u9us = DFUInt(us(9))
+    illTyped { """u8 + u9""" }
+    illRun(u8 + u9us)
+    illRun(u8us + u9)
+    illRun(u8us + u9us)
   }
-  property("DFBits[4].bits[2,1]") = {
-    val a = DFBits[4]; val b = a.bits[2,1]
-    implicitly[b.Width =:= 2]
-    b.width.getValue == 2
+
+  property("DFUInt + Int compilable") = {
+    val u8 : 200 = 200
+    val u9 = DFUInt(9)
+    val u8us = us(200)
+    val u9us = DFUInt(us(9))
+    val u98 = u9 + u8
+    implicitly[u98.type <:< DFUInt[9]]
+    implicitly[u98.wc.type <:< DFUInt[10]]
+    implicitly[u98.c.type <:< DFBool]
+    val u98us = u9us + u8
+    implicitly[u98us.type <:< DFUInt[Int]]
+    implicitly[u98us.wc.type <:< DFUInt[Int]]
+    implicitly[u98us.c.type <:< DFBool]
+    u9 + u8us
+    u9us + u8us
+    u9 + -1
+    u9 + us(-1)
+    u9us + -1
+    u9us + us(-1)
+    u98us.width == 9 && u98us.wc.width == 10
   }
-  property("DFBits[4].apply[2,1]") = {
-    val a = DFBits[4]; val b = a[2,1]
-    implicitly[b.Width =:= 2]
-    b.width.getValue == 2
-  }
-  property("DFBits[4].bits(1,1)") = {
-    val a = DFBits[4]; val b = a.bits(1,1)
-    implicitly[b.Width =:= 1]
-    b.width.getValue == 1
-  }
-  property("DFBits[4].apply[1,1]") = {
-    val a = DFBits[4]; val b = a[1,1]
-    implicitly[b.Width =:= 1]
-    b.width.getValue == 1
-  }
-  property("DFBits[4].msbits(2)") = {
-    val a = DFBits[4]; val b = a.msbits(2)
-    implicitly[b.Width =:= 2]
-    b.width.getValue == 2
-  }
-  property("DFBits[4].msbits[4]") = {
-    val a = DFBits[4]; val b = a.msbits[4]
-    implicitly[b.Width =:= 4]
-    b.width.getValue == 4
-  }
-  property("DFBits[4].lsbits(2)") = {
-    val a = DFBits[4]; val b = a.lsbits(2)
-    implicitly[b.Width =:= 2]
-    b.width.getValue == 2
-  }
-  property("DFBits[4].lsbits[4]") = {
-    val a = DFBits[4]; val b = a.lsbits[4]
-    implicitly[b.Width =:= 4]
-    b.width.getValue == 4
-  }
-  property("DFBits[4] out of range bits range selections compile error") = {
-    var three = 3
-    illTyped { """val a = DFBits[4]; a.bits(4,three)""" }
-    illTyped { """val a = DFBits[4]; a.bits(4,3)""" }
-    illTyped { """val a = DFBits[4]; a.bits(-1,-2)""" }
-    illTyped { """val a = DFBits[4]; a.bits(1,-2)""" }
-    illTyped { """val a = DFBits[4]; a.bits(1,3)""" }
-    illTyped { """val a = DFBits[4]; a.bits[4,3]""" }
-    illTyped { """val a = DFBits[4]; a.bits[-1,-2]""" }
-    illTyped { """val a = DFBits[4]; a.bits[1,-2]""" }
-    illTyped { """val a = DFBits[4]; a.bits[1,3]""" }
-    illTyped { """val a = DFBits[4]; a.msbits(0)""" }
-    illTyped { """val a = DFBits[4]; a.msbits(-1)""" }
-    illTyped { """val a = DFBits[4]; a.msbits(5)""" }
-    illTyped { """val a = DFBits[4]; a.lsbits(0)""" }
-    illTyped { """val a = DFBits[4]; a.lsbits(-1)""" }
-    illTyped { """val a = DFBits[4]; a.lsbits(5)""" }
-    illTyped { """val a = DFBits[4]; a(4,3)""" }
-    illTyped { """val a = DFBits[4]; a(-1,-2)""" }
-    illTyped { """val a = DFBits[4]; a(1,-2)""" }
-    illTyped { """val a = DFBits[4]; a(1,3)""" }
-    illTyped { """val a = DFBits[4]; a[4,3]""" }
-    illTyped { """val a = DFBits[4]; a[-1,-2]""" }
-    illTyped { """val a = DFBits[4]; a[1,-2]""" }
-    illTyped { """val a = DFBits[4]; a[1,3]""" }
-    true
-  }
-  property("DFBits[4].bit(1)") = {
-    val a = DFBits[4]; val b : DFBool = a.bit(1)
-    b.width.getValue == 1
-  }
-  property("DFBits[4].apply(1)") = {
-    val a = DFBits[4]; val b : DFBool = a(1)
-    b.width.getValue == 1
-  }
-  property("DFBits[4].bit[1]") = {
-    val a = DFBits[4]; val b : DFBool = a.bit[1]
-    b.width.getValue == 1
-  }
-  property("DFBits[4].apply[1]") = {
-    val a = DFBits[4]; val b : DFBool = a[1]
-    b.width.getValue == 1
-  }
-  property("DFBits[4] out of range single bit selections compile error") = {
-    illTyped { """val a = DFBits[4]; a.bit(4)""" }
-    illTyped { """val a = DFBits[4]; a.bit(-1)""" }
-    illTyped { """val a = DFBits[4]; a.bit[4]""" }
-    illTyped { """val a = DFBits[4]; a.bit[-1]""" }
-    illTyped { """val a = DFBits[4]; a(4)""" }
-    illTyped { """val a = DFBits[4]; a(-1)""" }
-    true
+
+  property("DFUInt + Int uncompilable") = wellTyped {
+    val u8 = DFUInt(8)
+    val u9 : 512 = 512
+    val u8us = DFUInt(us(8))
+    val u9us = us(512)
+    illTyped { """u8 + u9""" }
+    illRun(u8 + u9us)
+    illRun(u8us + u9)
+    illRun(u8us + u9us)
+    illTyped { """u8 + -512""" }
+    illRun(u8us + -512)
+    illRun(u8us + us(-512))
   }
 }
 
