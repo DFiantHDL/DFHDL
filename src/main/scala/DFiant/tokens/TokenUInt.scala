@@ -22,12 +22,14 @@ class TokenUInt private[DFiant] (val width : Int, val valueUInt : BigInt, val bu
   final def >= (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt >= that.valueUInt, this.isBubble || that.isBubble)
   final def == (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt == that.valueUInt, this.isBubble || that.isBubble)
   final def != (that : TokenUInt) : TokenBool = new TokenBool(this.valueUInt != that.valueUInt, this.isBubble || that.isBubble)
-//  final def unary_- : TokenSInt = {
-//    val outWidth = this.width+1
-//    val outUIntValue = ~this.bitsValue
-//    val outBubbleMask = this.bubbleMask
-//    new TokenUInt(outWidth, outUIntValue, outBubbleMask)
-//  }
+
+  //  final def unary_- : TokenSInt = {
+  //    val outWidth = this.width+1
+  //    val outUIntValue = ~this.bitsValue
+  //    val outBubbleMask = this.bubbleMask
+  //    new TokenUInt(outWidth, outUIntValue, outBubbleMask)
+  //  }
+  override def codeString: String = if (isBubble) "Φ" else valueUInt.codeString
   override def valueString : String = valueUInt.toString()
 }
 

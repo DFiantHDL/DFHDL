@@ -2,7 +2,7 @@ package DFiant.internals
 
 import scala.collection.mutable._
 object Almanac {
-  val printEntrees : Boolean = true
+  val printEntrees : Boolean = false
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
   private var list : ListBuffer[AlmanacEntry] = ListBuffer.empty[AlmanacEntry]

@@ -172,7 +172,8 @@ object DFAny {
   abstract class NewVar(_width : Int, _init : Seq[Token]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, protInit)
+    def createCodeString : String
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, protInit, createCodeString)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())

@@ -18,6 +18,7 @@ trait AlmanacEntry {
   val signed : Boolean = false
   val reversed : Boolean = false
 
+  def codeString : String
   def simInject(that : BigInt) : Boolean = ???
   override def toString: String = s"$id[$bitsRange]"
   Almanac.addEntry(this)
@@ -41,6 +42,7 @@ class AlmanacEntryConst private (token : Token) extends AlmanacEntry {
   val bitsRange : BitsRange = BitsRange(token.width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
   val init : Seq[Token] = Seq(token)
+  def codeString : String = token.codeString
 }
 
 object AlmanacEntryConst {
@@ -48,15 +50,16 @@ object AlmanacEntryConst {
 }
 
 
-class AlmanacEntryCreateDFVar private (width : Int, val init : Seq[Token]) extends AlmanacEntry {
+class AlmanacEntryCreateDFVar private (width : Int, val init : Seq[Token], createCodeString : String) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
+  def codeString : String = s"val $id = $createCodeString"
 }
 
 object AlmanacEntryCreateDFVar {
-  def apply(width : Int, init : Seq[Token]) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryCreateDFVar(width, init))
+  def apply(width : Int, init : Seq[Token], createCodeString : String) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryCreateDFVar(width, init, createCodeString))
 }
 
 
@@ -64,6 +67,7 @@ class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange:
   val id : AlmanacID = aliasedEntry.id
   val address : AlmanacAddress = aliasedEntry.address
   val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(relBitsRange)
+  def codeString : String = "BADCODE_AlmanacEntryAliasDFVar"
 }
 
 object AlmanacEntryAliasDFVar {
@@ -78,6 +82,7 @@ class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry) extends AlmanacEntr
   val bitsRange : BitsRange = varEntry.bitsRange
   val timeRef : AlmanacTimeRef = varEntry.timeRef
   val init : Seq[Token] = varEntry.init //TODO: consider changing
+  def codeString : String = "BADCODE_AlmanacEntryGetDFVar"
 }
 
 object AlmanacEntryGetDFVar {
@@ -92,6 +97,7 @@ class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
   val init : Seq[Token] = ??? //Should be a concatenation of the inits
+  def codeString : String = "BADCODE_AlmanacEntryStruct"
 }
 
 object AlmanacEntryStruct {

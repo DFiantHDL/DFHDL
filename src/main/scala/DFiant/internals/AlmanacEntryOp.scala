@@ -16,6 +16,8 @@ class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry) exte
   if (Almanac.printEntrees) {
     println(this)
   }
+
+  def codeString: String = "BADCODE_AlmanacEntryAssign"
 }
 object AlmanacEntryAssign {
   def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry) = Almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
@@ -36,6 +38,7 @@ abstract class AlmanacEntryOp(outWidth : Int, val init : Seq[Token]) extends Alm
 class AlmanacEntryOp1 private (arg0 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) extends
   AlmanacEntryOp(outWidth, init) {
   override def toString: String = s"${super.toString} := $opString$arg0"
+  def codeString: String = "BADCODE_AlmanacEntryOp1"
 }
 object AlmanacEntryOp1 {
   def apply(arg0 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) : AlmanacEntryOp =
@@ -67,6 +70,7 @@ object AlmanacEntryOp1 {
 class AlmanacEntryOp2 private (arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) extends
   AlmanacEntryOp(outWidth, init) {
   override def toString: String = s"${super.toString} := $arg0 $opString $arg1"
+  def codeString: String = "BADCODE_AlmanacEntryOp2"
 }
 object AlmanacEntryOp2 {
   def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) : AlmanacEntryOp =

@@ -122,7 +122,9 @@ object DFBits {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W]) : Var[W] =
-    new DFAny.NewVar(width, Seq(TokenBits(width, 0))) with Var[W]
+    new DFAny.NewVar(width, Seq(TokenBits(width, 0))) with Var[W] {
+      def createCodeString : String = s"DFBits($width)"
+    }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBits] = Seq()) : Var[W] =

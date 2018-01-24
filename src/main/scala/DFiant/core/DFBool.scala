@@ -47,7 +47,9 @@ object DFBool {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar() : Var =
-    new DFAny.NewVar(1, Seq(TokenBool(false))) with Var
+    new DFAny.NewVar(1, Seq(TokenBool(false))) with Var {
+      def createCodeString : String = s"DFBool()"
+    }
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {}

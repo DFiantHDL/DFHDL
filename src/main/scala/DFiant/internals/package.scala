@@ -80,6 +80,11 @@ package object internals {
         BigInt(Array(0.toByte) ++ value.toByteArray) & mask
       }
     }
+    def codeString : String = {
+      if (value.isValidInt) s"$value"
+      else if (value.isValidLong) s"${value}L"
+      else s"""BigInt("$value")"""
+    }
   }
 
   def bigIntToBinaryString(value : BigInt, width : Int = 0) : String = {
