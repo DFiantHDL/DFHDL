@@ -9,14 +9,11 @@ object Bubble extends Bubble
 trait Token {
   //maximum token value width
   val width : Int
-  final lazy val widthOfValue : Int = if (lzc == width) 1 else width - lzc
+  final lazy val widthOfValue : Int = math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
   val valueBits : BitVector
   val bubbleMask : BitVector
   //leading zero counter
-  final lazy val lzc : Int = {
-    val l = for (i <- 0 until width if valueBits(i) || bubbleMask(i)) yield i
-    if (l.isEmpty) width else l.head
-  }
+  final lazy val lzc : Int = math.min(valueBits.lzc, bubbleMask.lzc).toInt
   final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
   protected def ri(bitIdx : Int) : Int = width - 1 - bitIdx //reverse index for BitVector
 
@@ -45,16 +42,7 @@ trait Token {
   }
 
   def bubbleString : String = "Φ"
-  def valueString : String = {
-    val nibble = 4
-    //narrowing the vector by removing all the leftest zeros
-    val narrowVec = valueBits.takeRight(widthOfValue)
-    val paddedVecWidth = ((widthOfValue + nibble - 1) / nibble) * nibble
-    //default printing of bitvectors is padding-right in `toHex`.
-    //padding left is much more intuitive for us because we consider
-    // the leftest presented bit to be to MSbit.
-    s"0x${narrowVec.padLeft(paddedVecWidth).toHex}"
-  }
+  def valueString : String = valueBits.toShortString
   override def toString: String = if (isBubble) bubbleString else valueString
 }
 

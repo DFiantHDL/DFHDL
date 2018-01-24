@@ -1,4 +1,5 @@
 package DFiant
+import scodec.bits._
 
 package object tokens {
   type Φ = Bubble
@@ -39,6 +40,30 @@ package object tokens {
       else if (length <= step) Seq(tokenSeq.last)
       //More tokens are available than the step size, so we drop the first, according to the step count
       else tokenSeq.drop(step)
+    }
+  }
+
+  implicit class BitVectorExtras(vec : BitVector) {
+    def lzc : Long = {
+      val l = for (i <- 0L until vec.length if vec(i)) yield i
+      if (l.isEmpty) vec.length else l.head
+    }
+    def lengthOfValue : Long = if (lzc == vec.length) 1L else vec.length - lzc
+    def toLength(newLength : Long) : BitVector = {
+      if (newLength > vec.length) vec.padLeft(newLength)
+      else if (newLength < vec.length) vec.drop(vec.length - newLength)
+      else vec
+    }
+    def toShortString : String = {
+      val nibble = 4
+      val lov = lengthOfValue
+      //narrowing the vector by removing all the leftest zeros
+      val narrowVec = vec.takeRight(lov)
+      val paddedVecLength = ((lov + nibble - 1) / nibble) * nibble
+      //default printing of bitvectors is padding-right in `toHex`.
+      //padding left is much more intuitive for us because we consider
+      // the leftest presented bit to be to MSbit.
+      s"0x${narrowVec.padLeft(paddedVecLength).toHex}"
     }
   }
 

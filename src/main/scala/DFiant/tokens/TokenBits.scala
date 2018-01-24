@@ -50,11 +50,11 @@ object TokenBits {
   def unary_~ (left : TokenBits) : TokenBits = ~left
   def toUInt(left : TokenBits) : TokenUInt = left.toUInt
 
-  def apply(width : Int, value : Int) : TokenBits = TokenBits(width, BitVector.fromInt(value))
-  def apply(width : Int, value : Long) : TokenBits = TokenBits(width, BitVector.fromLong(value))
+  def apply(width : Int, value : Int) : TokenBits = TokenBits(width, BitVector.fromInt(value, width))
+  def apply(width : Int, value : Long) : TokenBits = TokenBits(width, BitVector.fromLong(value, width))
   def apply(width : Int, value : BitVector) : TokenBits = {
     //TODO: Boundary checks
-    new TokenBits(width, value, BitVector.low(width))
+    new TokenBits(width, value.toLength(width), BitVector.low(width))
   }
   def apply(width : Int, value : Bubble) : TokenBits = new TokenBits(width, BitVector.low(width), BitVector.high(width))
   def apply(width : Int, value : TokenBits) : TokenBits = {

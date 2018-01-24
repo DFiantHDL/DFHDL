@@ -4,12 +4,7 @@ import DFiant.internals._
 import scodec.bits._
 
 class TokenUInt private[DFiant] (val width : Int, val valueUInt : BigInt, val bubble : Boolean) extends Token {
-  lazy val valueBits : BitVector = {
-    val vec = BitVector(valueUInt.toByteArray)
-    if (width > vec.length) vec.padLeft(width)
-    else if (width < vec.length) vec.drop(vec.length - width)
-    else vec
-  }
+  lazy val valueBits : BitVector = BitVector(valueUInt.toByteArray).toLength(width)
   lazy val bubbleMask: BitVector = BitVector.fill(width)(bubble)
   def mkTokenU(that : TokenUInt, result : BigInt, resultWidth : Int) : TokenUInt = {
     if (this.isBubble || that.isBubble) TokenUInt(resultWidth, Bubble)
