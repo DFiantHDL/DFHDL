@@ -54,7 +54,6 @@
 //    dfVar.asInstanceOf[TAlias5]
 //  }
 //
-//  def dfTypeName : String = "DFTaggedUnion"
 //}
 //
 //

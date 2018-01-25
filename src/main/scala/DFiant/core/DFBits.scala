@@ -88,11 +88,11 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   //  def > (that : DFBits.Unsafe)         : DFBool = ??? //that < this
   //  def <= (that : DFBits.Unsafe)        : DFBool = ??? //that >= this
 
-  def dfTypeName: String = "DFBits"
-
   def newEmptyDFVar = DFBits.newVar(width)
 
   def toDFUInt : DFUInt[W] = DFUInt.newVar[W](width).init(getInit.toUInt).assign(this)
+
+  override def toString : String = s"DFBits[$width]"
 
   //  protected[DFiant] def __!= (arg0 : DFBits.Unsafe, arg1 : DFBits.Unsafe) : DFBool = arg0!=arg1
   //  protected[DFiant] def __== (arg0 : DFBits.Unsafe, arg1 : DFBits.Unsafe) : DFBool = arg0==arg1
@@ -123,12 +123,19 @@ object DFBits {
   ///////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W]) : Var[W] =
     new DFAny.NewVar(width, Seq(TokenBits(width, 0))) with Var[W] {
-      def createCodeString : String = s"DFBits($width)"
+      def codeString : String = s"DFBits($width)"
     }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBits] = Seq()) : Var[W] =
-    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W]
+    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
+      def codeString : String = {
+        val bitsCodeString = if (relWidth == aliasedVar.width) "" else s".bitsWL($relWidth, $relBitLow)"
+        val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
+        val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
+        s"$bitsCodeString$initCodeString$prevCodeString"
+      }
+    }
 
   protected[DFiant] def const[W](token : TokenBits) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]

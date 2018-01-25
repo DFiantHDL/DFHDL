@@ -4,7 +4,6 @@
 //  protected val enum : Enumeration
 //  def == (that : E) : DFBool = ???
 //  val width = wOF(enum.maxId)
-//  def dfTypeName : String = "DFEnum"
 //}
 //
 //object DFEnum {

@@ -12,12 +12,12 @@ class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry) exte
   val timeRef : AlmanacTimeRef = arg0.timeRef
   val init : Seq[Token] = arg0.init
 
-  override def toString: String = s"$arg0 := $arg1"
   if (Almanac.printEntrees) {
-    println(this)
+    println(this.codeString)
   }
 
-  def codeString: String = "BADCODE_AlmanacEntryAssign"
+  override def refCodeString: String = s"$id"
+  def codeString: String = s"$arg0 := $arg1"
 }
 object AlmanacEntryAssign {
   def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry) = Almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
@@ -29,16 +29,16 @@ abstract class AlmanacEntryOp(outWidth : Int, val init : Seq[Token]) extends Alm
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(outWidth)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
+  final override def refCodeString: String = s"$id"
 
   if (Almanac.printEntrees) {
-    println(this)
+    println(this.codeString)
   }
 }
 
 class AlmanacEntryOp1 private (arg0 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) extends
   AlmanacEntryOp(outWidth, init) {
-  override def toString: String = s"${super.toString} := $opString$arg0"
-  def codeString: String = "BADCODE_AlmanacEntryOp1"
+  def codeString: String = s"val $id = $opString$arg0"
 }
 object AlmanacEntryOp1 {
   def apply(arg0 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) : AlmanacEntryOp =
@@ -69,8 +69,7 @@ object AlmanacEntryOp1 {
 
 class AlmanacEntryOp2 private (arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) extends
   AlmanacEntryOp(outWidth, init) {
-  override def toString: String = s"${super.toString} := $arg0 $opString $arg1"
-  def codeString: String = "BADCODE_AlmanacEntryOp2"
+  def codeString: String = s"val $id = $arg0 $opString $arg1"
 }
 object AlmanacEntryOp2 {
   def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry, opString : String, outWidth : Int, init : Seq[Token]) : AlmanacEntryOp =

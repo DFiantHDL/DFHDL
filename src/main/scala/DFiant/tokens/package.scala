@@ -41,6 +41,7 @@ package object tokens {
       //More tokens are available than the step size, so we drop the first, according to the step count
       else tokenSeq.drop(step)
     }
+    def codeString : String = tokenSeq.mkString("(", ",", ")")
   }
 
   implicit class BitVectorExtras(vec : BitVector) {

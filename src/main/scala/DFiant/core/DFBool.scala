@@ -17,8 +17,9 @@ trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
   def rising                : DFBool = this && !this.prev(1)
   def falling               : DFBool = !this && this.prev(1)
 
-  def dfTypeName : String = "DFBool"
   def newEmptyDFVar = DFBool.newVar()
+
+  override def toString : String = s"DFBool"
 
   //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
 //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
@@ -48,11 +49,18 @@ object DFBool {
   ///////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar() : Var =
     new DFAny.NewVar(1, Seq(TokenBool(false))) with Var {
-      def createCodeString : String = s"DFBool()"
+      def codeString : String = s"DFBool()"
     }
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
-    new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {}
+    new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
+      def codeString : String = {
+        val bitCodeString = s".bit($relBit)"
+        val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
+        val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
+        s"$bitCodeString$initCodeString$prevCodeString"
+      }
+    }
 
   protected[DFiant] def const(token : TokenBool) : DFBool =
     new DFAny.Const(token) with DFBool

@@ -128,8 +128,7 @@ trait DFAny {
 //  final def != (that : TVal) : DFBool = !(this == that)
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
-  def dfTypeName : String
-  override def toString: String = s"$dfTypeName@$almanacEntry#$protInit"
+//  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
 }
 
 trait DFAnyW[W] extends DFAny {
@@ -172,8 +171,8 @@ object DFAny {
   abstract class NewVar(_width : Int, _init : Seq[Token]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
-    def createCodeString : String
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryCreateDFVar(width, protInit, createCodeString)
+    def codeString : String
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
@@ -184,9 +183,10 @@ object DFAny {
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       prevInit.asInstanceOf[Seq[TToken]]
     }
+    def codeString : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit)
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
   }
 

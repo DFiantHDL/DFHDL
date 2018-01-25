@@ -14,7 +14,6 @@
 //  val iw : TBits[IWL]
 //  val fw : TBits[FWL]
 //  def newEmptyDFVar: TVar = DFUFix.create(iwl, fwl)
-//  def dfTypeName: String = "DFUFix"
 //}
 //
 //object DFUFix {

@@ -57,7 +57,6 @@
 //
 //  override protected[DFiant] lazy val almanacEntry : AlmanacEntryStruct =  AlmanacEntryStruct(width)
 //
-//  def dfTypeName : String = "DFStruct"
 //}
 //
 //

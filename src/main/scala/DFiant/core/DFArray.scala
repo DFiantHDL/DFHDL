@@ -13,7 +13,6 @@
 //  val width = length * dfVar.width.getValue
 //  private val arr = Vector.tabulate[TAliasElem](length)(_ => dfVar.newEmptyDFVar.asInstanceOf[TAliasElem])
 //  def apply(i : Int) : TAliasElem = arr(i)
-//  def dfTypeName : String = "DFArray"
 //}
 //
 //

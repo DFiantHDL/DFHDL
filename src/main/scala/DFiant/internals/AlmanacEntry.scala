@@ -18,9 +18,10 @@ trait AlmanacEntry {
   val signed : Boolean = false
   val reversed : Boolean = false
 
+  def refCodeString : String = codeString
   def codeString : String
   def simInject(that : BigInt) : Boolean = ???
-  override def toString: String = s"$id[$bitsRange]"
+  final override def toString: String = refCodeString
   Almanac.addEntry(this)
 }
 
@@ -50,29 +51,30 @@ object AlmanacEntryConst {
 }
 
 
-class AlmanacEntryCreateDFVar private (width : Int, val init : Seq[Token], createCodeString : String) extends AlmanacEntry {
+class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], newVarCodeString : String) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  def codeString : String = s"val $id = $createCodeString"
+  override def refCodeString : String = s"$id"
+  def codeString : String = s"val $id = $newVarCodeString"
 }
 
-object AlmanacEntryCreateDFVar {
-  def apply(width : Int, init : Seq[Token], createCodeString : String) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryCreateDFVar(width, init, createCodeString))
+object AlmanacEntryNewDFVar {
+  def apply(width : Int, init : Seq[Token], newVarCodeString : String) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryNewDFVar(width, init, newVarCodeString))
 }
 
 
-class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token]) extends AlmanacEntry {
+class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token], aliasCodeString : String) extends AlmanacEntry {
   val id : AlmanacID = aliasedEntry.id
   val address : AlmanacAddress = aliasedEntry.address
   val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(relBitsRange)
-  def codeString : String = "BADCODE_AlmanacEntryAliasDFVar"
+  def codeString : String = s"$id$aliasCodeString"
 }
 
 object AlmanacEntryAliasDFVar {
-  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token]) : AlmanacEntry =
-    Almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init))
+  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token], aliasCodeString : String) : AlmanacEntry =
+    Almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init, aliasCodeString))
 }
 
 

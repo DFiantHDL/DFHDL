@@ -33,10 +33,11 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], R]) = op(left, right)
   def != (that : BigInt)(implicit op: `Op!=`.Builder[DFUInt[W], BigInt]) = op(left, that)
 
+  override def toString : String = s"DFUInt[$width]"
+
   def isZero = left == 0
   def isNonZero = left != 0
 //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
-  def dfTypeName : String = "DFUInt"
   def extendable : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
 }
 
@@ -75,15 +76,25 @@ object DFUInt {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W]) : Var[W] =
     new DFAny.NewVar(width, Seq(TokenUInt(width, 0))) with Var[W] {
-      def createCodeString : String = s"DFUInt($width)"
+      def codeString : String = s"DFUInt($width)"
     }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenUInt] = Seq()) : Var[W] =
-    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W]
+    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
+      def codeString : String = {
+        val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
+        val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
+        val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
+        s"$bitsCodeString$initCodeString$prevCodeString"
+      }
+    }
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W]) : Var[W] with Extendable =
-    new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable
+    new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
+      def codeString : String = ".extendable"
+      override def toString : String = s"DFUInt[$width] & Extendable"
+    }
 
   protected[DFiant] def const[W](token : TokenUInt) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
@@ -254,6 +265,7 @@ object DFUInt {
       //WCW = With-carry width
       case class Component[NCW, WCW](wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         val c = wc.bits().msbit
+        def codeString = ".nc"
       }
 
       @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
