@@ -12,7 +12,7 @@ class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry) exte
   val timeRef : AlmanacTimeRef = arg0.timeRef
   val init : Seq[Token] = arg0.init
 
-  if (Almanac.printEntrees) {
+  if (Almanac.printEntreesFlag) {
     println(this.codeString)
   }
 
@@ -31,7 +31,7 @@ abstract class AlmanacEntryOp(outWidth : Int, val init : Seq[Token]) extends Alm
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
   final override def refCodeString: String = s"$id"
 
-  if (Almanac.printEntrees) {
+  if (Almanac.printEntreesFlag) {
     println(this.codeString)
   }
 }

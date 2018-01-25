@@ -9,4 +9,7 @@ val a = DFUInt(8)
 
 a + a
 
+a+ a
+Almanac.getList
+
 //val a = DFBits(8).init(20)

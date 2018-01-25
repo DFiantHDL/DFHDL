@@ -58,6 +58,10 @@ class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], newVarCo
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
   override def refCodeString : String = s"$id"
   def codeString : String = s"val $id = $newVarCodeString"
+
+  if (Almanac.printEntreesFlag) {
+    println(this.codeString)
+  }
 }
 
 object AlmanacEntryNewDFVar {
@@ -84,6 +88,7 @@ class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry) extends AlmanacEntr
   val bitsRange : BitsRange = varEntry.bitsRange
   val timeRef : AlmanacTimeRef = varEntry.timeRef
   val init : Seq[Token] = varEntry.init //TODO: consider changing
+  override def refCodeString : String = "BADCODE_AlmanacEntryGetDFVar"
   def codeString : String = "BADCODE_AlmanacEntryGetDFVar"
 }
 

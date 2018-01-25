@@ -264,7 +264,7 @@ object DFUInt {
       //NCW = No-carry width
       //WCW = With-carry width
       case class Component[NCW, WCW](wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
-        val c = wc.bits().msbit
+        lazy val c = wc.bits().msbit
         def codeString = ".nc"
       }
 

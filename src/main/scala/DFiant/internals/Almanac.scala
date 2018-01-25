@@ -2,10 +2,10 @@ package DFiant.internals
 
 import scala.collection.mutable._
 object Almanac {
-  val printEntrees : Boolean = true
+  val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
-  private var list : ListBuffer[AlmanacEntry] = ListBuffer.empty[AlmanacEntry]
+  private val list : ListBuffer[AlmanacEntry] = ListBuffer.empty[AlmanacEntry]
   private var simulationIter = list.iterator
 
   def isSimulating : Boolean = phase == AlmanacPhaseSimulate
@@ -28,11 +28,15 @@ object Almanac {
       entryConstructor
   }
 
+  def getList = list
   def newSimPhase() : Unit = {
     phase = AlmanacPhaseSimulate
     simulationIter = list.iterator
   }
 
+  def printEntrees() : Unit = {
+    list.map(e => println(e.codeString))
+  }
 }
 
 
