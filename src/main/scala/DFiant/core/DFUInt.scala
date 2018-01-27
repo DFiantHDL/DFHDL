@@ -411,24 +411,15 @@ object DFUInt {
       }
     }
     protected object `Ops+Or-` {
-      sealed trait Kind {
-        type Op = (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenUInt]
+      abstract class Kind(val opString : String, val opFunc : (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenUInt]) {
         def unary_- : Kind
-        val opString : String
-        val opFunc : Op
       }
-      case object + extends Kind {
+      case object + extends Kind("+", TokenUInt.+) {
         def unary_- : Kind = `Ops+Or-`.-
-        val opString : String = "+"
-        val opFunc : Op = TokenUInt.+
       }
-      type + = +.type
-      case object - extends Kind {
+      case object - extends Kind("-", TokenUInt.-) {
         def unary_- : Kind = `Ops+Or-`.+
-        val opString : String = "-"
-        val opFunc : Op = TokenUInt.-
       }
-      type - = -.type
     }
     object `Op+` extends `Ops+Or-`(`Ops+Or-`.+)
     object `Op-` extends `Ops+Or-`(`Ops+Or-`.-)
@@ -473,7 +464,7 @@ object DFUInt {
           type Comp = DFBool
           def apply(leftL : L, rightR : R) : Comp = {
             val (left, right) = properLR(leftL, rightR)
-            DFBool.op(kind.opString, kind.op(left.getInit, right.getInit), left, right)
+            DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
           }
         }
 
@@ -556,7 +547,7 @@ object DFUInt {
       }
     }
     protected object OpsCompare {
-      class Kind(val opString : String, val op : (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenBool])
+      class Kind(val opString : String, val opFunc : (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenBool])
       case object == extends Kind("==", TokenUInt.==)
       case object != extends Kind("!=", TokenUInt.!=)
       case object <  extends Kind("<", TokenUInt.<)
