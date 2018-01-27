@@ -34,17 +34,17 @@ class TokenUInt private[DFiant] (val width : Int, val valueUInt : BigInt, val bu
 }
 
 object TokenUInt {
-  def + (left : TokenUInt, right : TokenUInt) : TokenUInt = left + right
-  def - (left : TokenUInt, right : TokenUInt) : TokenUInt = left - right
-  def * (left : TokenUInt, right : TokenUInt) : TokenUInt = left * right
-  def / (left : TokenUInt, right : TokenUInt) : TokenUInt = left / right
-  def % (left : TokenUInt, right : TokenUInt) : TokenUInt = left % right
-  def < (left : TokenUInt, right : TokenUInt) : TokenBool = left < right
-  def > (left : TokenUInt, right : TokenUInt) : TokenBool = left > right
-  def <= (left : TokenUInt, right : TokenUInt) : TokenBool = left <= right
-  def >= (left : TokenUInt, right : TokenUInt) : TokenBool = left >= right
-  def == (left : TokenUInt, right : TokenUInt) : TokenBool = left == right
-  def != (left : TokenUInt, right : TokenUInt) : TokenBool = left != right
+  def +  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenUInt] = TokenSeq(left, right)((l,r) => l + r)
+  def -  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenUInt] = TokenSeq(left, right)((l,r) => l - r)
+  def *  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenUInt] = TokenSeq(left, right)((l,r) => l * r)
+  def /  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenUInt] = TokenSeq(left, right)((l,r) => l / r)
+  def %  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenUInt] = TokenSeq(left, right)((l,r) => l % r)
+  def <  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenBool] = TokenSeq(left, right)((l,r) => l < r)
+  def >  (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenBool] = TokenSeq(left, right)((l,r) => l > r)
+  def <= (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenBool] = TokenSeq(left, right)((l,r) => l <= r)
+  def >= (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenBool] = TokenSeq(left, right)((l,r) => l >= r)
+  def == (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenBool] = TokenSeq(left, right)((l,r) => l == r)
+  def != (left : Seq[TokenUInt], right : Seq[TokenUInt]) : Seq[TokenBool] = TokenSeq(left, right)((l,r) => l != r)
 //  def unary_- (left : TokenUInt) : TokenUInt = -left
 
   def apply(width : Int, value : Int) : TokenUInt = TokenUInt(width, BigInt(value))

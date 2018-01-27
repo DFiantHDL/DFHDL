@@ -7,9 +7,8 @@ import DFiant.internals._
 
 val a = DFUInt(8)
 
-a + a
-
-a+ a
+val b = a + a
+val c = b + 1
+b.forceOut
 Almanac.getList
 
-//val a = DFBits(8).init(20)

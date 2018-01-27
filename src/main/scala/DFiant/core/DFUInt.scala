@@ -316,12 +316,9 @@ object DFUInt {
                     // Completing runtime checks
                     checkLWvRW.unsafeCheck(left.width, right.width)
                     // Constructing op
-                    val wc = creationKind match {
-                      case `Ops+Or-`.+ =>
-                        DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-                      case `Ops+Or-`.- =>
-                        DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
-                    }
+                    val opWidth = wcW(left.width, right.width)
+                    val opInit = kind.opFunc(left.getInit, right.getInit)
+                    val wc = DFUInt.op[wcW.Out](opWidth, kind.opString, opInit, left, right)
                     // Creating extended component aliasing the op
                     Component[ncW.Out, wcW.Out](wc)
                   }
@@ -329,28 +326,28 @@ object DFUInt {
             }
         }
 
-        def create[L, LW, LE, R, RW](properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW]))(
-          implicit
-          ncW : Inference.NC[LW, RW],
-          wcW : Inference.WC[LW, RW],
-          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : Aux[L, LE, R, Component[ncW.Out, wcW.Out]] = new Builder[L, LE, R] {
-          type Comp = Component[ncW.Out, wcW.Out]
-          def apply(leftL : L, rightR : R) : Comp = {
-            val (creationKind, left, right) = properLR(leftL, rightR)
-            // Completing runtime checks
-            checkLWvRW.unsafeCheck(left.width, right.width)
-            // Constructing op
-            val wc = creationKind match {
-              case `Ops+Or-`.+ =>
-                DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-              case `Ops+Or-`.- =>
-                DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
-            }
-            // Creating extended component aliasing the op
-            Component[ncW.Out, wcW.Out](wc)
-          }
-        }
+//        def create[L, LW, LE, R, RW](properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW]))(
+//          implicit
+//          ncW : Inference.NC[LW, RW],
+//          wcW : Inference.WC[LW, RW],
+//          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
+//        ) : Aux[L, LE, R, Component[ncW.Out, wcW.Out]] = new Builder[L, LE, R] {
+//          type Comp = Component[ncW.Out, wcW.Out]
+//          def apply(leftL : L, rightR : R) : Comp = {
+//            val (creationKind, left, right) = properLR(leftL, rightR)
+//            // Completing runtime checks
+//            checkLWvRW.unsafeCheck(left.width, right.width)
+//            // Constructing op
+//            val wc = creationKind match {
+//              case `Ops+Or-`.+ =>
+//                DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
+//              case `Ops+Or-`.- =>
+//                DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
+//            }
+//            // Creating extended component aliasing the op
+//            Component[ncW.Out, wcW.Out](wc)
+//          }
+//        }
 
         import singleton.ops.math.Abs
         implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
@@ -415,14 +412,21 @@ object DFUInt {
     }
     protected object `Ops+Or-` {
       sealed trait Kind {
+        type Op = (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenUInt]
         def unary_- : Kind
+        val opString : String
+        val opFunc : Op
       }
       case object + extends Kind {
         def unary_- : Kind = `Ops+Or-`.-
+        val opString : String = "+"
+        val opFunc : Op = TokenUInt.+
       }
       type + = +.type
       case object - extends Kind {
         def unary_- : Kind = `Ops+Or-`.+
+        val opString : String = "-"
+        val opFunc : Op = TokenUInt.-
       }
       type - = -.type
     }
@@ -469,14 +473,7 @@ object DFUInt {
           type Comp = DFBool
           def apply(leftL : L, rightR : R) : Comp = {
             val (left, right) = properLR(leftL, rightR)
-            kind match {
-              case OpsCompare.== => DFBool.op("==", TokenUIntSeq(left.getInit) == right.getInit, left, right)
-              case OpsCompare.!= => DFBool.op("!=", TokenUIntSeq(left.getInit) != right.getInit, left, right)
-              case OpsCompare.<  => DFBool.op("<",  TokenUIntSeq(left.getInit) <  right.getInit, left, right)
-              case OpsCompare.>  => DFBool.op(">",  TokenUIntSeq(left.getInit) >  right.getInit, left, right)
-              case OpsCompare.<= => DFBool.op("<=", TokenUIntSeq(left.getInit) <= right.getInit, left, right)
-              case OpsCompare.>= => DFBool.op(">=", TokenUIntSeq(left.getInit) >= right.getInit, left, right)
-            }
+            DFBool.op(kind.opString, kind.op(left.getInit, right.getInit), left, right)
           }
         }
 
@@ -559,13 +556,13 @@ object DFUInt {
       }
     }
     protected object OpsCompare {
-      sealed trait Kind
-      case object == extends Kind
-      case object != extends Kind
-      case object <  extends Kind
-      case object >  extends Kind
-      case object <= extends Kind
-      case object >= extends Kind
+      class Kind(val opString : String, val op : (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenBool])
+      case object == extends Kind("==", TokenUInt.==)
+      case object != extends Kind("!=", TokenUInt.!=)
+      case object <  extends Kind("<", TokenUInt.<)
+      case object >  extends Kind(">", TokenUInt.>)
+      case object <= extends Kind("<=", TokenUInt.<=)
+      case object >= extends Kind(">=", TokenUInt.>=)
     }
     object `Op==` extends OpsCompare(OpsCompare.==)
     object `Op!=` extends OpsCompare(OpsCompare.!=)

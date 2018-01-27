@@ -123,6 +123,8 @@ trait DFAny {
     AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
     this.asInstanceOf[TVar]
   }
+
+  def forceOut : Unit = getCurrentEntry
 //  def ==[T](that: T)(implicit r : RequireMsg[false, "Use '===' instead of '=='"]) : DFBool = ???
 //  final def == (that : TVal) : DFBool = ??? //DFBool.op(AlmanacEntryOpEq(this.getCurrentEntry, that.getCurrentEntry))
 //  final def != (that : TVal) : DFBool = !(this == that)
@@ -179,7 +181,7 @@ object DFAny {
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     val protInit : Seq[TToken] = {
-      val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.almanacEntry.init else updatedInit
+      val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       prevInit.asInstanceOf[Seq[TToken]]
     }

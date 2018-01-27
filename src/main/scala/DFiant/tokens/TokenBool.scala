@@ -23,9 +23,9 @@ class TokenBool private[DFiant] (val valueBool : Boolean, val bubble : Boolean) 
 }
 
 object TokenBool {
-  def || (left : TokenBool, right : TokenBool) : TokenBool = left || right
-  def && (left : TokenBool, right : TokenBool) : TokenBool = left && right
-  def unary_! (left : TokenBool) : TokenBool = !left
+  def || (left : Seq[TokenBool], right : Seq[TokenBool]) : Seq[TokenBool] = TokenSeq(left, right)((l, r) => l || r)
+  def && (left : Seq[TokenBool], right : Seq[TokenBool]) : Seq[TokenBool] = TokenSeq(left, right)((l, r) => l && r)
+  def unary_! (left : Seq[TokenBool]) : Seq[TokenBool] = TokenSeq(left)(t => !t)
 
   def apply(value : Int) : TokenBool = value match {
     case 0 => TokenBool(false)

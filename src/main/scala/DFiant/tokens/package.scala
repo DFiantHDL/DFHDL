@@ -5,32 +5,6 @@ package object tokens {
   type Φ = Bubble
   final val Φ = Bubble
 
-  implicit class TokenBitsSeq(seq : Seq[TokenBits]) extends TokenSeq(seq) {
-    def unary_~ : Seq[TokenBits] = applyOp(TokenBits.unary_~)
-    def ## (that : Seq[TokenBits]) : Seq[TokenBits] = applyOp(that, TokenBits.##)
-    def toUInt : Seq[TokenUInt] = applyOp(TokenBits.toUInt)
-  }
-
-  implicit class TokenBoolSeq(seq : Seq[TokenBool]) extends TokenSeq(seq) {
-    def unary_! : Seq[TokenBool] = applyOp(TokenBool.unary_!)
-    def || (that : Seq[TokenBool]) : Seq[TokenBool] = applyOp(that, TokenBool.||)
-    def && (that : Seq[TokenBool]) : Seq[TokenBool] = applyOp(that, TokenBool.&&)
-  }
-
-  implicit class TokenUIntSeq(seq : Seq[TokenUInt]) extends TokenSeq(seq) {
-    def + (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.+)
-    def - (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.-)
-    def * (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.*)
-    def / (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt./)
-    def % (that : Seq[TokenUInt]) : Seq[TokenUInt] = applyOp(that, TokenUInt.%)
-    def < (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.<)
-    def > (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.>)
-    def <= (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.<=)
-    def >= (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.>=)
-    def == (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.==)
-    def != (that : Seq[TokenUInt]) : Seq[TokenBool] = applyOp(that, TokenUInt.!=)
-  }
-
   implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
     def prevInit(step : Int) : Seq[T] = {
       val length = tokenSeq.length

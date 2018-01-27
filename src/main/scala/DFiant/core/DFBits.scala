@@ -90,7 +90,7 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
   def newEmptyDFVar = DFBits.newVar(width)
 
-  def toDFUInt : DFUInt[W] = DFUInt.newVar[W](width).init(getInit.toUInt).assign(this)
+  def toDFUInt : DFUInt[W] = DFUInt.newVar[W](width).init(TokenBits.toUInt(getInit)).assign(this)
 
   override def toString : String = s"DFBits[$width]"
 

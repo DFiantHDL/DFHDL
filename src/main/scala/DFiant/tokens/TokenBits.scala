@@ -43,12 +43,12 @@ class TokenBits private[DFiant] (val width : Int, val valueBits : BitVector, val
 }
 
 object TokenBits {
-  def | (left : TokenBits, right : TokenBits) : TokenBits = left | right
-  def & (left : TokenBits, right : TokenBits) : TokenBits = left & right
-  def ^ (left : TokenBits, right : TokenBits) : TokenBits = left ^ right
-  def ## (left : TokenBits, right : TokenBits) : TokenBits = left ## right
-  def unary_~ (left : TokenBits) : TokenBits = ~left
-  def toUInt(left : TokenBits) : TokenUInt = left.toUInt
+  def | (left : Seq[TokenBits], right : Seq[TokenBits]) : Seq[TokenBits] = TokenSeq(left, right)((l, r) => l | r)
+  def & (left : Seq[TokenBits], right : Seq[TokenBits]) : Seq[TokenBits] = TokenSeq(left, right)((l, r) => l & r)
+  def ^ (left : Seq[TokenBits], right : Seq[TokenBits]) : Seq[TokenBits] = TokenSeq(left, right)((l, r) => l ^ r)
+  def ## (left : Seq[TokenBits], right : Seq[TokenBits]) : Seq[TokenBits] = TokenSeq(left, right)((l, r) => l ## r)
+  def unary_~ (left : Seq[TokenBits]) : Seq[TokenBits] = TokenSeq(left)(t => ~t)
+  def toUInt(left : Seq[TokenBits]) : Seq[TokenUInt] = TokenSeq(left)(t => t.toUInt)
 
   def apply(width : Int, value : Int) : TokenBits = TokenBits(width, BitVector.fromInt(value, width))
   def apply(width : Int, value : Long) : TokenBits = TokenBits(width, BitVector.fromLong(value, width))

@@ -51,11 +51,10 @@ trait Token {
 object Token {
 }
 
-
-abstract class TokenSeq[T <: Token](seq : Seq[T]) {
-  def applyOp[B <: Token, T2 <: Token](that : Seq[T2], op : (T, T2) => B) : Seq[B] =
-    seq.zipAll(that.seq, seq.last, that.seq.last).map(t => op(t._1, t._2))
-  def applyOp[B <: Token](op : T => B) : Seq[B] =
+object TokenSeq {
+  def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
+    leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))
+  def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
     seq.map(t => op(t))
 }
 
