@@ -123,17 +123,17 @@ object DFBits {
   ///////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W]) : Var[W] =
     new DFAny.NewVar(width, Seq(TokenBits(width, 0))) with Var[W] {
-      def codeString : String = s"DFBits($width)"
+      def codeString(idRef : String) : String = s"val $idRef = DFBits($width)"
     }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBits] = Seq()) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
-      def codeString : String = {
+      def codeString(idRef : String) : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s".bitsWL($relWidth, $relBitLow)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$bitsCodeString$initCodeString$prevCodeString"
+        s"$idRef$bitsCodeString$initCodeString$prevCodeString"
       }
     }
 

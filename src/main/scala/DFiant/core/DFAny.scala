@@ -173,7 +173,7 @@ object DFAny {
   abstract class NewVar(_width : Int, _init : Seq[Token]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
-    def codeString : String
+    def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
   }
 
@@ -185,7 +185,7 @@ object DFAny {
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       prevInit.asInstanceOf[Seq[TToken]]
     }
-    def codeString : String
+    def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
@@ -201,11 +201,14 @@ object DFAny {
   abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
     val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = args.length match {
-      case 1 => AlmanacEntryOp1(args(0).almanacEntry, opString, width, opInit)
-      case 2 => AlmanacEntryOp2(args(0).almanacEntry, args(1).almanacEntry, opString, width, opInit)
+    def codeString(idRef : String) : String = args.length match {
+      case 1 => s"val $idRef = $opString${args(0).almanacEntry.refCodeString}"
+      case 2 => s"val $idRef = ${args(0).almanacEntry.refCodeString} $opString ${args(1).almanacEntry.refCodeString}"
       case _ => throw new IllegalArgumentException("Unsupported number of arguments")
     }
+    def refCodeString(idRef : String) : String = idRef
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry =
+      AlmanacEntryOp(width, opString, opInit, args.map(a => a.almanacEntry), codeString, refCodeString)
   }
 
 }

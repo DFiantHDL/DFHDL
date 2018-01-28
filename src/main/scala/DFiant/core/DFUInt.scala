@@ -76,23 +76,23 @@ object DFUInt {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W]) : Var[W] =
     new DFAny.NewVar(width, Seq(TokenUInt(width, 0))) with Var[W] {
-      def codeString : String = s"DFUInt($width)"
+      def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
     }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenUInt] = Seq()) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
-      def codeString : String = {
+      def codeString(idRef : String) : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$bitsCodeString$initCodeString$prevCodeString"
+        s"$idRef$bitsCodeString$initCodeString$prevCodeString"
       }
     }
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W]) : Var[W] with Extendable =
     new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
-      def codeString : String = ".extendable"
+      def codeString(idRef : String) : String = s"$idRef.extendable"
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
 
@@ -265,7 +265,7 @@ object DFUInt {
       //WCW = With-carry width
       case class Component[NCW, WCW](wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         lazy val c = wc.bits().msbit
-        def codeString = ".nc"
+        def codeString(idRef : String) : String = s"$idRef"
       }
 
       @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
@@ -318,7 +318,9 @@ object DFUInt {
                     // Constructing op
                     val opWidth = wcW(left.width, right.width)
                     val opInit = creationKind.opFunc(left.getInit, right.getInit)
-                    val wc = DFUInt.op[wcW.Out](opWidth, creationKind.opString, opInit, left, right)
+                    val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
+                      override def refCodeString(idRef : String) : String = s"$idRef.wc"
+                    }
                     // Creating extended component aliasing the op
                     Component[ncW.Out, wcW.Out](wc)
                   }

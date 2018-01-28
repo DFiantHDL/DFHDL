@@ -5,7 +5,7 @@ import DFiant.tokens._
 trait AlmanacID
 
 case class AlmanacIDConst(token : Token) extends AlmanacID {
-  override def toString: String = s"CONST_$token"
+  override def toString: String = s"$token"
 }
 
 

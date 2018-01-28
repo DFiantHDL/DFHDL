@@ -49,16 +49,16 @@ object DFBool {
   ///////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar() : Var =
     new DFAny.NewVar(1, Seq(TokenBool(false))) with Var {
-      def codeString : String = s"DFBool()"
+      def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     }
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
-      def codeString : String = {
+      def codeString(idRef : String) : String = {
         val bitCodeString = s".bit($relBit)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$bitCodeString$initCodeString$prevCodeString"
+        s"$idRef$bitCodeString$initCodeString$prevCodeString"
       }
     }
 
@@ -66,6 +66,8 @@ object DFBool {
     new DFAny.Const(token) with DFBool
 
   protected[DFiant] def op(opString : String, opInit : Seq[TokenBool], args : DFAny*) : DFBool =
-    new DFAny.Op(1, opString, opInit, args) with DFBool
+    new DFAny.Op(1, opString, opInit, args) with DFBool {
+
+    }
   ///////////////////////////////////////////////////////////////////////////////////////////
 }

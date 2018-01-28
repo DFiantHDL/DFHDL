@@ -35,7 +35,10 @@ object Almanac {
   }
 
   def printEntrees() : Unit = {
-    list.map(e => println(e.codeString))
+    list.map(e => {
+      if (e.codeString.startsWith("val "))
+        println(e.codeString)
+    })
   }
 }
 

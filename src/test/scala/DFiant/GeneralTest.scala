@@ -33,7 +33,9 @@ object GeneralTest {
   1.toDFUInt.extendable + d
   1L.toDFUInt.extendable + d
   BigInt(1).toDFUInt.extendable + d
-//  d < 10
+  val aa = DFUInt(8).init(5).prev(2)
+
+  //  d < 10
 //  -10 - d
 //  (1 < d) && (d > 3)
 
