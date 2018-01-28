@@ -84,7 +84,7 @@ class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry) extends AlmanacEntr
   val bitsRange : BitsRange = varEntry.bitsRange
   val timeRef : AlmanacTimeRef = varEntry.timeRef
   val init : Seq[Token] = varEntry.init //TODO: consider changing
-  def codeString : String = "BADCODE_AlmanacEntryGetDFVar"
+  def codeString : String = s"$id.consume" //TODO: consider changing
 }
 
 object AlmanacEntryGetDFVar {
