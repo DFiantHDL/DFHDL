@@ -317,8 +317,8 @@ object DFUInt {
                     checkLWvRW.unsafeCheck(left.width, right.width)
                     // Constructing op
                     val opWidth = wcW(left.width, right.width)
-                    val opInit = kind.opFunc(left.getInit, right.getInit)
-                    val wc = DFUInt.op[wcW.Out](opWidth, kind.opString, opInit, left, right)
+                    val opInit = creationKind.opFunc(left.getInit, right.getInit)
+                    val wc = DFUInt.op[wcW.Out](opWidth, creationKind.opString, opInit, left, right)
                     // Creating extended component aliasing the op
                     Component[ncW.Out, wcW.Out](wc)
                   }
