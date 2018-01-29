@@ -7,11 +7,12 @@ import DFiant.internals._
 
 
 
-val a = DFUInt(8).init(5)
-val b = a + a
+val a = DFUInt(8).init(3)
+val b = a + -4
 b.getInit.codeString
-val c = b.wc + b
-val d = c.bits().toDFUInt.getInit
+//val c = b.wc + b.wc
+//val d = c.getInit.head.valueUInt
+
 
 //val e = d.toDFUInt
 //d.forceOut

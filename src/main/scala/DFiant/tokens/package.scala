@@ -38,16 +38,19 @@ package object tokens {
       val riHiLow = revIdx(loIdx)
       vec.slice(riLoIdx, riHiLow + 1)
     }
+    def padToMulsOf(bitsNum : Int) : BitVector = {
+      val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
+      vec.padLeft(paddedVecLength)
+    }
     def toShortString : String = {
       val nibble = 4
       val lov = lengthOfValue
       //narrowing the vector by removing all the leftest zeros
       val narrowVec = vec.takeRight(lov)
-      val paddedVecLength = ((lov + nibble - 1) / nibble) * nibble
       //default printing of bitvectors is padding-right in `toHex`.
       //padding left is much more intuitive for us because we consider
       // the leftest presented bit to be to MSbit.
-      s"0x${narrowVec.padLeft(paddedVecLength).toHex}"
+      s"0x${narrowVec.padToMulsOf(nibble).toHex}"
     }
   }
 
