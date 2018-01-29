@@ -35,8 +35,8 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
 
   override def toString : String = s"DFUInt[$width]"
 
-  def isZero = left == 0
-  def isNonZero = left != 0
+  def isZero(implicit dsn : DFDesign) = left == 0
+  def isNonZero(implicit dsn : DFDesign) = left != 0
 //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
   def extendable : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
 }
@@ -98,7 +98,7 @@ object DFUInt {
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
 
-  protected[DFiant] def const[W](token : TokenUInt) : DFUInt[W] =
+  protected[DFiant] def const[W](token : TokenUInt)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
   protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenUInt], args : DFAny*) : DFUInt[W] =
@@ -142,6 +142,7 @@ object DFUInt {
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def toDFUInt(
         implicit
+        dsn : DFDesign,
         lCheck : `N >= 0`.Int.CheckedShell[L],
         w : BitsWidthOf.Int[L]
       ) : DFUInt[w.Out] = {
@@ -160,6 +161,7 @@ object DFUInt {
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def toDFUInt(
         implicit
+        dsn : DFDesign,
         lCheck : `N >= 0`.Int.CheckedShell[L],
         w : BitsWidthOf.Int[L]
       ) : DFUInt[w.Out] = {
@@ -178,6 +180,7 @@ object DFUInt {
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def toDFUInt(
         implicit
+        dsn : DFDesign,
         lCheck : `N >= 0`.Long.CheckedShell[L],
         w : BitsWidthOf.Long[L]
       ) : DFUInt[w.Out] = {
@@ -196,6 +199,7 @@ object DFUInt {
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def toDFUInt(
         implicit
+        dsn : DFDesign,
         lCheck : `N >= 0`.Long.CheckedShell[L],
         w : BitsWidthOf.Long[L]
       ) : DFUInt[w.Out] = {
@@ -212,7 +216,10 @@ object DFUInt {
       def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
-      def toDFUInt : DFUInt[Int] = {
+      def toDFUInt(
+        implicit
+        dsn : DFDesign
+      ) : DFUInt[Int] = {
         `N >= 0`.BigInt.unsafeCheck(left)
         DFUInt.const[Int](TokenUInt(left.bitsWidth, left))
       }
@@ -362,6 +369,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, LE, R <: Int, RW](
           implicit
+          dsn : DFDesign,
           rW : BitsWidthOf.IntAux[Abs[R], RW],
           detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
         ) = detailedBuilder((left, rightNum) => {
@@ -371,6 +379,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, LE, R <: Long, RW](
           implicit
+          dsn : DFDesign,
           rW : BitsWidthOf.LongAux[Abs[R], RW],
           detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
         ) = detailedBuilder((left, rightNum) => {
@@ -380,6 +389,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE](
           implicit
+          dsn : DFDesign,
           detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, BigInt, Int]
         ) = detailedBuilder((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
@@ -388,6 +398,7 @@ object DFUInt {
 
         implicit def evInt_op_DFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           lCheck : `L >= 0`.Int.CheckedShellSym[Builder[_,_,_], L],
           lW : BitsWidthOf.IntAux[Abs[L], LW],
           detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
@@ -398,6 +409,7 @@ object DFUInt {
 
         implicit def evLong_op_DFUInt[L <: Long, LW, LE, R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           lCheck : `L >= 0`.Long.CheckedShellSym[Builder[_,_,_], L],
           lW : BitsWidthOf.LongAux[Abs[L], LW],
           detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
@@ -408,6 +420,7 @@ object DFUInt {
 
         implicit def evBigInt_op_DFUInt[LE, R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           detailedBuilder: DetailedBuilder[BigInt, Int, LE, DFUInt[RW], RW]
         ) = detailedBuilder((leftNum, right) => {
           `L >= 0`.BigInt.unsafeCheck(leftNum)
@@ -484,6 +497,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, R <: Int, RW](
           implicit
+          dsn : DFDesign,
           checkR : `N >= 0`.Int.CheckedShellSym[Builder[_,_], R],
           rW : BitsWidthOf.IntAux[R, RW],
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
@@ -496,6 +510,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, R <: Long, RW](
           implicit
+          dsn : DFDesign,
           checkR : `N >= 0`.Long.CheckedShellSym[Builder[_,_], R],
           rW : BitsWidthOf.LongAux[R, RW],
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
@@ -508,6 +523,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW](
           implicit
+          dsn : DFDesign,
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, Int]
         ) : Aux[DFUInt[LW], BigInt, DFBool] = create[DFUInt[LW], LW, BigInt, Int]((left, rightNum) => {
           `N >= 0`.BigInt.unsafeCheck(rightNum)
@@ -518,6 +534,7 @@ object DFUInt {
 
         implicit def evInt_op_DFUInt[L <: Int, LW, R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           checkL : `N >= 0`.Int.CheckedShellSym[Builder[_,_], L],
           lW : BitsWidthOf.IntAux[L, LW],
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
@@ -530,6 +547,7 @@ object DFUInt {
 
         implicit def evLong_op_DFUInt[L <: Long, LW, R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           checkL : `N >= 0`.Long.CheckedShellSym[Builder[_,_], L],
           lW : BitsWidthOf.LongAux[L, LW],
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
@@ -542,6 +560,7 @@ object DFUInt {
 
         implicit def evBigInt_op_DFUInt[R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, Int]
         ) : Aux[BigInt, DFUInt[RW], DFBool] = create[BigInt, Int, DFUInt[RW], RW]((leftNum, right) => {
           `N >= 0`.BigInt.unsafeCheck(leftNum)
@@ -610,6 +629,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, R <: Int, RW](
           implicit
+          dsn : DFDesign,
           checkR : `R >= 0`.Int.CheckedShellSym[Builder[_,_], R],
           rW : BitsWidthOf.IntAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
@@ -622,6 +642,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, R <: Long, RW](
           implicit
+          dsn : DFDesign,
           checkR : `R >= 0`.Long.CheckedShellSym[Builder[_,_], R],
           rW : BitsWidthOf.LongAux[R, RW],
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
@@ -634,6 +655,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW](
           implicit
+          dsn : DFDesign,
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, Int]
         ) : Aux[DFUInt[LW], BigInt, DFUInt.Var[LW]] = create[DFUInt[LW], LW, BigInt, Int]((left, rightNum) => {
           `R >= 0`.BigInt.unsafeCheck(rightNum)

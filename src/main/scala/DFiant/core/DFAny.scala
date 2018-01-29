@@ -198,7 +198,7 @@ object DFAny {
     }
   }
 
-  abstract class Const(token : Token) extends DFAny {
+  abstract class Const(token : Token)(implicit dsn : DFDesign) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     protected val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)

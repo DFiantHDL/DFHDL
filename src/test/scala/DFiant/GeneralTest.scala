@@ -13,6 +13,7 @@ import scala.annotation.implicitNotFound
   */
 import singleton.ops._
 object GeneralTest {
+  implicit val dsn = DFDesign
   val two = 2
   val d = DFUInt(2)
   val d9 = DFUInt(9)
@@ -75,6 +76,7 @@ object GeneralTest {
 }
 
 object Bla {
+  implicit val dsn = DFDesign
   import DFiant._
   val a = DFBits(8).init(1)
 }

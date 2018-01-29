@@ -63,7 +63,7 @@ object DFBool {
       }
     }
 
-  protected[DFiant] def const(token : TokenBool) : DFBool =
+  protected[DFiant] def const(token : TokenBool)(implicit dsn : DFDesign) : DFBool =
     new DFAny.Const(token) with DFBool
 
   protected[DFiant] def op(opString : String, opInit : Seq[TokenBool], args : DFAny*) : DFBool =
