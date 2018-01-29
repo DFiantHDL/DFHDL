@@ -59,10 +59,7 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)
   //  def & (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpAnd(this, that)
 
-  //AlmanacEntryOpAdd(this, that)
-  //  def - (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpSub(this, that)
   //  def unary_~                   : DFBits.Unsafe = ??? //AlmanacEntryOpInv(this)
-  //  def unary_-                   : DFBits.Unsafe = ??? //AlmanacEntryOpNeg(this)
   //  def >> (that : DFBits.Unsafe)        : DFBits.Unsafe = ???
   //  def << (that : DFBits.Unsafe)        : DFBits.Unsafe = ???
   //  def << (that : Int)           : DFBits.Unsafe = ??? //AlmanacEntryOpLsh(this, AlmanacEntryConst(that))
@@ -76,26 +73,18 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
   def !=(that: Long): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
   def !=(that: BigInt): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
   def isZero: DFBool = this == 0
-
   def isNonZero: DFBool = this != 0
 
   def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
-
   def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
-
-  //  def < (that : DFBits.Unsafe)         : DFBool = ??? //AlmanacEntryOpLsTn(this, that)
-  //  def >= (that : DFBits.Unsafe)        : DFBool = ??? //!(this < that)
-  //  def > (that : DFBits.Unsafe)         : DFBool = ??? //that < this
-  //  def <= (that : DFBits.Unsafe)        : DFBool = ??? //that >= this
 
   def newEmptyDFVar = DFBits.newVar(width)
 
+  ///////////////////////////DFUInt.op[W](width, "toDFUInt", TokenBits.toUInt(getInit))
   def toDFUInt : DFUInt[W] = DFUInt.newVar[W](width).init(TokenBits.toUInt(getInit)).assign(this)
 
   override def toString : String = s"DFBits[$width]"
 
-  //  protected[DFiant] def __!= (arg0 : DFBits.Unsafe, arg1 : DFBits.Unsafe) : DFBool = arg0!=arg1
-  //  protected[DFiant] def __== (arg0 : DFBits.Unsafe, arg1 : DFBits.Unsafe) : DFBool = arg0==arg1
 }
 
 object DFBits {
@@ -129,6 +118,7 @@ object DFBits {
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBits] = Seq()) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
+      protected def protTokenBitsToTToken(token : TokenBits) : TToken = token
       def codeString(idRef : String) : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s".bitsWL($relWidth, $relBitLow)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""

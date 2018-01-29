@@ -54,6 +54,7 @@ object DFBool {
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
+      protected def protTokenBitsToTToken(token : TokenBits) : TToken = TokenBool(token.valueBits(0))
       def codeString(idRef : String) : String = {
         val bitCodeString = s".bit($relBit)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""

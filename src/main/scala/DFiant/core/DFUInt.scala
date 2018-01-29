@@ -82,6 +82,7 @@ object DFUInt {
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenUInt] = Seq()) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
+      protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
       def codeString(idRef : String) : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
@@ -92,6 +93,7 @@ object DFUInt {
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W]) : Var[W] with Extendable =
     new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
+      protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
       def codeString(idRef : String) : String = s"$idRef.extendable"
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
@@ -265,6 +267,7 @@ object DFUInt {
       //WCW = With-carry width
       case class Component[NCW, WCW](wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         lazy val c = wc.bits().msbit
+        protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
         def codeString(idRef : String) : String = s"$idRef"
       }
 

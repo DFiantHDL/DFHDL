@@ -102,6 +102,7 @@ trait DFAny {
 //    }
 //    seq
 //  }
+
   final def consume() : TAlias = {
     ???
     this.asInstanceOf[TAlias]
@@ -172,7 +173,7 @@ object DFAny {
 
   abstract class NewVar(_width : Int, _init : Seq[Token]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-    val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
+    protected val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
   }
@@ -180,10 +181,12 @@ object DFAny {
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
-    val protInit : Seq[TToken] = {
+    protected def protTokenBitsToTToken(token : TokenBits) : TToken
+    protected val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
-      prevInit.asInstanceOf[Seq[TToken]]
+      val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
+      bitsInit.map(protTokenBitsToTToken)
     }
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
@@ -194,15 +197,17 @@ object DFAny {
 
   abstract class Const(token : Token) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
-    val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
+    protected val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
   abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
-    val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
+    protected val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String = args.length match {
-      case 1 => s"val $idRef = $opString${args(0).almanacEntry.refCodeString}"
+      case 1 =>
+        if (opString.startsWith("unary_")) s"val $idRef = $opString${args(0).almanacEntry.refCodeString}"
+        else s"val $idRef = ${args(0).almanacEntry.refCodeString}.$opString"
       case 2 => s"val $idRef = ${args(0).almanacEntry.refCodeString} $opString ${args(1).almanacEntry.refCodeString}"
       case _ => throw new IllegalArgumentException("Unsupported number of arguments")
     }

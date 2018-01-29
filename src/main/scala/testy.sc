@@ -5,10 +5,16 @@ import scodec.bits._
 import DFiant.internals._
 
 
-val a = DFUInt(8)
-val b = a + a.prev(2)
+
+
+val a = DFUInt(8).init(5)
+val b = a + a
+b.getInit.codeString
 val c = b.wc + b
-c.forceOut
-Almanac.getList
-Almanac.printEntrees()
+val d = c.bits().toDFUInt.getInit
+
+//val e = d.toDFUInt
+//d.forceOut
+//Almanac.getList
+//Almanac.printEntrees()
 

@@ -15,23 +15,20 @@ trait Token {
   //leading zero counter
   final lazy val lzc : Int = math.min(valueBits.lzc, bubbleMask.lzc).toInt
   final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
-  protected def ri(bitIdx : Int) : Int = width - 1 - bitIdx //reverse index for BitVector
 
   final def bit(relBit : Int) : TokenBool = {
-    val riRelBit = ri(relBit)
-    val outBitsValue = valueBits(riRelBit)
-    val outBubbleMask = bubbleMask(riRelBit)
+    val outBitsValue = valueBits.bit(relBit)
+    val outBubbleMask = bubbleMask.bit(relBit)
     new TokenBool(outBitsValue, outBubbleMask)
   }
   final def bits() : TokenBits = new TokenBits(width, valueBits, bubbleMask)
   final def bits(relBitHigh : Int, relBitLow : Int) : TokenBits = {
     val outWidth = relBitHigh - relBitLow + 1
-    val riRelBitHigh = ri(relBitHigh)
-    val riRelBitLow = ri(relBitLow)
-    val outBitsValue = valueBits.slice(riRelBitLow, riRelBitHigh + 1)
-    val outBubbleMask = bubbleMask.slice(riRelBitLow, riRelBitHigh + 1)
+    val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
+    val outBubbleMask = bubbleMask.bits(relBitHigh, relBitLow)
     new TokenBits(outWidth, outBitsValue, outBubbleMask)
   }
+  final def bitsWL(relWidth : Int, relBitLow : Int) : TokenBits = bits(relWidth + relBitLow - 1, relBitLow)
   final def == (that : this.type) : TokenBool = {
     if (this.isBubble || that.isBubble) TokenBool(Bubble)
     else TokenBool(this.valueBits == that.valueBits)

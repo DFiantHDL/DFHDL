@@ -15,6 +15,8 @@ package object tokens {
       //More tokens are available than the step size, so we drop the first, according to the step count
       else tokenSeq.drop(step)
     }
+    def bitsWL(relWidth : Int, relBitLow : Int) : Seq[TokenBits] =
+      tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
     def codeString : String = tokenSeq.mkString("(", ",", ")")
   }
 
@@ -28,6 +30,13 @@ package object tokens {
       if (newLength > vec.length) vec.padLeft(newLength)
       else if (newLength < vec.length) vec.drop(vec.length - newLength)
       else vec
+    }
+    def revIdx(bitIdx : Long) : Long = vec.length - 1 - bitIdx //reverse index for BitVector
+    def bit(idx : Long) : Boolean = vec(revIdx(idx))
+    def bits(hiIdx : Long, loIdx : Long) : BitVector = {
+      val riLoIdx = revIdx(hiIdx)
+      val riHiLow = revIdx(loIdx)
+      vec.slice(riLoIdx, riHiLow + 1)
     }
     def toShortString : String = {
       val nibble = 4
