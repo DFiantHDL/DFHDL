@@ -136,7 +136,7 @@ object DFBits {
   protected[DFiant] def const[W](token : TokenBits)(implicit dsn : DFDesign) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
 
-  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenBits], args : DFAny*) : DFBits[W] =
+  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenBits], args : DFAny*)(implicit dsn : DFDesign) : DFBits[W] =
     new DFAny.Op(width, opString, opInit, args) with DFBits[W]
   ///////////////////////////////////////////////////////////////////////////////////////////
 }

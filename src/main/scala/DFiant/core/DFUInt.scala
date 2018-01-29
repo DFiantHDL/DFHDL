@@ -105,7 +105,7 @@ object DFUInt {
   protected[DFiant] def const[W](token : TokenUInt)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenUInt], args : DFAny*) : DFUInt[W] =
+  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenUInt], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -276,7 +276,7 @@ object DFUInt {
     protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) extends General[Enabled, Enabled, Enabled, Enabled] {
       //NCW = No-carry width
       //WCW = With-carry width
-      case class Component[NCW, WCW](wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+      class Component[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         lazy val c = wc.bits().msbit
         protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
         def codeString(idRef : String) : String = s"$idRef"
@@ -316,6 +316,7 @@ object DFUInt {
         object DetailedBuilder {
           implicit def ev[L, LW, LE, R, RW](
             implicit
+            dsn : DFDesign,
             ncW : Inference.NC[LW, RW],
             wcW : Inference.WC[LW, RW],
             checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
@@ -336,7 +337,7 @@ object DFUInt {
                       override def refCodeString(idRef : String) : String = s"$idRef.wc"
                     }
                     // Creating extended component aliasing the op
-                    Component[ncW.Out, wcW.Out](wc)
+                    new Component[ncW.Out, wcW.Out](wc)
                   }
                 }
             }
@@ -481,7 +482,9 @@ object DFUInt {
           type MsgCommon[R] = "Unsigned comparison operations do not permit negative numbers. Found: " + ToString[R]
         }
 
-        def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW])) : Aux[L, R, DFBool] =
+        def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(
+          implicit dsn : DFDesign
+        ) : Aux[L, R, DFBool] =
           new Builder[L, R] {
           type Comp = DFBool
           def apply(leftL : L, rightR : R) : Comp = {
@@ -492,6 +495,7 @@ object DFUInt {
 
         implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
           implicit
+          dsn : DFDesign,
           checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
         ) : Aux[DFUInt[LW], DFUInt[RW], DFBool] =
           create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {

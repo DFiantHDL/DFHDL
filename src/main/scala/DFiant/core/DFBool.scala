@@ -6,7 +6,7 @@ import singleton.twoface._
 import DFiant.tokens._
 
 trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
-  def unary_!               : DFBool = DFBool.op("!", TokenBool.unary_!(getInit), this)
+  def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", TokenBool.unary_!(getInit), this)
 //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
 //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
   def || (that : DFBool) : DFBool = ??? //AlmanacEntryOpOr(this, that)
@@ -14,8 +14,8 @@ trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
 //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
 //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
 //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-  def rising                : DFBool = this && !this.prev(1)
-  def falling               : DFBool = !this && this.prev(1)
+  def rising(implicit dsn : DFDesign)                : DFBool = this && !this.prev(1)
+  def falling(implicit dsn : DFDesign)               : DFBool = !this && this.prev(1)
 
   def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar()
 
@@ -66,7 +66,7 @@ object DFBool {
   protected[DFiant] def const(token : TokenBool)(implicit dsn : DFDesign) : DFBool =
     new DFAny.Const(token) with DFBool
 
-  protected[DFiant] def op(opString : String, opInit : Seq[TokenBool], args : DFAny*) : DFBool =
+  protected[DFiant] def op(opString : String, opInit : Seq[TokenBool], args : DFAny*)(implicit dsn : DFDesign) : DFBool =
     new DFAny.Op(1, opString, opInit, args) with DFBool {
 
     }

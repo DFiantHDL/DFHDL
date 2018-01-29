@@ -204,7 +204,7 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
-  abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny]) extends DFAny {
+  abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny])(implicit dsn : DFDesign) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
     protected val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String = args.length match {
