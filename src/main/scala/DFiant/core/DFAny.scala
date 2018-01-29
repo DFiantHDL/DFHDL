@@ -174,7 +174,7 @@ object DFAny {
     }
   }
 
-  abstract class NewVar(_width : Int, _init : Seq[Token]) extends DFAny {
+  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit dsn : DFDesign) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     protected val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String

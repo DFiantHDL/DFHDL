@@ -14,7 +14,7 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   def -[R](right: `Op-`.Able[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
 
   def extBy[N](numOfBits : Natural.Int.Checked[N])(
-    implicit tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
+    implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
   ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
 //  def *  (right : DFUInt)         : DFUInt = ???
 //  def /  (right : DFUInt)         : DFUInt = ???
@@ -61,8 +61,12 @@ object DFUInt {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply[W](implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit) : Var[W] = newVar(checkedWidth)
-  def apply[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = newVar(checkedWidth.unsafeCheck())
+  implicit def apply[W](
+    implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
+  ) : Var[W] = newVar(checkedWidth)
+  def apply[W](checkedWidth : BitsWidth.Checked[W])(
+    implicit dsn : DFDesign
+  ) : Var[W] = newVar(checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
@@ -74,7 +78,7 @@ object DFUInt {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W]) : Var[W] =
+  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit dsn : DFDesign) : Var[W] =
     new DFAny.NewVar(width, Seq(TokenUInt(width, 0))) with Var[W] {
       def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
     }

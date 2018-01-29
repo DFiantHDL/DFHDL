@@ -17,7 +17,7 @@ trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
   def rising                : DFBool = this && !this.prev(1)
   def falling               : DFBool = !this && this.prev(1)
 
-  def newEmptyDFVar = DFBool.newVar()
+  def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar()
 
   override def toString : String = s"DFBool"
 
@@ -41,13 +41,13 @@ object DFBool {
   ///////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply() : Var = newVar()
+  implicit def apply()(implicit dsn : DFDesign) : Var = newVar()
   ///////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar() : Var =
+  protected[DFiant] def newVar()(implicit dsn : DFDesign) : Var =
     new DFAny.NewVar(1, Seq(TokenBool(false))) with Var {
       def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     }
