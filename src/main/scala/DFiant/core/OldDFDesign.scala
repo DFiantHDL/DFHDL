@@ -2,8 +2,8 @@ package DFiant.core
 
 import DFiant.internals._
 
-abstract class DFDesign[Top] {
-  implicit val design : DFDesign[Top] = this
+abstract class OldDFDesign[Top] {
+  implicit val design : OldDFDesign[Top] = this
 
   protected def top_builder() : Top
   final val top : Top = top_builder()
