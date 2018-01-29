@@ -8,7 +8,7 @@ class TokenUInt private[DFiant] (val width : Int, val valueUInt : BigInt, val bu
   lazy val bubbleMask: BitVector = BitVector.fill(width)(bubble)
   def mkTokenU(that : TokenUInt, result : BigInt, resultWidth : Int) : TokenUInt = {
     if (this.isBubble || that.isBubble) TokenUInt(resultWidth, Bubble)
-    else TokenUInt(resultWidth, result.asUnsigned)
+    else TokenUInt(resultWidth, result.asUnsigned(resultWidth))
   }
 
   final def + (that : TokenUInt) : TokenUInt = mkTokenU(that, this.valueUInt + that.valueUInt, math.max(this.width, that.width) + 1)

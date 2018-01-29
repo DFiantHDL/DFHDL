@@ -7,9 +7,11 @@ import DFiant.internals._
 
 
 
-val a = DFUInt(8).init(3)
-val b = a + -4
-b.getInit.codeString
+val a = TokenUInt(8,255).bits().toUInt
+a.codeString
+
+
+
 //val c = b.wc + b.wc
 //val d = c.getInit.head.valueUInt
 

@@ -73,13 +73,13 @@ package object internals {
       else if (value == 0) 1
       else (-value).bitLength + 1
     }
-    def asUnsigned : BigInt = {
+    def asUnsigned(ofWidth : Int) : BigInt = {
       if (value >= 0) value
       else {
-        val mask = bitsWidthToMaxBigIntBits(bitsWidth)
-        BigInt(Array(0.toByte) ++ value.toByteArray) & mask
+        BigInt(2).pow(ofWidth) + value
       }
     }
+    def asUnsigned : BigInt = asUnsigned(bitsWidth)
     def codeString : String = {
       if (value.isValidInt) s"$value"
       else if (value.isValidLong) s"${value}L"

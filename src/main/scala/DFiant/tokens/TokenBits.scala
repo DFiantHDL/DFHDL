@@ -36,7 +36,7 @@ class TokenBits private[DFiant] (val width : Int, val valueBits : BitVector, val
   }
   def toUInt : TokenUInt = {
     val outWidth = this.width
-    val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
+    val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
     val outBubble = isBubble
     new TokenUInt(outWidth, outValueUInt, outBubble)
   }

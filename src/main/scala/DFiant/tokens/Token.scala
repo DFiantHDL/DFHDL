@@ -42,7 +42,7 @@ trait Token {
   def valueString : String = valueBits.toShortString
   override def toString: String = if (isBubble) bubbleString else valueString
 
-  def codeString : String = "<bad codeString>"
+  def codeString : String = toString
 }
 
 object Token {
