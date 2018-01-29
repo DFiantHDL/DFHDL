@@ -1,5 +1,8 @@
 package DFiant.core
 
-trait DFDesign {
+import DFiant.internals._
 
+trait DFDesign {
+  val almanac = Almanac
 }
+object DFDesign extends DFDesign

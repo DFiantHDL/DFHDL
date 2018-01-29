@@ -47,7 +47,7 @@ class AlmanacEntryConst private (token : Token) extends AlmanacEntry {
 }
 
 object AlmanacEntryConst {
-  def apply(token : Token) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryConst(token))
+  def apply(token : Token)(implicit almanac : Almanac) : AlmanacEntry = almanac.fetchEntry(new AlmanacEntryConst(token))
 }
 
 
@@ -60,7 +60,8 @@ class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], codeStri
 }
 
 object AlmanacEntryNewDFVar {
-  def apply(width : Int, init : Seq[Token], codeStringBld : String => String) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryNewDFVar(width, init, codeStringBld))
+  def apply(width : Int, init : Seq[Token], codeStringBld : String => String)(implicit almanac : Almanac) : AlmanacEntry =
+    almanac.fetchEntry(new AlmanacEntryNewDFVar(width, init, codeStringBld))
 }
 
 
@@ -73,8 +74,8 @@ class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange:
 }
 
 object AlmanacEntryAliasDFVar {
-  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token], codeStringBld : String => String) : AlmanacEntry =
-    Almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init, codeStringBld))
+  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token], codeStringBld : String => String)(implicit almanac : Almanac) : AlmanacEntry =
+    almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init, codeStringBld))
 }
 
 
@@ -88,7 +89,8 @@ class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry) extends AlmanacEntr
 }
 
 object AlmanacEntryGetDFVar {
-  def apply(varEntry : AlmanacEntry) : AlmanacEntry = Almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
+  def apply(varEntry : AlmanacEntry)(implicit almanac : Almanac) : AlmanacEntry =
+    almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
 }
 
 
@@ -103,5 +105,5 @@ class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList
 }
 
 object AlmanacEntryStruct {
-  def apply(width : Int) : AlmanacEntryStruct = Almanac.fetchEntry(new AlmanacEntryStruct(width, MutableList()))
+  def apply(width : Int)(implicit almanac : Almanac) : AlmanacEntryStruct = almanac.fetchEntry(new AlmanacEntryStruct(width, MutableList()))
 }

@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable._
-object Almanac {
+trait Almanac {
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
@@ -41,5 +41,5 @@ object Almanac {
     })
   }
 }
-
+object Almanac extends Almanac
 

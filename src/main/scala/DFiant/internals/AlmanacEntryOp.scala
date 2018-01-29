@@ -15,7 +15,7 @@ class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry) exte
   def codeString: String = s"$arg0 := $arg1"
 }
 object AlmanacEntryAssign {
-  def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry) = Almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
+  def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry)(implicit almanac : Almanac) = almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
 }
 
 class AlmanacEntryOp private (outWidth : Int, opString : String, val init : Seq[Token], val args : Seq[AlmanacEntry], codeStringBld : String => String, refCodeStringBld : String => String) extends AlmanacEntry {
@@ -27,8 +27,8 @@ class AlmanacEntryOp private (outWidth : Int, opString : String, val init : Seq[
   def codeString: String = codeStringBld(s"$id")
 }
 object AlmanacEntryOp {
-  def apply(outWidth : Int, opString : String, init : Seq[Token], args : Seq[AlmanacEntry], codeStringBld : String => String, refCodeStringBld : String => String) : AlmanacEntryOp =
-    Almanac.fetchEntry(new AlmanacEntryOp(outWidth, opString, init, args, codeStringBld, refCodeStringBld))
+  def apply(outWidth : Int, opString : String, init : Seq[Token], args : Seq[AlmanacEntry], codeStringBld : String => String, refCodeStringBld : String => String)(implicit almanac : Almanac) : AlmanacEntryOp =
+    almanac.fetchEntry(new AlmanacEntryOp(outWidth, opString, init, args, codeStringBld, refCodeStringBld))
 }
 
 

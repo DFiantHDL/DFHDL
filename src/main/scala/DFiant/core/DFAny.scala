@@ -116,6 +116,9 @@ trait DFAny {
 //  def newEmptyDFVar : TVar
 //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
+  protected val protDesign : DFDesign = DFDesign
+  final implicit protected val protAlmanac : Almanac = protDesign.almanac
+
   protected[DFiant] val almanacEntry : AlmanacEntry
 
   protected[DFiant] final def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
