@@ -116,7 +116,7 @@ trait DFAny {
 //  def newEmptyDFVar : TVar
 //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
-  protected val protDesign : DFDesign = DFDesign
+  protected val protDesign : DFDesign
   final implicit protected val protAlmanac : Almanac = protDesign.almanac
 
   protected[DFiant] val almanacEntry : AlmanacEntry
@@ -176,6 +176,7 @@ object DFAny {
 
   abstract class NewVar(_width : Int, _init : Seq[Token])(implicit dsn : DFDesign) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
+    final protected val protDesign : DFDesign = dsn
     protected val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
@@ -185,6 +186,7 @@ object DFAny {
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : TokenBits) : TToken
+    final protected val protDesign : DFDesign = dsn
     protected val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
@@ -200,12 +202,14 @@ object DFAny {
 
   abstract class Const(token : Token)(implicit dsn : DFDesign) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
+    final protected val protDesign : DFDesign = dsn
     protected val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
   abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny])(implicit dsn : DFDesign) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
+    final protected val protDesign : DFDesign = dsn
     protected val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String = args.length match {
       case 1 =>

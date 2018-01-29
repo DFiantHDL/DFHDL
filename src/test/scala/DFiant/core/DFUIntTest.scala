@@ -8,7 +8,7 @@ import scodec.bits._
 import shapeless.test.illTyped
 
 class DFUIntTest extends Properties("DFUIntTestSpec") {
-  implicit val dsn = DFDesign
+  implicit val dsn = GlobalDesign
   property("DFUInt[W] @ W < 0 compile error") = wellTyped {
     illTyped { """DFUInt[0]""" }
     illTyped { """DFUInt[-1]""" }

@@ -1,12 +1,11 @@
 package DFiant
-import DFiant.core.DFDesign
 import org.scalacheck._
 import shapeless.test.illTyped
 import TestUtils._
 import singleton.twoface._
 
 class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFromSafeVarSpec") {
-  implicit val dsn = DFDesign
+  implicit val dsn = GlobalDesign
   property("DFBits[W] @ W < 0 compile error") = {
     illTyped { """DFBits[0]""" }
     illTyped { """DFBits[-1]""" }
@@ -123,7 +122,7 @@ class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFrom
 
 
 class UnsafeBitsSelectionFromSafeVarSpec extends Properties("UnsafeBitsSelectionFromSafeVarSpec") {
-  implicit val dsn = DFDesign
+  implicit val dsn = GlobalDesign
   var two = 2
   var one = 1
   var neg_two = -2

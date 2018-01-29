@@ -4,7 +4,7 @@ import DFiant.core._
 import shapeless.test.illTyped
 
 object `Op+Tests` {
-  implicit val dsn = DFDesign
+  implicit val dsn = GlobalDesign
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)
   illTyped("""uint8 + uint9""")
@@ -30,7 +30,7 @@ object `Op+Tests` {
 
 
 object OpComparisonTests {
-  implicit val dsn = DFDesign
+  implicit val dsn = GlobalDesign
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)
   illTyped("""uint8 == uint9""")

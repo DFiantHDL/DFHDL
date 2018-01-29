@@ -5,4 +5,6 @@ import DFiant.internals._
 trait DFDesign {
   val almanac = Almanac
 }
-object DFDesign extends DFDesign
+object DFDesign
+
+object GlobalDesign extends DFDesign
