@@ -21,30 +21,30 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
-  protected final def protBit[I](relBit : TwoFace.Int[I]) : TBool =
+  protected final def protBit[I](relBit : TwoFace.Int[I])(implicit dsn : DFDesign) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
-  final def bit[I](relBit : BitIndex.Checked[I, Width]) : TBool = protBit(relBit.unsafeCheck(width))
-  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit dsn : DFDesign) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](implicit dsn : DFDesign, relBit : BitIndex.Checked[I, Width], di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits() : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
+  final def bits()(implicit dsn : DFDesign) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
 
   protected final def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
-    implicit relWidth : RelWidth.TF[H, L]
+    implicit dsn : DFDesign, relWidth : RelWidth.TF[H, L]
   ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L]
+    implicit dsn : DFDesign, checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L]
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
 
-  final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
+  final def bits[H, L](implicit dsn : DFDesign, relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
     checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
@@ -52,18 +52,18 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
-  protected final def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])
+  protected final def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit dsn : DFDesign)
   : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L]
+    implicit dsn : DFDesign, checkRelWidth : PartWidth.CheckedShell[W, Width - L]
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
   }
 
-  final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width],
+  final def bitsWL[W, L](implicit dsn : DFDesign, relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width],
     checkRelWidth : PartWidth.CheckedShell[W, Width - L], di : DummyImplicit
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
@@ -181,7 +181,7 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign)
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : TokenBits) : TToken

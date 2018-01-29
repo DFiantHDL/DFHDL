@@ -38,7 +38,7 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
   def isZero(implicit dsn : DFDesign) = left == 0
   def isNonZero(implicit dsn : DFDesign) = left != 0
 //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
-  def extendable : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
+  def extendable(implicit dsn : DFDesign) : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
 }
 
 
@@ -84,7 +84,7 @@ object DFUInt {
     }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenUInt] = Seq()) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenUInt] = Seq())(implicit dsn : DFDesign) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
       def codeString(idRef : String) : String = {
@@ -95,7 +95,7 @@ object DFUInt {
       }
     }
 
-  protected[DFiant] def extendable[W](extendedVar : DFUInt[W]) : Var[W] with Extendable =
+  protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit dsn : DFDesign) : Var[W] with Extendable =
     new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
       protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
       def codeString(idRef : String) : String = s"$idRef.extendable"
@@ -276,7 +276,7 @@ object DFUInt {
     protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) extends General[Enabled, Enabled, Enabled, Enabled] {
       //NCW = No-carry width
       //WCW = With-carry width
-      class Component[NCW, WCW](val wc : DFUInt[WCW]) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+      class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         lazy val c = wc.bits().msbit
         protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
         def codeString(idRef : String) : String = s"$idRef"

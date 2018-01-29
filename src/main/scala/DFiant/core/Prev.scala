@@ -11,7 +11,7 @@ object Prev {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    implicit def fromDFBits[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+    implicit def fromDFBits[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
       def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
         DFBits.alias(left, left.width, 0, -right, left.getInit)
     }
@@ -20,7 +20,7 @@ object Prev {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBool
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    implicit def fromDFBool : Builder[DFBool] = new Builder[DFBool] {
+    implicit def fromDFBool(implicit dsn : DFDesign) : Builder[DFBool] = new Builder[DFBool] {
       def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
         DFBool.alias(left, 0, -right, left.getInit)
     }
@@ -29,7 +29,7 @@ object Prev {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFUInt
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    implicit def fromDFUInt[LW] : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
+    implicit def fromDFUInt[LW](implicit dsn : DFDesign) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
       def apply[P](left : DFUInt[LW], right : Natural.Int.Checked[P]) : DFUInt[LW] =
         DFUInt.alias(left, left.width, 0, -right, left.getInit)
     }

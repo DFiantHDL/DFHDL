@@ -105,7 +105,7 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    implicit def fromDFBits[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+    implicit def fromDFBits[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
       def apply(left : DFBits[LW], right : Seq[Able[DFBits[LW]]]) : DFBits[LW] =
         DFBits.alias(left, left.width, 0, 0, Able.toTokenBitsSeq(left.width, right))
     }
@@ -114,7 +114,7 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBool
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    implicit def fromDFBool : Builder[DFBool] = new Builder[DFBool] {
+    implicit def fromDFBool(implicit dsn : DFDesign) : Builder[DFBool] = new Builder[DFBool] {
       def apply(left : DFBool, right : Seq[Able[DFBool]]) : DFBool =
         DFBool.alias(left, 0, 0, Able.toTokenBoolSeq(right))
     }
@@ -123,7 +123,7 @@ object Init {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFUInt
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-    implicit def fromDFUInt[LW] : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
+    implicit def fromDFUInt[LW](implicit dsn : DFDesign) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
       def apply(left : DFUInt[LW], right : Seq[Able[DFUInt[LW]]]) : DFUInt[LW] =
         DFUInt.alias(left, left.width, 0, 0, Able.toTokenUIntSeq(left.width, right))
     }

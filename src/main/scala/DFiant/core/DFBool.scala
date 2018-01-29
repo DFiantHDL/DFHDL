@@ -52,7 +52,7 @@ object DFBool {
       def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq()) : Var =
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq())(implicit dsn : DFDesign) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
       protected def protTokenBitsToTToken(token : TokenBits) : TToken = TokenBool(token.valueBits(0))
       def codeString(idRef : String) : String = {
