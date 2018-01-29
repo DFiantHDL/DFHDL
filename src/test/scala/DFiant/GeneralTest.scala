@@ -75,7 +75,7 @@ object GeneralTest {
 }
 
 object Bla {
-  implicit val dsn = GlobalDesign
-  import DFiant._
-  val a = DFBits(8).init(1)
+  val dsn = new DFDesign {
+    val a = DFBits(8).init(1)
+  }
 }
