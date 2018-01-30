@@ -41,5 +41,5 @@ trait Almanac {
     })
   }
 }
-object Almanac extends Almanac
+//object Almanac extends Almanac
 

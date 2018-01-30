@@ -10,7 +10,7 @@ abstract class OldDFDesign[Top] {
 
   def simulate(iterations : Int) : Unit = {
     for (i <- 0 until iterations) {
-      Almanac.newSimPhase()
+//      Almanac.newSimPhase()
       top_builder()
     }
   }

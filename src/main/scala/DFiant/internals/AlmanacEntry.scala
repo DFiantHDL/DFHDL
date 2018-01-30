@@ -8,7 +8,7 @@ trait AlmanacGuard {
 
 
 
-trait AlmanacEntry {
+abstract class AlmanacEntry(implicit almanac : Almanac) {
   val id : AlmanacID
   val address : AlmanacAddress
   val bitsRange : BitsRange
@@ -22,13 +22,13 @@ trait AlmanacEntry {
   def codeString : String
   def simInject(that : BigInt) : Boolean = ???
   final override def toString: String = codeString
-  Almanac.addEntry(this)
+  almanac.addEntry(this)
 }
 
 
 
 //Get Entry. Used when reading a DF variable.
-trait AlmanacEntryGet extends AlmanacEntry
+//trait AlmanacEntryGet extends AlmanacEntry
 
 //Set Empty Entry. Used when writing an empty value to a DF variable.
 //Typically done when a new DF variable is created.
@@ -37,7 +37,7 @@ trait AlmanacEntryGet extends AlmanacEntry
 //}
 
 //Set Constant Entry. Used for constant value assignment or operation.
-class AlmanacEntryConst private (token : Token) extends AlmanacEntry {
+class AlmanacEntryConst private (token : Token)(implicit almanac : Almanac) extends AlmanacEntry {
   val id : AlmanacID = AlmanacIDConst(token)
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(token.width)
@@ -51,7 +51,7 @@ object AlmanacEntryConst {
 }
 
 
-class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], codeStringBld : String => String) extends AlmanacEntry {
+class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], codeStringBld : String => String)(implicit almanac : Almanac) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
@@ -65,7 +65,7 @@ object AlmanacEntryNewDFVar {
 }
 
 
-class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token], codeStringBld : String => String) extends AlmanacEntry {
+class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token], codeStringBld : String => String)(implicit almanac : Almanac) extends AlmanacEntry {
   val id : AlmanacID = aliasedEntry.id
   val address : AlmanacAddress = aliasedEntry.address
   val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(relBitsRange)
@@ -79,9 +79,9 @@ object AlmanacEntryAliasDFVar {
 }
 
 
-class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry) extends AlmanacEntry {
+class AlmanacEntryGetDFVar private (varEntry : AlmanacEntry)(implicit almanac : Almanac) extends AlmanacEntry {
   val id : AlmanacID = varEntry.id
-  val address : AlmanacAddress = Almanac.getCurrentAddress
+  val address : AlmanacAddress = almanac.getCurrentAddress
   val bitsRange : BitsRange = varEntry.bitsRange
   val timeRef : AlmanacTimeRef = varEntry.timeRef
   val init : Seq[Token] = varEntry.init //TODO: consider changing
@@ -95,7 +95,7 @@ object AlmanacEntryGetDFVar {
 
 
 import scala.collection.mutable.MutableList
-class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList[AlmanacEntry]) extends AlmanacEntry {
+class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList[AlmanacEntry])(implicit almanac : Almanac) extends AlmanacEntry {
   val id : AlmanacID = AlmanacID()
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)

@@ -4,7 +4,7 @@ import DFiant.internals._
 
 trait DFDesign {
   implicit val dsn = this
-  val almanac = Almanac
+  val almanac = new Almanac {}
 }
 object DFDesign
 
