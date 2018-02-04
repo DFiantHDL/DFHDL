@@ -228,122 +228,12 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Implicit Construction of LHS
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //  implicit class FromInt(value : Int) {
-  //    import DFUInt.Operations._
-  //    def +  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def -  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def <  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op<`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def >  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op>`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def <= [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op<=`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def >= [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op>=`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //  }
-  //
-  //  implicit class FromLong(value : Long) {
-  //    import DFUInt.Operations._
-  //    def +  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def -  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def <  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op<`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def >  [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op>`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def <= [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op<=`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //    def >= [L, RW](right : DFUInt[RW])(implicit left : GetLHSArg.Aux[ZeroI, L], op: `Op>=`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-  //  }
-
   trait Implicits {
-    private object `N >= 0` extends `N >= 0` {
-      type MsgCommon[N] = "Conversion from number to DFUInt does not permit negative numbers. Found: " + ToString[N]
-    }
-    implicit class FromInt[L <: Int](left : L) {
-      import DFUInt.Operations._
-      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def toDFUInt(
-        implicit
-        dsn : DFDesign,
-        lCheck : `N >= 0`.Int.CheckedShell[L],
-        w : BitsWidthOf.Int[L]
-      ) : DFUInt[w.Out] = {
-        lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
-      }
-    }
-
-    implicit class FromXInt[L <: XInt](left : L) {
-      import DFUInt.Operations._
-      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def toDFUInt(
-        implicit
-        dsn : DFDesign,
-        lCheck : `N >= 0`.Int.CheckedShell[L],
-        w : BitsWidthOf.Int[L]
-      ) : DFUInt[w.Out] = {
-        lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
-      }
-    }
-
-    implicit class FromLong[L <: Long](left : L)(implicit di : DummyImplicit) {
-      import DFUInt.Operations._
-      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def toDFUInt(
-        implicit
-        dsn : DFDesign,
-        lCheck : `N >= 0`.Long.CheckedShell[L],
-        w : BitsWidthOf.Long[L]
-      ) : DFUInt[w.Out] = {
-        lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
-      }
-    }
-
-    implicit class FromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) {
-      import DFUInt.Operations._
-      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def toDFUInt(
-        implicit
-        dsn : DFDesign,
-        lCheck : `N >= 0`.Long.CheckedShell[L],
-        w : BitsWidthOf.Long[L]
-      ) : DFUInt[w.Out] = {
-        lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
-      }
-    }
-
-    implicit class FromBigInt(left : BigInt) {
-      import DFUInt.Operations._
-      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[BigInt, Extendable, DFUInt[RW]]) = op(left, right)
-      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[BigInt, Extendable, DFUInt[RW]]) = op(left, right)
-      def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
-      def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
-      def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
-      def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[BigInt, DFUInt[RW]]) = op(left, right)
-      def toDFUInt(
-        implicit
-        dsn : DFDesign
-      ) : DFUInt[Int] = {
-        `N >= 0`.BigInt.unsafeCheck(left)
-        DFUInt.const[Int](DFUInt.Token(left.bitsWidth, left))
-      }
-    }
+    implicit class FromInt[L <: Int](left : L) extends Operations[L](left)
+    implicit class FromXInt[L <: XInt](left : L) extends Operations[L](left)
+    implicit class FromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends Operations[L](left)
+    implicit class FromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends Operations[L](left)
+    implicit class FromBigInt[L <: BigInt](left : L) extends Operations[L](left)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -351,14 +241,19 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Operations {
-    type Enabled = DummyImplicit
-    type Disabled = Nothing
+  abstract class Operations[L](left : L) {
+    import Operations._
+    def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+    def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
+    def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
+    def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
+    def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
+    def toDFUInt(implicit op : `Op.toDFUInt`.Builder[L]) = op(left)
+  }
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Implicit configuration of when operation is possible
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    trait General[IntEn, LongEn, BigIntEn, DFUIntEn] extends Implicits{
+  object Operations {
+    trait General {
       abstract class Able[R](val right : R)
 
       trait BuilderTop[L, R] {
@@ -368,21 +263,12 @@ object DFUInt extends DFAny.Companion {
 
       object Able {
         implicit def fromAble[R](able : Able[R]) : R = able.right
-//        implicit def ofInt(value : Int)(implicit e : IntEn, g : AcceptNonLiteral[GetArg0]) : Able[g.Out] =
-//          new Able[g.Out](g.value) {}
-//        implicit def ofLong(value : Long)(implicit e : LongEn, g : AcceptNonLiteral[GetArg0]) : Able[g.Out] =
-//          new Able[g.Out](g.value) {}
-        implicit def ofInt(value : Int)(implicit e : IntEn) : Able[Int] =
-          new Able[Int](value) {}
-        implicit def ofXInt[R <: XInt](value : R)(implicit e : IntEn) : Able[R] =
-          new Able[R](value) {}
-        implicit def ofLong(value : Long)(implicit e : LongEn) : Able[Long] =
-          new Able[Long](value) {}
-        implicit def ofXLong[R <: XLong](value : R)(implicit e : LongEn) : Able[R] =
-          new Able[R](value) {}
-        implicit def ofBigInt(value : BigInt)(implicit e : BigIntEn) : Able[BigInt] =
-          new Able[BigInt](value) {}
-        implicit class OfDFUInt[RW0](value : DFUInt[RW0])(implicit e : DFUIntEn) extends Able[DFUInt[RW0]](value)
+        implicit class OfInt[R <: Int](value : R) extends Able[R](value)
+        implicit class OfXInt[R <: XInt](value : R) extends Able[R](value)
+        implicit class OfLong[R <: Long](value : R)(implicit di : DummyImplicit) extends Able[R](value)
+        implicit class OfXLong[R <: XLong](value : R)(implicit di : DummyImplicit) extends Able[R](value)
+        implicit class OfBigInt[R <: BigInt](value : R) extends Able[R](value)
+        implicit class OfDFUInt[RW0](value : DFUInt[RW0]) extends Able[DFUInt[RW0]](value)
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -390,7 +276,7 @@ object DFUInt extends DFAny.Companion {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // +/- operation
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) extends General[Enabled, Enabled, Enabled, Enabled] {
+    protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) extends General {
       //NCW = No-carry width
       //WCW = With-carry width
       class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
@@ -574,7 +460,7 @@ object DFUInt extends DFAny.Companion {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Comparison operations
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected abstract class OpsCompare(kind : OpsCompare.Kind) extends General[Enabled, Enabled, Enabled, Enabled] {
+    protected abstract class OpsCompare(kind : OpsCompare.Kind) extends General {
       @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
       trait Builder[L, R] extends BuilderTop[L, R]
 
@@ -715,7 +601,7 @@ object DFUInt extends DFAny.Companion {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Assignment := operation
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    object `Op:=` extends General[Enabled, Enabled, Enabled, Enabled] {
+    object `Op:=` extends General {
       @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment operation with the type ${R}")
       trait Builder[L, R] extends BuilderTop[L, R]
 
@@ -787,6 +673,68 @@ object DFUInt extends DFAny.Companion {
           val right = DFUInt.const[Int](DFUInt.Token(rightNum.bitsWidth, rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
+        })
+      }
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Conversion operation toDFUInt
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    object `Op.toDFUInt` {
+      @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support conversion operation toDFUInt")
+      trait Builder[L] {
+        type Comp
+        def apply(leftL : L) : Comp
+      }
+
+      object Builder {
+        type Aux[L, Comp0] = Builder[L] {
+          type Comp = Comp0
+        }
+
+        private object `N >= 0` extends `N >= 0` {
+          type MsgCommon[N] = "Conversion from number to DFUInt does not permit negative numbers. Found: " + ToString[N]
+        }
+
+        def createConst[L, LW](properL : L => DFUInt.Token)(
+          implicit dsn : DFDesign
+        ) : Aux[L, DFUInt[LW]] =
+          new Builder[L] {
+            type Comp = DFUInt[LW]
+            def apply(leftL : L) : Comp = {
+              val left = properL(leftL)
+              DFUInt.const[LW](left)
+            }
+          }
+
+        implicit def evInt[L <: Int, LW](
+          implicit
+          dsn : DFDesign,
+          lCheck : `N >= 0`.Int.CheckedShell[L],
+          w : BitsWidthOf.IntAux[L, LW]
+        ) : Aux[L, DFUInt[LW]] = createConst[L, LW](left => {
+          lCheck.unsafeCheck(left)
+          DFUInt.Token(w(left), left)
+        })
+
+        implicit def evLong[L <: Long, LW](
+          implicit
+          dsn : DFDesign,
+          lCheck : `N >= 0`.Long.CheckedShell[L],
+          w : BitsWidthOf.LongAux[L, LW]
+        ) : Aux[L, DFUInt[LW]] = createConst[L, LW](left => {
+          lCheck.unsafeCheck(left)
+          DFUInt.Token(w(left), left)
+        })
+
+        implicit def evBigInt[L <: BigInt](
+          implicit
+          dsn : DFDesign
+        ) : Aux[L, DFUInt[Int]] = createConst[L, Int](left => {
+          `N >= 0`.BigInt.unsafeCheck(left)
+          DFUInt.Token(left.bitsWidth, left)
         })
       }
     }
