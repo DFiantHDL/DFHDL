@@ -12,11 +12,11 @@ trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
   type Extendable
   def +[R](right: `Op+`.Able[R])(implicit op: `Op+`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
   def -[R](right: `Op-`.Able[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def *[R](right: `Op*`.Able[R])(implicit op: `Op*`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
 
   def extBy[N](numOfBits : Natural.Int.Checked[N])(
     implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
   ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
-//  def *  (right : DFUInt)         : DFUInt = ???
 //  def /  (right : DFUInt)         : DFUInt = ???
 
   def <  [R](right: `Op<`.Able[R])(implicit op: `Op<`.Builder[DFUInt[W], R]) = op(left, right)
@@ -306,10 +306,10 @@ object DFUInt extends DFAny.Companion {
 
         object Inference {
           import singleton.ops.math.Max
-          type CalcWC[LW, RW] = Max[LW, RW] + 1
-          type WC[LW, RW] = TwoFace.Int.Shell2[CalcWC, LW, Int, RW, Int]
-          type CalcNC[LW, RW] = Max[LW, RW]
-          type NC[LW, RW] = TwoFace.Int.Shell2[CalcNC, LW, Int, RW, Int]
+          type CalcWCW[LW, RW] = Max[LW, RW] + 1
+          type WCW[LW, RW] = TwoFace.Int.Shell2[CalcWCW, LW, Int, RW, Int]
+          type CalcNCW[LW, RW] = Max[LW, RW]
+          type NCW[LW, RW] = TwoFace.Int.Shell2[CalcNCW, LW, Int, RW, Int]
         }
 
         trait DetailedBuilder[L, LW, LE, R, RW] {
@@ -320,8 +320,8 @@ object DFUInt extends DFAny.Companion {
           implicit def ev[L, LW, LE, R, RW](
             implicit
             dsn : DFDesign,
-            ncW : Inference.NC[LW, RW],
-            wcW : Inference.WC[LW, RW],
+            ncW : Inference.NCW[LW, RW],
+            wcW : Inference.WCW[LW, RW],
             checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
           ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, wcW.Out]} =
             new DetailedBuilder[L, LW, LE, R, RW]{
@@ -451,10 +451,153 @@ object DFUInt extends DFAny.Companion {
     object `Op-` extends `Ops+Or-`(`Ops+Or-`.-)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // * operation
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    object `Op*` extends General {
+      //NCW = No-carry width
+      //WCW = With-carry width
+      //CW = Carry width
+      class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, ncW, 0) with DFUInt[NCW] {
+        lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW)
+        protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
+        def codeString(idRef : String) : String = s"$idRef"
+      }
+
+      @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")
+      trait Builder[L, LE, R] extends BuilderTop[L, R]
+
+      object Builder {
+        type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
+          type Comp = Comp0
+        }
+
+        object `LW >= RW` extends Checked1Param.Int {
+          type Cond[LW, RW] = LW >= RW
+          type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
+          type ParamFace = Int
+          type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
+        }
+
+        object `N >= 0` extends `N >= 0` {
+          type MsgCommon[N] = "Operation does not permit negative numbers. Found literal: " + ToString[N]
+        }
+
+        object Inference {
+          import singleton.ops.math.Max
+          type CalcWCW[LW, RW] = LW + RW
+          type WCW[LW, RW] = TwoFace.Int.Shell2[CalcWCW, LW, Int, RW, Int]
+          type CalcNCW[LW, RW] = Max[LW, RW]
+          type NCW[LW, RW] = TwoFace.Int.Shell2[CalcNCW, LW, Int, RW, Int]
+          type CalcCW[LW, RW] = CalcWCW[LW, RW] - CalcNCW[LW, RW]
+          type CW[LW, RW] = TwoFace.Int.Shell2[CalcCW, LW, Int, RW, Int]
+        }
+
+        trait DetailedBuilder[L, LW, LE, R, RW] {
+          type Comp
+          def apply(properLR : (L, R) => (DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp]
+        }
+        object DetailedBuilder {
+          implicit def ev[L, LW, LE, R, RW](
+            implicit
+            dsn : DFDesign,
+            ncW : Inference.NCW[LW, RW],
+            wcW : Inference.WCW[LW, RW],
+            cW : Inference.CW[LW, RW],
+            checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
+          ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, wcW.Out, cW.Out]} =
+            new DetailedBuilder[L, LW, LE, R, RW]{
+              type Comp = Component[ncW.Out, wcW.Out, cW.Out]
+              def apply(properLR : (L, R) => (DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp] =
+                new Builder[L, LE, R] {
+                  type Comp = Component[ncW.Out, wcW.Out, cW.Out]
+                  def apply(leftL : L, rightR : R) : Comp = {
+                    val (left, right) = properLR(leftL, rightR)
+                    // Completing runtime checks
+                    checkLWvRW.unsafeCheck(left.width, right.width)
+                    // Constructing op
+                    val wcWidth = wcW(left.width, right.width)
+                    val ncWidth = ncW(left.width, right.width)
+                    val cWidth = cW(left.width, right.width)
+                    val opInit = Token.*(left.getInit, right.getInit)
+                    val wc = new DFAny.Op(wcWidth, "*", opInit, Seq(left, right)) with DFUInt[wcW.Out] {
+                      override def refCodeString(idRef : String) : String = s"$idRef.wc"
+                    }
+                    // Creating extended component aliasing the op
+                    new Component[ncW.Out, wcW.Out, cW.Out](wc, ncWidth, cWidth)
+                  }
+                }
+            }
+        }
+
+        implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
+          implicit
+          detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, DFUInt[RW], RW]
+        ) = detailedBuilder((left, right) => (left, right))
+
+        implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, LE, R <: Int, RW](
+          implicit
+          dsn : DFDesign,
+          rCheck : `N >= 0`.Int.CheckedShellSym[Builder[_,_,_], L],
+          rW : BitsWidthOf.IntAux[R, RW],
+          detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
+        ) = detailedBuilder((left, rightNum) => {
+          rCheck.unsafeCheck(rightNum)
+          (left, DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum)))
+        })
+
+        implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, LE, R <: Long, RW](
+          implicit
+          dsn : DFDesign,
+          rCheck : `N >= 0`.Long.CheckedShellSym[Builder[_,_,_], L],
+          rW : BitsWidthOf.LongAux[R, RW],
+          detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
+        ) = detailedBuilder((left, rightNum) => {
+          rCheck.unsafeCheck(rightNum)
+          (left, DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum)))
+        })
+
+        implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE](
+          implicit
+          dsn : DFDesign,
+          detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, BigInt, Int]
+        ) = detailedBuilder((left, rightNum) => {
+          `N >= 0`.BigInt.unsafeCheck(rightNum)
+          (left, DFUInt.const[Int](DFUInt.Token(rightNum.bitsWidth, rightNum)))
+        })
+
+        implicit def evInt_op_DFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
+          implicit
+          dsn : DFDesign,
+          lCheck : `N >= 0`.Int.CheckedShellSym[Builder[_,_,_], L],
+          lW : BitsWidthOf.IntAux[L, LW],
+          detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
+        ) = detailedBuilder((leftNum, right) => {
+          lCheck.unsafeCheck(leftNum)
+          (DFUInt.const[LW](DFUInt.Token(lW(leftNum), leftNum)), right)
+        })
+
+        implicit def evLong_op_DFUInt[L <: Long, LW, LE, R <: DFUInt[RW], RW](
+          implicit
+          dsn : DFDesign,
+          lCheck : `N >= 0`.Long.CheckedShellSym[Builder[_,_,_], L],
+          lW : BitsWidthOf.LongAux[L, LW],
+          detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
+        ) = detailedBuilder((leftNum, right) => {
+          lCheck.unsafeCheck(leftNum)
+          (DFUInt.const[LW](DFUInt.Token(lW(leftNum), leftNum)), right)
+        })
+
+        implicit def evBigInt_op_DFUInt[LE, R <: DFUInt[RW], RW](
+          implicit
+          dsn : DFDesign,
+          detailedBuilder: DetailedBuilder[BigInt, Int, LE, DFUInt[RW], RW]
+        ) = detailedBuilder((leftNum, right) => {
+          `N >= 0`.BigInt.unsafeCheck(leftNum)
+          (DFUInt.const[Int](DFUInt.Token(leftNum.bitsWidth, leftNum)), right)
+        })
+      }
+    }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
