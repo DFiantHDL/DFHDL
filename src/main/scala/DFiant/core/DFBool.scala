@@ -4,11 +4,10 @@ import DFiant.core
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import DFiant.tokens._
-
+import scodec.bits._
 
 trait DFBool extends DFAny.Val[DFBool.Width, DFBool.type, DFBool, DFBool.Var] {
-  def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", TokenBool.unary_!(getInit), this)
+  def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", DFBool.Token.unary_!(getInit), this)
 //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
 //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
   def || (that : DFBool) : DFBool = ??? //AlmanacEntryOpOr(this, that)
@@ -29,7 +28,46 @@ trait DFBool extends DFAny.Val[DFBool.Width, DFBool.type, DFBool, DFBool.Var] {
 
 
 object DFBool extends DFAny.Companion {
-  type TToken = TokenBool
+  type Width = 1
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Token
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  class Token private[DFiant] (val valueBool : Boolean, val bubble : Boolean) extends DFAny.Token {
+    val width : Int = 1
+    lazy val valueBits : BitVector = BitVector.bit(valueBool)
+    lazy val bubbleMask: BitVector = BitVector.bit(bubble)
+
+    final def && (that : Token) : Token = {
+      if (this.isBubble || that.isBubble) Token(Bubble)
+      else Token(this.valueBool && that.valueBool)
+    }
+    final def || (that : Token) : Token = {
+      if (this.isBubble || that.isBubble) Token(Bubble)
+      else Token(this.valueBool || that.valueBool)
+    }
+    final def unary_! : Token = {
+      if (this.isBubble) Token(Bubble)
+      else Token(!this.valueBool)
+    }
+    override def valueString : String = valueBool.toString()
+  }
+
+  object Token {
+    import DFAny.TokenSeq
+    def || (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l || r)
+    def && (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l && r)
+    def unary_! (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => !t)
+
+    def apply(value : Int) : Token = value match {
+      case 0 => Token(false)
+      case 1 => Token(true)
+    }
+    def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
+    def apply(value : Boolean) : Token = new Token(value, false)
+    def apply(value : Bubble) : Token = new Token(false, true)
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
@@ -39,57 +77,56 @@ object DFBool extends DFAny.Companion {
     object Able {
       private type IntIsBoolean = CompileTime[(GetArg0 == 0) || (GetArg0 == 1)]
       implicit class DFBoolBubble(val right : Bubble) extends Able[DFBool]
-      implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
-      implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
+      implicit class DFBoolToken(val right : DFBool.Token) extends Able[DFBool]
+      implicit class DFBoolTokenSeq(val right : Seq[DFBool.Token]) extends Able[DFBool]
       implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends Able[DFBool]
       implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 
-      def toTokenBoolSeq(right : Seq[Able[DFBool]]) : Seq[TokenBool] =
+      def toTokenSeq(right : Seq[Able[DFBool]]) : Seq[DFBool.Token] =
         right.toSeqAny.map(e => e match {
-          case (t : Bubble) => TokenBool(t)
-          case (t : TokenBool) => t
-          case (t : Int) => TokenBool(t)
-          case (t : Boolean) => TokenBool(t)
+          case (t : Bubble) => DFBool.Token(t)
+          case (t : DFBool.Token) => t
+          case (t : Int) => DFBool.Token(t)
+          case (t : Boolean) => DFBool.Token(t)
         })
     }
     trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
     object Builder {
       implicit def fromDFBool(implicit dsn : DFDesign) : Builder[DFBool] = new Builder[DFBool] {
         def apply(left : DFBool, right : Seq[Able[DFBool]]) : DFBool =
-          DFBool.alias(left, 0, 0, Able.toTokenBoolSeq(right))
+          DFBool.alias(left, 0, 0, Able.toTokenSeq(right))
       }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  type Width = 1
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var extends DFAny.Var[DFBool.Width, DFBool.type, DFBool, DFBool.Var] with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply()(implicit dsn : DFDesign) : Var = newVar()
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar()(implicit dsn : DFDesign) : Var =
-    new DFAny.NewVar(1, Seq(TokenBool(false))) with Var {
+    new DFAny.NewVar(1, Seq(DFBool.Token(false))) with Var {
       def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[TokenBool] = Seq())(implicit dsn : DFDesign) : Var =
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit dsn : DFDesign) : Var =
     new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
-      protected def protTokenBitsToTToken(token : TokenBits) : TToken = TokenBool(token.valueBits(0))
+      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
       def codeString(idRef : String) : String = {
         val bitCodeString = s".bit($relBit)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
@@ -98,12 +135,12 @@ object DFBool extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def const(token : TokenBool)(implicit dsn : DFDesign) : DFBool =
+  protected[DFiant] def const(token : DFBool.Token)(implicit dsn : DFDesign) : DFBool =
     new DFAny.Const(token) with DFBool
 
-  protected[DFiant] def op(opString : String, opInit : Seq[TokenBool], args : DFAny*)(implicit dsn : DFDesign) : DFBool =
+  protected[DFiant] def op(opString : String, opInit : Seq[DFBool.Token], args : DFAny*)(implicit dsn : DFDesign) : DFBool =
     new DFAny.Op(1, opString, opInit, args) with DFBool {
 
     }
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

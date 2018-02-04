@@ -4,7 +4,7 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 import DFiant.basiclib._
-import DFiant.tokens._
+import scodec.bits._
 
 trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
   left =>
@@ -43,8 +43,68 @@ trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
 
 
 object DFUInt extends DFAny.Companion {
-  type TToken = TokenUInt
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Token
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  class Token private[DFiant] (val width : Int, val valueUInt : BigInt, val bubble : Boolean) extends DFAny.Token {
+    lazy val valueBits : BitVector = BitVector(valueUInt.toByteArray).toLength(width)
+    lazy val bubbleMask: BitVector = BitVector.fill(width)(bubble)
+    def mkTokenU(that : Token, result : BigInt, resultWidth : Int) : Token = {
+      if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
+      else Token(resultWidth, result.asUnsigned(resultWidth))
+    }
 
+    final def + (that : Token) : Token = mkTokenU(that, this.valueUInt + that.valueUInt, scala.math.max(this.width, that.width) + 1)
+    final def - (that : Token) : Token = mkTokenU(that, this.valueUInt - that.valueUInt, scala.math.max(this.width, that.width) + 1)
+    final def * (that : Token) : Token = mkTokenU(that, this.valueUInt * that.valueUInt, this.width + that.width)
+    final def / (that : Token) : Token = mkTokenU(that, this.valueUInt / that.valueUInt, this.width)
+    final def % (that : Token) : Token = mkTokenU(that, this.valueUInt % that.valueUInt, that.width)
+    final def <  (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt < that.valueUInt, this.isBubble || that.isBubble)
+    final def >  (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt > that.valueUInt, this.isBubble || that.isBubble)
+    final def <= (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt <= that.valueUInt, this.isBubble || that.isBubble)
+    final def >= (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt >= that.valueUInt, this.isBubble || that.isBubble)
+    final def == (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt == that.valueUInt, this.isBubble || that.isBubble)
+    final def != (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt != that.valueUInt, this.isBubble || that.isBubble)
+
+    //  final def unary_- : TokenSInt = {
+    //    val outWidth = this.width+1
+    //    val outUIntValue = ~this.bitsValue
+    //    val outBubbleMask = this.bubbleMask
+    //    new Token(outWidth, outUIntValue, outBubbleMask)
+    //  }
+    override def codeString: String = if (isBubble) "Φ" else valueUInt.codeString
+    override def valueString : String = valueUInt.toString()
+  }
+
+  object Token {
+    import DFAny.TokenSeq
+    def +  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l + r)
+    def -  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l - r)
+    def *  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l * r)
+    def /  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l / r)
+    def %  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l % r)
+    def <  (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l < r)
+    def >  (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l > r)
+    def <= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l <= r)
+    def >= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l >= r)
+    def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l == r)
+    def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l != r)
+    //  def unary_- (left : Token) : Token = -left
+
+    def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
+    def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
+    def apply(width : Int, value : BigInt) : Token = {
+      if (value < 0 ) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
+      new Token(width, value, false)
+    }
+    def apply(width : Int, value : Bubble) : Token = new Token(width, 0, true)
+    def apply(width : Int, token : Token) : Token = {
+      //TODO: Boundary checks
+      new Token(width, token.valueUInt, token.bubble)
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,19 +114,19 @@ object DFUInt extends DFAny.Companion {
       private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
       private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
       implicit class DFUIntBubble[LW](val right : Bubble) extends Able[DFUInt[LW]]
-      implicit class DFUIntToken[LW](val right : TokenUInt) extends Able[DFUInt[LW]]
-      implicit class DFUIntTokenSeq[LW](val right : Seq[TokenUInt]) extends Able[DFUInt[LW]]
+      implicit class DFUIntToken[LW](val right : DFUInt.Token) extends Able[DFUInt[LW]]
+      implicit class DFUIntTokenSeq[LW](val right : Seq[DFUInt.Token]) extends Able[DFUInt[LW]]
       implicit class DFUIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFUInt[LW]]
       implicit class DFUIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFUInt[LW]]
       implicit class DFUIntBigInt[LW](val right : BigInt) extends Able[DFUInt[LW]]
 
-      def toTokenUIntSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[TokenUInt] =
+      def toTokenSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[DFUInt.Token] =
         right.toSeqAny.map(e => e match {
-          case (t : Bubble) => TokenUInt(width, t)
-          case (t : TokenUInt) => TokenUInt(width, t)
-          case (t : Int) => TokenUInt(width, t)
-          case (t : Long) => TokenUInt(width, t)
-          case (t : BigInt) => TokenUInt(width, t)
+          case (t : Bubble) => DFUInt.Token(width, t)
+          case (t : DFUInt.Token) => DFUInt.Token(width, t)
+          case (t : Int) => DFUInt.Token(width, t)
+          case (t : Long) => DFUInt.Token(width, t)
+          case (t : BigInt) => DFUInt.Token(width, t)
         })
 
     }
@@ -74,7 +134,7 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply(left : DFUInt[LW], right : Seq[Able[DFUInt[LW]]]) : DFUInt[LW] =
-          DFUInt.alias(left, left.width, 0, 0, Able.toTokenUIntSeq(left.width, right))
+          DFUInt.alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
       }
     }
   }
@@ -83,7 +143,6 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
   trait Var[W] extends DFUInt[W] with DFAny.Var[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
     left =>
     import DFUInt.Operations._
@@ -110,20 +169,20 @@ object DFUInt extends DFAny.Companion {
   //  def rangeTo(maxLimit : Int)       : Var = rangeTo(intToBigIntBits(maxLimit))
   //  def rangeTo(maxLimit : Long)      : Var = rangeTo(longToBigIntBits(maxLimit))
   //  def rangeTo(maxLimit : BigInt)    : Var = apply(bigIntRepWidth(maxLimit))
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit dsn : DFDesign) : Var[W] =
-    new DFAny.NewVar(width, Seq(TokenUInt(width, 0))) with Var[W] {
+    new DFAny.NewVar(width, Seq(DFUInt.Token(width, 0))) with Var[W] {
       def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
     }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[TokenUInt] = Seq())(implicit dsn : DFDesign) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFUInt.Token] = Seq())(implicit dsn : DFDesign) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
-      protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
+      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def codeString(idRef : String) : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
@@ -134,15 +193,15 @@ object DFUInt extends DFAny.Companion {
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit dsn : DFDesign) : Var[W] with Extendable =
     new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
-      protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
+      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def codeString(idRef : String) : String = s"$idRef.extendable"
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
 
-  protected[DFiant] def const[W](token : TokenUInt)(implicit dsn : DFDesign) : DFUInt[W] =
+  protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenUInt], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
+  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[DFUInt.Token], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -188,7 +247,7 @@ object DFUInt extends DFAny.Companion {
         w : BitsWidthOf.Int[L]
       ) : DFUInt[w.Out] = {
         lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](TokenUInt(w(left), left))
+        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
       }
     }
 
@@ -207,7 +266,7 @@ object DFUInt extends DFAny.Companion {
         w : BitsWidthOf.Int[L]
       ) : DFUInt[w.Out] = {
         lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](TokenUInt(w(left), left))
+        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
       }
     }
 
@@ -226,7 +285,7 @@ object DFUInt extends DFAny.Companion {
         w : BitsWidthOf.Long[L]
       ) : DFUInt[w.Out] = {
         lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](TokenUInt(w(left), left))
+        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
       }
     }
 
@@ -245,7 +304,7 @@ object DFUInt extends DFAny.Companion {
         w : BitsWidthOf.Long[L]
       ) : DFUInt[w.Out] = {
         lCheck.unsafeCheck(left)
-        DFUInt.const[w.Out](TokenUInt(w(left), left))
+        DFUInt.const[w.Out](DFUInt.Token(w(left), left))
       }
     }
 
@@ -262,7 +321,7 @@ object DFUInt extends DFAny.Companion {
         dsn : DFDesign
       ) : DFUInt[Int] = {
         `N >= 0`.BigInt.unsafeCheck(left)
-        DFUInt.const[Int](TokenUInt(left.bitsWidth, left))
+        DFUInt.const[Int](DFUInt.Token(left.bitsWidth, left))
       }
     }
   }
@@ -315,7 +374,7 @@ object DFUInt extends DFAny.Companion {
       //WCW = With-carry width
       class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
         lazy val c = wc.bits().msbit
-        protected def protTokenBitsToTToken(token : TokenBits) : TToken = token.toUInt
+        protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
         def codeString(idRef : String) : String = s"$idRef"
       }
 
@@ -416,7 +475,7 @@ object DFUInt extends DFAny.Companion {
           detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
         ) = detailedBuilder((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-          (creationKind, left, DFUInt.const[RW](TokenUInt(rW(right), right)))
+          (creationKind, left, DFUInt.const[RW](DFUInt.Token(rW(right), right)))
         })
 
         implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, LE, R <: Long, RW](
@@ -426,7 +485,7 @@ object DFUInt extends DFAny.Companion {
           detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
         ) = detailedBuilder((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-          (creationKind, left, DFUInt.const[RW](TokenUInt(rW(right), right)))
+          (creationKind, left, DFUInt.const[RW](DFUInt.Token(rW(right), right)))
         })
 
         implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE](
@@ -435,7 +494,7 @@ object DFUInt extends DFAny.Companion {
           detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, BigInt, Int]
         ) = detailedBuilder((left, rightNum) => {
           val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-          (creationKind, left, DFUInt.const[Int](TokenUInt(right.bitsWidth, right)))
+          (creationKind, left, DFUInt.const[Int](DFUInt.Token(right.bitsWidth, right)))
         })
 
         implicit def evInt_op_DFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
@@ -446,7 +505,7 @@ object DFUInt extends DFAny.Companion {
           detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
         ) = detailedBuilder((leftNum, right) => {
           lCheck.unsafeCheck(leftNum)
-          (kind, DFUInt.const[LW](TokenUInt(lW(leftNum), leftNum)), right)
+          (kind, DFUInt.const[LW](DFUInt.Token(lW(leftNum), leftNum)), right)
         })
 
         implicit def evLong_op_DFUInt[L <: Long, LW, LE, R <: DFUInt[RW], RW](
@@ -457,7 +516,7 @@ object DFUInt extends DFAny.Companion {
           detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
         ) = detailedBuilder((leftNum, right) => {
           lCheck.unsafeCheck(leftNum)
-          (kind, DFUInt.const[LW](TokenUInt(lW(leftNum), leftNum)), right)
+          (kind, DFUInt.const[LW](DFUInt.Token(lW(leftNum), leftNum)), right)
         })
 
         implicit def evBigInt_op_DFUInt[LE, R <: DFUInt[RW], RW](
@@ -466,18 +525,18 @@ object DFUInt extends DFAny.Companion {
           detailedBuilder: DetailedBuilder[BigInt, Int, LE, DFUInt[RW], RW]
         ) = detailedBuilder((leftNum, right) => {
           `L >= 0`.BigInt.unsafeCheck(leftNum)
-          (kind, DFUInt.const[Int](TokenUInt(leftNum.bitsWidth, leftNum)), right)
+          (kind, DFUInt.const[Int](DFUInt.Token(leftNum.bitsWidth, leftNum)), right)
         })
       }
     }
     protected object `Ops+Or-` {
-      abstract class Kind(val opString : String, val opFunc : (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenUInt]) {
+      abstract class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token]) {
         def unary_- : Kind
       }
-      case object + extends Kind("+", TokenUInt.+) {
+      case object + extends Kind("+", DFUInt.Token.+) {
         def unary_- : Kind = `Ops+Or-`.-
       }
-      case object - extends Kind("-", TokenUInt.-) {
+      case object - extends Kind("-", DFUInt.Token.-) {
         def unary_- : Kind = `Ops+Or-`.+
       }
     }
@@ -548,7 +607,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
         ) : Aux[DFUInt[LW], R, DFBool] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
           checkR.unsafeCheck(rightNum)
-          val right = DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+          val right = DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })
@@ -561,7 +620,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
         ) : Aux[DFUInt[LW], R, DFBool] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
           checkR.unsafeCheck(rightNum)
-          val right = DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+          val right = DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })
@@ -572,7 +631,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, Int]
         ) : Aux[DFUInt[LW], BigInt, DFBool] = create[DFUInt[LW], LW, BigInt, Int]((left, rightNum) => {
           `N >= 0`.BigInt.unsafeCheck(rightNum)
-          val right = DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum))
+          val right = DFUInt.const[Int](DFUInt.Token(rightNum.bitsWidth, rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })
@@ -585,7 +644,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
         ) : Aux[L, DFUInt[RW], DFBool] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
           checkL.unsafeCheck(leftNum)
-          val left = DFUInt.const[LW](TokenUInt(lW(leftNum), leftNum))
+          val left = DFUInt.const[LW](DFUInt.Token(lW(leftNum), leftNum))
           checkLWvRW.unsafeCheck(right.width, left.width)
           (left, right)
         })
@@ -598,7 +657,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
         ) : Aux[L, DFUInt[RW], DFBool] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
           checkL.unsafeCheck(leftNum)
-          val left = DFUInt.const[LW](TokenUInt(lW(leftNum), leftNum))
+          val left = DFUInt.const[LW](DFUInt.Token(lW(leftNum), leftNum))
           checkLWvRW.unsafeCheck(right.width, left.width)
           (left, right)
         })
@@ -609,20 +668,20 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, Int]
         ) : Aux[BigInt, DFUInt[RW], DFBool] = create[BigInt, Int, DFUInt[RW], RW]((leftNum, right) => {
           `N >= 0`.BigInt.unsafeCheck(leftNum)
-          val left = DFUInt.const[Int](TokenUInt(leftNum.bitsWidth, leftNum))
+          val left = DFUInt.const[Int](DFUInt.Token(leftNum.bitsWidth, leftNum))
           checkLWvRW.unsafeCheck(right.width, left.width)
           (left, right)
         })
       }
     }
     protected object OpsCompare {
-      class Kind(val opString : String, val opFunc : (Seq[TokenUInt], Seq[TokenUInt]) => Seq[TokenBool])
-      case object == extends Kind("==", TokenUInt.==)
-      case object != extends Kind("!=", TokenUInt.!=)
-      case object <  extends Kind("<", TokenUInt.<)
-      case object >  extends Kind(">", TokenUInt.>)
-      case object <= extends Kind("<=", TokenUInt.<=)
-      case object >= extends Kind(">=", TokenUInt.>=)
+      class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token])
+      case object == extends Kind("==", DFUInt.Token.==)
+      case object != extends Kind("!=", DFUInt.Token.!=)
+      case object <  extends Kind("<", DFUInt.Token.<)
+      case object >  extends Kind(">", DFUInt.Token.>)
+      case object <= extends Kind("<=", DFUInt.Token.<=)
+      case object >= extends Kind(">=", DFUInt.Token.>=)
     }
     object `Op==` extends OpsCompare(OpsCompare.==)
     object `Op!=` extends OpsCompare(OpsCompare.!=)
@@ -680,7 +739,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
         ) : Aux[DFUInt[LW], R, DFUInt.Var[LW]] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
           checkR.unsafeCheck(rightNum)
-          val right = DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+          val right = DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })
@@ -693,7 +752,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
         ) : Aux[DFUInt[LW], R, DFUInt.Var[LW]] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
           checkR.unsafeCheck(rightNum)
-          val right = DFUInt.const[RW](TokenUInt(rW(rightNum), rightNum))
+          val right = DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })
@@ -704,7 +763,7 @@ object DFUInt extends DFAny.Companion {
           checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, Int]
         ) : Aux[DFUInt[LW], BigInt, DFUInt.Var[LW]] = create[DFUInt[LW], LW, BigInt, Int]((left, rightNum) => {
           `R >= 0`.BigInt.unsafeCheck(rightNum)
-          val right = DFUInt.const[Int](TokenUInt(rightNum.bitsWidth, rightNum))
+          val right = DFUInt.const[Int](DFUInt.Token(rightNum.bitsWidth, rightNum))
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })

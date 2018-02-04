@@ -2,7 +2,6 @@ package DFiant.core
 
 import DFiant._
 import DFiant.TestUtils._
-import DFiant.tokens._
 import org.scalacheck._
 import scodec.bits._
 import shapeless.test.illTyped

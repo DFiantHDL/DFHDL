@@ -1,9 +1,9 @@
 package DFiant.core
 
 import DFiant.internals._
-import DFiant.tokens._
 import singleton.ops._
 import singleton.twoface._
+import scodec.bits._
 
 trait DFAny {
   type IN = TVal
@@ -14,7 +14,7 @@ trait DFAny {
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
   type TCompanion <: DFAny.Companion
-  type TToken = protComp.TToken
+  type TToken = protComp.Token
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
@@ -188,7 +188,7 @@ object DFAny {
   abstract class Alias[Comp <: Companion](aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, cmp : Comp)
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
-    protected def protTokenBitsToTToken(token : TokenBits) : TToken
+    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected val protInit : Seq[TToken] = {
@@ -253,8 +253,70 @@ object DFAny {
     }
   }
 
+  trait Token {
+    //maximum token value width
+    val width : Int
+    final lazy val widthOfValue : Int = scala.math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
+    val valueBits : BitVector
+    val bubbleMask : BitVector
+    //leading zero counter
+    final lazy val lzc : Int = scala.math.min(valueBits.lzc, bubbleMask.lzc).toInt
+    final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
+
+    final def bit(relBit : Int) : DFBool.Token = {
+      val outBitsValue = valueBits.bit(relBit)
+      val outBubbleMask = bubbleMask.bit(relBit)
+      new DFBool.Token(outBitsValue, outBubbleMask)
+    }
+    final def bits() : DFBits.Token = new DFBits.Token(width, valueBits, bubbleMask)
+    final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token = {
+      val outWidth = relBitHigh - relBitLow + 1
+      val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
+      val outBubbleMask = bubbleMask.bits(relBitHigh, relBitLow)
+      new DFBits.Token(outWidth, outBitsValue, outBubbleMask)
+    }
+    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = bits(relWidth + relBitLow - 1, relBitLow)
+    final def == (that : this.type) : DFBool.Token = {
+      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
+      else DFBool.Token(this.valueBits == that.valueBits)
+    }
+    final def != (that : this.type) : DFBool.Token = {
+      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
+      else DFBool.Token(this.valueBits != that.valueBits)
+    }
+
+    def bubbleString : String = "Φ"
+    def valueString : String = valueBits.toShortString
+    override def toString: String = if (isBubble) bubbleString else valueString
+
+    def codeString : String = toString
+  }
+  object Token {
+    implicit class TokenSeqInit[T <: DFAny.Token](tokenSeq : Seq[T]) {
+      def prevInit(step : Int) : Seq[T] = {
+        val length = tokenSeq.length
+        //No init at all, so invoking prev does not change anything (bubble tokens will be used)
+        if ((length == 0) || (step == 0)) tokenSeq
+        //The step is larger or equals to the init sequence, so only the last init token remains
+        else if (length <= step) Seq(tokenSeq.last)
+        //More tokens are available than the step size, so we drop the first, according to the step count
+        else tokenSeq.drop(step)
+      }
+      def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
+        tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
+      def codeString : String = tokenSeq.mkString("(", ",", ")")
+    }
+  }
+
+  object TokenSeq {
+    def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
+      leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))
+    def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
+      seq.map(t => op(t))
+  }
+
   trait Companion {
-    type TToken <: Token
+    type Token <: DFAny.Token
     trait Init {
       type Able[L <: DFAny] <: DFAny.Init.Able[L]
       type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]

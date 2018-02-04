@@ -16,6 +16,11 @@ package object core {
   type BitsRange = internals.BitsRange
   val BitsRange = internals.BitsRange
 
+  sealed trait Bubble
+  object Bubble extends Bubble
+  type Φ = Bubble
+  final val Φ = Bubble
+
   implicit class ElseIfClauseBuilder(cond : DFBool){
     def apply(block : => Unit) : ElseIfClause = new ElseIfClause(cond, block)
   }

@@ -10,6 +10,8 @@ package object DFiant extends DFUInt.Implicits {
   trait DFDesign extends core.DFDesign
   val DFDesign = core.DFDesign
   val GlobalDesign = core.GlobalDesign
+  type Φ = core.Bubble
+  final val Φ = core.Bubble
   type DFBits[W] = core.DFBits[W]
   val DFBits = core.DFBits
   type DFBool = core.DFBool

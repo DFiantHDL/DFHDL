@@ -1,6 +1,6 @@
 package DFiant.internals
 
-import DFiant.tokens._
+import DFiant.core.DFAny.Token
 
 trait AlmanacID
 

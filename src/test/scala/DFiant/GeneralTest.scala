@@ -3,7 +3,6 @@ package DFiant
 import DFiant._
 import DFiant.internals._
 import singleton.twoface._
-import DFiant.tokens._
 //import DFiant.fixedpoint._
 
 import scala.annotation.implicitNotFound
@@ -23,7 +22,7 @@ object GeneralTest {
 //  d2 < d
 //  d + one
 //  d + (d + d).wc
-  val aaa = TokenUInt(8, 3)
+  val aaa = DFUInt.Token(8, 3)
 
   val dd = d9 + 200
   implicitly[dd.type <:< DFUInt[9]]
