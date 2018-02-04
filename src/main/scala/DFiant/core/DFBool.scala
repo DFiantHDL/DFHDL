@@ -5,7 +5,7 @@ import DFiant.internals._
 import singleton.twoface._
 import DFiant.tokens._
 
-trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
+trait DFBool extends DFAny.Val[DFBool.Width, DFBool.type, DFBool, DFBool.Var] {
   def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", TokenBool.unary_!(getInit), this)
 //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
 //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
@@ -26,12 +26,14 @@ trait DFBool extends DFAny.Val[DFBool.Width, TokenBool, DFBool, DFBool.Var] {
 }
 
 
-object DFBool {
+object DFBool extends DFAny.Companion {
+  type TToken = TokenBool
+//  implicit val cmp = this
   type Width = 1
   ///////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////
-  trait Var extends DFAny.Var[DFBool.Width, TokenBool, DFBool, DFBool.Var] with DFBool {
+  trait Var extends DFAny.Var[DFBool.Width, DFBool.type, DFBool, DFBool.Var] with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false

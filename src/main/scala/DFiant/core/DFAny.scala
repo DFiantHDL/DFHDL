@@ -9,14 +9,16 @@ trait DFAny {
   type IN = TVal
   type OUT = TVar
   type TVal <: DFAny
-  type TVar <: TVal with DFAny.Var[Width, TToken, TVal, TVar]
+  type TVar <: TVal with DFAny.Var[Width, TCompanion, TVal, TVar]
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
-  type TToken <: Token
+  type TCompanion <: DFAny.Companion
+  type TToken = protComp.TToken
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
+  protected val protComp : TCompanion
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
@@ -77,7 +79,7 @@ trait DFAny {
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
-  def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) : TAlias =
+  def init[Builder[T <: DFAny] <: Init.Builder[T]](that : Init.Able[TVal]*)(implicit op : Builder[TVal]) : TAlias =
     op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -141,19 +143,19 @@ trait DFAnyW[W] extends DFAny {
   type Width = W
 }
 
-trait DFAnyWT[W, T <: Token] extends DFAnyW[W] {
-  type TToken = T
+trait DFAnyWT[W, T <: DFAny.Companion] extends DFAnyW[W] {
+  type TCompanion = T
 }
 
 
 object DFAny {
-  trait Val[W, T <: Token, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAnyWT[W, T] {
+  trait Val[W, T <: DFAny.Companion, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAnyWT[W, T] {
     this : Val0 =>
     type TVal = Val0
     type TVar = Var0
   }
 
-  trait Var[W, T <: Token, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAny.Val[W, T, Val0, Var0] {
+  trait Var[W, T <: DFAny.Companion, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAny.Val[W, T, Val0, Var0] {
     this : Val0 with Var0 =>
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
@@ -174,19 +176,25 @@ object DFAny {
     }
   }
 
-  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit dsn : DFDesign) extends DFAny {
+  trait Companion {
+    type TToken <: Token
+    implicit val cmp = this
+  }
+  abstract class NewVar[Comp <: Companion](_width : Int, _init : Seq[Token])(implicit dsn : DFDesign, cmp : Comp) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protDesign : DFDesign = dsn
+    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign)
+  abstract class Alias[Comp <: Companion](aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, cmp : Comp)
     extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : TokenBits) : TToken
     final protected val protDesign : DFDesign = dsn
+    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
@@ -200,16 +208,18 @@ object DFAny {
     }
   }
 
-  abstract class Const(token : Token)(implicit dsn : DFDesign) extends DFAny {
+  abstract class Const[Comp <: Companion](token : Token)(implicit dsn : DFDesign, cmp : Comp) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protDesign : DFDesign = dsn
+    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
 
-  abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny])(implicit dsn : DFDesign) extends DFAny {
+  abstract class Op[Comp <: Companion](opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny])(implicit dsn : DFDesign, cmp : Comp) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
     final protected val protDesign : DFDesign = dsn
+    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String = args.length match {
       case 1 =>
@@ -221,6 +231,17 @@ object DFAny {
     def refCodeString(idRef : String) : String = idRef
     protected[DFiant] lazy val almanacEntry : AlmanacEntry =
       AlmanacEntryOp(width, opString, opInit, args.map(a => a.almanacEntry), codeString, refCodeString)
+  }
+
+  object Init {
+    trait Able[L <: DFAny] {
+      val right : Any
+
+      override def toString: String = right.toString
+    }
+    trait Builder[L <: DFAny] {
+      def apply(left : L, right : Seq[Able[L]]) : L
+    }
   }
 
 }

@@ -5,19 +5,16 @@ import scodec.bits._
 import DFiant.internals._
 
 
+trait Foo {
+  trait Bar
+  val a : Bar = ???
+}
 
+object Fooy extends Foo {
+  trait Bar extends super.Bar {
+    def printer : Unit = {}
+  }
+}
 
-val a = TokenUInt(8,255).bits().toUInt
-a.codeString
-
-
-
-//val c = b.wc + b.wc
-//val d = c.getInit.head.valueUInt
-
-
-//val e = d.toDFUInt
-//d.forceOut
-//Almanac.getList
-//Almanac.printEntrees()
+Fooy.a.printer
 

@@ -6,7 +6,7 @@ import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.tokens._
 
-trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
+trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
   left =>
   import DFUInt.Operations._
   type Extendable
@@ -42,12 +42,14 @@ trait DFUInt[W] extends DFAny.Val[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
 }
 
 
-object DFUInt {
+object DFUInt extends DFAny.Companion {
+  type TToken = TokenUInt
+//  implicit val cmp = this
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  trait Var[W] extends DFUInt[W] with DFAny.Var[W, TokenUInt, DFUInt[W], DFUInt.Var[W]] {
+  trait Var[W] extends DFUInt[W] with DFAny.Var[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
     left =>
     import DFUInt.Operations._
     def := [R](right: `Op:=`.Able[R])(implicit op: `Op:=`.Builder[DFUInt[W], R]) = op(left, right)
@@ -228,6 +230,18 @@ object DFUInt {
         DFUInt.const[Int](TokenUInt(left.bitsWidth, left))
       }
     }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Init
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Init {
+    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
+    object Able {
+
+    }
+    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

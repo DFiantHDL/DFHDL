@@ -6,7 +6,7 @@ import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.tokens._
 
-trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
+trait DFBits[W] extends DFAny.Val[W, DFBits.type, DFBits[W], DFBits.Var[W]] {
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
@@ -89,11 +89,13 @@ trait DFBits[W] extends DFAny.Val[W, TokenBits, DFBits[W], DFBits.Var[W]] {
 
 }
 
-object DFBits {
+object DFBits extends DFAny.Companion {
+  type TToken = TokenBits
+//  implicit val cmp = this
   ///////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFBits[W] with DFAny.Var[W, TokenBits, DFBits[W], DFBits.Var[W]] {
+  trait Var[W] extends DFBits[W] with DFAny.Var[W, DFBits.type, DFBits[W], DFBits.Var[W]] {
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
