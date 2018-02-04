@@ -119,7 +119,7 @@ trait DFAny {
 //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
   protected val protDesign : DFDesign
-  final implicit protected lazy val protAlmanac : Almanac = protDesign.almanac
+  final implicit protected lazy val protAlmanac : Almanac = protDesign.protAlmanac
 
   protected[DFiant] val almanacEntry : AlmanacEntry
 
