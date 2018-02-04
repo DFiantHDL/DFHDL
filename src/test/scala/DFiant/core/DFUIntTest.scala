@@ -65,7 +65,7 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     val u98 = u9 + u8
     implicitly[u98.type <:< DFUInt[9]]
     implicitly[u98.wc.type <:< DFUInt[10]]
-    implicitly[u98.c.type <:< DFBool]
+    implicitly[u98.c.type <:< DFBits[1]]
     val u88 = u8 + u8
     implicitly[u88.type <:< DFUInt[8]]
     val u89 = u8.extendable + u9
@@ -74,7 +74,7 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     val u98us = u9us + u8
     implicitly[u98us.type <:< DFUInt[Int]]
     implicitly[u98us.wc.type <:< DFUInt[Int]]
-    implicitly[u98us.c.type <:< DFBool]
+    implicitly[u98us.c.type <:< DFBits[1]]
     u8 + u8
     u8.extendable + u9us
     u9 + u8us
@@ -106,11 +106,11 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     val u98 = u9 + u8
     implicitly[u98.type <:< DFUInt[9]]
     implicitly[u98.wc.type <:< DFUInt[10]]
-    implicitly[u98.c.type <:< DFBool]
+    implicitly[u98.c.type <:< DFBits[1]]
     val u98us = u9us + u8
     implicitly[u98us.type <:< DFUInt[Int]]
     implicitly[u98us.wc.type <:< DFUInt[Int]]
-    implicitly[u98us.c.type <:< DFBool]
+    implicitly[u98us.c.type <:< DFBits[1]]
     u9 + u8us
     u9us + u8us
     u9 + -1
@@ -142,14 +142,14 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     val u98 = u9 + u8
     implicitly[u98.type <:< DFUInt[9]]
     implicitly[u98.wc.type <:< DFUInt[10]]
-    implicitly[u98.c.type <:< DFBool]
+    implicitly[u98.c.type <:< DFBits[1]]
     val u89 = u8.extendable + u9
     implicitly[u89.type <:< DFUInt[9]]
     implicitly[u89.wc.type <:< DFUInt[10]]
     val u98us = u9us + u8
     implicitly[u98us.type <:< DFUInt[Int]]
     implicitly[u98us.wc.type <:< DFUInt[Int]]
-    implicitly[u98us.c.type <:< DFBool]
+    implicitly[u98us.c.type <:< DFBits[1]]
     u8.extendable + u9us
     u9 + u8us
     u8us + u8us

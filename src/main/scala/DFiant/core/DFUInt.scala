@@ -280,7 +280,7 @@ object DFUInt extends DFAny.Companion {
       //NCW = No-carry width
       //WCW = With-carry width
       class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
-        lazy val c = wc.bits().msbit
+        lazy val c = DFBits.alias[1](wc, 1, wc.width-1)
         protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
         def codeString(idRef : String) : String = s"$idRef"
       }
@@ -345,29 +345,6 @@ object DFUInt extends DFAny.Companion {
                 }
             }
         }
-
-//        def create[L, LW, LE, R, RW](properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW]))(
-//          implicit
-//          ncW : Inference.NC[LW, RW],
-//          wcW : Inference.WC[LW, RW],
-//          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-//        ) : Aux[L, LE, R, Component[ncW.Out, wcW.Out]] = new Builder[L, LE, R] {
-//          type Comp = Component[ncW.Out, wcW.Out]
-//          def apply(leftL : L, rightR : R) : Comp = {
-//            val (creationKind, left, right) = properLR(leftL, rightR)
-//            // Completing runtime checks
-//            checkLWvRW.unsafeCheck(left.width, right.width)
-//            // Constructing op
-//            val wc = creationKind match {
-//              case `Ops+Or-`.+ =>
-//                DFUInt.op[wcW.Out](wcW(left.width, right.width), "+", left.getInit + right.getInit, left, right)
-//              case `Ops+Or-`.- =>
-//                DFUInt.op[wcW.Out](wcW(left.width, right.width), "-", left.getInit - right.getInit, left, right)
-//            }
-//            // Creating extended component aliasing the op
-//            Component[ncW.Out, wcW.Out](wc)
-//          }
-//        }
 
         import singleton.ops.math.Abs
         implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
