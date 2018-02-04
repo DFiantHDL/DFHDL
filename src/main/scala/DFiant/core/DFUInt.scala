@@ -44,7 +44,40 @@ trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
 
 object DFUInt extends DFAny.Companion {
   type TToken = TokenUInt
-//  implicit val cmp = this
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Init
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait InitAble[L <: DFAny] extends DFAny.Init.Able[L]
+  object InitAble {
+    private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
+    private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
+    implicit class DFUIntBubble[LW](val right : Bubble) extends InitAble[DFUInt[LW]]
+    implicit class DFUIntToken[LW](val right : TokenUInt) extends InitAble[DFUInt[LW]]
+    implicit class DFUIntTokenSeq[LW](val right : Seq[TokenUInt]) extends InitAble[DFUInt[LW]]
+    implicit class DFUIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends InitAble[DFUInt[LW]]
+    implicit class DFUIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends InitAble[DFUInt[LW]]
+    implicit class DFUIntBigInt[LW](val right : BigInt) extends InitAble[DFUInt[LW]]
+
+    def toTokenUIntSeq[LW](width : Int, right : Seq[InitAble[DFUInt[LW]]]) : Seq[TokenUInt] =
+      right.toSeqAny.map(e => e match {
+        case (t : Bubble) => TokenUInt(width, t)
+        case (t : TokenUInt) => TokenUInt(width, t)
+        case (t : Int) => TokenUInt(width, t)
+        case (t : Long) => TokenUInt(width, t)
+        case (t : BigInt) => TokenUInt(width, t)
+      })
+    
+  }
+  trait InitBuilder[L <: DFAny] extends DFAny.Init.Builder[L, InitAble]
+  object InitBuilder {
+    implicit def ev[LW](implicit dsn : DFDesign) : InitBuilder[DFUInt[LW]] = new InitBuilder[DFUInt[LW]] {
+      def apply(left : DFUInt[LW], right : Seq[InitAble[DFUInt[LW]]]) : DFUInt[LW] =
+        DFUInt.alias(left, left.width, 0, 0, InitAble.toTokenUIntSeq(left.width, right))
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,18 +263,6 @@ object DFUInt extends DFAny.Companion {
         DFUInt.const[Int](TokenUInt(left.bitsWidth, left))
       }
     }
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Init
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init {
-    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
-    object Able {
-
-    }
-    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

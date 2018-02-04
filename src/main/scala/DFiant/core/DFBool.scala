@@ -2,8 +2,10 @@ package DFiant.core
 
 import DFiant.core
 import DFiant.internals._
+import singleton.ops._
 import singleton.twoface._
 import DFiant.tokens._
+
 
 trait DFBool extends DFAny.Val[DFBool.Width, DFBool.type, DFBool, DFBool.Var] {
   def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", TokenBool.unary_!(getInit), this)
@@ -28,7 +30,36 @@ trait DFBool extends DFAny.Val[DFBool.Width, DFBool.type, DFBool, DFBool.Var] {
 
 object DFBool extends DFAny.Companion {
   type TToken = TokenBool
-//  implicit val cmp = this
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Init
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait InitAble[L <: DFAny] extends DFAny.Init.Able[L]
+  object InitAble {
+    private type IntIsBoolean = CompileTime[(GetArg0 == 0) || (GetArg0 == 1)]
+    implicit class DFBoolBubble(val right : Bubble) extends InitAble[DFBool]
+    implicit class DFBoolToken(val right : TokenBool) extends InitAble[DFBool]
+    implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends InitAble[DFBool]
+    implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends InitAble[DFBool]
+    implicit class DFBoolBoolean(val right : Boolean) extends InitAble[DFBool]
+
+    def toTokenBoolSeq(right : Seq[InitAble[DFBool]]) : Seq[TokenBool] =
+      right.toSeqAny.map(e => e match {
+        case (t : Bubble) => TokenBool(t)
+        case (t : TokenBool) => t
+        case (t : Int) => TokenBool(t)
+        case (t : Boolean) => TokenBool(t)
+      })
+  }
+  trait InitBuilder[L <: DFAny] extends DFAny.Init.Builder[L, InitAble]
+  object InitBuilder {
+    implicit def fromDFBool(implicit dsn : DFDesign) : InitBuilder[DFBool] = new InitBuilder[DFBool] {
+      def apply(left : DFBool, right : Seq[InitAble[DFBool]]) : DFBool =
+        DFBool.alias(left, 0, 0, InitAble.toTokenBoolSeq(right))
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   type Width = 1
   ///////////////////////////////////////////////////////////////////////////////////////////
   // Var

@@ -5,6 +5,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.tokens._
+import scodec.bits._
 
 trait DFBits[W] extends DFAny.Val[W, DFBits.type, DFBits[W], DFBits.Var[W]] {
   //////////////////////////////////////////////////////////////////////////
@@ -91,20 +92,52 @@ trait DFBits[W] extends DFAny.Val[W, DFBits.type, DFBits[W], DFBits.Var[W]] {
 
 object DFBits extends DFAny.Companion {
   type TToken = TokenBits
-//  implicit val cmp = this
-  ///////////////////////////////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Init
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait InitAble[L <: DFAny] extends DFAny.Init.Able[L]
+  object InitAble {
+    private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
+    private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
+    implicit class DFBitsBubble[LW](val right : Bubble) extends InitAble[DFBits[LW]]
+    implicit class DFBitsToken[LW](val right : TokenBits) extends InitAble[DFBits[LW]]
+    implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends InitAble[DFBits[LW]]
+    implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends InitAble[DFBits[LW]]
+    implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends InitAble[DFBits[LW]]
+    implicit class DFBitsBitVector[LW](val right : BitVector) extends InitAble[DFBits[LW]]
+
+    def toTokenBitsSeq[LW](width : Int, right : Seq[InitAble[DFBits[LW]]]) : Seq[TokenBits] =
+      right.toSeqAny.map(e => e match {
+        case (t : Bubble) => TokenBits(width, t)
+        case (t : TokenBits) => TokenBits(width, t)
+        case (t : Int) => TokenBits(width, t)
+        case (t : Long) => TokenBits(width, t)
+        case (t : BitVector) => TokenBits(width, t)
+      })
+  }
+  trait InitBuilder[L <: DFAny] extends DFAny.Init.Builder[L, InitAble]
+  object InitBuilder {
+    implicit def ev[LW](implicit dsn : DFDesign) : InitBuilder[DFBits[LW]] = new InitBuilder[DFBits[LW]] {
+      def apply(left : DFBits[LW], right : Seq[InitAble[DFBits[LW]]]) : DFBits[LW] =
+        DFBits.alias(left, left.width, 0, 0, InitAble.toTokenBitsSeq(left.width, right))
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var[W, DFBits.type, DFBits[W], DFBits.Var[W]] {
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : Var[W] = newVar(checkedWidth)
@@ -113,11 +146,11 @@ object DFBits extends DFAny.Companion {
   ) : Var[W] = newVar(checkedWidth.unsafeCheck())
   def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit dsn : DFDesign) : Var[W] =
     new DFAny.NewVar(width, Seq(TokenBits(width, 0))) with Var[W] {
       def codeString(idRef : String) : String = s"val $idRef = DFBits($width)"
@@ -140,5 +173,5 @@ object DFBits extends DFAny.Companion {
 
   protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[TokenBits], args : DFAny*)(implicit dsn : DFDesign) : DFBits[W] =
     new DFAny.Op(width, opString, opInit, args) with DFBits[W]
-  ///////////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

@@ -5,15 +5,21 @@ import scodec.bits._
 import DFiant.internals._
 
 
+trait Bar
 trait Foo {
-  trait Bar
-  val a : Bar = ???
+  object Baz{
+    type TBar <: Bar
+  }
+  val a : Baz.TBar
 }
 
 object Fooy extends Foo {
-  trait Bar extends super.Bar {
-    def printer : Unit = {}
+  object Baz {
+    trait TBar extends Bar {
+      def printer : Unit = {}
+    }
   }
+  val a  = new Baz.TBar {}
 }
 
 Fooy.a.printer

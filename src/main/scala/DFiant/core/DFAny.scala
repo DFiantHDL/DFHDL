@@ -79,7 +79,7 @@ trait DFAny {
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
-  def init[Builder[T <: DFAny] <: Init.Builder[T]](that : Init.Able[TVal]*)(implicit op : Builder[TVal]) : TAlias =
+  def init(that : protComp.InitAble[TVal]*)(implicit op : protComp.InitBuilder[TVal]) : TAlias =
     op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -176,10 +176,6 @@ object DFAny {
     }
   }
 
-  trait Companion {
-    type TToken <: Token
-    implicit val cmp = this
-  }
   abstract class NewVar[Comp <: Companion](_width : Int, _init : Seq[Token])(implicit dsn : DFDesign, cmp : Comp) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protDesign : DFDesign = dsn
@@ -239,11 +235,30 @@ object DFAny {
 
       override def toString: String = right.toString
     }
-    trait Builder[L <: DFAny] {
+    object Able {
+      implicit class AbleSeq[L <: DFAny](s : Seq[Able[L]]) {
+        private def flatten(s: Seq[Any]): Seq[Any] = s flatMap {
+          case ss: Seq[_] => flatten(ss)
+          case e => Seq(e)
+        }
+        def toSeqAny : Seq[Any] = {
+          flatten(s.map(e => e.right))
+        }
+
+        override def toString: String = s.toString()
+      }
+    }
+    trait Builder[L <: DFAny, Able[L0 <: DFAny] <: Init.Able[L0]] {
       def apply(left : L, right : Seq[Able[L]]) : L
     }
   }
 
+  trait Companion {
+    type TToken <: Token
+    type InitAble[L <: DFAny] <: Init.Able[L]
+    type InitBuilder[L <: DFAny] <: Init.Builder[L, InitAble]
+    implicit val cmp = this
+  }
 }
 
 

@@ -76,6 +76,6 @@ object GeneralTest {
 
 object Bla {
   val dsn = new DFDesign {
-    val a = DFBits(8).init(1)
+//    val a = DFBits(8).init(1)
   }
 }
