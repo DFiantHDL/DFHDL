@@ -87,8 +87,8 @@ trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Prev
   //////////////////////////////////////////////////////////////////////////
-  final def prev()(implicit op : Prev.Builder[TVal]) : TVal = prev(1)
-  final def prev[P](step : Natural.Int.Checked[P])(implicit op : Prev.Builder[TVal]) : TVal =
+  final def prev()(implicit op : protComp.Prev.Builder[TVal]) : TVal = prev(1)
+  final def prev[P](step : Natural.Int.Checked[P])(implicit op : protComp.Prev.Builder[TVal]) : TVal =
     op(this.asInstanceOf[TVal], step)
   //////////////////////////////////////////////////////////////////////////
 
@@ -149,6 +149,9 @@ trait DFAnyWT[W, T <: DFAny.Companion] extends DFAnyW[W] {
 
 
 object DFAny {
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Head Types
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Val[W, T <: DFAny.Companion, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAnyWT[W, T] {
     this : Val0 =>
     type TVal = Val0
@@ -175,7 +178,12 @@ object DFAny {
       this
     }
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Abstract Constructors
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar[Comp <: Companion](_width : Int, _init : Seq[Token])(implicit dsn : DFDesign, cmp : Comp) extends DFAny {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protDesign : DFDesign = dsn
@@ -228,31 +236,12 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry =
       AlmanacEntryOp(width, opString, opInit, args.map(a => a.almanacEntry), codeString, refCodeString)
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  object Init {
-    trait Able[L <: DFAny] {
-      val right : Any
 
-      override def toString: String = right.toString
-    }
-    object Able {
-      implicit class AbleSeq[L <: DFAny](s : Seq[Able[L]]) {
-        private def flatten(s: Seq[Any]): Seq[Any] = s flatMap {
-          case ss: Seq[_] => flatten(ss)
-          case e => Seq(e)
-        }
-        def toSeqAny : Seq[Any] = {
-          flatten(s.map(e => e.right))
-        }
-
-        override def toString: String = s.toString()
-      }
-    }
-    trait Builder[L <: DFAny, Able[L0 <: DFAny] <: Init.Able[L0]] {
-      def apply(left : L, right : Seq[Able[L]]) : L
-    }
-  }
-
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Token
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Token {
     //maximum token value width
     val width : Int
@@ -291,6 +280,7 @@ object DFAny {
 
     def codeString : String = toString
   }
+
   object Token {
     implicit class TokenSeqInit[T <: DFAny.Token](tokenSeq : Seq[T]) {
       def prevInit(step : Int) : Seq[T] = {
@@ -314,7 +304,52 @@ object DFAny {
     def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
       seq.map(t => op(t))
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Init
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Init {
+    trait Able[L <: DFAny] {
+      val right : Any
+
+      override def toString: String = right.toString
+    }
+    object Able {
+      implicit class AbleSeq[L <: DFAny](s : Seq[Able[L]]) {
+        private def flatten(s: Seq[Any]): Seq[Any] = s flatMap {
+          case ss: Seq[_] => flatten(ss)
+          case e => Seq(e)
+        }
+        def toSeqAny : Seq[Any] = {
+          flatten(s.map(e => e.right))
+        }
+
+        override def toString: String = s.toString()
+      }
+    }
+    trait Builder[L <: DFAny, Able[L0 <: DFAny] <: Init.Able[L0]] {
+      def apply(left : L, right : Seq[Able[L]]) : L
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Prev
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Prev {
+    trait Builder[L <: DFAny] {
+      def apply[P](left : L, right : Natural.Int.Checked[P]) : L
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Create Companion object of DFXXX extenders of DFAny
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Companion {
     type Token <: DFAny.Token
     trait Init {
@@ -322,8 +357,13 @@ object DFAny {
       type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]
     }
     val Init : Init
+    trait Prev {
+      type Builder[L <: DFAny] <: DFAny.Prev.Builder[L]
+    }
+    val Prev : Prev
     implicit val cmp = this
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 
