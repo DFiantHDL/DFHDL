@@ -96,31 +96,33 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait InitAble[L <: DFAny] extends DFAny.Init.Able[L]
-  object InitAble {
-    private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
-    private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
-    implicit class DFBitsBubble[LW](val right : Bubble) extends InitAble[DFBits[LW]]
-    implicit class DFBitsToken[LW](val right : TokenBits) extends InitAble[DFBits[LW]]
-    implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends InitAble[DFBits[LW]]
-    implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends InitAble[DFBits[LW]]
-    implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends InitAble[DFBits[LW]]
-    implicit class DFBitsBitVector[LW](val right : BitVector) extends InitAble[DFBits[LW]]
+  object Init extends Init {
+    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
+    object Able {
+      private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
+      private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
+      implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
+      implicit class DFBitsToken[LW](val right : TokenBits) extends Able[DFBits[LW]]
+      implicit class DFBitsTokenSeq[LW](val right : Seq[TokenBits]) extends Able[DFBits[LW]]
+      implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
+      implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFBits[LW]]
+      implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
 
-    def toTokenBitsSeq[LW](width : Int, right : Seq[InitAble[DFBits[LW]]]) : Seq[TokenBits] =
-      right.toSeqAny.map(e => e match {
-        case (t : Bubble) => TokenBits(width, t)
-        case (t : TokenBits) => TokenBits(width, t)
-        case (t : Int) => TokenBits(width, t)
-        case (t : Long) => TokenBits(width, t)
-        case (t : BitVector) => TokenBits(width, t)
-      })
-  }
-  trait InitBuilder[L <: DFAny] extends DFAny.Init.Builder[L, InitAble]
-  object InitBuilder {
-    implicit def ev[LW](implicit dsn : DFDesign) : InitBuilder[DFBits[LW]] = new InitBuilder[DFBits[LW]] {
-      def apply(left : DFBits[LW], right : Seq[InitAble[DFBits[LW]]]) : DFBits[LW] =
-        DFBits.alias(left, left.width, 0, 0, InitAble.toTokenBitsSeq(left.width, right))
+      def toTokenBitsSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[TokenBits] =
+        right.toSeqAny.map(e => e match {
+          case (t : Bubble) => TokenBits(width, t)
+          case (t : TokenBits) => TokenBits(width, t)
+          case (t : Int) => TokenBits(width, t)
+          case (t : Long) => TokenBits(width, t)
+          case (t : BitVector) => TokenBits(width, t)
+        })
+    }
+    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+    object Builder {
+      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+        def apply(left : DFBits[LW], right : Seq[Able[DFBits[LW]]]) : DFBits[LW] =
+          DFBits.alias(left, left.width, 0, 0, Able.toTokenBitsSeq(left.width, right))
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

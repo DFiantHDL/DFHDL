@@ -79,7 +79,7 @@ trait DFAny {
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
-  def init(that : protComp.InitAble[TVal]*)(implicit op : protComp.InitBuilder[TVal]) : TAlias =
+  def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
     op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -255,8 +255,11 @@ object DFAny {
 
   trait Companion {
     type TToken <: Token
-    type InitAble[L <: DFAny] <: Init.Able[L]
-    type InitBuilder[L <: DFAny] <: Init.Builder[L, InitAble]
+    trait Init {
+      type Able[L <: DFAny] <: DFAny.Init.Able[L]
+      type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]
+    }
+    val Init : Init
     implicit val cmp = this
   }
 }

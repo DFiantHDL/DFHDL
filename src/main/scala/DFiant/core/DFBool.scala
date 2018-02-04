@@ -34,28 +34,30 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait InitAble[L <: DFAny] extends DFAny.Init.Able[L]
-  object InitAble {
-    private type IntIsBoolean = CompileTime[(GetArg0 == 0) || (GetArg0 == 1)]
-    implicit class DFBoolBubble(val right : Bubble) extends InitAble[DFBool]
-    implicit class DFBoolToken(val right : TokenBool) extends InitAble[DFBool]
-    implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends InitAble[DFBool]
-    implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends InitAble[DFBool]
-    implicit class DFBoolBoolean(val right : Boolean) extends InitAble[DFBool]
+  object Init extends Init {
+    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
+    object Able {
+      private type IntIsBoolean = CompileTime[(GetArg0 == 0) || (GetArg0 == 1)]
+      implicit class DFBoolBubble(val right : Bubble) extends Able[DFBool]
+      implicit class DFBoolToken(val right : TokenBool) extends Able[DFBool]
+      implicit class DFBoolTokenSeq(val right : Seq[TokenBool]) extends Able[DFBool]
+      implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends Able[DFBool]
+      implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 
-    def toTokenBoolSeq(right : Seq[InitAble[DFBool]]) : Seq[TokenBool] =
-      right.toSeqAny.map(e => e match {
-        case (t : Bubble) => TokenBool(t)
-        case (t : TokenBool) => t
-        case (t : Int) => TokenBool(t)
-        case (t : Boolean) => TokenBool(t)
-      })
-  }
-  trait InitBuilder[L <: DFAny] extends DFAny.Init.Builder[L, InitAble]
-  object InitBuilder {
-    implicit def fromDFBool(implicit dsn : DFDesign) : InitBuilder[DFBool] = new InitBuilder[DFBool] {
-      def apply(left : DFBool, right : Seq[InitAble[DFBool]]) : DFBool =
-        DFBool.alias(left, 0, 0, InitAble.toTokenBoolSeq(right))
+      def toTokenBoolSeq(right : Seq[Able[DFBool]]) : Seq[TokenBool] =
+        right.toSeqAny.map(e => e match {
+          case (t : Bubble) => TokenBool(t)
+          case (t : TokenBool) => t
+          case (t : Int) => TokenBool(t)
+          case (t : Boolean) => TokenBool(t)
+        })
+    }
+    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+    object Builder {
+      implicit def fromDFBool(implicit dsn : DFDesign) : Builder[DFBool] = new Builder[DFBool] {
+        def apply(left : DFBool, right : Seq[Able[DFBool]]) : DFBool =
+          DFBool.alias(left, 0, 0, Able.toTokenBoolSeq(right))
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
