@@ -17,7 +17,6 @@ package object core {
   val BitsRange = internals.BitsRange
 
   sealed trait Bubble
-
   object Bubble extends Bubble
 
   type Φ = Bubble
