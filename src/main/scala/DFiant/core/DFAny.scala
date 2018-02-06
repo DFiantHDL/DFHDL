@@ -7,7 +7,7 @@ import scodec.bits._
 
 trait DFAny {
   type IN = TVal
-  type OUT = TVar
+  type OUT = DFPortOut[TVar]
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var[Width, TCompanion, TVal, TVar]
   type TAlias <: TVal
@@ -163,6 +163,8 @@ object DFAny {
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
+    type AssignAble[R]
+
     //    type TUInt = DFUInt#TVar
 
     final def dontProduce() : TAlias = {
@@ -348,6 +350,18 @@ object DFAny {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Assign
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Assign {
+    abstract class Able[R](val right : R)
+    trait Builder[L <: DFAny, R] {
+      def apply(left : L, rightR : R) : L
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Create Companion object of DFXXX extenders of DFAny
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Companion {
@@ -361,6 +375,11 @@ object DFAny {
       type Builder[L <: DFAny] <: DFAny.Prev.Builder[L]
     }
     val Prev : Prev
+    trait Assign {
+      type Able[R] <: DFAny.Assign.Able[R]
+      type Builder[L <: DFAny, R] <: DFAny.Assign.Builder[L, R]
+    }
+    val Assign : Assign
     implicit val cmp = this
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
