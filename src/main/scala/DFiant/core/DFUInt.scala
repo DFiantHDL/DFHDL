@@ -230,6 +230,7 @@ object DFUInt extends DFAny.Companion {
     implicit class OfXLong[R <: XLong](value : R)(implicit di : DummyImplicit) extends Able[R](value)
     implicit class OfBigInt[R <: BigInt](value : R) extends Able[R](value)
     implicit class OfDFUInt[RW](value : DFUInt[RW]) extends Able[DFUInt[RW]](value)
+//    implicit class OfDFPort[RW](value : DFPortOut[DFUInt[RW]]) extends Able[DFUInt[RW]](value.read)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
