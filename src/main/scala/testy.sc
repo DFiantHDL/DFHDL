@@ -3,9 +3,25 @@ import singleton.ops._
 import scodec.bits._
 import DFiant.internals._
 
-implicit val dsn = GlobalDesign
-val u8 = DFUInt(8)
-val u2 = DFUInt(8)
+trait Able[T]
+object Able {
+  implicit def fromInt(i : Int) : Able[Int] = ???
+}
 
-val a = u8 * u2
-a.wc
+trait Builder[L, R]
+object Builder {
+  implicit def ev[T] : Able[T] = ???
+}
+
+
+trait Foo {
+  def := [T](that : Able[T])(implicit bld : Builder[]) : Unit = {}
+}
+
+
+val f = new Foo {}
+
+
+f := 1
+
+

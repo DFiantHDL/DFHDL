@@ -14,7 +14,9 @@ trait DFAny {
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
   type TCompanion <: DFAny.Companion
-  type TToken = protComp.Token
+  //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
+  type TToken = TCompanion#Token //
+  type TAble[R] = TCompanion#Able[R]
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
@@ -350,6 +352,18 @@ object DFAny {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Able
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  abstract class Able[R](val value : R)
+  object Able {
+    implicit def fromAble[A[R0] <: Able[R0], R](able : A[R]) : R = able.value
+
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Assign {
@@ -366,6 +380,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Companion {
     type Token <: DFAny.Token
+    type Able[R] <: DFAny.Able[R]
     trait Init {
       type Able[L <: DFAny] <: DFAny.Init.Able[L]
       type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]
@@ -376,7 +391,6 @@ object DFAny {
     }
     val Prev : Prev
     trait Assign {
-      type Able[R] <: DFAny.Assign.Able[R]
       type Builder[L <: DFAny, R] <: DFAny.Assign.Builder[L, R]
     }
     val Assign : Assign

@@ -10,19 +10,15 @@ trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
   left =>
   import DFUInt.Operations._
   type Extendable
-  def +[R](right: `Op+`.Able[R])(implicit op: `Op+`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
-  def -[R](right: `Op-`.Able[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
-  def *[R](right: `Op*`.Able[R])(implicit op: `Op*`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
-
-  def extBy[N](numOfBits : Natural.Int.Checked[N])(
-    implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
-  ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
+  def +[R](right: TAble[R])(implicit op: `Op+`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def -[R](right: TAble[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
+  def *[R](right: TAble[R])(implicit op: `Op*`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
 //  def /  (right : DFUInt)         : DFUInt = ???
 
-  def <  [R](right: `Op<`.Able[R])(implicit op: `Op<`.Builder[DFUInt[W], R]) = op(left, right)
-  def >  [R](right: `Op>`.Able[R])(implicit op: `Op>`.Builder[DFUInt[W], R]) = op(left, right)
-  def <= [R](right: `Op<=`.Able[R])(implicit op: `Op<=`.Builder[DFUInt[W], R]) = op(left, right)
-  def >= [R](right: `Op>=`.Able[R])(implicit op: `Op>=`.Builder[DFUInt[W], R]) = op(left, right)
+  def <  [R](right: TAble[R])(implicit op: `Op<`.Builder[DFUInt[W], R]) = op(left, right)
+  def >  [R](right: TAble[R])(implicit op: `Op>`.Builder[DFUInt[W], R]) = op(left, right)
+  def <= [R](right: TAble[R])(implicit op: `Op<=`.Builder[DFUInt[W], R]) = op(left, right)
+  def >= [R](right: TAble[R])(implicit op: `Op>=`.Builder[DFUInt[W], R]) = op(left, right)
 
   def == [RW](right : DFUInt[RW])(implicit op: `Op==`.Builder[DFUInt[W], DFUInt[RW]]) = op(left, right)
   def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[W], R]) = op(left, right)
@@ -32,6 +28,10 @@ trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
   def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], R]) = op(left, right)
   def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], R]) = op(left, right)
   def != (that : BigInt)(implicit op: `Op!=`.Builder[DFUInt[W], BigInt]) = op(left, that)
+
+  def extBy[N](numOfBits : Natural.Int.Checked[N])(
+    implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
+  ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
 
   override def toString : String = s"DFUInt[$width]"
 
@@ -49,7 +49,7 @@ object DFUInt extends DFAny.Companion {
   trait Var[W] extends DFUInt[W] with DFAny.Var[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
     left =>
     import DFUInt.Operations._
-    def := [R](right: `Op:=`.Able[R])(implicit op: `Op:=`.Builder[DFUInt[W], R]) = op(left, right)
+    def := [R](right: TAble[R])(implicit op: `Op:=`.Builder[DFUInt[W], R]) = op(left, right)
   }
 
   trait Extendable {
@@ -134,12 +134,6 @@ object DFUInt extends DFAny.Companion {
     final def == (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt == that.valueUInt, this.isBubble || that.isBubble)
     final def != (that : Token) : DFBool.Token = DFBool.Token(this.valueUInt != that.valueUInt, this.isBubble || that.isBubble)
 
-    //  final def unary_- : TokenSInt = {
-    //    val outWidth = this.width+1
-    //    val outUIntValue = ~this.bitsValue
-    //    val outBubbleMask = this.bubbleMask
-    //    new Token(outWidth, outUIntValue, outBubbleMask)
-    //  }
     override def codeString: String = if (isBubble) "Φ" else valueUInt.codeString
     override def valueString : String = valueUInt.toString()
   }
@@ -226,10 +220,24 @@ object DFUInt extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Able
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  abstract class Able[R](value : R) extends DFAny.Able[R](value)
+  object Able {
+    implicit class OfInt[R <: Int](value : R) extends Able[R](value)
+    implicit class OfXInt[R <: XInt](value : R) extends Able[R](value)
+    implicit class OfLong[R <: Long](value : R)(implicit di : DummyImplicit) extends Able[R](value)
+    implicit class OfXLong[R <: XLong](value : R)(implicit di : DummyImplicit) extends Able[R](value)
+    implicit class OfBigInt[R <: BigInt](value : R) extends Able[R](value)
+    implicit class OfDFUInt[RW](value : DFUInt[RW]) extends Able[DFUInt[RW]](value)
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Assign extends Assign {
-
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -263,21 +271,9 @@ object DFUInt extends DFAny.Companion {
 
   object Operations {
     trait General {
-      abstract class Able[R](val right : R)
-
       trait BuilderTop[L, R] {
         type Comp
         def apply(left : L, rightR : R) : Comp
-      }
-
-      object Able {
-        implicit def fromAble[R](able : Able[R]) : R = able.right
-        implicit class OfInt[R <: Int](value : R) extends Able[R](value)
-        implicit class OfXInt[R <: XInt](value : R) extends Able[R](value)
-        implicit class OfLong[R <: Long](value : R)(implicit di : DummyImplicit) extends Able[R](value)
-        implicit class OfXLong[R <: XLong](value : R)(implicit di : DummyImplicit) extends Able[R](value)
-        implicit class OfBigInt[R <: BigInt](value : R) extends Able[R](value)
-        implicit class OfDFUInt[RW0](value : DFUInt[RW0]) extends Able[DFUInt[RW0]](value)
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
