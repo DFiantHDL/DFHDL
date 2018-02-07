@@ -128,10 +128,10 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 ////////////////////////////////////////////////////////////////////
 // SpinalHDL
 ////////////////////////////////////////////////////////////////////
-//libraryDependencies ++= Seq(
-//  "com.github.spinalhdl" % "spinalhdl-core_2.11" % "latest.release",
-//  "com.github.spinalhdl" % "spinalhdl-lib_2.11" % "latest.release"
-//)
+libraryDependencies ++= Seq(
+  "com.github.spinalhdl" % "spinalhdl-core_2.12" % "latest.release",
+  "com.github.spinalhdl" % "spinalhdl-lib_2.12" % "latest.release"
+)
 ////////////////////////////////////////////////////////////////////
 
 
