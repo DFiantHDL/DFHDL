@@ -7,7 +7,7 @@ class DFDesignTest {
     val out1 : DFUInt[GenW]#OUT = OPEN
     val out2 : DFUInt[GenW]#OUT = OPEN
 
-//    in1 + out2
+    in1 + out2 + out1
   }
 
 

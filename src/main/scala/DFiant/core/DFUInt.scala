@@ -238,8 +238,8 @@ object DFUInt extends DFAny.Companion {
     implicit class OfLong[R <: Long](value : R)(implicit di : DummyImplicit) extends Able[R](value)
     implicit class OfXLong[R <: XLong](value : R)(implicit di : DummyImplicit) extends Able[R](value)
     implicit class OfBigInt[R <: BigInt](value : R) extends Able[R](value)
-    implicit class OfDFUInt[RW](value : DFUInt[RW]) extends Able[DFUInt[RW]](value)
-//    implicit class OfDFPort[RW](value : DFPortOut[DFUInt[RW]]) extends Able[DFUInt[RW]](value.read)
+    implicit def ofDFUInt[R <: DFUInt.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.asInstanceOf[value.TVal]) {}
+    implicit def OfDFPort[R <: DFUInt.Unbounded](value : DFPortOut[R]) : Able[value.read.TVal] = new Able[value.read.TVal](value.read.asInstanceOf[value.read.TVal]) {}
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

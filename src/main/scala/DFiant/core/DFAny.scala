@@ -348,7 +348,8 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Able[R](val value : R)
   object Able {
-    implicit def fromAble[A[R0] <: Able[R0], R](able : A[R]) : R = able.value
+    implicit def fromAble[R](able : Able[R]) : R = able.value
+//    implicit def ofDFUInt[A[R0] <: Able[R0], R <: DFUInt.Unbounded](value : R) : A[value.TVal] = ??? //new Able[value.TVal](value.asInstanceOf[value.TVal]) {}
 
   }
 
