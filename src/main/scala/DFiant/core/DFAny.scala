@@ -9,7 +9,7 @@ sealed trait DFAny {
   type IN = TVal
   type OUT = DFPortOut[TVar]
   type TVal <: DFAny
-  type TVar <: TVal with DFAny.Var[TVal, TVar]
+  type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
@@ -22,6 +22,7 @@ sealed trait DFAny {
   type Width
   val width : TwoFace.Int[Width]
   protected val protComp : TCompanion
+  protected val left = this.asInstanceOf[TVal]
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
@@ -152,14 +153,7 @@ object DFAny {
     type TCompanion = T
   }
 
-  trait Val[Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[Val0, Var0]] extends DFAny {
-    this : Val0 =>
-    type TVal = Val0
-    type TVar = Var0
-  }
-
-  trait Var[Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[Val0, Var0]] extends DFAny.Val[Val0, Var0] {
-    this : Val0 with Var0 =>
+  trait Var extends DFAny {
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
@@ -177,7 +171,7 @@ object DFAny {
     final def assignNext(step : Int, that : BigInt) : Unit = ???
     final def <-- (that : Iterable[ TVal]) : TVar = {
       that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
-      this
+      this.asInstanceOf[TVar]
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

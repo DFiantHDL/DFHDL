@@ -7,16 +7,16 @@ import singleton.twoface._
 import scodec.bits._
 
 
-trait DFBool extends DFAny.Val[DFBool, DFBool.Var] with DFBool.Unbounded {
-  type Width = 1
-}
+trait DFBool extends DFBool.Unbounded
 
 object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBool.type] {
-    val left = this.asInstanceOf[DFBool]
+    type TVal = DFBool
+    type TVar = DFBool.Var
+    type Width = 1
     def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", DFBool.Token.unary_!(getInit), this)
     //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
     //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
@@ -41,7 +41,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var extends DFAny.Var[DFBool, DFBool.Var] with DFBool {
+  trait Var extends DFAny.Var with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false

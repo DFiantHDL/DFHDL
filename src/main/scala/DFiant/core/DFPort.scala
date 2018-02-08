@@ -19,11 +19,11 @@ trait DFPortOut[+DF <: DFAny] extends DFPort[DF, OUT] {
 //  def := (that : DF) = ???
 }
 object DFPortOut {
-  implicit def fromDF[DF <: DFAny.Var[_,_]](dfVar : DF) : DFPortOut[DF] = new DFPortOut[DF] {
+  implicit def fromDF[DF <: DFAny.Var](dfVar : DF) : DFPortOut[DF] = new DFPortOut[DF] {
     lazy val read: DF = dfVar
     val isOpen : Boolean = false
   }
-  implicit def fromOPEN[DF <: DFAny.Var[_,_]](dfVar : OPEN.type) : DFPortOut[DF] = new DFPortOut[DF] {
+  implicit def fromOPEN[DF <: DFAny.Var](dfVar : OPEN.type) : DFPortOut[DF] = new DFPortOut[DF] {
     lazy val read: DF = throw new IllegalAccessException("Cannot read from output port")
     val isOpen : Boolean = true
   }

@@ -7,7 +7,7 @@ import DFiant.basiclib._
 import scodec.bits._
 
 
-trait DFBits[W] extends DFAny.Val[DFBits[W], DFBits.Var[W]] with DFBits.Unbounded {
+trait DFBits[W] extends DFBits.Unbounded {
   type Width = W
 }
 
@@ -17,6 +17,9 @@ object DFBits extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBits.type] {
+    type LW = Width
+    type TVal = DFBits[LW]
+    type TVar = DFBits.Var[LW]
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////
@@ -102,7 +105,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFBits[W] with DFAny.Var[DFBits[W], DFBits.Var[W]] {
+  trait Var[W] extends DFBits[W] with DFAny.Var {
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}

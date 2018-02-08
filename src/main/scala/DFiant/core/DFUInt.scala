@@ -6,7 +6,7 @@ import singleton.twoface._
 import DFiant.basiclib._
 import scodec.bits._
 
-trait DFUInt[W] extends DFAny.Val[DFUInt[W], DFUInt.Var[W]] with DFUInt.Unbounded {
+trait DFUInt[W] extends DFUInt.Unbounded {
   type Width = W
 }
 
@@ -16,9 +16,10 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFUInt.type] {
     import DFUInt.Operations._
-    type Extendable
     type LW = Width
-    val left = this.asInstanceOf[DFUInt[LW]]
+    type TVal = DFUInt[LW]
+    type TVar = DFUInt.Var[LW]
+    type Extendable
     def +[R](right: TAble[R])(implicit op: `Op+`.Builder[DFUInt[LW], Extendable, R]) = op(left, right)
     def -[R](right: TAble[R])(implicit op: `Op-`.Builder[DFUInt[LW], Extendable, R]) = op(left, right)
     def *[R](right: TAble[R])(implicit op: `Op*`.Builder[DFUInt[LW], Extendable, R]) = op(left, right)
@@ -55,7 +56,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFUInt[W] with DFAny.Var[DFUInt[W], DFUInt.Var[W]] {
+  trait Var[W] extends DFUInt[W] with DFAny.Var {
     import DFUInt.Operations._
     def := [R](right: TAble[R])(implicit op: `Op:=`.Builder[DFUInt[W], R]) = op(left, right)
   }
