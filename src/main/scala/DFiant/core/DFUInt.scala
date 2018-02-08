@@ -6,48 +6,56 @@ import singleton.twoface._
 import DFiant.basiclib._
 import scodec.bits._
 
-trait DFUInt[W] extends DFAny.Val[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
-  left =>
-  import DFUInt.Operations._
-  type Extendable
-  def +[R](right: TAble[R])(implicit op: `Op+`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
-  def -[R](right: TAble[R])(implicit op: `Op-`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
-  def *[R](right: TAble[R])(implicit op: `Op*`.Builder[DFUInt[W], Extendable, R]) = op(left, right)
-//  def /  (right : DFUInt)         : DFUInt = ???
-
-  def <  [R](right: TAble[R])(implicit op: `Op<`.Builder[DFUInt[W], R]) = op(left, right)
-  def >  [R](right: TAble[R])(implicit op: `Op>`.Builder[DFUInt[W], R]) = op(left, right)
-  def <= [R](right: TAble[R])(implicit op: `Op<=`.Builder[DFUInt[W], R]) = op(left, right)
-  def >= [R](right: TAble[R])(implicit op: `Op>=`.Builder[DFUInt[W], R]) = op(left, right)
-
-  def == [RW](right : DFUInt[RW])(implicit op: `Op==`.Builder[DFUInt[W], DFUInt[RW]]) = op(left, right)
-  def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[W], R]) = op(left, right)
-  def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[W], R]) = op(left, right)
-  def == (that : BigInt)(implicit op: `Op==`.Builder[DFUInt[W], BigInt]) = op(left, that)
-  def != [RW](right : DFUInt[RW])(implicit op: `Op!=`.Builder[DFUInt[W], DFUInt[RW]]) = op(left, right)
-  def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], R]) = op(left, right)
-  def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[W], R]) = op(left, right)
-  def != (that : BigInt)(implicit op: `Op!=`.Builder[DFUInt[W], BigInt]) = op(left, that)
-
-  def extBy[N](numOfBits : Natural.Int.Checked[N])(
-    implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, W, Int, N, Int]
-  ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
-
-  override def toString : String = s"DFUInt[$width]"
-
-  def isZero(implicit dsn : DFDesign) = left == 0
-  def isNonZero(implicit dsn : DFDesign) = left != 0
-//  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
-  def extendable(implicit dsn : DFDesign) : DFUInt[W] with DFUInt.Extendable = DFUInt.extendable[W](this)
+trait DFUInt[W] extends DFAny.Val[DFUInt[W], DFUInt.Var[W]] with DFUInt.Unbounded {
+  type Width = W
 }
-
 
 object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Unbounded Val
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Unbounded extends DFAny.Unbounded[DFUInt.type] {
+    import DFUInt.Operations._
+    type Extendable
+    type LW = Width
+    val left = this.asInstanceOf[DFUInt[LW]]
+    def +[R](right: TAble[R])(implicit op: `Op+`.Builder[DFUInt[LW], Extendable, R]) = op(left, right)
+    def -[R](right: TAble[R])(implicit op: `Op-`.Builder[DFUInt[LW], Extendable, R]) = op(left, right)
+    def *[R](right: TAble[R])(implicit op: `Op*`.Builder[DFUInt[LW], Extendable, R]) = op(left, right)
+    //  def /  (right : DFUInt)         : DFUInt = ???
+
+    def <  [R](right: TAble[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
+    def >  [R](right: TAble[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
+    def <= [R](right: TAble[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
+    def >= [R](right: TAble[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
+
+    def == [RW](right : DFUInt[RW])(implicit op: `Op==`.Builder[DFUInt[LW], DFUInt[RW]]) = op(left, right)
+    def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[LW], R]) = op(left, right)
+    def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[DFUInt[LW], R]) = op(left, right)
+    def == (that : BigInt)(implicit op: `Op==`.Builder[DFUInt[LW], BigInt]) = op(left, that)
+    def != [RW](right : DFUInt[RW])(implicit op: `Op!=`.Builder[DFUInt[LW], DFUInt[RW]]) = op(left, right)
+    def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[LW], R]) = op(left, right)
+    def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[DFUInt[LW], R]) = op(left, right)
+    def != (that : BigInt)(implicit op: `Op!=`.Builder[DFUInt[LW], BigInt]) = op(left, that)
+
+    def extBy[N](numOfBits : Natural.Int.Checked[N])(
+      implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
+    ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
+
+    override def toString : String = s"DFUInt[$width]"
+
+    def isZero(implicit dsn : DFDesign) = left == 0
+    def isNonZero(implicit dsn : DFDesign) = left != 0
+    //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
+    def extendable(implicit dsn : DFDesign) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFUInt[W] with DFAny.Var[W, DFUInt.type, DFUInt[W], DFUInt.Var[W]] {
-    left =>
+  trait Var[W] extends DFUInt[W] with DFAny.Var[DFUInt[W], DFUInt.Var[W]] {
     import DFUInt.Operations._
     def := [R](right: TAble[R])(implicit op: `Op:=`.Builder[DFUInt[W], R]) = op(left, right)
   }

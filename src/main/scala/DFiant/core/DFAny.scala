@@ -5,11 +5,11 @@ import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
 
-trait DFAny {
+sealed trait DFAny {
   type IN = TVal
   type OUT = DFPortOut[TVar]
   type TVal <: DFAny
-  type TVar <: TVal with DFAny.Var[Width, TCompanion, TVal, TVar]
+  type TVar <: TVal with DFAny.Var[TVal, TVar]
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
@@ -17,6 +17,7 @@ trait DFAny {
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken = TCompanion#Token //
   type TAble[R] = TCompanion#Able[R]
+  type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
@@ -141,26 +142,23 @@ trait DFAny {
 //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
 }
 
-trait DFAnyW[W] extends DFAny {
-  type Width = W
-}
-
-trait DFAnyWT[W, T <: DFAny.Companion] extends DFAnyW[W] {
-  type TCompanion = T
-}
 
 
 object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Head Types
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Val[W, T <: DFAny.Companion, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAnyWT[W, T] {
+  trait Unbounded[T <: DFAny.Companion] extends DFAny {
+    type TCompanion = T
+  }
+
+  trait Val[Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[Val0, Var0]] extends DFAny {
     this : Val0 =>
     type TVal = Val0
     type TVar = Var0
   }
 
-  trait Var[W, T <: DFAny.Companion, Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[W, T, Val0, Var0]] extends DFAny.Val[W, T, Val0, Var0] {
+  trait Var[Val0 <: DFAny, Var0 <: Val0 with DFAny.Var[Val0, Var0]] extends DFAny.Val[Val0, Var0] {
     this : Val0 with Var0 =>
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
@@ -379,6 +377,7 @@ object DFAny {
   // Create Companion object of DFXXX extenders of DFAny
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Companion {
+    type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
     type Able[R] <: DFAny.Able[R]
     trait Init {

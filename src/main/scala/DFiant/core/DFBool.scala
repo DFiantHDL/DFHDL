@@ -6,34 +6,42 @@ import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
 
-trait DFBool extends DFAny.Val[DFBool.Width, DFBool.type, DFBool, DFBool.Var] {
-  def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", DFBool.Token.unary_!(getInit), this)
-//  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
-//  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
-  def || (that : DFBool) : DFBool = ??? //AlmanacEntryOpOr(this, that)
-  def && (that : DFBool) : DFBool = ??? //AlmanacEntryOpAnd(this, that)
-//  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
-//  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
-//  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-  def rising(implicit dsn : DFDesign)                : DFBool = this && !this.prev(1)
-  def falling(implicit dsn : DFDesign)               : DFBool = !this && this.prev(1)
 
-  def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar()
-
-  override def toString : String = s"DFBool"
-
-  //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
-//  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
+trait DFBool extends DFAny.Val[DFBool, DFBool.Var] with DFBool.Unbounded {
+  type Width = 1
 }
 
-
 object DFBool extends DFAny.Companion {
-  type Width = 1
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Unbounded Val
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Unbounded extends DFAny.Unbounded[DFBool.type] {
+    val left = this.asInstanceOf[DFBool]
+    def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", DFBool.Token.unary_!(getInit), this)
+    //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
+    //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
+    def || (that : DFBool) : DFBool = ??? //AlmanacEntryOpOr(this, that)
+    def && (that : DFBool) : DFBool = ??? //AlmanacEntryOpAnd(this, that)
+    //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
+    //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
+    //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
+    def rising(implicit dsn : DFDesign)                : DFBool = left && !left.prev(1)
+    def falling(implicit dsn : DFDesign)               : DFBool = !left && left.prev(1)
+
+    def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar()
+
+    override def toString : String = s"DFBool"
+
+    //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
+    //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var extends DFAny.Var[DFBool.Width, DFBool.type, DFBool, DFBool.Var] with DFBool {
+  trait Var extends DFAny.Var[DFBool, DFBool.Var] with DFBool {
 //    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
 //    final def set() : Unit = this := true
 //    final def clear() : Unit = this := false
