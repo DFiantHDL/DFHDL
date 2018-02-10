@@ -166,7 +166,7 @@ object DFAny {
       this.asInstanceOf[TAlias]
     }
     final def isNotFull : DFBool = ???
-    final def := (that : TVal) : TVar = assign(that)
+    def := [R](right: TAble[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
     final def <-- (that : Iterable[ TVal]) : TVar = {
@@ -348,17 +348,9 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op {
     trait Able[R]{val value : R}
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Assign {
-    abstract class Able[R](val right : R)
-    trait Builder[L <: DFAny, R] {
-      def apply(left : L, rightR : R) : L
+    trait Builder[L, R] {
+      type Comp
+      def apply(left : L, rightR : R) : Comp
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -380,6 +372,10 @@ object DFAny {
       }
     }
     val Op : Op
+    trait `Op:=` {
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]
+    }
+    val `Op:=` : `Op:=`
     trait Init {
       type Able[L <: DFAny] <: DFAny.Init.Able[L]
       type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]
@@ -389,10 +385,6 @@ object DFAny {
       type Builder[L <: DFAny] <: DFAny.Prev.Builder[L]
     }
     val Prev : Prev
-    trait Assign {
-      type Builder[L <: DFAny, R] <: DFAny.Assign.Builder[L, R]
-    }
-    val Assign : Assign
     implicit val cmp = this
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
