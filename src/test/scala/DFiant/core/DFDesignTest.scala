@@ -1,4 +1,6 @@
 package DFiant.core
+import DFiant._
+import DFiant.core.DFUInt.Op.Able
 
 class DFDesignTest {
   abstract class Box[GenW] extends DFDesign {
@@ -7,7 +9,7 @@ class DFDesignTest {
     val out1 : DFUInt[GenW]#OUT = OPEN
     val out2 : DFUInt[GenW]#OUT = OPEN
 
-    in1 + out2 + out1
+//    in1 + 1
   }
 
 

@@ -6,7 +6,7 @@ import singleton.twoface._
 import scodec.bits._
 
 sealed trait DFAny {
-  type IN = TVal
+  type IN = DFPortIn[TVal]
   type OUT = DFPortOut[TVar]
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
@@ -16,13 +16,13 @@ sealed trait DFAny {
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken = TCompanion#Token //
-  type TAble[R] = TCompanion#Able[R]
+  type TAble[R] = protComp.Op.Able[R]
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
   protected val protComp : TCompanion
-  protected val left = this.asInstanceOf[TVal]
+  protected[DFiant] val left = this.asInstanceOf[TVal]
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
@@ -344,15 +344,9 @@ object DFAny {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Able
+  // Op Able
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Able[R](val value : R)
-  object Able {
-    implicit def fromAble[R](able : Able[R]) : R = able.value
-//    implicit def ofDFUInt[A[R0] <: Able[R0], R <: DFUInt.Unbounded](value : R) : A[value.TVal] = ??? //new Able[value.TVal](value.asInstanceOf[value.TVal]) {}
-
-  }
-
+  trait Able[R]{val value : R}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -374,7 +368,16 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
-    type Able[R] <: DFAny.Able[R]
+    trait Op {
+      type Able[R] <: DFAny.Able[R]
+      trait AbleCO {
+        import shapeless._
+        implicit def fromAble[R](able : Able[R]) : R = able.value
+//        implicit def ofTVal[R <: Unbounded](value : R)(implicit gen : Generic[Able[value.TVal]])
+//        : Able[value.TVal] = gen.from((value.asInstanceOf[value.TVal] :: HNil).asInstanceOf[gen.Repr])
+      }
+    }
+    val Op : Op
     trait Init {
       type Able[L <: DFAny] <: DFAny.Init.Able[L]
       type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]
