@@ -6,7 +6,9 @@
 
 import DFiant.core.DFUInt
 
-package object DFiant extends DFUInt.Implicits {
+trait Implicits extends DFUInt.Op.Implicits
+
+package object DFiant extends Implicits {
   trait DFDesign extends core.DFDesign
   val DFDesign = core.DFDesign
   val GlobalDesign = core.GlobalDesign

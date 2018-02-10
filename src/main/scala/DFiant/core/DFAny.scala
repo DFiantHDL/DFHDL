@@ -16,12 +16,12 @@ sealed trait DFAny {
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken = TCompanion#Token //
-  type TAble[R] = protComp.Op.Able[R]
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   type Width
   val width : TwoFace.Int[Width]
   protected val protComp : TCompanion
+  import protComp._
   protected[DFiant] val left = this.asInstanceOf[TVal]
 
   //////////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ sealed trait DFAny {
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
-  def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
+  def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) : TAlias =
     op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -91,8 +91,8 @@ sealed trait DFAny {
   //////////////////////////////////////////////////////////////////////////
   // Prev
   //////////////////////////////////////////////////////////////////////////
-  final def prev()(implicit op : protComp.Prev.Builder[TVal]) : TVal = prev(1)
-  final def prev[P](step : Natural.Int.Checked[P])(implicit op : protComp.Prev.Builder[TVal]) : TVal =
+  final def prev()(implicit op : Prev.Builder[TVal]) : TVal = prev(1)
+  final def prev[P](step : Natural.Int.Checked[P])(implicit op : Prev.Builder[TVal]) : TVal =
     op(this.asInstanceOf[TVal], step)
   //////////////////////////////////////////////////////////////////////////
 
@@ -166,7 +166,7 @@ object DFAny {
       this.asInstanceOf[TAlias]
     }
     final def isNotFull : DFBool = ???
-    def := [R](right: TAble[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
+    def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
     final def <-- (that : Iterable[ TVal]) : TVar = {
@@ -348,9 +348,17 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op {
     trait Able[R]{val value : R}
+    object Able {
+      implicit def fromAble[R](able : Able[R]) : R = able.value
+    }
     trait Builder[L, R] {
       type Comp
       def apply(left : L, rightR : R) : Comp
+    }
+    trait Implicits[A[T] <: Able[T], UB <: DFAny] {
+//      import shapeless._
+//        implicit def ofTVal[R <: UB](value : R)(implicit gen : Generic[Able[value.TVal]])
+//        : Able[value.TVal] = gen.from((value.asInstanceOf[value.TVal] :: HNil).asInstanceOf[gen.Repr])
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -364,12 +372,8 @@ object DFAny {
     type Token <: DFAny.Token
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
-      trait AbleCO {
-        import shapeless._
-        implicit def fromAble[R](able : Able[R]) : R = able.value
-//        implicit def ofTVal[R <: Unbounded](value : R)(implicit gen : Generic[Able[value.TVal]])
-//        : Able[value.TVal] = gen.from((value.asInstanceOf[value.TVal] :: HNil).asInstanceOf[gen.Repr])
-      }
+      trait Implicits extends DFAny.Op.Implicits[Able, Unbounded]
+      val Able : Implicits
     }
     val Op : Op
     trait `Op:=` {
