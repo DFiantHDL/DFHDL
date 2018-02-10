@@ -232,7 +232,7 @@ object DFUInt extends DFAny.Companion {
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends Op {
-    case class Able[R](value : R) extends DFAny.Able[R]
+    case class Able[R](value : R) extends DFAny.Op.Able[R]
     object Able extends AbleCO {
       implicit def ofInt[R <: Int](value : R) : Able[R] = Able[R](value)
       implicit def ofXInt[R <: XInt](value : R) : Able[R] = Able[R](value)
