@@ -251,6 +251,43 @@ object DFUInt extends DFAny.Companion {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  trait ToDFUInt[N] {
+    type W
+    def apply(value : N) : DFUInt[W]
+  }
+  object ToDFUInt {
+    type Aux[N, W0] = ToDFUInt[N]{type W = W0}
+    import singleton.ops.math.Abs
+    implicit def fromDFUInt[N <: DFUInt[W0], W0](implicit dsn : DFDesign)
+    : Aux[N, W0] = new ToDFUInt[N] {
+      type W = W0
+      def apply(value : N) : DFUInt[W] = value
+    }
+    implicit def fromInt[N <: Int](implicit dsn : DFDesign, w : BitsWidthOf.Int[Abs[N]])
+    : Aux[N, w.Out] = new ToDFUInt[N] {
+      type W = w.Out
+      def apply(value : N) : DFUInt[W] = {
+        val absValue = scala.math.abs(value)
+        const[W](Token(w(absValue), absValue))
+      }
+    }
+    implicit def fromLong[N <: Long](implicit dsn : DFDesign, w : BitsWidthOf.Long[Abs[N]])
+    : Aux[N, w.Out] = new ToDFUInt[N] {
+      type W = w.Out
+      def apply(value : N) : DFUInt[W] = {
+        val absValue = scala.math.abs(value)
+        const[W](Token(w(absValue), absValue))
+      }
+    }
+    implicit def fromBigInt[N <: BigInt](implicit dsn : DFDesign)
+    : Aux[N, Int] = new ToDFUInt[N] {
+      type W = Int
+      def apply(value : N) : DFUInt[W] = {
+        val absValue = value.abs
+        const[W](Token(absValue.bitsWidth, absValue))
+      }
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign
@@ -296,11 +333,11 @@ object DFUInt extends DFAny.Companion {
         implicit
         dsn : DFDesign,
         checkR : `R >= 0`.Int.CheckedShellSym[Builder[_,_], R],
-        rW : BitsWidthOf.IntAux[R, RW],
+        constDF : ToDFUInt.Aux[R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], R, DFUInt.Var[LW]] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
         checkR.unsafeCheck(rightNum)
-        val right = DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum))
+        val right = constDF(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
       })
@@ -309,11 +346,11 @@ object DFUInt extends DFAny.Companion {
         implicit
         dsn : DFDesign,
         checkR : `R >= 0`.Long.CheckedShellSym[Builder[_,_], R],
-        rW : BitsWidthOf.LongAux[R, RW],
+        constDF : ToDFUInt.Aux[R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], R, DFUInt.Var[LW]] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
         checkR.unsafeCheck(rightNum)
-        val right = DFUInt.const[RW](DFUInt.Token(rW(rightNum), rightNum))
+        val right = constDF(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
       })
@@ -415,30 +452,31 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_Int[L <: DFUInt[LW], LW, LE, R <: Int, RW](
         implicit
         dsn : DFDesign,
-        rW : BitsWidthOf.IntAux[Abs[R], RW],
+        rConst : ToDFUInt.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
       ) = detailedBuilder((left, rightNum) => {
-        val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-        (creationKind, left, DFUInt.const[RW](DFUInt.Token(rW(right), right)))
+        val creationKind = if (rightNum >= 0) kind else -kind
+        (creationKind, left, rConst(rightNum))
       })
 
       implicit def evDFUInt_op_Long[L <: DFUInt[LW], LW, LE, R <: Long, RW](
         implicit
         dsn : DFDesign,
-        rW : BitsWidthOf.LongAux[Abs[R], RW],
+        rConst : ToDFUInt.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
       ) = detailedBuilder((left, rightNum) => {
-        val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-        (creationKind, left, DFUInt.const[RW](DFUInt.Token(rW(right), right)))
+        val creationKind = if (rightNum >= 0) kind else -kind
+        (creationKind, left, rConst(rightNum))
       })
 
-      implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE](
+      implicit def evDFUInt_op_BigInt[L <: DFUInt[LW], LW, LE, R <: BigInt, RW](
         implicit
         dsn : DFDesign,
-        detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, BigInt, Int]
+        rConst : ToDFUInt.Aux[R, RW],
+        detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
       ) = detailedBuilder((left, rightNum) => {
-        val (creationKind, right) = if (rightNum >= 0) (kind, rightNum) else (-kind, -rightNum)
-        (creationKind, left, DFUInt.const[Int](DFUInt.Token(right.bitsWidth, right)))
+        val creationKind = if (rightNum >= 0) kind else -kind
+        (creationKind, left, rConst(rightNum))
       })
 
       implicit def evInt_op_DFUInt[L <: Int, LW, LE, R <: DFUInt[RW], RW](
