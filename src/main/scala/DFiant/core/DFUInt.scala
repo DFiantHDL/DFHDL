@@ -189,7 +189,7 @@ object DFUInt extends DFAny.Companion {
       implicit class DFUIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFUInt[LW]]
       implicit class DFUIntBigInt[LW](val right : BigInt) extends Able[DFUInt[LW]]
 
-      def toTokenSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[DFUInt.Token] =
+      def toTokenSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[Token] =
         right.toSeqAny.map(e => e match {
           case (t : Bubble) => DFUInt.Token(width, t)
           case (t : DFUInt.Token) => DFUInt.Token(width, t)

@@ -84,7 +84,7 @@ sealed trait DFAny {
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
   def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) : TAlias =
-    op(this.asInstanceOf[TVal], that).asInstanceOf[TAlias]
+    op(left, that).asInstanceOf[TAlias]
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
 
