@@ -22,7 +22,8 @@ sealed trait DFAny {
   val width : TwoFace.Int[Width]
   protected val protComp : TCompanion
   import protComp._
-  protected[DFiant] val left = this.asInstanceOf[TVal]
+  protected[DFiant] final val tVal = this.asInstanceOf[TVal]
+  protected[DFiant] final val left = tVal
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
@@ -135,9 +136,8 @@ sealed trait DFAny {
   }
 
   def forceOut : Unit = getCurrentEntry
-//  def ==[T](that: T)(implicit r : RequireMsg[false, "Use '===' instead of '=='"]) : DFBool = ???
-//  final def == (that : TVal) : DFBool = ??? //DFBool.op(AlmanacEntryOpEq(this.getCurrentEntry, that.getCurrentEntry))
-//  final def != (that : TVal) : DFBool = !(this == that)
+  def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) = op(left, right.tVal)
+  def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) = op(left, right.tVal)
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
 //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
@@ -166,7 +166,7 @@ object DFAny {
       this.asInstanceOf[TAlias]
     }
     final def isNotFull : DFBool = ???
-    def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
+    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
     final def <-- (that : Iterable[ TVal]) : TVar = {
@@ -380,6 +380,14 @@ object DFAny {
       type Builder[L, R] <: DFAny.Op.Builder[L, R]
     }
     val `Op:=` : `Op:=`
+    trait `Op==` {
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]
+    }
+    val `Op==` : `Op==`
+    trait `Op!=` {
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]
+    }
+    val `Op!=` : `Op!=`
     trait Init {
       type Able[L <: DFAny] <: DFAny.Init.Able[L]
       type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]

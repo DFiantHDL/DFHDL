@@ -10,10 +10,14 @@ object Able {
   : Able[A, R] = gen.from((i :: HNil).asInstanceOf[gen.Repr]).asInstanceOf[Able[A, R]]
 }
 
+trait AbleBuilder[A[T0]] {
+  def create[T](value : T) : A[T]
+}
 
 case class AbleY[T](value : T) extends Able[AbleY, T](value)
-object AbleY {
-//  implicit def fromInt(i : Int) : AbleY[Int] = ???
+
+implicit val bld = new AbleBuilder[AbleY] {
+  def create[T](value : T) : AbleY[T] = AbleY[T](value)
 }
 
 

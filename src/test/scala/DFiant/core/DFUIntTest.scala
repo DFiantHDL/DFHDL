@@ -74,6 +74,24 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
     illRun {u8 := BigInt(500)}
   }
 
+  property("DFUInt == compilable") = wellTyped {
+    val u8 = DFUInt(8)
+    val u7 = DFUInt(7)
+    u8 == 1
+    u8 == 1L
+    u8 == BigInt(1)
+    u8 == (u7 + 1).wc
+  }
+
+  property("DFUInt == uncompilable") = wellTyped {
+    val u8 = DFUInt(8)
+    val u7 = DFUInt(7)
+    illTyped { """u8 == u7""" }
+    illTyped { """u8 == -1""" }
+    illTyped { """u8 == -1L""" }
+    illRun {u8 == BigInt(-1)}
+  }
+
   property("DFUInt + DFUInt compilable") = {
     val u8 = DFUInt(8)
     val u9 = DFUInt(9)

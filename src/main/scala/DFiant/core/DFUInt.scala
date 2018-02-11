@@ -29,11 +29,9 @@ object DFUInt extends DFAny.Companion {
     def <= [R](right: Op.Able[R])(implicit op: `Op<=`.Builder[TVal, R]) = op(left, right)
     def >= [R](right: Op.Able[R])(implicit op: `Op>=`.Builder[TVal, R]) = op(left, right)
 
-    def == [RW](right : DFUInt[RW])(implicit op: `Op==`.Builder[TVal, DFUInt[RW]]) = op(left, right)
     def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
     def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
     def == (that : BigInt)(implicit op: `Op==`.Builder[TVal, BigInt]) = op(left, that)
-    def != [RW](right : DFUInt[RW])(implicit op: `Op!=`.Builder[TVal, DFUInt[RW]]) = op(left, right)
     def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
     def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
@@ -157,7 +155,6 @@ object DFUInt extends DFAny.Companion {
     def >= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l >= r)
     def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l == r)
     def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l != r)
-    //  def unary_- (left : Token) : Token = -left
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
@@ -633,11 +630,10 @@ object DFUInt extends DFAny.Companion {
         implicit
         dsn : DFDesign,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], DFUInt[RW], DFBool] =
-        create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          (left, right)
-        })
+      ) : Aux[DFUInt[LW], DFUInt[RW], DFBool] =  create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        (left, right)
+      })
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
@@ -671,8 +667,8 @@ object DFUInt extends DFAny.Companion {
     case object <= extends Kind("<=", DFUInt.Token.<=)
     case object >= extends Kind(">=", DFUInt.Token.>=)
   }
-  object `Op==` extends OpsCompare(OpsCompare.==)
-  object `Op!=` extends OpsCompare(OpsCompare.!=)
+  object `Op==` extends OpsCompare(OpsCompare.==) with `Op==`
+  object `Op!=` extends OpsCompare(OpsCompare.!=) with `Op!=`
   object `Op<`  extends OpsCompare(OpsCompare.<)
   object `Op>`  extends OpsCompare(OpsCompare.>)
   object `Op<=` extends OpsCompare(OpsCompare.<=)
