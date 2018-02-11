@@ -357,8 +357,8 @@ object DFAny {
     }
     trait Implicits[A[T] <: Able[T], UB <: DFAny] {
 //      import shapeless._
-//        implicit def ofTVal[R <: UB](value : R)(implicit gen : Generic[Able[value.TVal]])
-//        : Able[value.TVal] = gen.from((value.asInstanceOf[value.TVal] :: HNil).asInstanceOf[gen.Repr])
+//        implicit def ofTVal[R <: UB](value : R)(implicit gen : Generic[A[value.TVal]])
+//        : A[value.TVal] = gen.from((value.asInstanceOf[value.TVal] :: HNil).asInstanceOf[gen.Repr])
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
