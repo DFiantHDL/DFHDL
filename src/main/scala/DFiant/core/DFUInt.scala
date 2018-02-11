@@ -19,9 +19,9 @@ object DFUInt extends DFAny.Companion {
     type TVal = DFUInt[LW]
     type TVar = DFUInt.Var[LW]
     type Extendable
-    def +[R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
-    def -[R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
-    def *[R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, Extendable, R]) = op(left, right)
+    def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
+    def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
+    def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, Extendable, R]) = op(left, right)
     //  def /  (right : DFUInt)         : DFUInt = ???
 
     def <  [R](right: Op.Able[R])(implicit op: `Op<`.Builder[TVal, R]) = op(left, right)
