@@ -4,18 +4,24 @@ import DFiant.core.DFUInt.Op.Able
 
 class DFDesignTest {
   abstract class Box[GenW] extends DFDesign {
-    val in1 : DFUInt[GenW]#IN
-    val in2 : DFUInt[GenW]#IN
-    val out1 : DFUInt[GenW]#OUT = OPEN
-    val out2 : DFUInt[GenW]#OUT = OPEN
+    val in1 : DFUInt[GenW] <> IN = OPEN
+    val in2 : DFUInt[GenW] <> IN
+    val out1 : DFUInt[GenW] <> OUT = OPEN
+    val out2 : DFUInt[GenW] <> OUT = OPEN
 
-//    in1 + 1
+    in1 + 1
   }
 
+  abstract class Foo extends DFDesign {
+    val a = DFUInt(32)
+    val in1 : a.TVal <> IN = a
+    val out1 : a.TVal <> OUT = OPEN
+
+  }
 
   abstract class BoxContainer[GenW] extends DFDesign {
-    val in : DFUInt[GenW]#IN
-    val out : DFUInt[GenW]#OUT
+    val in : DFUInt[GenW] <> IN
+    val out : DFUInt[GenW] <> OUT
     val box : Box[GenW] = new Box[GenW] {
       val in1 = in
       val in2 = in

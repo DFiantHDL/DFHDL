@@ -7,15 +7,16 @@ package object core {
   //////////////////////////////////////////////////////////////////////////////////////////
   // Ports
   //////////////////////////////////////////////////////////////////////////////////////////
-  type OUT = DFDir.OUT.type
-  type IN = DFDir.IN.type
+  type OUT = DFDir.OUT
+  type IN = DFDir.IN
 
-//  type <>[DF <: DFAny, DIR <: DFDir] = DFPort[DF, DIR]
-//  type <>[DF <: DFAny, DIR <: DFDir] = DF with DIR
+  //to indicate a port is open
+  final val OPEN = None
+  type OPEN = OPEN.type
 
-  implicit class OutPortExtender[DF <: DFAny](port : DFPort[DF, OUT]) {
-    def := [DF2 <: DF](that : DF2) : Unit = {}
-  }
+
+    //  type <>[DF <: DFAny, DIR <: DFDir] = DFPort[DF, DIR]
+  type <>[DF <: DFAny, DIR <: DFDir] = DF with DFAny.Port[DF, DIR]
   //////////////////////////////////////////////////////////////////////////////////////////
 
   type BitsRange = internals.BitsRange
