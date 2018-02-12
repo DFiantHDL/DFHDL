@@ -3,9 +3,7 @@ package DFiant.core
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import DFiant.basiclib._
 import scodec.bits._
-import shapeless.<:!<
 
 trait DFUInt[W] extends DFUInt.Unbounded {
   type Width = W
@@ -235,15 +233,6 @@ object DFUInt extends DFAny.Companion {
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends Op {
-    trait Common[L, T] extends DFAny.Op.Able[L] {
-      private val left = value
-      def +  [R <: T](right : R)(implicit op: `Op+`.Builder[L, Extendable, R]) = op(left, right)
-      def -  [R <: T](right : R)(implicit op: `Op-`.Builder[L, Extendable, R]) = op(left, right)
-      def <  [R <: T](right : R)(implicit op: `Op<`.Builder[L, R]) = op(left, right)
-      def >  [R <: T](right : R)(implicit op: `Op>`.Builder[L, R]) = op(left, right)
-      def <= [R <: T](right : R)(implicit op: `Op<=`.Builder[L, R]) = op(left, right)
-      def >= [R <: T](right : R)(implicit op: `Op>=`.Builder[L, R]) = op(left, right)
-    }
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
