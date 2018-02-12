@@ -232,7 +232,12 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry =
       AlmanacEntryOp(width, opString, opInit, args.map(a => a.almanacEntry), codeString, refCodeString)
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Port
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](if (dfVar.isEmpty) 0 else read.width)
     final protected val protDesign : DFDesign = dsn
@@ -241,6 +246,21 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = read.almanacEntry
     lazy val read : DF = if (isOpen) throw new IllegalAccessException("Cannot read from an OPEN port") else dfVar.get
     lazy val isOpen : Boolean = dfVar.isEmpty
+  }
+  object Port {
+    import shapeless.<:!<
+    type Builder[DF <: DFAny, DIR <: DFDir] = Option[DF] => DF <> DIR
+    implicit def fromOPEN[L <: DFAny, DIR <: DFDir](dfVar : None.type)(
+      implicit port : Builder[L, DIR]
+    ) : L <> DIR = port(None)
+
+    implicit def fromDFIn[L <: DFAny](dfVar : L)(
+      implicit port : Builder[L, IN], c : L <:!< DFAny.Port[_, OUT]
+    ) : L <> IN = port(Some(dfVar))
+
+    implicit def fromDFOut[L <: DFAny](dfVar : L)(
+      implicit port : Builder[L, OUT], c : L <:!< DFAny.Port[_, IN]
+    ) : L <> OUT = port(Some(dfVar))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -380,6 +400,8 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
+    trait Port {
+    }
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
       trait Implicits extends DFAny.Op.Implicits[Able, Unbounded]

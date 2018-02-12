@@ -113,27 +113,14 @@ object DFUInt extends DFAny.Companion {
 
   protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[DFUInt.Token], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
-
-  type PortImpl[DF, DIR <: DFDir] = Option[DF] => DF <> DIR
-  implicit def port[W, DIR <: DFDir](implicit dsn : DFDesign)
-  : PortImpl[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def fromOPEN[L <: Unbounded, DIR <: DFDir](dfVar : None.type)(
-    implicit port : PortImpl[L, DIR]
-  ) : L <> DIR = port(None)
-
-  implicit def fromDFIn[L <: Unbounded, LW](dfVar : L)(
-    implicit port : PortImpl[dfVar.TVal, IN], c : L <:!< DFAny.Port[_, OUT]
-  ) : DFUInt[LW] <> IN = port(Some(dfVar))
-
-  implicit def fromDFOut[L <: Unbounded, LW](dfVar : L)(
-    implicit port : PortImpl[dfVar.TVal, OUT], c : L <:!< DFAny.Port[_, IN]
-  ) : DFUInt[LW] <> OUT = port(Some(dfVar))
+  implicit def port[W, DIR <: DFDir](implicit dsn : DFDesign)
+  : DFAny.Port.Builder[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

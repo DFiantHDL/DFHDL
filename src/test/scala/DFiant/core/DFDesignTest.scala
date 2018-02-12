@@ -23,7 +23,7 @@ class DFDesignTest {
     val in : DFUInt[GenW] <> IN
     val out : DFUInt[GenW] <> OUT
     val box : Box[GenW] = new Box[GenW] {
-      val in1 = in
+      override val in1 = in
       val in2 = in
     }
   }
