@@ -250,8 +250,9 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
   }
   object Port {
-    import shapeless.<:!<
-    type Builder[DF <: DFAny, DIR <: DFDir] = Option[DF] => DF <> DIR
+    trait Builder[DF <: DFAny, DIR <: DFDir] {
+      def apply(dfVar : Option[DF]) : DF <> DIR
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -391,6 +392,10 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
+    trait Port {
+      type Builder[DF <: DFAny, DIR <: DFDir] <: DFAny.Port.Builder[DF, DIR]
+    }
+    val Port : Port
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
       trait Implicits extends DFAny.Op.Implicits[Able, Unbounded]

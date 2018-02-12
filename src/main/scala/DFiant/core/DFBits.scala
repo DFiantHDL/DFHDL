@@ -270,6 +270,10 @@ object DFBits extends DFAny.Companion {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  object Port extends Port {
+
+  }
+
   object Op extends Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     object Able extends super.Implicits
