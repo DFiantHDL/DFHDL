@@ -6,8 +6,8 @@ import singleton.twoface._
 import scodec.bits._
 
 sealed trait DFAny {
-  type IN = TVal with DFPort[TVal, DFDir.IN.type]
-  type OUT = TVar with DFPort[TVar, DFDir.OUT.type]
+//  type IN = TVal with DFPort[TVal, DFDir.IN.type]
+//  type OUT = TVar with DFPort[TVar, DFDir.OUT.type]
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -246,6 +246,8 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = read.almanacEntry
     lazy val read : DF = if (isOpen) throw new IllegalAccessException("Cannot read from an OPEN port") else dfVar.get
     lazy val isOpen : Boolean = dfVar.isEmpty
+    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< DFDir.OUT], "Cannot assign to an input port"]
+    final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
   }
   object Port {
     import shapeless.<:!<
@@ -400,8 +402,6 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
-    trait Port {
-    }
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
       trait Implicits extends DFAny.Op.Implicits[Able, Unbounded]

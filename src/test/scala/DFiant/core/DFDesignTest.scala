@@ -10,6 +10,8 @@ class DFDesignTest {
     val out2 : DFUInt[GenW] <> OUT = OPEN
 
     in1 + 1
+    out1 := in1
+    in1 := out1
   }
 
   abstract class Foo extends DFDesign {
