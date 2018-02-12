@@ -4,6 +4,7 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
+import shapeless.<:!<
 
 trait DFUInt[W] extends DFUInt.Unbounded {
   type Width = W
@@ -119,6 +120,18 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def port[W, DIR <: DFDir](implicit dsn : DFDesign)
   : DFAny.Port.Builder[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
+//
+//  implicit def fromOPEN[W, DIR <: DFDir](dfVar : OPEN)(
+//    implicit dsn : DFDesign
+//  ) : DFUInt[W] <> DIR = new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
+//
+  implicit def fromDFIn[L <: Unbounded, W](dfVar : L)(
+    implicit port : DFAny.Port.Builder[dfVar.TVal, IN], c : L <:!< DFAny.Port[_, OUT]
+  ) : L <> IN = port(Some(dfVar.asInstanceOf[dfVar.TVal])).asInstanceOf[L <> IN]
+
+  implicit def fromDFOut[L <: Unbounded with DFAny.Var](dfVar : L)(
+    implicit port : DFAny.Port.Builder[dfVar.TVal, OUT], c : L <:!< DFAny.Port[_, IN]
+  ) : L <> OUT = port(Some(dfVar.asInstanceOf[dfVar.TVal])).asInstanceOf[L <> OUT]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

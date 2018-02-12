@@ -238,7 +238,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
+  abstract class Port[+DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](if (dfVar.isEmpty) 0 else read.width)
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -252,17 +252,6 @@ object DFAny {
   object Port {
     import shapeless.<:!<
     type Builder[DF <: DFAny, DIR <: DFDir] = Option[DF] => DF <> DIR
-    implicit def fromOPEN[L <: DFAny, DIR <: DFDir](dfVar : None.type)(
-      implicit port : Builder[L, DIR]
-    ) : L <> DIR = port(None)
-
-    implicit def fromDFIn[L <: DFAny](dfVar : L)(
-      implicit port : Builder[L, IN], c : L <:!< DFAny.Port[_, OUT]
-    ) : L <> IN = port(Some(dfVar))
-
-    implicit def fromDFOut[L <: DFAny](dfVar : L)(
-      implicit port : Builder[L, OUT], c : L <:!< DFAny.Port[_, IN]
-    ) : L <> OUT = port(Some(dfVar))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

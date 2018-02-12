@@ -14,7 +14,7 @@ package object core {
   final val OPEN = None
   type OPEN = OPEN.type
 
-  type <>[DF <: DFAny, DIR <: DFDir] = DF with DFAny.Port[DF, DIR]
+  type <>[+DF <: DFAny, DIR <: DFDir] = DF with DFAny.Port[DF, DIR]
   //////////////////////////////////////////////////////////////////////////////////////////
 
   type BitsRange = internals.BitsRange
