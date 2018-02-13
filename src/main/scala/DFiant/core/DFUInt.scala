@@ -116,34 +116,6 @@ object DFUInt extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Port
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends Port {
-    trait Builder[DF <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[DF, DIR]
-    object Builder {
-      implicit def fromOPEN[W, DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[W], DIR] = ???
-      //dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
-    }
-  }
-//  implicit def fromOPEN[W, DIR <: DFDir](dfVar : OPEN)(
-//    implicit bld : Port.Builder[DFUInt[W], DIR]
-//  ) : DFUInt[W] <> DIR = bld(dfVar)
-  //  implicit def port[W, DIR <: DFDir](implicit dsn : DFDesign)
-//  : DFAny.Port.Builder[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
-//
-
-  implicit def fromDFIn[L <: DFAny, R <: DFAny, W](dfVar : R)(
-    implicit port : Port.Builder[L, IN], c : R <:!< DFAny.Port[_, OUT]
-  ) : L <> IN = port(Some(dfVar))
-
-  implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](dfVar : R)(
-    implicit port : Port.Builder[L, OUT], c : R <:!< DFAny.Port[_, IN]
-  ) : L <> OUT = port(Some(dfVar))
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Token private[DFiant] (val width : Int, val valueUInt : BigInt, val bubble : Boolean) extends DFAny.Token {
@@ -194,6 +166,19 @@ object DFUInt extends DFAny.Companion {
     def apply(width : Int, token : Token) : Token = {
       //TODO: Boundary checks
       new Token(width, token.valueUInt, token.bubble)
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Port
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Port extends Port {
+    trait Builder[DF <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[DF, DIR]
+    object Builder {
+      implicit def ev[W, DIR <: DFDir](implicit dsn : DFDesign)
+      : Builder[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

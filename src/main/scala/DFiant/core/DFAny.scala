@@ -4,6 +4,7 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
+import shapeless.<:!<
 
 sealed trait DFAny {
 //  type IN = TVal with DFPort[TVal, DFDir.IN.type]
@@ -404,6 +405,13 @@ object DFAny {
     implicit def fromOPENFake[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
       implicit bld : Port.Builder[L, DIR]
     ) : L = ???
+    implicit def fromDFIn[L <: DFAny, R <: DFAny, W](dfVar : R)(
+      implicit port : Port.Builder[L, IN], c : R <:!< DFAny.Port[_, OUT]
+    ) : L <> IN = port(Some(dfVar))
+
+    implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](dfVar : R)(
+      implicit port : Port.Builder[L, OUT], c : R <:!< DFAny.Port[_, IN]
+    ) : L <> OUT = port(Some(dfVar))
 
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
