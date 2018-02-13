@@ -11,10 +11,12 @@ package object core {
   type IN = DFDir.IN
 
   //to indicate a port is open
-  final val OPEN = None
-  type OPEN = OPEN.type
+  trait OPEN
+  object OPEN extends OPEN {
 
-  type <>[+DF <: DFAny, DIR <: DFDir] = DF with DFAny.Port[DF, DIR]
+  }
+
+  type <>[DF <: DFAny, DIR <: DFDir] = DFAny.Port[DF, DIR] with DF
   //////////////////////////////////////////////////////////////////////////////////////////
 
   type BitsRange = internals.BitsRange

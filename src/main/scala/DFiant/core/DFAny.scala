@@ -238,7 +238,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[+DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
+  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](if (dfVar.isEmpty) 0 else read.width)
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -392,10 +392,19 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
+
     trait Port {
       type Builder[DF <: DFAny, DIR <: DFDir] <: DFAny.Port.Builder[DF, DIR]
     }
     val Port : Port
+    implicit def fromOPEN[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
+      implicit bld : Port.Builder[L, DIR]
+    ) : L <> DIR = bld(None)
+    //This implicit is used to create ambiguity to prevent assignment of OPEN to a non-port
+    implicit def fromOPENFake[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
+      implicit bld : Port.Builder[L, DIR]
+    ) : L = ???
+
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
       trait Implicits extends DFAny.Op.Implicits[Able, Unbounded]

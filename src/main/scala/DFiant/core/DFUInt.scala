@@ -126,19 +126,20 @@ object DFUInt extends DFAny.Companion {
       //dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
     }
   }
-  implicit def fromOPEN[W, DIR <: DFDir](dfVar : OPEN)(
-    implicit bld : Port.Builder[DFUInt[W], DIR]
-  ) : DFUInt[W] <> DIR = bld(dfVar)
+//  implicit def fromOPEN[W, DIR <: DFDir](dfVar : OPEN)(
+//    implicit bld : Port.Builder[DFUInt[W], DIR]
+//  ) : DFUInt[W] <> DIR = bld(dfVar)
   //  implicit def port[W, DIR <: DFDir](implicit dsn : DFDesign)
 //  : DFAny.Port.Builder[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
 //
-  implicit def fromDFIn[L <: Unbounded, W](dfVar : L)(
-    implicit port : Port.Builder[dfVar.TVal, IN], c : L <:!< DFAny.Port[_, OUT]
-  ) : L <> IN = port(Some(dfVar.asInstanceOf[dfVar.TVal])).asInstanceOf[L <> IN]
 
-  implicit def fromDFOut[L <: Unbounded with DFAny.Var](dfVar : L)(
-    implicit port : Port.Builder[dfVar.TVal, OUT], c : L <:!< DFAny.Port[_, IN]
-  ) : L <> OUT = port(Some(dfVar.asInstanceOf[dfVar.TVal])).asInstanceOf[L <> OUT]
+  implicit def fromDFIn[L <: DFAny, R <: DFAny, W](dfVar : R)(
+    implicit port : Port.Builder[L, IN], c : R <:!< DFAny.Port[_, OUT]
+  ) : L <> IN = port(Some(dfVar))
+
+  implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](dfVar : R)(
+    implicit port : Port.Builder[L, OUT], c : R <:!< DFAny.Port[_, IN]
+  ) : L <> OUT = port(Some(dfVar))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

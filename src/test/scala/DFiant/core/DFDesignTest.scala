@@ -14,6 +14,8 @@ class DFDesignTest {
 
     out1 := in1 + 1 //can read from input and assign to output
     out2 := out1 //can read from output, but
+
+    illTyped("""val a : DFUInt[GenW] = OPEN""") //Fail compile assigning OPEN to a non-port
     illTyped("""in1 := out1""") //Fail (Cannot assign to an input port)
 
 //    abstract class MyInterface[Dir] {
