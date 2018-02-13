@@ -7,8 +7,6 @@ import scodec.bits._
 import shapeless.<:!<
 
 sealed trait DFAny {
-//  type IN = TVal with DFPort[TVal, DFDir.IN.type]
-//  type OUT = TVar with DFPort[TVar, DFDir.OUT.type]
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -247,7 +245,7 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = read.almanacEntry
     lazy val read : DF = if (isOpen) throw new IllegalAccessException("Cannot read from an OPEN port") else dfVar.get
     lazy val isOpen : Boolean = dfVar.isEmpty
-    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< DFDir.OUT], "Cannot assign to an input port"]
+    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
   }
   object Port {
@@ -394,6 +392,9 @@ object DFAny {
     type Unbounded <: DFAny.Unbounded[this.type]
     type Token <: DFAny.Token
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Port
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait Port {
       type Builder[DF <: DFAny, DIR <: DFDir] <: DFAny.Port.Builder[DF, DIR]
     }
@@ -408,10 +409,10 @@ object DFAny {
     implicit def fromDFIn[L <: DFAny, R <: DFAny, W](dfVar : R)(
       implicit port : Port.Builder[L, IN], c : R <:!< DFAny.Port[_, OUT]
     ) : L <> IN = port(Some(dfVar))
-
     implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](dfVar : R)(
       implicit port : Port.Builder[L, OUT], c : R <:!< DFAny.Port[_, IN]
     ) : L <> OUT = port(Some(dfVar))
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
