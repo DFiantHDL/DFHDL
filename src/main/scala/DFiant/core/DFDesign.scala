@@ -7,5 +7,3 @@ trait DFDesign {
   protected[DFiant] val protAlmanac = new Almanac {}
 }
 object DFDesign
-
-object GlobalDesign extends DFDesign

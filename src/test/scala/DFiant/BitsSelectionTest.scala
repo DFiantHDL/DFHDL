@@ -5,7 +5,7 @@ import TestUtils._
 import singleton.twoface._
 
 class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFromSafeVarSpec") {
-  implicit val dsn = GlobalDesign
+  import GlobalDesign._
   property("DFBits[W] @ W < 0 compile error") = {
     illTyped { """DFBits[0]""" }
     illTyped { """DFBits[-1]""" }
@@ -122,7 +122,7 @@ class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFrom
 
 
 class UnsafeBitsSelectionFromSafeVarSpec extends Properties("UnsafeBitsSelectionFromSafeVarSpec") {
-  implicit val dsn = GlobalDesign
+  import GlobalDesign._
   var two = 2
   var one = 1
   var neg_two = -2

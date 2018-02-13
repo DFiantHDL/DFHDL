@@ -11,7 +11,7 @@ import scala.annotation.implicitNotFound
   */
 import singleton.ops._
 object GeneralTest {
-  implicit val dsn = GlobalDesign
+  import GlobalDesign._
   val two = 2
   val d = DFUInt(2)
   val d9 = DFUInt(9)

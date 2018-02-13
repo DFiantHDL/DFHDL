@@ -3,7 +3,7 @@ package DFiant.core
 import DFiant._
 
 object IfTest {
-  implicit val dsn = GlobalDesign
+  import GlobalDesign._
   val a = DFBool()
 
   ifdf (a) {

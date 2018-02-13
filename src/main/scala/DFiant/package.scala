@@ -11,7 +11,9 @@ trait Implicits extends DFUInt.Op.Implicits
 package object DFiant extends Implicits {
   trait DFDesign extends core.DFDesign
   val DFDesign = core.DFDesign
-  val GlobalDesign = core.GlobalDesign
+  object GlobalDesign {
+    implicit object dsn extends DFDesign
+  }
   type Φ = core.Bubble
   final val Φ = core.Bubble
   type DFBits[W] = core.DFBits[W]
