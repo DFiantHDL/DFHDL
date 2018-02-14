@@ -135,8 +135,8 @@ sealed trait DFAny {
   }
 
   def forceOut : Unit = getCurrentEntry
-  def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) = op(left, right.tVal)
-  def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) = op(left, right.tVal)
+  def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
+  def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
 //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
@@ -426,11 +426,11 @@ object DFAny {
     }
     val `Op:=` : `Op:=`
     trait `Op==` {
-      type Builder[L, R] <: DFAny.Op.Builder[L, R]
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool}
     }
     val `Op==` : `Op==`
     trait `Op!=` {
-      type Builder[L, R] <: DFAny.Op.Builder[L, R]
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool}
     }
     val `Op!=` : `Op!=`
     trait Init {

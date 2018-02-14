@@ -1,6 +1,11 @@
 import DFiant._
 import GlobalDesign._
 
-val a = DFUInt(8)
+def foo() : Unit = {println("shit")}
 
-a + 1
+def fooUser(in : => Unit): Unit ={
+  val a = in
+  val b = in
+}
+
+fooUser(foo)

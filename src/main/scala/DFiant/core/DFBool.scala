@@ -18,15 +18,14 @@ object DFBool extends DFAny.Companion {
     type TVar = DFBool.Var
     type Width = 1
     def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", DFBool.Token.unary_!(getInit), this)
-    //  def == (that : Boolean)   : DFBool = __==(this, AlmanacEntryConst(if (that) 1 else 0))
-    //  def != (that : Boolean)   : DFBool = __!=(this, AlmanacEntryConst(if (that) 1 else 0))
-    def || (that : DFBool) : DFBool = ??? //AlmanacEntryOpOr(this, that)
-    def && (that : DFBool) : DFBool = ??? //AlmanacEntryOpAnd(this, that)
+
+    def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
+    def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
     //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
     //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
     //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-    def rising(implicit dsn : DFDesign)                : DFBool = left && !left.prev(1)
-    def falling(implicit dsn : DFDesign)               : DFBool = !left && left.prev(1)
+    def rising(implicit dsn : DFDesign)  : DFBool = left && !left.prev(1)
+    def falling(implicit dsn : DFDesign) : DFBool = !left && left.prev(1)
 
     def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar()
 
@@ -42,9 +41,8 @@ object DFBool extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var extends DFAny.Var with DFBool {
-//    final def := (that : ZeroOrOne1) : TVar = assign(that.getAlmanacEntry)
-//    final def set() : Unit = this := true
-//    final def clear() : Unit = this := false
+//    final def set() : DFBool = this := true
+//    final def clear() : DFBool = this := false
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -105,6 +103,8 @@ object DFBool extends DFAny.Companion {
       if (this.isBubble) Token(Bubble)
       else Token(!this.valueBool)
     }
+    final def == (that : Token) : Token = DFBool.Token(this.valueBool == that.valueBool, this.isBubble || that.isBubble)
+    final def != (that : Token) : Token = DFBool.Token(this.valueBool != that.valueBool, this.isBubble || that.isBubble)
     override def valueString : String = valueBool.toString()
   }
 
@@ -112,6 +112,8 @@ object DFBool extends DFAny.Companion {
     import DFAny.TokenSeq
     def || (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l || r)
     def && (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l && r)
+    def == (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l == r)
+    def != (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l != r)
     def unary_! (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => !t)
 
     def apply(value : Int) : Token = value match {
@@ -121,6 +123,19 @@ object DFBool extends DFAny.Companion {
     def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Port
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Port extends Port {
+    trait Builder[DF <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[DF, DIR]
+    object Builder {
+      implicit def ev[DIR <: DFDir](implicit dsn : DFDesign)
+      : Builder[DFBool, DIR] = dfVar => new DFAny.Port[DFBool, DIR](dfVar) with DFBool
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -172,37 +187,130 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Op
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends Op {
-    class Able[L](val value : L) extends DFAny.Op.Able[L]
-    object Able extends super.Implicits
+    class Able[L](val value : L) extends DFAny.Op.Able[L] {
+      val left = value
+      def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
+      def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
+    }
+    trait Implicits extends super.Implicits {
+      implicit class FromXInt[L <: XInt](left : L) extends Able[L](left)
+      implicit class FromBoolean[L <: Boolean](left : L) extends Able[L](left)
+      implicit def ofDFBool[R <: DFBool.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
+    }
+    object Able extends Implicits
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  object Port extends Port {
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Constant Implicit Evidence of DFUInt
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Const[Sym, N] {
+    def apply(value : N) : DFBool
   }
+  object Const {
+    implicit def fromInt[Sym, N <: Int](implicit dsn : DFDesign, checkBin : BinaryInt.CheckedShellSym[Sym, N])
+    : Const[Sym, N] = value => {
+      checkBin.unsafeCheck(value)
+      const(Token(value))
+    }
+    implicit def fromBoolean[Sym, N <: Boolean](implicit dsn : DFDesign)
+    : Const[Sym, N] = value => const(Token(value))
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object `Op:=` extends `Op:=` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment operation with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
+    object Builder {
+      type Aux[L, R, Comp0] = Builder[L, R] {
+        type Comp = Comp0
+      }
+
+      def create[L, R](properLR : (L, R) => (DFBool, DFBool))
+      : Aux[L, R, DFBool.Var] = new Builder[L, R] {
+        type Comp = DFBool.Var
+        def apply(leftL : L, rightR : R) : Comp = {
+          val (left, right) = properLR(leftL, rightR)
+          left.assign(right)
+        }
+      }
+
+      implicit def evDFUInt_op_DFUInt[L <: DFBool, R <: DFBool](implicit dsn : DFDesign) 
+      : Aux[DFBool, DFBool, DFBool.Var] = create[DFBool, DFBool]((left, right) => (left, right))
+
+      implicit def evDFUInt_op_Const[L <: DFBool, R](implicit dsn : DFDesign, rConst : Const[Builder[_,_], R]) 
+      : Aux[DFBool, R, DFBool.Var] = create[DFBool, R]((left, rightNum) => {
+        val right = rConst(rightNum)
+        (left, right)
+      })
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-  object `Op==` extends `Op==` {
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Comparison operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class BoolOps(kind : BoolOps.Kind) {
+    @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
+    object Builder {
+      def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit dsn : DFDesign)
+      : Builder[L, R] = new Builder[L, R] {
+        def apply(leftL : L, rightR : R) : Comp = {
+          val (left, right) = properLR(leftL, rightR)
+          DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
+        }
+      }
+
+      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](
+        implicit
+        dsn : DFDesign,
+      ) : Builder[DFBool, DFBool] =  create[DFBool, DFBool]((left, right) => (left, right))
+
+      implicit def evDFBool_op_Const[L <: DFBool, R](implicit dsn : DFDesign, rConst : Const[Builder[_,_], R])
+      : Builder[DFBool, R] = create[DFBool, R]((left, rightNum) => {
+        val right = rConst(rightNum)
+        (left, right)
+      })
+
+      implicit def evConst_op_DFBool[L, R <: DFBool](implicit dsn : DFDesign, lConst : Const[Builder[_,_], L])
+      : Builder[L, DFBool] = create[L, DFBool]((leftNum, right) => {
+        val left = lConst(leftNum)
+        (left, right)
+      })
+    }
   }
-
-  object `Op!=` extends `Op!=` {
-
+  protected object BoolOps {
+    class Kind(val opString : String, val opFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
+    case object == extends Kind("==", DFBool.Token.==)
+    case object != extends Kind("!=", DFBool.Token.!=)
+    case object || extends Kind("||", DFBool.Token.||)
+    case object && extends Kind("&&", DFBool.Token.&&)
   }
+  object `Op==` extends BoolOps(BoolOps.==) with `Op==`
+  object `Op!=` extends BoolOps(BoolOps.!=) with `Op!=`
+  object `Op||` extends BoolOps(BoolOps.||)
+  object `Op&&` extends BoolOps(BoolOps.&&)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // For If Clause
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit class ElseIfClauseBuilder(cond : DFBool)(implicit dsn : DFDesign){
-    def apply(block : => Unit) : ElseIfClause = new ElseIfClause(cond, block)
+  implicit class ElseIfClauseBuilder[B <: Unbounded](cond : B){
+    def apply(block : => Unit)(implicit dsn : DFDesign): ElseIfClause = new ElseIfClause(cond, block)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

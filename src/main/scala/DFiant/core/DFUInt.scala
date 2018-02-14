@@ -144,17 +144,17 @@ object DFUInt extends DFAny.Companion {
 
   object Token {
     import DFAny.TokenSeq
-    def +  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l + r)
-    def -  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l - r)
-    def *  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l * r)
-    def /  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l / r)
-    def %  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l,r) => l % r)
-    def <  (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l < r)
-    def >  (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l > r)
-    def <= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l <= r)
-    def >= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l >= r)
-    def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l == r)
-    def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l,r) => l != r)
+    def +  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l + r)
+    def -  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l - r)
+    def *  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l * r)
+    def /  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l / r)
+    def %  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l % r)
+    def <  (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l < r)
+    def >  (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l > r)
+    def <= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l <= r)
+    def >= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l >= r)
+    def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
+    def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
@@ -373,6 +373,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
+        dsn : DFDesign,
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt.Var[LW]] =
         create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
@@ -609,13 +610,9 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare(kind : OpsCompare.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
     object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
-      }
-
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW
         type Msg[LW, RW] = "Comparison operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
@@ -628,11 +625,8 @@ object DFUInt extends DFAny.Companion {
         type ParamFace = Int
       }
 
-      def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(
-        implicit dsn : DFDesign
-      ) : Aux[L, R, DFBool] =
-        new Builder[L, R] {
-        type Comp = DFBool
+      def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign)
+      : Builder[L, R] = new Builder[L, R] {
         def apply(leftL : L, rightR : R) : Comp = {
           val (left, right) = properLR(leftL, rightR)
           DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
@@ -643,7 +637,7 @@ object DFUInt extends DFAny.Companion {
         implicit
         dsn : DFDesign,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], DFUInt[RW], DFBool] =  create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
+      ) : Builder[DFUInt[LW], DFUInt[RW]] = create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
       })
@@ -653,7 +647,7 @@ object DFUInt extends DFAny.Companion {
         dsn : DFDesign,
         rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
-      ) : Aux[DFUInt[LW], R, DFBool] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
+      ) : Builder[DFUInt[LW], R] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
@@ -664,7 +658,7 @@ object DFUInt extends DFAny.Companion {
         dsn : DFDesign,
         lConst : Const.PosOnly.Aux[Builder[_,_], L, LW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
-      ) : Aux[L, DFUInt[RW], DFBool] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
+      ) : Builder[L, DFUInt[RW]] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
         checkLWvRW.unsafeCheck(right.width, left.width)
         (left, right)

@@ -16,7 +16,8 @@ class ElseIfClause(val cond : DFBool, _block: => Unit)(implicit dsn : DFDesign){
 }
 
 class IfBool (prevCond: DFBool)(implicit dsn : DFDesign) {
-  def elseifdf (clause : ElseIfClause) : IfBool = privElseifdf(clause.cond)(clause.block)
+  def elseifdf (clause : DFBool)(block : => Unit) : IfBool = ??? //privElseifdf(clause.cond)(clause.block)
+//  def elseifdf (clause : ElseIfClause) : IfBool = privElseifdf(clause.cond)(clause.block)
   private def privElseifdf (cond : DFBool)(block: => Unit) : IfBool = {
     ifdf.execIf(!prevCond && cond){ block }
     new IfBool(prevCond || cond)

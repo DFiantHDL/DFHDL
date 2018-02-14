@@ -217,4 +217,9 @@ package object internals {
     }
   }
 
+  object BinaryInt extends Checked0Param.Int {
+    type Cond[N] = (N == 0) || (N == 1)
+    type Msg[N] = "Number must be binary (0 or 1). Found = " + ToString[N]
+  }
+
 }
