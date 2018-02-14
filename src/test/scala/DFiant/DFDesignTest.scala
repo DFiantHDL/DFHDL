@@ -1,6 +1,5 @@
-package DFiant.core
-import DFiant._
-import DFiant.core.DFUInt.Op.Able
+package DFiant
+
 import shapeless.test.illTyped
 
 class DFDesignTest {

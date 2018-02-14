@@ -1,6 +1,4 @@
-package DFiant.core
-
-import DFiant._
+package DFiant
 
 object IfTest {
 

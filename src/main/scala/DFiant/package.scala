@@ -8,10 +8,10 @@ import DFiant.core.DFUInt
 
 trait Implicits extends DFUInt.Op.Implicits
 
-package object DFiant extends Implicits {
-  trait DFDesign extends core.DFDesign
+package object DFiant extends {
+  trait DFDesign extends core.DFDesign with Implicits
   val DFDesign = core.DFDesign
-  object GlobalDesign {
+  object GlobalDesign extends Implicits {
     implicit object dsn extends DFDesign
   }
   type Φ = core.Bubble

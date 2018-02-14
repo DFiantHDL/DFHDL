@@ -1,6 +1,5 @@
-package DFiant.core
+package DFiant
 
-import DFiant._
 import DFiant.TestUtils._
 import org.scalacheck._
 import scodec.bits._
