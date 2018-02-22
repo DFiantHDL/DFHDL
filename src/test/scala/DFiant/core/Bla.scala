@@ -10,16 +10,33 @@ abstract class Box[GenW]() extends DFDesign {
 
 class RTComponent(name : String)
 
-class Adder(leftWidth : Int, rightWidth : Int) extends DFDesign {
-  trait Interface extends DFDesign.Interface {
+trait AdderBuilder {
+}
+object Adder extends DFDesign {
+  abstract class Interface(leftWidth : Int, rightWidth : Int) extends DFDesign.Interface {
     val left : DFUInt[Int] <> IN
     val right : DFUInt[Int] <> IN
     val result : DFUInt[Int] <> OUT
   }
-  trait Instance extends DFDesign.Instance[Interface]
-  trait Implementation extends DFDesign.Implementation[Interface]
 }
 
+
+object Bla {
+  import DFiant.GlobalDesign._
+  val a = DFUInt(8)
+  val b = DFUInt(8)
+  val r = DFUInt(8)
+  val inst8 = new Adder.Interface(8, 8) {
+    val left = a
+    val right = b
+    val result = r
+  }
+
+  Adder.addImplementation {ifc =>
+    ifc.result := ifc.left + ifc.right
+  }
+
+}
 
 class DFOpPlus[LW, RW](leftWidth : TwoFace.Int[LW], rightWidth : TwoFace.Int[RW]) extends DFDesign {
   trait IO {

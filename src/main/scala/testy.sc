@@ -1,11 +1,16 @@
 import DFiant._
+import scodec.bits._
 import GlobalDesign._
 
-def foo() : Unit = {println("shit")}
+val b8 = DFBits(8)
 
-def fooUser(in : => Unit): Unit ={
-  val a = in
-  val b = in
-}
+val b4 = b8.bits(3,0)
 
-fooUser(foo)
+val u4 = b4.toDFUInt
+
+val a = u4 + u4
+a.wc
+
+
+
+
