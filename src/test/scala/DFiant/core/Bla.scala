@@ -13,10 +13,13 @@ class RTComponent(name : String)
 trait AdderBuilder {
 }
 object Adder extends DFDesign {
-  abstract class Interface(leftWidth : Int, rightWidth : Int) extends DFDesign.Interface {
-    val left : DFUInt[Int] <> IN
-    val right : DFUInt[Int] <> IN
-    val result : DFUInt[Int] <> OUT
+  trait Interface extends DFDesign.Interface {
+    type Left <: DFAny
+    type Right <: DFAny
+    type Result <: DFAny
+    val left : Left <> IN
+    val right : Right <> IN
+    val result : Result <> OUT
   }
 }
 
@@ -26,15 +29,23 @@ object Bla {
   val a = DFUInt(8)
   val b = DFUInt(8)
   val r = DFUInt(8)
-  val inst8 = new Adder.Interface(8, 8) {
+  new Adder.Interface {
+    type Left = DFUInt[8]
+    type Right = DFUInt[8]
+    type Result = DFUInt[8]
     val left = a
     val right = b
     val result = r
   }
+//  val inst8 = new Adder.Interface(8, 8) {
+//    val left = a
+//    val right = b
+//    val result = r
+//  }
 
-  Adder.addImplementation {ifc =>
-    ifc.result := ifc.left + ifc.right
-  }
+//  Adder.addImplementation {ifc =>
+//    ifc.result := ifc.left + ifc.right
+//  }
 
 }
 

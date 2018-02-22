@@ -41,7 +41,8 @@ class DFDesignTest {
     }
   }
 
-  val top = new DFDesign {
+  object top extends DFDesign {
+    trait Interface extends DFDesign.Interface
 
 
   }
