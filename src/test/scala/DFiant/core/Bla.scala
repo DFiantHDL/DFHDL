@@ -39,7 +39,7 @@ object Bla {
 
   implicit def fro[LW, RW, OW] : DFBlackBox.Implementation[Adder.DFU[LW, RW, OW]] = ifc => {
     import ifc._
-    result := left + right
+    result := left + right //Should be RTBlackBox
   }
 
   new Adder.Interface {
