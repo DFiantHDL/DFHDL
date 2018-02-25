@@ -19,27 +19,26 @@ trait Adder[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DFBlackBox[A
 
 object Adder {
   type DFU[LW, RW, OW] = Adder[DFUInt[LW], DFUInt[RW], DFUInt[OW]]
-  implicit def fro[LW, RW, OW](implicit dsn : DFDesign) : DFBlackBox.Implementation[Adder.DFU[LW, RW, OW]] =
-    new DFBlackBox.Implementation[Adder.DFU[LW, RW, OW]] {
-      def apply(ifc : Adder.DFU[LW, RW, OW]) = {
-        import ifc._
-        result := left + right
-      }
-    }
+  implicit def fro[LW, RW, OW] : DFBlackBox.Implementation[Adder.DFU[LW, RW, OW]] = ifc => {
+    import ifc._
+    result := left + right
+  }
 }
 
 
 object Bla {
-  import DFiant.GlobalDesign._
-  val a = DFUInt(8)
-  val b = DFUInt(8)
-  val r = DFUInt(8)
+  new DFDesign {
+    val a = DFUInt(8)
+    val b = DFUInt(8)
+    val r = DFUInt(8)
 
-  new Adder[DFUInt[8], DFUInt[8], DFUInt[8]] {
-    val left = a
-    val right = b
-    val result = r
+    new Adder[DFUInt[8], DFUInt[8], DFUInt[8]] {
+      val left = a
+      val right = b
+      val result = r
+    }
   }
+
 //  val inst8 = new Adder.Interface(8, 8) {
 //    val left = a
 //    val right = b

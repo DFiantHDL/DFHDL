@@ -10,12 +10,12 @@ trait DFDesign extends DFInterface {
 object DFDesign {
 }
 
-abstract class DFBlackBox[Ifc <: DFInterface](implicit impl : DFBlackBox.Implementation[Ifc]) extends DFInterface {
-  impl(this.asInstanceOf[Ifc])
+abstract class DFBlackBox[Dsn <: DFDesign](implicit impl : DFBlackBox.Implementation[Dsn]) extends DFDesign {
+  impl(this.asInstanceOf[Dsn])
 }
 
 object DFBlackBox {
-  abstract class Implementation[Ifc <: DFInterface](implicit dsn : DFDesign) {
-    def apply(ifc : Ifc) : Unit
+  trait Implementation[Dsn <: DFDesign] {
+    def apply(dsn : Dsn) : Unit
   }
 }
