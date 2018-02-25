@@ -38,17 +38,6 @@ object Bla {
       val result = r
     }
   }
-
-//  val inst8 = new Adder.Interface(8, 8) {
-//    val left = a
-//    val right = b
-//    val result = r
-//  }
-
-//  Adder.addImplementation {ifc =>
-//    ifc.result := ifc.left + ifc.right
-//  }
-
 }
 
 class DFOpPlus[LW, RW](leftWidth : TwoFace.Int[LW], rightWidth : TwoFace.Int[RW]) extends DFDesign {
