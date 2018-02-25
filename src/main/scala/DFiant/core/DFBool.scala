@@ -131,10 +131,10 @@ object DFBool extends DFAny.Companion {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Port extends Port {
-    trait Builder[DF <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[DF, DIR]
+    trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
       implicit def ev[DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFBool, DIR] = dfVar => new DFAny.Port[DFBool, DIR](dfVar) with DFBool
+      : Builder[DFBool, DFBool, DIR] = dfVar => new DFAny.Port[DFBool, DIR](dfVar) with DFBool
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -310,7 +310,7 @@ object DFBool extends DFAny.Companion {
   // For If Clause
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit class ElseIfClauseBuilder[B <: Unbounded](cond : B){
-    def apply(block : => Unit)(implicit dsn : DFDesign): ElseIfClause = new ElseIfClause(cond, block)
+    def apply(block : => Unit)(implicit dsn : DFDesign): ElseIfClause = ??? //new ElseIfClause(cond, block)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

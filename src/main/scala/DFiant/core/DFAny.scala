@@ -250,8 +250,8 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
   }
   object Port {
-    trait Builder[DF <: DFAny, DIR <: DFDir] {
-      def apply(dfVar : Option[DF]) : DF <> DIR
+    trait Builder[L <: DFAny, R, DIR <: DFDir] {
+      def apply(dfVar : Option[R]) : L <> DIR
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -397,21 +397,21 @@ object DFAny {
     // Port
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait Port extends DFInterface {
-      type Builder[DF <: DFAny, DIR <: DFDir] <: DFAny.Port.Builder[DF, DIR]
+      type Builder[L <: DFAny, R, DIR <: DFDir] <: DFAny.Port.Builder[L, R, DIR]
     }
     val Port : Port
     implicit def fromOPEN[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
-      implicit bld : Port.Builder[L, DIR]
+      implicit bld : Port.Builder[L, OPEN, DIR]
     ) : L <> DIR = bld(None)
     //This implicit is used to create ambiguity to prevent assignment of OPEN to a non-port
     implicit def fromOPENFake[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
-      implicit bld : Port.Builder[L, DIR]
+      implicit bld : Port.Builder[L, OPEN, DIR]
     ) : L = ???
     implicit def fromDFIn[L <: DFAny, R <: DFAny, W](dfVar : R)(
-      implicit port : Port.Builder[L, IN], c : R <:!< DFAny.Port[_, OUT]
+      implicit port : Port.Builder[L, R, IN], c : R <:!< DFAny.Port[_, OUT]
     ) : L <> IN = port(Some(dfVar))
     implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](dfVar : R)(
-      implicit port : Port.Builder[L, OUT], c : R <:!< DFAny.Port[_, IN]
+      implicit port : Port.Builder[L, R, OUT], c : R <:!< DFAny.Port[_, IN]
     ) : L <> OUT = port(Some(dfVar))
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

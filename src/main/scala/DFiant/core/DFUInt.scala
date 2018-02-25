@@ -175,10 +175,12 @@ object DFUInt extends DFAny.Companion {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Port extends Port {
-    trait Builder[DF <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[DF, DIR]
+    trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
-      implicit def ev[W, DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[W], DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
+      implicit def open[W, DIR <: DFDir](implicit dsn : DFDesign)
+      : Builder[DFUInt[W], OPEN, DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](None) with DFUInt[W]
+      implicit def ev[W, R <: DFUInt[W], DIR <: DFDir](implicit dsn : DFDesign)
+      : Builder[DFUInt[W], R, DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
