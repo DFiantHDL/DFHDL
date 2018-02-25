@@ -401,11 +401,11 @@ object DFAny {
     }
     val Port : Port
     implicit def fromOPEN[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
-      implicit bld : Port.Builder[L, OPEN, DIR]
-    ) : L <> DIR = bld(None)
+      implicit port : Port.Builder[L, OPEN, DIR]
+    ) : L <> DIR = port(None)
     //This implicit is used to create ambiguity to prevent assignment of OPEN to a non-port
     implicit def fromOPENFake[L <: DFAny, DIR <: DFDir](dfVar : OPEN)(
-      implicit bld : Port.Builder[L, OPEN, DIR]
+      implicit port : Port.Builder[L, OPEN, DIR]
     ) : L = ???
     implicit def fromDFIn[L <: DFAny, R <: DFAny, W](dfVar : R)(
       implicit port : Port.Builder[L, R, IN], c : R <:!< DFAny.Port[_, OUT]
