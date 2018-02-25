@@ -15,7 +15,7 @@ abstract class DFBlackBox extends DFDesign {
 }
 object DFBlackBox {
   trait Implementation[Ifc <: Interface] {
-    def apply(ifc : Ifc)
+    def apply(ifc : Ifc) : Unit
   }
   trait Interface extends DFInterface {
     def instance[Ifc <: Interface](implicit impl : Implementation[Ifc]) = impl(this.asInstanceOf[Ifc])

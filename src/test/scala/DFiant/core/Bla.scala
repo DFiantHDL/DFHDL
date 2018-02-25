@@ -1,5 +1,6 @@
 package DFiant.core
 
+import DFiant.core
 import singleton.twoface._
 
 abstract class Box[GenW]() extends DFDesign {
@@ -21,6 +22,12 @@ object Adder extends DFBlackBox {
     val right : Right <> IN
     val result : Result <> OUT
   }
+
+  type DFU[LW, RW, OW] = Adder.Interface {
+    type Left = DFUInt[LW]
+    type Right = DFUInt[RW]
+    type Result = DFUInt[OW]
+  }
 }
 
 
@@ -30,11 +37,10 @@ object Bla {
   val b = DFUInt(8)
   val r = DFUInt(8)
 
-  implicit def fro[LW, RW, OW] : DFBlackBox.Implementation[Adder.Interface {
-    type Left = DFUInt[LW]
-    type Right = DFUInt[RW]
-    type Result = DFUInt[OW]
-  }] = ???
+  implicit def fro[LW, RW, OW] : DFBlackBox.Implementation[Adder.DFU[LW, RW, OW]] = ifc => {
+    import ifc._
+    result := left + right
+  }
 
   new Adder.Interface {
     type Left = DFUInt[8]
