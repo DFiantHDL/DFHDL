@@ -1,6 +1,6 @@
 package DFiant.core
 
-protected [DFiant] trait DFPortShare {
+trait DFInterface {
   protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   protected type DFDir = DFPort.DFDir
   protected type IN = DFPort.IN

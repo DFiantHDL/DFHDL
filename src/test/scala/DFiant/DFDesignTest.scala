@@ -41,12 +41,6 @@ class DFDesignTest {
     }
   }
 
-  object top extends DFDesign {
-    trait Interface extends DFDesign.Interface
-
-
-  }
-
 }
 
 

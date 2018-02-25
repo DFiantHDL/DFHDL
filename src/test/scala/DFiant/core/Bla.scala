@@ -12,8 +12,8 @@ class RTComponent(name : String)
 
 trait AdderBuilder {
 }
-object Adder extends DFDesign {
-  trait Interface extends DFDesign.Interface {
+object Adder extends DFBlackBox {
+  trait Interface extends DFBlackBox.Interface {
     type Left <: DFAny
     type Right <: DFAny
     type Result <: DFAny
@@ -29,6 +29,13 @@ object Bla {
   val a = DFUInt(8)
   val b = DFUInt(8)
   val r = DFUInt(8)
+
+  implicit def fro[LW, RW, OW] : DFBlackBox.Implementation[Adder.Interface {
+    type Left = DFUInt[LW]
+    type Right = DFUInt[RW]
+    type Result = DFUInt[OW]
+  }] = ???
+
   new Adder.Interface {
     type Left = DFUInt[8]
     type Right = DFUInt[8]
@@ -36,7 +43,7 @@ object Bla {
     val left = a
     val right = b
     val result = r
-  }
+  }.instance
 //  val inst8 = new Adder.Interface(8, 8) {
 //    val left = a
 //    val right = b
