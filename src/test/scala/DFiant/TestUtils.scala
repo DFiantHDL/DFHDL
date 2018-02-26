@@ -13,11 +13,9 @@ object TestUtils {
 
   implicit def tfToProp[B](tf : TwoFace.Boolean[B]) : Prop = tf.getValue
 
-  //nf = unsafe. used to force a not-final value. e.g., nf(3) returns a non-literal 3
-  def us[T](t : T) : T = {
-    var ret = t
-    ret
-  }
+  //nf = not-final. used to force a not-final value. e.g., nf(3) returns a non-literal 3
+  def nf(t : Int) = t
+  def nf(t : Long) = t
 
   def illRun(body: => Unit) : Boolean = {
     val isIll = try {

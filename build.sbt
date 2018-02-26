@@ -85,10 +85,10 @@ libraryDependencies += "org.scodec" %% "scodec-bits" % "1.1.5"
 ////////////////////////////////////////////////////////////////////
 // Oscar (constraints)
 ////////////////////////////////////////////////////////////////////
-//resolvers += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-release/"
-//
-//libraryDependencies += "oscar" %% "oscar-cp" % "3.0.0"
-//
+resolvers += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
+
+libraryDependencies += "oscar" %% "oscar-cp" % "4.0.0-SNAPSHOT"
+
 //libraryDependencies += "oscar" %% "oscar-linprog" % "3.0.0"
 //
 //libraryDependencies += "oscar" %% "oscar-cbls" % "3.0.0"

@@ -222,4 +222,5 @@ package object internals {
     type Msg[N] = "Number must be binary (0 or 1). Found = " + ToString[N]
   }
 
+  type Arg0IsNonLit = Require[IsNonLiteral[GetArg0]]
 }
