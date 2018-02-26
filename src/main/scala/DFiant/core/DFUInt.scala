@@ -177,10 +177,33 @@ object DFUInt extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
-      implicit def open[W, DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[W], OPEN, DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](None) with DFUInt[W]
-      implicit def ev[W, R <: DFUInt[W], DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[W], R, DIR] = dfVar => new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
+      implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign)
+      : Builder[DFUInt[LW], OPEN, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](None) with DFUInt[LW]
+      implicit def fromDFUIntEq[LW, R <: DFUInt[LW], DIR <: DFDir](implicit dsn : DFDesign)
+      : Builder[DFUInt[LW], R, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
+//      implicit def fromConst1[LW, R, RW, DIR <: DFDir](
+//        implicit
+//        dsn : DFDesign,
+//        leftWidth : Id[LW],
+//        const : Const.PosOnly.Aux[_, R, RW],
+//        checkLWeqRW : `Op:=`.Builder.`LW >= RW`.Checked[LW, RW]
+//      ) : Builder[DFUInt[LW], R, DIR] = dfVar => {
+//        val rightNum
+//        val right = const()
+//        checkLWeqRW.unsafeCheck(leftWidth, )
+//
+//        new DFAny.Port[DFUInt[LW], DIR](dfVar) with DFUInt[LW]
+//      }
+
+      //      implicit def fromDFUIntExtend[LW, RW, R <: DFUInt[RW], DIR <: DFDir](
+//        implicit
+//        dsn : DFDesign,
+//        checkLWeqRW : Require[LW == RW]
+//      ) : Builder[DFUInt[LW], R, DIR] = {
+//        checkLWeqRW.unsafeCheck()
+//        dfVar => new DFAny.Port[DFUInt[LW], DIR](dfVar) with DFUInt[LW]
+//      }
+
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

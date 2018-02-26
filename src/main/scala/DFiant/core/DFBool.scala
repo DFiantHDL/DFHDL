@@ -134,7 +134,7 @@ object DFBool extends DFAny.Companion {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
       implicit def ev[DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFBool, DFBool, DIR] = dfVar => new DFAny.Port[DFBool, DIR](dfVar) with DFBool
+      : Builder[DFBool, DFBool, DIR] = right => new DFAny.Port[DFBool, DIR](Some(right)) with DFBool
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
