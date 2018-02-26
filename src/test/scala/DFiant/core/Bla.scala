@@ -28,7 +28,7 @@ object Adder {
 
 object Bla {
   new DFDesign {
-    val a = DFUInt(7)
+    val a = DFUInt(7).extendable
     val b = DFUInt(8)
     val r = DFUInt(8)
 
