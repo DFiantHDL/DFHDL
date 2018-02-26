@@ -28,13 +28,14 @@ object Adder {
 
 object Bla {
   new DFDesign {
-    val a = DFUInt(8)
+    val a = DFUInt(7)
     val b = DFUInt(8)
     val r = DFUInt(8)
 
-    new Adder[DFUInt[8], DFUInt[8], DFUInt[8]] {
+    type E = 8
+    new Adder[DFUInt[E], DFUInt[E], DFUInt[E]] {
       val left = a
-      val right = b
+      val right = 20L
       val result = r
     }
   }

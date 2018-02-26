@@ -179,33 +179,59 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign)
       : Builder[DFUInt[LW], OPEN, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](None) with DFUInt[LW]
-      implicit def fromDFUIntEq[LW, R <: DFUInt[LW], DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[LW], R, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
-//      implicit def fromConst1[LW, R, RW, DIR <: DFDir](
-//        implicit
-//        dsn : DFDesign,
-//        leftWidth : Id[LW],
-//        const : Const.PosOnly.Aux[_, R, RW],
-//        checkLWeqRW : `Op:=`.Builder.`LW >= RW`.Checked[LW, RW]
-//      ) : Builder[DFUInt[LW], R, DIR] = dfVar => {
-//        val rightNum
-//        val right = const()
-//        checkLWeqRW.unsafeCheck(leftWidth, )
-//
-//        new DFAny.Port[DFUInt[LW], DIR](dfVar) with DFUInt[LW]
-//      }
+//      implicit def fromDFUIntEq[LW, R <: DFUInt[LW], DIR <: DFDir](implicit dsn : DFDesign)
+//      : Builder[DFUInt[LW], R, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
+      implicit def fromConst1[LW, R, RW](
+        implicit
+        dsn : DFDesign,
+        leftWidth : SafeInt[LW],
+        constR : Const.PosOnly.Aux[Builder[_,_,_], R, RW],
+        checkLWvRW : `Op:=`.Builder.`LW >= RW`.CheckedShell[LW, RW]
+      ) : Builder[DFUInt[LW], R, IN] = rightNum => {
+        val rightConst = constR(rightNum)
+        checkLWvRW.unsafeCheck(leftWidth, rightConst.width)
+        val right = Some(const[LW](rightConst.getInit.head))
+        new DFAny.Port[DFUInt[LW], IN](right) with DFUInt[LW]
+      }
+      implicit def fromConst2[R, RW](
+        implicit
+        dsn : DFDesign,
+        constR : Const.PosOnly.Aux[Builder[_,_,_], R, RW],
+      ) : Builder[DFUInt[Int], R, IN] = rightNum => {
+        val rightConst = constR(rightNum)
+        val right = Some(const[Int](rightConst.getInit.head))
+        new DFAny.Port[DFUInt[Int], IN](right) with DFUInt[Int]
+      }
 
-      //      implicit def fromDFUIntExtend[LW, RW, R <: DFUInt[RW], DIR <: DFDir](
-//        implicit
-//        dsn : DFDesign,
-//        checkLWeqRW : Require[LW == RW]
-//      ) : Builder[DFUInt[LW], R, DIR] = {
-//        checkLWeqRW.unsafeCheck()
-//        dfVar => new DFAny.Port[DFUInt[LW], DIR](dfVar) with DFUInt[LW]
-//      }
-
+      implicit def fromDFUIntExtend[LW, RW, R <: DFUInt[RW], DIR <: DFDir](
+        implicit
+        dsn : DFDesign,
+        leftWidth : SafeInt[LW],
+        checkLWvRW : `Op:=`.Builder.`LW >= RW`.CheckedShell[LW, RW]
+      ) : Builder[DFUInt[LW], DFUInt[RW], DIR] = rightR => {
+        checkLWvRW.unsafeCheck(leftWidth, rightR.width)
+        val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
+        right := rightR
+        new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
+      }
     }
   }
+  import DFPort._
+  implicit def inPortFromDFUInt[L <: DFUInt.Unbounded, RW, R <: DFUInt[RW]](right : DFUInt[RW])(
+    implicit port : Port.Builder[L, DFUInt[RW], IN]
+  ) : L <> IN = port(right)
+  implicit def outPortFromDFUInt[L <: DFUInt.Unbounded, RW, R <: DFUInt[RW]](right : DFUInt.Var[RW])(
+    implicit port : Port.Builder[L, DFUInt[RW], OUT]
+  ) : L <> OUT = port(right)
+  implicit def inPortFromInt[L <: DFUInt.Unbounded, R <: Int, R0 <: Int](right : R)(
+    implicit g : GetArg.Aux[ZeroI, R0], port : Port.Builder[L, R0, IN]
+  ) : L <> IN = port(g)
+  implicit def inPortFromLong[L <: DFUInt.Unbounded, R <: Long, R0 <: Long](right : R)(
+    implicit g : GetArg.Aux[ZeroI, R0], port : Port.Builder[L, R0, IN]
+  ) : L <> IN = port(g)
+  implicit def inPortFromBigInt[L <: DFUInt.Unbounded, R <: BigInt, W](right : R)(
+    implicit port : Port.Builder[L, R, IN]
+  ) : L <> IN = port(right)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
