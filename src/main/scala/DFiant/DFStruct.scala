@@ -1,14 +1,14 @@
-//package DFiant.core
+//package DFiant
 //
-//trait DFTaggedUnion[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFTaggedUnion.Var[Val]] {
+//import DFiant.internals._
+//trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.Var[Val]] {
 //  this : Val =>
 //  type TField1 <: DFAny
 //  type TField2 <: DFAny
 //  type TField3 <: DFAny
 //  type TField4 <: DFAny
 //  type TField5 <: DFAny
-//  private var privWidth : Int = 0
-//  val width = privWidth
+//  private var privPosLSB : Int = 0
 //
 //  type TAlias1 <: TField1#TVal
 //  type TAlias2 <: TField2#TVal
@@ -17,12 +17,13 @@
 //  type TAlias5 <: TField5#TVal
 //
 //  protected[DFiant] def privInsert(dfVar : DFAny) = {
-//
+//    almanacEntry.structEntryList += dfVar.almanacEntry
+//    privPosLSB = privPosLSB + dfVar.width
 //  }
 //
-//  protected def insert(dfVar : DFBits[WUnsafe]#TVar) : TBits[WUnsafe] = {
+//  protected def insert[WVar](dfVar : DFBits[WVar]#TVar) : TBits[WVar] = {
 //    privInsert(dfVar)
-//    dfVar.asInstanceOf[TBits[WUnsafe]]
+//    dfVar.asInstanceOf[TBits[WVar]]
 //  }
 //  protected def insert(dfVar : DFBool#TVar) : TBool = {
 //    privInsert(dfVar)
@@ -54,11 +55,13 @@
 //    dfVar.asInstanceOf[TAlias5]
 //  }
 //
+//  override protected[DFiant] lazy val almanacEntry : AlmanacEntryStruct =  AlmanacEntryStruct(width)
+//
 //}
 //
 //
-//object DFTaggedUnion {
-//  abstract class Var[Val <: DFAny]() extends DFAny.Var[WUnsafe, Val, Val with DFTaggedUnion.Var[Val]] with DFTaggedUnion[Val] {
+//object DFStruct {
+//  abstract class Var[Val <: DFAny]() extends DFAny.Var[WUnsafe, Val, Val with DFStruct.Var[Val]] with DFStruct[Val] {
 //    this : Val =>
 //    type TAlias1 = TField1#TVar
 //    type TAlias2 = TField2#TVar
@@ -88,6 +91,6 @@
 //      """
 //    c.Expr(genTree)
 //  }
-//  def apply[Val <: DFAny]() : DFTaggedUnion.Var[Val] with Val = macro helper[Val, DFTaggedUnion.Var[Val]]
+//  def apply[Val <: DFAny]() : DFStruct.Var[Val] with Val = macro helper[Val, DFStruct.Var[Val]] //GenVarWithVal[Val, DFStruct.Var[Val]].asInstanceOf[DFStruct.Var[Val] with Val]//
 //}
 //

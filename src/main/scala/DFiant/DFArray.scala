@@ -1,4 +1,4 @@
-//package DFiant.core
+//package DFiant
 //
 //import scala.collection.immutable._
 //

@@ -1,4 +1,4 @@
-package DFiant.core
+package DFiant
 
 object ifdf {
   protected[DFiant] def execIf(cond: DFBool)(block: => Unit)(implicit dsn : DFDesign) {

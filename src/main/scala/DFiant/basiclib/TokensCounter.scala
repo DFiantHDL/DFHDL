@@ -1,6 +1,6 @@
 package DFiant.basiclib
 
-import DFiant.core._
+import DFiant._
 
 //object TokensCounter {
 //  def apply(in : DFAny, supremLimit : Int) : DFUInt = {

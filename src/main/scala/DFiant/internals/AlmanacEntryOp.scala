@@ -1,6 +1,6 @@
 package DFiant.internals
 
-import DFiant.core.DFAny.Token
+import DFiant.DFAny.Token
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //(:=) Identity assignment

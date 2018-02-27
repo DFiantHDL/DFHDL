@@ -1,4 +1,4 @@
-package DFiant.core
+package DFiant
 
 private[DFiant] class DFGraph {
 

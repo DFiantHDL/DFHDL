@@ -1,6 +1,6 @@
 //package RingExample
 //
-//import DFiant.core._
+//import DFiant._
 //
 //object Defs {
 //  final val payloadSizeBits = 128

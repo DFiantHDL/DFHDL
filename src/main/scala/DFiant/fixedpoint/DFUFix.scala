@@ -1,6 +1,6 @@
 //package DFiant.fixedpoint
 //
-//import DFiant.core._
+//import DFiant._
 //import singleton.ops._
 //import singleton.twoface._
 //

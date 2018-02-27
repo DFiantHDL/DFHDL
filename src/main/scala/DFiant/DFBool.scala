@@ -1,6 +1,5 @@
-package DFiant.core
+package DFiant
 
-import DFiant.core
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -63,7 +62,7 @@ object DFBool extends DFAny.Companion {
     }
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit dsn : DFDesign) : Var =
-    new core.DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
+    new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
       def codeString(idRef : String) : String = {
         val bitCodeString = s".bit($relBit)"

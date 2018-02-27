@@ -1,6 +1,6 @@
 package DFiant.basiclib.macros
 
-import DFiant.core.DFAny
+import DFiant.DFAny
 
 object GenVarWithVal {
   import scala.reflect.macros.blackbox.Context

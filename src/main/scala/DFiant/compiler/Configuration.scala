@@ -1,6 +1,6 @@
 package DFiant.compiler
 
-import DFiant.core._
+import DFiant._
 
 object Configuration {
   object BasicLib {

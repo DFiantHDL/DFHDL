@@ -1,6 +1,6 @@
 //package RingExample
 //
-//import DFiant.core._
+//import DFiant._
 //
 //abstract class ArbIngress(nodesNum : Int, nodeID : Int) {
 //  val inFlit : DFFlit#IN

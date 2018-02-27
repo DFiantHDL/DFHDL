@@ -1,6 +1,5 @@
-package DFiant.core
+package DFiant
 
-import DFiant.core
 import singleton.twoface._
 
 abstract class Box[GenW]() extends DFDesign {

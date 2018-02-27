@@ -1,6 +1,6 @@
 //package RingExample
 //
-//import DFiant.core._
+//import DFiant._
 //
 //abstract class RingNode(nodesNum : Int, nodeID : Int) {
 //  //I/O

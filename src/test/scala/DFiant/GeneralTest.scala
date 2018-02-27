@@ -72,9 +72,3 @@ object GeneralTest {
 //  foo test 1.0 //Type mismatch. Double is not supported.
 
 }
-
-object Bla {
-  val dsn = new DFDesign {
-//    val a = DFBits(8).init(1)
-  }
-}

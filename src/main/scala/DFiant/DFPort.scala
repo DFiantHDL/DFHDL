@@ -1,4 +1,4 @@
-package DFiant.core
+package DFiant
 
 trait DFInterface {
   protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]

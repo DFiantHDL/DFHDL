@@ -1,6 +1,6 @@
-//package DFiant.core
+//package DFiant
 //
-//trait DFUnion[Val <: DFAny, Var <: Val with DFAny.Var[WUnsafe, Val, Var]] extends DFAny.Val[WUnsafe, Val, Var] {
+//trait DFTaggedUnion[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFTaggedUnion.Var[Val]] {
 //  this : Val =>
 //  type TField1 <: DFAny
 //  type TField2 <: DFAny
@@ -16,7 +16,9 @@
 //  type TAlias4 <: TField4#TVal
 //  type TAlias5 <: TField5#TVal
 //
-//  protected[DFiant] def privInsert(dfVar : DFAny)
+//  protected[DFiant] def privInsert(dfVar : DFAny) = {
+//
+//  }
 //
 //  protected def insert(dfVar : DFBits[WUnsafe]#TVar) : TBits[WUnsafe] = {
 //    privInsert(dfVar)
@@ -51,17 +53,41 @@
 //    privInsert(dfVar)
 //    dfVar.asInstanceOf[TAlias5]
 //  }
+//
 //}
 //
-//abstract class DFUnionVarA[Val <: DFAny, Var <: Val with DFAny.Var[WUnsafe, Val, Var]] extends DFAny.Var[WUnsafe, Val, Var] with DFUnion[Val, Var] {
-//  this : Val with Var =>
-//  type TAlias1 = TField1#TVar
-//  type TAlias2 = TField2#TVar
-//  type TAlias3 = TField3#TVar
-//  type TAlias4 = TField4#TVar
-//  type TAlias5 = TField5#TVar
 //
-//  protected[DFiant] def privInsert(dfVar : DFAny) = {
-//    ???
+//object DFTaggedUnion {
+//  abstract class Var[Val <: DFAny]() extends DFAny.Var[WUnsafe, Val, Val with DFTaggedUnion.Var[Val]] with DFTaggedUnion[Val] {
+//    this : Val =>
+//    type TAlias1 = TField1#TVar
+//    type TAlias2 = TField2#TVar
+//    type TAlias3 = TField3#TVar
+//    type TAlias4 = TField4#TVar
+//    type TAlias5 = TField5#TVar
 //  }
+//
+//  import scala.reflect.macros.blackbox.Context
+//  import scala.language.experimental.macros
+//
+//  def helper[Val <: DFAny : c.WeakTypeTag, PVar : c.WeakTypeTag](c : Context)() : c.Expr[Val] = {
+//    import c.universe._
+//    val weakVal = weakTypeOf[Val]
+//    val sym = symbolOf[PVar]
+//    val valTree = tq"$weakVal"
+//    val appliedTree = tq"$sym[$weakVal]"
+//    val list = List(appliedTree, valTree)
+//    val className = c.freshName()
+//    val classType = TypeName(className)
+//    val classTerm = TermName(className)
+//    val genTree = q"""
+//        case class $classType() extends ..$list {
+//          def newEmptyDFVar = copy().asInstanceOf[TVar]
+//        }
+//        $classTerm()
+//      """
+//    c.Expr(genTree)
+//  }
+//  def apply[Val <: DFAny]() : DFTaggedUnion.Var[Val] with Val = macro helper[Val, DFTaggedUnion.Var[Val]]
 //}
+//

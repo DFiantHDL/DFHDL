@@ -1,4 +1,4 @@
-package DFiant.core
+package DFiant
 
 import DFiant.internals._
 import singleton.ops._

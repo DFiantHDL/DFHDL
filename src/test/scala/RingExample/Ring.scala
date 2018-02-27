@@ -1,6 +1,6 @@
 //package RingExample
 //
-//import DFiant.core._
+//import DFiant._
 //
 //case class Ring (nodesNum : Int) {
 //  private def nextNodeIdx(currentNodeIdx : Int): Int = {

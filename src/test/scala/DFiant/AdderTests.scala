@@ -1,6 +1,5 @@
 package DFiant
 
-import DFiant.core._
 import shapeless.test.illTyped
 
 object `Op+Tests` {

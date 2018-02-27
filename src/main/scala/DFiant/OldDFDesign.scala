@@ -1,4 +1,4 @@
-package DFiant.core
+package DFiant
 
 import DFiant.internals._
 
@@ -35,7 +35,6 @@ abstract class OldDFDesign[Top] {
 //}
 
 //object testy {
-//  //import DFiant.core._
 //  val myDesign = new DFDesign[Boxy] {
 //    val a = DFBits(8)
 //    val b = DFBits(8)

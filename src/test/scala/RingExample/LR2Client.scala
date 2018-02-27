@@ -1,6 +1,6 @@
 //package RingExample
 //
-//import DFiant.core._
+//import DFiant._
 //
 //abstract class LR2Client(nodesNum : Int, nodeID : Int) {
 //  val leftFlits : DFFlit#IN

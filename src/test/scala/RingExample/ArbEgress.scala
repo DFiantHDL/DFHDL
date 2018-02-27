@@ -1,6 +1,6 @@
 //package RingExample
 //
-//import DFiant.core._
+//import DFiant._
 //
 ////Generates new arbitration for every apply
 //case class Arb2to1(nodesNum : Int, nodeID : Int) {

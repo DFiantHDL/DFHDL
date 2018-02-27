@@ -1,4 +1,4 @@
-//package DFiant.core
+//package DFiant
 //
 //trait DFEnum[E <: Enumeration#Value] extends DFAny.Val[WUnsafe, DFEnum[E],DFEnum.Var[E]] {
 //  protected val enum : Enumeration
