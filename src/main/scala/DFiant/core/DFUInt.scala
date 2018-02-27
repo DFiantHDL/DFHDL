@@ -565,7 +565,7 @@ object DFUInt extends DFAny.Companion {
   }
   protected object `Ops+Or-` {
     abstract class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token]) {
-      type Impl[Left <: DFAny, Right <: DFAny, Result <: DFAny] <: DFComponent.Implementation[DFiant.basiclib.DiSoOp[Impl, Left, Right, Result]]
+//      type Impl[Left <: DFAny, Right <: DFAny, Result <: DFAny] <: DFComponent.Implementation[DFiant.basiclib.DiSoOp[Impl, Left, Right, Result]]
       def unary_- : Kind
     }
     case object + extends Kind("+", DFUInt.Token.+) {
