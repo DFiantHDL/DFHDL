@@ -11,6 +11,7 @@ trait DFUInt[W] extends DFUInt.Unbounded {
 }
 
 object DFUInt extends DFAny.Companion {
+  import DFPort._
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -112,6 +113,9 @@ object DFUInt extends DFAny.Companion {
 
   protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[DFUInt.Token], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
+
+  protected[DFiant] def createPort[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign) : DFUInt[W] <> DIR =
+    new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -178,27 +182,20 @@ object DFUInt extends DFAny.Companion {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
       implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[LW], OPEN, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](None) with DFUInt[LW]
-      implicit def fromConst1[LW, R, RW](
+      : Builder[DFUInt[LW], OPEN, DIR] = right => createPort[LW, DIR](None)
+      implicit def fromConst[LW, R, RW](
         implicit
         dsn : DFDesign,
-        leftWidth : SafeInt[LW],
         constR : Const.PosOnly.Aux[Builder[_,_,_], R, RW],
+        noCheck : SafeBoolean[IsNonLiteral[LW]],
+        leftWidth : SafeInt[ITE[IsNonLiteral[LW], ZeroI, LW]],
         checkLWvRW : `Op:=`.Builder.`LW >= RW`.CheckedShell[LW, RW]
       ) : Builder[DFUInt[LW], R, IN] = rightNum => {
         val rightConst = constR(rightNum)
-        checkLWvRW.unsafeCheck(leftWidth, rightConst.width)
+        if (!noCheck)
+          checkLWvRW.unsafeCheck(leftWidth, rightConst.width)
         val right = const[LW](rightConst.getInit.head)
-        new DFAny.Port[DFUInt[LW], IN](Some(right)) with DFUInt[LW]
-      }
-      implicit def fromConst2[R, RW](
-        implicit
-        dsn : DFDesign,
-        constR : Const.PosOnly.Aux[Builder[_,_,_], R, RW],
-      ) : Builder[DFUInt[Int], R, IN] = rightNum => {
-        val rightConst = constR(rightNum)
-        val right = const[Int](rightConst.getInit.head)
-        new DFAny.Port[DFUInt[Int], IN](Some(right)) with DFUInt[Int]
+        createPort[LW, IN](Some(right))
       }
       implicit def fromDFUInt1[LW, RW, DIR <: DFDir](
         implicit
@@ -209,7 +206,7 @@ object DFUInt extends DFAny.Companion {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
         right.assign(rightR)
-        new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
+        createPort[LW, DIR](Some(right))
       }
       implicit def fromDFUInt2[RW, DIR <: DFDir](
         implicit
@@ -217,7 +214,7 @@ object DFUInt extends DFAny.Companion {
       ) : Builder[DFUInt[Int], DFUInt[RW], DIR] = rightR => {
         val right = newVar[Int](TwoFace.Int.create[Int](rightR.width))
         right.assign(rightR)
-        new DFAny.Port[DFUInt[Int], DIR](Some(right)) with DFUInt[Int]
+        createPort[Int, DIR](Some(right))
       }
       implicit def fromDFUIntExtendable[LW, RW](
         implicit
@@ -228,11 +225,10 @@ object DFUInt extends DFAny.Companion {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
         right.assign(rightR)
-        new DFAny.Port[DFUInt[LW], IN](Some(right)) with DFUInt[LW]
+        createPort[LW, IN](Some(right))
       }
     }
   }
-  import DFPort._
   implicit def inPortFromDFUIntExtendable[L <: DFUInt.Unbounded, RW](right : DFUInt[RW] with Extendable)(
     implicit port : Port.Builder[L, DFUInt[RW] with Extendable, IN]
   ) : L <> IN = port(right)
@@ -381,7 +377,7 @@ object DFUInt extends DFAny.Companion {
     object PosOnly {
       type Aux[Sym, N, W0] = PosOnly[Sym, N]{type W = W0}
       object `N >= 0` extends `N >= 0` {
-        type MsgCommon[N] = "Operation does not permit a negative number. Found literal: " + ToString[N]
+        type MsgCommon[N] = "Operation or assignment do not permit a negative number. Found literal: " + ToString[N]
       }
       implicit def fromInt[Sym, N <: Int](
         implicit
