@@ -179,8 +179,6 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign)
       : Builder[DFUInt[LW], OPEN, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](None) with DFUInt[LW]
-      implicit def fromDFUIntEq[LW, R <: DFUInt[LW], DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[LW], R, DIR] = right => new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
       implicit def fromConst1[LW, R, RW](
         implicit
         dsn : DFDesign,
@@ -202,6 +200,25 @@ object DFUInt extends DFAny.Companion {
         val right = const[Int](rightConst.getInit.head)
         new DFAny.Port[DFUInt[Int], IN](Some(right)) with DFUInt[Int]
       }
+      implicit def fromDFUInt1[LW, RW, DIR <: DFDir](
+        implicit
+        dsn : DFDesign,
+        leftWidth : SafeInt[LW],
+        checkLWvRW : `Op==`.Builder.`LW == RW`.CheckedShell[LW, RW]
+      ) : Builder[DFUInt[LW], DFUInt[RW], DIR] = rightR => {
+        checkLWvRW.unsafeCheck(leftWidth, rightR.width)
+        val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
+        right.assign(rightR)
+        new DFAny.Port[DFUInt[LW], DIR](Some(right)) with DFUInt[LW]
+      }
+      implicit def fromDFUInt2[RW, DIR <: DFDir](
+        implicit
+        dsn : DFDesign,
+      ) : Builder[DFUInt[Int], DFUInt[RW], DIR] = rightR => {
+        val right = newVar[Int](TwoFace.Int.create[Int](rightR.width))
+        right.assign(rightR)
+        new DFAny.Port[DFUInt[Int], DIR](Some(right)) with DFUInt[Int]
+      }
       implicit def fromDFUIntExtendable[LW, RW](
         implicit
         dsn : DFDesign,
@@ -210,13 +227,13 @@ object DFUInt extends DFAny.Companion {
       ) : Builder[DFUInt[LW], DFUInt[RW] with Extendable, IN] = rightR => {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
-        right := rightR
+        right.assign(rightR)
         new DFAny.Port[DFUInt[LW], IN](Some(right)) with DFUInt[LW]
       }
     }
   }
   import DFPort._
-  implicit def inPortFromDFUInt[L <: DFUInt.Unbounded, RW](right : DFUInt[RW] with Extendable)(
+  implicit def inPortFromDFUIntExtendable[L <: DFUInt.Unbounded, RW](right : DFUInt[RW] with Extendable)(
     implicit port : Port.Builder[L, DFUInt[RW] with Extendable, IN]
   ) : L <> IN = port(right)
   implicit def inPortFromDFUInt[L <: DFUInt.Unbounded, RW](right : DFUInt[RW])(

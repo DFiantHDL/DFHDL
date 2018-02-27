@@ -407,12 +407,12 @@ object DFAny {
     implicit def fromOPENFake[L <: DFAny, DIR <: DFDir](right : OPEN)(
       implicit port : Port.Builder[L, OPEN, DIR]
     ) : L = ???
-    implicit def fromDFIn[L <: DFAny, R <: DFAny, W](right : R)(
-      implicit port : Port.Builder[L, R, IN], c : R <:!< DFAny.Port[_, OUT]
-    ) : L <> IN = port(right)
-    implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](right : R)(
-      implicit port : Port.Builder[L, R, OUT], c : R <:!< DFAny.Port[_, IN]
-    ) : L <> OUT = port(right)
+//    implicit def fromDFIn[L <: DFAny, R <: DFAny, W](right : R)(
+//      implicit port : Port.Builder[L, R, IN], c : R <:!< DFAny.Port[_, OUT]
+//    ) : L <> IN = port(right)
+//    implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](right : R)(
+//      implicit port : Port.Builder[L, R, OUT], c : R <:!< DFAny.Port[_, IN]
+//    ) : L <> OUT = port(right)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     trait Op {

@@ -207,8 +207,12 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
   }
 
   property("Final Port conversions") = wellTyped {
+    val u7 = DFUInt(7)
+    val u7nf = DFUInt(nf(7))
     val u8 = DFUInt(8)
     val u8nf = DFUInt(nf(8))
+    val u9 = DFUInt(9)
+    val u9nf = DFUInt(nf(9))
     type U8 = u8.TVal
     new DFDesign {
       val u8p01: U8 <> IN = u8
@@ -223,6 +227,11 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
       val u8p10: U8 <> IN = u8 + u8
       val u8p11: U8 <> IN = u8nf
       val u8p12: U8 <> OUT = u8nf
+      val u8p13: U8 <> IN = u7.extendable
+      val u8p14: U8 <> IN = u7nf.extendable
+      illTyped { """val u8p25 : U8 <> IN = u7"""}
+      illTyped { """val u8p26 : U8 <> OUT = u7.extendable"""}
+      illTyped { """val u8p27 : U8 <> IN = u9"""}
       illTyped { """val u8p28 : U8 <> OUT = u8 + u8"""}
       illTyped { """val u8p29 : U8 <> OUT = 1"""}
       illTyped { """val u8p30 : U8 <> IN = 500"""}
@@ -235,6 +244,8 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
       illRun {val u8p37 : U8 <> IN = nf(-1L)}
       illRun {val u8p38 : U8 <> IN = BigInt(500)}
       illRun {val u8p39 : U8 <> IN = BigInt(-1)}
+      illRun {val u8p40 : U8 <> IN = u7nf}
+      illRun {val u8p41 : U8 <> IN = u9nf}
 
       u8p01 + u8p02
       u8p07 + u8p05
@@ -244,32 +255,32 @@ class DFUIntTest extends Properties("DFUIntTestSpec") {
   property("Non-Final Port conversions") = wellTyped {
     val u8 = DFUInt(8)
     val u8nf = DFUInt(nf(8))
-    type U8 = u8nf.TVal
+    type UI = DFUInt[Int]
     new DFDesign {
-      val u8p01 : U8 <> IN = u8
-      val u8p02 : U8 <> OUT = u8
-      val u8p03 : U8 <> IN = OPEN
-      val u8p04 : U8 <> OUT = OPEN
-      val u8p05 : U8 <> IN = 1
-      val u8p06 : U8 <> IN = 1L
-      val u8p07 : U8 <> IN = nf(1)
-      val u8p08 : U8 <> IN = nf(1L)
-      val u8p09 : U8 <> IN = BigInt(1)
-      val u8p10 : U8 <> IN = u8 + u8
-      val u8p11 : U8 <> IN = u8nf
-      val u8p12 : U8 <> OUT = u8nf
-      illTyped { """val u8p28 : U8 <> OUT = u8 + u8""" }
-      illTyped { """val u8p29 : U8 <> OUT = 1""" }
-      illTyped { """val u8p30 : U8 <> IN = 500""" }
-      illTyped { """val u8p31 : U8 <> IN = 500L""" }
-      illTyped { """val u8p32 : U8 <> IN = -1""" }
-      illTyped { """val u8p33 : U8 <> IN = -1L""" }
-      illRun {val u8p34 : U8 <> IN = nf(500)}
-      illRun {val u8p35 : U8 <> IN = nf(500L)}
-      illRun {val u8p36 : U8 <> IN = nf(-1)}
-      illRun {val u8p37 : U8 <> IN = nf(-1L)}
-      illRun {val u8p38 : U8 <> IN = BigInt(500)}
-      illRun {val u8p39 : U8 <> IN = BigInt(-1)}
+      val u8p01 : UI <> IN = u8
+      val u8p02 : UI <> OUT = u8
+      val u8p03 : UI <> IN = OPEN
+      val u8p04 : UI <> OUT = OPEN
+      val u8p05 : UI <> IN = 1
+      val u8p06 : UI <> IN = 1L
+      val u8p07 : UI <> IN = nf(1)
+      val u8p08 : UI <> IN = nf(1L)
+      val u8p09 : UI <> IN = BigInt(1)
+      val u8p10 : UI <> IN = u8 + u8
+      val u8p11 : UI <> IN = u8nf
+      val u8p12 : UI <> OUT = u8nf
+      illTyped { """val u8p28 : UI <> OUT = u8 + u8""" }
+      illTyped { """val u8p29 : UI <> OUT = 1""" }
+      val u8p30 : UI <> IN = 500
+      val u8p31 : UI <> IN = 500L
+      illTyped { """val u8p32 : UI <> IN = -1""" }
+      illTyped { """val u8p33 : UI <> IN = -1L""" }
+      val u8p34 : UI <> IN = nf(500)
+      val u8p35 : UI <> IN = nf(500L)
+      illRun {val u8p36 : UI <> IN = nf(-1)}
+      illRun {val u8p37 : UI <> IN = nf(-1L)}
+      val u8p38 : UI <> IN = BigInt(500)
+      illRun {val u8p39 : UI <> IN = BigInt(-1)}
 
       u8p01 + u8p02
       u8p07 + u8p05
