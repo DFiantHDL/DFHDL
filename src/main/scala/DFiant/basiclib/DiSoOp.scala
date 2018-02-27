@@ -13,6 +13,7 @@ trait DiSoOp[Comp[L <: DFAny, R <: DFAny, Res <: DFAny] <: core.DFDesign, Left <
 object DiSoOp {
 
   trait +[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DiSoOp[+, Left, Right, Result]
+  trait -[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DiSoOp[-, Left, Right, Result]
 
 
 }
