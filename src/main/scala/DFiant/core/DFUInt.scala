@@ -229,15 +229,15 @@ object DFUInt extends DFAny.Companion {
       }
     }
   }
-  implicit def inPortFromDFUIntExtendable[L <: DFUInt.Unbounded, RW](right : DFUInt[RW] with Extendable)(
-    implicit port : Port.Builder[L, DFUInt[RW] with Extendable, IN]
-  ) : L <> IN = port(right)
   implicit def inPortFromDFUInt[L <: DFUInt.Unbounded, RW](right : DFUInt[RW])(
     implicit port : Port.Builder[L, DFUInt[RW], IN]
   ) : L <> IN = port(right)
   implicit def outPortFromDFUInt[L <: DFUInt.Unbounded, RW](right : DFUInt.Var[RW])(
     implicit port : Port.Builder[L, DFUInt[RW], OUT]
   ) : L <> OUT = port(right)
+  implicit def inPortFromDFUIntExtendable[L <: DFUInt.Unbounded, RW](right : DFUInt[RW] with Extendable)(
+    implicit port : Port.Builder[L, DFUInt[RW] with Extendable, IN]
+  ) : L <> IN = port(right)
   implicit def inPortFromXInt[L <: DFUInt.Unbounded, R <: XInt](right : R)(
     implicit port : Port.Builder[L, R, IN]
   ) : L <> IN = port(right)

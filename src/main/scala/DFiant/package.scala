@@ -14,6 +14,7 @@ package object DFiant extends {
   object GlobalDesign extends Implicits {
     implicit object dsn extends DFDesign
   }
+  trait DFInterface extends core.DFInterface
   trait DFComponent[Dsn <: core.DFDesign] extends core.DFComponent[Dsn]
   val DFComponent = core.DFComponent
   type Φ = core.Bubble
