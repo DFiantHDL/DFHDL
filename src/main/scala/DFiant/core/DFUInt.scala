@@ -114,7 +114,7 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[DFUInt.Token], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
 
-  protected[DFiant] def createPort[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign) : DFUInt[W] <> DIR =
+  protected[DFiant] def port[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign) : DFUInt[W] <> DIR =
     new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -182,7 +182,7 @@ object DFUInt extends DFAny.Companion {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
       implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign)
-      : Builder[DFUInt[LW], OPEN, DIR] = right => createPort[LW, DIR](None)
+      : Builder[DFUInt[LW], OPEN, DIR] = right => port[LW, DIR](None)
       implicit def fromConst[LW, R, RW](
         implicit
         dsn : DFDesign,
@@ -195,7 +195,7 @@ object DFUInt extends DFAny.Companion {
         if (!noCheck)
           checkLWvRW.unsafeCheck(leftWidth, rightConst.width)
         val right = const[LW](rightConst.getInit.head)
-        createPort[LW, IN](Some(right))
+        port[LW, IN](Some(right))
       }
       implicit def fromDFUInt1[LW, RW, DIR <: DFDir](
         implicit
@@ -206,7 +206,7 @@ object DFUInt extends DFAny.Companion {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
         right.assign(rightR)
-        createPort[LW, DIR](Some(right))
+        port[LW, DIR](Some(right))
       }
       implicit def fromDFUInt2[RW, DIR <: DFDir](
         implicit
@@ -214,7 +214,7 @@ object DFUInt extends DFAny.Companion {
       ) : Builder[DFUInt[Int], DFUInt[RW], DIR] = rightR => {
         val right = newVar[Int](TwoFace.Int.create[Int](rightR.width))
         right.assign(rightR)
-        createPort[Int, DIR](Some(right))
+        port[Int, DIR](Some(right))
       }
       implicit def fromDFUIntExtendable[LW, RW](
         implicit
@@ -225,7 +225,7 @@ object DFUInt extends DFAny.Companion {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
         right.assign(rightR)
-        createPort[LW, IN](Some(right))
+        port[LW, IN](Some(right))
       }
     }
   }
