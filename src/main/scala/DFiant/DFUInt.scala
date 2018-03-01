@@ -284,9 +284,8 @@ object DFUInt extends DFAny.Companion {
     }
     trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
     object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
-        def apply(left : DFUInt[LW], right : Seq[Able[DFUInt[LW]]]) : DFUInt[LW] =
-          DFUInt.alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
+      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFUInt[LW]] = (left, right) =>  {
+        DFUInt.alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
       }
     }
   }
