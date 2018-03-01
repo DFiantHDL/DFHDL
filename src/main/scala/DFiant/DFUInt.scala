@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.basiclib.DiSoOp
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -513,7 +514,6 @@ object DFUInt extends DFAny.Companion {
           dsn : DFDesign,
           ncW : Inference.NCW[LW, RW],
           wcW : Inference.WCW[LW, RW, WCW],
-//          opImpl : DFComponent.Implementation[kind.DiSoOp[LW, RW, WCW]],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
         ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, WCW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
@@ -522,18 +522,29 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[ncW.Out, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
+                  import dsn.basicLib._
+                  import dsn._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
+                  creationKind match {
+                    case `Ops+Or-`.+ =>
+                      new basicLib.`U+U`[8, 8, 8] {
+                        val left : DFUInt[8] <> IN = ???
+                        val right = ???
+                        val result = ???
+                      }
+                    case `Ops+Or-`.- =>
+//                      new DiSoOp[DiSoOp.Kind.-, LW, RW, WCW] {
+//                        val left = ???
+//                        val right = ???
+//                        val result = ???
+//                      }
+                  }
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-//                  new kind.DiSoOp[LW, RW, WCW] {
-//                    val left = DFUInt.port[LW, IN](None)
-//                    val right = DFUInt.port[LW, IN](None)
-//                    val result = DFUInt.port[LW, OUT](None)
-//                  }
-                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[WCW] {
+                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
                     override def refCodeString(idRef : String) : String = s"$idRef.wc"
                   }
                   // Creating extended component aliasing the op
@@ -571,21 +582,10 @@ object DFUInt extends DFAny.Companion {
   }
   protected object `Ops+Or-` {
     abstract class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token]) {
-      type DiSoOpKind <: basiclib.DiSoOp.Kind
-      type Unary_- <: Kind
-      type DiSoOp[LW, RW, ResW] = DFiant.basiclib.DiSoOp[DiSoOpKind, DFUInt[LW], DFUInt[RW], DFUInt[ResW]]
-      def unary_- : Unary_-
+      def unary_- : Kind
     }
-    case object + extends Kind("+", DFUInt.Token.+) {
-      type DiSoOpKind = basiclib.DiSoOp.Kind.+
-      type Unary_- = `Ops+Or-`.-.type
-      def unary_- : Unary_- = `Ops+Or-`.-
-    }
-    case object - extends Kind("-", DFUInt.Token.-) {
-      type DiSoOpKind = basiclib.DiSoOp.Kind.-
-      type Unary_- = `Ops+Or-`.+.type
-      def unary_- : Unary_- = `Ops+Or-`.+
-    }
+    case object + extends Kind("+", DFUInt.Token.+) {def unary_- : Kind = `Ops+Or-`.-}
+    case object - extends Kind("-", DFUInt.Token.-) {def unary_- : Kind = `Ops+Or-`.+}
   }
   object `Op+` extends `Ops+Or-`(`Ops+Or-`.+)
   object `Op-` extends `Ops+Or-`(`Ops+Or-`.-)
