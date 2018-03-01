@@ -4,7 +4,7 @@ import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
 abstract class DFDesign(implicit protected[DFiant] val basicLib: DFBasicLib) extends DFInterface with Implicits {
-  protected implicit val protDesign = this
+  protected implicit val dsn = this
   protected[DFiant] val protAlmanac = new Almanac {}
   def compileToVHDL(fileName : String) = ???
 }

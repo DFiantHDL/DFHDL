@@ -523,27 +523,27 @@ object DFUInt extends DFAny.Companion {
                 type Comp = Component[ncW.Out, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
                   import dsn.basicLib._
-                  import dsn._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
-                  creationKind match {
-                    case `Ops+Or-`.+ =>
-                      new basicLib.`U+U`[8, 8, 8] {
-                        val left : DFUInt[8] <> IN = ???
-                        val right = ???
-                        val result = ???
-                      }
-                    case `Ops+Or-`.- =>
-//                      new DiSoOp[DiSoOp.Kind.-, LW, RW, WCW] {
-//                        val left = ???
-//                        val right = ???
-//                        val result = ???
-//                      }
-                  }
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
+                  val wc0 = newVar[WCW](opWidth)
+                  creationKind match {
+                    case `Ops+Or-`.+ =>
+                      new `U+U`[LW, RW, WCW] {
+                        val inLeft = port[LW, IN](Some(left))
+                        val inRight = port[RW, IN](Some(right))
+                        val outResult = port[WCW, OUT](Some(wc0))
+                      }
+                    case `Ops+Or-`.- =>
+                      new `U-U`[LW, RW, WCW] {
+                        val inLeft = port[LW, IN](Some(left))
+                        val inRight = port[RW, IN](Some(right))
+                        val outResult = port[WCW, OUT](Some(wc0))
+                      }
+                  }
                   val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
                     override def refCodeString(idRef : String) : String = s"$idRef.wc"
                   }

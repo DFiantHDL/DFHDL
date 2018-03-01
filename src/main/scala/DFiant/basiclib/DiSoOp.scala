@@ -5,9 +5,9 @@ import DFiant._
 //Dual Input, Single Output Operation
 trait DiSoOp[Kind <: DiSoOp.Kind, Left <: DFAny, Right <: DFAny, Result <: DFAny]
   extends DFComponent[DiSoOp[Kind, Left, Right, Result]] {
-  val left : Left <> IN
-  val right : Right <> IN
-  val result : Result <> OUT
+  val inLeft : Left <> IN
+  val inRight : Right <> IN
+  val outResult : Result <> OUT
 }
 
 object DiSoOp {
