@@ -1,6 +1,7 @@
 package DFiant
 
 import shapeless.test.illTyped
+import psuedoVendor.family.device._
 
 class DFDesignTest {
   abstract class Box[GenW] extends DFDesign {

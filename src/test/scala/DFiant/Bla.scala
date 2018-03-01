@@ -1,6 +1,7 @@
 package DFiant
 
 import singleton.twoface._
+import psuedoVendor.family.device._
 
 abstract class Box[GenW]() extends DFDesign {
   val aa : DFUInt[8] <> IN = OPEN

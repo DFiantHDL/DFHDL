@@ -4,7 +4,6 @@ import shapeless.test.illTyped
 
 object `Op+Tests` {
   import GlobalDesign._
-//  implicit def opplus[LW, RW, OutW] : DFComponent.Implementation[basiclib.DiSoOp.+[DFUInt[LW], DFUInt[RW], DFUInt[OutW]]] = ???
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)
   uint8.extendable + uint9

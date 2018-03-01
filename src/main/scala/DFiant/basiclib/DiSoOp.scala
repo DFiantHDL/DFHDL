@@ -3,17 +3,19 @@ package DFiant.basiclib
 import DFiant._
 
 //Dual Input, Single Output Operation
-trait DiSoOp[Comp[L <: DFAny, R <: DFAny, Res <: DFAny] <: DFDesign, Left <: DFAny, Right <: DFAny, Result <: DFAny]
-  extends DFComponent[Comp[Left, Right, Result]] {
+trait DiSoOp[Kind <: DiSoOp.Kind, Left <: DFAny, Right <: DFAny, Result <: DFAny]
+  extends DFComponent[DiSoOp[Kind, Left, Right, Result]] {
   val left : Left <> IN
   val right : Right <> IN
   val result : Result <> OUT
 }
 
 object DiSoOp {
-
-  trait +[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DiSoOp[+, Left, Right, Result]
-  trait -[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DiSoOp[-, Left, Right, Result]
+  trait Kind
+  object Kind {
+    trait + extends Kind
+    trait - extends Kind
+  }
 
 
 }

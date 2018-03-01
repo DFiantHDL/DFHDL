@@ -498,7 +498,7 @@ object DFUInt extends DFAny.Companion {
       object Inference {
         import singleton.ops.math.Max
         type CalcWCW[LW, RW] = Max[LW, RW] + 1
-        type WCW[LW, RW] = TwoFace.Int.Shell2[CalcWCW, LW, Int, RW, Int]
+        type WCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcWCW, LW, Int, RW, Int, ResW]
         type CalcNCW[LW, RW] = Max[LW, RW]
         type NCW[LW, RW] = TwoFace.Int.Shell2[CalcNCW, LW, Int, RW, Int]
       }
@@ -508,19 +508,19 @@ object DFUInt extends DFAny.Companion {
         def apply(properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp]
       }
       object DetailedBuilder {
-        implicit def ev[L, LW, LE, R, RW, WCW0](
+        implicit def ev[L, LW, LE, R, RW, WCW](
           implicit
           dsn : DFDesign,
           ncW : Inference.NCW[LW, RW],
-          wcW : Inference.WCW[LW, RW],
-          //opImpl : DFComponent.Implementation[basiclib.DiSoOp.+[DFUInt[LW], DFUInt[RW], DFUInt[WCW0]]],
+          wcW : Inference.WCW[LW, RW, WCW],
+//          opImpl : DFComponent.Implementation[kind.DiSoOp[LW, RW, WCW]],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, wcW.Out]} =
+        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, WCW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
-            type Comp = Component[ncW.Out, wcW.Out]
+            type Comp = Component[ncW.Out, WCW]
             def apply(properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp] =
               new Builder[L, LE, R] {
-                type Comp = Component[ncW.Out, wcW.Out]
+                type Comp = Component[ncW.Out, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
@@ -528,12 +528,16 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-
-                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
+//                  new kind.DiSoOp[LW, RW, WCW] {
+//                    val left = DFUInt.port[LW, IN](None)
+//                    val right = DFUInt.port[LW, IN](None)
+//                    val result = DFUInt.port[LW, OUT](None)
+//                  }
+                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[WCW] {
                     override def refCodeString(idRef : String) : String = s"$idRef.wc"
                   }
                   // Creating extended component aliasing the op
-                  new Component[ncW.Out, wcW.Out](wc)
+                  new Component[ncW.Out, WCW](wc)
                 }
               }
           }
@@ -567,17 +571,20 @@ object DFUInt extends DFAny.Companion {
   }
   protected object `Ops+Or-` {
     abstract class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token]) {
-      type DiSoOp[Left <: DFAny, Right <: DFAny, Result <: DFAny] <: DFiant.basiclib.DiSoOp[DiSoOp, Left, Right, Result]
-      def unary_- : Kind
+      type DiSoOpKind <: basiclib.DiSoOp.Kind
+      type Unary_- <: Kind
+      type DiSoOp[LW, RW, ResW] = DFiant.basiclib.DiSoOp[DiSoOpKind, DFUInt[LW], DFUInt[RW], DFUInt[ResW]]
+      def unary_- : Unary_-
     }
     case object + extends Kind("+", DFUInt.Token.+) {
-      type DiSoOp[Left <: DFAny, Right <: DFAny, Result <: DFAny] = DFiant.basiclib.DiSoOp.+[Left, Right, Result]
-//      type Impl[Left <: DFAny, Right <: DFAny, Result <: DFAny] = DFComponent.Implementation[DFiant.basiclib.DiSoOp.+[Left, Right, Result]]
-      def unary_- : Kind = `Ops+Or-`.-
+      type DiSoOpKind = basiclib.DiSoOp.Kind.+
+      type Unary_- = `Ops+Or-`.-.type
+      def unary_- : Unary_- = `Ops+Or-`.-
     }
     case object - extends Kind("-", DFUInt.Token.-) {
-//      type Impl[Left <: DFAny, Right <: DFAny, Result <: DFAny] = DFComponent.Implementation[DFiant.basiclib.DiSoOp.-[Left, Right, Result]]
-      def unary_- : Kind = `Ops+Or-`.+
+      type DiSoOpKind = basiclib.DiSoOp.Kind.-
+      type Unary_- = `Ops+Or-`.+.type
+      def unary_- : Unary_- = `Ops+Or-`.+
     }
   }
   object `Op+` extends `Ops+Or-`(`Ops+Or-`.+)

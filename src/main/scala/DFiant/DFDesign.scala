@@ -1,8 +1,9 @@
 package DFiant
 
+import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
-trait DFDesign extends DFInterface with Implicits {
+abstract class DFDesign(implicit protected[DFiant] val basicLib: DFBasicLib) extends DFInterface with Implicits {
   protected implicit val protDesign = this
   protected[DFiant] val protAlmanac = new Almanac {}
   def compileToVHDL(fileName : String) = ???
@@ -10,16 +11,12 @@ trait DFDesign extends DFInterface with Implicits {
 object DFDesign {
 }
 
-object GlobalDesign extends DFDesign {
-  override implicit val protDesign = this
-}
-
-abstract class DFComponent[Dsn <: DFDesign](implicit impl : DFComponent.Implementation[Dsn]) extends DFDesign {
-  impl(this.asInstanceOf[Dsn])
+abstract class DFComponent[Comp <: DFComponent[Comp]](implicit impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib) extends DFDesign {
+  impl(this.asInstanceOf[Comp])
 }
 
 object DFComponent {
-  trait Implementation[Dsn <: DFDesign] {
-    def apply(dsn : Dsn) : Unit
+  trait Implementation[Comp <: DFComponent[Comp]] {
+    def apply(comp : Comp) : Unit
   }
 }
