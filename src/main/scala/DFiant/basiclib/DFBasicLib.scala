@@ -15,7 +15,3 @@ trait DFBasicLib {
   implicit def `ev-`[LW, RW, WCW] : Implementation[`U-U`[LW, RW, WCW]]
 }
 
-object DFBasicLib extends DFBasicLib {
-  implicit def `ev+`[LW, RW, WCW] : Implementation[`U+U`[LW, RW, WCW]] = ifc => {}
-  implicit def `ev-`[LW, RW, WCW] : Implementation[`U-U`[LW, RW, WCW]] = ifc => {}
-}
