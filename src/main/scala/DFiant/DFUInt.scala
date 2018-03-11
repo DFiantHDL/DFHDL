@@ -40,7 +40,7 @@ object DFUInt extends DFAny.Companion {
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
-    ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits)).init(getInit).assign(left)
+    ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits), getInit).assign(left)
 
     override def toString : String = s"DFUInt[$width]"
 
@@ -69,10 +69,10 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
-  ) : Var[W] = newVar(checkedWidth)
+  ) : Var[W] = newVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign
-  ) : Var[W] = newVar(checkedWidth.unsafeCheck())
+  ) : Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
@@ -85,8 +85,8 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit dsn : DFDesign) : Var[W] =
-    new DFAny.NewVar(width, Seq(DFUInt.Token(width, 0))) with Var[W] {
+  protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(implicit dsn : DFDesign) : Var[W] =
+    new DFAny.NewVar(width, init) with Var[W] {
       def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
     }
 
@@ -525,7 +525,7 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-                  val wc = newVar[WCW](opWidth).init(opInit)
+                  val wc = newVar[WCW](opWidth, opInit)
                   creationKind match {
                     case `Ops+Or-`.+ =>
                       new `U+U`[LW, RW, WCW] {
@@ -651,7 +651,7 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
                   val opInit = Token.*(left.getInit, right.getInit)
-                  val wc = newVar[WCW](wcWidth).init(opInit)
+                  val wc = newVar[WCW](wcWidth, opInit)
 
                   new `U*U`[LW, RW, WCW] {
                     val inLeft = port[LW, IN](Some(left))
@@ -717,7 +717,7 @@ object DFUInt extends DFAny.Companion {
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = DFBool().init(opFunc(left.getInit, right.getInit))
+        val result = DFBool.newVar(opFunc(left.getInit, right.getInit))
 
         compareOp[LW, RW] (
           inLeft = port[LW, IN](Some(left)),

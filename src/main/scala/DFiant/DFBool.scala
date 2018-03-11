@@ -28,7 +28,7 @@ object DFBool extends DFAny.Companion {
     def rising(implicit dsn : DFDesign)  : DFBool = left && !left.prev(1)
     def falling(implicit dsn : DFDesign) : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar()
+    def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar(Seq(DFBool.Token(false)))
 
     override def toString : String = s"DFBool"
 
@@ -51,15 +51,15 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply()(implicit dsn : DFDesign) : Var = newVar()
+  implicit def apply()(implicit dsn : DFDesign) : Var = newVar(Seq(DFBool.Token(false)))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar()(implicit dsn : DFDesign) : Var =
-    new DFAny.NewVar(1, Seq(DFBool.Token(false))) with Var {
+  protected[DFiant] def newVar(init : Seq[Token] = Seq())(implicit dsn : DFDesign) : Var =
+    new DFAny.NewVar(1, init) with Var {
       def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     }
 
