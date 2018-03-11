@@ -540,9 +540,6 @@ object DFUInt extends DFAny.Companion {
                         val outResult = port[WCW, OUT](Some(wc))
                       }
                   }
-//                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
-//                    override def refCodeString(idRef : String) : String = s"$idRef.wc"
-//                  }
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](wc)
                 }
@@ -662,9 +659,6 @@ object DFUInt extends DFAny.Companion {
                     val outResult = port[WCW, OUT](Some(wc))
                   }
 
-//                  val wc = new DFAny.Op(wcWidth, "*", opInit, Seq(left, right)) with DFUInt[WCW] {
-//                    override def refCodeString(idRef : String) : String = s"$idRef.wc"
-//                  }
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](wc, ncWidth, cWidth)
                 }

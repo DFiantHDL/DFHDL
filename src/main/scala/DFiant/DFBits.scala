@@ -149,9 +149,6 @@ object DFBits extends DFAny.Companion {
 
   protected[DFiant] def const[W](token : DFBits.Token)(implicit dsn : DFDesign) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
-
-  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[DFBits.Token], args : DFAny*)(implicit dsn : DFDesign) : DFBits[W] =
-    new DFAny.Op(width, opString, opInit, args) with DFBits[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

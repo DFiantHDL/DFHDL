@@ -215,23 +215,6 @@ object DFAny {
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
   }
-
-  abstract class Op(opWidth : Int, opString : String, opInit : Seq[Token], args : Seq[DFAny])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](opWidth)
-    final protected val protDesign : DFDesign = dsn
-    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = opInit.asInstanceOf[Seq[TToken]]
-    def codeString(idRef : String) : String = args.length match {
-      case 1 =>
-        if (opString.startsWith("unary_")) s"val $idRef = $opString${args(0).almanacEntry.refCodeString}"
-        else s"val $idRef = ${args(0).almanacEntry.refCodeString}.$opString"
-      case 2 => s"val $idRef = ${args(0).almanacEntry.refCodeString} $opString ${args(1).almanacEntry.refCodeString}"
-      case _ => throw new IllegalArgumentException("Unsupported number of arguments")
-    }
-    def refCodeString(idRef : String) : String = idRef
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry =
-      AlmanacEntryOp(width, opString, opInit, args.map(a => a.almanacEntry), codeString, refCodeString)
-  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
