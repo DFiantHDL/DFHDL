@@ -1,6 +1,6 @@
 package DFiant
 
-import DFiant.basiclib.DiSoOp
+import DFiant.basiclib._
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -500,7 +500,7 @@ object DFUInt extends DFAny.Companion {
         type CalcWCW[LW, RW] = Max[LW, RW] + 1
         type WCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcWCW, LW, Int, RW, Int, ResW]
         type CalcNCW[LW, RW] = Max[LW, RW]
-        type NCW[LW, RW] = TwoFace.Int.Shell2[CalcNCW, LW, Int, RW, Int]
+        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
       }
 
       trait DetailedBuilder[L, LW, LE, R, RW] {
@@ -508,18 +508,18 @@ object DFUInt extends DFAny.Companion {
         def apply(properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp]
       }
       object DetailedBuilder {
-        implicit def ev[L, LW, LE, R, RW, WCW](
+        implicit def ev[L, LW, LE, R, RW, NCW, WCW](
           implicit
           dsn : DFDesign,
-          ncW : Inference.NCW[LW, RW],
+          ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, WCW]} =
+        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[NCW, WCW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
-            type Comp = Component[ncW.Out, WCW]
+            type Comp = Component[NCW, WCW]
             def apply(properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp] =
               new Builder[L, LE, R] {
-                type Comp = Component[ncW.Out, WCW]
+                type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
                   import dsn.basicLib._
                   val (creationKind, left, right) = properLR(leftL, rightR)
@@ -528,26 +528,26 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-                  val wc0 = newVar[WCW](opWidth)
+                  val wc = newVar[WCW](opWidth).init(opInit)
                   creationKind match {
                     case `Ops+Or-`.+ =>
                       new `U+U`[LW, RW, WCW] {
                         val inLeft = port[LW, IN](Some(left))
                         val inRight = port[RW, IN](Some(right))
-                        val outResult = port[WCW, OUT](Some(wc0))
+                        val outResult = port[WCW, OUT](Some(wc))
                       }
                     case `Ops+Or-`.- =>
                       new `U-U`[LW, RW, WCW] {
                         val inLeft = port[LW, IN](Some(left))
                         val inRight = port[RW, IN](Some(right))
-                        val outResult = port[WCW, OUT](Some(wc0))
+                        val outResult = port[WCW, OUT](Some(wc))
                       }
                   }
-                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
-                    override def refCodeString(idRef : String) : String = s"$idRef.wc"
-                  }
+//                  val wc = new DFAny.Op(opWidth, creationKind.opString, opInit, Seq(left, right)) with DFUInt[wcW.Out] {
+//                    override def refCodeString(idRef : String) : String = s"$idRef.wc"
+//                  }
                   // Creating extended component aliasing the op
-                  new Component[ncW.Out, WCW](wc)
+                  new Component[NCW, WCW](wc)
                 }
               }
           }
@@ -622,11 +622,11 @@ object DFUInt extends DFAny.Companion {
       object Inference {
         import singleton.ops.math.Max
         type CalcWCW[LW, RW] = LW + RW
-        type WCW[LW, RW] = TwoFace.Int.Shell2[CalcWCW, LW, Int, RW, Int]
+        type WCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcWCW, LW, Int, RW, Int, ResW]
         type CalcNCW[LW, RW] = Max[LW, RW]
-        type NCW[LW, RW] = TwoFace.Int.Shell2[CalcNCW, LW, Int, RW, Int]
+        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
         type CalcCW[LW, RW] = CalcWCW[LW, RW] - CalcNCW[LW, RW]
-        type CW[LW, RW] = TwoFace.Int.Shell2[CalcCW, LW, Int, RW, Int]
+        type CW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcCW, LW, Int, RW, Int, ResW]
       }
 
       trait DetailedBuilder[L, LW, LE, R, RW] {
@@ -634,20 +634,21 @@ object DFUInt extends DFAny.Companion {
         def apply(properLR : (L, R) => (DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp]
       }
       object DetailedBuilder {
-        implicit def ev[L, LW, LE, R, RW](
+        implicit def ev[L, LW, LE, R, RW, CW, NCW, WCW](
           implicit
           dsn : DFDesign,
-          ncW : Inference.NCW[LW, RW],
-          wcW : Inference.WCW[LW, RW],
-          cW : Inference.CW[LW, RW],
+          ncW : Inference.NCW[LW, RW, NCW],
+          wcW : Inference.WCW[LW, RW, WCW],
+          cW : Inference.CW[LW, RW, CW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[ncW.Out, wcW.Out, cW.Out]} =
+        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[NCW, WCW, CW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
-            type Comp = Component[ncW.Out, wcW.Out, cW.Out]
+            type Comp = Component[NCW, WCW, CW]
             def apply(properLR : (L, R) => (DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Comp] =
               new Builder[L, LE, R] {
-                type Comp = Component[ncW.Out, wcW.Out, cW.Out]
+                type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
+                  import dsn.basicLib._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -656,11 +657,19 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
                   val opInit = Token.*(left.getInit, right.getInit)
-                  val wc = new DFAny.Op(wcWidth, "*", opInit, Seq(left, right)) with DFUInt[wcW.Out] {
-                    override def refCodeString(idRef : String) : String = s"$idRef.wc"
+                  val wc = newVar[WCW](wcWidth).init(opInit)
+
+                  new `U*U`[LW, RW, WCW] {
+                    val inLeft = port[LW, IN](Some(left))
+                    val inRight = port[RW, IN](Some(right))
+                    val outResult = port[WCW, OUT](Some(wc))
                   }
+
+//                  val wc = new DFAny.Op(wcWidth, "*", opInit, Seq(left, right)) with DFUInt[WCW] {
+//                    override def refCodeString(idRef : String) : String = s"$idRef.wc"
+//                  }
                   // Creating extended component aliasing the op
-                  new Component[ncW.Out, wcW.Out, cW.Out](wc, ncWidth, cWidth)
+                  new Component[NCW, WCW, CW](wc, ncWidth, cWidth)
                 }
               }
           }
@@ -710,11 +719,9 @@ object DFUInt extends DFAny.Companion {
       }
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign)
-      : Builder[L, R] = new Builder[L, R] {
-        def apply(leftL : L, rightR : R) : Comp = {
-          val (left, right) = properLR(leftL, rightR)
-          DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
-        }
+      : Builder[L, R] = (leftL, rightR) => {
+        val (left, right) = properLR(leftL, rightR)
+        DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
       }
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](

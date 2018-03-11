@@ -242,7 +242,7 @@ object DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](if (dfVar.isEmpty) 0 else read.width)
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = read.getInit.asInstanceOf[Seq[TToken]]
+    protected lazy val protInit : Seq[TToken] = if (isOpen) Seq() else read.getInit.asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = read.almanacEntry
     lazy val read : DF = if (isOpen) throw new IllegalAccessException("Cannot read from an OPEN port") else dfVar.get
     lazy val isOpen : Boolean = dfVar.isEmpty

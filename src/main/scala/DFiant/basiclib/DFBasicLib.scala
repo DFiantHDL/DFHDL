@@ -13,5 +13,9 @@ trait DFBasicLib {
 
   protected[DFiant] type `U-U`[LW, RW, WCW] = UopUeqU[DiSoOp.Kind.-, LW, RW, WCW]
   implicit def `ev-`[LW, RW, WCW] : Implementation[`U-U`[LW, RW, WCW]]
+
+  protected[DFiant] type `U*U`[LW, RW, WCW] = UopUeqU[DiSoOp.Kind.*, LW, RW, WCW]
+  implicit def `ev*`[LW, RW, WCW] : Implementation[`U*U`[LW, RW, WCW]]
 }
+
 
