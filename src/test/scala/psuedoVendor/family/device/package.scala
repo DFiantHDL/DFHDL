@@ -13,5 +13,24 @@ package object device {
     implicit def `ev*`[LW, RW, WCW] : Implementation[`U*U`[LW, RW, WCW]] = ifc => {
       import ifc._
     }
+
+    implicit def `ev==`[LW, RW] : Implementation[`U==U`[LW, RW]] = ifc => {
+      import ifc._
+    }
+    implicit def `ev!=`[LW, RW] : Implementation[`U!=U`[LW, RW]] = ifc => {
+      import ifc._
+    }
+    implicit def `ev<`[LW, RW] : Implementation[`U<U`[LW, RW]] = ifc => {
+      import ifc._
+    }
+    implicit def `ev>`[LW, RW] : Implementation[`U>U`[LW, RW]] = ifc => {
+      import ifc._
+    }
+    implicit def `ev<=`[LW, RW] : Implementation[`U<=U`[LW, RW]] = ifc => {
+      import ifc._
+    }
+    implicit def `ev>=`[LW, RW] : Implementation[`U>=U`[LW, RW]] = ifc => {
+      import ifc._
+    }
   }
 }

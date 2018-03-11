@@ -112,9 +112,6 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def op[W](width : TwoFace.Int[W], opString : String, opInit : Seq[DFUInt.Token], args : DFAny*)(implicit dsn : DFDesign) : DFUInt[W] =
-    new DFAny.Op(width, opString, opInit, args) with DFUInt[W]
-
   protected[DFiant] def port[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign) : DFUInt[W] <> DIR =
     new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -701,7 +698,12 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare(kind : OpsCompare.Kind) {
+  protected abstract class OpsCompare[DiSoOpKind <: DiSoOp.Kind](opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token]) {
+    type CompareOp[LW, RW] = basiclib.DiSoOp[DiSoOpKind, DFUInt[LW], DFUInt[RW], DFBool]
+    def compareOp[LW, RW](inLeft : DFUInt[LW] <> IN, inRight : DFUInt[RW] <> IN, outResult : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW]
+
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
@@ -721,7 +723,14 @@ object DFUInt extends DFAny.Companion {
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
+        val result = DFBool().init(opFunc(left.getInit, right.getInit))
+
+        compareOp[LW, RW] (
+          inLeft = port[LW, IN](Some(left)),
+          inRight = port[RW, IN](Some(right)),
+          outResult = DFBool.port[OUT](Some(result))
+        )
+        result
       }
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
@@ -756,20 +765,53 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  protected object OpsCompare {
-    class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token])
-    case object == extends Kind("==", DFUInt.Token.==)
-    case object != extends Kind("!=", DFUInt.Token.!=)
-    case object <  extends Kind("<", DFUInt.Token.<)
-    case object >  extends Kind(">", DFUInt.Token.>)
-    case object <= extends Kind("<=", DFUInt.Token.<=)
-    case object >= extends Kind(">=", DFUInt.Token.>=)
+  object `Op==` extends OpsCompare[DiSoOp.Kind.==](DFUInt.Token.==) with `Op==` {
+    def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW] = {
+      import dsn.basicLib._
+      new `U==U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+    }
   }
-  object `Op==` extends OpsCompare(OpsCompare.==) with `Op==`
-  object `Op!=` extends OpsCompare(OpsCompare.!=) with `Op!=`
-  object `Op<`  extends OpsCompare(OpsCompare.<)
-  object `Op>`  extends OpsCompare(OpsCompare.>)
-  object `Op<=` extends OpsCompare(OpsCompare.<=)
-  object `Op>=` extends OpsCompare(OpsCompare.>=)
+  object `Op!=` extends OpsCompare[DiSoOp.Kind.!=](DFUInt.Token.!=) with `Op!=` {
+    def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW] = {
+      import dsn.basicLib._
+      new `U!=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+    }
+  }
+  object `Op<`  extends OpsCompare[DiSoOp.Kind.< ](DFUInt.Token.< ) {
+    def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW] = {
+      import dsn.basicLib._
+      new `U<U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+    }
+  }
+  object `Op>`  extends OpsCompare[DiSoOp.Kind.> ](DFUInt.Token.> ) {
+    def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW] = {
+      import dsn.basicLib._
+      new `U>U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+    }
+  }
+  object `Op<=` extends OpsCompare[DiSoOp.Kind.<=](DFUInt.Token.<=) {
+    def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW] = {
+      import dsn.basicLib._
+      new `U<=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+    }
+  }
+  object `Op>=` extends OpsCompare[DiSoOp.Kind.>=](DFUInt.Token.>=) {
+    def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
+      implicit dsn : DFDesign
+    ) : CompareOp[LW, RW] = {
+      import dsn.basicLib._
+      new `U>=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+    }
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

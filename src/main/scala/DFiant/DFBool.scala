@@ -9,6 +9,8 @@ import scodec.bits._
 trait DFBool extends DFBool.Unbounded
 
 object DFBool extends DFAny.Companion {
+  import DFPort._
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +18,7 @@ object DFBool extends DFAny.Companion {
     type TVal = DFBool
     type TVar = DFBool.Var
     type Width = 1
-    def unary_!(implicit dsn : DFDesign)               : DFBool = DFBool.op("!", DFBool.Token.unary_!(getInit), this)
+    def unary_!(implicit dsn : DFDesign)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
 
     def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
     def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
@@ -75,10 +77,8 @@ object DFBool extends DFAny.Companion {
   protected[DFiant] def const(token : DFBool.Token)(implicit dsn : DFDesign) : DFBool =
     new DFAny.Const(token) with DFBool
 
-  protected[DFiant] def op(opString : String, opInit : Seq[DFBool.Token], args : DFAny*)(implicit dsn : DFDesign) : DFBool =
-    new DFAny.Op(1, opString, opInit, args) with DFBool {
-
-    }
+  protected[DFiant] def port[DIR <: DFDir](dfVar : Option[DFBool])(implicit dsn : DFDesign) : DFBool <> DIR =
+    new DFAny.Port[DFBool, DIR](dfVar) with DFBool
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -269,7 +269,7 @@ object DFBool extends DFAny.Companion {
       : Builder[L, R] = new Builder[L, R] {
         def apply(leftL : L, rightR : R) : Comp = {
           val (left, right) = properLR(leftL, rightR)
-          DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
+          ??? //DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
         }
       }
 
