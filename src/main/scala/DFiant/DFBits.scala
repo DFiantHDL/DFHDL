@@ -96,7 +96,7 @@ object DFBits extends DFAny.Companion {
     def newEmptyDFVar(implicit dsn : DFDesign) = DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
 
     ///////////////////////////DFUInt.op[W](width, "toDFUInt", DFBits.Token.toUInt(getInit))
-    def toDFUInt(implicit dsn : DFDesign) : DFUInt[Width] = DFUInt.newVar[Width](width).init(DFBits.Token.toUInt(getInit)).assign(this)
+    def toDFUInt(implicit dsn : DFDesign) : DFUInt[Width] = DFUInt.newVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this)
 
     override def toString : String = s"DFBits[$width]"
   }
