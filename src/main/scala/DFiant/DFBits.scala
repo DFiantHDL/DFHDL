@@ -23,50 +23,49 @@ object DFBits extends DFAny.Companion {
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////
-    final def apply[I](relBit: BitIndex.Checked[I, Width])(implicit dsn : DFDesign) : TBool = protBit(relBit.unsafeCheck(width))
+    final def apply[I](relBit: BitIndex.Checked[I, Width]) : TBool = protBit(relBit.unsafeCheck(width))
 
-    final def apply[I](implicit dsn : DFDesign, relBit: BitIndex.Checked[I, Width], di: DummyImplicit, di2: DummyImplicit): TBool =
+    final def apply[I](implicit relBit: BitIndex.Checked[I, Width], di: DummyImplicit, di2: DummyImplicit): TBool =
       protBit(relBit.unsafeCheck(width))
 
-    final def msbit(implicit dsn : DFDesign): TBool = protBit(width - 1)
+    final def msbit: TBool = protBit(width - 1)
 
-    final def lsbit(implicit dsn : DFDesign): TBool = protBit(0)
+    final def lsbit: TBool = protBit(0)
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
     final def apply[H, L](relBitHigh: BitIndex.Checked[H, Width], relBitLow: BitIndex.Checked[L, Width])(
-      implicit dsn : DFDesign, checkHiLow: BitsHiLo.CheckedShell[H, L], relWidth: RelWidth.TF[H, L]
+      implicit checkHiLow: BitsHiLo.CheckedShell[H, L], relWidth: RelWidth.TF[H, L]
     ) = {
       checkHiLow.unsafeCheck(relBitHigh, relBitLow)
       protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
     }
 
-    final def apply[H, L](implicit dsn : DFDesign, relBitHigh: BitIndex.Checked[H, Width], relBitLow: BitIndex.Checked[L, Width],
+    final def apply[H, L](implicit relBitHigh: BitIndex.Checked[H, Width], relBitLow: BitIndex.Checked[L, Width],
       checkHiLow: BitsHiLo.Checked[H, L], relWidth: RelWidth.TF[H, L], di: DummyImplicit
     ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
-    final protected def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit dsn : DFDesign): TBits[PW] =
+    final protected def protMSBits[PW](partWidth: TwoFace.Int[PW]): TBits[PW] =
       DFBits.alias(this, partWidth, width - partWidth).asInstanceOf[TBits[PW]]
 
-    final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit dsn : DFDesign) = protMSBits(partWidth.unsafeCheck(width))
+    final def msbits[PW](partWidth: PartWidth.Checked[PW, Width]) = protMSBits(partWidth.unsafeCheck(width))
 
-    final def msbits[PW](implicit dsn : DFDesign, partWidth: PartWidth.Checked[PW, Width], di: DummyImplicit) =
+    final def msbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], di: DummyImplicit) =
       protMSBits(partWidth.unsafeCheck(width))
 
-    final protected def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit dsn : DFDesign) : TBits[PW] =
+    final protected def protLSBits[PW](partWidth: TwoFace.Int[PW]) : TBits[PW] =
       DFBits.alias(this, partWidth, 0).asInstanceOf[TBits[PW]]
 
-    final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit dsn : DFDesign) = protLSBits(partWidth.unsafeCheck(width))
+    final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width]) = protLSBits(partWidth.unsafeCheck(width))
 
-    final def lsbits[PW](implicit dsn : DFDesign, partWidth: PartWidth.Checked[PW, Width], di: DummyImplicit) =
+    final def lsbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], di: DummyImplicit) =
       protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
-      dsn : DFDesign,
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int]
     ) : DFBits.Var[tfs.Out] = DFBits.newVar(tfs(width, numOfBits), getInit).assign(this)
 
@@ -93,10 +92,10 @@ object DFBits extends DFAny.Companion {
     def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
     def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
-    def newEmptyDFVar(implicit dsn : DFDesign) = DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
+    def newEmptyDFVar = DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
 
     ///////////////////////////DFUInt.op[W](width, "toDFUInt", DFBits.Token.toUInt(getInit))
-    def toDFUInt(implicit dsn : DFDesign) : DFUInt[Width] = DFUInt.newVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this)
+    def toDFUInt : DFUInt[Width] = DFUInt.newVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this)
 
     override def toString : String = s"DFBits[$width]"
   }

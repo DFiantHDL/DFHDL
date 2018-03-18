@@ -39,15 +39,15 @@ object DFUInt extends DFAny.Companion {
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
-      implicit dsn : DFDesign, tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
+      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
     ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits), getInit).assign(left)
 
     override def toString : String = s"DFUInt[$width]"
 
-    def isZero(implicit dsn : DFDesign) = left == 0
-    def isNonZero(implicit dsn : DFDesign) = left != 0
+    def isZero = left == 0
+    def isNonZero = left != 0
     //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
-    def extendable(implicit dsn : DFDesign) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
+    def extendable : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

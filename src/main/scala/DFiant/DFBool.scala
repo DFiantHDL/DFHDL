@@ -25,10 +25,10 @@ object DFBool extends DFAny.Companion {
     //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
     //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
     //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-    def rising(implicit dsn : DFDesign)  : DFBool = left && !left.prev(1)
-    def falling(implicit dsn : DFDesign) : DFBool = !left && left.prev(1)
+    def rising : DFBool = left && !left.prev(1)
+    def falling : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit dsn : DFDesign) = DFBool.newVar(Seq(DFBool.Token(false)))
+    def newEmptyDFVar = DFBool.newVar(Seq(DFBool.Token(false)))
 
     override def toString : String = s"DFBool"
 
