@@ -221,7 +221,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
+  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : Option[DF])(implicit dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](if (dfVar.isEmpty) 0 else read.width)
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -231,6 +231,10 @@ object DFAny {
     lazy val isOpen : Boolean = dfVar.isEmpty
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
+
+    protected var nameOption : Option[String] = None
+    protected def getName : String = nameOption.get
+    def setName(name : String) : this.type = {nameOption = Some(name); this}
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {

@@ -1,6 +1,5 @@
 package Proc
 import DFiant._
-import psuedoVendor.family.device._
 
 trait Proc extends DFDesign {
   type MEM_ADDRW = 32
@@ -21,6 +20,10 @@ trait Proc extends DFDesign {
   val regs = Array.fill(regsNum)(DFBits[XLEN].init(0))
 
 
+  ifdf (instr.isRType) {
+  }.elsedf {
+
+  }
   pc := pc + 1
 //  if (inst)
 }

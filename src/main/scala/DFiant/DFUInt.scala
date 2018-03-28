@@ -112,7 +112,7 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign) : DFUInt[W] <> DIR =
+  protected[DFiant] def port[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign, dir : DIR) : DFUInt[W] <> DIR =
     new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -179,7 +179,7 @@ object DFUInt extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
-      implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign)
+      implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
       : Builder[DFUInt[LW], OPEN, DIR] = right => port[LW, DIR](None)
       implicit def fromConst[LW, R, RW](
         implicit
@@ -198,6 +198,7 @@ object DFUInt extends DFAny.Companion {
       implicit def fromDFUInt1[LW, RW, DIR <: DFDir](
         implicit
         dsn : DFDesign,
+        dir : DIR,
         leftWidth : SafeInt[LW],
         checkLWvRW : `Op==`.Builder.`LW == RW`.CheckedShell[LW, RW]
       ) : Builder[DFUInt[LW], DFUInt[RW], DIR] = rightR => {
@@ -209,6 +210,7 @@ object DFUInt extends DFAny.Companion {
       implicit def fromDFUInt2[RW, DIR <: DFDir](
         implicit
         dsn : DFDesign,
+        dir : DIR,
       ) : Builder[DFUInt[Int], DFUInt[RW], DIR] = rightR => {
         val right = newVar[Int](TwoFace.Int.create[Int](rightR.width))
         right.assign(rightR)
