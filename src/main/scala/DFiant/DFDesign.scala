@@ -3,7 +3,7 @@ package DFiant
 import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
-abstract class DFDesign(implicit val basicLib: DFBasicLib) extends DFInterface with Implicits {
+abstract class DFDesign(implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib) extends DFInterface with Implicits {
   protected implicit val dsn = this
   protected[DFiant] val protAlmanac = new Almanac {}
   protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
@@ -12,7 +12,7 @@ abstract class DFDesign(implicit val basicLib: DFBasicLib) extends DFInterface w
 object DFDesign {
 }
 
-abstract class DFComponent[Comp <: DFComponent[Comp]](implicit impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib) extends DFDesign {
+abstract class DFComponent[Comp <: DFComponent[Comp]](implicit dsn : DFDesign, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib) extends DFDesign()(Some(dsn), basicLib) {
   impl(this.asInstanceOf[Comp])
 }
 

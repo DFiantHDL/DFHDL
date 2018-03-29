@@ -15,6 +15,6 @@ object DFGlobalLib extends DFBasicLib {
   implicit def `ev>=`[LW, RW] : DFComponent.Implementation[`U>=U`[LW, RW]] = ifc => {}
 }
 
-object GlobalDesign extends DFDesign()(DFGlobalLib) {
+object GlobalDesign extends DFDesign()(None, DFGlobalLib) {
   override implicit val dsn = this
 }
