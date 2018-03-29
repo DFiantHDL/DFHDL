@@ -7,6 +7,8 @@ trait DFInterface {
   protected type OUT = DFPort.OUT
   protected type OPEN = DFPort.OPEN
   protected final val OPEN = DFPort.OPEN
+  protected type TOP = DFPort.TOP
+  protected final val TOP = DFPort.TOP
 
   lazy val ports : Array[DFAny.Port[DFAny, DFDir]] = {
     getClass.getDeclaredFields
@@ -38,6 +40,9 @@ object DFPort {
   implicit object OUT extends OUT
 
   //to indicate a port is open
-  trait OPEN
+  sealed trait OPEN
   object OPEN extends OPEN
+
+  sealed trait TOP
+  object TOP extends TOP
 }
