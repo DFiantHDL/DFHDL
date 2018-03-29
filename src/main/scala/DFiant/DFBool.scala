@@ -132,8 +132,8 @@ object DFBool extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
-      implicit def ev[DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
-      : Builder[DFBool, DFBool, DIR] = right => new DFAny.Port[DFBool, DIR](FullyConnected(right)) with DFBool
+      implicit def conn[C <: Connection[DFBool], DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
+      : Builder[DFBool, C, DIR] = right => port[DIR](right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

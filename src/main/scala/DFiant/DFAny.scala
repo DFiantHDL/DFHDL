@@ -383,19 +383,12 @@ object DFAny {
       type Builder[L <: DFAny, R, DIR <: DFDir] <: DFAny.Port.Builder[L, R, DIR]
     }
     val Port : Port
-    implicit def fromOPEN[L <: DFAny, DIR <: DFDir](right : OPEN)(
-      implicit port : Port.Builder[L, OPEN, DIR]
-    ) : L <> DIR = port(OPEN)
+    implicit def fromConn[L <: DFAny, C <: Connection[L], DIR <: DFDir](right : C)(
+      implicit port : Port.Builder[L, C, DIR]
+    ) : L <> DIR = port(right)
     //This implicit is used to create ambiguity to prevent assignment of OPEN to a non-port
-    implicit def fromOPENFake[L <: DFAny, DIR <: DFDir](right : OPEN)(
-      implicit port : Port.Builder[L, OPEN, DIR]
-    ) : L = ???
-    implicit def fromTOP[L <: DFAny, DIR <: DFDir](right : TOP)(
-      implicit port : Port.Builder[L, TOP, DIR]
-    ) : L <> DIR = port(TOP)
-    //This implicit is used to create ambiguity to prevent assignment of TOP to a non-port
-    implicit def fromTOPFake[L <: DFAny, DIR <: DFDir](right : TOP)(
-      implicit port : Port.Builder[L, TOP, DIR]
+    implicit def fromConnFake[L <: DFAny, C <: Connection[L], DIR <: DFDir](right : C)(
+      implicit port : Port.Builder[L, C, DIR]
     ) : L = ???
 //    implicit def fromDFIn[L <: DFAny, R <: DFAny, W](right : R)(
 //      implicit port : Port.Builder[L, R, IN], c : R <:!< DFAny.Port[_, OUT]
