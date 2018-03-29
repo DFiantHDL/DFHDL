@@ -6,7 +6,7 @@ import singleton.twoface._
 import scodec.bits._
 import shapeless.<:!<
 
-sealed trait DFAny {
+sealed trait DFAny extends Taggable with Nameable {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -231,10 +231,6 @@ object DFAny {
     lazy val isOpen : Boolean = conn.isOpen
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
-
-    protected var nameOption : Option[String] = None
-    protected def getName : String = nameOption.get
-    def setName(name : String) : this.type = {nameOption = Some(name); this}
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {

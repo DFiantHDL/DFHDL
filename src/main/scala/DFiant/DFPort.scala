@@ -1,6 +1,8 @@
 package DFiant
 
-trait DFInterface {
+import DFiant.internals._
+
+trait DFInterface extends Taggable with Nameable {
   protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   protected type DFDir = DFPort.DFDir
   protected type IN = DFPort.IN
