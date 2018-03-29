@@ -39,10 +39,18 @@ object DFPort {
   sealed trait OUT extends DFDir
   implicit object OUT extends OUT
 
-  //to indicate a port is open
-  sealed trait OPEN
-  object OPEN extends OPEN
-
-  sealed trait TOP
-  object TOP extends TOP
+  sealed abstract class Connection[+DF] extends Serializable {
+    def isOpen : Boolean
+  }
+  final case class FullyConnected[+DF](dfVar : DF) extends Connection[DF] {
+    def isOpen : Boolean = false
+  }
+  case object OPEN extends Connection[Nothing] {
+    def isOpen : Boolean = true
+  }
+  type OPEN = OPEN.type
+  case object TOP extends Connection[Nothing] {
+    def isOpen : Boolean = false
+  }
+  type TOP = TOP.type
 }

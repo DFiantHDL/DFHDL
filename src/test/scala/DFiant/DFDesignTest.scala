@@ -7,7 +7,7 @@ class DFDesignTest {
   abstract class Box[GenW] extends DFDesign {
     val in1  : DFUInt[GenW] <> IN  = OPEN
     val out1 : DFUInt[GenW] <> OUT = OPEN
-    val in2  : DFUInt[GenW] <> IN
+    val in2  : DFUInt[GenW] <> IN = TOP
     val out2 : DFUInt[GenW] <> OUT = out1
     illTyped("""val out1 : DFUInt[GenW] <> OUT = in1""") //Fail compile mixing input/output ports
     illTyped("""val in2  : DFUInt[GenW] <> IN  = out1""") //Fail compile mixing input/output ports
@@ -16,6 +16,7 @@ class DFDesignTest {
     out2 := out1 //can read from output, but
 
     illTyped("""val a : DFUInt[GenW] = OPEN""") //Fail compile assigning OPEN to a non-port
+    illTyped("""val b : DFUInt[GenW] = TOP""") //Fail compile assigning TOP to a non-port
     illTyped("""in1 := out1""") //Fail (Cannot assign to an input port)
 
 //    abstract class MyInterface[Dir] {
@@ -38,7 +39,7 @@ class DFDesignTest {
     val out : DFUInt[GenW] <> OUT
     val box : Box[GenW] = new Box[GenW] {
       override val in1 = in
-      val in2 = in
+      override val in2 = in
     }
   }
 

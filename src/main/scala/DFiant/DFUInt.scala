@@ -112,7 +112,7 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, DIR <: DFDir](dfVar : Option[DFUInt[W]])(implicit dsn : DFDesign, dir : DIR) : DFUInt[W] <> DIR =
+  protected[DFiant] def port[W, DIR <: DFDir](dfVar : Connection[DFUInt[W]])(implicit dsn : DFDesign, dir : DIR) : DFUInt[W] <> DIR =
     new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -180,7 +180,9 @@ object DFUInt extends DFAny.Companion {
     trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
     object Builder {
       implicit def open[LW, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
-      : Builder[DFUInt[LW], OPEN, DIR] = right => port[LW, DIR](None)
+      : Builder[DFUInt[LW], OPEN, DIR] = right => port[LW, DIR](OPEN)
+      implicit def top[LW, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
+      : Builder[DFUInt[LW], TOP, DIR] = right => port[LW, DIR](TOP)
       implicit def fromConst[LW, R, RW](
         implicit
         dsn : DFDesign,
@@ -193,7 +195,7 @@ object DFUInt extends DFAny.Companion {
         if (!noCheck)
           checkLWvRW.unsafeCheck(leftWidth, rightConst.width)
         val right = const[LW](rightConst.getInit.head)
-        port[LW, IN](Some(right))
+        port[LW, IN](FullyConnected(right))
       }
       implicit def fromDFUInt1[LW, RW, DIR <: DFDir](
         implicit
@@ -205,7 +207,7 @@ object DFUInt extends DFAny.Companion {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
         right.assign(rightR)
-        port[LW, DIR](Some(right))
+        port[LW, DIR](FullyConnected(right))
       }
       implicit def fromDFUInt2[RW, DIR <: DFDir](
         implicit
@@ -214,7 +216,7 @@ object DFUInt extends DFAny.Companion {
       ) : Builder[DFUInt[Int], DFUInt[RW], DIR] = rightR => {
         val right = newVar[Int](TwoFace.Int.create[Int](rightR.width))
         right.assign(rightR)
-        port[Int, DIR](Some(right))
+        port[Int, DIR](FullyConnected(right))
       }
       implicit def fromDFUIntExtendable[LW, RW](
         implicit
@@ -225,7 +227,7 @@ object DFUInt extends DFAny.Companion {
         checkLWvRW.unsafeCheck(leftWidth, rightR.width)
         val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
         right.assign(rightR)
-        port[LW, IN](Some(right))
+        port[LW, IN](FullyConnected(right))
       }
     }
   }
@@ -531,15 +533,15 @@ object DFUInt extends DFAny.Companion {
                   creationKind match {
                     case `Ops+Or-`.+ =>
                       new `U+U`[LW, RW, WCW] {
-                        val inLeft = port[LW, IN](Some(left))
-                        val inRight = port[RW, IN](Some(right))
-                        val outResult = port[WCW, OUT](Some(wc))
+                        val inLeft = port[LW, IN](FullyConnected(left))
+                        val inRight = port[RW, IN](FullyConnected(right))
+                        val outResult = port[WCW, OUT](FullyConnected(wc))
                       }
                     case `Ops+Or-`.- =>
                       new `U-U`[LW, RW, WCW] {
-                        val inLeft = port[LW, IN](Some(left))
-                        val inRight = port[RW, IN](Some(right))
-                        val outResult = port[WCW, OUT](Some(wc))
+                        val inLeft = port[LW, IN](FullyConnected(left))
+                        val inRight = port[RW, IN](FullyConnected(right))
+                        val outResult = port[WCW, OUT](FullyConnected(wc))
                       }
                   }
                   // Creating extended component aliasing the op
@@ -656,9 +658,9 @@ object DFUInt extends DFAny.Companion {
                   val wc = newVar[WCW](wcWidth, opInit)
 
                   new `U*U`[LW, RW, WCW] {
-                    val inLeft = port[LW, IN](Some(left))
-                    val inRight = port[RW, IN](Some(right))
-                    val outResult = port[WCW, OUT](Some(wc))
+                    val inLeft = port[LW, IN](FullyConnected(left))
+                    val inRight = port[RW, IN](FullyConnected(right))
+                    val outResult = port[WCW, OUT](FullyConnected(wc))
                   }
 
                   // Creating extended component aliasing the op
@@ -722,9 +724,9 @@ object DFUInt extends DFAny.Companion {
         val result = DFBool.newVar(opFunc(left.getInit, right.getInit))
 
         compareOp[LW, RW] (
-          inLeft = port[LW, IN](Some(left)),
-          inRight = port[RW, IN](Some(right)),
-          outResult = DFBool.port[OUT](Some(result))
+          inLeft = port[LW, IN](FullyConnected(left)),
+          inRight = port[RW, IN](FullyConnected(right)),
+          outResult = DFBool.port[OUT](FullyConnected(result))
         )
         result
       }
