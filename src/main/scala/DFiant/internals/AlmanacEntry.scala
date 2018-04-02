@@ -1,6 +1,7 @@
 package DFiant.internals
 
 import DFiant.DFAny.Token
+import DFiant.DFPort.DFDir
 
 trait AlmanacGuard {
 
@@ -92,6 +93,21 @@ object AlmanacEntryGetDFVar {
   def apply(varEntry : AlmanacEntry)(implicit almanac : Almanac) : AlmanacEntry =
     almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
 }
+
+class AlmanacEntryPort private (width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) extends AlmanacEntry {
+  val id : AlmanacID = AlmanacID()
+  val address : AlmanacAddress = AlmanacAddressLatest
+  val bitsRange : BitsRange = BitsRange(width)
+  val init : Seq[Token] = Seq()
+  val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
+  def codeString : String = s"$dsnName.$portName"
+}
+
+object AlmanacEntryPort {
+  def apply(width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntry =
+    almanac.fetchEntry(new AlmanacEntryPort(width, dir, portName, dsnName))
+}
+
 
 
 import scala.collection.mutable.MutableList

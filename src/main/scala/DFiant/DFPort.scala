@@ -42,32 +42,12 @@ object DFPort {
   sealed trait OUT extends DFDir
   implicit object OUT extends OUT
 
-  trait Connection[+DF <: DFAny] extends Nameable with Serializable {
-    val width : Int
-    val almanacEntry : AlmanacEntry
-    def getInit : Seq[Token]
-    def isOpen : Boolean
-//    def setWidth(width : Int) : this.type
-  }
-  final case class FullyConnected[+DF <: DFAny](dfVar : DF) extends Connection[DF] {
-    lazy val width : Int = dfVar.width
-    lazy val almanacEntry : AlmanacEntry = dfVar.almanacEntry
-    def getInit : Seq[Token] = dfVar.getInit
-    def isOpen : Boolean = false
-  }
-  case object OPEN extends Connection[Nothing] {
-    lazy val width : Int = 0
-    lazy val almanacEntry : AlmanacEntry = throw new IllegalAccessException("Cannot read from an OPEN port")
-    def getInit : Seq[Token] = Seq()
-    def isOpen : Boolean = true
-  }
+  trait Connection[+DF <: DFAny] extends Nameable with Serializable
+  final case class FullyConnected[+DF <: DFAny](dfVar : DF) extends Connection[DF]
+  case object OPEN extends Connection[Nothing]
   type OPEN = OPEN.type
   trait TOP extends Nameable
   object TOP extends TOP {
-    case class Width(width : Int) extends TOP with Connection[Nothing] {
-      lazy val almanacEntry : AlmanacEntry = ???
-      def getInit : Seq[Token] = Seq()
-      def isOpen : Boolean = false
-    }
+    final case class Width(width : Int) extends TOP with Connection[Nothing]
   }
 }

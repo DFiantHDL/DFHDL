@@ -222,12 +222,28 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn.width)
+    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
+      case FullyConnected(dfVar) => dfVar.width
+      case OPEN => 0
+      case TOP.Width(w) => w
+    })
+
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = conn.getInit.asInstanceOf[Seq[TToken]]
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn.almanacEntry
-    lazy val isOpen : Boolean = conn.isOpen
+    protected lazy val protInit : Seq[TToken] = conn match {
+      case FullyConnected(dfVar) => dfVar.getInit.asInstanceOf[Seq[TToken]]
+      case OPEN => Seq()
+      case TOP.Width(w) => Seq()
+    }
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn match {
+      case FullyConnected(dfVar) => dfVar.almanacEntry
+      case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
+      case TOP.Width(w) => AlmanacEntryPort(width, dir, getName, dsn.getName)
+    }
+    lazy val isOpen : Boolean = conn match {
+      case OPEN => true
+      case _ => false
+    }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
     nameOption = conn.nameOption
