@@ -222,15 +222,17 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](if (conn.isOpen) 0 else read.width)
+    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn.width)
+    protected var topWidth : Int = 0
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = if (isOpen) Seq() else read.getInit.asInstanceOf[Seq[TToken]]
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = read.almanacEntry
+    protected lazy val protInit : Seq[TToken] = conn.getInit.asInstanceOf[Seq[TToken]]
+    protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn.almanacEntry
     lazy val read : DF = ??? //if (isOpen) throw new IllegalAccessException("Cannot read from an OPEN port") else conn.get
     lazy val isOpen : Boolean = conn.isOpen
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
+    nameOption = conn.nameOption
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {
@@ -383,10 +385,17 @@ object DFAny {
       type Builder[L <: DFAny, R, DIR <: DFDir] <: DFAny.Port.Builder[L, R, DIR]
     }
     val Port : Port
+    implicit def fromConnTop[L <: DFAny, DIR <: DFDir](right : TOP)(
+      implicit port : Port.Builder[L, TOP.Width, DIR], width : TwoFace.Int[L#Width]
+    ) : L <> DIR = port(TOP.Width(width))
+    //This implicit is used to create ambiguity to prevent assignment of TOP to a non-port
+    implicit def fromConnTopFake[L <: DFAny, DIR <: DFDir](right : TOP)(
+      implicit port : Port.Builder[L, TOP.Width, DIR]
+    ) : L = ???
     implicit def fromConn[L <: DFAny, C <: Connection[L], DIR <: DFDir](right : C)(
       implicit port : Port.Builder[L, C, DIR]
     ) : L <> DIR = port(right)
-    //This implicit is used to create ambiguity to prevent assignment of OPEN to a non-port
+    //This implicit is used to create ambiguity to prevent assignment of a connection to a non-port
     implicit def fromConnFake[L <: DFAny, C <: Connection[L], DIR <: DFDir](right : C)(
       implicit port : Port.Builder[L, C, DIR]
     ) : L = ???

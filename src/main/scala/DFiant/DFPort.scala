@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.DFAny.Token
 import DFiant.internals._
 
 trait DFInterface extends Taggable with Nameable {
@@ -41,18 +42,32 @@ object DFPort {
   sealed trait OUT extends DFDir
   implicit object OUT extends OUT
 
-  sealed abstract class Connection[+DF] extends Serializable {
+  trait Connection[+DF <: DFAny] extends Nameable with Serializable {
+    val width : Int
+    val almanacEntry : AlmanacEntry
+    def getInit : Seq[Token]
     def isOpen : Boolean
+//    def setWidth(width : Int) : this.type
   }
-  final case class FullyConnected[+DF](dfVar : DF) extends Connection[DF] {
+  final case class FullyConnected[+DF <: DFAny](dfVar : DF) extends Connection[DF] {
+    lazy val width : Int = dfVar.width
+    lazy val almanacEntry : AlmanacEntry = dfVar.almanacEntry
+    def getInit : Seq[Token] = dfVar.getInit
     def isOpen : Boolean = false
   }
   case object OPEN extends Connection[Nothing] {
+    lazy val width : Int = 0
+    lazy val almanacEntry : AlmanacEntry = ???
+    def getInit : Seq[Token] = Seq()
     def isOpen : Boolean = true
   }
   type OPEN = OPEN.type
-  case object TOP extends Connection[Nothing] {
-    def isOpen : Boolean = false
+  trait TOP extends Nameable
+  object TOP extends TOP {
+    case class Width(width : Int) extends TOP with Connection[Nothing] {
+      lazy val almanacEntry : AlmanacEntry = ???
+      def getInit : Seq[Token] = Seq()
+      def isOpen : Boolean = false
+    }
   }
-  type TOP = TOP.type
 }

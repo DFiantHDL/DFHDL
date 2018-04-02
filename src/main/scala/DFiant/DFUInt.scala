@@ -181,8 +181,6 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def conn[LW, C <: Connection[DFUInt[LW]], DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
       : Builder[DFUInt[LW], C, DIR] = right => port[LW, DIR](right)
-//      implicit def top[LW, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
-//      : Builder[DFUInt[LW], TOP, DIR] = right => port[LW, DIR](TOP)
       implicit def fromConst[LW, R, RW](
         implicit
         dsn : DFDesign,

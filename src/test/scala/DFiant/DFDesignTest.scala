@@ -2,12 +2,13 @@ package DFiant
 
 import shapeless.test.illTyped
 import psuedoVendor.family.device._
+import singleton.twoface._
 
 class DFDesignTest {
-  abstract class Box[GenW] extends DFDesign {
+  abstract class Box[GenW](implicit g : TwoFace.Int[GenW]) extends DFDesign {
     val in1  : DFUInt[GenW] <> IN  = OPEN
     val out1 : DFUInt[GenW] <> OUT = OPEN
-    val in2  : DFUInt[GenW] <> IN = TOP
+    val in2  : DFUInt[GenW] <> IN = TOP.setName("moshe")
     val out2 : DFUInt[GenW] <> OUT = out1
     illTyped("""val out1 : DFUInt[GenW] <> OUT = in1""") //Fail compile mixing input/output ports
     illTyped("""val in2  : DFUInt[GenW] <> IN  = out1""") //Fail compile mixing input/output ports
@@ -34,7 +35,7 @@ class DFDesignTest {
     illTyped("""val out3 : a.TVal <> OUT = in1""")
   }
 
-  abstract class BoxContainer[GenW] extends DFDesign {
+  abstract class BoxContainer[GenW](implicit g : TwoFace.Int[GenW]) extends DFDesign {
     val in : DFUInt[GenW] <> IN
     val out : DFUInt[GenW] <> OUT
     val box : Box[GenW] = new Box[GenW] {
