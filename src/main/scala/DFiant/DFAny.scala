@@ -223,12 +223,10 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn.width)
-    protected var topWidth : Int = 0
     final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = conn.getInit.asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn.almanacEntry
-    lazy val read : DF = ??? //if (isOpen) throw new IllegalAccessException("Cannot read from an OPEN port") else conn.get
     lazy val isOpen : Boolean = conn.isOpen
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)

@@ -57,7 +57,7 @@ object DFPort {
   }
   case object OPEN extends Connection[Nothing] {
     lazy val width : Int = 0
-    lazy val almanacEntry : AlmanacEntry = ???
+    lazy val almanacEntry : AlmanacEntry = throw new IllegalAccessException("Cannot read from an OPEN port")
     def getInit : Seq[Token] = Seq()
     def isOpen : Boolean = true
   }
