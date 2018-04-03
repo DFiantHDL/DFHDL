@@ -122,8 +122,8 @@ sealed trait DFAny extends Taggable with Nameable {
 //  def newEmptyDFVar : TVar
 //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
-  implicit protected val protDesign : DFDesign
-  final implicit protected lazy val protAlmanac : Almanac = protDesign.protAlmanac
+  implicit protected val dsn : DFDesign
+  final implicit protected lazy val protAlmanac : Almanac = dsn.protAlmanac
 
   protected[DFiant] val almanacEntry : AlmanacEntry
 
@@ -180,20 +180,18 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
+  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit protected val dsn : DFDesign, cmp : Companion) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-    final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, cmp : Companion)
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit protected val dsn : DFDesign, cmp : Companion)
     extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
-    final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
@@ -208,9 +206,8 @@ object DFAny {
     }
   }
 
-  abstract class Const(token : Token)(implicit dsn : DFDesign, cmp : Companion) extends DFAny {
+  abstract class Const(token : Token)(implicit protected val dsn : DFDesign, cmp : Companion) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
-    final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
@@ -221,14 +218,13 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
+  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
       case FullyConnected(dfVar) => dfVar.width
       case OPEN => 0
       case TOP.Width(w) => w
     })
 
-    final protected val protDesign : DFDesign = dsn
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = conn match {
       case FullyConnected(dfVar) => dfVar.getInit.asInstanceOf[Seq[TToken]]
