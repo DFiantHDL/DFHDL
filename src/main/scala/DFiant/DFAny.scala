@@ -313,6 +313,7 @@ object DFAny {
 
   object TokenSeq {
     def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
+      if (leftSeq.isEmpty || rightSeq.isEmpty) Seq() else
       leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))
     def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
       seq.map(t => op(t))

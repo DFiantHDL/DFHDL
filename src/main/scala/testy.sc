@@ -1,16 +1,4 @@
-abstract class DSN(implicit val parent : Option[DSN] = None) {
-  val name : String
-  protected implicit val childParent = Some(this)
+import DFiant.DFAny.TokenSeq
+import DFiant._
 
-  override def toString: String = name
-}
-
-val haim = new DSN() {
-  override val name: String = "Haim"
-  val moshe = new DSN() {
-    override val name: String = "Moshe"
-  }
-}
-
-haim.parent
-haim.moshe.parent
+DFUInt.Token.+(Seq[DFUInt.Token](), Seq[DFUInt.Token]())
