@@ -34,5 +34,7 @@ object DFComponent {
 }
 
 abstract class RTComponent(implicit dsn : DFDesign) extends DFInterface {
+  protected def newGeneric() : Unit = {}
+
   dsn.addRTComponent(this)
 }

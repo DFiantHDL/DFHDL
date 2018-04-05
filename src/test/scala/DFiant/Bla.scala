@@ -9,8 +9,6 @@ abstract class Box[GenW]() extends DFDesign {
   a && true
 }
 
-class RTComponent(name : String)
-
 trait Adder[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DFComponent[Adder[Left, Right, Result]] {
   val left : Left <> IN
   val right : Right <> IN
@@ -42,12 +40,12 @@ object Bla {
 }
 
 class DFOpPlus[LW, RW](leftWidth : TwoFace.Int[LW], rightWidth : TwoFace.Int[RW]) extends DFDesign {
-  trait IO {
-    val left : DFUInt[LW] <> IN
-    val right : DFUInt[RW] <> IN
-    val result : DFUInt[LW] <> OUT
-  }
-  val io : IO = throw new UninitializedError()
 
-  new RTComponent("+")
+  trait IO {
+    val left: DFUInt[LW] <> IN
+    val right: DFUInt[RW] <> IN
+    val result: DFUInt[LW] <> OUT
+  }
+
+  val io: IO = throw new UninitializedError()
 }
