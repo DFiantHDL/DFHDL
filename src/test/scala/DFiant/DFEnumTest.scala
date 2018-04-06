@@ -5,7 +5,7 @@ import shapeless.test.illTyped
 import psuedoVendor.family.device._
 
 class DFEnumTest extends Properties("DFEnumTest") {
-  sealed trait Foo
+  sealed trait Foo extends DFEnum.Auto
   case object Bar1 extends Foo
   case object Bar2 extends Foo
 

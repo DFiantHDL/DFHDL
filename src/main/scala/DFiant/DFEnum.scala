@@ -2,6 +2,7 @@ package DFiant
 
 import scodec.bits._
 import singleton.ops._
+import singleton.twoface._
 
 //trait DFEnum[E <: Enumeration#Value] extends DFAny.Val[WUnsafe, DFEnum[E],DFEnum.Var[E]] {
 //  protected val enum : Enumeration
@@ -17,17 +18,21 @@ import singleton.ops._
 //}
 //
 
-trait DFEnum[E] extends DFEnum.Unbounded {
+trait DFEnum[E <: DFEnum.Entry] extends DFEnum.Unbounded {
   type Enum = E
   def == (that : E) : DFBool = ???
 }
 
 object DFEnum extends DFAny.Companion {
+  protected sealed trait Entry
+  trait Auto extends Entry
+  trait Value
+  abstract class Manual[Width](width : TwoFace.Int[Width])(value : BitVector) extends Entry
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFEnum.type] {
-    type Enum
+    type Enum <: Entry
     type TVal = DFEnum[Enum]
     type TVar = DFEnum.Var[Enum]
 
@@ -37,7 +42,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[E] extends DFEnum[E] with DFAny.Var {
+  trait Var[E <: Entry] extends DFEnum[E] with DFAny.Var {
     def := (that : E) : Unit = {}
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,13 +50,13 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E](implicit dsn : DFDesign, width : SafeInt[EnumCount[E]]) = newVar[E]()
+  def apply[E <: Entry](implicit dsn : DFDesign, width : SafeInt[EnumCount[E]]) = newVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[E](init : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[EnumCount[E]]) : Var[E]{type Width = w.Out} =
+  protected[DFiant] def newVar[E <: Entry](init : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[EnumCount[E]]) : Var[E]{type Width = w.Out} =
     new DFAny.NewVar(w, init) with Var[E] {
       type Width = w.Out
       def codeString(idRef : String) : String = s"DFEnum???"
