@@ -140,6 +140,9 @@ sealed trait DFAny extends Taggable with Nameable {
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
 //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
+  trait matchdf {
+    def casedf_(block : => Unit) : Unit = {}
+  }
 }
 
 
@@ -169,7 +172,7 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
-    final def <-- (that : Iterable[ TVal]) : TVar = {
+    final def <-- (that : Iterable[TVal]) : TVar = {
       that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
       this.asInstanceOf[TVar]
     }

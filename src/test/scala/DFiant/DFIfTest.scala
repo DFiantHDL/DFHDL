@@ -1,9 +1,7 @@
 package DFiant
+import GlobalDesign._
 
 object IfTest {
-
-  import GlobalDesign._
-
   val a = DFBool()
   val b = DFUInt(8)
   val c = a && a
@@ -21,5 +19,18 @@ object IfTest {
 
   }.elsedf {
 
+  }
+}
+
+object MatchTest {
+  val a = DFUInt[8]
+  val b = DFUInt[8]
+  new a.matchdf {
+    casedf(b) {
+
+    }
+    casedf_ {
+
+    }
   }
 }
