@@ -3,140 +3,164 @@ package DFiant
 import scodec.bits._
 import singleton.ops._
 import singleton.twoface._
+import DFiant.internals._
 
-//trait DFEnum[E <: Enumeration#Value] extends DFAny.Val[WUnsafe, DFEnum[E],DFEnum.Var[E]] {
-//  protected val enum : Enumeration
-//  val width = wOF(enum.maxId)
-//}
-//
-//object DFEnum {
-//  case class Var[E <: Enumeration#Value](protected val enum : Enumeration) extends DFAny.Var[WUnsafe, DFEnum[E],DFEnum.Var[E]] with DFEnum[E] {
-//    def newEmptyDFVar = copy()
-//  }
-//
-//  def apply(enum : Enumeration) = Var[enum.Value](enum)
-//}
-//
-
-trait DFEnum[E <: DFEnum.Entry] extends DFEnum.Unbounded {
-  type Enum = E
-  def == (that : E) : DFBool = ???
-}
-
-object DFEnum extends DFAny.Companion {
-  protected sealed trait Entry
-  trait Auto extends Entry
-  trait Value
-  abstract class Manual[Width](width : TwoFace.Int[Width])(value : BitVector) extends Entry
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Unbounded Val
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Unbounded extends DFAny.Unbounded[DFEnum.type] {
-    type Enum <: Entry
-    type TVal = DFEnum[Enum]
-    type TVar = DFEnum.Var[Enum]
-
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Var
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[E <: Entry] extends DFEnum[E] with DFAny.Var {
-    def := (that : E) : Unit = {}
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Public Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Entry](implicit dsn : DFDesign, width : SafeInt[EnumCount[E]]) = newVar[E]()
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Protected Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[E <: Entry](init : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[EnumCount[E]]) : Var[E]{type Width = w.Out} =
-    new DFAny.NewVar(w, init) with Var[E] {
-      type Width = w.Out
-      def codeString(idRef : String) : String = s"DFEnum???"
+object Enum {
+  protected trait General[E <: General.Entry] {
+    type Entry <: E
+    type CalcWidth
+    trait DFEnum extends DFEnum.Unbounded {
+      def == (that : Entry) : DFBool = ???
     }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    object DFEnum extends DFAny.Companion {
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Unbounded Val
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      trait Unbounded extends DFAny.Unbounded[DFEnum.type] {
+        type TVal = DFEnum
+        type TVar = DFEnum.Var
+        trait TToken extends DFEnum.Token
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Token
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token private[DFiant] (val width : Int, val valueBits : BitVector, val bubbleMask : BitVector) extends DFAny.Token {
-  }
-  object Token {
-    import DFAny.TokenSeq
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Init
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init extends Init {
-    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
-    object Able {
-      implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
-      implicit class DFBitsToken[LW](val right : DFBits.Token) extends Able[DFBits[LW]]
-      implicit class DFBitsTokenSeq[LW](val right : Seq[DFBits.Token]) extends Able[DFBits[LW]]
-
-      def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[DFBits.Token] =
-        right.toSeqAny.map(e => e match {
-          case (t : Bubble) => DFBits.Token(width, t)
-          case (t : DFBits.Token) => DFBits.Token(width, t)
-        })
-    }
-    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
-    object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
-        def apply(left : DFBits[LW], right : Seq[Able[DFBits[LW]]]) : DFBits[LW] =
-          DFBits.alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
       }
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Var
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      trait Var extends DFEnum with DFAny.Var {
+        def := (that : Entry) : Unit = {}
+      }
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Public Constructors
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      def apply()(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) = newVar()
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Protected Constructors
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      protected[DFiant] def newVar(init : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Var{type Width = w.Out} =
+        new DFAny.NewVar(w, init) with Var {
+          type Width = w.Out
+          def codeString(idRef : String) : String = s"DFEnum???"
+        }
+
+
+      protected[DFiant] def alias
+      (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Var{type Width = w.Out} =
+        new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var {
+          type Width = w.Out
+          protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
+          def codeString(idRef : String) : String = "AliasOfDFEnum???"
+        }
+
+      protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : DFEnum{type Width = w.Out} =
+        new DFAny.Const(token) with DFEnum {
+          type Width = w.Out
+        }
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Token
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      class Token private[DFiant] (val valueEnum : Entry) extends DFAny.Token {
+        val width: Int = ???
+        val bubbleMask: BitVector = ???
+        val valueBits: BitVector = ???
+      }
+      object Token {
+        import DFAny.TokenSeq
+        def apply(bubble : Bubble) : Token = ???
+      }
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Init
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      object Init extends Init {
+        trait Able[L <: DFAny] extends DFAny.Init.Able[L]
+        object Able {
+          implicit class DFEnumBubble(val right : Bubble) extends Able[DFEnum]
+          implicit class DFEnumToken(val right : Token) extends Able[DFEnum]
+          implicit class DFEnumTokenSeq(val right : Seq[Token]) extends Able[DFEnum]
+
+          def toTokenSeq[LW](width : Int, right : Seq[Able[DFEnum]]) : Seq[Token] =
+            right.toSeqAny.map(e => e match {
+              case (t : Bubble) => Token(t)
+              case (t : Token) => t
+            })
+        }
+        trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+        object Builder {
+          implicit def ev[LW](implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Builder[DFEnum] = new Builder[DFEnum] {
+            def apply(left : DFEnum, right : Seq[Able[DFEnum]]) : DFEnum =
+              alias(left, 0, 0, Able.toTokenSeq(left.width, right))
+          }
+        }
+      }
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Prev
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      object Prev extends Prev {
+        trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
+        object Builder {
+          implicit def ev(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Builder[DFEnum] = new Builder[DFEnum] {
+            def apply[P](left : DFEnum, right : Natural.Int.Checked[P]) : DFEnum =
+              alias(left, 0, -right, left.getInit)
+          }
+        }
+      }
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      object Port extends Port {
+
+      }
+
+      object Op extends Op {
+        class Able[L](val value : L) extends DFAny.Op.Able[L]
+        object Able extends super.Implicits
+      }
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Assign
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      object `Op:=` extends `Op:=` {
+
+      }
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      object `Op==` extends `Op==` {
+
+      }
+
+      object `Op!=` extends `Op!=` {
+
+      }
+
     }
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected object General {
+    trait Entry {
 
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Prev
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Prev extends Prev {
-    trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
-    object Builder {
-//      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
-//        def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
-//          DFBits.alias(left, left.width, 0, -right, left.getInit)
-//      }
     }
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  object Port extends Port {
-
+  trait Auto extends General[Auto.Entry] {
+    type CalcWidth = EnumCount[Entry]
   }
-
-  object Op extends Op {
-    class Able[L](val value : L) extends DFAny.Op.Able[L]
-    object Able extends super.Implicits
+  object Auto {
+    trait Entry extends General.Entry
   }
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op:=` extends `Op:=` {
-
+  trait Manual[Width] extends General[Manual.Entry] {
+    type CalcWidth = Width
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  object `Op==` extends `Op==` {
-
+  object Manual {
+    abstract class Entry(value : BitVector) extends General.Entry
   }
-
-  object `Op!=` extends `Op!=` {
-
-  }
-
 }

@@ -117,10 +117,10 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
-  ) : Var[W] = newVar(checkedWidth, Seq(DFBits.Token(checkedWidth, 0)))
+  ) : Var[W] = newVar(checkedWidth, Seq(Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign
-  ) : Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(DFBits.Token(checkedWidth, 0)))
+  ) : Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(Token(checkedWidth, 0)))
   def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +135,7 @@ object DFBits extends DFAny.Companion {
     }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFBits.Token] = Seq())(implicit dsn : DFDesign) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
       def codeString(idRef : String) : String = {
@@ -146,7 +146,7 @@ object DFBits extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def const[W](token : DFBits.Token)(implicit dsn : DFDesign) : DFBits[W] =
+  protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -226,27 +226,25 @@ object DFBits extends DFAny.Companion {
       private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
       private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
-      implicit class DFBitsToken[LW](val right : DFBits.Token) extends Able[DFBits[LW]]
-      implicit class DFBitsTokenSeq[LW](val right : Seq[DFBits.Token]) extends Able[DFBits[LW]]
+      implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
+      implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
       implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
       implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFBits[LW]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
 
-      def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[DFBits.Token] =
+      def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
         right.toSeqAny.map(e => e match {
-          case (t : Bubble) => DFBits.Token(width, t)
-          case (t : DFBits.Token) => DFBits.Token(width, t)
-          case (t : Int) => DFBits.Token(width, t)
-          case (t : Long) => DFBits.Token(width, t)
-          case (t : BitVector) => DFBits.Token(width, t)
+          case (t : Bubble) => Token(width, t)
+          case (t : Token) => Token(width, t)
+          case (t : Int) => Token(width, t)
+          case (t : Long) => Token(width, t)
+          case (t : BitVector) => Token(width, t)
         })
     }
     trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
     object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
-        def apply(left : DFBits[LW], right : Seq[Able[DFBits[LW]]]) : DFBits[LW] =
-          DFBits.alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
-      }
+      implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = (left, right) =>
+        alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,7 +258,7 @@ object DFBits extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit dsn : DFDesign) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
         def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
-          DFBits.alias(left, left.width, 0, -right, left.getInit)
+          alias(left, left.width, 0, -right, left.getInit)
       }
     }
   }
