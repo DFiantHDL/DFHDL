@@ -40,19 +40,18 @@ package object internals {
     private type Zero[V] = ITE[IsLong[V], 0L, 0]
     private type IsPositive[V] = V > Zero[V]
     private type IsZero[V] = V == Zero[V]
-    private type One = 1
     private type Calc[V, W] =
       ITE[
         IsPositive[V],
         W - NumberOfLeadingZeros[V],
         ITE[
           IsZero[V],
-          One,
-          W + One - NumberOfLeadingZeros[Negate[V]]
+          1,
+          W + 1 - NumberOfLeadingZeros[Negate[V]]
           ]
         ]
-    type CalcInt[V] = Calc[V, W.`32`.T]
-    type CalcLong[V] = Calc[V, W.`64`.T]
+    type CalcInt[V] = Calc[V, 32]
+    type CalcLong[V] = Calc[V, 64]
     type Arg0Int = TwoFace.Int.Shell1[CalcInt, GetArg0, scala.Int]
     type Arg0Long = TwoFace.Int.Shell1[CalcLong, GetArg0, scala.Long]
     type Int[V] = TwoFace.Int.Shell1[CalcInt, V, scala.Int]
@@ -154,7 +153,7 @@ package object internals {
   }
 
   object RelWidth {
-    type Calc[H, L] = H - L + W.`1`.T
+    type Calc[H, L] = H - L + 1
     type TF[H, L] = TwoFace.Int.Shell2[Calc, H, Int, L, Int]
     type TFAux[H, L, RetOut] = TF[H, L]{type Out = RetOut}
   }
