@@ -10,11 +10,7 @@ object Enum {
     implicit val cnt = new General.Counter {}
     type Entry <: E
     type CalcWidth
-    trait DFEnum extends DFEnum.Unbounded {
-      import DFEnum._
-      def == [E0 <: Entry](that : E0)(implicit op: `Op==`.Builder[TVal, E]) = op(left, that)
-      def != [E0 <: Entry](that : E0)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, that)
-    }
+    trait DFEnum extends DFEnum.Unbounded
     object DFEnum extends DFAny.Companion {
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Unbounded Val
@@ -23,7 +19,8 @@ object Enum {
         type Width = CalcWidth
         type TVal = DFEnum
         type TVar = DFEnum.Var
-
+        def == [E0 <: Entry](that : E0)(implicit op: `Op==`.Builder[TVal, E]) = op(left, that)
+        def != [E0 <: Entry](that : E0)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, that)
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -50,7 +47,6 @@ object Enum {
           def codeString(idRef : String) : String = s"DFEnum???"
         }
 
-
       protected[DFiant] def alias
       (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Var =
         new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var {
@@ -61,21 +57,22 @@ object Enum {
       protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : DFEnum =
         new DFAny.Const(token) with DFEnum {
         }
-
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Token
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      class Token private[DFiant] (val valueEnum : Entry, bubble : Boolean)(implicit w : SafeInt[CalcWidth]) extends DFAny.Token {
+      class Token private[DFiant] (val valueEnum : Option[Entry])(implicit w : SafeInt[CalcWidth]) extends DFAny.Token {
         val width : Int = w
-        val valueBits: BitVector = valueEnum.value
-        val bubbleMask: BitVector = BitVector.fill(width)(bubble)
+        val (valueBits, bubbleMask) : (BitVector, BitVector) = valueEnum match {
+          case Some(e) => (e.value.toBitVector(width), true.toBitVector(width))
+          case None => (false.toBitVector(width), false.toBitVector(width))
+        }
       }
       object Token {
         import DFAny.TokenSeq
-        def apply(value : Bubble)(implicit w : SafeInt[CalcWidth]) : Token = ???
-        def apply(value : General.Entry)(implicit w : SafeInt[CalcWidth]) : Token = ???
+        def apply(value : Bubble)(implicit w : SafeInt[CalcWidth]) : Token = new Token(None)
+        def apply(value : General.Entry)(implicit w : SafeInt[CalcWidth]) : Token = new Token(Some(value.asInstanceOf[Entry]))
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -149,7 +146,7 @@ object Enum {
   }
   protected object General {
     trait Entry {
-      val value : BitVector
+      val value : Int
     }
     trait Counter {
       var value : Int = 0
@@ -169,6 +166,6 @@ object Enum {
     type CalcWidth = Width
   }
   object Manual {
-    abstract class Entry(val value : BitVector) extends General.Entry
+    abstract class Entry(val value : Int) extends General.Entry
   }
 }

@@ -128,8 +128,8 @@ object DFUInt extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Token private[DFiant] (val width : Int, val valueUInt : BigInt, val bubble : Boolean) extends DFAny.Token {
-    lazy val valueBits : BitVector = BitVector(valueUInt.toByteArray).toLength(width)
-    lazy val bubbleMask: BitVector = BitVector.fill(width)(bubble)
+    lazy val valueBits : BitVector = valueUInt.toBitVector(width)
+    lazy val bubbleMask: BitVector = bubble.toBitVector(width)
     def mkTokenU(that : Token, result : BigInt, resultWidth : Int) : Token = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result.asUnsigned(resultWidth))

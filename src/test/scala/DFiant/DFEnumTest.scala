@@ -7,7 +7,7 @@ import singleton.ops._
 
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   object Foo extends Enum.Auto {
-    sealed class Entry extends Enum.Auto.Entry {val value = bin"1"}
+    sealed class Entry extends Enum.Auto.Entry {val value = 1}
     case object Bar0 extends Entry
     case object Bar1 extends Entry
     case object Bar2 extends Entry
@@ -26,9 +26,9 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
 
 class DFEnumManualTest extends Properties("DFEnumManualTest") {
   object Foo extends Enum.Manual[2] {
-    sealed class Entry(value : BitVector) extends Enum.Manual.Entry(value)
-    case object Bar1 extends Entry(bin"01")
-    case object Bar2 extends Entry(bin"10")
+    sealed class Entry(value : Int) extends Enum.Manual.Entry(value)
+    case object Bar1 extends Entry(0)
+    case object Bar2 extends Entry(1)
   }
 
 

@@ -85,6 +85,7 @@ package object internals {
       else if (value.isValidLong) s"${value}L"
       else s"""BigInt("$value")"""
     }
+    def toBitVector(width : Int) : BitVector = BitVector(value.toByteArray).toLength(width)
   }
 
   implicit class BitVectorExtras(vec : BitVector) {
@@ -119,6 +120,18 @@ package object internals {
       // the leftest presented bit to be to MSbit.
       s"0x${narrowVec.padToMulsOf(nibble).toHex}"
     }
+  }
+
+  implicit class IntExtras(value : Int) {
+    def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
+  }
+
+  implicit class LongExtras(value : Long) {
+    def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
+  }
+
+  implicit class BooleanExtras(value : Boolean) {
+    def toBitVector(width : Int) : BitVector = BitVector.fill(width)(value)
   }
 
   def bigIntToBinaryString(value : BigInt, width : Int = 0) : String = {
