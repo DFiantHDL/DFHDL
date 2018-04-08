@@ -8,6 +8,7 @@ import singleton.ops._
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   object Foo extends Enum.Auto {
     sealed class Entry extends Enum.Auto.Entry {val value = bin"1"}
+    case object Bar0 extends Entry
     case object Bar1 extends Entry
     case object Bar2 extends Entry
   }
@@ -17,8 +18,8 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     implicitly[Require[e.Width == 2]]
     e := Foo.Bar1
 //    e == Foo.Bar2
-//    e.bit(1)
-//    illTyped("""e.bits(3,0)""", "Bit index 3 is out of range of width 2")
+    e.bits(1,0)
+    illTyped("""e.bits(3,0)""", "Bit index 3 is out of range of width 2")
   }
 }
 
