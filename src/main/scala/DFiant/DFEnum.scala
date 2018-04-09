@@ -159,6 +159,7 @@ object Enum {
   }
   object Auto {
     abstract class Entry(implicit cnt : General.Counter) extends General.Entry {
+      val value : Int = cnt.value
       cnt.inc
     }
   }

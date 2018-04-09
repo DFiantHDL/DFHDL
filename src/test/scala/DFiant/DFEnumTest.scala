@@ -7,7 +7,7 @@ import singleton.ops._
 
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   object Foo extends Enum.Auto {
-    sealed class Entry extends Enum.Auto.Entry {val value = 1}
+    sealed class Entry extends Enum.Auto.Entry
     case object Bar0 extends Entry
     case object Bar1 extends Entry
     case object Bar2 extends Entry
