@@ -6,17 +6,15 @@ import scodec.bits._
 import singleton.ops._
 
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
-  object Foo extends Enum.Auto {
+  object Foo extends Enum.Auto(Enum.Encoding.Regular) {
     sealed class Entry extends Enum.Auto.Entry
-    case object Bar0 extends Entry
-    case object Bar1 extends Entry
-    case object Bar2 extends Entry
+    val Baz0, Baz1, Baz2 = new Entry{}
   }
 
   trait MyDesign extends DFDesign {
     val e = Foo.DFEnum()
     implicitly[Require[e.Width == 2]]
-    e := Foo.Bar1
+    e := Foo.Baz1
 //    e == Foo.Bar2
     e.bits(1,0)
     illTyped("""e.bits(3,0)""", "Bit index 3 is out of range of width 2")

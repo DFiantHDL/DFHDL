@@ -154,8 +154,16 @@ object Enum {
     }
   }
 
-  trait Auto extends General[Auto.Entry] {
-    type CalcWidth = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
+  trait Encoding {
+    type CalcWidth[Entry]
+  }
+  object Encoding {
+    object Regular extends Encoding {
+      type CalcWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
+    }
+  }
+  abstract class Auto[E <: Encoding](val encoding : E) extends General[Auto.Entry] {
+    type CalcWidth = encoding.CalcWidth[Entry]
   }
   object Auto {
     abstract class Entry(implicit cnt : General.Counter) extends General.Entry {
