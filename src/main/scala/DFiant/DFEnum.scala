@@ -182,20 +182,20 @@ object Enum {
       cnt.inc
     }
   }
-//  trait Manual[Width] extends General {
-//    class Entry[T](t : T)(implicit check : Manual.Check[Width, T]) extends General.Entry {
-//      val value : BigInt = check.value
-//    }
-//    type EntryWidth = Width
-//  }
-//  object Manual {
-//    trait Check[Width, T] {
-//      val value : BigInt
-//    }
-//    object Check {
-//      implicit def ev[Width, T](implicit v : ValueOf[T]) : Check[Width, T] = new Check[Width, T] {
-//        val value : BigInt = 0
-//      }
-//    }
-//  }
+  trait Manual[Width] extends General {
+    class Entry2[T](t : T)(implicit check : Manual.Check[Width, T]) extends General.Entry {
+      val value : BigInt = check.value
+    }
+    type EntryWidth = Width
+  }
+  object Manual {
+    trait Check[Width, T] {
+      val value : BigInt
+    }
+    object Check {
+      implicit def ev[Width, T](implicit v : ValueOf[T]) : Check[Width, T] = new Check[Width, T] {
+        val value : BigInt = 0
+      }
+    }
+  }
 }
