@@ -147,9 +147,10 @@ object Enum {
     trait Entry {
       val value : BigInt
     }
-    trait Counter {
-      var value : BigInt = 0
-      def inc : Unit = {value = value + 1}
+    abstract class Counter(func : Int => BigInt) {
+      def getValue : BigInt = func(cnt)
+      private var cnt : Int = 0
+      def inc : Unit = {cnt = cnt + 1}
     }
   }
 
@@ -174,18 +175,19 @@ object Enum {
   abstract class Auto[E <: Encoding](val encoding : E) extends General {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
-    implicit val cnt = new General.Counter {}
+    implicit val cnt = new General.Counter(encoding.func) {}
   }
   object Auto {
     abstract class Entry(implicit cnt : General.Counter) extends General.Entry {
-      val value : BigInt = cnt.value
+      val value : BigInt = cnt.getValue
       cnt.inc
     }
   }
   trait Manual[Width] extends General {
-    class Entry2[T](t : T)(implicit check : Manual.Check[Width, T]) extends General.Entry {
-      val value : BigInt = check.value
-    }
+    trait Entry extends General.Entry
+//    class Entry2[T <: Int with Singleton](t : T)(implicit check : Manual.Check[Width, T]) extends General.Entry {
+//      val value : BigInt = check.value
+//    }
     type EntryWidth = Width
   }
   object Manual {
@@ -193,7 +195,7 @@ object Enum {
       val value : BigInt
     }
     object Check {
-      implicit def ev[Width, T](implicit v : ValueOf[T]) : Check[Width, T] = new Check[Width, T] {
+      implicit def ev[Width, T <: Int with Singleton](implicit v : ValueOf[T]) : Check[Width, T] = new Check[Width, T] {
         val value : BigInt = 0
       }
     }
