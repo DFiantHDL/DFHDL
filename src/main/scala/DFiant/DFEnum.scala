@@ -6,8 +6,8 @@ import singleton.twoface._
 import DFiant.internals._
 
 object Enum {
-  protected abstract class General[E <: General.Entry] {
-    type Entry <: E
+  protected abstract class General {
+    type Entry <: General.Entry
     type EntryWidth
     trait DFEnum extends DFEnum.Unbounded
     object DFEnum extends DFAny.Companion {
@@ -18,8 +18,8 @@ object Enum {
         type Width = EntryWidth
         type TVal = DFEnum
         type TVar = DFEnum.Var
-        def == [E0 <: Entry](that : E0)(implicit op: `Op==`.Builder[TVal, E]) = op(left, that)
-        def != [E0 <: Entry](that : E0)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, that)
+        def == [E0 <: Entry](that : E0)(implicit op: `Op==`.Builder[TVal, E0]) = op(left, that)
+        def != [E0 <: Entry](that : E0)(implicit op: `Op!=`.Builder[TVal, E0]) = op(left, that)
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -64,8 +64,8 @@ object Enum {
       class Token private[DFiant] (val valueEnum : Option[Entry])(implicit w : SafeInt[EntryWidth]) extends DFAny.Token {
         val width : Int = w
         val (valueBits, bubbleMask) : (BitVector, BitVector) = valueEnum match {
-          case Some(e) => (e.value.toBitVector(width), true.toBitVector(width))
-          case None => (false.toBitVector(width), false.toBitVector(width))
+          case Some(e) => (e.value.toBitVector(width), false.toBitVector(width))
+          case None => (0.toBitVector(width), true.toBitVector(width))
         }
       }
       object Token {
@@ -171,8 +171,9 @@ object Enum {
       val func : Int => BigInt = t => BigInt(1) << t
     }
   }
-  abstract class Auto[E <: Encoding](val encoding : E) extends General[Auto.Entry] {
-    type EntryWidth = encoding.EntryWidth[Entry]
+  abstract class Auto[E <: Encoding](val encoding : E) extends General {
+    type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
+    type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
     implicit val cnt = new General.Counter {}
   }
   object Auto {
@@ -181,10 +182,20 @@ object Enum {
       cnt.inc
     }
   }
-  trait Manual[Width] extends General[Manual.Entry] {
-    type EntryWidth = Width
-  }
-  object Manual {
-    abstract class Entry(val value : BigInt) extends General.Entry
-  }
+//  trait Manual[Width] extends General {
+//    class Entry[T](t : T)(implicit check : Manual.Check[Width, T]) extends General.Entry {
+//      val value : BigInt = check.value
+//    }
+//    type EntryWidth = Width
+//  }
+//  object Manual {
+//    trait Check[Width, T] {
+//      val value : BigInt
+//    }
+//    object Check {
+//      implicit def ev[Width, T](implicit v : ValueOf[T]) : Check[Width, T] = new Check[Width, T] {
+//        val value : BigInt = 0
+//      }
+//    }
+//  }
 }
