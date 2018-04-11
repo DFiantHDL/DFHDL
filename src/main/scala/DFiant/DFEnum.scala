@@ -7,7 +7,6 @@ import DFiant.internals._
 
 object Enum {
   protected abstract class General[E <: General.Entry] {
-    implicit val cnt = new General.Counter {}
     type Entry <: E
     type EntryWidth
     trait DFEnum extends DFEnum.Unbounded
@@ -146,30 +145,39 @@ object Enum {
   }
   protected object General {
     trait Entry {
-      val value : Int
+      val value : BigInt
     }
     trait Counter {
-      var value : Int = 0
+      var value : BigInt = 0
       def inc : Unit = {value = value + 1}
     }
   }
 
   trait Encoding {
     type EntryWidth[Entry]
-    val func : BigInt => BigInt
+    val func : Int => BigInt
   }
   object Encoding {
     object Default extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
-      val func : BigInt => BigInt = t => t
+      val func : Int => BigInt = t => BigInt(t)
+    }
+    case class StartAt[V <: Int with Singleton](value : V) extends Encoding {
+      type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1 + V]
+      val func : Int => BigInt = t => BigInt(t + value)
+    }
+    object OneHot extends Encoding {
+      type EntryWidth[Entry] = EnumCount[Entry]
+      val func : Int => BigInt = t => BigInt(1) << t
     }
   }
-  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default) extends General[Auto.Entry] {
+  abstract class Auto[E <: Encoding](val encoding : E) extends General[Auto.Entry] {
     type EntryWidth = encoding.EntryWidth[Entry]
+    implicit val cnt = new General.Counter {}
   }
   object Auto {
     abstract class Entry(implicit cnt : General.Counter) extends General.Entry {
-      val value : Int = cnt.value
+      val value : BigInt = cnt.value
       cnt.inc
     }
   }
@@ -177,6 +185,6 @@ object Enum {
     type EntryWidth = Width
   }
   object Manual {
-    abstract class Entry(val value : Int) extends General.Entry
+    abstract class Entry(val value : BigInt) extends General.Entry
   }
 }

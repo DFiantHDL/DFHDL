@@ -6,7 +6,7 @@ import scodec.bits._
 import singleton.ops._
 
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
-  object Foo extends Enum.Auto {
+  object Foo extends Enum.Auto(Enum.Encoding.Default) {
     sealed class Entry extends Enum.Auto.Entry
     val Baz0, Baz1, Baz2 = new Entry{}
   }
