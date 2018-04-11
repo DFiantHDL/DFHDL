@@ -9,14 +9,14 @@ object Enum {
   protected abstract class General[E <: General.Entry] {
     implicit val cnt = new General.Counter {}
     type Entry <: E
-    type CalcWidth
+    type EntryWidth
     trait DFEnum extends DFEnum.Unbounded
     object DFEnum extends DFAny.Companion {
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Unbounded Val
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       trait Unbounded extends DFAny.Unbounded[DFEnum.type] {
-        type Width = CalcWidth
+        type Width = EntryWidth
         type TVal = DFEnum
         type TVar = DFEnum.Var
         def == [E0 <: Entry](that : E0)(implicit op: `Op==`.Builder[TVal, E]) = op(left, that)
@@ -35,26 +35,26 @@ object Enum {
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Public Constructors
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      def apply()(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Var = newVar()
-      def apply(that : Init.Able[DFEnum]*)(implicit dsn : DFDesign, op : Init.Builder[DFEnum], w : SafeInt[CalcWidth]): Var = newVar()
+      def apply()(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : Var = newVar()
+      def apply(that : Init.Able[DFEnum]*)(implicit dsn : DFDesign, op : Init.Builder[DFEnum], w : SafeInt[EntryWidth]): Var = newVar()
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Protected Constructors
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      protected[DFiant] def newVar(init : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Var =
+      protected[DFiant] def newVar(init : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : Var =
         new DFAny.NewVar(w, init) with Var {
           def codeString(idRef : String) : String = s"DFEnum???"
         }
 
       protected[DFiant] def alias
-      (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Var =
+      (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : Var =
         new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var {
           protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
           def codeString(idRef : String) : String = "AliasOfDFEnum???"
         }
 
-      protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : DFEnum =
+      protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : DFEnum =
         new DFAny.Const(token) with DFEnum {
         }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +62,7 @@ object Enum {
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Token
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      class Token private[DFiant] (val valueEnum : Option[Entry])(implicit w : SafeInt[CalcWidth]) extends DFAny.Token {
+      class Token private[DFiant] (val valueEnum : Option[Entry])(implicit w : SafeInt[EntryWidth]) extends DFAny.Token {
         val width : Int = w
         val (valueBits, bubbleMask) : (BitVector, BitVector) = valueEnum match {
           case Some(e) => (e.value.toBitVector(width), true.toBitVector(width))
@@ -71,8 +71,8 @@ object Enum {
       }
       object Token {
         import DFAny.TokenSeq
-        def apply(value : Bubble)(implicit w : SafeInt[CalcWidth]) : Token = new Token(None)
-        def apply(value : General.Entry)(implicit w : SafeInt[CalcWidth]) : Token = new Token(Some(value.asInstanceOf[Entry]))
+        def apply(value : Bubble)(implicit w : SafeInt[EntryWidth]) : Token = new Token(None)
+        def apply(value : General.Entry)(implicit w : SafeInt[EntryWidth]) : Token = new Token(Some(value.asInstanceOf[Entry]))
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -87,7 +87,7 @@ object Enum {
           implicit class DFEnumToken(val right : Token) extends Able[DFEnum]
           implicit class DFEnumTokenSeq(val right : Seq[Token]) extends Able[DFEnum]
 
-          def toTokenSeq[LW](width : Int, right : Seq[Able[DFEnum]])(implicit w : SafeInt[CalcWidth]) : Seq[Token] =
+          def toTokenSeq[LW](width : Int, right : Seq[Able[DFEnum]])(implicit w : SafeInt[EntryWidth]) : Seq[Token] =
             right.toSeqAny.map(e => e match {
               case (t : Bubble) => Token(t)
               case (t : General.Entry) => Token(t)
@@ -96,7 +96,7 @@ object Enum {
         }
         trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
         object Builder {
-          implicit def ev[LW](implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Builder[DFEnum] = (left, right) =>
+          implicit def ev[LW](implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : Builder[DFEnum] = (left, right) =>
             alias(left, 0, 0, Able.toTokenSeq(left.width, right))
         }
       }
@@ -109,7 +109,7 @@ object Enum {
       object Prev extends Prev {
         trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
         object Builder {
-          implicit def ev(implicit dsn : DFDesign, w : SafeInt[CalcWidth]) : Builder[DFEnum] = new Builder[DFEnum] {
+          implicit def ev(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : Builder[DFEnum] = new Builder[DFEnum] {
             def apply[P](left : DFEnum, right : Natural.Int.Checked[P]) : DFEnum =
               alias(left, 0, -right, left.getInit)
           }
@@ -155,15 +155,17 @@ object Enum {
   }
 
   trait Encoding {
-    type CalcWidth[Entry]
+    type EntryWidth[Entry]
+    val func : BigInt => BigInt
   }
   object Encoding {
-    object Regular extends Encoding {
-      type CalcWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
+    object Default extends Encoding {
+      type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
+      val func : BigInt => BigInt = t => t
     }
   }
-  abstract class Auto[E <: Encoding](val encoding : E) extends General[Auto.Entry] {
-    type CalcWidth = encoding.CalcWidth[Entry]
+  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default) extends General[Auto.Entry] {
+    type EntryWidth = encoding.EntryWidth[Entry]
   }
   object Auto {
     abstract class Entry(implicit cnt : General.Counter) extends General.Entry {
@@ -172,7 +174,7 @@ object Enum {
     }
   }
   trait Manual[Width] extends General[Manual.Entry] {
-    type CalcWidth = Width
+    type EntryWidth = Width
   }
   object Manual {
     abstract class Entry(val value : Int) extends General.Entry
