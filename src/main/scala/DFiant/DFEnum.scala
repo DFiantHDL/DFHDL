@@ -100,8 +100,8 @@ object DFEnum extends DFAny.Companion {
       def toTokenSeq[E <: Enum](width : Int, right : Seq[Able[DFEnum[E]]])(implicit w : WidthOf[E]) : Seq[Token[E]] =
         right.toSeqAny.map(e => e match {
           case (t : Bubble) => Token[E](t)
-          case (t : E#Entry) => Token[E](t)
-          case (t : Token[E]) => t
+          case (t : Enum.Entry) => Token[E](t.asInstanceOf[E#Entry])
+          case (t : Token[_]) => t.asInstanceOf[Token[E]]
         })
     }
     trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
@@ -136,8 +136,8 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def conn[E <: Enum, C <: Connection[DFEnum[E]], DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
       : Builder[DFEnum[E], C, DIR] = right => port[E, DIR](right)
-      implicit def fromEntry[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E])
-      : Builder[DFEnum[E], E#Entry, IN] = rightEntry => port[E, IN](FullyConnected(const(Token[E](rightEntry))))
+      implicit def fromEntry[E <: Enum, Entry <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E])
+      : Builder[DFEnum[E], Entry, IN] = rightEntry => port[E, IN](FullyConnected(const(Token[E](rightEntry))))
       implicit def fromDFEnum[E <: Enum, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR, w : WidthOf[E])
       : Builder[DFEnum[E], DFEnum[E], DIR] = rightR => {
         val right = newVar()
@@ -152,8 +152,8 @@ object DFEnum extends DFAny.Companion {
   implicit def outPortFromDFEnum[E <: Enum](right : DFEnum.Var[E])(
     implicit port : Port.Builder[DFEnum[E], DFEnum[E], OUT]
   ) : DFEnum[E] <> OUT = port(right)
-  implicit def inPortFromEntry[E <: Enum](right : E#Entry)(
-    implicit port : Port.Builder[DFEnum[E], E#Entry, IN]
+  implicit def inPortFromEntry[E <: Enum, Entry <: E#Entry](right : Entry)(
+    implicit port : Port.Builder[DFEnum[E], Entry, IN]
   ) : DFEnum[E] <> IN = port(right)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -164,7 +164,7 @@ object DFEnum extends DFAny.Companion {
   object Op extends Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {}
     trait Implicits extends super.Implicits {
-      implicit class FromEntry[LE <: Enum](left : DFEnum[LE]) extends Able[DFEnum[LE]](left)
+      implicit class FromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
     }
     object Able extends Implicits
   }
