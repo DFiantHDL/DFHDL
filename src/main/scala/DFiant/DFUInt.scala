@@ -20,6 +20,7 @@ object DFUInt extends DFAny.Companion {
     type LW = Width
     type TVal = DFUInt[LW]
     type TVar = DFUInt.Var[LW]
+    type TToken = DFUInt.Token
     type Extendable
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
     def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)

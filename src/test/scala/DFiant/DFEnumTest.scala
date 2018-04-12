@@ -23,7 +23,7 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   trait MyDesign extends DFDesign {
     val p1 : Foo.DFEnum <> IN = OPEN
     val p2 : Foo.DFEnum <> IN = TOP
-    val p3 : Foo.DFEnum <> IN = Foo.Baz1
+    val p3 : DFEnum[Foo.type] <> IN = Foo.Baz1
     val e = Foo.DFEnum()
     val p4 : Foo.DFEnum <> IN = e
     val p5 : Foo.DFEnum <> OUT = e

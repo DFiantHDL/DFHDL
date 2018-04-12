@@ -17,6 +17,7 @@ object DFBool extends DFAny.Companion {
   trait Unbounded extends DFAny.Unbounded[DFBool.type] {
     type TVal = DFBool
     type TVar = DFBool.Var
+    type TToken = DFBool.Token
     type Width = 1
     def unary_!(implicit dsn : DFDesign)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
 

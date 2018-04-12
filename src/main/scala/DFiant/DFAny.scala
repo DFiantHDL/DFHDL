@@ -14,7 +14,7 @@ sealed trait DFAny extends Taggable with Nameable {
   type TBits[W2] <: DFBits[W2]
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
-  type TToken = TCompanion#Token //
+  type TToken <: TCompanion#Token //
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   type Width
