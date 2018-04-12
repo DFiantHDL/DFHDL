@@ -77,9 +77,19 @@ object DFEnum extends DFAny.Companion {
       case Some(e) => (e.value.toBitVector(width), false.toBitVector(width))
       case None => (0.toBitVector(width), true.toBitVector(width))
     }
+
+    final def == (that : Token[E]) : DFBool.Token = (this.valueEnum, that.valueEnum) match {
+      case (Some(left), Some(right)) => DFBool.Token(left == right)
+      case _ => DFBool.Token(Bubble)
+    }
+    final def != (that : Token[E]) : DFBool.Token = !(this == that)
+
   }
   object Token {
     import DFAny.TokenSeq
+    def == [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
+    def != [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
+
     def apply[E <: Enum](value : Bubble)(implicit w : WidthOf[E]) : Token[E] = new Token[E](None)
     def apply[E <: Enum](value : E#Entry)(implicit w : WidthOf[E]) : Token[E] = new Token[E](Some(value))
   }
