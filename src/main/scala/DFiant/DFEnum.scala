@@ -165,6 +165,7 @@ object DFEnum extends DFAny.Companion {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {}
     trait Implicits extends super.Implicits {
       implicit class FromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
+      implicit def ofDFEnum[R <: DFEnum.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
   }
@@ -196,9 +197,9 @@ object DFEnum extends DFAny.Companion {
       : Aux[DFEnum[E], DFEnum[E], DFEnum.Var[E]] =
         create[E, DFEnum[E], DFEnum[E]]((left, right) => (left, right))
 
-      implicit def evDFEnum_op_Entry[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E])
-      : Aux[DFEnum[E], E#Entry, DFEnum.Var[E]] =
-        create[E, DFEnum[E], E#Entry]((left, rightEntry) => (left, const(Token[E](rightEntry))))
+      implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E])
+      : Aux[DFEnum[E], Entry, DFEnum.Var[E]] =
+        create[E, DFEnum[E], Entry]((left, rightEntry) => (left, const(Token[E](rightEntry))))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,29 +267,14 @@ object DFEnum extends DFAny.Companion {
   object `Op!=` extends `Op!=` {
 
   }
-
-
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
 sealed abstract class Enum {
   type Entry <: Enum.Entry
   type EntryWidth
-  type DFEnum = DFiant.DFEnum[this.type]
 }
-
-
 
 object Enum {
   sealed trait Entry {
@@ -331,6 +317,7 @@ object Enum {
     }
   }
   abstract class Manual[Width](implicit width : SafeInt[Width]) extends Enum {
+    type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     trait Entry extends Enum.Entry
     object Entry {
@@ -353,6 +340,5 @@ object Enum {
         }
       }
     }
-    type EntryWidth = Width
   }
 }
