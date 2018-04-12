@@ -14,7 +14,7 @@ sealed trait DFAny extends Taggable with Nameable {
   type TBits[W2] <: DFBits[W2]
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
-  type TToken = TCompanion#Token //
+  type TToken <: DFAny.Token
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   type Width
@@ -390,7 +390,6 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
-    type Token <: DFAny.Token
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Port
