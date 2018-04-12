@@ -201,7 +201,7 @@ object Enum {
       }
       def apply(t : BitVector) : Entry = new Entry {
         val value : BigInt = {
-          require(t.length <= width, s"Entry value width (${t.length}) is bigger than the enumeration width ($width)")
+          require(t.length == width.toLong, s"Entry value width (${t.length}) is different than the enumeration width ($width)")
           ???
         }
       }
