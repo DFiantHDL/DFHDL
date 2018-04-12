@@ -6,6 +6,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 object Enum {
+  import DFPort._
   protected abstract class General {
     type Entry <: General.Entry
     type EntryWidth
@@ -53,9 +54,12 @@ object Enum {
           def codeString(idRef : String) : String = "AliasOfDFEnum???"
         }
 
-      protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : DFEnum =
+      protected[DFiant] def const(token : Token)(implicit dsn : DFDesign, w : SafeInt[EntryWidth]) : DFEnum =
         new DFAny.Const(token) with DFEnum {
         }
+
+      protected[DFiant] def port[DIR <: DFDir](dfVar : Connection[DFEnum])(implicit dsn : DFDesign, dir : DIR) : DFEnum <> DIR =
+        new DFAny.Port[DFEnum, DIR](dfVar) with DFEnum
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,9 +120,44 @@ object Enum {
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      object Port extends Port {
 
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Port
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      object Port extends Port {
+        trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
+        object Builder {
+          implicit def conn[C <: Connection[DFEnum], DIR <: DFDir](implicit dsn : DFDesign, dir : DIR)
+          : Builder[DFEnum, C, DIR] = right => port[DIR](right)
+          implicit def fromEntry[E <: Entry](
+            implicit
+            dsn : DFDesign,
+            w : SafeInt[EntryWidth]
+          ) : Builder[DFEnum, E, IN] = rightEntry => {
+            port[IN](FullyConnected(const(Token(rightEntry))))
+          }
+          implicit def fromDFEnum[DIR <: DFDir](
+            implicit
+            dsn : DFDesign,
+            dir : DIR,
+            w : SafeInt[EntryWidth]
+          ) : Builder[DFEnum, DFEnum, DIR] = rightR => {
+            val right = newVar()
+            right.assign(rightR)
+            port[DIR](FullyConnected(right))
+          }
+        }
       }
+      implicit def inPortFromDFEnum[L <: DFEnum.Unbounded](right : DFEnum)(
+        implicit port : Port.Builder[L, DFEnum, IN]
+      ) : L <> IN = port(right)
+      implicit def outPortFromDFEnum[L <: DFEnum.Unbounded](right : DFEnum.Var)(
+        implicit port : Port.Builder[L, DFEnum, OUT]
+      ) : L <> OUT = port(right)
+      implicit def inPortFromEntry[L <: DFEnum.Unbounded, E <: Entry](right : E)(
+        implicit port : Port.Builder[L, E, IN]
+      ) : L <> IN = port(right)
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       object Op extends Op {
         class Able[L](val value : L) extends DFAny.Op.Able[L]
