@@ -18,8 +18,8 @@ object Enum {
         type Width = EntryWidth
         type TVal = DFEnum
         type TVar = DFEnum.Var
-        def == [E0 <: Entry](that : E0)(implicit op: `Op==`.Builder[TVal, E0]) = op(left, that)
-        def != [E0 <: Entry](that : E0)(implicit op: `Op!=`.Builder[TVal, E0]) = op(left, that)
+        def == [E <: Entry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
+        def != [E <: Entry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -27,7 +27,7 @@ object Enum {
       // Var
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       trait Var extends DFEnum with DFAny.Var {
-        def := (that : Entry) : Unit = {}
+        def := [E <: Entry](right : E)(implicit op: `Op:=`.Builder[TVal, E]) = op(left, right)
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
