@@ -38,11 +38,11 @@ trait DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFEnum
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected type EopEeqB[Kind <: DiSoOp.Kind, LE <: Enum, RE <: Enum] = DiSoOp[Kind, DFEnum[LE], DFEnum[RE], DFBool]
-  protected[DFiant] type `E==E`[LE <: Enum, RE <: Enum] = EopEeqB[DiSoOp.Kind.==, LE, RE]
-  implicit def `evE==E`[LE <: Enum, RE <: Enum](implicit dsn : DFDesign) : Implementation[`E==E`[LE, RE]]
-  protected[DFiant] type `E!=E`[LE <: Enum, RE <: Enum] = EopEeqB[DiSoOp.Kind.!=, LE, RE]
-  implicit def `evE!=E`[LE <: Enum, RE <: Enum](implicit dsn : DFDesign) : Implementation[`E!=E`[LE, RE]]
+  protected type EopEeqB[Kind <: DiSoOp.Kind, E <: Enum] = DiSoOp[Kind, DFEnum[E], DFEnum[E], DFBool]
+  protected[DFiant] type `E==E`[E <: Enum] = EopEeqB[DiSoOp.Kind.==, E]
+  implicit def `evE==E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E==E`[E]]
+  protected[DFiant] type `E!=E`[E <: Enum] = EopEeqB[DiSoOp.Kind.!=, E]
+  implicit def `evE!=E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E!=E`[E]]
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 

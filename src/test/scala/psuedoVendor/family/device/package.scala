@@ -33,10 +33,10 @@ package object device {
       import ifc._
     }
 
-    implicit def `evE==E`[LE <: Enum, RE <: Enum](implicit dsn : DFDesign) : Implementation[`E==E`[LE, RE]] = ifc => {
+    implicit def `evE==E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E==E`[E]] = ifc => {
       import ifc._
     }
-    implicit def `evE!=E`[LE <: Enum, RE <: Enum](implicit dsn : DFDesign) : Implementation[`E!=E`[LE, RE]] = ifc => {
+    implicit def `evE!=E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E!=E`[E]] = ifc => {
       import ifc._
     }
 
