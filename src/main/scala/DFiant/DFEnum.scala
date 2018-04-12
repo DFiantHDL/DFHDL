@@ -197,13 +197,13 @@ sealed trait Enum {
             }
           }
 
-        implicit def evDFEnum_op_DFEnum[L <: DFEnum, R <: DFEnum](
+        implicit def evDFEnum_op_DFEnum(
           implicit
           dsn : DFDesign,
           w : SafeInt[EntryWidth]
         ) : Aux[DFEnum, DFEnum, DFEnum.Var] = create[DFEnum, DFEnum]((left, right) => (left, right))
 
-        implicit def evDFEnum_op_Entry[L <: DFEnum, R <: Entry](
+        implicit def evDFEnum_op_Entry[R <: Entry](
           implicit
           dsn : DFDesign,
           w : SafeInt[EntryWidth]
@@ -324,20 +324,20 @@ object Enum {
   abstract class Manual[Width](implicit width : SafeInt[Width]) extends Enum {
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     trait Entry extends Enum.Entry
-    object Entry {
-      protected def apply[T <: Int with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]]) : Entry = new Entry {
+    protected object Entry {
+      def apply[T <: Int with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]]) : Entry = new Entry {
         val value : BigInt = t
       }
-      protected def apply[T <: Long with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]]) : Entry = new Entry {
+      def apply[T <: Long with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]]) : Entry = new Entry {
         val value : BigInt = t
       }
-      protected def apply(t : BigInt) : Entry = new Entry {
+      def apply(t : BigInt) : Entry = new Entry {
         val value : BigInt = {
           require(t.bitsWidth <= width, s"Entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
           t
         }
       }
-      protected def apply(t : BitVector) : Entry = new Entry {
+      def apply(t : BitVector) : Entry = new Entry {
         val value : BigInt = {
           require(t.length == width.toLong, s"Entry value width (${t.length}) is different than the enumeration width ($width)")
           t.toBigInt
