@@ -147,11 +147,6 @@ object Enum {
     trait Entry {
       val value : BigInt
     }
-    abstract class Counter(func : Int => BigInt) {
-      def getValue : BigInt = func(cnt)
-      private var cnt : Int = 0
-      def inc : Unit = {cnt = cnt + 1}
-    }
   }
 
   trait Encoding {
@@ -175,29 +170,42 @@ object Enum {
   abstract class Auto[E <: Encoding](val encoding : E) extends General {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
-    implicit val cnt = new General.Counter(encoding.func) {}
+    implicit val cnt = new Auto.Counter(encoding.func) {}
   }
   object Auto {
-    abstract class Entry(implicit cnt : General.Counter) extends General.Entry {
+    abstract class Counter(func : Int => BigInt) {
+      def getValue : BigInt = func(cnt)
+      private var cnt : Int = 0
+      def inc : Unit = {cnt = cnt + 1}
+    }
+    abstract class Entry(implicit cnt : Counter) extends General.Entry {
       val value : BigInt = cnt.getValue
       cnt.inc
     }
   }
-  trait Manual[Width] extends General {
+  abstract class Manual[Width](implicit width : SafeInt[Width]) extends General {
+    private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     trait Entry extends General.Entry
-//    class Entry2[T <: Int with Singleton](t : T)(implicit check : Manual.Check[Width, T]) extends General.Entry {
-//      val value : BigInt = check.value
-//    }
-    type EntryWidth = Width
-  }
-  object Manual {
-    trait Check[Width, T] {
-      val value : BigInt
-    }
-    object Check {
-      implicit def ev[Width, T <: Int with Singleton](implicit v : ValueOf[T]) : Check[Width, T] = new Check[Width, T] {
-        val value : BigInt = 0
+    object Entry {
+      def apply[T <: Int with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]]) : Entry = new Entry {
+        val value : BigInt = t
+      }
+      def apply[T <: Long with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]]) : Entry = new Entry {
+        val value : BigInt = t
+      }
+      def apply(t : BigInt) : Entry = new Entry {
+        val value : BigInt = {
+          require(t.bitsWidth <= width, s"Entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
+          t
+        }
+      }
+      def apply(t : BitVector) : Entry = new Entry {
+        val value : BigInt = {
+          require(t.length <= width, s"Entry value width (${t.length}) is bigger than the enumeration width ($width)")
+          ???
+        }
       }
     }
+    type EntryWidth = Width
   }
 }

@@ -34,21 +34,24 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
 }
 
 
-//class DFEnumManualTest extends Properties("DFEnumManualTest") {
-//  object Foo extends Enum.Manual[2] {
-//    val Bar1 = new Entry2(100)
-//    val Bar2 = new Entry2(5)
-//  }
-//
-//  trait MyDesign extends DFDesign {
-//    val e = Foo.DFEnum()
-//    val f = e.init(Foo.Bar1, Foo.Bar2)
-//    implicitly[Require[f.Width == 2]]
-//    f := Foo.Bar1
-////    f == Foo.Bar2
-//    f.prev.bits(1,0)
-//    //f.prev(2).prev(2).bits(1,0) TODO: causes compiler crash
-//    illTyped("""f.bits(3,0)""", "Bit index 3 is out of range of width 2")
-//  }
-//
-//}
+class DFEnumManualTest extends Properties("DFEnumManualTest") {
+  object Foo extends Enum.Manual[2] {
+    val Bar1 = Entry(1)
+    val Bar2 = Entry(0)
+    val Bar3 = Entry(0L)
+    val Bar4 = Entry(BigInt(0))
+    val Bar5 = Entry(bin"11")
+  }
+
+  trait MyDesign extends DFDesign {
+    val e = Foo.DFEnum()
+    val f = e.init(Foo.Bar1, Foo.Bar2)
+    implicitly[Require[f.Width == 2]]
+    f := Foo.Bar1
+//    f == Foo.Bar2
+    f.prev.bits(1,0)
+    //f.prev(2).prev(2).bits(1,0) TODO: causes compiler crash
+    illTyped("""f.bits(3,0)""", "Bit index 3 is out of range of width 2")
+  }
+
+}
