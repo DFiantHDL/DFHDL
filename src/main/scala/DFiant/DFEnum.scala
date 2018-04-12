@@ -3,6 +3,7 @@ package DFiant
 import scodec.bits._
 import singleton.ops._
 import singleton.twoface._
+import DFiant.basiclib._
 import DFiant.internals._
 
 object Enum {
@@ -212,6 +213,62 @@ object Enum {
       }
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+      
+//      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//      // Comparison operations
+//      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//      protected abstract class OpsCompare[DiSoOpKind <: DiSoOp.Kind](opFunc : (Seq[DFEnum.Token], Seq[DFEnum.Token]) => Seq[DFBool.Token]) {
+//        type CompareOp = basiclib.DiSoOp[DiSoOpKind, DFEnum, DFEnum, DFBool]
+//        def compareOp(inLeft : DFEnum <> IN, inRight : DFEnum <> IN, outResult : DFBool <> OUT)(
+//          implicit dsn : DFDesign
+//        ) : CompareOp
+//
+//        @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
+//        trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
+//
+//        object Builder {
+//          def create[L, R](properLR : (L, R) => (DFEnum, DFEnum))(implicit dsn : DFDesign, w : SafeInt[EntryWidth])
+//          : Builder[L, R] = (leftL, rightR) => {
+//            val (left, right) = properLR(leftL, rightR)
+//            val result = DFBool.newVar(opFunc(left.getInit, right.getInit))
+//
+//            compareOp (
+//              inLeft = FullyConnected(left),
+//              inRight = FullyConnected(right),
+//              outResult = FullyConnected(result)
+//            )
+//            result
+//          }
+//
+//          implicit def evDFEnum_op_DFEnum[L <: DFEnum, R <: DFEnum](implicit dsn : DFDesign, w : SafeInt[EntryWidth])
+//          : Builder[DFEnum, DFEnum] = create[DFEnum, DFEnum]((left, right) => (left, right))
+//
+//          implicit def evDFEnum_op_Entry[L <: DFEnum, R <: Entry](implicit dsn : DFDesign, w : SafeInt[EntryWidth])
+//          : Builder[DFEnum, R] = create[DFEnum, R]((left, rightEntry) => (left, const(Token(rightEntry))))
+//
+//          implicit def evEntry_op_DFEnum[L <: Entry, R <: DFEnum](implicit dsn : DFDesign, w : SafeInt[EntryWidth])
+//          : Builder[L, DFEnum] = create[L, DFEnum]((leftEntry, right) => (const(Token(leftEntry)), right))
+//        }
+//      }
+//
+//      object `Op==` extends OpsCompare[DiSoOp.Kind.==](DFEnum.Token.==) with `Op==` {
+//        def compareOp(inLeft0 : DFEnum <> IN, inRight0 : DFEnum <> IN, outResult0 : DFBool <> OUT)(
+//          implicit dsn : DFDesign
+//        ) : CompareOp = {
+//          import dsn.basicLib._
+//          new `U==U`{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+//        }
+//      }
+//      object `Op!=` extends OpsCompare[DiSoOp.Kind.!=](DFEnum.Token.!=) with `Op!=` {
+//        def compareOp[LW, RW](inLeft0 : DFEnum <> IN, inRight0 : DFEnum <> IN, outResult0 : DFBool <> OUT)(
+//          implicit dsn : DFDesign
+//        ) : CompareOp[LW, RW] = {
+//          import dsn.basicLib._
+//          new `U!=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
+//        }
+//      }
+//      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
       object `Op==` extends `Op==` {
 
       }
@@ -219,6 +276,7 @@ object Enum {
       object `Op!=` extends `Op!=` {
 
       }
+
 
     }
   }
