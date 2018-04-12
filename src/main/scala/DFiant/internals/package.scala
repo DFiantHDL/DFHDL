@@ -120,6 +120,11 @@ package object internals {
       // the leftest presented bit to be to MSbit.
       s"0x${narrowVec.padToMulsOf(nibble).toHex}"
     }
+    def toBigInt : BigInt = {
+      val len = vec.length
+      val ext = vec.padLeft(len + 1)
+      BigInt(ext.padToMulsOf(8).toByteArray)
+    }
   }
 
   implicit class IntExtras(value : Int) {
