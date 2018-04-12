@@ -32,7 +32,7 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     val p5 : DFEnum[Foo] <> OUT = e
     implicitly[Require[e.Width == 3]]
     e := Foo.Baz1
-//    e == Foo.Bar2
+    e == Foo.Baz2
     e.bits(1,0)
     illTyped("""e.bits(4,0)""", "Bit index 4 is out of range of width 3")
 
@@ -57,7 +57,7 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
     val f = e.init(Foo.Bar1, Foo.Bar2)
     implicitly[Require[f.Width == 2]]
     f := Foo.Bar1
-//    f == Foo.Bar2
+    f == Foo.Bar2
     f.prev.bits(1,0)
     //f.prev(2).prev(2).bits(1,0) TODO: causes compiler crash
     illTyped("""f.bits(3,0)""", "Bit index 3 is out of range of width 2")
