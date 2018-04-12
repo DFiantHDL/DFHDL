@@ -43,6 +43,14 @@ trait Series {
     implicit def `evU>=U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U>=U`[LW, RW]] = ifc => {
       import ifc._
     }
+
+    implicit def `evE==E`[LE <: Enum#DFEnum, RE <: Enum#DFEnum](implicit dsn : DFDesign) : Implementation[`E==E`[LE, RE]] = ifc => {
+      import ifc._
+    }
+    implicit def `evE!=E`[LE <: Enum#DFEnum, RE <: Enum#DFEnum](implicit dsn : DFDesign) : Implementation[`E!=E`[LE, RE]] = ifc => {
+      import ifc._
+    }
+
   }
 
 }
