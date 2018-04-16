@@ -1,5 +1,6 @@
 package DFiant
 import GlobalDesign._
+import singleton.ops.GetArg0
 
 object IfTest {
   val a = DFBool()
@@ -25,12 +26,30 @@ object IfTest {
 object MatchTest {
   val a = DFUInt[8]
   val b = DFUInt[8]
-  new a.matchdf {
-    casedf(b) {
+  val aa = 0 to 5
 
-    }
-    casedf_ {
+  a.casedf(a) {
 
-    }
+//    casedf(b) {
+//
+//    }
+//    casedf_ {
+//
+//    }
+  }.casedf(b, b, b, b, b) {
+
+  }.casedf(a) {
+
+  }.case_ {
+
   }
+}
+
+import DFiant.internals._
+object vb {
+  val a = 1 To 8
+  for (i <- a) {
+
+  }
+
 }

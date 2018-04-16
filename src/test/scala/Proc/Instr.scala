@@ -1,5 +1,22 @@
 package Proc
 import DFiant._
+import scodec.bits._
+
+
+trait Opcode extends Enum.Manual[7] {
+  val LUI     = Entry(bin"0110111")
+  val AUIPC   = Entry(bin"0010111")
+  val JAL     = Entry(bin"1101111")
+  val JALR    = Entry(bin"1100111")
+  val BEQ     = Entry(bin"1100011")
+  val BNE     = Entry(bin"0110111")
+  val BLT     = Entry(bin"0110111")
+  val BGE     = Entry(bin"0110111")
+  val BLTU    = Entry(bin"0110111")
+  val BGEU    = Entry(bin"0110111")
+}
+object Opcode extends Opcode
+
 
 trait Instr extends DFBits[Instr.XLEN] {
   val opcode  = bits( 6,  0)

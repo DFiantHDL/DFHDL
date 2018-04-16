@@ -127,6 +127,21 @@ package object internals {
     }
   }
 
+  implicit class XIntExtras[Start <: Int with Singleton](start : Start) {
+    def To[End <: Int with Singleton](end : End)(
+      implicit check : RequireMsg[Start <= End, "Empty Range"]
+    ) : XRange[Start, End] = XRange[Start, End](start, end)
+    def Until[End <: Int with Singleton](end : End)(
+      implicit check : RequireMsg[Start < End, "Empty Range"], e : SafeInt[End - 1]
+    ) : XRange[Start, e.Out] = XRange[Start, e.Out](start, e.value)
+    def Downto[End <: Int with Singleton](end : End)(
+      implicit check : RequireMsg[End <= Start, "Empty Range"]
+    ) : XRange[End, Start] = XRange[End, Start](end, start)
+    def Downtil[End <: Int with Singleton](end : End)(
+      implicit check : RequireMsg[End < Start, "Empty Range"], e : SafeInt[End + 1]
+    ) : XRange[e.Out, Start] = XRange[e.Out, Start](e.value, start)
+  }
+
   implicit class IntExtras(value : Int) {
     def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
   }

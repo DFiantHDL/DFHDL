@@ -53,6 +53,11 @@ sealed trait DFAny extends Taggable with Nameable {
   final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
     checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
+
+  final def bits[H <: Int with Singleton, L <: Int with Singleton](range : XRange[L, H])(
+    implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
+    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L]
+  ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -140,8 +145,9 @@ sealed trait DFAny extends Taggable with Nameable {
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
 //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
-  trait matchdf {
-    def casedf_(block : => Unit) : Unit = {}
+  def casedf(a: TVal)(block : => Unit)(implicit dsn : DFDesign) : DFCase[TVal] = {
+//    def casedf_(block : => Unit) : Unit = {}
+    ???
   }
 }
 
