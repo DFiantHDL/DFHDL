@@ -9,9 +9,7 @@ object BasicTest extends App {
     c_out := a_in + b_in
   }
 
-  override def main(args: Array[String]) : Unit = {
-    import psuedoVendor.family.device._
-    val myDesign = new MyDesign {}
-    myDesign.compileToVHDL("myDesignTest")
-  }
+  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+  val myDesign = new MyDesign {}
+  myDesign.compileToVHDL("myDesignTest")
 }
