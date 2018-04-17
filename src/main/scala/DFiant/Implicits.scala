@@ -1,3 +1,5 @@
 package DFiant
 
-trait Implicits extends DFUInt.Op.Implicits
+import DFiant.internals._
+
+trait Implicits extends XRange.Implicits with DFUInt.Op.Implicits

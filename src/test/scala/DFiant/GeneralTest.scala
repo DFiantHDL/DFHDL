@@ -34,7 +34,7 @@ object GeneralTest {
   BigInt(1).toDFUInt.extendable + d
   val aa = DFUInt(8).init(5).prev(2)
 
-  d9.bits(0 TO 7)
+  d9.bits(0 TO one)
   //  d < 10
 //  -10 - d
 //  (1 < d) && (d > 3)

@@ -54,10 +54,14 @@ sealed trait DFAny extends Taggable with Nameable {
     checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
-  final def bits[H <: Int with Singleton, L <: Int with Singleton](range : XRange[L, H])(
-    implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
-    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L]
-  ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
+  final def bits[H, L](range : XRange.Int[L, H])(
+    implicit relBitHigh : BitIndex.CheckedShell[H, Width], relBitLow : BitIndex.CheckedShell[L, Width],
+    relWidth : RelWidth.TF[H, L]
+  ) = {
+    relBitHigh.unsafeCheck(range.end, width)
+    relBitLow.unsafeCheck(range.start, width)
+    protBits[H, L](TwoFace.Int.create[H](range.end), TwoFace.Int.create[L](range.start))
+  }
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
