@@ -47,9 +47,9 @@ object MatchTest {
 
 import DFiant.internals._
 object vb {
-  val a = 1 To 8
-  for (i <- a) {
-
-  }
+//  val a = 1 To 8
+//  for (i <- a) {
+//
+//  }
 
 }
