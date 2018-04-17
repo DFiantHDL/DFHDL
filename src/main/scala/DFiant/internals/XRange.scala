@@ -9,15 +9,19 @@ object XRange {
   type Int[Start <: std.Int, End <: std.Int] = Range with IntTag[Start, End]
   protected trait LongTag[Start, End]
   type Long[Start <: std.Long, End <: std.Long] = Range with LongTag[Start, End]
+  trait TO
+  trait DOWNTO
 
   protected object Int {
-    def apply[Start <: std.Int, End <: std.Int](start : Start, end : End)
-    : Int[Start, End] = Range(start, end).asInstanceOf[Int[Start, End]]
+    type TO[Start <: std.Int, End <: std.Int] = Int[Start, End] with XRange.TO
+    def TO[Start <: std.Int, End <: std.Int](start : Start, end : End)
+    : TO[Start, End] = Range(start, end).asInstanceOf[TO[Start, End]]
   }
 
   protected object Long {
-    def apply[Start <: std.Long, End <: std.Long](start : Start, end : End)
-    : Long[Start, End] = Range.Long(start, end, 1L).asInstanceOf[Long[Start, End]]
+    type TO[Start <: std.Long, End <: std.Long] = Long[Start, End] with XRange.TO
+    def TO[Start <: std.Long, End <: std.Long](start : Start, end : End)
+    : TO[Start, End] = Range.Long(start, end, 1L).asInstanceOf[TO[Start, End]]
   }
 
   object Check extends Checked1Param.Int {
@@ -31,9 +35,9 @@ object XRange {
         implicit s : OpAuxGen[AcceptNonLiteral[GetLHSArg0], S],
         e : OpAuxGen[AcceptNonLiteral[GetArg0], E],
         check : Check.CheckedShell[S, E]
-      ) : Int[S, E] = {
+      ) : Int.TO[S, E] = {
         check.unsafeCheck(start, end)
-        XRange.Int[S, E](s.value, e.value)
+        Int.TO[S, E](s.value, e.value)
       }
 //      def UNTIL[End <: std.Int with Singleton](end : End)(
 //        implicit check : RequireMsg[Start < End, "Empty Range"], e : SafeInt[End - 1]
