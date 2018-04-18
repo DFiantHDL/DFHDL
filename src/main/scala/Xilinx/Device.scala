@@ -12,7 +12,7 @@ trait Device {
     val GbTrans : Int with Singleton
     val IOBs : Int with Singleton
   }
-  val resources : Resources = ???
+//  lazy val resources : Resources = ???
 
 }
 

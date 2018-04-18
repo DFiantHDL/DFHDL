@@ -81,7 +81,7 @@ object DFUInt extends DFAny.Companion {
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : Var[W] = newVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
-    implicit dsn : DFDesign
+    implicit dsn : DFDesign, n : sourcecode.Name
   ) : Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
@@ -95,7 +95,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(implicit dsn : DFDesign) : Var[W] =
+  protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(implicit dsn : DFDesign, n : sourcecode.Name) : Var[W] =
     new DFAny.NewVar(width, init) with Var[W] {
       def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
     }

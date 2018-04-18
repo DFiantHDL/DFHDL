@@ -1,6 +1,9 @@
-import scodec.bits._
+import DFiant._
 
-object M {
-  final val a = "010000001"
+import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+val d = new DFDesign {
+  val mama = DFUInt(32)
+
 }
-bin"010000001"
+
+d.mama.getName

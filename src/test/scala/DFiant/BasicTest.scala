@@ -6,10 +6,13 @@ object BasicTest extends App {
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
     val c_out : DFUInt[W] <> OUT = TOP
-    c_out := a_in + b_in
+    val a = DFUInt(8)
+    val b = a.bits()
+//    c_out := a_in + b_in
   }
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   val myDesign = new MyDesign {}
-  myDesign.compileToVHDL("myDesignTest")
+  print(myDesign.b.getName)
+//  myDesign.compileToVHDL("myDesignTest")
 }
