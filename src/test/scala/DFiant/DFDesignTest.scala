@@ -8,7 +8,7 @@ class DFDesignTest {
   abstract class Box[GenW](implicit g : TwoFace.Int[GenW]) extends DFDesign {
     val in1  : DFUInt[GenW] <> IN  = OPEN
     val out1 : DFUInt[GenW] <> OUT = OPEN
-    val in2  : DFUInt[GenW] <> IN = TOP.setName("moshe")
+    val in2  : DFUInt[GenW] <> IN = TOP
     val out2 : DFUInt[GenW] <> OUT = out1
     illTyped("""val out1 : DFUInt[GenW] <> OUT = in1""") //Fail compile mixing input/output ports
     illTyped("""val in2  : DFUInt[GenW] <> IN  = out1""") //Fail compile mixing input/output ports

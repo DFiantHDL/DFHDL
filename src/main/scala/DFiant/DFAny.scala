@@ -226,6 +226,7 @@ object DFAny {
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
+    setName(n.value)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -257,7 +258,7 @@ object DFAny {
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
-    nameOption = conn.nameOption
+    setName(n.value)
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {
