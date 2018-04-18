@@ -27,11 +27,11 @@ sealed trait DFAny extends Taggable with Nameable {
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
-  protected final def protBit[I](relBit : TwoFace.Int[I]) : TBool =
+  protected final def protBit[I](relBit : TwoFace.Int[I])(implicit n : NameIt) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
-  final def bit[I](relBit : BitIndex.Checked[I, Width]) : TBool = protBit(relBit.unsafeCheck(width))
-  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit n : NameIt) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], n : NameIt, di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -56,7 +56,7 @@ sealed trait DFAny extends Taggable with Nameable {
 
   final def bits[H <: Int, L <: Int](range : XRange.Int[L, H])(
     implicit relBitHigh : BitIndex.CheckedShell[H, Width], relBitLow : BitIndex.CheckedShell[L, Width],
-    relWidth : RelWidth.TF[H, L]
+    relWidth : RelWidth.TF[H, L], n : NameIt
   ) = {
     relBitHigh.unsafeCheck(range.end, width)
     relBitLow.unsafeCheck(range.start, width)
@@ -67,19 +67,19 @@ sealed trait DFAny extends Taggable with Nameable {
   //////////////////////////////////////////////////////////////////////////
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
-  protected final def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])
+  protected final def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit n : NameIt)
   : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L]
+    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], n : NameIt
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
   }
 
   final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width],
-    checkRelWidth : PartWidth.CheckedShell[W, Width - L], di : DummyImplicit
+    checkRelWidth : PartWidth.CheckedShell[W, Width - L], n : NameIt, di : DummyImplicit
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
@@ -221,7 +221,7 @@ object DFAny {
     setName(n.value)
   }
 
-  abstract class Const(token : Token)(implicit protected val dsn : DFDesign, cmp : Companion) extends DFAny {
+  abstract class Const(token : Token)(implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -233,7 +233,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR) extends DFAny {
+  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
       case FullyConnected(dfVar) => dfVar.width
       case OPEN => 0
