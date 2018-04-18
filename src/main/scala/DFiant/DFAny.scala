@@ -37,21 +37,21 @@ sealed trait DFAny extends Taggable with Nameable {
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits()(implicit n : sourcecode.Name) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
+  final def bits()(implicit n : NameIt) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
 
   protected final def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
-    implicit relWidth : RelWidth.TF[H, L], n : sourcecode.Name
+    implicit relWidth : RelWidth.TF[H, L], n : NameIt
   ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], n : sourcecode.Name
+    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], n : NameIt
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
 
   final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
-    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], n : sourcecode.Name, di : DummyImplicit
+    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], n : NameIt, di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
   final def bits[H <: Int, L <: Int](range : XRange.Int[L, H])(
@@ -193,7 +193,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit protected val dsn : DFDesign, cmp : Companion, n : sourcecode.Name) extends DFAny {
+  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
@@ -202,7 +202,7 @@ object DFAny {
     setName(n.value)
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit protected val dsn : DFDesign, cmp : Companion, n : sourcecode.Name)
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt)
     extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken

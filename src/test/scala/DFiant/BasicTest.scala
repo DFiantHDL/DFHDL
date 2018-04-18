@@ -13,6 +13,6 @@ object BasicTest extends App {
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   val myDesign = new MyDesign {}
-  print(myDesign.b.getName)
+  print(myDesign.a.getName)
 //  myDesign.compileToVHDL("myDesignTest")
 }
