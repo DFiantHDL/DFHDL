@@ -16,12 +16,18 @@ object XRange {
     type TO[Start <: std.Int, End <: std.Int] = Int[Start, End] with XRange.TO
     def TO[Start <: std.Int, End <: std.Int](start : Start, end : End)
     : TO[Start, End] = Range(start, end).asInstanceOf[TO[Start, End]]
+    type DOWNTO[Start <: std.Int, End <: std.Int] = Int[Start, End] with XRange.DOWNTO
+    def DOWNTO[Start <: std.Int, End <: std.Int](start : Start, end : End)
+    : DOWNTO[Start, End] = Range(start, end, -1).asInstanceOf[DOWNTO[Start, End]]
   }
 
   protected object Long {
     type TO[Start <: std.Long, End <: std.Long] = Long[Start, End] with XRange.TO
     def TO[Start <: std.Long, End <: std.Long](start : Start, end : End)
     : TO[Start, End] = Range.Long(start, end, 1L).asInstanceOf[TO[Start, End]]
+    type DOWNTO[Start <: std.Long, End <: std.Long] = Long[Start, End] with XRange.DOWNTO
+    def DOWNTO[Start <: std.Long, End <: std.Long](start : Start, end : End)
+    : DOWNTO[Start, End] = Range.Long(start, end, -1L).asInstanceOf[DOWNTO[Start, End]]
   }
 
   object Check extends Checked1Param.Int {
@@ -39,19 +45,32 @@ object XRange {
         check.unsafeCheck(start, end)
         Int.TO[S, E](s.value, e.value)
       }
-//      def UNTIL[End <: std.Int with Singleton](end : End)(
-//        implicit check : RequireMsg[Start < End, "Empty Range"], e : SafeInt[End - 1]
-//      ) : Int[Start, e.Out] = XRange.Int[Start, e.Out](start, e.value)
-//      def DOWNTO[End <: std.Int with Singleton](end : End)(
-//        implicit check : RequireMsg[End <= Start, "Empty Range"]
-//      ) : Int[End, Start] = XRange.Int[End, Start](end, start)
-//      def DOWNTIL[End <: std.Int with Singleton](end : End)(
-//        implicit check : RequireMsg[End < Start, "Empty Range"], e : SafeInt[End + 1]
-//      ) : Int[e.Out, Start] = XRange.Int[e.Out, Start](e.value, start)
+      def UNTIL[End <: std.Int, S <: std.Int, E <: std.Int](end : End)(
+        implicit s : OpAuxGen[AcceptNonLiteral[GetLHSArg0], S],
+        e : OpAuxGen[AcceptNonLiteral[GetArg0-1], E],
+        check : Check.CheckedShell[S, E]
+      ) : Int.TO[S, E] = {
+        check.unsafeCheck(start, end)
+        Int.TO[S, E](s.value, e.value)
+      }
+      def DOWNTO[End <: std.Int, S <: std.Int, E <: std.Int](end : End)(
+        implicit s : OpAuxGen[AcceptNonLiteral[GetLHSArg0], S],
+        e : OpAuxGen[AcceptNonLiteral[GetArg0], E],
+        check : Check.CheckedShell[E, S]
+      ) : Int.DOWNTO[S, E] = {
+        check.unsafeCheck(start, end)
+        Int.DOWNTO[S, E](s.value, e.value)
+      }
+      def DOWNTIL[End <: std.Int, S <: std.Int, E <: std.Int](end : End)(
+        implicit s : OpAuxGen[AcceptNonLiteral[GetLHSArg0], S],
+        e : OpAuxGen[AcceptNonLiteral[GetArg0+1], E],
+        check : Check.CheckedShell[E, S]
+      ) : Int.DOWNTO[S, E] = {
+        check.unsafeCheck(start, end)
+        Int.DOWNTO[S, E](s.value, e.value)
+      }
     }
-
   }
-
 }
 
 
