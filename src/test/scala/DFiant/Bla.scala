@@ -25,6 +25,18 @@ object Adder {
 
 
 object Bla {
+//  trait Comp extends DFDesign {
+//    val i : DFUInt[8] <> IN = OPEN
+//    val o : DFUInt[8] <> OUT = OPEN
+//    o := i
+//  }
+//
+//  val L = new Comp {}
+//  val R = new Comp {}
+//
+//  L.i <> R.o
+//  L.o <> R.i
+
   new DFDesign {
     val a = DFUInt(7).extendable
     val b = DFUInt(8)
