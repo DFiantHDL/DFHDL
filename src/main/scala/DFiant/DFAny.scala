@@ -193,7 +193,9 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class NewVar(_width : Int, _init : Seq[Token])(implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt) extends DFAny {
+  abstract class NewVar(_width : Int, _init : Seq[Token])(
+    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+  ) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
@@ -202,8 +204,9 @@ object DFAny {
     setName(n.value)
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt)
-    extends DFAny {
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
+    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+  ) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -221,7 +224,9 @@ object DFAny {
     setName(n.value)
   }
 
-  abstract class Const(token : Token)(implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt) extends DFAny {
+  abstract class Const(token : Token)(
+    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+  ) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -234,7 +239,9 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt) extends DFAny {
+  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(
+    implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt
+  ) extends DFAny {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
       case FullyConnected(dfVar) => dfVar.width
       case OPEN => 0
