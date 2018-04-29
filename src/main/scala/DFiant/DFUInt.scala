@@ -449,23 +449,20 @@ object DFUInt extends DFAny.Companion {
         type ParamFace = Int
       }
 
-      def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW])) : Aux[L, R, DFUInt.Var[LW]] =
+      def create[L, R, RW](properR : (L, R) => DFUInt[RW]) : Aux[L, R, DFUInt[RW]] =
         new Builder[L, R] {
-          type Comp = DFUInt.Var[LW]
-          def apply(leftL : L, rightR : R) : Comp = {
-            val (left, right) = properLR(leftL, rightR)
-            left.assign(right)
-          }
+          type Comp = DFUInt[RW]
+          def apply(leftL : L, rightR : R) : Comp =  properR(leftL, rightR)
         }
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
         dsn : DFDesign, n : NameIt,
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt.Var[LW]] =
-        create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
+      ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
+        create[DFUInt[LW], DFUInt[RW], RW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          (left, right)
+          right
         })
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
@@ -473,10 +470,10 @@ object DFUInt extends DFAny.Companion {
         dsn : DFDesign, n : NameIt,
         rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], R, DFUInt.Var[LW]] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
+      ) : Aux[DFUInt[LW], R, DFUInt[RW]] = create[DFUInt[LW], R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        (left, right)
+        right
       })
     }
   }

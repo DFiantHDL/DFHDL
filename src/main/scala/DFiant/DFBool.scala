@@ -236,22 +236,19 @@ object DFBool extends DFAny.Companion {
         type Comp = Comp0
       }
 
-      def create[L, R](properLR : (L, R) => (DFBool, DFBool))
-      : Aux[L, R, DFBool.Var] = new Builder[L, R] {
-        type Comp = DFBool.Var
-        def apply(leftL : L, rightR : R) : Comp = {
-          val (left, right) = properLR(leftL, rightR)
-          left.assign(right)
-        }
+      def create[L, R](properR : (L, R) => DFBool)
+      : Aux[L, R, DFBool] = new Builder[L, R] {
+        type Comp = DFBool
+        def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
       }
 
       implicit def evDFUInt_op_DFUInt[L <: DFBool, R <: DFBool](implicit dsn : DFDesign, n : NameIt)
-      : Aux[DFBool, DFBool, DFBool.Var] = create[DFBool, DFBool]((left, right) => (left, right))
+      : Aux[DFBool, DFBool, DFBool] = create[DFBool, DFBool]((left, right) => right)
 
       implicit def evDFUInt_op_Const[L <: DFBool, R](implicit dsn : DFDesign, n : NameIt, rConst : Const[Builder[_,_], R])
-      : Aux[DFBool, R, DFBool.Var] = create[DFBool, R]((left, rightNum) => {
+      : Aux[DFBool, R, DFBool] = create[DFBool, R]((left, rightNum) => {
         val right = rConst(rightNum)
-        (left, right)
+        right
       })
     }
   }

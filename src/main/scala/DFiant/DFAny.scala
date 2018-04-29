@@ -178,7 +178,7 @@ object DFAny {
       this.asInstanceOf[TAlias]
     }
     final def isNotFull : DFBool = ???
-    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
+    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
     final def <-- (that : Iterable[TVal]) : TVar = {
@@ -262,10 +262,14 @@ object DFAny {
       case OPEN => true
       case _ => false
     }
+    protected[DFiant] final def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
+      AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
+      this.asInstanceOf[Port[DF, DIR] with DF]
+    }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
-    ) = op(left, right.value)
+    ) = portAssign(op(left, right))
     setName(n.value)
   }
   object Port {
@@ -394,7 +398,7 @@ object DFAny {
       implicit def fromAble[R](able : Able[R]) : R = able.value
     }
     trait Builder[L, R] {
-      type Comp
+      type Comp <: DFAny
       def apply(left : L, rightR : R) : Comp
     }
     trait Implicits[A[T] <: Able[T], UB <: DFAny] {

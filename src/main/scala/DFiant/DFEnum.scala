@@ -197,22 +197,19 @@ object DFEnum extends DFAny.Companion {
         type Comp = Comp0
       }
 
-      def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E])) : Aux[L, R, DFEnum.Var[E]] =
+      def create[E <: Enum, L, R](properR : (L, R) => DFEnum[E]) : Aux[L, R, DFEnum[E]] =
         new Builder[L, R] {
-          type Comp = DFEnum.Var[E]
-          def apply(leftL : L, rightR : R) : Comp = {
-            val (left, right) = properLR(leftL, rightR)
-            left.assign(right)
-          }
+          type Comp = DFEnum[E]
+          def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
         }
 
       implicit def evDFEnum_op_DFEnum[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E])
-      : Aux[DFEnum[E], DFEnum[E], DFEnum.Var[E]] =
-        create[E, DFEnum[E], DFEnum[E]]((left, right) => (left, right))
+      : Aux[DFEnum[E], DFEnum[E], DFEnum[E]] =
+        create[E, DFEnum[E], DFEnum[E]]((left, right) => right)
 
       implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E])
-      : Aux[DFEnum[E], Entry, DFEnum.Var[E]] =
-        create[E, DFEnum[E], Entry]((left, rightEntry) => (left, const(Token[E](rightEntry))))
+      : Aux[DFEnum[E], Entry, DFEnum[E]] =
+        create[E, DFEnum[E], Entry]((left, rightEntry) => const(Token[E](rightEntry)))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
