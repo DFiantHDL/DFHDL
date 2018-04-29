@@ -8,6 +8,8 @@ doc/**/*.bbl
 doc/**/*.blg
 doc/**/*.log
 doc/**/*.out
+doc/**/*.cb
+doc/**/*.cb2
 doc/**/*.synctex.gz
 doc/fpga2018/fpga2018.pdf
 
