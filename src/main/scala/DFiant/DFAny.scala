@@ -170,7 +170,6 @@ object DFAny {
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
-    type AssignAble[R]
 
     //    type TUInt = DFUInt#TVar
 
@@ -264,7 +263,9 @@ object DFAny {
       case _ => false
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final def := [R](right: protComp.Op.Able[R])(implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]) = op(left, right.value)
+    final def := [R](right: protComp.Op.Able[R])(
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
+    ) = op(left, right.value)
     setName(n.value)
   }
   object Port {
