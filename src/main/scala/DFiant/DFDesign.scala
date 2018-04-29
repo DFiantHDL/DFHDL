@@ -3,7 +3,9 @@ package DFiant
 import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
-abstract class DFDesign(implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib) extends DFInterface with Implicits {
+abstract class DFDesign(
+  implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib
+) extends DFInterface with Implicits {
   protected implicit val dsn = this
   protected implicit val childParent = Some(this)
   protected[DFiant] val protAlmanac = new Almanac {}
@@ -23,7 +25,9 @@ abstract class DFDesign(implicit val parent : Option[DFDesign] = None, val basic
 object DFDesign {
 }
 
-abstract class DFComponent[Comp <: DFComponent[Comp]](implicit dsn : DFDesign, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib) extends DFDesign()(Some(dsn), basicLib) {
+abstract class DFComponent[Comp <: DFComponent[Comp]](
+  implicit dsn : DFDesign, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib
+) extends DFDesign()(Some(dsn), basicLib) {
   impl(this.asInstanceOf[Comp])
 }
 
