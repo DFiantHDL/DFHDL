@@ -3,7 +3,7 @@ package DFiant
 import DFiant.DFAny.Token
 import DFiant.internals._
 
-trait DFInterface extends Taggable with Nameable {
+trait DFInterface extends HasProperties with Nameable {
   protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   protected type DFDir = DFPort.DFDir
   protected type IN = DFPort.IN

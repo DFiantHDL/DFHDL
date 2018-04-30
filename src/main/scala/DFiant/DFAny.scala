@@ -6,7 +6,7 @@ import singleton.twoface._
 import scodec.bits._
 import shapeless.<:!<
 
-sealed trait DFAny extends Taggable with Nameable {
+sealed trait DFAny extends HasProperties with Nameable {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
