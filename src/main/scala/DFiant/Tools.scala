@@ -1,3 +1,39 @@
+package DFiant
+
+
+import scala.language.experimental.macros
+
+import scala.concurrent.duration.FiniteDuration
+import scala.reflect.macros.blackbox
+
+object printCompileTime {
+  def apply(code: String): FiniteDuration = macro CompileTimeMacros.applyImpl
+}
+
+//@macrocompat.bundle
+class CompileTimeMacros(val c: blackbox.Context) {
+  import c.universe._
+
+  def applyImpl(code: Tree): Tree = {
+    def wallClock(codeStr: String): Long = {
+      try {
+        val t1 = System.nanoTime()
+        c.typecheck(c.parse(codeStr.stripMargin))
+        val t2 = System.nanoTime()
+        t2 - t1
+      } catch {
+        case ex: Exception => c.abort(c.enclosingPosition, ex.getMessage)
+      }
+    }
+
+    val Literal(Constant(codeStr: String)) = code
+    val elapsedTime = wallClock(codeStr)
+
+    print(s"TIME AT ${c.enclosingPosition} IS ${elapsedTime/1000000000}sec")
+    q"_root_.scala.concurrent.duration.Duration.fromNanos($elapsedTime)"
+  }
+}
+
 //package DFiant
 //import scala.math.{ceil, log}
 //
