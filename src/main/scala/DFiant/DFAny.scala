@@ -4,7 +4,6 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
-import shapeless.<:!<
 
 sealed trait DFAny extends HasProperties with Nameable {
   type TVal <: DFAny
