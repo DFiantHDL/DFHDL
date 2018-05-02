@@ -1,18 +1,26 @@
 package DFiant
+import basiclib._
 
 object BasicTest extends App {
-  trait MyDesign extends DFDesign {
+
+  abstract class MemeDesign(implicit basicLib: DFBasicLib) extends DFDesign {
     type W = 8
+    val meme = new DFDesign {
+      val a : DFUInt[W] <> IN = OPEN
+    }
+  }
+
+  trait MyDesign extends MemeDesign {
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
     val c_out : DFUInt[W] <> OUT = TOP
-    val a = DFUInt(8)
-    val b = a.bits().toDFUInt
-//    c_out := a_in + b_in
+    c_out := a_in + b_in
   }
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   val myDesign = new MyDesign {}
-  print(myDesign.a_in.getName)
+  println(myDesign.a_in.getName)
+  println(myDesign.getName)
+  println(myDesign.meme.getName)
 //  myDesign.compileToVHDL("myDesignTest")
 }

@@ -7,18 +7,33 @@ abstract class DFDesign(
   implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib
 ) extends DFInterface with Implicits {
   protected implicit val dsn = this
+  final lazy val components : List[DFDesign] =
+    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f.getName != "dsn", (f, t) => t.setName(f.getName))
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = addDesignToParent
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   def compileToVHDL(fileName : String) = ???
-  final protected def addChildDesign(childDsn : DFDesign) : Almanac = protAlmanac.fetchComponent(new Almanac {})
+  final protected def newComponent : Almanac = {
+    protAlmanac.fetchComponent(new Almanac {})
+  }
   final protected def addDesignToParent : Almanac = parent match {
-    case Some(p) => p.addChildDesign(this)
-    case _ => new Almanac {}
+    case Some(p) => p.newComponent
+    case _ => {
+      setName("top")
+      new Almanac {}
+    }
   }
   final def isTop : Boolean = parent match {
     case Some(p) => false
     case _ => true
+  }
+
+  override def getName: String = {
+    parent match {
+      case Some(p) => p.components //touching components to force naming
+      case _ =>
+    }
+    super.getName
   }
 }
 object DFDesign {
@@ -36,7 +51,7 @@ object DFComponent {
   }
 }
 
-abstract class RTComponent(implicit dsn : DFDesign) extends DFInterface {
+abstract class RTComponent(implicit dsn : DFDesign, n : NameIt) extends DFInterface {
   protected def newGeneric() : Unit = {}
 
   dsn.addRTComponent(this)

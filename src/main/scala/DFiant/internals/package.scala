@@ -156,6 +156,25 @@ package object internals {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  implicit class ReflectionClassExtras(extended : Any) {
+    import java.lang.reflect.Field
+
+    def getNestedDeclaredFieldsOf[T](subClass : Class[_], filterApply : Field => Boolean = f => true, fieldApply : (Field, T) => T = (f : Field, t : T) => t) : List[T] = {
+      def allFieldsFrom(c : Class[_]) : List[Field] = {
+        if (c == null) List()
+        else
+          c.getDeclaredFields.filter(f => f.getType.isAssignableFrom(subClass)).toList ++ allFieldsFrom(c.getSuperclass)
+      }
+
+      allFieldsFrom(extended.getClass).map(f => {
+        f.setAccessible(true)
+        val t = f.get(extended).asInstanceOf[T]
+        fieldApply(f, t)
+      })
+    }
+
+
+  }
   def int2hex (int : Int, nibblesMax : Int = 0): String = {
     var str = Integer.toHexString(int).toUpperCase
     var space = ""

@@ -1,6 +1,7 @@
 package DFiant
 
 import DFiant.basiclib._
+import DFiant.internals._
 
 object DFGlobalLib extends DFBasicLib {
   import DFComponent.Implementation

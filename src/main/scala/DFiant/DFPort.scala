@@ -4,16 +4,16 @@ import DFiant.DFAny.Token
 import DFiant.internals._
 
 trait DFInterface extends HasProperties with Nameable {
-  protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
-  protected type DFDir = DFPort.DFDir
-  protected type IN = DFPort.IN
-  protected type OUT = DFPort.OUT
-  protected type OPEN = DFPort.OPEN
-  protected final val OPEN = DFPort.OPEN
-  protected type TOP = DFPort.TOP
-  protected final val TOP = DFPort.TOP
+  final protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
+  final protected type DFDir = DFPort.DFDir
+  final protected type IN = DFPort.IN
+  final protected type OUT = DFPort.OUT
+  final protected type OPEN = DFPort.OPEN
+  final protected val OPEN = DFPort.OPEN
+  final protected type TOP = DFPort.TOP
+  final protected val TOP = DFPort.TOP
 
-  lazy val ports : Array[DFAny.Port[DFAny, DFDir]] = {
+  final lazy val ports : Array[DFAny.Port[DFAny, DFDir]] = {
     getClass.getDeclaredFields
       .filter(f => f.getType.isAssignableFrom(classOf[DFAny.Port[DFAny, DFDir]]))
       .map(f => {
@@ -22,12 +22,12 @@ trait DFInterface extends HasProperties with Nameable {
       })
   }
 
-  lazy val portsIn : Array[DFAny.Port[DFAny, IN]] = ports.filter(p => p.dir match {
+  final lazy val portsIn : Array[DFAny.Port[DFAny, IN]] = ports.filter(p => p.dir match {
     case DFPort.IN => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
 
-  lazy val portsOut : Array[DFAny.Port[DFAny, OUT]] = ports.filter(p => p.dir match {
+  final lazy val portsOut : Array[DFAny.Port[DFAny, OUT]] = ports.filter(p => p.dir match {
     case DFPort.OUT => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
