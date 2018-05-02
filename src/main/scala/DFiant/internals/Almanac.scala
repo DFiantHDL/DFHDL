@@ -5,41 +5,68 @@ trait Almanac {
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
-  private val list : ListBuffer[AlmanacEntry] = ListBuffer.empty[AlmanacEntry]
-  private var simulationIter = list.iterator
+  private val components : ListBuffer[Almanac] = ListBuffer.empty[Almanac]
+  private val entries : ListBuffer[AlmanacEntry] = ListBuffer.empty[AlmanacEntry]
+  private var simulationEntriesIter = entries.iterator
+  private var simulationComponentsIter = components.iterator
 
   def isSimulating : Boolean = phase == AlmanacPhaseSimulate
+  def newSimPhase() : Unit = {
+    components.foreach(c => c.newSimPhase())
+    phase = AlmanacPhaseSimulate
+    simulationEntriesIter = entries.iterator
+    simulationComponentsIter = components.iterator
+  }
   def clear() : Unit = {
     currentAddress = AlmanacAddress.init()
     phase = AlmanacPhaseConstruct
-    list.clear()
+    entries.clear()
+    components.clear()
   }
-
   def getCurrentAddress : AlmanacAddressSpecific = currentAddress
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Entries
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def addEntry(almanacEntry: AlmanacEntry) : Unit = {
     require(phase == AlmanacPhaseConstruct, "Unexpected almanac entry addition during a non-construction phase")
-    list += almanacEntry
+    entries += almanacEntry
   }
 
   def fetchEntry[AE <: AlmanacEntry](entryConstructor: => AE) : AE = {
     if (isSimulating)
-      simulationIter.next().asInstanceOf[AE]
+      simulationEntriesIter.next().asInstanceOf[AE]
     else
       entryConstructor
   }
 
-  def getList = list
-  def newSimPhase() : Unit = {
-    phase = AlmanacPhaseSimulate
-    simulationIter = list.iterator
-  }
+  def getEntries = entries.toList
 
   def printEntrees() : Unit = {
-    list.map(e => {
+    entries.map(e => {
       if (e.codeString.startsWith("val "))
         println(e.codeString)
     })
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Components
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  def addComponent(almanac: Almanac) : Unit = {
+    require(phase == AlmanacPhaseConstruct, "Unexpected almanac component addition during a non-construction phase")
+    components += almanac
+  }
+
+  def fetchComponent(componentConstructor: => Almanac) : Almanac = {
+    if (isSimulating)
+      simulationComponentsIter.next()
+    else
+      componentConstructor
+  }
+
+  def getComponents = components.toList
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
-//object Almanac extends Almanac
 

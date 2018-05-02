@@ -7,20 +7,19 @@ abstract class DFDesign(
   implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib
 ) extends DFInterface with Implicits {
   protected implicit val dsn = this
-  protected implicit val childParent = Some(this)
-  protected[DFiant] val protAlmanac = new Almanac {}
-  protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
+  final protected implicit val childParent = Some(this)
+  final protected[DFiant] lazy val protAlmanac = addDesignToParent
+  final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   def compileToVHDL(fileName : String) = ???
-  protected def addChildDesign(childDsn : DFDesign) = {}
-  protected def addDesignToParent = parent match {
+  final protected def addChildDesign(childDsn : DFDesign) : Almanac = protAlmanac.fetchComponent(new Almanac {})
+  final protected def addDesignToParent : Almanac = parent match {
     case Some(p) => p.addChildDesign(this)
-    case _ => //No parent => this is the TOP design
+    case _ => new Almanac {}
   }
-  def isTop : Boolean = parent match {
+  final def isTop : Boolean = parent match {
     case Some(p) => false
     case _ => true
   }
-  addDesignToParent
 }
 object DFDesign {
 }
