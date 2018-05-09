@@ -13,21 +13,16 @@ trait DFInterface extends HasProperties with Nameable {
   final protected type TOP = DFPort.TOP
   final protected val TOP = DFPort.TOP
 
-  final lazy val ports : Array[DFAny.Port[DFAny, DFDir]] = {
-    getClass.getDeclaredFields
-      .filter(f => f.getType.isAssignableFrom(classOf[DFAny.Port[DFAny, DFDir]]))
-      .map(f => {
-        f.setAccessible(true)
-        f.get(this).asInstanceOf[DFAny.Port[DFAny, DFDir]]
-      })
-  }
+  final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
+    this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir]](classOf[DFAny.Port[DFAny, DFDir]],
+      _ => true, (f, t) => if (!t.hasName) t.setName(f.getName) else t)
 
-  final lazy val portsIn : Array[DFAny.Port[DFAny, IN]] = ports.filter(p => p.dir match {
+  final lazy val portsIn : List[DFAny.Port[DFAny, IN]] = ports.filter(p => p.dir match {
     case DFPort.IN => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
 
-  final lazy val portsOut : Array[DFAny.Port[DFAny, OUT]] = ports.filter(p => p.dir match {
+  final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] = ports.filter(p => p.dir match {
     case DFPort.OUT => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])

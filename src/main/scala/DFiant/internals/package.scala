@@ -159,7 +159,7 @@ package object internals {
   implicit class ReflectionClassExtras(extended : Any) {
     import java.lang.reflect.Field
 
-    def getNestedDeclaredFieldsOf[T](subClass : Class[_], filterApply : Field => Boolean = f => true, fieldApply : (Field, T) => T = (f : Field, t : T) => t) : List[T] = {
+    def getNestedDeclaredFieldsOf[T](subClass : Class[_], filterApply : T => Boolean = (t : T) => true, fieldApply : (Field, T) => T = (f : Field, t : T) => t) : List[T] = {
       def allFieldsFrom(c : Class[_]) : List[Field] = {
         if (c == null) List()
         else
@@ -170,7 +170,7 @@ package object internals {
         f.setAccessible(true)
         val t = f.get(extended).asInstanceOf[T]
         fieldApply(f, t)
-      })
+      }).filter(filterApply)
     }
 
 

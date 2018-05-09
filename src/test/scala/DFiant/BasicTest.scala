@@ -22,5 +22,15 @@ object BasicTest extends App {
   println(myDesign.a_in.getName)
   println(myDesign.getName)
   println(myDesign.meme.getName)
+  println(myDesign.components)
+
+  abstract class Foo(implicit n : sourcecode.Enclosing) {
+    def getName = n.value
+  }
+
+  val nice, nice2 = new Foo {}
+
+  println(nice.getName)
+  println(nice2.getName)
 //  myDesign.compileToVHDL("myDesignTest")
 }

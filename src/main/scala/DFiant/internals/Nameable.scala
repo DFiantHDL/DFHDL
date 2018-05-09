@@ -2,6 +2,10 @@ package DFiant.internals
 
 trait Nameable {
   protected[DFiant] var nameOption : Option[String] = None
+  def hasName : Boolean = nameOption match {
+    case Some(n) => true
+    case None => false
+  }
   def getName : String = nameOption match {
     case Some(n) => n
     case None => "???"

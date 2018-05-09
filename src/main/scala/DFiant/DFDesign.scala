@@ -8,7 +8,8 @@ abstract class DFDesign(
 ) extends DFInterface with Implicits {
   protected implicit val dsn = this
   final lazy val components : List[DFDesign] =
-    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f.getName != "dsn", (f, t) => t.setName(f.getName))
+    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign],
+      f => f != this, (f, t) => if (!t.hasName) t.setName(f.getName) else t)
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = addDesignToParent
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
@@ -35,6 +36,7 @@ abstract class DFDesign(
     }
     super.getName
   }
+  override def toString : String = getName
 }
 object DFDesign {
 }
