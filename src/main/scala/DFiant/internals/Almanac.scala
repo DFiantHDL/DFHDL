@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable._
-trait Almanac {
+trait Almanac extends Nameable {
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
@@ -54,9 +54,10 @@ trait Almanac {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def addComponent(almanac: Almanac) : Unit = {
+  def addComponent(almanac: Almanac) : Almanac = {
     require(phase == AlmanacPhaseConstruct, "Unexpected almanac component addition during a non-construction phase")
     components += almanac
+    almanac
   }
 
   def fetchComponent(componentConstructor: => Almanac) : Almanac = {
@@ -67,6 +68,10 @@ trait Almanac {
   }
 
   def getComponents = components.toList
+
+  def printComponents() : Unit = {
+    println(components)
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 

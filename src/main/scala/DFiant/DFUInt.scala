@@ -556,7 +556,7 @@ object DFUInt extends DFAny.Companion {
                       }
                   }
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc).setName(n.value)
+                  new Component[NCW, WCW](wc).setAutoName(n.value)
                 }
               }
           }
@@ -675,7 +675,7 @@ object DFUInt extends DFAny.Companion {
                   }
 
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW, CW](wc, ncWidth, cWidth).setName(n.value)
+                  new Component[NCW, WCW, CW](wc, ncWidth, cWidth).setAutoName(n.value)
                 }
               }
           }
@@ -732,7 +732,7 @@ object DFUInt extends DFAny.Companion {
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign, n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setName(n.value)
+        val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
 
         compareOp[LW, RW] (
           inLeft = FullyConnected(left),

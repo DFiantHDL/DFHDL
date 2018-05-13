@@ -20,6 +20,10 @@ object DFGlobalLib extends DFBasicLib {
   implicit def `evE!=E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E!=E`[E]] = ifc => {}
 }
 
-object GlobalDesign extends DFDesign()(None, DFGlobalLib) {
+object GlobalDesignName extends NameIt {
+  override val value: String = "???"
+}
+
+object GlobalDesign extends DFDesign()(None, DFGlobalLib, GlobalDesignName) {
   override implicit val dsn = this
 }

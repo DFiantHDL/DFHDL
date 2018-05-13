@@ -61,7 +61,7 @@ libraryDependencies += "org.scodec" %% "scodec-bits" % "1.1.5"
 // Sourcecode (naming)
 ////////////////////////////////////////////////////////////////////
 libraryDependencies ++= Seq(
-  "com.lihaoyi" %% "sourcecode" % "0.1.4" // Scala-JVM
+  "com.lihaoyi" %% "sourcecode" % "0.1.5-SNAPSHOT" // Scala-JVM
 )
 ////////////////////////////////////////////////////////////////////
 

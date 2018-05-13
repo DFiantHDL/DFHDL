@@ -1,16 +1,25 @@
 package DFiant.internals
 
 trait Nameable {
-  protected[DFiant] var nameOption : Option[String] = None
-  def hasName : Boolean = nameOption match {
+  protected[DFiant] var nameManualOption : Option[String] = None
+  protected[DFiant] var nameAutoOption   : Option[String] = None
+  def hasName : Boolean = nameManualOption match {
     case Some(n) => true
-    case None => false
+    case None => nameAutoOption match {
+      case Some(n) => true
+      case None => false
+    }
   }
-  def getName : String = nameOption match {
+  def getName : String = nameManualOption match {
     case Some(n) => n
-    case None => "???"
+    case None => nameAutoOption match {
+      case Some(n) => n
+      case None => "???"
+    }
   }
-  def setName(name : String) : this.type = {nameOption = Some(name); this}
+  def setName(name : String) : this.type = {nameManualOption = Some(name); this}
+  final protected[DFiant] def setAutoName(name : String) : this.type = {nameAutoOption = Some(name); this}
+  override def toString : String = getName
 }
 
 

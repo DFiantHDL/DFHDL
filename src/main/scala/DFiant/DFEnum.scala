@@ -232,7 +232,7 @@ object DFEnum extends DFAny.Companion {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setName(n.value)
+        val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
 
         compareOp[E] (
           inLeft = FullyConnected(left),

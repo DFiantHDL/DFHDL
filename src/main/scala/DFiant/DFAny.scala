@@ -199,7 +199,7 @@ object DFAny {
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
-    setName(n.value)
+    setAutoName(n.value)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
@@ -219,7 +219,7 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
-    setName(n.value)
+    setAutoName(n.value)
   }
 
   abstract class Const(token : Token)(
@@ -229,7 +229,7 @@ object DFAny {
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
-    setName(n.value)
+    setAutoName(n.value)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -269,7 +269,7 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
-    setName(n.value)
+    setAutoName(n.value)
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {
