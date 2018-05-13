@@ -8,6 +8,9 @@ object BasicTest extends App {
     val meme = new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
     }
+    new DFDesign {
+      val a : DFUInt[W] <> IN = OPEN
+    }
   }
 
   trait MyDesign extends MemeDesign {

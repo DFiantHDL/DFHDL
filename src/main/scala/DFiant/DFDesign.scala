@@ -14,6 +14,10 @@ abstract class DFDesign(
   final protected[DFiant] lazy val protAlmanac = addDesignToParent
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   def compileToVHDL(fileName : String) = ???
+  def keep : this.type = {
+    protAlmanac //touching lazy Almanac
+    this
+  }
   final protected def newComponent : Almanac = {
     protAlmanac.fetchComponent(new Almanac {})
   }
