@@ -6,8 +6,8 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class DFDesign(
-  implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib, n : NameIt
-) extends DFInterface with Implicits {
+  implicit val owner : Option[DFDesign] = None, val basicLib: DFBasicLib, n : NameIt
+) extends DFInterface with Implicits with Discoverable {
   protected implicit val dsn = this
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = newAlmanac
@@ -25,20 +25,23 @@ abstract class DFDesign(
   }
 
   final protected def addComponentToParent : Unit = {
-    parent match {
-      case Some(p) => p.newComponent(this)
+    owner match {
+      case Some(o) => o.newComponent(this)
       case _ =>
     }
   }
   final protected def newAlmanac : Almanac = {
-    parent match {
-      case Some(p) =>
-        p.namedComponents
-        p.protAlmanac.fetchComponent(p.protAlmanac.addComponent(new Almanac {}.setName(getName)))
+    owner match {
+      case Some(o) =>
+        o.namedComponents
+        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(getName)))
       case _ =>
         setAutoName(if (n.value == "$anon") "top" else n.value)
         new Almanac {}.setName(getName)
     }
+  }
+  final protected def printComponents() : Unit = {
+    components.foreach(c => println(c.getName))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -47,22 +50,39 @@ abstract class DFDesign(
     protAlmanac //touching lazy Almanac
     this
   }
-  final def isTop : Boolean = parent match {
-    case Some(p) => false
+  final def isTop : Boolean = owner match {
+    case Some(o) => false
     case _ => true
   }
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Naming
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   override def setName(name: String): DFDesign.this.type = {
     protAlmanac.setName(name)
     super.setName(name)
   }
 
   override def getName: String = {
-    parent match {
-      case Some(p) => p.components //touching components to force naming
+    owner match {
+      case Some(o) => o.components //touching components to force naming
       case _ =>
     }
     super.getName
+  }
+
+  def getFullName : String = owner match {
+    case Some(o) => s"${o.getFullName}_$getName"
+    case _ => getName
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  protected def discoveryDepenencies : List[Discoverable] = portsOut
+  protected def discovery : Unit = protAlmanac
+
+  def printInfo() : Unit = {
+    discover
+    protAlmanac.printInfo()
   }
 
   addComponentToParent

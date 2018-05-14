@@ -5,7 +5,7 @@ import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
 
-sealed trait DFAny extends HasProperties with Nameable {
+sealed trait DFAny extends HasProperties with Nameable with Discoverable {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -142,7 +142,6 @@ sealed trait DFAny extends HasProperties with Nameable {
     this.asInstanceOf[TVar]
   }
 
-  def forceOut : Unit = getCurrentEntry
   def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
   def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
@@ -199,6 +198,8 @@ object DFAny {
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
+    protected def discoveryDepenencies : List[Discoverable] = List()
+    final protected[DFiant] def discovery : Unit = almanacEntry
     setAutoName(n.value)
   }
 
@@ -219,6 +220,8 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
+    protected def discoveryDepenencies : List[Discoverable] = List()
+    final protected[DFiant] def discovery : Unit = almanacEntry
     setAutoName(n.value)
   }
 
@@ -229,6 +232,8 @@ object DFAny {
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
+    protected def discoveryDepenencies : List[Discoverable] = List()
+    final protected[DFiant] def discovery : Unit = almanacEntry
     setAutoName(n.value)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,6 +262,8 @@ object DFAny {
       case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
       case TOP.Width(w) => AlmanacEntryPort(width, dir, getName, dsn.getName)
     }
+    protected def discoveryDepenencies : List[Discoverable] = List()
+    final protected[DFiant] def discovery : Unit = almanacEntry
     lazy val isOpen : Boolean = conn match {
       case OPEN => true
       case _ => false

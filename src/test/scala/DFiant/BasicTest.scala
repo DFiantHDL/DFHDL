@@ -21,19 +21,14 @@ object BasicTest extends App {
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   val myDesign = new MyDesign {}
-  myDesign.meme.keep
-  println(myDesign.meme.getName)
+//  myDesign.meme.keep
+//  myDesign.wakeLazyAlmanac
+//  myDesign.protAlmanac.printEntrees()
+//  println(myDesign.meme.getName)
 //  myDesign.keep
-  println(myDesign.components)
-  myDesign.protAlmanac.printComponents()
+//  println(myDesign.components)
 
-  abstract class Foo(implicit n : sourcecode.Name) {
-    def getName = n.value
-  }
+  myDesign.printInfo()
 
-  val nice, nice2 = new Foo {}
-
-  println(nice.getName)
-  println(nice2.getName)
 //  myDesign.compileToVHDL("myDesignTest")
 }
