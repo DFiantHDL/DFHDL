@@ -3,37 +3,42 @@ package DFiant
 import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
+import scala.collection.mutable.ListBuffer
+
 abstract class DFDesign(
   implicit val parent : Option[DFDesign] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFInterface with Implicits {
   protected implicit val dsn = this
   final protected implicit val childParent = Some(this)
-  final protected[DFiant] lazy val protAlmanac = addDesignToParent
+  final protected[DFiant] lazy val protAlmanac = newAlmanac
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final protected def setComponentScalaNames : Unit = {
-
-  }
-  final protected lazy val components : List[DFDesign] =
-  this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign],
-    f => f != this, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
+  protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
+  final protected[DFiant] lazy val namedComponents : List[DFDesign] =
+    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => t.setAutoName(f.getName))
 
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
-  final protected def newComponent(comp : DFDesign) : Almanac = {
-    protAlmanac.fetchComponent(protAlmanac.addComponent(new Almanac {}).setAutoName(getName))
+  final protected def newComponent(comp : DFDesign) : Unit = {
+    components += comp
   }
-  final protected def addDesignToParent : Almanac = {
-    val ret = parent match {
+
+  final protected def addComponentToParent : Unit = {
+    parent match {
       case Some(p) => p.newComponent(this)
-      case _ => {
-        setAutoName("top")
-        new Almanac {}
-      }
+      case _ =>
     }
-    println("hi")
-    ret
+  }
+  final protected def newAlmanac : Almanac = {
+    parent match {
+      case Some(p) =>
+        p.namedComponents
+        p.protAlmanac.fetchComponent(p.protAlmanac.addComponent(new Almanac {}.setName(getName)))
+      case _ =>
+        setAutoName(if (n.value == "$anon") "top" else n.value)
+        new Almanac {}.setName(getName)
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -59,7 +64,8 @@ abstract class DFDesign(
     }
     super.getName
   }
-  setAutoName(n.value)
+
+  addComponentToParent
 }
 object DFDesign {
 }
