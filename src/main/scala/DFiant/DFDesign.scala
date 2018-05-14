@@ -45,9 +45,10 @@ abstract class DFDesign(
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
   def compileToVHDL(fileName : String) = ???
   def keep : this.type = {
-    protAlmanac //touching lazy Almanac
+    keepList += this //touching lazy Almanac
     this
   }
   final def isTop : Boolean = owner match {
@@ -77,7 +78,7 @@ abstract class DFDesign(
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected def discoveryDepenencies : List[Discoverable] = portsOut
+  protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList
   protected def discovery : Unit = protAlmanac
 
   def printInfo() : Unit = {

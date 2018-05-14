@@ -132,6 +132,11 @@ sealed trait DFAny extends HasProperties with Nameable with Discoverable {
 
   implicit protected val dsn : DFDesign
   final implicit protected lazy val protAlmanac : Almanac = dsn.protAlmanac
+  def keep : this.type = {
+    dsn.keepList += this //touching lazy Almanac
+    this
+  }
+
 
   protected[DFiant] val almanacEntry : AlmanacEntry
 
