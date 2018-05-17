@@ -10,6 +10,7 @@ trait Discoverable {
       notDiscovered = false
       val dependencies = discoveryDepenencies
       dependencies.foreach(d => d.discover)
+      println(s"discovered $this")
       discovery
     }
   }
