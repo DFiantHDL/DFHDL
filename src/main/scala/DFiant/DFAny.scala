@@ -5,7 +5,9 @@ import singleton.ops._
 import singleton.twoface._
 import scodec.bits._
 
-sealed trait DFAny extends HasProperties with Nameable with Discoverable {
+import scala.collection.mutable.ListBuffer
+
+sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Discoverable {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -137,6 +139,8 @@ sealed trait DFAny extends HasProperties with Nameable with Discoverable {
     this
   }
 
+  override def toString : String = s"$getName : $getTypeName"
+
 
   protected[DFiant] val almanacEntry : AlmanacEntry
 
@@ -146,6 +150,8 @@ sealed trait DFAny extends HasProperties with Nameable with Discoverable {
     AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
     this.asInstanceOf[TVar]
   }
+
+  val isPort : Boolean
 
   def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
   def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
@@ -205,7 +211,8 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     protected def discoveryDepenencies : List[Discoverable] = List()
     final protected[DFiant] def discovery : Unit = almanacEntry
-    setAutoName(n.value)
+    final val isPort = false
+//    setAutoName(n.value)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
@@ -225,9 +232,10 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
-    protected def discoveryDepenencies : List[Discoverable] = List()
+    protected def discoveryDepenencies : List[Discoverable] = List(aliasedVar)
     final protected[DFiant] def discovery : Unit = almanacEntry
-    setAutoName(n.value)
+    final val isPort = false
+//    setAutoName(n.value)
   }
 
   abstract class Const(token : Token)(
@@ -239,7 +247,8 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
     protected def discoveryDepenencies : List[Discoverable] = List()
     final protected[DFiant] def discovery : Unit = almanacEntry
-    setAutoName(n.value)
+    final val isPort = false
+//    setAutoName(n.value)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -267,13 +276,15 @@ object DFAny {
       case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
       case TOP.Width(w) => AlmanacEntryPort(width, dir, getName, dsn.getName)
     }
-    protected def discoveryDepenencies : List[Discoverable] = List()
+    private val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    protected def discoveryDepenencies : List[Discoverable] = protAssignDependencies.toList
     final protected[DFiant] def discovery : Unit = almanacEntry
     lazy val isOpen : Boolean = conn match {
       case OPEN => true
       case _ => false
     }
     protected[DFiant] final def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
+      protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
@@ -281,7 +292,8 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
-    setAutoName(n.value)
+    final val isPort = true
+//    setAutoName(n.value)
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {

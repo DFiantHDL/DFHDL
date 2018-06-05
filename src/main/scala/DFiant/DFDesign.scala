@@ -12,6 +12,11 @@ abstract class DFDesign(
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = newAlmanac
 
+  final lazy val namedNonPorts : List[DFAny] =
+    this.getNestedDeclaredFieldsOf[DFAny](classOf[DFAny],
+      t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
+
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,6 +39,7 @@ abstract class DFDesign(
     owner match {
       case Some(o) =>
         o.namedComponents
+        o.namedNonPorts
         o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(getName)))
       case _ =>
         setAutoName(if (n.value == "$anon") "top" else n.value)

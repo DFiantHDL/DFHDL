@@ -8,9 +8,9 @@ trait Discoverable {
   final protected def discover : Unit = {
     if (notDiscovered) {
       notDiscovered = false
+      println(s"discovered $this")
       val dependencies = discoveryDepenencies
       dependencies.foreach(d => d.discover)
-      println(s"discovered $this")
       discovery
     }
   }

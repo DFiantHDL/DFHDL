@@ -1,8 +1,8 @@
 package DFiant.internals
 
 trait Nameable {
-  protected[DFiant] var nameManualOption : Option[String] = None
-  protected[DFiant] var nameAutoOption   : Option[String] = None
+  private var nameManualOption : Option[String] = None
+  private var nameAutoOption   : Option[String] = None
   def hasName : Boolean = nameManualOption match {
     case Some(n) => true
     case None => nameAutoOption match {
@@ -20,6 +20,15 @@ trait Nameable {
   def setName(name : String) : this.type = {nameManualOption = Some(name); this}
   final protected[DFiant] def setAutoName(name : String) : this.type = {nameAutoOption = Some(name); this}
   override def toString : String = getName
+}
+
+trait TypeNameable {
+  private var typeNameAutoOption : Option[String] = None
+  def getTypeName : String = typeNameAutoOption match {
+    case Some(n) => n
+    case None => "???"
+  }
+  final protected[DFiant] def setAutoTypeName(name : String) : this.type = {typeNameAutoOption = Some(name); this}
 }
 
 

@@ -45,19 +45,19 @@ object DFUInt extends DFAny.Companion {
       implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
     ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits), getInit).assign(left)
 
-    override def toString : String = s"DFUInt[$width]"
-
     def isZero = left == 0
     def isNonZero = left != 0
     //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
     def extendable : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
-//    trait matchdf extends super.matchdf {
-//      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
-//      def casedf[R](that : Int)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
-//      def casedf[R](that : Long)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
-//      def casedf(that : BigInt)(block : => Unit)(implicit op: `Op==`.Builder[TVal, BigInt]) : Unit = {}
-//
-//    }
+
+    //    trait matchdf extends super.matchdf {
+    //      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
+    //      def casedf[R](that : Int)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
+    //      def casedf[R](that : Long)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
+    //      def casedf(that : BigInt)(block : => Unit)(implicit op: `Op==`.Builder[TVal, BigInt]) : Unit = {}
+    //
+    //    }
+    override def getTypeName: String = s"DFUInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
