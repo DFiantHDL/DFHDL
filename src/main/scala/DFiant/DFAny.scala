@@ -276,15 +276,15 @@ object DFAny {
       case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
       case TOP.Width(w) => AlmanacEntryPort(width, dir, getName, dsn.getName)
     }
-    private val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    protected def discoveryDepenencies : List[Discoverable] = protAssignDependencies.toList
+    private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
     final protected[DFiant] def discovery : Unit = almanacEntry
     lazy val isOpen : Boolean = conn match {
       case OPEN => true
       case _ => false
     }
     protected[DFiant] final def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
-      protAssignDependencies += that
+      privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
@@ -294,6 +294,7 @@ object DFAny {
     ) = portAssign(op(left, right))
     final val isPort = true
 //    setAutoName(n.value)
+    override def toString : String = s"$getName : $getTypeName <> $dir"
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {

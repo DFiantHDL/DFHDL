@@ -32,9 +32,13 @@ object DFPort {
   type <>[DF <: DFAny, DIR <: DFDir] = DFAny.Port[DF, DIR] with DF
   //Direction of a Port
   sealed trait DFDir
-  sealed trait IN extends DFDir
+  sealed trait IN extends DFDir {
+    override def toString: String = "IN"
+  }
   implicit object IN extends IN
-  sealed trait OUT extends DFDir
+  sealed trait OUT extends DFDir {
+    override def toString: String = "OUT"
+  }
   implicit object OUT extends OUT
 
   trait Connection[+DF <: DFAny] extends Serializable
