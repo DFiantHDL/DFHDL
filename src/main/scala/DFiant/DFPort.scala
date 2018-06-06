@@ -3,7 +3,7 @@ package DFiant
 import DFiant.DFAny.Token
 import DFiant.internals._
 
-trait DFInterface extends HasProperties with Nameable {
+trait DFInterface extends HasProperties with Nameable with TypeNameable {
   final protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   final protected type DFDir = DFPort.DFDir
   final protected type IN = DFPort.IN
@@ -26,6 +26,14 @@ trait DFInterface extends HasProperties with Nameable {
     case DFPort.OUT => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
+
+  override def getTypeName: String = {
+    val cls = getClass
+    val ifc = cls.getInterfaces
+    if (ifc.isEmpty) cls.getSuperclass.getName else ifc.head.getName
+  }
+
+  override def toString: String = s"$getName : $getTypeName"
 }
 
 object DFPort {
