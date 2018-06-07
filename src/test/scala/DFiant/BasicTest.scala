@@ -12,11 +12,37 @@ object BasicTest extends App {
     }
   }
 
+  trait IODesign extends DFDesign with DelayedInit {
+    type W = 8
+    val i : DFUInt[W] <> IN
+    val o : DFUInt[W] <> OUT
+    def implementation() : Unit = {
+      o := i
+    }
+    def delayedInit(x: => Unit): Unit = {
+      x
+      implementation()
+    }
+  }
+
   trait MyDesign extends MemeDesign {
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
     val c_out : DFUInt[W] <> OUT = TOP
-    c_out := a_in + b_in
+    val d_out : DFUInt[W] <> OUT = TOP
+
+    val io1 = new DFDesign {
+      val i : DFUInt[W] <> IN = a_in
+      val o : DFUInt[W] <> OUT = c_out
+      o := i
+    }
+
+    val io2 = new IODesign {
+      val i = b_in
+      val o = d_out
+    }
+
+    //c_out := a_in + b_in
   }
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
