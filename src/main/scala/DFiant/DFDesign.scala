@@ -92,10 +92,8 @@ abstract class DFDesign(
   protected lazy val init : Unit = {
     namedComponents
     namedNonPorts
-    //Run implementation of all components
+    //Run init of all components
     components.foreach(c => c.init)
-
-    //Only the Top design runs its own implementation
     implementation()
   }
 
