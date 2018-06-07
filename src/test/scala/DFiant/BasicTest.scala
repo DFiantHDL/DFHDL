@@ -6,26 +6,25 @@ object BasicTest extends App {
     type W = 8
     val meme = new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
+      def implementation(): Unit = {}
     }
     new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
+      def implementation(): Unit = {}
     }
   }
 
-  trait IODesign extends DFDesign with DelayedInit {
+  trait IODesign extends DFDesign {
     type W = 8
     val i : DFUInt[W] <> IN
     val o : DFUInt[W] <> OUT
     def implementation() : Unit = {
       o := i
     }
-    def delayedInit(x: => Unit): Unit = {
-      x
-      implementation()
-    }
   }
 
-  trait MyDesign extends MemeDesign {
+  trait MyDesign extends DFDesign {
+    type W = 8
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
     val c_out : DFUInt[W] <> OUT = TOP
@@ -34,7 +33,9 @@ object BasicTest extends App {
     val io1 = new DFDesign {
       val i : DFUInt[W] <> IN = a_in
       val o : DFUInt[W] <> OUT = c_out
-      o := i
+      def implementation(): Unit = {
+        o := i
+      }
     }
 
     val io2 = new IODesign {
@@ -42,6 +43,8 @@ object BasicTest extends App {
       val o = d_out
     }
 
+    def implementation(): Unit = {
+    }
     //c_out := a_in + b_in
   }
 

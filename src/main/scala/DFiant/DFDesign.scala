@@ -12,6 +12,8 @@ abstract class DFDesign(
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = newAlmanac
 
+  protected def implementation() : Unit
+
   final lazy val namedNonPorts : List[DFAny] =
     this.getNestedDeclaredFieldsOf[DFAny](classOf[DFAny],
       t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
@@ -87,7 +89,18 @@ abstract class DFDesign(
   protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList
   protected def discovery : Unit = protAlmanac
 
+  protected lazy val init : Unit = {
+    namedComponents
+    namedNonPorts
+    //Run implementation of all components
+    components.foreach(c => c.init)
+
+    //Only the Top design runs its own implementation
+    implementation()
+  }
+
   def printInfo() : Unit = {
+    init
     discover
     protAlmanac.printInfo()
   }
@@ -100,7 +113,9 @@ object DFDesign {
 abstract class DFComponent[Comp <: DFComponent[Comp]](
   implicit dsn : DFDesign, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib, n : NameIt
 ) extends DFDesign()(Some(dsn), basicLib, n) {
-  impl(this.asInstanceOf[Comp])
+  def implementation(): Unit = {
+    impl(this.asInstanceOf[Comp])
+  }
 }
 
 object DFComponent {

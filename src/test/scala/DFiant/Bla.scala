@@ -48,6 +48,7 @@ object Bla {
       val right = 20L
       val result = r
     }
+    def implementation(): Unit = {}
   }
 }
 
@@ -60,4 +61,5 @@ class DFOpPlus[LW, RW](leftWidth : TwoFace.Int[LW], rightWidth : TwoFace.Int[RW]
   }
 
   val io: IO = throw new UninitializedError()
+  def implementation(): Unit = {}
 }

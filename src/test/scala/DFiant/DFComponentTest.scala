@@ -26,6 +26,7 @@ class DFComponentTest extends Properties("DFComponentTest") {
       val right = 7
       val result = OPEN
     }
+    def implementation(): Unit = {}
   }
 
 }

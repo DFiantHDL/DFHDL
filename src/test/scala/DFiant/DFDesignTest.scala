@@ -13,13 +13,13 @@ class DFDesignTest {
     illTyped("""val out1 : DFUInt[GenW] <> OUT = in1""") //Fail compile mixing input/output ports
     illTyped("""val in2  : DFUInt[GenW] <> IN  = out1""") //Fail compile mixing input/output ports
 
-    out1 := in1 + 1 //can read from input and assign to output
-    out2 := out1 //can read from output, but
-
     illTyped("""val a : DFUInt[GenW] = OPEN""") //Fail compile assigning OPEN to a non-port
     illTyped("""val b : DFUInt[GenW] = TOP""") //Fail compile assigning TOP to a non-port
-    illTyped("""in1 := out1""") //Fail (Cannot assign to an input port)
-
+    def implementation(): Unit = {
+      out1 := in1 + 1 //can read from input and assign to output
+      out2 := out1 //can read from output, but
+      illTyped("""in1 := out1""") //Fail (Cannot assign to an input port)
+    }
 //    abstract class MyInterface[Dir] {
 //      val ready : DFBool <> Dir
 //      val valid : DFBool <> ![Dir]
@@ -33,6 +33,7 @@ class DFDesignTest {
     val in2 : a.TVal <> IN = a + 1
     illTyped("""val out2 : a.TVal <> OUT = a + 1""")
     illTyped("""val out3 : a.TVal <> OUT = in1""")
+    def implementation(): Unit = {}
   }
 
   abstract class BoxContainer[GenW](implicit g : TwoFace.Int[GenW]) extends DFDesign {
@@ -42,6 +43,7 @@ class DFDesignTest {
       override val in1 = in
       override val in2 = in
     }
+    def implementation(): Unit = {}
   }
 
 }
