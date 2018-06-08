@@ -24,7 +24,7 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
   final protected[DFiant] lazy val namedComponents : List[DFDesign] =
-    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => t.setAutoName(f.getName))
+    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => {if (f.getName != "dsn") t.setAutoName(f.getName); t})
 
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   final protected def newComponent(comp : DFDesign) : Unit = {
@@ -50,6 +50,15 @@ abstract class DFDesign(
   }
   final protected def printComponents() : Unit = {
     components.foreach(c => println(c.getName))
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // DFVals
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
+  final protected[DFiant] def newDFVal(dfval : DFAny) : Unit = {
+    dfvals += dfval
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -86,7 +95,7 @@ abstract class DFDesign(
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList
+  protected def discoveryDepenencies : List[Discoverable] = components.toList//portsOut ++ keepList
   protected def discovery : Unit = protAlmanac
 
   protected lazy val init : Unit = {

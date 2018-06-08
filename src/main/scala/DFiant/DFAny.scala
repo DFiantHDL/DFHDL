@@ -212,6 +212,7 @@ object DFAny {
     protected def discoveryDepenencies : List[Discoverable] = List()
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    dsn.newDFVal(this)
 //    setAutoName(n.value)
   }
 
@@ -235,6 +236,7 @@ object DFAny {
     protected def discoveryDepenencies : List[Discoverable] = List(aliasedVar)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    dsn.newDFVal(this)
 //    setAutoName(n.value)
   }
 
@@ -248,6 +250,7 @@ object DFAny {
     protected def discoveryDepenencies : List[Discoverable] = List()
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    dsn.newDFVal(this)
 //    setAutoName(n.value)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -293,8 +296,10 @@ object DFAny {
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
     final val isPort = true
-//    setAutoName(n.value)
     override def toString : String = s"$getName : $getTypeName <> $dir"
+
+    dsn.newDFVal(this)
+    //    setAutoName(n.value)
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {

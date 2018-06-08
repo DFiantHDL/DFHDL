@@ -30,6 +30,7 @@ object BasicTest extends App {
     val c_out : DFUInt[W] <> OUT = TOP
     val d_out : DFUInt[W] <> OUT = TOP
 
+    val oron = DFUInt[8]
     val io1 = new DFDesign {
       val i : DFUInt[W] <> IN = a_in
       val o : DFUInt[W] <> OUT = c_out
@@ -51,6 +52,7 @@ object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   val myDesign = new MyDesign {}
   println(myDesign.portsOut)
+  println(myDesign.namedComponents)
 //  myDesign.meme.keep
 //  myDesign.wakeLazyAlmanac
 //  myDesign.protAlmanac.printEntrees()

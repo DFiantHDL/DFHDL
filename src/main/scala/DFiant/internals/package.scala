@@ -163,7 +163,7 @@ package object internals {
       def allFieldsFrom(c : Class[_]) : List[Field] = {
         if (c == null) List()
         else
-          c.getDeclaredFields.filter(f => f.getType.isAssignableFrom(subClass)).toList ++ allFieldsFrom(c.getSuperclass)
+          c.getDeclaredFields.filter(f => subClass.isAssignableFrom(f.getType)).toList ++ allFieldsFrom(c.getSuperclass)
       }
 
       allFieldsFrom(extended.getClass).map(f => {
