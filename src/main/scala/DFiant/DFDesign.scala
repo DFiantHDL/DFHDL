@@ -23,8 +23,8 @@ abstract class DFDesign(
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
-  final protected[DFiant] lazy val namedComponents : List[DFDesign] =
-    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => {if (f.getName != "dsn") t.setAutoName(f.getName); t})
+//  final protected[DFiant] lazy val namedComponents : List[DFDesign] =
+//    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => {if (f.getName != "dsn") t.setAutoName(f.getName); t})
 
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   final protected def newComponent(comp : DFDesign) : Unit = {
@@ -40,7 +40,7 @@ abstract class DFDesign(
   final protected def newAlmanac : Almanac = {
     owner match {
       case Some(o) =>
-        o.namedComponents
+//        o.namedComponents
         o.namedNonPorts
         o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(getName)))
       case _ =>
@@ -99,7 +99,7 @@ abstract class DFDesign(
   protected def discovery : Unit = protAlmanac
 
   protected lazy val init : Unit = {
-    namedComponents
+//    namedComponents
     namedNonPorts
     //Run init of all components
     components.foreach(c => c.init)
@@ -112,6 +112,7 @@ abstract class DFDesign(
     protAlmanac.printInfo()
   }
 
+  setAutoName(n.value)
   addComponentToParent
 }
 object DFDesign {

@@ -52,7 +52,6 @@ object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   val myDesign = new MyDesign {}
   println(myDesign.portsOut)
-  println(myDesign.namedComponents)
 //  myDesign.meme.keep
 //  myDesign.wakeLazyAlmanac
 //  myDesign.protAlmanac.printEntrees()
