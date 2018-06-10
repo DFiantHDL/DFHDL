@@ -27,13 +27,15 @@ object BasicTest extends App {
     type W = 8
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
+    val c_in : DFUInt[W] <> IN = TOP
+    val a_out : DFUInt[W] <> OUT = TOP
+    val b_out : DFUInt[W] <> OUT = TOP
     val c_out : DFUInt[W] <> OUT = TOP
-    val d_out : DFUInt[W] <> OUT = TOP
 
-    val oron = DFUInt[8]
+    val c_tmp = DFUInt[8]
     val io1 = new DFDesign {
       val i : DFUInt[W] <> IN = a_in
-      val o : DFUInt[W] <> OUT = c_out
+      val o : DFUInt[W] <> OUT = a_out
       def implementation(): Unit = {
         o := i
       }
@@ -41,10 +43,13 @@ object BasicTest extends App {
 
     val io2 = new IODesign {
       val i = b_in
-      val o = d_out
+      val o = b_out
     }
 
     def implementation(): Unit = {
+      c_tmp := c_in
+      val aaa = c_tmp.prev()
+      c_out := c_tmp.prev()
     }
     //c_out := a_in + b_in
   }

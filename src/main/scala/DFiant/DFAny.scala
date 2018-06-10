@@ -133,6 +133,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
 //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
 
   implicit protected val dsn : DFDesign
+  protected def discoveryDepenencies : List[Discoverable] = List()
   final implicit protected lazy val protAlmanac : Almanac = dsn.protAlmanac
   def keep : this.type = {
     dsn.keepList += this //touching lazy Almanac
@@ -145,11 +146,6 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   protected[DFiant] val almanacEntry : AlmanacEntry
 
   protected[DFiant] final def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
-
-  protected[DFiant] final def assign(that : DFAny) : TVar = {
-    AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
-    this.asInstanceOf[TVar]
-  }
 
   val isPort : Boolean
 
@@ -187,6 +183,14 @@ object DFAny {
       this.asInstanceOf[TAlias]
     }
     final def isNotFull : DFBool = ???
+    private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
+    protected[DFiant] final def assign(that : DFAny) : TVar = {
+      privAssignDependencies += that
+      AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
+      this.asInstanceOf[TVar]
+    }
+
     final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
@@ -203,13 +207,12 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int, _init : Seq[Token])(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
-  ) extends DFAny {
+  ) extends DFAny.Var {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
-    protected def discoveryDepenencies : List[Discoverable] = List()
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     dsn.newDFVal(this)
@@ -233,11 +236,11 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
-    protected def discoveryDepenencies : List[Discoverable] = List(aliasedVar)
+//    protected def discoveryDepenencies : List[Discoverable] = List(aliasedVar)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     dsn.newDFVal(this)
-//    setAutoName(n.value)
+    setAutoName(n.value)
   }
 
   abstract class Const(token : Token)(
@@ -247,7 +250,6 @@ object DFAny {
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
-    protected def discoveryDepenencies : List[Discoverable] = List()
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     dsn.newDFVal(this)
@@ -280,7 +282,7 @@ object DFAny {
       case TOP.Width(w) => AlmanacEntryPort(width, dir, getName, dsn.getName)
     }
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
+    override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
     final protected[DFiant] def discovery : Unit = almanacEntry
     lazy val isOpen : Boolean = conn match {
       case OPEN => true

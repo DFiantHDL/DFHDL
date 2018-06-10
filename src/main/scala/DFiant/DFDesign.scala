@@ -95,7 +95,7 @@ abstract class DFDesign(
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected def discoveryDepenencies : List[Discoverable] = components.toList//portsOut ++ keepList
+  protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//
   protected def discovery : Unit = protAlmanac
 
   protected lazy val init : Unit = {

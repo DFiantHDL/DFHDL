@@ -31,7 +31,7 @@ object DFBool extends DFAny.Companion {
 
     def newEmptyDFVar = DFBool.newVar(Seq(DFBool.Token(false)))
 
-    override def toString : String = s"DFBool"
+    override def getTypeName : String = s"DFBool"
 
     //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
     //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
