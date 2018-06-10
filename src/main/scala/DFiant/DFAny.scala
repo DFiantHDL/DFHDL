@@ -239,8 +239,14 @@ object DFAny {
 //    protected def discoveryDepenencies : List[Discoverable] = List(aliasedVar)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    private def newAutoName : String = {
+      if (n.value == "implementation" || n.value == "$anon"){
+        if (deltaStep < 0) s"${aliasedVar.getName}_p${-deltaStep}"
+        else s"${aliasedVar.getName}_???"
+      } else n.value
+    }
+    setAutoName(newAutoName)
     dsn.newDFVal(this)
-    setAutoName(n.value)
   }
 
   abstract class Const(token : Token)(
@@ -252,8 +258,8 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    //    setAutoName(n.value)
     dsn.newDFVal(this)
-//    setAutoName(n.value)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
