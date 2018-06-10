@@ -78,7 +78,7 @@ object DFUInt extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
+    implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
   ) : Var[W] = newVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign, n : NameIt

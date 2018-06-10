@@ -66,6 +66,7 @@ object BasicTest extends App {
 //  println(myDesign.components)
 
   myDesign.printInfo()
+  println(myDesign.c_tmp.getName)
 
 //  myDesign.compileToVHDL("myDesignTest")
 }

@@ -215,8 +215,8 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    setAutoName(n.value)
     dsn.newDFVal(this)
-//    setAutoName(n.value)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
@@ -306,9 +306,8 @@ object DFAny {
     final val isPort = true
     override def toString : String = s"$getName : $getTypeName <> $dir"
 
-    dsn.newDFVal(this)
-//    dsn.newPort(this)
-    //    setAutoName(n.value)
+    setAutoName(n.value)
+    dsn.newPort(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {
