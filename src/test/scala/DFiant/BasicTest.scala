@@ -18,11 +18,28 @@ object BasicTest extends App {
     type W = 8
     val i : DFUInt[W] <> IN
     val o : DFUInt[W] <> OUT
+    val tmp = DFUInt[W]
     def implementation() : Unit = {
-      o := i
+      tmp := i
+      o := tmp
     }
   }
 
+  trait IOComp extends DFComponent[IOComp] {
+    type W = 8
+    val i : DFUInt[W] <> IN
+    val o : DFUInt[W] <> OUT
+  }
+
+  object IOComp {
+    implicit def ev : DFComponent.Implementation[IOComp] = ifc => {
+      import ifc._
+      val tmp = DFUInt[W]
+      tmp := i
+      o := tmp
+    }
+
+  }
   trait MyDesign extends DFDesign {
     type W = 8
     val a_in : DFUInt[W] <> IN = TOP
@@ -34,24 +51,30 @@ object BasicTest extends App {
     val c_out : DFUInt[W] <> OUT = TOP
     val d_out : DFUInt[W] <> OUT = TOP
 
-    val c_tmp = DFUInt[8]
-    val io1 = new DFDesign {
+    val a_io = new DFDesign {
       val i : DFUInt[W] <> IN = a_in
       val o : DFUInt[W] <> OUT = a_out
+      val tmp = DFUInt[W]
       def implementation(): Unit = {
-        o := i
+        tmp := i
+        o := tmp
       }
     }
 
-    val io2 = new IODesign {
+    val b_io = new IODesign {
       val i = b_in
       val o = b_out
     }
 
+    val c_io = new IOComp {
+      val i = c_in
+      val o = c_out
+    }
+
+    val d_tmp = DFUInt[8]
     def implementation(): Unit = {
-      c_tmp := c_in
-      c_out := c_tmp.prev()
-      d_out := d_in
+      d_tmp := d_in
+      c_out := d_tmp.prev()
     }
   }
 
