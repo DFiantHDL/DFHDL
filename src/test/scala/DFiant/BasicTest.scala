@@ -28,9 +28,11 @@ object BasicTest extends App {
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
     val c_in : DFUInt[W] <> IN = TOP
+    val d_in : DFUInt[W] <> IN = TOP
     val a_out : DFUInt[W] <> OUT = TOP
     val b_out : DFUInt[W] <> OUT = TOP
     val c_out : DFUInt[W] <> OUT = TOP
+    val d_out : DFUInt[W] <> OUT = TOP
 
     val c_tmp = DFUInt[8]
     val io1 = new DFDesign {
@@ -49,8 +51,8 @@ object BasicTest extends App {
     def implementation(): Unit = {
       c_tmp := c_in
       c_out := c_tmp.prev()
+      d_out := d_in + 1
     }
-    //c_out := a_in + b_in
   }
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
