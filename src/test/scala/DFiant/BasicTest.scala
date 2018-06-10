@@ -48,7 +48,6 @@ object BasicTest extends App {
 
     def implementation(): Unit = {
       c_tmp := c_in
-      val aaa = c_tmp.prev()
       c_out := c_tmp.prev()
     }
     //c_out := a_in + b_in

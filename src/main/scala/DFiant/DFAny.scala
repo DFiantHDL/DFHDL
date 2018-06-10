@@ -221,7 +221,7 @@ object DFAny {
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
-  ) extends DFAny {
+  ) extends DFAny.Var {
     lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -236,7 +236,7 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
-//    protected def discoveryDepenencies : List[Discoverable] = List(aliasedVar)
+    override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     private def newAutoName : String = {
