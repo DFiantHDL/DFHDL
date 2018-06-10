@@ -51,7 +51,7 @@ object BasicTest extends App {
     def implementation(): Unit = {
       c_tmp := c_in
       c_out := c_tmp.prev()
-      d_out := d_in + 1
+      d_out := d_in
     }
   }
 
@@ -66,7 +66,6 @@ object BasicTest extends App {
 //  println(myDesign.components)
 
   myDesign.printInfo()
-  println(myDesign.c_tmp.getName)
 
 //  myDesign.compileToVHDL("myDesignTest")
 }
