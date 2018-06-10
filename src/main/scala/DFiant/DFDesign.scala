@@ -14,9 +14,9 @@ abstract class DFDesign(
 
   protected def implementation() : Unit
 
-  final lazy val namedNonPorts : List[DFAny] =
-    this.getNestedDeclaredFieldsOf[DFAny](classOf[DFAny],
-      t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
+//  final lazy val namedNonPorts : List[DFAny] =
+//    this.getNestedDeclaredFieldsOf[DFAny](classOf[DFAny],
+//      t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ abstract class DFDesign(
     owner match {
       case Some(o) =>
 //        o.namedComponents
-        o.namedNonPorts
+//        o.namedNonPorts
         o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(getName)))
       case _ =>
         setAutoName(if (n.value == "$anon") "top" else n.value)
@@ -100,7 +100,7 @@ abstract class DFDesign(
 
   protected lazy val init : Unit = {
 //    namedComponents
-    namedNonPorts
+//    namedNonPorts
     //Run init of all components
     components.foreach(c => c.init)
     implementation()

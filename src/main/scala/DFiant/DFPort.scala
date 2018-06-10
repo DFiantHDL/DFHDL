@@ -3,6 +3,8 @@ package DFiant
 import DFiant.DFAny.Token
 import DFiant.internals._
 
+import scala.collection.mutable.ListBuffer
+
 trait DFInterface extends HasProperties with Nameable with TypeNameable {
   final protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   final protected type DFDir = DFPort.DFDir
@@ -13,16 +15,21 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
   final protected type TOP = DFPort.TOP
   final protected val TOP = DFPort.TOP
 
-  final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
-    this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir]](classOf[DFAny.Port[DFAny, DFDir]],
-      _ => true, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
+//  final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
+//    this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir]](classOf[DFAny.Port[DFAny, DFDir]],
+//      _ => true, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
 
-  final lazy val portsIn : List[DFAny.Port[DFAny, IN]] = ports.filter(p => p.dir match {
+  protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
+  final protected[DFiant] def newPort(dfval : DFAny.Port[DFAny, DFDir]) : Unit = {
+    ports += dfval
+  }
+
+  final lazy val portsIn : List[DFAny.Port[DFAny, IN]] = ports.toList.filter(p => p.dir match {
     case DFPort.IN => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
 
-  final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] = ports.filter(p => p.dir match {
+  final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] = ports.toList.filter(p => p.dir match {
     case DFPort.OUT => true
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])

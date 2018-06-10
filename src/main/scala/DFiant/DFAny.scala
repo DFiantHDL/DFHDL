@@ -259,7 +259,7 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     //    setAutoName(n.value)
-    dsn.newDFVal(this)
+//    dsn.newDFVal(this)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -307,6 +307,7 @@ object DFAny {
     override def toString : String = s"$getName : $getTypeName <> $dir"
 
     dsn.newDFVal(this)
+//    dsn.newPort(this)
     //    setAutoName(n.value)
   }
   object Port {
