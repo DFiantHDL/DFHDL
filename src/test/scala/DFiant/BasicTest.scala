@@ -56,7 +56,7 @@ object BasicTest extends App {
       val o : DFUInt[W] <> OUT = a_out
       val tmp = DFUInt[W]
       def implementation(): Unit = {
-        tmp := i
+        tmp := i.prev()
         o := tmp
       }
     }
@@ -71,10 +71,8 @@ object BasicTest extends App {
       val o = c_out
     }
 
-    val d_tmp = DFUInt[8]
     def implementation(): Unit = {
-      d_tmp := d_in
-      c_out := d_tmp.prev()
+      c_out := d_in.prev()
     }
   }
 
