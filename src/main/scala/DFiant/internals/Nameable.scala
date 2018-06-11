@@ -10,7 +10,7 @@ trait Nameable {
       case None => false
     }
   }
-  def getName : String = nameManualOption match {
+  lazy val name : String = nameManualOption match {
     case Some(n) => n
     case None => nameAutoOption match {
       case Some(n) => n
@@ -19,7 +19,7 @@ trait Nameable {
   }
   def setName(name : String) : this.type = {nameManualOption = Some(name); this}
   final protected[DFiant] def setAutoName(name : String) : this.type = {nameAutoOption = Some(name); this}
-  override def toString : String = getName
+  override def toString : String = name
 }
 
 trait TypeNameable {

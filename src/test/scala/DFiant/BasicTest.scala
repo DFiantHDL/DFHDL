@@ -82,7 +82,7 @@ object BasicTest extends App {
 //  myDesign.meme.keep
 //  myDesign.wakeLazyAlmanac
 //  myDesign.protAlmanac.printEntrees()
-//  println(myDesign.meme.getName)
+//  println(myDesign.meme.name)
 //  myDesign.keep
 //  println(myDesign.components)
 

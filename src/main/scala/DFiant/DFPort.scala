@@ -17,7 +17,7 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
 
 //  final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
 //    this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir]](classOf[DFAny.Port[DFAny, DFDir]],
-//      _ => true, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
+//      _ => true, (f, t) => if (!t.hasName) t.setAutoName(f.name) else t)
 //
   protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
   final protected[DFiant] def newPort(dfval : DFAny.Port[DFAny, DFDir]) : Unit = {
@@ -40,7 +40,7 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
     if (ifc.isEmpty) cls.getSuperclass.getName else ifc.head.getName
   }
 
-  override def toString: String = s"$getName : $getTypeName"
+  override def toString: String = s"$name : $getTypeName"
 }
 
 object DFPort {

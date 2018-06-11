@@ -140,9 +140,9 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
     this
   }
 
-  def getFullName : String = s"${dsn.getFullName}.$getName"
+  lazy val fullName : String = s"${dsn.fullName}.$name"
 
-  override def toString : String = s"$getFullName : $getTypeName"
+  override def toString : String = s"$fullName : $getTypeName"
 
 
   protected[DFiant] val almanacEntry : AlmanacEntry
@@ -246,11 +246,11 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
 
-    override def getFullName : String = s"${aliasedVar.dsn.getFullName}.$getName"
+    override lazy val fullName : String = s"${aliasedVar.dsn.fullName}.$name"
     private def newAutoName : String = {
       if (n.value == "implementation" || n.value == "$anon"){
-        if (deltaStep < 0) s"${aliasedVar.getName}__prev${-deltaStep}"
-        else s"${aliasedVar.getName}__???"
+        if (deltaStep < 0) s"${aliasedVar.name}__prev${-deltaStep}"
+        else s"${aliasedVar.name}__???"
       } else n.value
     }
     setAutoName(newAutoName)
@@ -294,7 +294,7 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn match {
       case FullyConnected(dfVar) => dfVar.almanacEntry
       case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
-      case TOP.Width(w) => AlmanacEntryPort(width, dir, getName, dsn.getName)
+      case TOP.Width(w) => AlmanacEntryPort(width, dir, name, dsn.name)
     }
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
@@ -313,7 +313,7 @@ object DFAny {
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
     final val isPort = true
-    override def toString : String = s"$getFullName : $getTypeName <> $dir"
+    override def toString : String = s"$fullName : $getTypeName <> $dir"
 
     setAutoName(n.value)
     dsn.newPort(this.asInstanceOf[Port[DFAny, DFDir]])

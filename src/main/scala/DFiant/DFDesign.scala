@@ -20,7 +20,7 @@ abstract class DFDesign(
 
 //  final lazy val namedNonPorts : List[DFAny] =
 //    this.getNestedDeclaredFieldsOf[DFAny](classOf[DFAny],
-//      t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.getName) else t)
+//      t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.name) else t)
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +28,7 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
 //  final protected[DFiant] lazy val namedComponents : List[DFDesign] =
-//    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => {if (f.getName != "dsn") t.setAutoName(f.getName); t})
+//    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => {if (f.name != "dsn") t.setAutoName(f.name); t})
 
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   final protected def newComponent(comp : DFDesign) : Unit = {
@@ -46,14 +46,14 @@ abstract class DFDesign(
       case Some(o) =>
 //        o.namedComponents
 //        o.namedNonPorts
-        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(getName)))
+        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(name)))
       case _ =>
         setAutoName(if (n.value == "$anon") "top" else n.value)
-        new Almanac {}.setName(getName)
+        new Almanac {}.setName(name)
     }
   }
   final protected def printComponents() : Unit = {
-    components.foreach(c => println(c.getName))
+    components.foreach(c => println(c.name))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -86,20 +86,12 @@ abstract class DFDesign(
     super.setName(name)
   }
 
-  override def getName: String = {
-    owner match {
-      case Some(o) => o.components //touching components to force naming
-      case _ =>
-    }
-    super.getName
+  lazy val fullName : String = owner match {
+    case Some(o) => s"${o.fullName}.$name"
+    case _ => name
   }
 
-  def getFullName : String = owner match {
-    case Some(o) => s"${o.getFullName}.$getName"
-    case _ => getName
-  }
-
-  override def toString: String = s"$getFullName : $getTypeName"
+  override def toString: String = s"$fullName : $getTypeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//
