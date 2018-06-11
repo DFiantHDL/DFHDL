@@ -9,6 +9,10 @@ abstract class DFDesign(
   implicit val owner : Option[DFDesign] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFInterface with Implicits with Discoverable {
   protected implicit val dsn = this
+  final val topDsn : DFDesign = owner match {
+    case Some(o) => o.topDsn
+    case _ => this
+  }
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = newAlmanac
 
@@ -60,6 +64,7 @@ abstract class DFDesign(
   final protected[DFiant] def newDFVal(dfval : DFAny) : Unit = {
     dfvals += dfval
   }
+  final private[DFiant] def anonValName : String = s"anon${dfvals.size}"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
@@ -90,9 +95,11 @@ abstract class DFDesign(
   }
 
   def getFullName : String = owner match {
-    case Some(o) => s"${o.getFullName}_$getName"
+    case Some(o) => s"${o.getFullName}.$getName"
     case _ => getName
   }
+
+  override def toString: String = s"$getFullName : $getTypeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//

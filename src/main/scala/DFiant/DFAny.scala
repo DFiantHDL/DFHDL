@@ -140,7 +140,9 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
     this
   }
 
-  override def toString : String = s"$getName : $getTypeName"
+  def getFullName : String = s"${dsn.getFullName}.$getName"
+
+  override def toString : String = s"$getFullName : $getTypeName"
 
 
   protected[DFiant] val almanacEntry : AlmanacEntry
@@ -215,7 +217,11 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    setAutoName(n.value)
+    private def newAutoName : String = {
+      if (n.value == "implementation" || n.value == "$anon") dsn.anonValName
+      else n.value
+    }
+    setAutoName(newAutoName)
     dsn.newDFVal(this)
   }
 
@@ -239,10 +245,12 @@ object DFAny {
     override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+
+    override def getFullName : String = s"${aliasedVar.dsn.getFullName}.$getName"
     private def newAutoName : String = {
       if (n.value == "implementation" || n.value == "$anon"){
-        if (deltaStep < 0) s"${aliasedVar.getName}_p${-deltaStep}"
-        else s"${aliasedVar.getName}_???"
+        if (deltaStep < 0) s"${aliasedVar.getName}__prev${-deltaStep}"
+        else s"${aliasedVar.getName}__???"
       } else n.value
     }
     setAutoName(newAutoName)
@@ -258,6 +266,7 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    override def toString : String = s"$token"
     //    setAutoName(n.value)
 //    dsn.newDFVal(this)
   }
@@ -304,7 +313,7 @@ object DFAny {
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
     final val isPort = true
-    override def toString : String = s"$getName : $getTypeName <> $dir"
+    override def toString : String = s"$getFullName : $getTypeName <> $dir"
 
     setAutoName(n.value)
     dsn.newPort(this.asInstanceOf[Port[DFAny, DFDir]])

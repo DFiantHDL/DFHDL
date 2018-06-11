@@ -72,7 +72,7 @@ object BasicTest extends App {
     }
 
     def implementation(): Unit = {
-      c_out := d_in.prev()
+      d_out := d_in + d_in
     }
   }
 
