@@ -31,8 +31,10 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   protected final def protBit[I](relBit : TwoFace.Int[I])(implicit n : NameIt) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
-  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit n : NameIt) : TBool = protBit(relBit.unsafeCheck(width))
-  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], n : NameIt, di : DummyImplicit) : TBool = protBit(relBit.unsafeCheck(width))
+  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit n : NameIt) : TBool =
+    protBit(relBit.unsafeCheck(width))
+  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], n : NameIt, di : DummyImplicit) : TBool =
+    protBit(relBit.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -106,18 +108,22 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
     op(this.asInstanceOf[TVal], step)
   //////////////////////////////////////////////////////////////////////////
 
+
+  //////////////////////////////////////////////////////////////////////////
+  // Future Stuff
+  //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
-//  final def getNextSeq(seqNum : Int, slidingWindow : Boolean = false) : Seq[TVal] = {
-//    val seq = Seq.tabulate(seqNum)(_ => this.newEmptyDFVar.dontProduce())
-//    if (slidingWindow)
-//      seq.zipWithIndex.foreach{case (e, i) => e := this.next(i)}
-//    else {
-//      ifdf (this.tokensCounter(seqNum) == 0) { //TODO: think about tokenCnt limit here (maybe seqNum-1 ??)
-//        seq.zipWithIndex.foreach{case (e, i) => e := this.next(i)}
-//      }
-//    }
-//    seq
-//  }
+  //  final def getNextSeq(seqNum : Int, slidingWindow : Boolean = false) : Seq[TVal] = {
+  //    val seq = Seq.tabulate(seqNum)(_ => this.newEmptyDFVar.dontProduce())
+  //    if (slidingWindow)
+  //      seq.zipWithIndex.foreach{case (e, i) => e := this.next(i)}
+  //    else {
+  //      ifdf (this.tokensCounter(seqNum) == 0) { //TODO: think about tokenCnt limit here (maybe seqNum-1 ??)
+  //        seq.zipWithIndex.foreach{case (e, i) => e := this.next(i)}
+  //      }
+  //    }
+  //    seq
+  //  }
 
   final def consume() : TAlias = {
     ???
@@ -128,34 +134,53 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
     this.asInstanceOf[TAlias]
   }
   final def isNotEmpty : DFBool = ???
-//  final def tokensCounter(supremLimit : Int) : DFUInt = TokensCounter(this, supremLimit)
-//  def newEmptyDFVar : TVar
-//  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
+  //  final def tokensCounter(supremLimit : Int) : DFUInt = TokensCounter(this, supremLimit)
+  //  def newEmptyDFVar : TVar
+  //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
+  //////////////////////////////////////////////////////////////////////////
 
+
+  //////////////////////////////////////////////////////////////////////////
+  // Naming
+  //////////////////////////////////////////////////////////////////////////
+  val isAnonymous : Boolean
+  lazy val fullName : String = s"${dsn.fullName}.$name"
+  override def toString : String = s"$fullName : $getTypeName"
+  //////////////////////////////////////////////////////////////////////////
+
+
+  //////////////////////////////////////////////////////////////////////////
+  // Equality
+  //////////////////////////////////////////////////////////////////////////
+  def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
+  def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
+  //////////////////////////////////////////////////////////////////////////
+
+
+  //////////////////////////////////////////////////////////////////////////
+  // Administration
+  //////////////////////////////////////////////////////////////////////////
   implicit protected val dsn : DFDesign
   protected def discoveryDepenencies : List[Discoverable] = List()
   final implicit protected lazy val protAlmanac : Almanac = dsn.protAlmanac
   def keep : this.type = {
-    dsn.keepList += this //touching lazy Almanac
+    dsn.keepList += this
     this
   }
-
-  lazy val fullName : String = s"${dsn.fullName}.$name"
-
-  override def toString : String = s"$fullName : $getTypeName"
-
-
   protected[DFiant] val almanacEntry : AlmanacEntry
-
   protected[DFiant] final def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
-
   val isPort : Boolean
+  //////////////////////////////////////////////////////////////////////////
 
-  def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
-  def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
+
+  //////////////////////////////////////////////////////////////////////////
+  // Simulation
+  //////////////////////////////////////////////////////////////////////////
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
-//  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
+  //////////////////////////////////////////////////////////////////////////
+
+  //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
   def casedf(a: TVal)(block : => Unit)(implicit dsn : DFDesign) : DFCase[TVal] = {
 //    def casedf_(block : => Unit) : Unit = {}
     ???
@@ -177,29 +202,44 @@ object DFAny {
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
-
     //    type TUInt = DFUInt#TVar
 
+    //////////////////////////////////////////////////////////////////////////
+    // Future Stuff
+    //////////////////////////////////////////////////////////////////////////
     final def dontProduce() : TAlias = {
       ???
       this.asInstanceOf[TAlias]
     }
     final def isNotFull : DFBool = ???
-    private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
-    protected[DFiant] final def assign(that : DFAny) : TVar = {
-      privAssignDependencies += that
-      AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
-      this.asInstanceOf[TVar]
-    }
 
-    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
     final def assignNext(step : Int, that : TVal) : Unit = ???
     final def assignNext(step : Int, that : BigInt) : Unit = ???
     final def <-- (that : Iterable[TVal]) : TVar = {
       that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
       this.asInstanceOf[TVar]
     }
+    //////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////
+    // Administration
+    //////////////////////////////////////////////////////////////////////////
+    private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
+    //////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////
+    // Assignment (Mutation)
+    //////////////////////////////////////////////////////////////////////////
+    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
+    protected[DFiant] final def assign(that : DFAny) : TVar = {
+      privAssignDependencies += that
+      AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
+      this.asInstanceOf[TVar]
+    }
+    //////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -217,8 +257,9 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     private def newAutoName : String = {
-      if (n.value == "implementation" || n.value == "$anon") dsn.anonValName
+      if (isAnonymous) dsn.anonValName
       else n.value
     }
     setAutoName(newAutoName)
@@ -246,13 +287,11 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
 
-    override lazy val fullName : String = s"${aliasedVar.dsn.fullName}.$name"
-    private def newAutoName : String = {
-      if (n.value == "implementation" || n.value == "$anon"){
-        if (deltaStep < 0) s"${aliasedVar.name}__prev${-deltaStep}"
-        else s"${aliasedVar.name}__???"
-      } else n.value
-    }
+    val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
+                                           else s"${aliasedVar.fullName}__???"
+    private def newAutoName : String = if (isAnonymous) dsn.anonValName + "$$" + derivedName
+                                       else n.value
     setAutoName(newAutoName)
     dsn.newDFVal(this)
   }
@@ -267,6 +306,7 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     override def toString : String = s"$token"
+    val isAnonymous : Boolean = false
     //    setAutoName(n.value)
 //    dsn.newDFVal(this)
   }
@@ -314,6 +354,7 @@ object DFAny {
     ) = portAssign(op(left, right))
     final val isPort = true
     override def toString : String = s"$fullName : $getTypeName <> $dir"
+    val isAnonymous : Boolean = false
 
     setAutoName(n.value)
     dsn.newPort(this.asInstanceOf[Port[DFAny, DFDir]])

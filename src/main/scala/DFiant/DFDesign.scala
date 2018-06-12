@@ -64,7 +64,7 @@ abstract class DFDesign(
   final protected[DFiant] def newDFVal(dfval : DFAny) : Unit = {
     dfvals += dfval
   }
-  final private[DFiant] def anonValName : String = s"anon${dfvals.size}"
+  final private[DFiant] def anonValName : String = "$" + s"anon${dfvals.size}"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
