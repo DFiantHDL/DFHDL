@@ -18,17 +18,10 @@ abstract class DFDesign(
 
   protected def implementation() : Unit
 
-//  final lazy val namedNonPorts : List[DFAny] =
-//    this.getNestedDeclaredFieldsOf[DFAny](classOf[DFAny],
-//      t => !t.isPort, (f, t) => if (!t.hasName) t.setAutoName(f.name) else t)
-
-
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
-//  final protected[DFiant] lazy val namedComponents : List[DFDesign] =
-//    this.getNestedDeclaredFieldsOf[DFDesign](classOf[DFDesign], f => f != this, (f, t) => {if (f.name != "dsn") t.setAutoName(f.name); t})
 
   final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
   final protected def newComponent(comp : DFDesign) : Unit = {
@@ -44,8 +37,6 @@ abstract class DFDesign(
   final protected def newAlmanac : Almanac = {
     owner match {
       case Some(o) =>
-//        o.namedComponents
-//        o.namedNonPorts
         o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(name)))
       case _ =>
         setAutoName(if (n.value == "$anon") "top" else n.value)
@@ -61,16 +52,17 @@ abstract class DFDesign(
   // DFVals
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
-  final protected[DFiant] def newDFVal(dfval : DFAny) : Unit = {
+  //adds the dataflow value to the list and returns its ID (starting from 1)
+  final protected[DFiant] def newDFValGetID(dfval : DFAny) : Int = {
     dfvals += dfval
+    dfvals.size
   }
-  final private[DFiant] def anonValName : String = "$" + s"anon${dfvals.size}"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
   def compileToVHDL(fileName : String) = ???
   def keep : this.type = {
-    keepList += this //touching lazy Almanac
+    keepList += this
     this
   }
   final def isTop : Boolean = owner match {
@@ -98,8 +90,6 @@ abstract class DFDesign(
   protected def discovery : Unit = protAlmanac
 
   protected lazy val init : Unit = {
-//    namedComponents
-//    namedNonPorts
     //Run init of all components
     components.foreach(c => c.init)
     implementation()

@@ -257,13 +257,13 @@ object DFAny {
     protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    final val id = dsn.newDFValGetID(this)
+    final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     private def newAutoName : String = {
-      if (isAnonymous) dsn.anonValName
+      if (isAnonymous) "$" + s"anon$id"
       else n.value
     }
     setAutoName(newAutoName)
-    dsn.newDFVal(this)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
@@ -287,13 +287,13 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
 
+    final val id = dsn.newDFValGetID(this)
     val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
-    private def newAutoName : String = if (isAnonymous) dsn.anonValName + "$$" + derivedName
+    private def newAutoName : String = if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName
                                        else n.value
     setAutoName(newAutoName)
-    dsn.newDFVal(this)
   }
 
   abstract class Const(token : Token)(
