@@ -13,6 +13,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   type TAlias <: TVal
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
+  type TUInt[W2] <: DFUInt[W2]
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken <: DFAny.Token
@@ -180,7 +181,6 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   def simWatch : BigInt = ???
   //////////////////////////////////////////////////////////////////////////
 
-  //  override def toString: String = s"$dfTypeName($width).init${getInit.codeString}"
   def casedf(a: TVal)(block : => Unit)(implicit dsn : DFDesign) : DFCase[TVal] = {
 //    def casedf_(block : => Unit) : Unit = {}
     ???
@@ -202,7 +202,7 @@ object DFAny {
     type TAlias = TVar
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
-    //    type TUInt = DFUInt#TVar
+    type TUInt[W2] = DFUInt.Var[W2]//DFUInt[W2]#TVar
 
     //////////////////////////////////////////////////////////////////////////
     // Future Stuff
