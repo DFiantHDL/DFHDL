@@ -146,7 +146,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   val isAnonymous : Boolean
   lazy val fullName : String = s"${dsn.fullName}.$name"
-  override def toString : String = s"$fullName : $getTypeName"
+  override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -259,11 +259,10 @@ object DFAny {
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
-    private def newAutoName : String = {
+    override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
     }
-    setAutoName(newAutoName)
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
@@ -291,9 +290,8 @@ object DFAny {
     val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
-    private def newAutoName : String = if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName
-                                       else n.value
-    setAutoName(newAutoName)
+    override protected def nameDefault: String =
+      if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName else n.value
   }
 
   abstract class Const(token : Token)(
@@ -353,10 +351,10 @@ object DFAny {
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
     final val isPort = true
-    override def toString : String = s"$fullName : $getTypeName <> $dir"
+    override protected def nameDefault: String = n.value
+    override def toString : String = s"$fullName : $typeName <> $dir"
     val isAnonymous : Boolean = false
 
-    setAutoName(n.value)
     dsn.newPort(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {

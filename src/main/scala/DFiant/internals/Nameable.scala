@@ -1,34 +1,22 @@
 package DFiant.internals
 
 trait Nameable {
-  private var nameManualOption : Option[String] = None
-  private var nameAutoOption   : Option[String] = None
-  def hasName : Boolean = nameManualOption match {
-    case Some(n) => true
-    case None => nameAutoOption match {
-      case Some(n) => true
-      case None => false
-    }
-  }
-  lazy val name : String = nameManualOption match {
-    case Some(n) => n
-    case None => nameAutoOption match {
-      case Some(n) => n
-      case None => "???"
-    }
-  }
-  def setName(name : String) : this.type = {nameManualOption = Some(name); this}
-  final protected[DFiant] def setAutoName(name : String) : this.type = {nameAutoOption = Some(name); this}
+  protected def nameDefault : String = "???"
+  private var nameManual : String = ""
+  private var nameAuto : String = ""
+  def hasName : Boolean = !nameManual.isEmpty || !nameAuto.isEmpty
+  lazy val name : String = if (!nameManual.isEmpty) nameManual
+                           else if (!nameAuto.isEmpty) nameAuto
+                           else nameDefault
+  def setName(name : String) : this.type = {nameManual = name; this}
+  final protected[DFiant] def setAutoName(name : String) : this.type = {nameAuto = name; this}
   override def toString : String = name
 }
 
 trait TypeNameable {
-  private var typeNameAutoOption : Option[String] = None
-  def getTypeName : String = typeNameAutoOption match {
-    case Some(n) => n
-    case None => "???"
-  }
-  final protected[DFiant] def setAutoTypeName(name : String) : this.type = {typeNameAutoOption = Some(name); this}
+  private var typeNameAuto : String = "???"
+  lazy val typeName : String = typeNameAuto
+  final protected[DFiant] def setAutoTypeName(name : String) : this.type = {typeNameAuto = name; this}
 }
 
 

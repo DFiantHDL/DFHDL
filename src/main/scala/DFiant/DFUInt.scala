@@ -57,7 +57,7 @@ object DFUInt extends DFAny.Companion {
     //      def casedf(that : BigInt)(block : => Unit)(implicit op: `Op==`.Builder[TVal, BigInt]) : Unit = {}
     //
     //    }
-    override def getTypeName: String = s"DFUInt[$width]"
+    override lazy val typeName: String = s"DFUInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

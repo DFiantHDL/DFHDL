@@ -39,7 +39,6 @@ abstract class DFDesign(
       case Some(o) =>
         o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(name)))
       case _ =>
-        setAutoName(if (n.value == "$anon") "top" else n.value)
         new Almanac {}.setName(name)
     }
   }
@@ -73,6 +72,7 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  override protected def nameDefault: String = if (n.value == "$anon") "top" else n.value
   override def setName(name: String): DFDesign.this.type = {
     protAlmanac.setName(name)
     super.setName(name)
@@ -83,7 +83,7 @@ abstract class DFDesign(
     case _ => name
   }
 
-  override def toString: String = s"$fullName : $getTypeName"
+  override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//
@@ -101,7 +101,6 @@ abstract class DFDesign(
     protAlmanac.printInfo()
   }
 
-  setAutoName(n.value)
   addComponentToParent
 }
 object DFDesign {

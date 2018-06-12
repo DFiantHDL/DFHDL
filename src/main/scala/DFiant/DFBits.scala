@@ -98,7 +98,7 @@ object DFBits extends DFAny.Companion {
     ///////////////////////////DFUInt.op[W](width, "toDFUInt", DFBits.Token.toUInt(getInit))
     def toDFUInt(implicit n : NameIt) : DFUInt[Width] = DFUInt.newVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this)
 
-    override def getTypeName : String = s"DFBits[$width]"
+    override lazy val typeName : String = s"DFBits[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

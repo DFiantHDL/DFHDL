@@ -34,13 +34,13 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
     case _ => false
   }).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
-  override def getTypeName: String = {
+  override lazy val typeName: String = {
     val cls = getClass
     val ifc = cls.getInterfaces
     if (ifc.isEmpty) cls.getSuperclass.getName else ifc.head.getName
   }
 
-  override def toString: String = s"$name : $getTypeName"
+  override def toString: String = s"$name : $typeName"
 }
 
 object DFPort {
