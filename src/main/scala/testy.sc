@@ -6,9 +6,7 @@ val d = new DFDesign {
   val b : DFUInt[8] <> IN = TOP
   val o : DFUInt[8] <> OUT = TOP
 
-  val oo = DFUInt[8]
-  val aa = DFUInt[8]
-  o := aa
+  override def implementation(): Unit = {
+    o := a
+  }
 }
-
-//d.mama.getName
