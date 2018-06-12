@@ -305,7 +305,6 @@ object DFAny {
     final val isPort = false
     override def toString : String = s"$token"
     val isAnonymous : Boolean = false
-    //    setAutoName(n.value)
 //    dsn.newDFVal(this)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
