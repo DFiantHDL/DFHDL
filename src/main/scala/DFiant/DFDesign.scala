@@ -21,17 +21,22 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
+  final protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
+  final protected[DFiant] val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
 
-  final protected[DFiant] def newRTComponent(comp : RTComponent) : Unit = {}
-  final protected def newComponent(comp : DFDesign) : Unit = {
+  final protected def newComponentGetID(comp : DFDesign) : Int = {
     components += comp
+    components.size
+  }
+  final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = {
+    rtcomponents += comp
+    rtcomponents.size
   }
 
-  final protected def addComponentToParent : Unit = {
+  final protected def addComponentToParentGetID : Int = {
     owner match {
-      case Some(o) => o.newComponent(this)
-      case _ =>
+      case Some(o) => o.newComponentGetID(this)
+      case _ => 0
     }
   }
   final protected def newAlmanac : Almanac = {
@@ -50,7 +55,7 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFVals
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
+  final protected val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
   //adds the dataflow value to the list and returns its ID (starting from 1)
   final protected[DFiant] def newDFValGetID(dfval : DFAny) : Int = {
     dfvals += dfval
@@ -60,7 +65,7 @@ abstract class DFDesign(
 
   protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
   def compileToVHDL(fileName : String) = ???
-  def keep : this.type = {
+  final def keep : this.type = {
     keepList += this
     this
   }
@@ -72,13 +77,13 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  override protected def nameDefault: String = if (n.value == "$anon") "top" else n.value
-  override def setName(name: String): DFDesign.this.type = {
+  final override protected def nameDefault: String = if (n.value == "$anon") "top" else n.value
+  final override def setName(name: String): DFDesign.this.type = {
     protAlmanac.setName(name)
     super.setName(name)
   }
 
-  lazy val fullName : String = owner match {
+  final lazy val fullName : String = owner match {
     case Some(o) => s"${o.fullName}.$name"
     case _ => name
   }
@@ -86,10 +91,10 @@ abstract class DFDesign(
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//
-  protected def discovery : Unit = protAlmanac
+  final protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//
+  final protected def discovery : Unit = protAlmanac
 
-  protected lazy val init : Unit = {
+  final protected lazy val init : Unit = {
     //Run init of all components
     components.foreach(c => c.init)
     implementation()
@@ -101,7 +106,7 @@ abstract class DFDesign(
     protAlmanac.printInfo()
   }
 
-  addComponentToParent
+  final val id = addComponentToParentGetID
 }
 object DFDesign {
 }

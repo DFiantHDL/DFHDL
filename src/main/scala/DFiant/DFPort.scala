@@ -1,5 +1,12 @@
 package DFiant
 
+case class PortNode (
+  dfport : DFAny.Port[DFAny, DFPort.DFDir],
+  name : String
+) {
+  override def toString: String = name
+}
+
 object DFPort {
   type <>[DF <: DFAny, DIR <: DFDir] = DFAny.Port[DF, DIR] with DF
   //Direction of a Port
@@ -22,3 +29,4 @@ object DFPort {
     final case class Width(width : Int) extends TOP with Connection[Nothing]
   }
 }
+

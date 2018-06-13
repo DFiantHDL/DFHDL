@@ -87,6 +87,7 @@ object BasicTest extends App {
 //  println(myDesign.components)
 
   myDesign.printInfo()
+  println(myDesign.a_io.portNodes)
 
 //  myDesign.compileToVHDL("myDesignTest")
 }
