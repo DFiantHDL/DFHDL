@@ -23,7 +23,7 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
 
-  final protected[DFiant] def addRTComponent(comp : RTComponent) : Unit = {}
+  final protected[DFiant] def newRTComponent(comp : RTComponent) : Unit = {}
   final protected def newComponent(comp : DFDesign) : Unit = {
     components += comp
   }
@@ -120,8 +120,3 @@ object DFComponent {
   }
 }
 
-abstract class RTComponent(implicit dsn : DFDesign, n : NameIt) extends DFInterface {
-  protected def newGeneric() : Unit = {}
-
-  dsn.addRTComponent(this)
-}
