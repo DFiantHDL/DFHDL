@@ -19,7 +19,7 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
       classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)
     )
 
-  protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
+  final protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
   final protected[DFiant] def newPort(dfval : DFAny.Port[DFAny, DFDir]) : Unit = {
     ports += dfval
   }
