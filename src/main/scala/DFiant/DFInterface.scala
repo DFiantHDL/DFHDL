@@ -25,15 +25,11 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
     ports.size
   }
 
-  final lazy val portsIn : List[DFAny.Port[DFAny, IN]] = ports.toList.filter(p => p.dir match {
-    case DFPort.IN => true
-    case _ => false
-  }).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
+  final lazy val portsIn : List[DFAny.Port[DFAny, IN]] =
+    ports.toList.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
 
-  final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] = ports.toList.filter(p => p.dir match {
-    case DFPort.OUT => true
-    case _ => false
-  }).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
+  final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
+    ports.toList.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
   override lazy val typeName: String = {
     val cls = getClass

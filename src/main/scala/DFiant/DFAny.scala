@@ -334,7 +334,13 @@ object DFAny {
       case TOP.Width(w) => AlmanacEntryPort(width, dir, name, dsn.name)
     }
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    final override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
+    private val privComponentDependency : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    final protected[DFiant] def setComponentDependency(comp : Discoverable) : Unit = {
+      if (privComponentDependency.nonEmpty)
+        throw new IllegalArgumentException(s"The dataflow value $name is already connected to an output port in the component ${privComponentDependency.head}")
+      else privComponentDependency += comp
+    }
+    final override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList ++ privComponentDependency
     final protected[DFiant] def discovery : Unit = almanacEntry
     final lazy val isOpen : Boolean = conn match {
       case OPEN => true

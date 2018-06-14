@@ -40,16 +40,25 @@ object BasicTest extends App {
     }
 
   }
+
+  trait RTIOComp extends RTComponent {
+    type W = 8
+    val i : DFUInt[W] <> IN
+    val o : DFUInt[W] <> OUT
+  }
+
   trait MyDesign extends DFDesign {
     type W = 8
     val a_in : DFUInt[W] <> IN = TOP
     val b_in : DFUInt[W] <> IN = TOP
     val c_in : DFUInt[W] <> IN = TOP
     val d_in : DFUInt[W] <> IN = TOP
+    val e_in : DFUInt[W] <> IN = TOP
     val a_out : DFUInt[W] <> OUT = TOP
     val b_out : DFUInt[W] <> OUT = TOP
     val c_out : DFUInt[W] <> OUT = TOP
     val d_out : DFUInt[W] <> OUT = TOP
+    val e_out : DFUInt[W] <> OUT = TOP
 
     val a_io = new DFDesign {
       val i : DFUInt[W] <> IN = a_in
@@ -71,8 +80,13 @@ object BasicTest extends App {
       val o = c_out
     }
 
+    val d_io = new RTIOComp {
+      val i = d_in
+      val o = d_out
+    }
+
     def implementation(): Unit = {
-      d_out := d_in + d_in
+      e_out := e_in + e_in
     }
   }
 
