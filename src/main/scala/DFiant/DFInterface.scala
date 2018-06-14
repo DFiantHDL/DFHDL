@@ -20,8 +20,9 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
     )
 
   final protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
-  final protected[DFiant] def newPort(dfval : DFAny.Port[DFAny, DFDir]) : Unit = {
+  final protected[DFiant] def newPortGetID(dfval : DFAny.Port[DFAny, DFDir]) : Int = {
     ports += dfval
+    ports.size
   }
 
   final lazy val portsIn : List[DFAny.Port[DFAny, IN]] = ports.toList.filter(p => p.dir match {

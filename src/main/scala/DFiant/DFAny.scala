@@ -96,7 +96,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   protected val protInit : Seq[TToken]
   final def getInit : Seq[TToken] = protInit
 //  def init(updatedInit : Seq[TToken]) : TAlias
-  def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) : TAlias =
+  final def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) : TAlias =
     op(left, that).asInstanceOf[TAlias]
   final def reInit(cond : DFBool) : Unit = ???
   //////////////////////////////////////////////////////////////////////////
@@ -250,11 +250,11 @@ object DFAny {
   abstract class NewVar(_width : Int, _init : Seq[Token])(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
+    final protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
@@ -268,26 +268,26 @@ object DFAny {
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = {
+    final protected lazy val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
       bitsInit.map(protTokenBitsToTToken)
     }
     def codeString(idRef : String) : String
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
-    override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
+    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
 
     final val id = dsn.newDFValGetID(this)
-    val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
     override protected def nameDefault: String =
@@ -297,14 +297,14 @@ object DFAny {
   abstract class Const(token : Token)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
+    final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     override def toString : String = s"$token"
-    val isAnonymous : Boolean = false
+    final val isAnonymous : Boolean = false
 //    dsn.newDFVal(this)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -316,31 +316,31 @@ object DFAny {
   abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(
     implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt
   ) extends DFAny {
-    lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
       case FullyConnected(dfVar) => dfVar.width
       case OPEN => 0
       case TOP.Width(w) => w
     })
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = conn match {
+    final protected lazy val protInit : Seq[TToken] = conn match {
       case FullyConnected(dfVar) => dfVar.getInit.asInstanceOf[Seq[TToken]]
       case OPEN => Seq()
       case TOP.Width(w) => Seq()
     }
-    protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn match {
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn match {
       case FullyConnected(dfVar) => dfVar.almanacEntry
       case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
       case TOP.Width(w) => AlmanacEntryPort(width, dir, name, dsn.name)
     }
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
+    final override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
     final protected[DFiant] def discovery : Unit = almanacEntry
-    lazy val isOpen : Boolean = conn match {
+    final lazy val isOpen : Boolean = conn match {
       case OPEN => true
       case _ => false
     }
-    protected[DFiant] final def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
+    final protected[DFiant] def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
@@ -352,9 +352,9 @@ object DFAny {
     final val isPort = true
     override protected def nameDefault: String = n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
-    val isAnonymous : Boolean = false
+    final val isAnonymous : Boolean = false
 
-    dsn.newPort(this.asInstanceOf[Port[DFAny, DFDir]])
+    final val id = dsn.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
     trait Builder[L <: DFAny, R, DIR <: DFDir] {
