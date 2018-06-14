@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 
 abstract class DFDesign(
   implicit val owner : Option[DFDesign] = None, val basicLib: DFBasicLib, n : NameIt
-) extends DFInterface with Implicits with Discoverable {
+) extends DFInterface with Implicits {
   protected implicit val dsn = this
   final val topDsn : DFDesign = owner match {
     case Some(o) => o.topDsn

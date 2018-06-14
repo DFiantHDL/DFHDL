@@ -4,7 +4,7 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-trait DFInterface extends HasProperties with Nameable with TypeNameable {
+trait DFInterface extends HasProperties with Nameable with TypeNameable with Discoverable {
   final protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   final protected type DFDir = DFPort.DFDir
   final protected type IN = DFPort.IN
@@ -31,6 +31,7 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable {
   final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
     ports.toList.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
+  val fullName : String
   override lazy val typeName: String = {
     val cls = getClass
     val ifc = cls.getInterfaces

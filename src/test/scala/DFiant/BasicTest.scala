@@ -85,6 +85,7 @@ object BasicTest extends App {
       val o = d_out
     }
 
+
     def implementation(): Unit = {
       e_out := e_in + e_in
     }
