@@ -23,13 +23,13 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   val width : TwoFace.Int[Width]
   protected val protComp : TCompanion
   import protComp._
-  protected[DFiant] final val tVal = this.asInstanceOf[TVal]
-  protected[DFiant] final val left = tVal
+  final protected[DFiant] val tVal = this.asInstanceOf[TVal]
+  final protected[DFiant] val left = tVal
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
-  protected final def protBit[I](relBit : TwoFace.Int[I])(implicit n : NameIt) : TBool =
+  final protected def protBit[I](relBit : TwoFace.Int[I])(implicit n : NameIt) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
   final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit n : NameIt) : TBool =
@@ -43,7 +43,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   final def bits()(implicit n : NameIt) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
 
-  protected final def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
+  final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], n : NameIt
   ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
@@ -71,7 +71,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
-  protected final def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit n : NameIt)
+  final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit n : NameIt)
   : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
@@ -169,7 +169,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
     this
   }
   protected[DFiant] val almanacEntry : AlmanacEntry
-  protected[DFiant] final def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
+  final protected[DFiant] def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 
