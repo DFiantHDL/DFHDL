@@ -7,5 +7,5 @@ import scala.collection.mutable.ListBuffer
 abstract class RTComponent(implicit dsn : DFDesign, n : NameIt) extends DFInterface {
   protected def newGeneric() : Unit = {}
 
-  val id = dsn.newRTComponentGetID(this)
+  final val id = dsn.newRTComponentGetID(this)
 }
