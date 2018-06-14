@@ -234,7 +234,7 @@ object DFAny {
     // Assignment (Mutation)
     //////////////////////////////////////////////////////////////////////////
     final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
-    protected[DFiant] final def assign(that : DFAny) : TVar = {
+    final protected[DFiant] def assign(that : DFAny) : TVar = {
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
