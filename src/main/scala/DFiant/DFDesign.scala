@@ -95,11 +95,11 @@ abstract class DFDesign(
   final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {
+    implementation()
     //Run init of all rtcomponents
     rtcomponents.foreach(c => c.init)
     //Run init of all components
     components.foreach(c => c.init)
-    implementation()
   }
 
   def printInfo() : Unit = {

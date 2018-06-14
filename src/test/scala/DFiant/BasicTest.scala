@@ -35,7 +35,11 @@ object BasicTest extends App {
     implicit def ev : DFComponent.Implementation[IOComp] = ifc => {
       import ifc._
       val tmp = DFUInt[W]
-      tmp := i
+      val rt = new RTIOComp {
+        val i = ifc.i
+        val o = tmp
+      }
+
       o := tmp
     }
 
@@ -61,12 +65,20 @@ object BasicTest extends App {
     val e_out : DFUInt[W] <> OUT = TOP
 
     val a_io = new DFDesign {
+      a_io =>
       val i : DFUInt[W] <> IN = a_in
       val o : DFUInt[W] <> OUT = a_out
-      val tmp = DFUInt[W]
       def implementation(): Unit = {
-        tmp := i.prev()
-        o := tmp
+        val internal = new DFDesign {
+          val i : DFUInt[W] <> IN = a_io.i
+          val o : DFUInt[W] <> OUT = a_io.o
+          val tmp = DFUInt[W]
+          def implementation(): Unit = {
+            tmp := i.prev()
+            o := tmp
+          }
+        }
+
       }
     }
 
