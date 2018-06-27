@@ -1,11 +1,11 @@
 BIBTEX=bibtex
 PDFLATEX=pdflatex
 
-PDFARGS=-dEmbedAllFonts=true -dCompatibilityLevel=1.4 -dPDFSETTINGS=/prepress  -shell-escape
+PDFARGS=-synctex=1 -interaction=nonstopmode
 
 BIBFILES=
 
-TARGET=fpga2018
+TARGET=dfiant_samos2018
 
 SRCS=$(wildcard *.tex)
 
