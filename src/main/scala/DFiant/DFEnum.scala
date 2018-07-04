@@ -298,7 +298,7 @@ object Enum {
     }
     object Grey extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
-      val func : Int => BigInt = t => t ^ (t >>> 1)
+      val func : Int => BigInt = t => BigInt(t ^ (t >>> 1))
     }
     case class StartAt[V <: Int with Singleton](value : V) extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1 + V]
@@ -329,7 +329,7 @@ object Enum {
   abstract class Manual[Width](implicit width : SafeInt[Width]) extends Enum {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
-    trait Entry extends Enum.Entry
+    abstract class Entry private extends Enum.Entry
     object Entry {
       def apply[T <: Int with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]]) : Entry = new Entry {
         val value : BigInt = t
