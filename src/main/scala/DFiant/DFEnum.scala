@@ -296,6 +296,10 @@ object Enum {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
       val func : Int => BigInt = t => BigInt(t)
     }
+    object Grey extends Encoding {
+      type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
+      val func : Int => BigInt = t => t ^ (t >>> 1)
+    }
     case class StartAt[V <: Int with Singleton](value : V) extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1 + V]
       val func : Int => BigInt = t => BigInt(t + value)
@@ -306,7 +310,7 @@ object Enum {
     }
   }
   
-  abstract class Auto[E <: Encoding](val encoding : E) extends Enum {
+  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default) extends Enum {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
     implicit val cnt = new Auto.Counter(encoding.func) {}

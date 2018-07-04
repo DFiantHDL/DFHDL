@@ -12,7 +12,7 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   }
   type Foo = Foo.type
 
-  object NotSealedFoo extends Enum.Auto(Enum.Encoding.Default) {
+  object NotSealedFoo extends Enum.Auto {
     class Entry extends Enum.Auto.Entry
     val Baz0, Baz1, Baz2, Baz3, Baz4 = new Entry {}
   }
