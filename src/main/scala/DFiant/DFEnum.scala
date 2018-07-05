@@ -40,7 +40,7 @@ object DFEnum extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : Var[E] = newVar[E]()
-//  def apply(that : Init.Able[DFEnum]*)(implicit dsn : DFDesign, op : Init.Builder[DFEnum], w : WidthOf[E]): Var = newVar()
+  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : Var[E] = newVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
