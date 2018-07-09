@@ -79,10 +79,10 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
-  ) : Var[W] = newVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
+  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign, n : NameIt
-  ) : Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
+  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
@@ -95,10 +95,11 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var[W] =
-    new DFAny.NewVar(width, init) with Var[W] {
-      def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
-    }
+  final protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(
+    implicit dsn : DFDesign, n : NameIt
+  ) : DFAny.NewVar with Var[W] = new DFAny.NewVar(width, init) with Var[W] {
+    def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
+  }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFUInt.Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var[W] =

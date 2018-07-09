@@ -8,7 +8,9 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable with Dis
   final protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
   final protected type DFDir = DFPort.DFDir
   final protected type IN = DFPort.IN
+  final protected val IN = DFPort.IN
   final protected type OUT = DFPort.OUT
+  final protected val OUT = DFPort.OUT
   final protected type OPEN = DFPort.OPEN
   final protected val OPEN = DFPort.OPEN
   final protected type TOP = DFPort.TOP

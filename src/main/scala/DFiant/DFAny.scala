@@ -259,6 +259,7 @@ object DFAny {
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    def <> (dir : DFDir) : TVal <> dir.type = ???
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
@@ -352,6 +353,13 @@ object DFAny {
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
+    final def portConnect(that : DFAny) : Port[DF, DIR] with DF = ???
+    //Connection should be constrained accordingly:
+    //* For IN ports, supported: All Op:= operations, and TOP
+    //* For OUT ports, supported only TVar and TOP
+    final def <> [R](right: protComp.Op.Able[R])(
+      implicit op: protComp.`Op:=`.Builder[TVal, R]
+    ) = portConnect(op(left, right))
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
