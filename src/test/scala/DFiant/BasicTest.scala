@@ -7,11 +7,9 @@ object BasicTest extends App {
     val meme = new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
       val aa = DFUInt[W] <> IN(a)
-      def implementation(): Unit = {}
     }
     new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
-      def implementation(): Unit = {}
     }
   }
 
@@ -20,10 +18,8 @@ object BasicTest extends App {
     val i : DFUInt[W] <> IN
     val o : DFUInt[W] <> OUT
     val tmp = DFUInt[W]
-    def implementation() : Unit = {
-      tmp := i
-      o := tmp
-    }
+    tmp := i
+    o := tmp
   }
 
   trait IOComp extends DFComponent[IOComp] {
@@ -69,17 +65,13 @@ object BasicTest extends App {
       a_io =>
       val i : DFUInt[W] <> IN = a_in
       val o : DFUInt[W] <> OUT = a_out
-      def implementation(): Unit = {
-        val internal = new DFDesign {
-          val i : DFUInt[W] <> IN = a_io.i
-          val o : DFUInt[W] <> OUT = a_io.o
-          val tmp = DFUInt[W]
-          def implementation(): Unit = {
-            tmp := i.prev()
-            o := tmp
-          }
-        }
+      val internal = new DFDesign {
+        val i : DFUInt[W] <> IN = a_io.i
+        val o : DFUInt[W] <> OUT = a_io.o
+        val tmp = DFUInt[W]
 
+        tmp := i.prev()
+        o := tmp
       }
     }
 
@@ -98,10 +90,7 @@ object BasicTest extends App {
       val o = d_out
     }
 
-
-    def implementation(): Unit = {
-      e_out := e_in + e_in
-    }
+    e_out := e_in + e_in
   }
 
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._

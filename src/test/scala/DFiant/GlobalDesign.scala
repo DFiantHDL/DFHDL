@@ -26,5 +26,4 @@ object GlobalDesignName extends NameIt {
 
 object GlobalDesign extends DFDesign()(None, DFGlobalLib, GlobalDesignName) {
   override implicit val dsn = this
-  def implementation(): Unit = {}
 }

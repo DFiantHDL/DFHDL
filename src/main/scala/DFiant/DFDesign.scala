@@ -16,8 +16,6 @@ abstract class DFDesign(
   final protected implicit val childParent = Some(this)
   final protected[DFiant] lazy val protAlmanac = newAlmanac
 
-  protected def implementation() : Unit
-
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,7 +93,6 @@ abstract class DFDesign(
   final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {
-    implementation()
     //Run init of all rtcomponents
     rtcomponents.foreach(c => c.init)
     //Run init of all components
@@ -116,9 +113,7 @@ object DFDesign {
 abstract class DFComponent[Comp <: DFComponent[Comp]](
   implicit dsn : DFDesign, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib, n : NameIt
 ) extends DFDesign()(Some(dsn), basicLib, n) {
-  def implementation(): Unit = {
-    impl(this.asInstanceOf[Comp])
-  }
+  impl(this.asInstanceOf[Comp])
 }
 
 object DFComponent {
