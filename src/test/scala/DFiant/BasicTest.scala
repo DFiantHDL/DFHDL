@@ -6,6 +6,7 @@ object BasicTest extends App {
     type W = 8
     val meme = new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
+      val aa = DFUInt[W] <> IN(a)
       def implementation(): Unit = {}
     }
     new DFDesign {

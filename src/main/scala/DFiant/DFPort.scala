@@ -1,5 +1,7 @@
 package DFiant
 
+import singleton.ops._
+
 case class PortNode (
   dfport : DFAny.Port[DFAny, DFPort.DFDir],
   name : String
@@ -19,7 +21,14 @@ object DFPort {
     final val isOut : Boolean = false
     final val isIn : Boolean = true
   }
-  implicit object IN extends IN
+  sealed trait DefaultIN[T] extends IN {
+    val default : T
+  }
+  implicit object IN extends IN {
+    def apply[T](default : T)(implicit g : GetArg.GetArg[0]) : DefaultIN[g.Out] = new DefaultIN[g.Out] {
+      val default = g.value
+    }
+  }
   sealed trait OUT extends DFDir {
     override def toString: String = "OUT"
     final val isOut : Boolean = true
