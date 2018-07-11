@@ -94,17 +94,27 @@ object AlmanacEntryGetDFVar {
     almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
 }
 
-class AlmanacEntryPort private (width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) extends AlmanacEntry {
-  val id : AlmanacID = AlmanacID()
-  val address : AlmanacAddress = AlmanacAddressLatest
-  val bitsRange : BitsRange = BitsRange(width)
-  val init : Seq[Token] = Seq()
-  val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
+class AlmanacEntryPort private (varEntry : AlmanacEntry, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) extends AlmanacEntry {
+  protected var connection : AlmanacEntry = varEntry
+  lazy val id : AlmanacID = connection.id
+  lazy val address : AlmanacAddress = connection.address
+  lazy val bitsRange : BitsRange = connection.bitsRange
+  lazy val init : Seq[Token] = connection.init
+  lazy val timeRef : AlmanacTimeRef = connection.timeRef
+  def connect(almanacEntry: AlmanacEntry) : Unit = {
+    //Proper connection validations should be made in the frontend. Here we assume all is OK.
+    connection = almanacEntry
+    //In case the connected entry is also a port, we set its connection accordingly to this entry
+    almanacEntry match {
+      case aep : AlmanacEntryPort => aep.connection = this
+      case _ =>
+    }
+  }
   def codeString : String = s"$dsnName.$portName"
 }
 
 object AlmanacEntryPort {
-  def apply(width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntry =
+  def apply(width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntryPort =
     almanac.fetchEntry(new AlmanacEntryPort(width, dir, portName, dsnName))
 }
 
