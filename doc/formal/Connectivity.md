@@ -36,7 +36,7 @@ trait IODesign extends DFDesign {
 
 ```scala
 trait IODesign1 extends DFDesign {
-	val i = DFUInt[8] <> IN
+  val i = DFUInt[8] <> IN
   val o = DFUInt[8] <> OUT
   val tmp = DFUInt[8]
   tmp := i
@@ -68,8 +68,8 @@ trait Container extends DFDesign {
   val i = DFUInt[8] <> IN
   val o = DFUInt[8] <> OUT
   val io = new IODesign {}
-  i <> io.i //Connecting between owner input and child input
-  io.o <> o //Connecting between child output and owner output
+  i    <> io.i //Connecting between owner input and child input
+  io.o <> o    //Connecting between child output and owner output
 }
 ```
 
@@ -83,7 +83,7 @@ trait Container2 extends DFDesign {
   val o = DFUInt[8] <> OUT
   val io1 = new IODesign {}
   val io2 = new IODesign {}
-  i <> io1.i     //Connecting between owner input and child input
+  i     <> io1.i //Connecting between owner input and child input
   io1.o <> io2.i //Connecting between siblings (output <> input)
   io2.o <> o     //Connecting between child output and owner output
 }
@@ -105,6 +105,36 @@ trait Container3 extends DFDesign {
 ```
 
 ![1531322811065](graphics/1531322880257.png)
+
+---
+
+```scala
+trait Container4 extends DFDesign {
+  val i = DFUInt[8] <> IN
+  val o = DFUInt[8] <> OUT
+  val io = new IODesign2 {}
+  i     <> io.i1 //Connecting between owner input and child input
+  io.i2 <> 5     //Connecting between constant value and child input
+  o     <> io.o2
+}
+```
+
+![1531344446287](C:\IdeaProjects\DFiant\doc\formal\graphics\1531344446287.png)
+
+---
+
+```scala
+trait Container5 extends DFDesign {
+  val i = DFUInt[8] <> IN
+  val o = DFUInt[8] <> OUT
+  val io = new IODesign2 {}
+  i     <> io.i1 //Connecting between owner input and child input
+  io.i2 <> io.o1 //Connecting between child input and output
+  o     <> io.o2
+}
+```
+
+![1531345077704](C:\IdeaProjects\DFiant\doc\formal\graphics\1531345200179.png)
 
 ---
 
