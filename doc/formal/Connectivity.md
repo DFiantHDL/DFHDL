@@ -11,8 +11,12 @@ typora-copy-images-to: graphics
 Semantics:
 
 * Differences between `:=` and `<>` 
-  * Initialization is not copied to destination with `:=`
+  * Initialization is not copied to destination with `:=`, but it does with `<>`
   * `<>` ordering does not matter! The ordering is determined by the dependency detected when the design is flattened.
+  * Input ports do not accept `:=` under any condition.
+  * Output ports can accept `:=` only at the design level, but not at owner level.
+  * All ports accept `<>`, but various restriction are applied, depending on the hierarchy difference, called scope and port directions.
+  * `:=` is directional (consumer := producer) while `<>` set the direction automatically.
 
 
 
