@@ -1,11 +1,12 @@
 package DFiant
 
-object BasicTest extends App { 
+object ConnectTest extends App {
 
   trait MemeDesign extends DFDesign {
     type W = 8
     val meme = new DFDesign {
       val a : DFUInt[W] <> IN = OPEN
+      val aa = DFUInt[W] <> IN
     }
     new DFDesign {
       val a : DFUInt[W] <> IN = OPEN

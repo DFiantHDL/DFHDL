@@ -259,7 +259,7 @@ object DFAny {
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
-    def <> (dir : DFDir) : TVal <> dir.type = ???
+    def <> [DIR <: DFDir](dir : DIR) : TVal <> DIR = ???
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
@@ -317,6 +317,7 @@ object DFAny {
   abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(
     implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt
   ) extends DFAny {
+    type TAlias = TVal <> DIR
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
       case FullyConnected(dfVar) => dfVar.width
       case OPEN => 0

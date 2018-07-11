@@ -39,8 +39,8 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : Var[E] = newVar[E]()
-  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : Var[E] = newVar[E]()
+  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = newVar[E]()
+  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = newVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -49,7 +49,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[E <: Enum](init : Seq[Token[E]] = Seq())(
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
-  ) : Var[E] = new DFAny.NewVar(w, init) with Var[E] {
+  ) : DFAny.NewVar with Var[E] = new DFAny.NewVar(w, init) with Var[E] {
     def codeString(idRef : String) : String = s"DFEnum???"
   }
 

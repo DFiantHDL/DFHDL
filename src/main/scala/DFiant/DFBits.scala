@@ -118,10 +118,10 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], n : NameIt, di: DummyImplicit
-  ) : Var[W] = newVar(checkedWidth, Seq(Token(checkedWidth, 0)))
+  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth, Seq(Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign, n : NameIt
-  ) : Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(Token(checkedWidth, 0)))
+  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(Token(checkedWidth, 0)))
   def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +130,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var[W] =
+  protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : DFAny.NewVar with Var[W] =
     new DFAny.NewVar(width, init) with Var[W] {
       def codeString(idRef : String) : String = s"val $idRef = DFBits($width)"
     }
