@@ -136,6 +136,8 @@ trait Container4 extends DFDesign {
 
 ---
 
+### Scope Sensitivity
+
 ```scala
 trait Blank2 extends DFDesign {
   val i1 = DFUInt[8] <> IN
@@ -157,45 +159,6 @@ trait Container5 extends DFDesign {
 ```
 
 ![1531345077704](graphics/1531355720108.png)
-
----
-
-## Scope Sensitivity
-
-### Input <> Output 
-
-```scala
-trait BadDesign extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
-  i <> o //Error: Cannot from output to input 
-}
-```
-
-![1531347183148](graphics/1531347183148.png)
-
-We need to differentiate between `i <> o` in the scope of `BadDesign` and similar connection annotation as demonstrated by the `Container5` example above. To avoid confusion we need to cancel one of the applications.
-
-Open questions:
-
-* Should we still enable both? 
-* Maybe disable the external one, instead?
-
-```scala
-trait GoodDesign1 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
-  o := i 
-}
-trait GoodDesign2 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
-  val tmp = DFUInt[8]  
-  o <> tmp <> i 
-}
-```
-
-
 
 ---
 
