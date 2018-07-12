@@ -12,11 +12,18 @@ TODO: Add Legend
 
 ### Differences between `:=` and `<>`
 
-| Criteria                | ![1531352800424](graphics/1531352800424.png) Connection      | ![1531352832281](graphics/1531352832281.png) Assignment      |
-| ----------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| Code                    | `trait IODesign {`<br />  `  val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o <> i`<br />`}` | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o := i`<br />`}` |
-| Functional<br />Diagram | ![1531354461853](graphics/1531354461853.png)                 | ![1531312715988](graphics/1531314030378.png)                 |
-|                         |                                                              |                                                              |
+| Criteria                            | ![1531352800424](graphics/1531352800424.png) Connection      | ![1531352832281](graphics/1531352832281.png) Assignment      |
+| ----------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
+| Code                                | `trait IODesign {`<br />  `  val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o <> i //i <> o is the same`<br />`}` | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o := i`<br />`}` |
+| Functional<br />Diagram             | ![1531354461853](graphics/1531354461853.png)                 | ![1531312715988](graphics/1531314030378.png)                 |
+| Directionality &<br />Commutativity | The operator is commutative, meaning `a <> b` is equivalent to b `b <> a`.  One argument is the *producer*, while the other *consumer*. The dataflow direction is sensitive to the context in which the operator is applied. | The operator is non-commutative, meaning `a := b` determines that `b` is the *producer*, transferring data to the *consumer* `a`. |
+| Initialization                      | Modifies the destination                                     |                                                              |
+| Mutation                            |                                                              |                                                              |
+| Statement Order                     |                                                              |                                                              |
+|                                     |                                                              |                                                              |
+| Associativity                       |                                                              |                                                              |
+| Commutativity                       |                                                              |                                                              |
+|                                     |                                                              |                                                              |
 
 
 
@@ -87,6 +94,38 @@ trait Container extends DFDesign {
 ```
 
 ![1531313619621](graphics/1531314601402.png)
+
+Code alternative:
+
+```scala
+trait Container extends DFDesign {
+  cont => //Provide a name for the container instance 
+  val i = DFUInt[8] <> IN
+  val o = DFUInt[8] <> OUT
+  val io = new IODesign {
+  	i <> cont.i // `i` is the port of `IODesign`
+    o <> cont.o  
+  }
+}
+```
+
+
+
+Code alternative:
+
+```scala
+trait Container extends DFDesign {
+  val ii = DFUInt[8] <> IN 
+  val oo = DFUInt[8] <> OUT
+  val io = new IODesign {
+    //names of IODesign and Container ports are different, thus can be connected directly.
+    i <> ii 
+    o <> oo  
+  }
+}
+```
+
+
 
 ---
 
