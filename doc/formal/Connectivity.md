@@ -4,16 +4,18 @@ typora-copy-images-to: graphics
 
 # Connectivity
 
-![1531312790115](graphics/1531312790115.png)TODO: Add Legend
+![1531312790115](graphics/1531312790115.png)
+
+TODO: Add Legend
 
 
 
 ### Differences between `:=` and `<>`
 
-| Criteria                | ![1531352800424](C:\IdeaProjects\DFiant\doc\formal\graphics\1531352800424.png) Connection | ![1531352832281](C:\IdeaProjects\DFiant\doc\formal\graphics\1531352832281.png) Assignment |
+| Criteria                | ![1531352800424](graphics\1531352800424.png) Connection      | ![1531352832281](graphics\1531352832281.png) Assignment      |
 | ----------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
 | Code                    | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o <> i`<br />`}` | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o := i`<br />`}` |
-| Functional<br />Diagram | ![1531354461853](C:\IdeaProjects\DFiant\doc\formal\graphics\1531354461853.png) | ![1531312715988](graphics/1531314030378.png)                 |
+| Functional<br />Diagram | ![1531354461853](graphics\1531354461853.png)                 | ![1531312715988](graphics/1531314030378.png)                 |
 |                         |                                                              |                                                              |
 
 
@@ -128,7 +130,7 @@ trait Container4 extends DFDesign {
 }
 ```
 
-![1531344446287](C:\IdeaProjects\DFiant\doc\formal\graphics\1531344446287.png)
+![1531344446287](graphics\1531344446287.png)
 
 ---
 
@@ -143,7 +145,7 @@ trait Container5 extends DFDesign {
 }
 ```
 
-![1531345077704](C:\IdeaProjects\DFiant\doc\formal\graphics\1531345200179.png)
+![1531345077704](graphics\1531345200179.png)
 
 ---
 
