@@ -8,15 +8,24 @@ typora-copy-images-to: graphics
 
 
 
-Semantics:
+### Differences between `:=` and `<>`
 
-* Differences between `:=` and `<>` 
-  * Initialization is not copied to destination with `:=`, but it does with `<>`
-  * `<>` ordering does not matter! The ordering is determined by the dependency detected when the design is flattened.
-  * Input ports do not accept `:=` under any condition.
-  * Output ports can accept `:=` only at the design level, but not at owner level.
-  * All ports accept `<>`, but various restriction are applied, depending on the hierarchy difference, called scope and port directions.
-  * `:=` is directional (consumer := producer) while `<>` set the direction automatically.
+| Criteria                | ![1531352800424](C:\IdeaProjects\DFiant\doc\formal\graphics\1531352800424.png) Connection | ![1531352832281](C:\IdeaProjects\DFiant\doc\formal\graphics\1531352832281.png) Assignment |
+| ----------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
+| Code                    | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o <> i`<br />`}` | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o := i`<br />`}` |
+| Functional<br />Diagram | ![1531354461853](C:\IdeaProjects\DFiant\doc\formal\graphics\1531354461853.png) | ![1531312715988](graphics/1531314030378.png)                 |
+|                         |                                                              |                                                              |
+
+
+
+* Initialization is not copied to destination with `:=`, but it does with `<>`
+* `<>` ordering does not matter! The ordering is determined by the dependency detected when the design is flattened.
+* Input ports do not accept `:=` under any condition.
+* Output ports can accept `:=` only at the design level, but not at owner level.
+* All ports accept `<>`, but various restriction are applied, depending on the hierarchy difference, called scope and port directions.
+* `<>` must have be between a port and a dataflow value or between two ports. Cannot be applied between dataflow variables.
+* `:=` is directional (consumer := producer) while `<>` set the direction automatically.
+* Opposed to VHDL/Verilog, we do not need to go through 'signals' to connect ports, but there are some limits to what is permitted.
 
 
 
@@ -138,3 +147,63 @@ trait Container5 extends DFDesign {
 
 ---
 
+## Scope Sensitivity
+
+### Input <> Output 
+
+```scala
+trait BadDesign extends DFDesign {
+  val i = DFUInt[8] <> IN
+  val o = DFUInt[8] <> OUT
+  i <> o //Error: Cannot from output to input 
+}
+```
+
+![1531347183148](C:\IdeaProjects\DFiant\doc\formal\graphics\1531347183148.png)
+
+We need to differentiate between `i <> o` in the scope of `BadDesign` and similar connection annotation as demonstrated by the `Container5` example above. To avoid confusion we need to cancel one of the applications.
+
+Open questions:
+
+* Should we still enable both? 
+* Maybe disable the external one, instead?
+
+```scala
+trait GoodDesign1 extends DFDesign {
+  val i = DFUInt[8] <> IN
+  val o = DFUInt[8] <> OUT
+  o := i 
+}
+trait GoodDesign2 extends DFDesign {
+  val i = DFUInt[8] <> IN
+  val o = DFUInt[8] <> OUT
+  val tmp = DFUInt[8]  
+  o <> tmp <> i 
+}
+```
+
+
+
+---
+
+### Producer Collision
+
+
+
+### No Producers (Open Inputs)
+
+
+
+### Producer-Consumer Zero-Memory Loops
+
+
+
+### Pruning (Open Outputs)
+
+
+
+### Constant Propagation and Inlining
+
+
+
+### Connect Directly to TOP

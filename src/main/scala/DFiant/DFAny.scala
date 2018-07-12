@@ -360,7 +360,7 @@ object DFAny {
     //* For OUT ports, supported only TVar and TOP
     final def <> [R](right: protComp.Op.Able[R])(
       implicit op: protComp.`Op:=`.Builder[TVal, R]
-    ) = portConnect(op(left, right))
+    ) = portConnect(op(left, right)) //TODO: should return the RHS, to allow intuitive connection in <> tmp <> out
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))
