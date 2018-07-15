@@ -262,7 +262,7 @@ object DFAny {
     final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     //Port Construction
-    def <> [DIR <: DFDir](dir : DIR) : TVal <> DIR = ???
+    def <> [DIR <: DFDir](dir : DIR)() : TVal <> DIR = ???
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
@@ -336,7 +336,7 @@ object DFAny {
       case OPEN => Seq()
       case TOP.Width(w) => Seq()
     }
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(???, dir, name, dsn.name)
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(???, dir, name, owner.name)
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
