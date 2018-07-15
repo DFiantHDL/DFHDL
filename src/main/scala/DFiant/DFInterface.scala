@@ -11,10 +11,6 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable with Dis
   final protected val IN = DFPort.IN
   final protected type OUT = DFPort.OUT
   final protected val OUT = DFPort.OUT
-  final protected type OPEN = DFPort.OPEN
-  final protected val OPEN = DFPort.OPEN
-  final protected type TOP = DFPort.TOP
-  final protected val TOP = DFPort.TOP
 
   final lazy val portNodes : List[PortNode] =
     this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir], PortNode](

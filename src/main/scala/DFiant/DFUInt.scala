@@ -471,15 +471,15 @@ object DFUInt extends DFAny.Companion {
                   creationKind match {
                     case `Ops+Or-`.+ =>
                       new `U+U`[LW, RW, WCW] {
-                        val inLeft = FullyConnected(left)
-                        val inRight = FullyConnected(right)
-                        val outResult = FullyConnected(wc)
+                        val inLeft = ??? //FullyConnected(left)
+                        val inRight = ??? //FullyConnected(right)
+                        val outResult = ??? //FullyConnected(wc)
                       }
                     case `Ops+Or-`.- =>
                       new `U-U`[LW, RW, WCW] {
-                        val inLeft = FullyConnected(left)
-                        val inRight = FullyConnected(right)
-                        val outResult = FullyConnected(wc)
+                        val inLeft = ??? //FullyConnected(left)
+                        val inRight = ??? //FullyConnected(right)
+                        val outResult = ??? //FullyConnected(wc)
                       }
                   }
                   // Creating extended component aliasing the op
@@ -596,9 +596,9 @@ object DFUInt extends DFAny.Companion {
                   val wc = newVar[WCW](wcWidth, opInit)
 
                   new `U*U`[LW, RW, WCW] {
-                    val inLeft = FullyConnected(left)
-                    val inRight = FullyConnected(right)
-                    val outResult = FullyConnected(wc)
+                    val inLeft = ??? //FullyConnected(left)
+                    val inRight = ??? //FullyConnected(right)
+                    val outResult = ??? //FullyConnected(wc)
                   }
 
                   // Creating extended component aliasing the op
@@ -661,11 +661,11 @@ object DFUInt extends DFAny.Companion {
         val (left, right) = properLR(leftL, rightR)
         val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
 
-        compareOp[LW, RW] (
-          inLeft = FullyConnected(left),
-          inRight = FullyConnected(right),
-          outResult = FullyConnected(result)
-        )
+//        compareOp[LW, RW] (
+//          inLeft = ??? //FullyConnected(left),
+//          inRight = ??? //FullyConnected(right),
+//          outResult = ??? //FullyConnected(result)
+//        )
         result
       }
 

@@ -218,9 +218,9 @@ object DFEnum extends DFAny.Companion {
         val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
 
         compareOp[E] (
-          inLeft = FullyConnected(left),
-          inRight = FullyConnected(right),
-          outResult = FullyConnected(result)
+          inLeft = ???, //FullyConnected(left),
+          inRight = ???, //FullyConnected(right),
+          outResult = ??? //FullyConnected(result)
         )
         result
       }
