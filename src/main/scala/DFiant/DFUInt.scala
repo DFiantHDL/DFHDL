@@ -123,7 +123,7 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign, n : NameIt) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, DIR <: DFDir](dfVar : Connection[DFUInt[W]])(implicit dsn : DFDesign, dir : DIR, n : NameIt) : DFUInt[W] <> DIR =
+  protected[DFiant] def port[W, DIR <: DFDir](dfVar : DFUInt[W])(implicit dsn : DFDesign, dir : DIR, n : NameIt) : DFUInt[W] <> DIR =
     new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -188,86 +188,12 @@ object DFUInt extends DFAny.Companion {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Port extends Port {
-    trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
+    trait Builder[L <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[L, DIR]
     object Builder {
-      implicit def conn[LW, C <: Connection[DFUInt[LW]], DIR <: DFDir](implicit dsn : DFDesign, n : NameIt, dir : DIR)
-      : Builder[DFUInt[LW], C, DIR] = right => port[LW, DIR](right)
-      implicit def fromConst[LW, R, RW](
-        implicit
-        dsn : DFDesign,
-        n : NameIt,
-        constR : Const.PosOnly.Aux[Builder[_,_,_], R, RW],
-        noCheck : SafeBoolean[IsNonLiteral[LW]],
-        leftWidth : SafeInt[ITE[IsNonLiteral[LW], ZeroI, LW]],
-        checkLWvRW : `Op:=`.Builder.`LW >= RW`.CheckedShell[LW, RW]
-      ) : Builder[DFUInt[LW], R, IN] = rightNum => {
-        val rightConst = constR(rightNum)
-        if (!noCheck)
-          checkLWvRW.unsafeCheck(leftWidth, rightConst.width)
-        val right = const[LW](rightConst.getInit.head)
-        port[LW, IN](FullyConnected(right))
-      }
-      implicit def fromDFUInt1[LW, RW, DIR <: DFDir](
-        implicit
-        dsn : DFDesign,
-        n : NameIt,
-        dir : DIR,
-        leftWidth : SafeInt[LW],
-        checkLWvRW : `Op==`.Builder.`LW == RW`.CheckedShell[LW, RW]
-      ) : Builder[DFUInt[LW], DFUInt[RW], DIR] = rightR => {
-        checkLWvRW.unsafeCheck(leftWidth, rightR.width)
-        val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
-        right.assign(rightR)
-        port[LW, DIR](FullyConnected(right))
-      }
-      implicit def fromDFUInt2[RW, DIR <: DFDir](
-        implicit
-        dsn : DFDesign,
-        n : NameIt,
-        dir : DIR,
-      ) : Builder[DFUInt[Int], DFUInt[RW], DIR] = rightR => {
-        val right = newVar[Int](TwoFace.Int.create[Int](rightR.width))
-        right.assign(rightR)
-        port[Int, DIR](FullyConnected(right))
-      }
-      implicit def fromDFUIntExtendable[LW, RW](
-        implicit
-        dsn : DFDesign,
-        n : NameIt,
-        leftWidth : SafeInt[LW],
-        checkLWvRW : `Op:=`.Builder.`LW >= RW`.CheckedShell[LW, RW]
-      ) : Builder[DFUInt[LW], DFUInt[RW] with Extendable, IN] = rightR => {
-        checkLWvRW.unsafeCheck(leftWidth, rightR.width)
-        val right = newVar[LW](TwoFace.Int.create[LW](leftWidth))
-        right.assign(rightR)
-        port[LW, IN](FullyConnected(right))
-      }
+      implicit def conn[LW, DIR <: DFDir](implicit dsn : DFDesign, n : NameIt, dir : DIR)
+      : Builder[DFUInt[LW], DIR] = right => port[LW, DIR](right)
     }
   }
-  implicit def inPortFromDFUInt[L <: DFUInt.Unbounded, RW](right : DFUInt[RW])(
-    implicit port : Port.Builder[L, DFUInt[RW], IN]
-  ) : L <> IN = port(right)
-  implicit def outPortFromDFUInt[L <: DFUInt.Unbounded, RW](right : DFUInt.Var[RW])(
-    implicit port : Port.Builder[L, DFUInt[RW], OUT]
-  ) : L <> OUT = port(right)
-  implicit def inPortFromDFUIntExtendable[L <: DFUInt.Unbounded, RW](right : DFUInt[RW] with Extendable)(
-    implicit port : Port.Builder[L, DFUInt[RW] with Extendable, IN]
-  ) : L <> IN = port(right)
-  implicit def inPortFromXInt[L <: DFUInt.Unbounded, R <: XInt](right : R)(
-    implicit port : Port.Builder[L, R, IN]
-  ) : L <> IN = port(right)
-  implicit def inPortFromInt[L <: DFUInt.Unbounded, R <: Int](right : R)(
-    implicit nonLit : Arg0IsNonLit, port : Port.Builder[L, R, IN]
-  ) : L <> IN = port(right)
-  implicit def inPortFromXLong[L <: DFUInt.Unbounded, R <: XLong](right : R)(
-    implicit port : Port.Builder[L, R, IN]
-  ) : L <> IN = port(right)
-  implicit def inPortFromLong[L <: DFUInt.Unbounded, R <: Long](right : R)(
-    implicit nonLit : Arg0IsNonLit, port : Port.Builder[L, R, IN]
-  ) : L <> IN = port(right)
-  implicit def inPortFromBigInt[L <: DFUInt.Unbounded, R <: BigInt, W](right : R)(
-    implicit port : Port.Builder[L, R, IN]
-  ) : L <> IN = port(right)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

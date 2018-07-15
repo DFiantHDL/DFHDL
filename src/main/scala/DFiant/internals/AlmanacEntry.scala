@@ -99,7 +99,7 @@ class AlmanacEntryPort private (varEntry : => AlmanacEntry, dir : DFDir, portNam
   lazy val connectedEntry = sourceEntry.getOrElse(varEntry)
   lazy val id : AlmanacID = connectedEntry.id
   lazy val address : AlmanacAddress = connectedEntry.address
-  lazy val bitsRange : BitsRange = connectedEntry.bitsRange
+  lazy val bitsRange : BitsRange = varEntry.bitsRange
   lazy val init : Seq[Token] = connectedEntry.init
   lazy val timeRef : AlmanacTimeRef = connectedEntry.timeRef
   def connectSource(almanacEntry: => AlmanacEntry) : Unit = {

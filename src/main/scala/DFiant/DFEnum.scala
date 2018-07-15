@@ -65,7 +65,7 @@ object DFEnum extends DFAny.Companion {
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
   ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
 
-  protected[DFiant] def port[E <: Enum, DIR <: DFDir](dfVar : Connection[DFEnum[E]])(
+  protected[DFiant] def port[E <: Enum, DIR <: DFDir](dfVar : DFEnum[E])(
     implicit dsn : DFDesign, dir : DIR, n : NameIt
   ) : DFEnum[E] <> DIR = new DFAny.Port[DFEnum[E], DIR](dfVar) with DFEnum[E]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,29 +145,12 @@ object DFEnum extends DFAny.Companion {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Port extends Port {
-    trait Builder[L <: DFAny, R, DIR <: DFDir] extends DFAny.Port.Builder[L, R, DIR]
+    trait Builder[L <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[L, DIR]
     object Builder {
-      implicit def conn[E <: Enum, C <: Connection[DFEnum[E]], DIR <: DFDir](implicit dsn : DFDesign, dir : DIR, n : NameIt)
-      : Builder[DFEnum[E], C, DIR] = right => port[E, DIR](right)
-      implicit def fromEntry[E <: Enum, Entry <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
-      : Builder[DFEnum[E], Entry, IN] = rightEntry => port[E, IN](FullyConnected(const(Token[E](rightEntry))))
-      implicit def fromDFEnum[E <: Enum, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR, w : WidthOf[E], n : NameIt)
-      : Builder[DFEnum[E], DFEnum[E], DIR] = rightR => {
-        val right = newVar()
-        right.assign(rightR)
-        port[E, DIR](FullyConnected(right))
-      }
+      implicit def conn[E <: Enum, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR, n : NameIt)
+      : Builder[DFEnum[E], DIR] = right => port[E, DIR](right)
     }
   }
-  implicit def inPortFromDFEnum[E <: Enum](right : DFEnum[E])(
-    implicit port : Port.Builder[DFEnum[E], DFEnum[E], IN]
-  ) : DFEnum[E] <> IN = port(right)
-  implicit def outPortFromDFEnum[E <: Enum](right : DFEnum.Var[E])(
-    implicit port : Port.Builder[DFEnum[E], DFEnum[E], OUT]
-  ) : DFEnum[E] <> OUT = port(right)
-  implicit def inPortFromEntry[E <: Enum, Entry <: E#Entry](right : Entry)(
-    implicit port : Port.Builder[DFEnum[E], Entry, IN]
-  ) : DFEnum[E] <> IN = port(right)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

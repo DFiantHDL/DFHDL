@@ -262,7 +262,7 @@ object DFAny {
     final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     //Port Construction
-    def <> [DIR <: DFDir](dir : DIR)() : TVal <> DIR = ???
+    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal])
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
@@ -319,24 +319,16 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](conn : DFPort.Connection[DF])(
+  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : DF)(
     implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt
   ) extends DFAny {
     type TAlias = TVal <> DIR
     final val owner = dsn
-    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](conn match {
-      case FullyConnected(dfVar) => dfVar.width
-      case OPEN => 0
-      case TOP.Width(w) => w
-    })
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected lazy val protInit : Seq[TToken] = conn match {
-      case FullyConnected(dfVar) => dfVar.getInit.asInstanceOf[Seq[TToken]]
-      case OPEN => Seq()
-      case TOP.Width(w) => Seq()
-    }
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(???, dir, name, owner.name)
+    final protected lazy val protInit : Seq[TToken] = dfVar.getInit.asInstanceOf[Seq[TToken]]
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(dfVar.almanacEntry, dir, name, owner.name)
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
@@ -358,7 +350,7 @@ object DFAny {
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def portConnect(that : DFAny, callerDsn : DFDesign) : Unit = {
       (this.owner, that.owner, callerDsn) match {
-        case _ =>
+        case _ => ???
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
@@ -378,8 +370,8 @@ object DFAny {
     final val id = owner.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
-    trait Builder[L <: DFAny, R, DIR <: DFDir] {
-      def apply(right : R) : L <> DIR
+    trait Builder[L <: DFAny, DIR <: DFDir] {
+      def apply(right : L) : L <> DIR
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -525,29 +517,9 @@ object DFAny {
     // Port
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait Port {
-      type Builder[L <: DFAny, R, DIR <: DFDir] <: DFAny.Port.Builder[L, R, DIR]
+      type Builder[L <: DFAny, DIR <: DFDir] <: DFAny.Port.Builder[L, DIR]
     }
     val Port : Port
-    implicit def fromConnTop[L <: DFAny, DIR <: DFDir](right : TOP)(
-      implicit port : Port.Builder[L, TOP.Width, DIR], width : TwoFace.Int[L#Width]
-    ) : L <> DIR = port(TOP.Width(width))
-    //This implicit is used to create ambiguity to prevent assignment of TOP to a non-port
-    implicit def fromConnTopFake[L <: DFAny, DIR <: DFDir](right : TOP)(
-      implicit port : Port.Builder[L, TOP.Width, DIR]
-    ) : L = ???
-    implicit def fromConn[L <: DFAny, C <: Connection[L], DIR <: DFDir](right : C)(
-      implicit port : Port.Builder[L, C, DIR]
-    ) : L <> DIR = port(right)
-    //This implicit is used to create ambiguity to prevent assignment of a connection to a non-port
-    implicit def fromConnFake[L <: DFAny, C <: Connection[L], DIR <: DFDir](right : C)(
-      implicit port : Port.Builder[L, C, DIR]
-    ) : L = ???
-//    implicit def fromDFIn[L <: DFAny, R <: DFAny, W](right : R)(
-//      implicit port : Port.Builder[L, R, IN], c : R <:!< DFAny.Port[_, OUT]
-//    ) : L <> IN = port(right)
-//    implicit def fromDFOut[L <: DFAny, R <: DFAny.Var](right : R)(
-//      implicit port : Port.Builder[L, R, OUT], c : R <:!< DFAny.Port[_, IN]
-//    ) : L <> OUT = port(right)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     trait Op {
