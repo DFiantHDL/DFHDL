@@ -262,7 +262,7 @@ object DFAny {
     final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     //Port Construction
-    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal])
+    def <> [DIR <: DFDir](dir : DIR)(implicit port : protComp.Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
@@ -319,8 +319,8 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : DF)(
-    implicit protected val dsn : DFDesign, cmp : Companion, val dir : DIR, n : NameIt
+  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : DF, val dir : DIR)(
+    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny {
     type TAlias = TVal <> DIR
     final val owner = dsn
@@ -371,7 +371,7 @@ object DFAny {
   }
   object Port {
     trait Builder[L <: DFAny, DIR <: DFDir] {
-      def apply(right : L) : L <> DIR
+      def apply(right : L, dir : DIR) : L <> DIR
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

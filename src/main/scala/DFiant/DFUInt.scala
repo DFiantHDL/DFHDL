@@ -123,8 +123,8 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign, n : NameIt) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, DIR <: DFDir](dfVar : DFUInt[W])(implicit dsn : DFDesign, dir : DIR, n : NameIt) : DFUInt[W] <> DIR =
-    new DFAny.Port[DFUInt[W], DIR](dfVar) with DFUInt[W]
+  protected[DFiant] def port[W, DIR <: DFDir](dfVar : DFUInt[W], dir : DIR)(implicit dsn : DFDesign, n : NameIt) : DFUInt[W] <> DIR =
+    new DFAny.Port[DFUInt[W], DIR](dfVar, dir) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -190,8 +190,8 @@ object DFUInt extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[L, DIR]
     object Builder {
-      implicit def conn[LW, DIR <: DFDir](implicit dsn : DFDesign, n : NameIt, dir : DIR)
-      : Builder[DFUInt[LW], DIR] = right => port[LW, DIR](right)
+      implicit def conn[LW, DIR <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      : Builder[DFUInt[LW], DIR] = (right, dir) => port[LW, DIR](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

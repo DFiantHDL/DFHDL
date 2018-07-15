@@ -65,9 +65,9 @@ object DFEnum extends DFAny.Companion {
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
   ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
 
-  protected[DFiant] def port[E <: Enum, DIR <: DFDir](dfVar : DFEnum[E])(
-    implicit dsn : DFDesign, dir : DIR, n : NameIt
-  ) : DFEnum[E] <> DIR = new DFAny.Port[DFEnum[E], DIR](dfVar) with DFEnum[E]
+  protected[DFiant] def port[E <: Enum, DIR <: DFDir](dfVar : DFEnum[E], dir : DIR)(
+    implicit dsn : DFDesign, n : NameIt
+  ) : DFEnum[E] <> DIR = new DFAny.Port[DFEnum[E], DIR](dfVar, dir) with DFEnum[E]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -147,8 +147,8 @@ object DFEnum extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[L, DIR]
     object Builder {
-      implicit def conn[E <: Enum, DIR <: DFDir](implicit dsn : DFDesign, dir : DIR, n : NameIt)
-      : Builder[DFEnum[E], DIR] = right => port[E, DIR](right)
+      implicit def conn[E <: Enum, DIR <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      : Builder[DFEnum[E], DIR] = (right, dir) => port[E, DIR](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
