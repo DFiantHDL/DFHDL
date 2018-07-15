@@ -20,7 +20,7 @@ object Adder {
   type DFU[LW, RW, OW] = Adder[DFUInt[LW], DFUInt[RW], DFUInt[OW]]
   implicit def fro[LW, RW, OW] : DFComponent.Implementation[Adder.DFU[LW, RW, OW]] = ifc => {
     import ifc._
-    result := left + right
+    result <> left + right
   }
 }
 
