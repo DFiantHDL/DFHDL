@@ -39,6 +39,8 @@ TODO: Add Legend
 * Opposed to VHDL/Verilog, we do not need to go through 'signals' to connect ports, but there are some limits to what is permitted.
 * In many times it is possible to use the port directly, and `<>` shouldn't be used
 * Each port has two sides: External and Internal. To access the external side we reference the port from outside of the design. To access the internal side we reference the port from inside the design.
+* Each port has a source and destination. The source is connected to with `<>` and the destination is referenced (can also be referenced from `<>` when connected to a source of a different port).
+* With or without a port is transparent to the design when properly using `<>`
 
 
 

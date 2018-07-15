@@ -15,7 +15,7 @@ class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry)(impl
   def codeString: String = s"$arg0 := $arg1"
 }
 object AlmanacEntryAssign {
-  def apply(arg0 : AlmanacEntry, arg1 : AlmanacEntry)(implicit almanac : Almanac) = almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
+  def apply(arg0 : => AlmanacEntry, arg1 : => AlmanacEntry)(implicit almanac : Almanac) = almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
 }
 
 //TBD

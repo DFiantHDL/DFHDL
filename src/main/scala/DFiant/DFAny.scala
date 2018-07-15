@@ -254,13 +254,14 @@ object DFAny {
     final val owner = dsn
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected lazy val protInit : Seq[TToken] = Seq()
+    protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    //Port Construction
     def <> [DIR <: DFDir](dir : DIR) : TVal <> DIR = ???
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
@@ -335,11 +336,7 @@ object DFAny {
       case OPEN => Seq()
       case TOP.Width(w) => Seq()
     }
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = conn match {
-      case FullyConnected(dfVar) => dfVar.almanacEntry
-      case OPEN => throw new IllegalAccessException("Cannot read from an OPEN port")
-      case TOP.Width(w) => AlmanacEntryPort(width, dir, name, dsn.name)
-    }
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(???, dir, name, dsn.name)
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
@@ -349,23 +346,27 @@ object DFAny {
     }
     final override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList ++ privComponentDependency
     final protected[DFiant] def discovery : Unit = almanacEntry
-    final lazy val isOpen : Boolean = conn match {
-      case OPEN => true
-      case _ => false
-    }
+//    final lazy val isOpen : Boolean = conn match {
+//      case OPEN => true
+//      case _ => false
+//    }
     final protected[DFiant] def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final def portConnect(that : DFAny) : Port[DF, DIR] with DF = ???
+    final def portConnect(that : DFAny, callerDsn : DFDesign) : Unit = {
+      (this.owner, that.owner, callerDsn) match {
+        case _ =>
+      }
+    }
+    final def <> [R](right: protComp.Op.Able[R])(
+      implicit op: protComp.`Op:=`.Builder[TVal, R], callerDsn : DFDesign
+    ) : Unit = portConnect(op(left, right), callerDsn)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
-    final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
-    ) = portConnect(op(left, right)) //TODO: should return the RHS, to allow intuitive connection in <> tmp <> out
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
     ) = portAssign(op(left, right))

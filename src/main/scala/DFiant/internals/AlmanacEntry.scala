@@ -94,28 +94,25 @@ object AlmanacEntryGetDFVar {
     almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
 }
 
-class AlmanacEntryPort private (varEntry : AlmanacEntry, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) extends AlmanacEntry {
-  protected var connection : AlmanacEntry = varEntry
-  lazy val id : AlmanacID = connection.id
-  lazy val address : AlmanacAddress = connection.address
-  lazy val bitsRange : BitsRange = connection.bitsRange
-  lazy val init : Seq[Token] = connection.init
-  lazy val timeRef : AlmanacTimeRef = connection.timeRef
-  def connect(almanacEntry: AlmanacEntry) : Unit = {
+class AlmanacEntryPort private (varEntry : => AlmanacEntry, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) extends AlmanacEntry {
+  private var sourceEntry : Option[AlmanacEntry] = None
+  lazy val connectedEntry = sourceEntry.getOrElse(varEntry)
+  lazy val id : AlmanacID = connectedEntry.id
+  lazy val address : AlmanacAddress = connectedEntry.address
+  lazy val bitsRange : BitsRange = connectedEntry.bitsRange
+  lazy val init : Seq[Token] = connectedEntry.init
+  lazy val timeRef : AlmanacTimeRef = connectedEntry.timeRef
+  def connectSource(almanacEntry: => AlmanacEntry) : Unit = {
     //Proper connection validations should be made in the frontend. Here we assume all is OK.
-    connection = almanacEntry
-    //In case the connected entry is also a port, we set its connection accordingly to this entry
-    almanacEntry match {
-      case aep : AlmanacEntryPort => aep.connection = this
-      case _ =>
-    }
+    sourceEntry = Some(almanacEntry)
   }
+  def connected = sourceEntry.isDefined
   def codeString : String = s"$dsnName.$portName"
 }
 
 object AlmanacEntryPort {
-  def apply(width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntryPort = ???
-    //almanac.fetchEntry(new AlmanacEntryPort(width, dir, portName, dsnName))
+  def apply(varEntry : => AlmanacEntry, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntryPort =
+    almanac.fetchEntry(new AlmanacEntryPort(varEntry, dir, portName, dsnName))
 }
 
 
