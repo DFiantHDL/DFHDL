@@ -16,8 +16,8 @@ TODO: Add Legend
 | ----------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
 | Code                                | `trait IODesign {`<br />  `  val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o <> i //i <> o is the same`<br />`}` | `trait IODesign {`<br />  ` val i = DFUInt[8] <> IN`<br />  `val o = DFUInt[8] <> OUT`<br />  `o := i`<br />`} ` |
 | Functional<br />Diagram             | ![1531354461853](graphics/1531354461853.png)                 | ![1531312715988](graphics/1531314030378.png)                 |
-| Directionality &<br />Commutativity | The operator is commutative, meaning `a <> b` is equivalent to b `b <> a`.  One argument is the *producer*, while the other *consumer*. The dataflow direction is sensitive to the context in which the operator is applied. | The operator is non-commutative, meaning `a := b` determines that `b` is the *producer*, transferring data to the *consumer* `a`.                                                                                                                                                                         . |
-| Initialization                      | Modifies the destination                                     |                                                              |
+| Directionality &<br />Commutativity | The operator is commutative, meaning `a <> b` is equivalent to b `b <> a`.  One argument is the *producer*, while the other *consumer*. The dataflow direction is sensitive to the context in which the operator is applied. | The operator is non-commutative, meaning `a := b` determines that `b` is the *producer*, transferring data to the *consumer* `a`. |
+| Initialization                      | Modifies the consumer's initialization.                      |                                                              |
 | Mutation                            |                                                              |                                                              |
 | Statement Order                     |                                                              |                                                              |
 |                                     |                                                              |                                                              |
@@ -37,6 +37,8 @@ TODO: Add Legend
 * `:=` Mutability. Can be applied many times for. `<>` can be applied once for ???
 * In the future `<>` will be used to connect mult-port-multi-directional interfaces.
 * Opposed to VHDL/Verilog, we do not need to go through 'signals' to connect ports, but there are some limits to what is permitted.
+* In many times it is possible to use the port directly, and `<>` shouldn't be used
+* Each port has two sides: External and Internal. To access the external side we reference the port from outside of the design. To access the internal side we reference the port from inside the design.
 
 
 
@@ -70,7 +72,7 @@ trait IODesign1 extends DFDesign {
 
 ```scala
 trait IODesign2 extends DFDesign {
-  val i1 = DFUInt[8] <> IN
+  val i1 = DFUInt[8] <>  IN
   val o1 = DFUInt[8] <> OUT
   val i2 = DFUInt[8] <> IN
   val o2 = DFUInt[8] <> OUT
@@ -94,38 +96,6 @@ trait Container extends DFDesign {
 ```
 
 ![1531313619621](graphics/1531314601402.png)
-
-Code alternative:
-
-```scala
-trait Container extends DFDesign {
-  cont => //Provide a name for the container instance 
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
-  val io = new IODesign {
-  	i <> cont.i // `i` is the port of `IODesign`
-    o <> cont.o  
-  }
-}
-```
-
-
-
-Code alternative:
-
-```scala
-trait Container extends DFDesign {
-  val ii = DFUInt[8] <> IN 
-  val oo = DFUInt[8] <> OUT
-  val io = new IODesign {
-    //names of IODesign and Container ports are different, thus can be connected directly.
-    i <> ii 
-    o <> oo  
-  }
-}
-```
-
-
 
 ---
 

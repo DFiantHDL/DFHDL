@@ -114,8 +114,8 @@ class AlmanacEntryPort private (varEntry : AlmanacEntry, dir : DFDir, portName :
 }
 
 object AlmanacEntryPort {
-  def apply(width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntryPort =
-    almanac.fetchEntry(new AlmanacEntryPort(width, dir, portName, dsnName))
+  def apply(width : Int, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntryPort = ???
+    //almanac.fetchEntry(new AlmanacEntryPort(width, dir, portName, dsnName))
 }
 
 
