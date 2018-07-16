@@ -25,7 +25,6 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   import protComp._
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
-  val owner : DFDesign
 
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
@@ -250,7 +249,6 @@ object DFAny {
   abstract class NewVar(_width : Int, _init : Seq[Token])(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var {
-    final val owner = dsn
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
@@ -258,7 +256,7 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val id = owner.newDFValGetID(this)
+    final val id = dsn.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -274,7 +272,6 @@ object DFAny {
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var {
-    final val owner = dsn
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -293,7 +290,7 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
 
-    final val id = owner.newDFValGetID(this)
+    final val id = dsn.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
@@ -304,7 +301,6 @@ object DFAny {
   abstract class Const(token : Token)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny {
-    final val owner = dsn
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -325,12 +321,11 @@ object DFAny {
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny {
     type TAlias = TVal <> DIR
-    final val owner = dsn
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = dfVar.getInit.asInstanceOf[Seq[TToken]]
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(dfVar.almanacEntry, dir, name, owner.name)
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(dfVar.almanacEntry, dir, name, dsn.name)
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
@@ -351,7 +346,7 @@ object DFAny {
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def portConnect(that : DFAny, callerDsn : DFDesign) : Unit = {
-      (this.owner, that.owner, callerDsn) match {
+      (this.dsn, that.dsn, callerDsn) match {
         case (a, b, c) if (a eq b) => ???
       }
     }
@@ -369,7 +364,7 @@ object DFAny {
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
 
-    final val id = owner.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
+    final val id = dsn.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
     trait Builder[L <: DFAny, DIR <: DFDir] {
