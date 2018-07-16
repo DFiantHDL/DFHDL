@@ -33,7 +33,7 @@ trait RType extends Instr {
 }
 
 trait ADD extends RType {
-  
+
 }
 
 object Instr {

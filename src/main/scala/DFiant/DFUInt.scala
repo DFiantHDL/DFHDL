@@ -41,13 +41,13 @@ object DFUInt extends DFAny.Companion {
 //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
-      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
+      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], dsn : DFDesign, n : NameIt
     ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left)
 
-    def isZero = left == 0
-    def isNonZero = left != 0
+    def isZero(implicit dsn : DFDesign, n : NameIt) = left == 0
+    def isNonZero(implicit dsn : DFDesign, n : NameIt) = left != 0
     //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
-    def extendable : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
+    def extendable(implicit dsn : DFDesign, n : NameIt) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
 
     //    trait matchdf extends super.matchdf {
     //      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
