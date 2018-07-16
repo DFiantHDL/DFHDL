@@ -261,7 +261,10 @@ object DFAny {
     final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
     //Port Construction
-    def <> [DIR <: DFDir](dir : DIR)(implicit port : protComp.Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
+    //TODO: Implement generically after upgrading to 2.13.0-M5
+    //Also see https://github.com/scala/bug/issues/11026
+    //    def <> [DIR <: DFDir](dir : DIR)(implicit port : protComp.Port.Builder[TVal, DIR])
+    //     : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value

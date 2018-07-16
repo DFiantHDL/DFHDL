@@ -5,7 +5,7 @@ import psuedoVendor.family.device._
 
 trait Foo extends DFDesign {
   val e = 8
-//  val aa = DFUInt(8) <> IN
+  val aa = DFUInt[8] <> IN
 }
 
 //trait Adder[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DFComponent[Adder[Left, Right, Result]] {

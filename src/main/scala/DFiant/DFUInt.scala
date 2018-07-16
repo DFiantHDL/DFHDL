@@ -65,6 +65,8 @@ object DFUInt extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFUInt[W] with DFAny.Var {
+    //Port Construction
+    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
   }
 
   trait Extendable {
