@@ -3,25 +3,24 @@ package DFiant
 import singleton.twoface._
 import psuedoVendor.family.device._
 
-abstract class Box[GenW]() extends DFDesign {
-  val aa = DFUInt[8] <> IN
-  val a = DFBool()
-  a && true
+trait Foo extends DFDesign {
+  val e = 8
+//  val aa = DFUInt(8) <> IN
 }
 
-trait Adder[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DFComponent[Adder[Left, Right, Result]] {
-  val left : Left <> IN
-  val right : Right <> IN
-  val result : Result <> OUT
-}
-
-object Adder {
-  type DFU[LW, RW, OW] = Adder[DFUInt[LW], DFUInt[RW], DFUInt[OW]]
-  implicit def fro[LW, RW, OW] : DFComponent.Implementation[Adder.DFU[LW, RW, OW]] = ifc => {
-    import ifc._
-    result <> left + right
-  }
-}
+//trait Adder[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DFComponent[Adder[Left, Right, Result]] {
+//  val left : Left <> IN
+//  val right : Right <> IN
+//  val result : Result <> OUT
+//}
+//
+//object Adder {
+//  type DFU[LW, RW, OW] = Adder[DFUInt[LW], DFUInt[RW], DFUInt[OW]]
+//  implicit def fro[LW, RW, OW] : DFComponent.Implementation[Adder.DFU[LW, RW, OW]] = ifc => {
+//    import ifc._
+//    result <> left + right
+//  }
+//}
 
 
 //object Bla {

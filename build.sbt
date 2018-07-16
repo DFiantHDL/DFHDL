@@ -11,7 +11,7 @@ scalacOptions += "-Yliteral-types"        // enable SIP-23 implementation
 
 scalacOptions += "-Xsource:2.13"    //https://github.com/scala/scala/commit/33478bdc9792ee13baa8208e326278695b1bd4e4
 
-scalacOptions += "-Yinduction-heuristics"
+//scalacOptions += "-Yinduction-heuristics"
 //scalacOptions += "-Ykind-polymorphism"    //enable Kind polymorphism
 
 //enablePlugins(DottyPlugin)
@@ -53,7 +53,7 @@ libraryDependencies ++= Seq(
 ////////////////////////////////////////////////////////////////////
 // scodec
 ////////////////////////////////////////////////////////////////////
-libraryDependencies += "org.scodec" %% "scodec-bits" % "1.1.5"
+libraryDependencies += "org.scodec" %% "scodec-bits" % "1.1.6"
 ////////////////////////////////////////////////////////////////////
 
 
