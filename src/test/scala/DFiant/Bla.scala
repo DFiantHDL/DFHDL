@@ -4,8 +4,12 @@ import singleton.twoface._
 import psuedoVendor.family.device._
 
 trait Foo extends DFDesign {
-  val e = 8
-  val aa = DFUInt[8] <> IN
+  type W = 8
+  val left = DFUInt[W] <> IN
+  val right = DFUInt[W] <> IN
+  val result = DFUInt[W] <> OUT
+
+  result <> left + right
 }
 
 //trait Adder[Left <: DFAny, Right <: DFAny, Result <: DFAny] extends DFComponent[Adder[Left, Right, Result]] {
