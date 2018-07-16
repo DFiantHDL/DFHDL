@@ -42,7 +42,7 @@ object DFUInt extends DFAny.Companion {
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int]
-    ) : DFUInt.Var[tfs.Out] = DFUInt.newVar(tfs(width, numOfBits), getInit).assign(left)
+    ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left)
 
     def isZero = left == 0
     def isNonZero = left != 0
@@ -64,10 +64,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFUInt[W] with DFAny.Var {
-    //Port Construction
-    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
-  }
+  trait Var[W] extends DFUInt[W] with DFAny.Var {}
 
   trait Extendable {
     type Extendable = true
@@ -80,10 +77,10 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
-  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
+  ) : NewVar[W] = new NewVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign, n : NameIt
-  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
+  ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
@@ -96,10 +93,12 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final protected[DFiant] def newVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(
+  final class NewVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(
     implicit dsn : DFDesign, n : NameIt
-  ) : DFAny.NewVar with Var[W] = new DFAny.NewVar(width, init) with Var[W] {
+  ) extends DFAny.NewVar(width, init) with Var[W] {
     def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
+    //Port Construction
+    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
   }
 
   protected[DFiant] def alias[W]
@@ -468,7 +467,7 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-                  val wc = newVar[WCW](opWidth, opInit)
+                  val wc = new NewVar[WCW](opWidth, opInit)
                   creationKind match {
                     case `Ops+Or-`.+ =>
                       new `U+U`[LW, RW, WCW] {
@@ -594,7 +593,7 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
                   val opInit = Token.*(left.getInit, right.getInit)
-                  val wc = newVar[WCW](wcWidth, opInit)
+                  val wc = new NewVar[WCW](wcWidth, opInit)
 
                   new `U*U`[LW, RW, WCW] {
                     val inLeft = ??? //FullyConnected(left)
