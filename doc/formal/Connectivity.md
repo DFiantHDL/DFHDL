@@ -74,7 +74,7 @@ trait IODesign1 extends DFDesign {
 
 ```scala
 trait IODesign2 extends DFDesign {
-  val i1 = DFUInt[8] <>  IN
+  val i1 = DFUInt[8] <> IN
   val o1 = DFUInt[8] <> OUT
   val i2 = DFUInt[8] <> IN
   val o2 = DFUInt[8] <> OUT
