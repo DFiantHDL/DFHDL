@@ -659,7 +659,7 @@ object DFUInt extends DFAny.Companion {
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign, n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
+        val result = new DFBool.NewVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
 
 //        compareOp[LW, RW] (
 //          inLeft = ??? //FullyConnected(left),

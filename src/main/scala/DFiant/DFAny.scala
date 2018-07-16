@@ -352,7 +352,7 @@ object DFAny {
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def portConnect(that : DFAny, callerDsn : DFDesign) : Unit = {
       (this.owner, that.owner, callerDsn) match {
-        case _ => ???
+        case (a, b, c) if (a eq b) => ???
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(

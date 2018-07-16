@@ -27,7 +27,7 @@ object DFBool extends DFAny.Companion {
     def rising : DFBool = left && !left.prev(1)
     def falling : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar = DFBool.newVar(Seq(DFBool.Token(false)))
+    def newEmptyDFVar = new DFBool.NewVar(Seq(DFBool.Token(false)))
 
     override lazy val typeName : String = s"DFBool"
 
@@ -50,17 +50,20 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply()(implicit dsn : DFDesign, n : NameIt) : DFAny.NewVar with Var = newVar(Seq(DFBool.Token(false)))
+  implicit def apply()(implicit dsn : DFDesign, n : NameIt) : DFAny.NewVar with Var = new NewVar(Seq(DFBool.Token(false)))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar(init : Seq[Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : DFAny.NewVar with Var =
-    new DFAny.NewVar(1, init) with Var {
-      def codeString(idRef : String) : String = s"val $idRef = DFBool()"
-    }
+  final class NewVar(init : Seq[Token] = Seq())(
+    implicit dsn : DFDesign, n : NameIt
+  ) extends DFAny.NewVar(1, init) with Var {
+    def codeString(idRef : String) : String = s"val $idRef = DFBool()"
+    //Port Construction
+    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
+  }
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var =
     new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {

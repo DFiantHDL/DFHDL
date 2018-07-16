@@ -38,18 +38,20 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = newVar[E]()
-  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = newVar[E]()
+  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = new NewVar[E]()
+  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = new NewVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[E <: Enum](init : Seq[Token[E]] = Seq())(
+  final class NewVar[E <: Enum](init : Seq[Token[E]] = Seq())(
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
-  ) : DFAny.NewVar with Var[E] = new DFAny.NewVar(w, init) with Var[E] {
+  ) extends DFAny.NewVar(w, init) with Var[E]  {
     def codeString(idRef : String) : String = s"DFEnum???"
+    //Port Construction
+    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
   }
 
   protected[DFiant] def alias[E <: Enum]
@@ -214,7 +216,7 @@ object DFEnum extends DFAny.Companion {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = DFBool.newVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
+        val result = new DFBool.NewVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
 
         compareOp[E] (
           inLeft = ???, //FullyConnected(left),
