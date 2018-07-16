@@ -1,7 +1,36 @@
 package object DFiant extends {
+  ////////////////////////////////////////////////////////////////////////////////////
+  // A Dataflow Bubble
+  ////////////////////////////////////////////////////////////////////////////////////
   sealed trait Bubble
   object Bubble extends Bubble
 
   type Φ = Bubble
   final val Φ = Bubble
+  ////////////////////////////////////////////////////////////////////////////////////
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Dataflow Port Annotations
+  ////////////////////////////////////////////////////////////////////////////////////
+  type <>[DF <: DFAny, DIR <: DFDir] = DFAny.Port[DF, DIR] with DF
+  //Direction of a Port
+  sealed trait DFDir {
+    val isOut : Boolean
+    val isIn : Boolean
+  }
+  sealed trait IN extends DFDir {
+    override def toString: String = "IN"
+    final val isOut : Boolean = false
+    final val isIn : Boolean = true
+  }
+  implicit object IN extends IN
+  sealed trait OUT extends DFDir {
+    override def toString: String = "OUT"
+    final val isOut : Boolean = true
+    final val isIn : Boolean = false
+  }
+  implicit object OUT extends OUT
+  ////////////////////////////////////////////////////////////////////////////////////
+
 }

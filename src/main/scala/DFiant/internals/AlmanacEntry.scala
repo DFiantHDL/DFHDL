@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import DFiant.DFAny.Token
-import DFiant.DFPort.DFDir
+import DFiant.DFDir
 
 trait AlmanacGuard {
 

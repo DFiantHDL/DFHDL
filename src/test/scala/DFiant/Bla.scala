@@ -1,6 +1,5 @@
 package DFiant
 
-import DFiant.DFPort.DFDir
 import singleton.twoface._
 import psuedoVendor.family.device._
 

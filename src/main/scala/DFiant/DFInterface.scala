@@ -5,13 +5,6 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFInterface extends HasProperties with Nameable with TypeNameable with Discoverable {
-  final protected type <>[DF <: DFAny, DIR <: DFDir] = DFPort.<>[DF, DIR]
-  final protected type DFDir = DFPort.DFDir
-  final protected type IN = DFPort.IN
-  final protected val IN = DFPort.IN
-  final protected type OUT = DFPort.OUT
-  final protected val OUT = DFPort.OUT
-
   final lazy val portNodes : List[PortNode] =
     this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir], PortNode](
       classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)

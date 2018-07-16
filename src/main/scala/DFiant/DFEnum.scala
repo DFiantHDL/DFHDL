@@ -11,7 +11,6 @@ trait DFEnum[E <: Enum] extends DFEnum.Unbounded {
   type TEnum = E
 }
 object DFEnum extends DFAny.Companion {
-  import DFPort._
   private type WidthOf[E <: Enum] = SafeInt[E#EntryWidth]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Unbounded Val
