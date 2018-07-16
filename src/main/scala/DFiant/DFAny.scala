@@ -345,14 +345,14 @@ object DFAny {
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final def portConnect(that : DFAny, callerDsn : DFDesign) : Unit = {
-      (this.dsn, that.dsn, callerDsn) match {
+    final def portConnect(that : DFAny, dsn : DFDesign) : Unit = {
+      (this.dsn, that.dsn, dsn) match {
         case (a, b, c) if (a eq b) => ???
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op:=`.Builder[TVal, R], callerDsn : DFDesign
-    ) : Unit = portConnect(op(left, right), callerDsn)
+      implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
+    ) : Unit = portConnect(op(left, right), dsn)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
