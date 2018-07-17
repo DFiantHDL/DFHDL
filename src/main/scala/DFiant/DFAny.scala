@@ -392,12 +392,11 @@ object DFAny {
           case (ld : IN,  rd : OUT) => (right, left)
           case _ => throwConnectionError("Unexpected connection error")
         }
-        //Ports in the same design, connected at the same design
-        case (l, r, c) if !((l eq r) || (l.owner.get eq r) || (r.owner.get eq l) || (l.owner.get eq r.owner.get)) =>
-          throw new IllegalArgumentException(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.\nAttempted connection: ${l.fullName} <> ${r.fullName}")
-        case (l, r, c) if !((l eq c) || (r eq c) || ((l.owner.get eq c) && (r.owner.get eq c))) =>
-          throw new IllegalArgumentException(s"The connection call must be placed at the same design as one of the ports or their mutual owner.\nAttempted connection: ${l.fullName} <> ${r.fullName}\tCalled at ${c.fullName}")
-        case _ => ???
+        case (l, r, c) if !((l eq r) || (l.owner.isDefined && (l.owner.get eq r)) || (r.owner.isDefined && (r.owner.get eq l)) || (l.owner.isDefined && r.owner.isDefined && (l.owner.get eq r.owner.get))) =>
+          throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
+        case (l, r, c) if !((l eq c) || (r eq c) || (l.owner.isDefined && r.owner.isDefined && (l.owner.get eq c) && (r.owner.get eq c))) =>
+          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${dsn.fullName}")
+        case _ => throwConnectionError("Unexpected connection error")
       }
       if (toPort.connected) throwConnectionError(s"Destination port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
       else toPort.connectedSource = Some(fromPort)
