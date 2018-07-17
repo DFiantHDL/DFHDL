@@ -352,11 +352,36 @@ object DFAny {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
       val (fromPort, toPort) : (Port[DF,_ <: DFDir], Port[DF,_ <: DFDir]) = (left.dsn, right.dsn, dsn) match {
         //Ports in the same design, connected at the same design
-        case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (this.dir, right.dir) match {
+        case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
           case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
           case (ld : IN,  rd : OUT) => (left, right)
           case (ld : OUT, rd : IN)  => (right, left)
+          case _ => throwConnectionError("Unexpected connection error")
+        }
+        //Ports in the same design, connected at the design's owner.
+        //This is a loopback connection from a design's output to one of its inputs
+        case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn.owner.get eq cDsn) => (left.dir, right.dir) match {
+          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
+          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
+          case (ld : IN,  rd : OUT) => (right, left)
+          case (ld : OUT, rd : IN)  => (left, right)
+          case _ => throwConnectionError("Unexpected connection error")
+        }
+        //Connecting owner and child design ports, while owner port is left and child port is right.
+        case (lDsn, rDsn, cDsn) if rDsn.owner.isDefined && (lDsn eq rDsn.owner.get) && (lDsn eq cDsn) => (left.dir, right.dir) match {
+          case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+          case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+          case (ld : IN,  rd : IN)  => (left, right)
+          case (ld : OUT, rd : OUT) => (right, left)
+          case _ => throwConnectionError("Unexpected connection error")
+        }
+        //Connecting owner and child design ports, while owner port is right and child port is left.
+        case (lDsn, rDsn, cDsn) if lDsn.owner.isDefined && (lDsn.owner.get eq rDsn) && (rDsn eq cDsn) => (left.dir, right.dir) match {
+          case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+          case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+          case (ld : IN,  rd : IN)  => (right, left)
+          case (ld : OUT, rd : OUT) => (left, right)
           case _ => throwConnectionError("Unexpected connection error")
         }
         //Ports in the same design, connected at the same design
@@ -367,7 +392,7 @@ object DFAny {
         case _ => ???
       }
       if (toPort.connected) throwConnectionError(s"Destination port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
-      else toPort.connectedSource = Some(right)
+      else toPort.connectedSource = Some(fromPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit dsn : DFDesign) : Unit = portConnect(right, dsn)
 //    final def <> [R](right: protComp.Op.Able[R])(
