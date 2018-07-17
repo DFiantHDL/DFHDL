@@ -346,8 +346,15 @@ object DFAny {
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def portConnect(that : DFAny, dsn : DFDesign) : Unit = {
-      (this.dsn, that.dsn, dsn) match {
-        case (a, b, c) if (a eq b) => ???
+      val left2right : Boolean = (this.dsn, that.dsn, dsn) match {
+        //Ports in the same design, connected at the same design
+        case (l, r, c) if (l eq r) && (l eq c) => ??? //if (l.)
+        //Ports in the same design, connected at the same design
+        case (l, r, c) if !((l eq r) || (l.owner.get eq r) || (r.owner.get eq l) || (l.owner.get eq r.owner.get)) =>
+          throw new IllegalArgumentException(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.\nAttempted connection: ${l.fullName} <> ${r.fullName}")
+        case (l, r, c) if !((l eq c) || (r eq c) || ((l.owner.get eq c) && (r.owner.get eq c))) =>
+          throw new IllegalArgumentException(s"The connection call must be placed at the same design as one of the ports or their mutual owner.\nAttempted connection: ${l.fullName} <> ${r.fullName}\tCalled at ${c.fullName}")
+        case _ => ???
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
