@@ -384,6 +384,14 @@ object DFAny {
           case (ld : OUT, rd : OUT) => (left, right)
           case _ => throwConnectionError("Unexpected connection error")
         }
+        //Connecting sibling designs.
+        case (lDsn, rDsn, cDsn) if lDsn.owner.isDefined && rDsn.owner.isDefined && (lDsn.owner.get eq rDsn.owner.get) && (lDsn.owner.get eq cDsn) => (left.dir, right.dir) match {
+          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
+          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
+          case (ld : OUT, rd : IN)  => (left, right)
+          case (ld : IN,  rd : OUT) => (right, left)
+          case _ => throwConnectionError("Unexpected connection error")
+        }
         //Ports in the same design, connected at the same design
         case (l, r, c) if !((l eq r) || (l.owner.get eq r) || (r.owner.get eq l) || (l.owner.get eq r.owner.get)) =>
           throw new IllegalArgumentException(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.\nAttempted connection: ${l.fullName} <> ${r.fullName}")
