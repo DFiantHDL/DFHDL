@@ -339,16 +339,26 @@ object DFAny {
 //      case OPEN => true
 //      case _ => false
 //    }
+    private var connectedSource : Option[DFAny] = None
+    def connected : Boolean = connectedSource.isDefined
     final protected[DFiant] def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final def portConnect(that : DFAny, dsn : DFDesign) : Unit = {
-      val left2right : Boolean = (this.dsn, that.dsn, dsn) match {
+    final private def portConnect[RDIR <: DFDir](right : DF <> RDIR, dsn : DFDesign) : Unit = {
+      val left = this
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
+      val (fromPort, toPort) : (Port[DF,_ <: DFDir], Port[DF,_ <: DFDir]) = (left.dsn, right.dsn, dsn) match {
         //Ports in the same design, connected at the same design
-        case (l, r, c) if (l eq r) && (l eq c) => ??? //if (l.)
+        case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (this.dir, right.dir) match {
+          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
+          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
+          case (ld : IN,  rd : OUT) => (left, right)
+          case (ld : OUT, rd : IN)  => (right, left)
+          case _ => throwConnectionError("Unexpected connection error")
+        }
         //Ports in the same design, connected at the same design
         case (l, r, c) if !((l eq r) || (l.owner.get eq r) || (r.owner.get eq l) || (l.owner.get eq r.owner.get)) =>
           throw new IllegalArgumentException(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.\nAttempted connection: ${l.fullName} <> ${r.fullName}")
@@ -356,10 +366,13 @@ object DFAny {
           throw new IllegalArgumentException(s"The connection call must be placed at the same design as one of the ports or their mutual owner.\nAttempted connection: ${l.fullName} <> ${r.fullName}\tCalled at ${c.fullName}")
         case _ => ???
       }
+      if (toPort.connected) throwConnectionError(s"Destination port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
+      else toPort.connectedSource = Some(right)
     }
-    final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
-    ) : Unit = portConnect(op(left, right), dsn)
+    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit dsn : DFDesign) : Unit = portConnect(right, dsn)
+//    final def <> [R](right: protComp.Op.Able[R])(
+//      implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
+//    ) : Unit = portConnect(op(left, right), dsn)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
