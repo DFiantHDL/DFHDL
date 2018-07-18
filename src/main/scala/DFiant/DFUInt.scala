@@ -260,7 +260,7 @@ object DFUInt extends DFAny.Companion {
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def <> [RW, RDIR <: DFDir](port : DFUInt[RW] <> RDIR)(
-        implicit op: `Op:=`.Builder[DFUInt[RW], L], dsn : DFDesign
+        implicit op: `Op<>`.Builder[DFUInt[RW], L], dsn : DFDesign
       ) = port.connectVal2Port(op(port, left), dsn)
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
     }
@@ -366,6 +366,55 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object `Op:=` extends `Op:=` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment operation with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, R, Comp0] = Builder[L, R] {
+        type Comp = Comp0
+      }
+
+      object `LW >= RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW >= RW
+        type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      def create[L, R, RW](properR : (L, R) => DFUInt[RW]) : Aux[L, R, DFUInt[RW]] =
+        new Builder[L, R] {
+          type Comp = DFUInt[RW]
+          def apply(leftL : L, rightR : R) : Comp =  properR(leftL, rightR)
+        }
+
+      implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
+        implicit
+        dsn : DFDesign, n : NameIt,
+        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
+        create[DFUInt[LW], DFUInt[RW], RW]((left, right) => {
+          checkLWvRW.unsafeCheck(left.width, right.width)
+          right
+        })
+
+      implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
+        implicit
+        dsn : DFDesign, n : NameIt,
+        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
+        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Aux[DFUInt[LW], R, DFUInt[RW]] = create[DFUInt[LW], R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right
+      })
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Connect
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op<>` extends `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {

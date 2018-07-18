@@ -347,10 +347,10 @@ object DFAny {
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
     private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final private def connectPort2Port[RDIR <: DFDir](right : DF <> RDIR, dsn : DFDesign) : Unit = {
+    final private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
-      val (fromPort, toPort) : (Port[DF,_ <: DFDir], Port[DF,_ <: DFDir]) = (left.dsn, right.dsn, dsn) match {
+      val (fromPort, toPort) = (left.dsn, right.dsn, dsn) match {
         //Ports in the same design, connected at the same design
         case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
@@ -398,18 +398,23 @@ object DFAny {
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${dsn.fullName}")
         case _ => throwConnectionError("Unexpected connection error")
       }
+      if (toPort.width < fromPort.width) throwConnectionError(s"Destination port width (${toPort.width}) is smaller than source port width (${fromPort.width}).")
       if (toPort.connected) throwConnectionError(s"Destination port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
-      else toPort.connectedSource = Some(fromPort)
+      //All is well. We can now connect fromPort->toPort
+      toPort.connectedSource = Some(fromPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit dsn : DFDesign) : Unit = connectPort2Port(right, dsn)
     final protected[DFiant] def connectVal2Port(dfVal : DFAny, dsn : DFDesign) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
 //      if (port.dsn ne dsn) throwConnectionError(s"Connection call between a value and a port must be placed at same design as the port. Call placed at ${dsn.fullName}")
-      if (dfVal.isPort) throwConnectionError("just a test")
+      if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], dsn)
+      else {
+
+      }
     }
     final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
+      implicit op: protComp.`Op<>`.Builder[TVal, R], dsn : DFDesign
     ) : Unit = connectVal2Port(op(left, right), dsn)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
@@ -587,6 +592,10 @@ object DFAny {
       type Builder[L, R] <: DFAny.Op.Builder[L, R]
     }
     val `Op:=` : `Op:=`
+    trait `Op<>` {
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]
+    }
+    val `Op<>` : `Op<>`
     trait `Op==` {
       type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool}
     }
