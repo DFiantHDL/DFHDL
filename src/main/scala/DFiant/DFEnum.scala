@@ -38,8 +38,8 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = new NewVar[E]()
-  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : DFAny.NewVar with Var[E] = new NewVar[E]()
+  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -159,9 +159,14 @@ object DFEnum extends DFAny.Companion {
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends Op {
-    class Able[L](val value : L) extends DFAny.Op.Able[L] {}
-    trait Implicits extends super.Implicits {
-      implicit class FromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
+    class Able[L](val value : L) extends DFAny.Op.Able[L] {
+      val left = value
+      def <> [E <: Enum, RDIR <: DFDir](port : DFEnum[E] <> RDIR)(
+        implicit op: `Op<>`.Builder[DFEnum[E], L], dsn : DFDesign
+      ) = port.connectVal2Port(op(port, left), dsn)
+    }
+    trait Implicits {
+      implicit class DFEnumFromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
       implicit def ofDFEnum[R <: DFEnum.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits

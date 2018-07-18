@@ -41,7 +41,7 @@ object XRange {
   }
 
   trait Implicits {
-    implicit class fromInt[Start <: std.Int](start : Start) {
+    implicit class XRangefromInt[Start <: std.Int](start : Start) {
       def TO[End <: std.Int, S <: std.Int, E <: std.Int](end : End)(
         implicit s : OpAuxGen[AcceptNonLiteral[GetLHSArg0], S],
         e : OpAuxGen[AcceptNonLiteral[GetArg0], E],
@@ -75,7 +75,7 @@ object XRange {
         Int.DOWNTO[S, E](s.value, e.value)
       }
     }
-    implicit class fromLong[Start <: std.Long](start : Start) {
+    implicit class XRangefromLong[Start <: std.Long](start : Start) {
       def TO[End <: std.Long, S <: std.Long, E <: std.Long](end : End)(
         implicit s : OpAuxGen[AcceptNonLiteral[GetLHSArg0], S],
         e : OpAuxGen[AcceptNonLiteral[GetArg0], E],

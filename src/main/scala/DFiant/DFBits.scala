@@ -271,7 +271,8 @@ object DFBits extends DFAny.Companion {
 
   object Op extends Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
-    object Able extends super.Implicits
+    trait Implicits
+    object Able extends Implicits
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -558,11 +558,6 @@ object DFAny {
       type Comp <: DFAny
       def apply(left : L, rightR : R) : Comp
     }
-    trait Implicits[A[T] <: Able[T], UB <: DFAny] {
-//      import shapeless._
-//        implicit def ofTVal[R <: UB](value : R)(implicit gen : Generic[A[value.TVal]])
-//        : A[value.TVal] = gen.from((value.asInstanceOf[value.TVal] :: HNil).asInstanceOf[gen.Repr])
-    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -584,7 +579,7 @@ object DFAny {
 
     trait Op {
       type Able[R] <: DFAny.Op.Able[R]
-      trait Implicits extends DFAny.Op.Implicits[Able, Unbounded]
+      type Implicits
       val Able : Implicits
     }
     val Op : Op
