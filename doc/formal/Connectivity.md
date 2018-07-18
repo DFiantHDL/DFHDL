@@ -28,19 +28,50 @@ TODO: Add Legend
 
 
 * Initialization is not copied to destination with `:=`, but it does with `<>`
+
 * `<>` ordering does not matter! The ordering is determined by the dependency detected when the design is flattened.
+
 * Input ports do not accept `:=` under any condition.
+
 * Output ports can accept `:=` only at the design level, but not at owner level.
+
 * All ports accept `<>`, but various restriction are applied, depending on the hierarchy difference, called scope and port directions.
+
 * `<>` must have be between a port and a dataflow value or between two ports. Cannot be applied between dataflow variables.
+
 * `:=` is directional (consumer := producer) while `<>` set the direction automatically.
+
 * `:=` Mutability. Can be applied many times for. `<>` can be applied once for ???
+
 * In the future `<>` will be used to connect mult-port-multi-directional interfaces.
+
 * Opposed to VHDL/Verilog, we do not need to go through 'signals' to connect ports, but there are some limits to what is permitted.
+
 * In many times it is possible to use the port directly, and `<>` shouldn't be used
+
 * Each port has two sides: External and Internal. To access the external side we reference the port from outside of the design. To access the internal side we reference the port from inside the design.
+
 * Each port has a source and destination. The source is connected to with `<>` and the destination is referenced (can also be referenced from `<>` when connected to a source of a different port).
+
 * With or without a port is transparent to the design when properly using `<>`
+
+* Connecting between a constant and a port: the port must be a destination.
+
+* Connecting between different sized ports (different types). Direction will be from smaller width as source to wider as destination. e.g:
+
+  ```scala
+  a1 : DFUInt[7] <> IN
+  b1 : DFUInt[8] <> OUT
+  a1 <> b1 //OK
+  a2 : DFUInt[7] <> OUT
+  b2 : DFUInt[8] <> IN
+  a1 <> b1 //Fail
+  
+  ```
+
+* 
+
+* 
 
 
 
