@@ -424,7 +424,7 @@ object DFUInt extends DFAny.Companion {
 
       object `LW >= RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW >= RW
-        type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type Msg[LW, RW] = "Cannot connect a port to a wider constant value. Found: Port-width = "+ ToString[LW] + " and Constant-width = " + ToString[RW]
         type ParamFace = Int
       }
 
@@ -436,13 +436,9 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
-        dsn : DFDesign, n : NameIt,
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        dsn : DFDesign, n : NameIt
       ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
-        create[DFUInt[LW], DFUInt[RW], RW]((left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          right
-        })
+        create[DFUInt[LW], DFUInt[RW], RW]((left, right) => right)
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
