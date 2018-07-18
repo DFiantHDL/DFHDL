@@ -39,6 +39,14 @@ trait ContainerConn3 extends DFDesign {
   io2.o <> o     //Connecting between child output and owner output
 }
 
+trait ContainerConn4 extends DFDesign {
+  val i = DFUInt[7] <> IN
+  val o = DFUInt[8] <> OUT
+  val io = new IODesignConn1 {}
+  io.i <> i
+  io.o <> o
+}
+
 //trait IODesign extends DFDesign {
 //  val i = DFUInt[8] <> IN
 //  val o = DFUInt[8] <> OUT
@@ -72,6 +80,7 @@ object BasicTest extends App {
   val top_containerConn1 = new ContainerConn1 {}
   val top_containerConn2 = new ContainerConn2 {}
   val top_containerConn3 = new ContainerConn3 {}
+  val top_containerConn4 = new ContainerConn4 {}
 
 }
 
