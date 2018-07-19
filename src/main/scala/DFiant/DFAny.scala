@@ -257,7 +257,7 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
-    final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    final val isAnonymous : Boolean = n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -291,7 +291,7 @@ object DFAny {
     final val isPort = false
 
     final val id = dsn.newDFValGetID(this)
-    final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    final val isAnonymous : Boolean = n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
     override protected def nameDefault: String =
@@ -307,9 +307,8 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    override def toString : String = s"$token"
     final val isAnonymous : Boolean = false
-//    dsn.newDFVal(this)
+    override protected def nameDefault: String = s"CONST($token)"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -407,7 +406,6 @@ object DFAny {
     final protected[DFiant] def connectVal2Port(dfVal : DFAny, dsn : DFDesign) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-//      if (port.dsn ne dsn) throwConnectionError(s"Connection call between a value and a port must be placed at same design as the port. Call placed at ${dsn.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], dsn)
       else {
         if (port.dsn.owner.isDefined && (port.dsn.owner.get eq dfVal.dsn)) {
