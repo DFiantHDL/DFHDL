@@ -321,6 +321,7 @@ object DFAny {
   abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : DF, val dir : DIR)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny {
+    this : DF <> DIR =>
     type TAlias = TVal <> DIR
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
@@ -343,13 +344,13 @@ object DFAny {
     private var connectedSource : Option[DFAny] = None
     private var assigned : Boolean = false
     def connected : Boolean = connectedSource.isDefined
-    final protected[DFiant] def portAssign(that : DFAny, dsn : DFDesign) : Port[DF, DIR] with DF = {
+    final protected[DFiant] def portAssign(that : DFAny, dsn : DFDesign) : DF <> DIR = {
       assigned = true
       if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment port (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
-      this.asInstanceOf[Port[DF, DIR] with DF]
+      this.asInstanceOf[DF <> DIR]
     }
     private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
@@ -358,6 +359,7 @@ object DFAny {
       if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toPort
       toPort.connectedSource = Some(fromVal)
+      toPort.privAssignDependencies += fromVal
     }
     private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
       val left = this
