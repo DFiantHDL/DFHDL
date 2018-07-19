@@ -410,7 +410,20 @@ object DFAny {
 //      if (port.dsn ne dsn) throwConnectionError(s"Connection call between a value and a port must be placed at same design as the port. Call placed at ${dsn.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], dsn)
       else {
+        if (port.dsn.owner.isDefined && (port.dsn.owner.get eq dfVal.dsn)) {
+          if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
+          if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
+        }
+        else if (port.dsn eq dfVal.dsn) {
+          if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
+          if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
+        }
+        else throwConnectionError(s"Unsupported connection between a non-port and a port")
 
+        if (port.width < dfVal.width) throwConnectionError(s"Destination port width (${port.width}) is smaller than source port width (${dfVal.width}).")
+        if (port.connected) throwConnectionError(s"Destination port ${port.fullName} already has a connection: ${port.connectedSource.get.fullName}")
+        //All is well. We can now connect dfVal->port
+        port.connectedSource = Some(dfVal)
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(

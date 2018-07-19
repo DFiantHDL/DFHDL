@@ -42,11 +42,11 @@ trait ContainerConn3 extends DFDesign {
 trait ContainerConn4 extends DFDesign {
   val i = DFUInt[7] <> IN
   val o = DFUInt[8] <> OUT
-  val ib = DFBool() <> IN
+  val ob = DFBool() <> OUT
   val io = new IODesignConn1 {}
   io.i <> i
   io.o <> o
-  true <> ib
+  true <> ob
 }
 
 //trait IODesign extends DFDesign {
