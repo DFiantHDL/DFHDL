@@ -341,15 +341,25 @@ object DFAny {
 //      case _ => false
 //    }
     private var connectedSource : Option[DFAny] = None
+    private var assigned : Boolean = false
     def connected : Boolean = connectedSource.isDefined
     final protected[DFiant] def portAssign(that : DFAny, dsn : DFDesign) : Port[DF, DIR] with DF = {
-      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
+      assigned = true
+      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment port (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
+      if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
     }
-    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
+    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
+      if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
+      if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
+      if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
+      //All is well. We can now connect fromVal->toPort
+      toPort.connectedSource = Some(fromVal)
+    }
+    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
       val (fromPort, toPort) = (left.dsn, right.dsn, dsn) match {
@@ -400,10 +410,7 @@ object DFAny {
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${dsn.fullName}")
         case _ => throwConnectionError("Unexpected connection error")
       }
-      if (toPort.width < fromPort.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromPort.width}).")
-      if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
-      //All is well. We can now connect fromPort->toPort
-      toPort.connectedSource = Some(fromPort)
+      connect(fromPort, toPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit dsn : DFDesign) : Unit = connectPort2Port(right, dsn)
     final protected[DFiant] def connectVal2Port(dfVal : DFAny, dsn : DFDesign) : Unit = {
@@ -420,11 +427,7 @@ object DFAny {
           if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port")
-
-        if (port.width < dfVal.width) throwConnectionError(s"Target port width (${port.width}) is smaller than source port width (${dfVal.width}).")
-        if (port.connected) throwConnectionError(s"Target port ${port.fullName} already has a connection: ${port.connectedSource.get.fullName}")
-        //All is well. We can now connect dfVal->port
-        port.connectedSource = Some(dfVal)
+        connect(dfVal, port)
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
@@ -433,6 +436,7 @@ object DFAny {
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
+    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
     ) = portAssign(op(left, right), dsn)
