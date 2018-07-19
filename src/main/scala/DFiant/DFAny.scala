@@ -232,8 +232,10 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Assignment (Mutation)
     //////////////////////////////////////////////////////////////////////////
-    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
-    final protected[DFiant] def assign(that : DFAny) : TVar = {
+    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign) =
+      assign(op(left, right), dsn)
+    final protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
+      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -340,7 +342,8 @@ object DFAny {
 //    }
     private var connectedSource : Option[DFAny] = None
     def connected : Boolean = connectedSource.isDefined
-    final protected[DFiant] def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
+    final protected[DFiant] def portAssign(that : DFAny, dsn : DFDesign) : Port[DF, DIR] with DF = {
+      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[Port[DF, DIR] with DF]
@@ -397,8 +400,8 @@ object DFAny {
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${dsn.fullName}")
         case _ => throwConnectionError("Unexpected connection error")
       }
-      if (toPort.width < fromPort.width) throwConnectionError(s"Destination port width (${toPort.width}) is smaller than source port width (${fromPort.width}).")
-      if (toPort.connected) throwConnectionError(s"Destination port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
+      if (toPort.width < fromPort.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromPort.width}).")
+      if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
       //All is well. We can now connect fromPort->toPort
       toPort.connectedSource = Some(fromPort)
     }
@@ -418,8 +421,8 @@ object DFAny {
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port")
 
-        if (port.width < dfVal.width) throwConnectionError(s"Destination port width (${port.width}) is smaller than source port width (${dfVal.width}).")
-        if (port.connected) throwConnectionError(s"Destination port ${port.fullName} already has a connection: ${port.connectedSource.get.fullName}")
+        if (port.width < dfVal.width) throwConnectionError(s"Target port width (${port.width}) is smaller than source port width (${dfVal.width}).")
+        if (port.connected) throwConnectionError(s"Target port ${port.fullName} already has a connection: ${port.connectedSource.get.fullName}")
         //All is well. We can now connect dfVal->port
         port.connectedSource = Some(dfVal)
       }
@@ -431,8 +434,8 @@ object DFAny {
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
     final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
-    ) = portAssign(op(left, right))
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
+    ) = portAssign(op(left, right), dsn)
     final val isPort = true
     override protected def nameDefault: String = n.value
     override def toString : String = s"$fullName : $typeName <> $dir"

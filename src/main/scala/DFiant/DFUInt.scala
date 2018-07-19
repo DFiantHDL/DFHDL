@@ -42,7 +42,7 @@ object DFUInt extends DFAny.Companion {
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], dsn : DFDesign, n : NameIt
-    ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left)
+    ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, dsn)
 
     def isZero(implicit dsn : DFDesign, n : NameIt) = left == 0
     def isNonZero(implicit dsn : DFDesign, n : NameIt) = left != 0

@@ -44,7 +44,6 @@ trait ContainerConn4 extends DFDesign {
   val o = DFUInt[8] <> OUT
   val ob = DFBool() <> OUT
   val io = new IODesignConn1 {}
-  val a = DFUInt[6]
   i <> io.i
   io.o <> o
   true <> ob
