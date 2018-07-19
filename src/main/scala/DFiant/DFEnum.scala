@@ -175,10 +175,10 @@ object DFEnum extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign
+  // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op:=` extends `Op:=` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment operation with the type ${R}")
+  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
@@ -201,36 +201,8 @@ object DFEnum extends DFAny.Companion {
         create[E, DFEnum[E], Entry]((left, rightEntry) => const(Token[E](rightEntry)))
     }
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Connect
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<>` extends `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support connect operation with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-
-    object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
-      }
-
-      def create[E <: Enum, L, R](properR : (L, R) => DFEnum[E]) : Aux[L, R, DFEnum[E]] =
-        new Builder[L, R] {
-          type Comp = DFEnum[E]
-          def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
-        }
-
-      implicit def evDFEnum_op_DFEnum[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E])
-      : Aux[DFEnum[E], DFEnum[E], DFEnum[E]] =
-        create[E, DFEnum[E], DFEnum[E]]((left, right) => right)
-
-      implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E])
-      : Aux[DFEnum[E], Entry, DFEnum[E]] =
-        create[E, DFEnum[E], Entry]((left, rightEntry) => const(Token[E](rightEntry)))
-    }
-  }
+  object `Op:=` extends `Ops:=,<>`
+  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
