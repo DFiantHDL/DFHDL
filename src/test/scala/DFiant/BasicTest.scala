@@ -2,36 +2,36 @@ package DFiant
 
 
 trait IODesignConn1 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
   o <> i
 }
 
 trait IODesignConn2 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
   i <> o
 }
 
 trait ContainerConn1 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
   val io = new IODesignConn1 {}
   i    <> io.i //Connecting between owner input and child input
   io.o <> o    //Connecting between child output and owner output
 }
 
 trait ContainerConn2 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
   val io = new IODesignConn1 {}
   i <> o
   io.i <> io.o
 }
 
 trait ContainerConn3 extends DFDesign {
-  val i = DFUInt[8] <> IN
-  val o = DFUInt[8] <> OUT
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
   val io1 = new IODesignConn1 {}
   val io2 = new IODesignConn1 {}
   i     <> io1.i //Connecting between owner input and child input
@@ -40,8 +40,8 @@ trait ContainerConn3 extends DFDesign {
 }
 
 trait ContainerConn4 extends DFDesign {
-  val i = DFUInt[7] <> IN
-  val o = DFUInt[8] <> OUT
+  val i = DFUInt(7) <> IN
+  val o = DFUInt(8) <> OUT
   val ob = DFBool() <> OUT
   val io = new IODesignConn1 {}
   i <> io.i
@@ -50,24 +50,24 @@ trait ContainerConn4 extends DFDesign {
 }
 
 //trait IODesign extends DFDesign {
-//  val i = DFUInt[8] <> IN
-//  val o = DFUInt[8] <> OUT
+//  val i = DFUInt(8) <> IN
+//  val o = DFUInt(8) <> OUT
 //  o := i
 //}
 //
 //trait IODesign1 extends DFDesign {
-//  val i = DFUInt[8] <> IN
-//  val o = DFUInt[8] <> OUT
-//  val tmp = DFUInt[8]
+//  val i = DFUInt(8) <> IN
+//  val o = DFUInt(8) <> OUT
+//  val tmp = DFUInt(8)
 //  tmp := i
 //  o := tmp
 //}
 //
 //trait IODesign2 extends DFDesign {
-//  val i1 = DFUInt[8] <> IN
-//  val o1 = DFUInt[8] <> OUT
-//  val i2 = DFUInt[8] <> IN
-//  val o2 = DFUInt[8] <> OUT
+//  val i1 = DFUInt(8) <> IN
+//  val o1 = DFUInt(8) <> OUT
+//  val i2 = DFUInt(8) <> IN
+//  val o2 = DFUInt(8) <> OUT
 //  o1 := i1
 //  o2 := i2
 //}
