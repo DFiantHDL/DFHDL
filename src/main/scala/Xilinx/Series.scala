@@ -10,18 +10,18 @@ trait Series {
   }
 
   implicit object basicLib extends DFiant.basiclib.DFBasicLib {
-    implicit def `evU+U`[LW, RW, WCW](implicit dsn : DFDesign) : Implementation[`U+U`[LW, RW, WCW]] = ifc => {
+    implicit def `evU+U`(implicit dsn : DFDesign) : Implementation[`U+U`] = ifc => {
       import ifc._
-      new RTAddSub[LW, RW, WCW] {
-        val A = inLeft
-        val B = inRight
-        val S = outResult
-      }
+//      new RTAddSub[LW, RW, WCW] {
+//        val A = inLeft
+//        val B = inRight
+//        val S = outResult
+//      }
     }
-    implicit def `evU-U`[LW, RW, WCW](implicit dsn : DFDesign) : Implementation[`U-U`[LW, RW, WCW]] = ifc => {
+    implicit def `evU-U`(implicit dsn : DFDesign) : Implementation[`U-U`] = ifc => {
       import ifc._
     }
-    implicit def `evU*U`[LW, RW, WCW](implicit dsn : DFDesign) : Implementation[`U*U`[LW, RW, WCW]] = ifc => {
+    implicit def `evU*U`(implicit dsn : DFDesign) : Implementation[`U*U`] = ifc => {
       import ifc._
     }
 

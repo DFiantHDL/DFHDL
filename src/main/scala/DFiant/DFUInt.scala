@@ -472,21 +472,24 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-                  val wc = new NewVar[WCW](opWidth, opInit)
-                  creationKind match {
+                  val opInst = creationKind match {
                     case `Ops+Or-`.+ =>
-                      new `U+U`[LW, RW, WCW] {
-                        val inLeft = ??? //FullyConnected(left)
-                        val inRight = ??? //FullyConnected(right)
-                        val outResult = ??? //FullyConnected(wc)
+                      new `U+U` {
+                        final val leftWidth = left.width
+                        final val rightWidth = right.width
+                        final val resultWidth = opWidth
                       }
                     case `Ops+Or-`.- =>
-                      new `U-U`[LW, RW, WCW] {
-                        val inLeft = ??? //FullyConnected(left)
-                        val inRight = ??? //FullyConnected(right)
-                        val outResult = ??? //FullyConnected(wc)
+                      new `U-U` {
+                        final val leftWidth = left.width
+                        final val rightWidth = right.width
+                        final val resultWidth = opWidth
                       }
                   }
+                  val wc = new NewVar[WCW](opWidth)
+                  opInst.inLeft <> left
+                  opInst.inRight <> right
+                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](wc).setAutoName(n.value)
                 }
@@ -598,13 +601,16 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
                   val opInit = Token.*(left.getInit, right.getInit)
-                  val wc = new NewVar[WCW](wcWidth, opInit)
+                  val wc = new NewVar[WCW](wcWidth)
 
-                  new `U*U`[LW, RW, WCW] {
-                    val inLeft = ??? //FullyConnected(left)
-                    val inRight = ??? //FullyConnected(right)
-                    val outResult = ??? //FullyConnected(wc)
+                  val opInst = new `U*U` {
+                    final val leftWidth = left.width
+                    final val rightWidth = right.width
+                    final val resultWidth = wcWidth
                   }
+                  opInst.inLeft <> left
+                  opInst.inRight <> right
+                  opInst.outResult <> wc
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](wc, ncWidth, cWidth).setAutoName(n.value)

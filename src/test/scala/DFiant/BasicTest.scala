@@ -1,5 +1,8 @@
 package DFiant
 
+import DFiant.basiclib.DFBasicLib
+import DFiant.internals._
+
 
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN
