@@ -16,6 +16,13 @@ trait IODesignConn2 extends DFDesign {
   i <> o
 }
 
+trait IODesignConn3 extends DFDesign {
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
+  val aa = i + 1
+  o <> aa
+}
+
 trait ContainerConn1 extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
@@ -82,11 +89,12 @@ trait ContainerConn4 extends DFDesign {
 object BasicTest extends App {
   import psuedoVendor.family.device._
   val top_ioDesignConn1 = new IODesignConn1 {}
+  val top_ioDesignConn3 = new IODesignConn3 {}
   val top_containerConn1 = new ContainerConn1 {}
   val top_containerConn2 = new ContainerConn2 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
-  top_containerConn3.printInfo()
+  top_ioDesignConn3.printInfo()
 
 }
 

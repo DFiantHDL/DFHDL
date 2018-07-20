@@ -418,10 +418,11 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign, n : NameIt) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
       lazy val c = DFBits.alias[1](wc, 1, wc.width-1)
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def codeString(idRef : String) : String = s"$idRef"
+      override def nameDefault: String = n.value
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
@@ -486,12 +487,13 @@ object DFUInt extends DFAny.Companion {
                         final val resultWidth = opWidth
                       }
                   }
-                  val wc = new NewVar[WCW](opWidth)
+                  val wc = new NewVar[WCW](opWidth, opInst.outResult.getInit).setAutoName(s"${n.value}.wc")
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  opInst.outResult <> wc
+                  wc := opInst.outResult
+//                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc).setAutoName(n.value)
+                  new Component[NCW, WCW](wc)//.setAutoName(n.value)
                 }
               }
           }
