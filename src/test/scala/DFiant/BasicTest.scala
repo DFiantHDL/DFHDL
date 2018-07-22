@@ -94,7 +94,7 @@ object BasicTest extends App {
   val top_containerConn2 = new ContainerConn2 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
-  top_ioDesignConn3.printInfo()
+  top_containerConn3.printInfo()
 
 }
 

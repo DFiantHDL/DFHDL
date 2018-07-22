@@ -246,6 +246,7 @@ object DFAny {
   }
 
   trait Uninitialized extends DFAny {
+    private var initialized : Boolean = false
     final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
       op(left, that).asInstanceOf[TAlias]
     final def reInit(cond : DFBool) : Unit = ???
@@ -260,7 +261,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class NewVar(_width : Int, _init : Seq[Token])(
+  abstract class NewVar(_width : Int)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var with DFAny.Uninitialized {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)

@@ -27,7 +27,7 @@ object DFBool extends DFAny.Companion {
     def rising (implicit dsn : DFDesign, n : NameIt) : DFBool = left && !left.prev(1)
     def falling (implicit dsn : DFDesign, n : NameIt) : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit dsn : DFDesign, n : NameIt) = new DFBool.NewVar(Seq(DFBool.Token(false)))
+    def newEmptyDFVar(implicit dsn : DFDesign, n : NameIt) = ??? //new DFBool.NewVar(Seq(DFBool.Token(false)))
 
     override lazy val typeName : String = s"DFBool"
 
@@ -50,16 +50,16 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply()(implicit dsn : DFDesign, n : NameIt) : NewVar = new NewVar(Seq(DFBool.Token(false)))
+  implicit def apply()(implicit dsn : DFDesign, n : NameIt) : NewVar = new NewVar()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar(init : Seq[Token] = Seq())(
+  final class NewVar()(
     implicit dsn : DFDesign, n : NameIt
-  ) extends DFAny.NewVar(1, init) with Var {
+  ) extends DFAny.NewVar(1) with Var {
     def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)

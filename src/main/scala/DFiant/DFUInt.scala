@@ -42,7 +42,7 @@ object DFUInt extends DFAny.Companion {
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], dsn : DFDesign, n : NameIt
-    ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, dsn)
+    ) : DFUInt.Var[tfs.Out] = ??? //new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, dsn)
 
     def isZero(implicit dsn : DFDesign, n : NameIt) = left == 0
     def isNonZero(implicit dsn : DFDesign, n : NameIt) = left != 0
@@ -77,10 +77,10 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
-  ) : NewVar[W] = new NewVar(checkedWidth, Seq(DFUInt.Token(checkedWidth, 0)))
+  ) : NewVar[W] = new NewVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit dsn : DFDesign, n : NameIt
-  ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck(), Seq(DFUInt.Token(checkedWidth, 0)))
+  ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
@@ -93,9 +93,9 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[W](width : TwoFace.Int[W], init : Seq[Token] = Seq())(
+  final class NewVar[W](width : TwoFace.Int[W])(
     implicit dsn : DFDesign, n : NameIt
-  ) extends DFAny.NewVar(width, init) with Var[W] {
+  ) extends DFAny.NewVar(width) with Var[W] {
     def codeString(idRef : String) : String = s"val $idRef = DFUInt($width)"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
@@ -487,7 +487,7 @@ object DFUInt extends DFAny.Companion {
                         final val resultWidth = opWidth
                       }
                   }
-                  val wc = new NewVar[WCW](opWidth, opInst.outResult.getInit).setAutoName(s"${n.value}.wc")
+                  val wc = new NewVar[WCW](opWidth).setAutoName(s"${n.value}.wc") //opInst.outResult.getInit
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   wc := opInst.outResult
@@ -672,7 +672,7 @@ object DFUInt extends DFAny.Companion {
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign, n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = new DFBool.NewVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
+        val result = new DFBool.NewVar().setAutoName(n.value) //opFunc(left.getInit, right.getInit)
 
 //        compareOp[LW, RW] (
 //          inLeft = ??? //FullyConnected(left),

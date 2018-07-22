@@ -46,9 +46,9 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[E <: Enum](init : Seq[Token[E]] = Seq())(
+  final class NewVar[E <: Enum]()(
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
-  ) extends DFAny.NewVar(w, init) with Var[E]  {
+  ) extends DFAny.NewVar(w) with Var[E]  {
     def codeString(idRef : String) : String = s"DFEnum???"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
@@ -223,7 +223,7 @@ object DFEnum extends DFAny.Companion {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = new DFBool.NewVar(opFunc(left.getInit, right.getInit)).setAutoName(n.value)
+        val result = new DFBool.NewVar().setAutoName(n.value) //opFunc(left.getInit, right.getInit)
 
         compareOp[E] (
           inLeft = ???, //FullyConnected(left),
