@@ -94,11 +94,8 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
   protected val protInit : Seq[TToken]
-  final def getInit : Seq[TToken] = protInit
-//  def init(updatedInit : Seq[TToken]) : TAlias
-  final def init(that : Init.Able[TVal]*)(implicit op : Init.Builder[TVal]) : TAlias =
-    op(left, that).asInstanceOf[TAlias]
-  final def reInit(cond : DFBool) : Unit = ???
+  //Only call within lazy val calculation of `protInit` when dependent on other init values
+  final protected def getInit : Seq[TToken] = protInit
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -220,6 +217,8 @@ object DFAny {
     }
     //////////////////////////////////////////////////////////////////////////
 
+    final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
+      op(left, that).asInstanceOf[TAlias]
 
     //////////////////////////////////////////////////////////////////////////
     // Administration
@@ -242,6 +241,16 @@ object DFAny {
     }
     //////////////////////////////////////////////////////////////////////////
   }
+
+//  trait VarUninitialized extends Var {
+//    final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
+//      op(left, that).asInstanceOf[TAlias]
+//    final def reInit(cond : DFBool) : Unit = ???
+//    private var _initFunc : () => Seq[TToken] = () => Seq()
+//    final protected[DFiant] def initFunc = _initFunc
+//    final protected[DFiant] def initFunc_= (value : () => Seq[TToken]) : Unit = _initFunc = value
+//    final protected lazy val protInit : Seq[TToken] = _initFunc()
+//  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
