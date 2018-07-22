@@ -222,8 +222,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Administration
     //////////////////////////////////////////////////////////////////////////
-    private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList
+    protected val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    override protected def discoveryDepenencies : List[Discoverable] = protAssignDependencies.toList
     //////////////////////////////////////////////////////////////////////////
 
 
@@ -238,7 +238,7 @@ object DFAny {
     protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
       assigned = true
       if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
-      privAssignDependencies += that
+      protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
     }
@@ -299,8 +299,8 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
     }
-    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final protected[DFiant] def discovery : Unit = almanacEntry
+    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
 
     final val id = dsn.newDFValGetID(this)
@@ -338,19 +338,14 @@ object DFAny {
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(dfVar.almanacEntry, dir, name, dsn.name)
-    private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    final protected[DFiant] def discovery : Unit = almanacEntry
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
       if (privComponentDependency.nonEmpty)
         throw new IllegalArgumentException(s"The dataflow value $name is already connected to an output port in the component ${privComponentDependency.head.fullName}")
       else privComponentDependency += comp
     }
-    final override protected def discoveryDepenencies : List[Discoverable] = privAssignDependencies.toList ++ privComponentDependency
-    final protected[DFiant] def discovery : Unit = almanacEntry
-//    final lazy val isOpen : Boolean = conn match {
-//      case OPEN => true
-//      case _ => false
-//    }
+    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ privComponentDependency
     private var connectedSource : Option[DFAny] = None
     def connected : Boolean = connectedSource.isDefined
     final override protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
@@ -365,7 +360,7 @@ object DFAny {
       if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toPort
       toPort.connectedSource = Some(fromVal)
-      toPort.privAssignDependencies += fromVal
+      toPort.protAssignDependencies += fromVal
     }
     private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
       val left = this
