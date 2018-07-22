@@ -68,7 +68,7 @@ object DFBits extends DFAny.Companion {
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], dsn : DFDesign, n : NameIt
-    ) : DFBits.Var[tfs.Out] = DFBits.newVar(tfs(width, numOfBits), getInit).assign(this)
+    ) : DFBits.Var[tfs.Out] = DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, dsn)
 
     //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
     //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)
@@ -96,7 +96,7 @@ object DFBits extends DFAny.Companion {
     def newEmptyDFVar(implicit dsn : DFDesign, n : NameIt) = DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
 
     ///////////////////////////DFUInt.op[W](width, "toDFUInt", DFBits.Token.toUInt(getInit))
-    def toDFUInt(implicit dsn : DFDesign, n : NameIt) : DFUInt[Width] = new DFUInt.NewVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this)
+    def toDFUInt(implicit dsn : DFDesign, n : NameIt) : DFUInt[Width] = new DFUInt.NewVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this, dsn)
 
     override lazy val typeName : String = s"DFBits[$width]"
   }

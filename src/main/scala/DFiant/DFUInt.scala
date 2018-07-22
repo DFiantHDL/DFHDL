@@ -42,7 +42,7 @@ object DFUInt extends DFAny.Companion {
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], dsn : DFDesign, n : NameIt
-    ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left)
+    ) : DFUInt.Var[tfs.Out] = new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, dsn)
 
     def isZero(implicit dsn : DFDesign, n : NameIt) = left == 0
     def isNonZero(implicit dsn : DFDesign, n : NameIt) = left != 0
@@ -362,10 +362,10 @@ object DFUInt extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign
+  // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op:=` extends `Op:=` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment operation with the type ${R}")
+  trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
@@ -374,7 +374,7 @@ object DFUInt extends DFAny.Companion {
       }
 
       object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = LW >= RW
+        type Cond[LW, RW] = (LW >= RW) || SkipLengthCheck
         type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
@@ -407,51 +407,8 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Connect
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<>` extends `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support connect operation with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-
-    object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
-      }
-
-      object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = LW >= RW
-        type Msg[LW, RW] = "Cannot connect a port to a wider constant value. Found: Port-width = "+ ToString[LW] + " and Constant-width = " + ToString[RW]
-        type ParamFace = Int
-      }
-
-      def create[L, R, RW](properR : (L, R) => DFUInt[RW]) : Aux[L, R, DFUInt[RW]] =
-        new Builder[L, R] {
-          type Comp = DFUInt[RW]
-          def apply(leftL : L, rightR : R) : Comp =  properR(leftL, rightR)
-        }
-
-      implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
-        implicit
-        dsn : DFDesign, n : NameIt
-      ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
-        create[DFUInt[LW], DFUInt[RW], RW]((left, right) => right)
-
-      implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
-        implicit
-        dsn : DFDesign, n : NameIt,
-        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], R, DFUInt[RW]] = create[DFUInt[LW], R, RW]((left, rightNum) => {
-        val right = rConst(rightNum)
-        checkLWvRW.unsafeCheck(left.width, right.width)
-        right
-      })
-    }
-  }
+  object `Op:=` extends `Ops:=,<>`[false]
+  object `Op<>` extends `Ops:=,<>`[true]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -461,10 +418,11 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign, n : NameIt) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
       lazy val c = DFBits.alias[1](wc, 1, wc.width-1)
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def codeString(idRef : String) : String = s"$idRef"
+      override def nameDefault: String = n.value
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
@@ -515,23 +473,27 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
-                  val wc = new NewVar[WCW](opWidth, opInit)
-                  creationKind match {
+                  val opInst = creationKind match {
                     case `Ops+Or-`.+ =>
-                      new `U+U`[LW, RW, WCW] {
-                        val inLeft = ??? //FullyConnected(left)
-                        val inRight = ??? //FullyConnected(right)
-                        val outResult = ??? //FullyConnected(wc)
+                      new `U+U` {
+                        final val leftWidth = left.width
+                        final val rightWidth = right.width
+                        final val resultWidth = opWidth
                       }
                     case `Ops+Or-`.- =>
-                      new `U-U`[LW, RW, WCW] {
-                        val inLeft = ??? //FullyConnected(left)
-                        val inRight = ??? //FullyConnected(right)
-                        val outResult = ??? //FullyConnected(wc)
+                      new `U-U` {
+                        final val leftWidth = left.width
+                        final val rightWidth = right.width
+                        final val resultWidth = opWidth
                       }
                   }
+                  val wc = new NewVar[WCW](opWidth, opInst.outResult.getInit).setAutoName(s"${n.value}.wc")
+                  opInst.inLeft <> left
+                  opInst.inRight <> right
+                  wc := opInst.outResult
+//                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc).setAutoName(n.value)
+                  new Component[NCW, WCW](wc)//.setAutoName(n.value)
                 }
               }
           }
@@ -641,13 +603,16 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
                   val opInit = Token.*(left.getInit, right.getInit)
-                  val wc = new NewVar[WCW](wcWidth, opInit)
+                  val wc = new NewVar[WCW](wcWidth)
 
-                  new `U*U`[LW, RW, WCW] {
-                    val inLeft = ??? //FullyConnected(left)
-                    val inRight = ??? //FullyConnected(right)
-                    val outResult = ??? //FullyConnected(wc)
+                  val opInst = new `U*U` {
+                    final val leftWidth = left.width
+                    final val rightWidth = right.width
+                    final val resultWidth = wcWidth
                   }
+                  opInst.inLeft <> left
+                  opInst.inRight <> right
+                  opInst.outResult <> wc
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](wc, ncWidth, cWidth).setAutoName(n.value)

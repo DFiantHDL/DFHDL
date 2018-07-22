@@ -229,10 +229,10 @@ object DFBool extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign
+  // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op:=` extends `Op:=` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment operation with the type ${R}")
+  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
@@ -256,37 +256,8 @@ object DFBool extends DFAny.Companion {
       })
     }
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Connect
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<>` extends `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support connect operation with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-
-    object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
-      }
-
-      def create[L, R](properR : (L, R) => DFBool)
-      : Aux[L, R, DFBool] = new Builder[L, R] {
-        type Comp = DFBool
-        def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
-      }
-
-      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit dsn : DFDesign, n : NameIt)
-      : Aux[DFBool, DFBool, DFBool] = create[DFBool, DFBool]((left, right) => right)
-
-      implicit def evDFBool_op_Const[L <: DFBool, R](implicit dsn : DFDesign, n : NameIt, rConst : Const[Builder[_,_], R])
-      : Aux[DFBool, R, DFBool] = create[DFBool, R]((left, rightNum) => {
-        val right = rConst(rightNum)
-        right
-      })
-    }
-  }
+  object `Op:=` extends `Ops:=,<>`
+  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

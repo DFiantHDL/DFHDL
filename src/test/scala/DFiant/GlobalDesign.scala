@@ -5,9 +5,9 @@ import DFiant.internals._
 
 object DFGlobalLib extends DFBasicLib {
   import DFComponent.Implementation
-  implicit def `evU+U`[LW, RW, WCW](implicit dsn : DFDesign) : Implementation[`U+U`[LW, RW, WCW]] = ifc => {}
-  implicit def `evU-U`[LW, RW, WCW](implicit dsn : DFDesign) : Implementation[`U-U`[LW, RW, WCW]] = ifc => {}
-  implicit def `evU*U`[LW, RW, WCW](implicit dsn : DFDesign) : Implementation[`U*U`[LW, RW, WCW]] = ifc => {}
+  implicit def `evU+U`(implicit dsn : DFDesign) : Implementation[`U+U`] = ifc => {}
+  implicit def `evU-U`(implicit dsn : DFDesign) : Implementation[`U-U`] = ifc => {}
+  implicit def `evU*U`(implicit dsn : DFDesign) : Implementation[`U*U`] = ifc => {}
 
   implicit def `evU==U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U==U`[LW, RW]] = ifc => {}
   implicit def `evU!=U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U!=U`[LW, RW]] = ifc => {}

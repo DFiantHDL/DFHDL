@@ -232,8 +232,10 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Assignment (Mutation)
     //////////////////////////////////////////////////////////////////////////
-    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R]) = assign(op(left, right))
-    final protected[DFiant] def assign(that : DFAny) : TVar = {
+    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign) =
+      assign(op(left, right), dsn)
+    final protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
+      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -257,7 +259,7 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
-    final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    final val isAnonymous : Boolean = n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -291,7 +293,7 @@ object DFAny {
     final val isPort = false
 
     final val id = dsn.newDFValGetID(this)
-    final val isAnonymous : Boolean = n.value == "implementation" || n.value == "$anon"
+    final val isAnonymous : Boolean = n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
     override protected def nameDefault: String =
@@ -307,9 +309,8 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    override def toString : String = s"$token"
     final val isAnonymous : Boolean = false
-//    dsn.newDFVal(this)
+    override protected def nameDefault: String = s"CONST($token)"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -320,6 +321,7 @@ object DFAny {
   abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : DF, val dir : DIR)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny {
+    this : DF <> DIR =>
     type TAlias = TVal <> DIR
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
@@ -340,14 +342,26 @@ object DFAny {
 //      case _ => false
 //    }
     private var connectedSource : Option[DFAny] = None
+    private var assigned : Boolean = false
     def connected : Boolean = connectedSource.isDefined
-    final protected[DFiant] def portAssign(that : DFAny) : Port[DF, DIR] with DF = {
+    final protected[DFiant] def portAssign(that : DFAny, dsn : DFDesign) : DF <> DIR = {
+      assigned = true
+      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment port (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
+      if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
-      this.asInstanceOf[Port[DF, DIR] with DF]
+      this.asInstanceOf[DF <> DIR]
     }
-    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
+    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
+      if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
+      if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
+      if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
+      //All is well. We can now connect fromVal->toPort
+      toPort.connectedSource = Some(fromVal)
+      toPort.privAssignDependencies += fromVal
+    }
+    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
       val (fromPort, toPort) = (left.dsn, right.dsn, dsn) match {
@@ -398,19 +412,24 @@ object DFAny {
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${dsn.fullName}")
         case _ => throwConnectionError("Unexpected connection error")
       }
-      if (toPort.width < fromPort.width) throwConnectionError(s"Destination port width (${toPort.width}) is smaller than source port width (${fromPort.width}).")
-      if (toPort.connected) throwConnectionError(s"Destination port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
-      //All is well. We can now connect fromPort->toPort
-      toPort.connectedSource = Some(fromPort)
+      connect(fromPort, toPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit dsn : DFDesign) : Unit = connectPort2Port(right, dsn)
     final protected[DFiant] def connectVal2Port(dfVal : DFAny, dsn : DFDesign) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-//      if (port.dsn ne dsn) throwConnectionError(s"Connection call between a value and a port must be placed at same design as the port. Call placed at ${dsn.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], dsn)
       else {
-
+        if (port.dsn.owner.isDefined && (port.dsn.owner.get eq dfVal.dsn)) {
+          if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
+          if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
+        }
+        else if (port.dsn eq dfVal.dsn) {
+          if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
+          if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
+        }
+        else throwConnectionError(s"Unsupported connection between a non-port and a port")
+        connect(dfVal, port)
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
@@ -419,9 +438,10 @@ object DFAny {
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
+    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R]
-    ) = portAssign(op(left, right))
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
+    ) = portAssign(op(left, right), dsn)
     final val isPort = true
     override protected def nameDefault: String = n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
