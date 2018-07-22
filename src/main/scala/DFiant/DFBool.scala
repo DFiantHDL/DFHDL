@@ -62,7 +62,7 @@ object DFBool extends DFAny.Companion {
   ) extends DFAny.NewVar(1, init) with Var {
     def codeString(idRef : String) : String = s"val $idRef = DFBool()"
     //Port Construction
-    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
+    def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var =
@@ -79,8 +79,8 @@ object DFBool extends DFAny.Companion {
   protected[DFiant] def const(token : DFBool.Token)(implicit dsn : DFDesign, n : NameIt) : DFBool =
     new DFAny.Const(token) with DFBool
 
-  protected[DFiant] def port[DIR <: DFDir](dfVar : DFBool, dir : DIR)(implicit dsn : DFDesign, n : NameIt) : DFBool <> DIR =
-    new DFAny.Port[DFBool, DIR](dfVar, dir) with DFBool
+  protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit dsn : DFDesign, n : NameIt) : DFBool <> Dir =
+    new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -132,10 +132,10 @@ object DFBool extends DFAny.Companion {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Port extends Port {
-    trait Builder[L <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[L, DIR]
+    trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[DIR <: DFDir](implicit dsn : DFDesign, n : NameIt)
-      : Builder[DFBool, DIR] = (right, dir) => port[DIR](right, dir)
+      implicit def conn[Dir <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      : Builder[DFBool, Dir] = (right, dir) => port[Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

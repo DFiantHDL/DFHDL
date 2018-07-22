@@ -199,6 +199,7 @@ object DFAny {
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
     type TUInt[W2] = DFUInt.Var[W2]//DFUInt[W2]#TVar
+    type TDir <: DFDir
 
     //////////////////////////////////////////////////////////////////////////
     // Future Stuff
@@ -217,8 +218,6 @@ object DFAny {
     }
     //////////////////////////////////////////////////////////////////////////
 
-    final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
-      op(left, that).asInstanceOf[TAlias]
 
     //////////////////////////////////////////////////////////////////////////
     // Administration
@@ -231,9 +230,13 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Assignment (Mutation)
     //////////////////////////////////////////////////////////////////////////
-    final def := [R](right: protComp.Op.Able[R])(implicit op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign) =
-      assign(op(left, right), dsn)
-    final protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
+    private type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
+    final def := [R](right: protComp.Op.Able[R])(
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
+    ) = assign(op(left, right), dsn)
+    protected var assigned : Boolean = false
+    protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
+      assigned = true
       if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
       privAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
@@ -242,15 +245,15 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-//  trait VarUninitialized extends Var {
-//    final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
-//      op(left, that).asInstanceOf[TAlias]
-//    final def reInit(cond : DFBool) : Unit = ???
-//    private var _initFunc : () => Seq[TToken] = () => Seq()
-//    final protected[DFiant] def initFunc = _initFunc
-//    final protected[DFiant] def initFunc_= (value : () => Seq[TToken]) : Unit = _initFunc = value
-//    final protected lazy val protInit : Seq[TToken] = _initFunc()
-//  }
+  trait Uninitialized extends DFAny {
+    final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
+      op(left, that).asInstanceOf[TAlias]
+    final def reInit(cond : DFBool) : Unit = ???
+    private var _initFunc : () => Seq[TToken] = () => Seq()
+    final protected[DFiant] def initFunc = _initFunc
+    final protected[DFiant] def initFunc_= (value : () => Seq[TToken]) : Unit = _initFunc = value
+    final protected lazy val protInit : Seq[TToken] = _initFunc()
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -259,10 +262,9 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int, _init : Seq[Token])(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
-  ) extends DFAny.Var {
+  ) extends DFAny.Var with DFAny.Uninitialized {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected lazy val protInit : Seq[TToken] = _init.asInstanceOf[Seq[TToken]]
     def codeString(idRef : String) : String
     final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
@@ -272,8 +274,8 @@ object DFAny {
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
-    //    def <> [DIR <: DFDir](dir : DIR)(implicit port : protComp.Port.Builder[TVal, DIR])
-    //     : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
+    //    def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
+    //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
       else n.value
@@ -327,15 +329,14 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class Port[DF <: DFAny, DIR <: DFDir](dfVar : DF, val dir : DIR)(
+  abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
-  ) extends DFAny {
-    this : DF <> DIR =>
-    type TAlias = TVal <> DIR
+  ) extends DFAny.Var with DFAny.Uninitialized {
+    this : DF <> Dir =>
+    type TDir = Dir
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected lazy val protInit : Seq[TToken] = dfVar.getInit.asInstanceOf[Seq[TToken]]
     final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(dfVar.almanacEntry, dir, name, dsn.name)
     private val privAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
@@ -351,17 +352,13 @@ object DFAny {
 //      case _ => false
 //    }
     private var connectedSource : Option[DFAny] = None
-    private var assigned : Boolean = false
     def connected : Boolean = connectedSource.isDefined
-    final protected[DFiant] def portAssign(that : DFAny, dsn : DFDesign) : DF <> DIR = {
-      assigned = true
-      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment port (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
+    final override protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
-      privAssignDependencies += that
-      AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
-      this.asInstanceOf[DF <> DIR]
+      super.assign(that, dsn)
     }
     private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
+      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
       if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
       if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
@@ -447,10 +444,6 @@ object DFAny {
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
-    private type MustBeOut = RequireMsg[ImplicitFound[DIR <:< OUT], "Cannot assign to an input port"]
-    final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
-    ) = portAssign(op(left, right), dsn)
     final val isPort = true
     override protected def nameDefault: String = n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
@@ -459,8 +452,8 @@ object DFAny {
     final val id = dsn.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
-    trait Builder[L <: DFAny, DIR <: DFDir] {
-      def apply(right : L, dir : DIR) : L <> DIR
+    trait Builder[L <: DFAny, Dir <: DFDir] {
+      def apply(right : L, dir : Dir) : L <> Dir
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -601,7 +594,7 @@ object DFAny {
     // Port
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait Port {
-      type Builder[L <: DFAny, DIR <: DFDir] <: DFAny.Port.Builder[L, DIR]
+      type Builder[L <: DFAny, Dir <: DFDir] <: DFAny.Port.Builder[L, Dir]
     }
     val Port : Port
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

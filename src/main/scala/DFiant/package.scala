@@ -13,7 +13,7 @@ package object DFiant extends {
   ////////////////////////////////////////////////////////////////////////////////////
   // Dataflow Port Annotations
   ////////////////////////////////////////////////////////////////////////////////////
-  type <>[DF <: DFAny, DIR <: DFDir] = DFAny.Port[DF, DIR] with DF
+  type <>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF, Dir] with DF
   //Direction of a Port
   sealed trait DFDir {
     val isOut : Boolean

@@ -51,7 +51,7 @@ object DFEnum extends DFAny.Companion {
   ) extends DFAny.NewVar(w, init) with Var[E]  {
     def codeString(idRef : String) : String = s"DFEnum???"
     //Port Construction
-    def <> [DIR <: DFDir](dir : DIR)(implicit port : Port.Builder[TVal, DIR]) : TVal <> DIR = port(this.asInstanceOf[TVal], dir)
+    def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
   protected[DFiant] def alias[E <: Enum]
@@ -66,9 +66,9 @@ object DFEnum extends DFAny.Companion {
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
   ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
 
-  protected[DFiant] def port[E <: Enum, DIR <: DFDir](dfVar : DFEnum[E], dir : DIR)(
+  protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
     implicit dsn : DFDesign, n : NameIt
-  ) : DFEnum[E] <> DIR = new DFAny.Port[DFEnum[E], DIR](dfVar, dir) with DFEnum[E]
+  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -146,10 +146,10 @@ object DFEnum extends DFAny.Companion {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Port extends Port {
-    trait Builder[L <: DFAny, DIR <: DFDir] extends DFAny.Port.Builder[L, DIR]
+    trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[E <: Enum, DIR <: DFDir](implicit dsn : DFDesign, n : NameIt)
-      : Builder[DFEnum[E], DIR] = (right, dir) => port[E, DIR](right, dir)
+      implicit def conn[E <: Enum, Dir <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      : Builder[DFEnum[E], Dir] = (right, dir) => port[E, Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
