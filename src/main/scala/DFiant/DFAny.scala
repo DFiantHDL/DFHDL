@@ -234,7 +234,7 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
     ) = assign(op(left, right), dsn)
-    protected var assigned : Boolean = false
+    final protected var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
       assigned = true
       if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
@@ -247,20 +247,22 @@ object DFAny {
 
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
-    private var initialized : Boolean = false
     final def init(that : protComp.Init.Able[TVal]*)(
-      implicit op : protComp.Init.Builder[TVal, TToken], dsn : DFDesign, n : NameIt
+      implicit op : protComp.Init.Builder[TVal, TToken], dsn : DFDesign
     ) : TPostInit = {
+      initialize(() => op(left, that), dsn)
+      this.asInstanceOf[TPostInit]
+    }
+    final private var initialized : Boolean = false
+    final protected def initialize(updatedInit : () => Seq[TToken], dsn : DFDesign) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.dsn ne dsn) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${dsn.fullName})")
       initialized = true
-      initFunc = () => op(left, that)
-      this.asInstanceOf[TPostInit]
+      setInitFunc(updatedInit)
     }
     final def reInit(cond : DFBool) : Unit = ???
-    private var _initFunc : () => Seq[TToken] = () => Seq()
-    final protected[DFiant] def initFunc = _initFunc
-    final protected[DFiant] def initFunc_= (value : () => Seq[TToken]) : Unit = _initFunc = value
+    final private var _initFunc : () => Seq[TToken] = () => Seq()
+    final protected def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
     final protected lazy val protInit : Seq[TToken] = _initFunc()
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -370,6 +372,7 @@ object DFAny {
       if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
       if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toPort
+      toPort.setInitFunc(() => fromVal.getInit.asInstanceOf[Seq[toPort.TToken]])
       toPort.connectedSource = Some(fromVal)
       toPort.protAssignDependencies += fromVal
     }
