@@ -246,9 +246,17 @@ object DFAny {
   }
 
   trait Uninitialized extends DFAny {
+    type TPostInit <: TVal
     private var initialized : Boolean = false
-    final def init(that : protComp.Init.Able[TVal]*)(implicit op : protComp.Init.Builder[TVal]) : TAlias =
-      op(left, that).asInstanceOf[TAlias]
+    final def init(that : protComp.Init.Able[TVal]*)(
+      implicit op : protComp.Init.Builder[TVal, TToken], dsn : DFDesign, n : NameIt
+    ) : TPostInit = {
+      if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
+      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${dsn.fullName})")
+      initialized = true
+      initFunc = () => op(left, that)
+      this.asInstanceOf[TPostInit]
+    }
     final def reInit(cond : DFBool) : Unit = ???
     private var _initFunc : () => Seq[TToken] = () => Seq()
     final protected[DFiant] def initFunc = _initFunc
@@ -264,6 +272,7 @@ object DFAny {
   abstract class NewVar(_width : Int)(
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var with DFAny.Uninitialized {
+    type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     def codeString(idRef : String) : String
@@ -334,6 +343,7 @@ object DFAny {
     implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var with DFAny.Uninitialized {
     this : DF <> Dir =>
+    type TPostInit = TVal <> Dir
     type TDir = Dir
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
@@ -546,8 +556,8 @@ object DFAny {
         override def toString: String = s.toString()
       }
     }
-    trait Builder[L <: DFAny, Able[L0 <: DFAny] <: Init.Able[L0]] {
-      def apply(left : L, right : Seq[Able[L]]) : L
+    trait Builder[L <: DFAny, Able[L0 <: DFAny] <: Init.Able[L0], Token <: DFAny.Token] {
+      def apply(left : L, right : Seq[Able[L]]) : Seq[Token]
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -619,7 +629,7 @@ object DFAny {
     val `Op!=` : `Op!=`
     trait Init {
       type Able[L <: DFAny] <: DFAny.Init.Able[L]
-      type Builder[L <: DFAny] <: DFAny.Init.Builder[L, Able]
+      type Builder[L <: DFAny, Token <: DFAny.Token] <: DFAny.Init.Builder[L, Able, Token]
     }
     val Init : Init
     trait Prev {

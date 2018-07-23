@@ -242,10 +242,9 @@ object DFBits extends DFAny.Companion {
           case (t : BitVector) => Token(width, t)
         })
     }
-    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign, n : NameIt) : Builder[DFBits[LW]] = (left, right) =>
-        alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
+      implicit def ev[LW] : Builder[DFBits[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

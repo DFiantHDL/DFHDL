@@ -222,11 +222,9 @@ object DFUInt extends DFAny.Companion {
         })
 
     }
-    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign, n : NameIt) : Builder[DFUInt[LW]] = (left, right) =>  {
-        DFUInt.alias(left, left.width, 0, 0, Able.toTokenSeq(left.width, right))
-      }
+      implicit def ev[LW] : Builder[DFUInt[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

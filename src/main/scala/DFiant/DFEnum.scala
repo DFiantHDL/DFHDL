@@ -87,8 +87,8 @@ object DFEnum extends DFAny.Companion {
       case _ => DFBool.Token(Bubble)
     }
     final def != (that : Token[E]) : DFBool.Token = !(this == that)
-
   }
+
   object Token {
     import DFAny.TokenSeq
     def == [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
@@ -118,10 +118,10 @@ object DFEnum extends DFAny.Companion {
           case (t : Token[_]) => t.asInstanceOf[Token[E]]
         })
     }
-    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : Builder[DFEnum[E]] = (left, right) =>
-        alias(left, 0, 0, Able.toTokenSeq(left.width, right))
+      implicit def ev[E <: Enum](implicit w : WidthOf[E]) : Builder[DFEnum[E], Token[E]] = (left, right) =>
+        Able.toTokenSeq(left.width, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -162,12 +162,9 @@ object DFBool extends DFAny.Companion {
           case (t : Boolean) => DFBool.Token(t)
         })
     }
-    trait Builder[L <: DFAny] extends DFAny.Init.Builder[L, Able]
+    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def fromDFBool(implicit dsn : DFDesign, n : NameIt) : Builder[DFBool] = new Builder[DFBool] {
-        def apply(left : DFBool, right : Seq[Able[DFBool]]) : DFBool =
-          DFBool.alias(left, 0, 0, Able.toTokenSeq(right))
-      }
+      implicit def ev : Builder[DFBool, Token] = (left, right) => Able.toTokenSeq(right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
