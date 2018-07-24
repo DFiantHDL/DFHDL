@@ -365,7 +365,7 @@ object DFAny {
       else privComponentDependency += comp
     }
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ privComponentDependency
-    def connected : Boolean = connectedSource.isDefined
+    protected def connected : Boolean = connectedSource.isDefined
     final override protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       super.assign(that, dsn)
