@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable._
-class Almanac(val name : String, val owner : Option[Almanac]) {
+final class Almanac(val name : String, val owner : Option[Almanac]) {
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
@@ -84,6 +84,8 @@ class Almanac(val name : String, val owner : Option[Almanac]) {
     case Some(o) => s"${o.fullName}.$name"
     case _ => name //Top
   }
+
+  override def toString: String = name
 
   def printInfo() : Unit = {
     println(s"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")

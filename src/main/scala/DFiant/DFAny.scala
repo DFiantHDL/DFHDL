@@ -263,7 +263,8 @@ object DFAny {
     final def reInit(cond : DFBool) : Unit = ???
     final private var _initFunc : () => Seq[TToken] = () => Seq()
     final protected def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
-    final protected lazy val protInit : Seq[TToken] = _initFunc()
+    final private val initLB = LazyBox(_initFunc())
+    final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -278,7 +279,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     def codeString(idRef : String) : String
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, codeString)
+    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
@@ -350,7 +351,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntryPort = AlmanacEntryPort(dfVar.almanacEntry, dir, name, dsn.name)
+    final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, _ => "???")
     final protected[DFiant] def discovery : Unit = almanacEntry
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
