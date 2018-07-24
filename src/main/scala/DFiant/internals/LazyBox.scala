@@ -9,8 +9,7 @@ final class LazyBox[+T](value : => T) {
       Some(value)
     }
   }
-  @inline def getOrElse[B >: T](default: => B): B =
-    if (valueOption.isEmpty) default else valueOption.get
+  @inline def getOrElse[B >: T](default: => B): B = valueOption.getOrElse(default)
 }
 object LazyBox {
   def apply[T](value : => T) : LazyBox[T] = new LazyBox[T](value)

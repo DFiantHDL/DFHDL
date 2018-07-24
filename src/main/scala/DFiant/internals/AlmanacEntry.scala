@@ -57,6 +57,7 @@ class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], val name
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
+  val fullName : String = s"${almanac.fullName}.$name"
   def codeString : String = codeStringBld(refCodeString)
 }
 
@@ -94,26 +95,20 @@ object AlmanacEntryGetDFVar {
     almanac.fetchEntry(new AlmanacEntryGetDFVar(varEntry))
 }
 
-//class AlmanacEntryPort private (varEntry : => AlmanacEntry, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) extends AlmanacEntry {
-//  private var sourceEntry : Option[AlmanacEntry] = None
-//  lazy val connectedEntry = sourceEntry.getOrElse(varEntry)
-//  lazy val id : AlmanacID = connectedEntry.id
-//  lazy val address : AlmanacAddress = connectedEntry.address
-//  lazy val bitsRange : BitsRange = varEntry.bitsRange
-//  lazy val init : Seq[Token] = connectedEntry.init
-//  lazy val timeRef : AlmanacTimeRef = connectedEntry.timeRef
-//  def connectSource(almanacEntry: => AlmanacEntry) : Unit = {
-//    //Proper connection validations should be made in the frontend. Here we assume all is OK.
-//    sourceEntry = Some(almanacEntry)
-//  }
-//  def connected = sourceEntry.isDefined
-//  def codeString : String = s"$dsnName.$portName"
-//}
-//
-//object AlmanacEntryPort {
-//  def apply(varEntry : => AlmanacEntry, dir : DFDir, portName : String, dsnName : String)(implicit almanac : Almanac) : AlmanacEntryPort =
-//    almanac.fetchEntry(new AlmanacEntryPort(varEntry, dir, portName, dsnName))
-//}
+class AlmanacEntryPort private (width : Int, val _init : Seq[Token], val sourceEntry : Option[AlmanacEntry], val dir : DFDir, val name : String)(implicit almanac : Almanac) extends AlmanacEntry {
+  val id : AlmanacID = if (sourceEntry.isDefined) sourceEntry.get.id else AlmanacID()
+  val address : AlmanacAddress = if (sourceEntry.isDefined) sourceEntry.get.address else AlmanacAddressLatest
+  val bitsRange : BitsRange = BitsRange(width)
+  val init : Seq[Token] = if (sourceEntry.isDefined) sourceEntry.get.init else _init
+  val timeRef : AlmanacTimeRef = if (sourceEntry.isDefined) sourceEntry.get.timeRef else AlmanacTimeRef.Current
+  val fullName : String = s"${almanac.fullName}.$name"
+  def codeString : String = s"$fullName"
+}
+
+object AlmanacEntryPort {
+  def apply(width : Int, init : Seq[Token], sourceEntry : Option[AlmanacEntry], dir : DFDir, name : String)(implicit almanac : Almanac) : AlmanacEntryPort =
+    almanac.fetchEntry(new AlmanacEntryPort(width, init, sourceEntry, dir, name))
+}
 
 
 

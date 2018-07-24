@@ -351,7 +351,12 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, _ => "???")
+    private var connectedSource : Option[DFAny] = None
+    private val almanacEntryLB = LazyBox {
+      val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
+      AlmanacEntryPort(width, protInit, sourceEntry, dir, name)
+    }
+    final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("Circular dependency detected"))
     final protected[DFiant] def discovery : Unit = almanacEntry
     private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
     final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
@@ -360,7 +365,6 @@ object DFAny {
       else privComponentDependency += comp
     }
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ privComponentDependency
-    private var connectedSource : Option[DFAny] = None
     def connected : Boolean = connectedSource.isDefined
     final override protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
