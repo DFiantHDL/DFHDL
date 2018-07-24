@@ -40,9 +40,9 @@ abstract class DFDesign(
   final protected def newAlmanac : Almanac = {
     owner match {
       case Some(o) =>
-        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac {}.setName(name)))
+        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac(name, Some(o.protAlmanac))))
       case _ =>
-        new Almanac {}.setName(name)
+        new Almanac(name, None)
     }
   }
   final protected def printComponents() : Unit = {
@@ -67,29 +67,21 @@ abstract class DFDesign(
     keepList += this
     this
   }
-  final def isTop : Boolean = owner match {
-    case Some(o) => false
-    case _ => true
-  }
+  final def isTop : Boolean = owner.isEmpty
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final override protected def nameDefault: String = if (n.value == "$anon") "top" else n.value
-  final override def setName(name: String): DFDesign.this.type = {
-    protAlmanac.setName(name)
-    super.setName(name)
-  }
-
+  final override protected def nameDefault: String = if (isTop && n.value == "$anon") "top" else n.value
   final lazy val fullName : String = owner match {
     case Some(o) => s"${o.fullName}.$name"
-    case _ => name
+    case _ => name //Top
   }
 
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  final protected def discoveryDepenencies : List[Discoverable] = portsOut ++ keepList //components.toList ++ dfvals ++ ports//
+  final protected def discoveryDepenencies : List[Discoverable] = if (isTop) portsOut ++ keepList else keepList.toList
   final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {

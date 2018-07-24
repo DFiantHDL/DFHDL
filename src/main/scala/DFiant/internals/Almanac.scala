@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable._
-trait Almanac extends Nameable {
+class Almanac(val name : String, val owner : Option[Almanac]) {
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
@@ -72,12 +72,19 @@ trait Almanac extends Nameable {
   def printComponents() : Unit = {
     println(components)
   }
+
+  final def isTop : Boolean = owner.isEmpty
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Informational
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  final lazy val fullName : String = owner match {
+    case Some(o) => s"${o.fullName}.$name"
+    case _ => name //Top
+  }
+
   def printInfo() : Unit = {
     println(s"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     println(s"Design $name")
