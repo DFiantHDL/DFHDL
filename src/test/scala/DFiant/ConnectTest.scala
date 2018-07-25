@@ -18,14 +18,14 @@ class ConnectTest extends Properties("ConnectTest") {
       val o = DFUInt(8) <> OUT
       o <> i
     }
-    topIO.protAlmanac.codeString.trim ==
+    topIO.codeString.trim ==
       """
         |val topIO = new DFDesign {
         |  val i = DFUInt(8) <> IN
         |  val o = DFUInt(8) <> OUT
         |  o <> i
         |}
-      """.stripMargin
+      """.stripMargin.trim
   }
 
 }
