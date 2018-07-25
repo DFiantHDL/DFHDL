@@ -18,12 +18,14 @@ class ConnectTest extends Properties("ConnectTest") {
       val o = DFUInt(8) <> OUT
       o <> i
     }
-    val compare = """
+    val compare =
+      """
         |val topIO = new DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2)
         |  val o = DFUInt(8) <> OUT
         |  o <> i
-        |}""".stripMargin
+        |}
+      """.stripMargin
 
     topIO.codeString =@= compare
   }
