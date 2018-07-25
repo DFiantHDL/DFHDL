@@ -31,12 +31,12 @@ trait ContainerConn1 extends DFDesign {
   io.o <> o    //Connecting between child output and owner output
 }
 
-trait ContainerConn2 extends DFDesign {
+trait ContainerConnLoop extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
   val io = new IODesignConn1 {}
-  i <> o
   io.i <> io.o
+  o <> io.o
 }
 
 trait ContainerConn3 extends DFDesign {
@@ -91,10 +91,9 @@ object BasicTest extends App {
   val top_ioDesignConn1 = new IODesignConn1 {}
   val top_ioDesignConn3 = new IODesignConn3 {}
   val top_containerConn1 = new ContainerConn1 {}
-  val top_containerConn2 = new ContainerConn2 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
-  top_containerConn3.printInfo()
+  println(top_ioDesignConn1.codeString)
 
 }
 

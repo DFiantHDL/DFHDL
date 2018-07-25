@@ -2,6 +2,7 @@ package DFiant.internals
 
 import scala.collection.mutable._
 final class Almanac(val name : String, val owner : Option[Almanac]) {
+  currentAlmanac =>
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
   private var phase : AlmanacPhase = AlmanacPhaseConstruct
@@ -40,6 +41,21 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
       entryConstructor
   }
 
+  implicit class EntryList(list : List[AlmanacEntry]) {
+    def codeString : String = list.map(e => e.codeString).mkString("  ","\n  ","")
+  }
+  implicit class Connection(conn : (AlmanacEntryNamed, AlmanacEntryNamed)) {
+    def relativeRef(entry : AlmanacEntryNamed) : String = {
+      //TODO: fix for the general case
+      if (currentAlmanac eq entry.almanac) entry.name
+      else s"${entry.almanac.name}.${entry.name}"
+    }
+    def codeString : String = s"${relativeRef(conn._2)} <> ${relativeRef(conn._1)}"
+  }
+  implicit class ConnectionList(list : List[(AlmanacEntryNamed, AlmanacEntryNamed)]) {
+    def codeString : String = list.map(e => e.codeString).mkString("  ","\n  ","")
+  }
+
   lazy val allEntries : List[AlmanacEntry] = entries.toList
   lazy val allNamedEntries : List[AlmanacEntryNamed] = allEntries.collect{case e : AlmanacEntryNamed => e}
   lazy val allPorts : List[AlmanacEntryPort] = allNamedEntries.collect{case e : AlmanacEntryPort => e}
@@ -66,12 +82,6 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   }
 
   def printConnections() : Unit = {
-    def relativeRef(entry : AlmanacEntryNamed) : String = {
-      //TODO: fix for the general case
-      if (this eq entry.almanac) entry.name
-      else s"${entry.almanac.name}.${entry.name}"
-    }
-    connections.foreach(c => println(s"${relativeRef(c._2)} <- ${relativeRef(c._1)}"))
   }
 
   def printPorts() : Unit =  {
@@ -109,6 +119,14 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Informational
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  def bodyCodeString : String =
+    s"""
+      |${allPorts.codeString}
+      |${connections.codeString}
+      |""".stripMargin
+
+  def codeString : String = s"val $name = new DFDesign {$bodyCodeString}"
+
   lazy val fullName : String = owner match {
     case Some(o) => s"${o.fullName}.$name"
     case _ => name //Top

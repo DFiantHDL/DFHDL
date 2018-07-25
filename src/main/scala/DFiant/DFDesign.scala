@@ -91,6 +91,12 @@ abstract class DFDesign(
     components.foreach(c => c.init)
   }
 
+  def codeString : String = {
+    init
+    discover
+    protAlmanac.codeString
+  }
+
   def printInfo() : Unit = {
     init
     discover
