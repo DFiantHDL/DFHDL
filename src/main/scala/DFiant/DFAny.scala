@@ -266,6 +266,7 @@ object DFAny {
     final protected def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
     final private val initLB = LazyBox(_initFunc())
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
+    final def initCodeString : String = if (initialized) s"init${protInit.codeString}" else ""
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -280,7 +281,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString"
+    final def codeString : String = s"val $name = $constructCodeString $initCodeString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -464,7 +465,7 @@ object DFAny {
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString <> $dir"
+    final def codeString : String = s"val $name = $constructCodeString <> $dir $initCodeString"
     override protected def nameDefault: String = n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
@@ -534,7 +535,7 @@ object DFAny {
       }
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
-      def codeString : String = tokenSeq.mkString("(", ",", ")")
+      def codeString : String = tokenSeq.mkString("(", ", ", ")")
     }
   }
 

@@ -5,7 +5,7 @@ import DFiant.internals._
 
 
 trait IODesignConn1 extends DFDesign {
-  val i = DFUInt(8) <> IN
+  val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
   o <> i
 }

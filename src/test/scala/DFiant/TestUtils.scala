@@ -29,4 +29,10 @@ object TestUtils {
       assert(false, "Expected assertion did not occur")
     true
   }
+
+  def trimWhites(s : String) : String = s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "").trim
+
+  implicit class StringEnhancer(s : String) {
+    def =@= (that : String) : Boolean = trimWhites(s) == trimWhites(that)
+  }
 }

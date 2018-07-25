@@ -14,18 +14,18 @@ class ConnectTest extends Properties("ConnectTest") {
 
   property("DFDesign.codeString") = {
     val topIO = new DFDesign {
-      val i = DFUInt(8) <> IN
+      val i = DFUInt(8) <> IN init(1, 2)
       val o = DFUInt(8) <> OUT
       o <> i
     }
-    topIO.codeString.trim ==
-      """
+    val compare = """
         |val topIO = new DFDesign {
-        |  val i = DFUInt(8) <> IN
+        |  val i = DFUInt(8) <> IN init(1, 2)
         |  val o = DFUInt(8) <> OUT
         |  o <> i
-        |}
-      """.stripMargin.trim
+        |}""".stripMargin
+
+    topIO.codeString =@= compare
   }
 
 }
