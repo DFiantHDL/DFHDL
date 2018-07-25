@@ -49,7 +49,7 @@ object DFEnum extends DFAny.Companion {
   final class NewVar[E <: Enum]()(
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
   ) extends DFAny.NewVar(w) with Var[E]  {
-    def codeString(idRef : String) : String = s"DFEnum???"
+    def constructCodeString : String = s"DFEnum(???)"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
@@ -59,7 +59,7 @@ object DFEnum extends DFAny.Companion {
     implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
   ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
-    def codeString(idRef : String) : String = "AliasOfDFEnum???"
+    def constructCodeString : String = "AliasOfDFEnum???"
   }
 
   protected[DFiant] def const[E <: Enum](token : Token[E])(
@@ -68,7 +68,9 @@ object DFEnum extends DFAny.Companion {
 
   protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
     implicit dsn : DFDesign, n : NameIt
-  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E]
+  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {
+    def constructCodeString : String = s"DFEnum(???)"
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -271,6 +273,8 @@ object DFEnum extends DFAny.Companion {
 sealed abstract class Enum {
   type Entry <: Enum.Entry
   type EntryWidth
+  val name : String = "???"
+  override def toString: String = name
 }
 
 object Enum {

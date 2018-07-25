@@ -132,18 +132,18 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit dsn : DFDesign, n : NameIt) : DFAny.NewVar with Var[W] =
     new DFAny.NewVar(width) with Var[W] {
-      def codeString(idRef : String) : String = s"val $idRef = DFBits($width)"
+      def constructCodeString : String = s"DFBits($width)"
     }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
-      def codeString(idRef : String) : String = {
+      def constructCodeString : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s".bitsWL($relWidth, $relBitLow)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$idRef$bitsCodeString$initCodeString$prevCodeString"
+        s"$name$bitsCodeString$initCodeString$prevCodeString"
       }
     }
 

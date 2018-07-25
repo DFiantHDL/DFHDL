@@ -41,10 +41,11 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   }
 
   lazy val allEntries : List[AlmanacEntry] = entries.toList
-  lazy val allPorts : List[AlmanacEntryPort] = allEntries.collect{case e : AlmanacEntryPort => e}
+  lazy val allNamedEntries : List[AlmanacEntryNamed] = allEntries.collect{case e : AlmanacEntryNamed => e}
+  lazy val allPorts : List[AlmanacEntryPort] = allNamedEntries.collect{case e : AlmanacEntryPort => e}
   lazy val inPorts : List[AlmanacEntryPort] = allPorts.filter(p => p.dir.isIn)
   lazy val outPorts : List[AlmanacEntryPort] = allPorts.filter(p => p.dir.isOut)
-  lazy val connections : List[(AlmanacEntry, AlmanacEntry)] = {
+  lazy val connections : List[(AlmanacEntryNamed, AlmanacEntryNamed)] = {
     val oCons = outPorts.flatMap(p => p.sourceEntry match {
       case Some(s) => Some(Tuple2(s, p))
       case _ => None
@@ -65,16 +66,16 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   }
 
   def printConnections() : Unit = {
-    def relativeRef(entry : AlmanacEntry) : String = {
+    def relativeRef(entry : AlmanacEntryNamed) : String = {
       //TODO: fix for the general case
-      if (this eq entry.almanac) entry.refCodeString
-      else s"${entry.almanac.name}.${entry.refCodeString}"
+      if (this eq entry.almanac) entry.name
+      else s"${entry.almanac.name}.${entry.name}"
     }
     connections.foreach(c => println(s"${relativeRef(c._2)} <- ${relativeRef(c._1)}"))
   }
 
   def printPorts() : Unit =  {
-    allPorts.foreach(p => println(p.name))
+    allPorts.foreach(p => println(p.codeString))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

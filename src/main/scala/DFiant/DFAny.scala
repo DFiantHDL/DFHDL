@@ -143,6 +143,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   val isAnonymous : Boolean
   lazy val fullName : String = s"${dsn.fullName}.$name"
+  def codeString : String
   override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
 
@@ -165,8 +166,8 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
     dsn.keepList += this
     this
   }
-  protected[DFiant] val almanacEntry : AlmanacEntry
-  final protected[DFiant] def getCurrentEntry : AlmanacEntry = AlmanacEntryGetDFVar(almanacEntry)
+  protected[DFiant] val almanacEntry : AlmanacEntryNamed
+  final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 
@@ -278,8 +279,9 @@ object DFAny {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    def codeString(idRef : String) : String
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
+    protected def constructCodeString : String
+    final def codeString : String = s"val $name = $constructCodeString"
+    final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = dsn.newDFValGetID(this)
@@ -307,10 +309,11 @@ object DFAny {
       val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
       bitsInit.map(protTokenBitsToTToken)
     }
-    def codeString(idRef : String) : String
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = {
+    protected def constructCodeString : String
+    final def codeString : String = s"val $name = $constructCodeString"
+    final protected[DFiant] lazy val almanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, codeString)
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
     }
     final protected[DFiant] def discovery : Unit = almanacEntry
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
@@ -330,11 +333,12 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
-    final protected[DFiant] lazy val almanacEntry : AlmanacEntry = AlmanacEntryConst(token)
+    final def codeString : String = s"$token"
+    final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val isAnonymous : Boolean = false
-    override protected def nameDefault: String = s"CONST($token)"
+    final val isAnonymous : Boolean = n.value == "$anon"
+    override protected def nameDefault: String = if (isAnonymous) s"$token" else n.value
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -354,7 +358,7 @@ object DFAny {
     private var connectedSource : Option[DFAny] = None
     private val almanacEntryLB = LazyBox {
       val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
-      AlmanacEntryPort(width, protInit, sourceEntry, dir, name)
+      AlmanacEntryPort(width, protInit, sourceEntry, dir, name, codeString)
     }
     final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("Circular dependency detected"))
     final protected[DFiant] def discovery : Unit = almanacEntry
@@ -459,6 +463,8 @@ object DFAny {
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
+    protected def constructCodeString : String
+    final def codeString : String = s"val $name = $constructCodeString <> $dir"
     override protected def nameDefault: String = n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false

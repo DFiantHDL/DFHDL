@@ -60,7 +60,7 @@ object DFBool extends DFAny.Companion {
   final class NewVar()(
     implicit dsn : DFDesign, n : NameIt
   ) extends DFAny.NewVar(1) with Var {
-    def codeString(idRef : String) : String = s"val $idRef = DFBool()"
+    def constructCodeString : String = s"DFBool()"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
@@ -68,11 +68,11 @@ object DFBool extends DFAny.Companion {
   protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var =
     new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
-      def codeString(idRef : String) : String = {
+      def constructCodeString : String = {
         val bitCodeString = s".bit($relBit)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$idRef$bitCodeString$initCodeString$prevCodeString"
+        s"$name$bitCodeString$initCodeString$prevCodeString"
       }
     }
 
@@ -80,7 +80,10 @@ object DFBool extends DFAny.Companion {
     new DFAny.Const(token) with DFBool
 
   protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit dsn : DFDesign, n : NameIt) : DFBool <> Dir =
-    new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool
+    new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool {
+      def constructCodeString : String = s"DFBool()"
+
+    }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
