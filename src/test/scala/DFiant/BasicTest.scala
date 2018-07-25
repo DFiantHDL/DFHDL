@@ -93,7 +93,7 @@ object BasicTest extends App {
   val top_containerConn1 = new ContainerConn1 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
-  println(top_ioDesignConn1.codeString)
+  println(top_containerConn3.codeString)
 
 }
 

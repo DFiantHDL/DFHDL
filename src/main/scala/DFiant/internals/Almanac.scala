@@ -42,7 +42,7 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   }
 
   implicit class EntryList(list : List[AlmanacEntry]) {
-    def codeString : String = list.map(e => e.codeString).mkString("  ","\n  ","")
+    def codeString : String = if (list.isEmpty) "" else list.map(e => e.codeString).mkString("\n  ", "\n  ", "")
   }
   implicit class Connection(conn : (AlmanacEntryNamed, AlmanacEntryNamed)) {
     def relativeRef(entry : AlmanacEntryNamed) : String = {
@@ -53,12 +53,13 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
     def codeString : String = s"${relativeRef(conn._2)} <> ${relativeRef(conn._1)}"
   }
   implicit class ConnectionList(list : List[(AlmanacEntryNamed, AlmanacEntryNamed)]) {
-    def codeString : String = list.map(e => e.codeString).mkString("  ","\n  ","")
+    def codeString : String = if (list.isEmpty) "" else list.map(e => e.codeString).mkString("\n  ", "\n  ", "")
   }
 
   lazy val allEntries : List[AlmanacEntry] = entries.toList
   lazy val allNamedEntries : List[AlmanacEntryNamed] = allEntries.collect{case e : AlmanacEntryNamed => e}
   lazy val allPorts : List[AlmanacEntryPort] = allNamedEntries.collect{case e : AlmanacEntryPort => e}
+  lazy val dfVals : List[AlmanacEntryNewDFVar] = allNamedEntries.collect{case e : AlmanacEntryNewDFVar => e}
   lazy val inPorts : List[AlmanacEntryPort] = allPorts.filter(p => p.dir.isIn)
   lazy val outPorts : List[AlmanacEntryPort] = allPorts.filter(p => p.dir.isOut)
   lazy val connections : List[(AlmanacEntryNamed, AlmanacEntryNamed)] = {
@@ -119,13 +120,8 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Informational
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def bodyCodeString : String =
-    s"""
-      |${allPorts.codeString}
-      |${connections.codeString}
-      |""".stripMargin
-
-  def codeString : String = s"val $name = new DFDesign {$bodyCodeString}"
+  def bodyCodeString : String = s"${allPorts.codeString}${connections.codeString}${dfVals.codeString}"
+  def codeString : String = s"val $name = new DFDesign {$bodyCodeString\n}"
 
   lazy val fullName : String = owner match {
     case Some(o) => s"${o.fullName}.$name"
