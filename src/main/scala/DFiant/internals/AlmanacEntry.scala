@@ -9,7 +9,7 @@ trait AlmanacGuard {
 
 
 
-sealed abstract class AlmanacEntry(implicit almanac : Almanac) {
+sealed abstract class AlmanacEntry(implicit val almanac : Almanac) {
   val id : AlmanacID
   val address : AlmanacAddress
   val bitsRange : BitsRange
@@ -57,7 +57,7 @@ class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], val name
   val address : AlmanacAddress = AlmanacAddressLatest
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
-  val fullName : String = s"${almanac.fullName}.$name"
+  lazy val fullName : String = s"${almanac.fullName}.$name"
   override def refCodeString: String = name
   def codeString : String = codeStringBld(refCodeString)
 }
@@ -102,7 +102,7 @@ class AlmanacEntryPort private (width : Int, val _init : Seq[Token], val sourceE
   val bitsRange : BitsRange = BitsRange(width)
   val init : Seq[Token] = if (sourceEntry.isDefined) sourceEntry.get.init else _init
   val timeRef : AlmanacTimeRef = if (sourceEntry.isDefined) sourceEntry.get.timeRef else AlmanacTimeRef.Current
-  val fullName : String = s"${almanac.fullName}.$name"
+  lazy val fullName : String = s"${almanac.fullName}.$name"
   override def refCodeString: String = name
   def codeString : String = s"$fullName"
 }
