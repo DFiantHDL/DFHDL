@@ -1,28 +1,5 @@
-final class DependencyBox[T](value : => T) {
-  private var visited : Boolean = false
-  lazy val valueOption : Option[T] = {
-    if (visited) None
-    else {
-      visited = true
-      Some(value)
-    }
-  }
-}
-object DependencyBox {
-  def apply[T](value : => T) : DependencyBox[T] = new DependencyBox[T](value)
-}
+val s : List[(Int, Int)] = List()
+val s1 = s :+ Tuple2(1, 2)
+val s2 = s1 :+ Tuple2(1,2)
 
-
-
-object A {
-  val db = DependencyBox(5 * B.value)
-  lazy val value:Int = db.valueOption.getOrElse(throw new IllegalArgumentException("This is bad"))
-}
-
-object B {
-  val db = DependencyBox(3 * A.value)
-  lazy val value:Int = 1//db.valueOption.getOrElse(throw new IllegalArgumentException("This is bad"))
-}
-
-println("A= "+A.value) // 8
-println("B = "+B.value) // 3
+s2.distinct

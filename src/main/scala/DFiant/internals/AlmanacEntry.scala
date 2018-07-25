@@ -9,7 +9,7 @@ trait AlmanacGuard {
 
 
 
-abstract class AlmanacEntry(implicit almanac : Almanac) {
+sealed abstract class AlmanacEntry(implicit almanac : Almanac) {
   val id : AlmanacID
   val address : AlmanacAddress
   val bitsRange : BitsRange
@@ -58,6 +58,7 @@ class AlmanacEntryNewDFVar private (width : Int, val init : Seq[Token], val name
   val bitsRange : BitsRange = BitsRange(width)
   val timeRef : AlmanacTimeRef = AlmanacTimeRef.Current
   val fullName : String = s"${almanac.fullName}.$name"
+  override def refCodeString: String = name
   def codeString : String = codeStringBld(refCodeString)
 }
 
@@ -102,6 +103,7 @@ class AlmanacEntryPort private (width : Int, val _init : Seq[Token], val sourceE
   val init : Seq[Token] = if (sourceEntry.isDefined) sourceEntry.get.init else _init
   val timeRef : AlmanacTimeRef = if (sourceEntry.isDefined) sourceEntry.get.timeRef else AlmanacTimeRef.Current
   val fullName : String = s"${almanac.fullName}.$name"
+  override def refCodeString: String = name
   def codeString : String = s"$fullName"
 }
 
@@ -124,4 +126,21 @@ class AlmanacEntryStruct private (width : Int, val structEntryList : MutableList
 
 object AlmanacEntryStruct {
   def apply(width : Int)(implicit almanac : Almanac) : AlmanacEntryStruct = almanac.fetchEntry(new AlmanacEntryStruct(width, MutableList()))
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+//(:=) Identity assignment
+///////////////////////////////////////////////////////////////////////////////////////
+class AlmanacEntryAssign private (arg0 : AlmanacEntry, arg1 : AlmanacEntry)(implicit almanac : Almanac) extends AlmanacEntry {
+  val id : AlmanacID = arg0.id
+  val address : AlmanacAddress = almanac.getCurrentAddress
+  val bitsRange : BitsRange = arg0.bitsRange
+  val timeRef : AlmanacTimeRef = arg0.timeRef
+  val init : Seq[Token] = arg0.init
+
+  def codeString: String = s"$arg0 := $arg1"
+}
+object AlmanacEntryAssign {
+  def apply(arg0 : => AlmanacEntry, arg1 : => AlmanacEntry)(implicit almanac : Almanac) = almanac.fetchEntry(new AlmanacEntryAssign(arg0, arg1))
 }

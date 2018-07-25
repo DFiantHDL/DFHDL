@@ -40,13 +40,29 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
       entryConstructor
   }
 
-  def getEntries = entries.toList
+  lazy val allEntries : List[AlmanacEntry] = entries.toList
+  lazy val ports : List[AlmanacEntryPort] = allEntries.collect{case e : AlmanacEntryPort => e}
+  lazy val connections : List[(AlmanacEntry, AlmanacEntry)] = {
+    ports.flatMap(p => p.sourceEntry match {
+      case Some(s) => Some(Tuple2(s, p))
+      case _ => None
+    }).distinct
+  }
+
 
   def printEntrees() : Unit = {
-    entries.map(e => {
-      if (e.codeString.startsWith("val "))
+    allEntries.map(e => {
+//      if (e.codeString.startsWith("val "))
         println(e.codeString)
     })
+  }
+
+  def printConnections() : Unit = {
+    connections.foreach(c => println(s"${c._2} <- ${c._1}"))
+  }
+
+  def printPorts() : Unit =  {
+    ports.foreach(p => println(p.name))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -67,20 +83,20 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
       componentConstructor
   }
 
-  def getComponents = components.toList
+  lazy val allComponents : List[Almanac] = components.toList
 
   def printComponents() : Unit = {
-    println(components)
+    allComponents.foreach(c => println(c.name))
   }
 
-  final def isTop : Boolean = owner.isEmpty
+  def isTop : Boolean = owner.isEmpty
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Informational
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final lazy val fullName : String = owner match {
+  lazy val fullName : String = owner match {
     case Some(o) => s"${o.fullName}.$name"
     case _ => name //Top
   }
@@ -95,16 +111,22 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
       """
         |Ports:
         |------""".stripMargin)
+    printPorts()
     println(
       """
         |Components:
         |-----------""".stripMargin)
     printComponents()
-    println()
+    println(
+      """
+        |Connections:
+        |------------""".stripMargin)
+    printConnections
     println(
       """
         |Entrees:
-        |--------""".stripMargin)
+        |--------
+        |""".stripMargin)
     println(s"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
