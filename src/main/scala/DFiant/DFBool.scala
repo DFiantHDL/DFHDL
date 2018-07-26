@@ -17,17 +17,17 @@ object DFBool extends DFAny.Companion {
     type TVar = DFBool.Var
     type TToken = DFBool.Token
     type Width = 1
-    def unary_!(implicit dsn : DFDesign)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
+    def unary_!(implicit blk : DFBlock)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
 
     def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
     def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
     //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
     //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
     //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-    def rising (implicit dsn : DFDesign, n : NameIt) : DFBool = left && !left.prev(1)
-    def falling (implicit dsn : DFDesign, n : NameIt) : DFBool = !left && left.prev(1)
+    def rising (implicit blk : DFBlock, n : NameIt) : DFBool = left && !left.prev(1)
+    def falling (implicit blk : DFBlock, n : NameIt) : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit dsn : DFDesign, n : NameIt) = ??? //new DFBool.NewVar(Seq(DFBool.Token(false)))
+    def newEmptyDFVar(implicit blk : DFBlock, n : NameIt) = ??? //new DFBool.NewVar(Seq(DFBool.Token(false)))
 
     override lazy val typeName : String = s"DFBool"
 
@@ -50,7 +50,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply()(implicit dsn : DFDesign, n : NameIt) : NewVar = new NewVar()
+  implicit def apply()(implicit blk : DFBlock, n : NameIt) : NewVar = new NewVar()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -58,14 +58,14 @@ object DFBool extends DFAny.Companion {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar()(
-    implicit dsn : DFDesign, n : NameIt
+    implicit blk : DFBlock, n : NameIt
   ) extends DFAny.NewVar(1) with Var {
     def constructCodeString : String = s"DFBool()"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var =
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit blk : DFBlock, n : NameIt) : Var =
     new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
       def constructCodeString : String = {
@@ -76,10 +76,10 @@ object DFBool extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def const(token : DFBool.Token)(implicit dsn : DFDesign, n : NameIt) : DFBool =
+  protected[DFiant] def const(token : DFBool.Token)(implicit blk : DFBlock, n : NameIt) : DFBool =
     new DFAny.Const(token) with DFBool
 
-  protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit dsn : DFDesign, n : NameIt) : DFBool <> Dir =
+  protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit blk : DFBlock, n : NameIt) : DFBool <> Dir =
     new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool {
       def constructCodeString : String = s"DFBool()"
 
@@ -137,7 +137,7 @@ object DFBool extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[Dir <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      implicit def conn[Dir <: DFDir](implicit blk : DFBlock, n : NameIt)
       : Builder[DFBool, Dir] = (right, dir) => port[Dir](right, dir)
     }
   }
@@ -179,7 +179,7 @@ object DFBool extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev(implicit dsn : DFDesign, n : NameIt) : Builder[DFBool] = new Builder[DFBool] {
+      implicit def ev(implicit blk : DFBlock, n : NameIt) : Builder[DFBool] = new Builder[DFBool] {
         def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
           DFBool.alias(left, 0, -right, left.getInit)
       }
@@ -197,8 +197,8 @@ object DFBool extends DFAny.Companion {
       def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       def <> [RDIR <: DFDir](port : DFBool <> RDIR)(
-        implicit op: `Op<>`.Builder[DFBool, L], dsn : DFDesign
-      ) = port.connectVal2Port(op(port, left), dsn)
+        implicit op: `Op<>`.Builder[DFBool, L], blk : DFBlock
+      ) = port.connectVal2Port(op(port, left), blk)
     }
     trait Implicits {
       implicit class DFBoolFromXInt[L <: XInt](left : L) extends Able[L](left)
@@ -217,12 +217,12 @@ object DFBool extends DFAny.Companion {
     def apply(value : N) : DFBool
   }
   object Const {
-    implicit def fromInt[Sym, N <: Int](implicit dsn : DFDesign, n : NameIt, checkBin : BinaryInt.CheckedShellSym[Sym, N])
+    implicit def fromInt[Sym, N <: Int](implicit blk : DFBlock, n : NameIt, checkBin : BinaryInt.CheckedShellSym[Sym, N])
     : Const[Sym, N] = value => {
       checkBin.unsafeCheck(value)
       const(Token(value))
     }
-    implicit def fromBoolean[Sym, N <: Boolean](implicit dsn : DFDesign, n : NameIt)
+    implicit def fromBoolean[Sym, N <: Boolean](implicit blk : DFBlock, n : NameIt)
     : Const[Sym, N] = value => const(Token(value))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,10 +246,10 @@ object DFBool extends DFAny.Companion {
         def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
       }
 
-      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit dsn : DFDesign, n : NameIt)
+      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit blk : DFBlock, n : NameIt)
       : Aux[DFBool, DFBool, DFBool] = create[DFBool, DFBool]((left, right) => right)
 
-      implicit def evDFBool_op_Const[L <: DFBool, R](implicit dsn : DFDesign, n : NameIt, rConst : Const[Builder[_,_], R])
+      implicit def evDFBool_op_Const[L <: DFBool, R](implicit blk : DFBlock, n : NameIt, rConst : Const[Builder[_,_], R])
       : Aux[DFBool, R, DFBool] = create[DFBool, R]((left, rightNum) => {
         val right = rConst(rightNum)
         right
@@ -269,7 +269,7 @@ object DFBool extends DFAny.Companion {
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
     object Builder {
-      def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit dsn : DFDesign, n : NameIt)
+      def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit blk : DFBlock, n : NameIt)
       : Builder[L, R] = new Builder[L, R] {
         def apply(leftL : L, rightR : R) : Comp = {
           val (left, right) = properLR(leftL, rightR)
@@ -279,16 +279,16 @@ object DFBool extends DFAny.Companion {
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
       ) : Builder[DFBool, DFBool] =  create[DFBool, DFBool]((left, right) => (left, right))
 
-      implicit def evDFBool_op_Const[L <: DFBool, R](implicit dsn : DFDesign, n : NameIt, rConst : Const[Builder[_,_], R])
+      implicit def evDFBool_op_Const[L <: DFBool, R](implicit blk : DFBlock, n : NameIt, rConst : Const[Builder[_,_], R])
       : Builder[DFBool, R] = create[DFBool, R]((left, rightNum) => {
         val right = rConst(rightNum)
         (left, right)
       })
 
-      implicit def evConst_op_DFBool[L, R <: DFBool](implicit dsn : DFDesign, n : NameIt, lConst : Const[Builder[_,_], L])
+      implicit def evConst_op_DFBool[L, R <: DFBool](implicit blk : DFBlock, n : NameIt, lConst : Const[Builder[_,_], L])
       : Builder[L, DFBool] = create[L, DFBool]((leftNum, right) => {
         val left = lConst(leftNum)
         (left, right)
@@ -313,7 +313,7 @@ object DFBool extends DFAny.Companion {
   // For If Clause
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit class ElseIfClauseBuilder[B <: Unbounded](cond : B){
-    def apply(block : => Unit)(implicit dsn : DFDesign, n : NameIt): ElseIfClause = ??? //new ElseIfClause(cond, block)
+    def apply(block : => Unit)(implicit blk : DFBlock, n : NameIt): ElseIfClause = ??? //new ElseIfClause(cond, block)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

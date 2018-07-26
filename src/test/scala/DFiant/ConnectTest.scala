@@ -12,7 +12,7 @@ class ConnectTest extends Properties("ConnectTest") {
     o <> i
   }
 
-  property("DFDesign.codeString") = {
+  property("DFBlock.codeString") = {
     val topIO = new DFDesign {
       val i = DFUInt(8) <> IN init(1, 2)
       val o = DFUInt(8) <> OUT

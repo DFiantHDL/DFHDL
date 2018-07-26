@@ -38,8 +38,8 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
-  def apply[E <: Enum](e : E)(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](implicit blk : DFBlock, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](e : E)(implicit blk : DFBlock, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -47,7 +47,7 @@ object DFEnum extends DFAny.Companion {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar[E <: Enum]()(
-    implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
+    implicit blk : DFBlock, w : WidthOf[E], n : NameIt
   ) extends DFAny.NewVar(w) with Var[E]  {
     def constructCodeString : String = s"DFEnum(???)"
     //Port Construction
@@ -56,18 +56,18 @@ object DFEnum extends DFAny.Companion {
 
   protected[DFiant] def alias[E <: Enum]
   (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token[E]] = Seq())(
-    implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
+    implicit blk : DFBlock, w : WidthOf[E], n : NameIt
   ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
     def constructCodeString : String = "AliasOfDFEnum???"
   }
 
   protected[DFiant] def const[E <: Enum](token : Token[E])(
-    implicit dsn : DFDesign, w : WidthOf[E], n : NameIt
+    implicit blk : DFBlock, w : WidthOf[E], n : NameIt
   ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
 
   protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
-    implicit dsn : DFDesign, n : NameIt
+    implicit blk : DFBlock, n : NameIt
   ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {
     def constructCodeString : String = s"DFEnum(???)"
   }
@@ -135,7 +135,7 @@ object DFEnum extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
+      implicit def ev[E <: Enum](implicit blk : DFBlock, w : WidthOf[E], n : NameIt) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
           alias(left, 0, -right, left.getInit)
       }
@@ -150,7 +150,7 @@ object DFEnum extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[E <: Enum, Dir <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      implicit def conn[E <: Enum, Dir <: DFDir](implicit blk : DFBlock, n : NameIt)
       : Builder[DFEnum[E], Dir] = (right, dir) => port[E, Dir](right, dir)
     }
   }
@@ -164,8 +164,8 @@ object DFEnum extends DFAny.Companion {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def <> [E <: Enum, RDIR <: DFDir](port : DFEnum[E] <> RDIR)(
-        implicit op: `Op<>`.Builder[DFEnum[E], L], dsn : DFDesign
-      ) = port.connectVal2Port(op(port, left), dsn)
+        implicit op: `Op<>`.Builder[DFEnum[E], L], blk : DFBlock
+      ) = port.connectVal2Port(op(port, left), blk)
     }
     trait Implicits {
       implicit class DFEnumFromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
@@ -194,11 +194,11 @@ object DFEnum extends DFAny.Companion {
           def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
         }
 
-      implicit def evDFEnum_op_DFEnum[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E])
+      implicit def evDFEnum_op_DFEnum[E <: Enum](implicit blk : DFBlock, w : WidthOf[E])
       : Aux[DFEnum[E], DFEnum[E], DFEnum[E]] =
         create[E, DFEnum[E], DFEnum[E]]((left, right) => right)
 
-      implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E])
+      implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit blk : DFBlock, w : WidthOf[E])
       : Aux[DFEnum[E], Entry, DFEnum[E]] =
         create[E, DFEnum[E], Entry]((left, rightEntry) => const(Token[E](rightEntry)))
     }
@@ -215,14 +215,14 @@ object DFEnum extends DFAny.Companion {
     def opFunc[E <: Enum] : (Seq[DFEnum.Token[E]], Seq[DFEnum.Token[E]]) => Seq[DFBool.Token]
     type CompareOp[E <: Enum] = basiclib.DiSoOp[DiSoOpKind, DFEnum[E], DFEnum[E], DFBool]
     def compareOp[E <: Enum](inLeft : DFEnum[E] <> IN, inRight : DFEnum[E] <> IN, outResult : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[E]
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
     object Builder {
-      def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
+      def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit blk : DFBlock, w : WidthOf[E], n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
         val result = new DFBool.NewVar().setAutoName(n.value) //opFunc(left.getInit, right.getInit)
@@ -235,13 +235,13 @@ object DFEnum extends DFAny.Companion {
         result
       }
 
-      implicit def evDFEnum_op_DFEnum[E <: Enum](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
+      implicit def evDFEnum_op_DFEnum[E <: Enum](implicit blk : DFBlock, w : WidthOf[E], n : NameIt)
       : Builder[DFEnum[E], DFEnum[E]] = create[E, DFEnum[E], DFEnum[E]]((left, right) => (left, right))
 
-      implicit def evDFEnum_op_Entry[E <: Enum, R <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
+      implicit def evDFEnum_op_Entry[E <: Enum, R <: E#Entry](implicit blk : DFBlock, w : WidthOf[E], n : NameIt)
       : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, const(Token[E](rightEntry))))
 
-      implicit def evEntry_op_DFEnum[E <: Enum, L <: E#Entry](implicit dsn : DFDesign, w : WidthOf[E], n : NameIt)
+      implicit def evEntry_op_DFEnum[E <: Enum, L <: E#Entry](implicit blk : DFBlock, w : WidthOf[E], n : NameIt)
       : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (const(Token[E](leftEntry)), right))
     }
   }
@@ -249,18 +249,18 @@ object DFEnum extends DFAny.Companion {
   object `Op==` extends OpsCompare[DiSoOp.Kind.==] with `Op==` {
     def opFunc[E <: Enum] = Token.==[E]
     def compareOp[E <: Enum](inLeft0 : DFEnum[E] <> IN, inRight0 : DFEnum[E] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[E] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `E==E`[E]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
   object `Op!=` extends OpsCompare[DiSoOp.Kind.!=] with `Op!=` {
     def opFunc[E <: Enum] = Token.!=[E]
     def compareOp[E <: Enum](inLeft0 : DFEnum[E] <> IN, inRight0 : DFEnum[E] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[E] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `E!=E`[E]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }

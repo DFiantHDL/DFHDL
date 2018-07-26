@@ -20,26 +20,26 @@ trait DFBasicLib {
   protected type UopUeqB[Kind <: DiSoOp.Kind, LW, RW] = DiSoOp[Kind, DFUInt[LW], DFUInt[RW], DFBool]
 
   protected[DFiant] type `U+U` = UopUeqU[DiSoOp.Kind.+]
-  implicit def `evU+U`(implicit dsn : DFDesign) : Implementation[`U+U`]
+  implicit def `evU+U`(implicit blk : DFBlock) : Implementation[`U+U`]
 
   protected[DFiant] type `U-U` = UopUeqU[DiSoOp.Kind.-]
-  implicit def `evU-U`(implicit dsn : DFDesign) : Implementation[`U-U`]
+  implicit def `evU-U`(implicit blk : DFBlock) : Implementation[`U-U`]
 
   protected[DFiant] type `U*U` = UopUeqU[DiSoOp.Kind.*]
-  implicit def `evU*U`(implicit dsn : DFDesign) : Implementation[`U*U`]
+  implicit def `evU*U`(implicit blk : DFBlock) : Implementation[`U*U`]
 
   protected[DFiant] type `U==U`[LW, RW] = UopUeqB[DiSoOp.Kind.==, LW, RW]
-  implicit def `evU==U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U==U`[LW, RW]]
+  implicit def `evU==U`[LW, RW](implicit blk : DFBlock) : Implementation[`U==U`[LW, RW]]
   protected[DFiant] type `U!=U`[LW, RW] = UopUeqB[DiSoOp.Kind.!=, LW, RW]
-  implicit def `evU!=U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U!=U`[LW, RW]]
+  implicit def `evU!=U`[LW, RW](implicit blk : DFBlock) : Implementation[`U!=U`[LW, RW]]
   protected[DFiant] type `U<U`[LW, RW] = UopUeqB[DiSoOp.Kind.<, LW, RW]
-  implicit def `evU<U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U<U`[LW, RW]]
+  implicit def `evU<U`[LW, RW](implicit blk : DFBlock) : Implementation[`U<U`[LW, RW]]
   protected[DFiant] type `U>U`[LW, RW] = UopUeqB[DiSoOp.Kind.>, LW, RW]
-  implicit def `evU>U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U>U`[LW, RW]]
+  implicit def `evU>U`[LW, RW](implicit blk : DFBlock) : Implementation[`U>U`[LW, RW]]
   protected[DFiant] type `U<=U`[LW, RW] = UopUeqB[DiSoOp.Kind.<=, LW, RW]
-  implicit def `evU<=U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U<=U`[LW, RW]]
+  implicit def `evU<=U`[LW, RW](implicit blk : DFBlock) : Implementation[`U<=U`[LW, RW]]
   protected[DFiant] type `U>=U`[LW, RW] = UopUeqB[DiSoOp.Kind.>=, LW, RW]
-  implicit def `evU>=U`[LW, RW](implicit dsn : DFDesign) : Implementation[`U>=U`[LW, RW]]
+  implicit def `evU>=U`[LW, RW](implicit blk : DFBlock) : Implementation[`U>=U`[LW, RW]]
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -48,9 +48,9 @@ trait DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected type EopEeqB[Kind <: DiSoOp.Kind, E <: Enum] = DiSoOp[Kind, DFEnum[E], DFEnum[E], DFBool]
   protected[DFiant] type `E==E`[E <: Enum] = EopEeqB[DiSoOp.Kind.==, E]
-  implicit def `evE==E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E==E`[E]]
+  implicit def `evE==E`[E <: Enum](implicit blk : DFBlock) : Implementation[`E==E`[E]]
   protected[DFiant] type `E!=E`[E <: Enum] = EopEeqB[DiSoOp.Kind.!=, E]
-  implicit def `evE!=E`[E <: Enum](implicit dsn : DFDesign) : Implementation[`E!=E`[E]]
+  implicit def `evE!=E`[E <: Enum](implicit blk : DFBlock) : Implementation[`E!=E`[E]]
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 

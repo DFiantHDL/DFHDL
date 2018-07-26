@@ -29,38 +29,38 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
-  final protected def protBit[I](relBit : TwoFace.Int[I])(implicit dsn : DFDesign, n : NameIt) : TBool =
+  final protected def protBit[I](relBit : TwoFace.Int[I])(implicit blk : DFBlock, n : NameIt) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
-  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit dsn : DFDesign, n : NameIt) : TBool =
+  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit blk : DFBlock, n : NameIt) : TBool =
     protBit(relBit.unsafeCheck(width))
-  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], dsn : DFDesign, n : NameIt, di : DummyImplicit) : TBool =
+  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], blk : DFBlock, n : NameIt, di : DummyImplicit) : TBool =
     protBit(relBit.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits()(implicit dsn : DFDesign, n : NameIt) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
+  final def bits()(implicit blk : DFBlock, n : NameIt) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
-    implicit relWidth : RelWidth.TF[H, L], dsn : DFDesign, n : NameIt
+    implicit relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt
   ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], dsn : DFDesign, n : NameIt
+    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
 
   final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
-    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], dsn : DFDesign, n : NameIt, di : DummyImplicit
+    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt, di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
   final def bits[H <: Int, L <: Int](range : XRange.Int[L, H])(
     implicit relBitHigh : BitIndex.CheckedShell[H, Width], relBitLow : BitIndex.CheckedShell[L, Width],
-    relWidth : RelWidth.TF[H, L], dsn : DFDesign, n : NameIt
+    relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt
   ) = {
     relBitHigh.unsafeCheck(range.end, width)
     relBitLow.unsafeCheck(range.start, width)
@@ -71,19 +71,19 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
-  final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit dsn : DFDesign, n : NameIt)
+  final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit blk : DFBlock, n : NameIt)
   : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], dsn : DFDesign, n : NameIt
+    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], blk : DFBlock, n : NameIt
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
   }
 
   final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width],
-    checkRelWidth : PartWidth.CheckedShell[W, Width - L], dsn : DFDesign, n : NameIt, di : DummyImplicit
+    checkRelWidth : PartWidth.CheckedShell[W, Width - L], blk : DFBlock, n : NameIt, di : DummyImplicit
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
@@ -142,7 +142,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   // Naming
   //////////////////////////////////////////////////////////////////////////
   val isAnonymous : Boolean
-  lazy val fullName : String = s"${dsn.fullName}.$name"
+  lazy val fullName : String = s"${blk.fullName}.$name"
   def codeString : String
   override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
@@ -159,11 +159,11 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  implicit protected val dsn : DFDesign
+  implicit protected val blk : DFBlock
   protected def discoveryDepenencies : List[Discoverable] = List()
-  final implicit protected lazy val protAlmanac : Almanac = dsn.protAlmanac
+  final implicit protected lazy val protAlmanac : Almanac = blk.protAlmanac
   def keep : this.type = {
-    dsn.keepList += this
+    blk.keepList += this
     this
   }
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
@@ -179,7 +179,7 @@ sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Di
   def simWatch : BigInt = ???
   //////////////////////////////////////////////////////////////////////////
 
-  def casedf(a: TVal)(block : => Unit)(implicit dsn : DFDesign) : DFCase[TVal] = {
+  def casedf(a: TVal)(block : => Unit)(implicit blk : DFBlock) : DFCase[TVal] = {
 //    def casedf_(block : => Unit) : Unit = {}
     ???
   }
@@ -233,12 +233,12 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     private type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], dsn : DFDesign
-    ) = assign(op(left, right), dsn)
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], blk : DFBlock
+    ) = assign(op(left, right), blk)
     final protected var assigned : Boolean = false
-    protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
+    protected[DFiant] def assign(that : DFAny, blk : DFBlock) : TVar = {
       assigned = true
-      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${dsn.fullName})")
+      if (this.blk ne blk) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${blk.fullName})")
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -249,15 +249,15 @@ object DFAny {
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
     final def init(that : protComp.Init.Able[TVal]*)(
-      implicit op : protComp.Init.Builder[TVal, TToken], dsn : DFDesign
+      implicit op : protComp.Init.Builder[TVal, TToken], blk : DFBlock
     ) : TPostInit = {
-      initialize(() => op(left, that), dsn)
+      initialize(() => op(left, that), blk)
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected def initialize(updatedInit : () => Seq[TToken], dsn : DFDesign) : Unit = {
+    final protected def initialize(updatedInit : () => Seq[TToken], blk : DFBlock) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-      if (this.dsn ne dsn) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${dsn.fullName})")
+      if (this.blk ne blk) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${blk.fullName})")
       initialized = true
       setInitFunc(updatedInit)
     }
@@ -275,7 +275,7 @@ object DFAny {
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int)(
-    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
@@ -285,7 +285,7 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val id = dsn.newDFValGetID(this)
+    final val id = blk.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -299,7 +299,7 @@ object DFAny {
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
-    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
   ) extends DFAny.Var {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
@@ -320,7 +320,7 @@ object DFAny {
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
 
-    final val id = dsn.newDFValGetID(this)
+    final val id = blk.newDFValGetID(this)
     final val isAnonymous : Boolean = n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
@@ -329,7 +329,7 @@ object DFAny {
   }
 
   abstract class Const(token : Token)(
-    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
   ) extends DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -348,7 +348,7 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit protected val dsn : DFDesign, cmp : Companion, n : NameIt
+    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
   ) extends DFAny.Var with DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
@@ -371,9 +371,9 @@ object DFAny {
     }
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ privComponentDependency
     protected def connected : Boolean = connectedSource.isDefined
-    final override protected[DFiant] def assign(that : DFAny, dsn : DFDesign) : TVar = {
+    final override protected[DFiant] def assign(that : DFAny, blk : DFBlock) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
-      super.assign(that, dsn)
+      super.assign(that, blk)
     }
     private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -386,10 +386,10 @@ object DFAny {
       toPort.connectedSource = Some(fromVal)
       toPort.protAssignDependencies += fromVal
     }
-    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], dsn : DFDesign) : Unit = {
+    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], blk : DFBlock) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
-      val (fromPort, toPort) = (left.dsn, right.dsn, dsn) match {
+      val (fromPort, toPort) = (left.blk, right.blk, blk) match {
         //Ports in the same design, connected at the same design
         case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
@@ -434,32 +434,32 @@ object DFAny {
         case (l, r, c) if !((l eq r) || (l.owner.isDefined && (l.owner.get eq r)) || (r.owner.isDefined && (r.owner.get eq l)) || (l.owner.isDefined && r.owner.isDefined && (l.owner.get eq r.owner.get))) =>
           throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
         case (l, r, c) if !((l eq c) || (r eq c) || (l.owner.isDefined && r.owner.isDefined && (l.owner.get eq c) && (r.owner.get eq c))) =>
-          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${dsn.fullName}")
+          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${blk.fullName}")
         case _ => throwConnectionError("Unexpected connection error")
       }
       connect(fromPort, toPort)
     }
-    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit dsn : DFDesign) : Unit = connectPort2Port(right, dsn)
-    final protected[DFiant] def connectVal2Port(dfVal : DFAny, dsn : DFDesign) : Unit = {
+    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit blk : DFBlock) : Unit = connectPort2Port(right, blk)
+    final protected[DFiant] def connectVal2Port(dfVal : DFAny, blk : DFBlock) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-      if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], dsn)
+      if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], blk)
       else {
-        if (port.dsn.owner.isDefined && (port.dsn.owner.get eq dfVal.dsn)) {
+        if (port.blk.owner.isDefined && (port.blk.owner.get eq dfVal.blk)) {
           if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
-          if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
+          if (blk ne dfVal.blk) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
         }
-        else if (port.dsn eq dfVal.dsn) {
+        else if (port.blk eq dfVal.blk) {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
-          if (dsn ne dfVal.dsn) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${dsn.fullName}")
+          if (blk ne dfVal.blk) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port")
         connect(dfVal, port)
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op<>`.Builder[TVal, R], dsn : DFDesign
-    ) : Unit = connectVal2Port(op(left, right), dsn)
+      implicit op: protComp.`Op<>`.Builder[TVal, R], blk : DFBlock
+    ) : Unit = connectVal2Port(op(left, right), blk)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
@@ -470,7 +470,7 @@ object DFAny {
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
 
-    final val id = dsn.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
+    final val id = blk.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
     trait Builder[L <: DFAny, Dir <: DFDir] {

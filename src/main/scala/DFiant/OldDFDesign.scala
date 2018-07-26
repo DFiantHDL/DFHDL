@@ -20,8 +20,8 @@ abstract class OldDFDesign[Top] {
 }
 
 
-//object DFDesign {
-//  def apply(dfCode: => Unit) : DFDesign = new DFDesign(dfCode)
+//object DFBlock {
+//  def apply(dfCode: => Unit) : DFBlock = new DFBlock(dfCode)
 //}
 
 //abstract class Boxy {
@@ -35,7 +35,7 @@ abstract class OldDFDesign[Top] {
 //}
 
 //object testy {
-//  val myDesign = new DFDesign[Boxy] {
+//  val myDesign = new DFBlock[Boxy] {
 //    val a = DFBits(8)
 //    val b = DFBits(8)
 //    val r1 = DFBits(8)

@@ -24,51 +24,51 @@ object DFBits extends DFAny.Companion {
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////
-    final def apply[I](relBit: BitIndex.Checked[I, Width])(implicit dsn : DFDesign, n : NameIt) : TBool = protBit(relBit.unsafeCheck(width))
+    final def apply[I](relBit: BitIndex.Checked[I, Width])(implicit blk : DFBlock, n : NameIt) : TBool = protBit(relBit.unsafeCheck(width))
 
-    final def apply[I](implicit relBit: BitIndex.Checked[I, Width], dsn : DFDesign, n : NameIt, di: DummyImplicit, di2: DummyImplicit): TBool =
+    final def apply[I](implicit relBit: BitIndex.Checked[I, Width], blk : DFBlock, n : NameIt, di: DummyImplicit, di2: DummyImplicit): TBool =
       protBit(relBit.unsafeCheck(width))
 
-    final def msbit(implicit dsn : DFDesign, n : NameIt): TBool = protBit(width - 1)
+    final def msbit(implicit blk : DFBlock, n : NameIt): TBool = protBit(width - 1)
 
-    final def lsbit(implicit dsn : DFDesign, n : NameIt): TBool = protBit(0)
+    final def lsbit(implicit blk : DFBlock, n : NameIt): TBool = protBit(0)
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
     final def apply[H, L](relBitHigh: BitIndex.Checked[H, Width], relBitLow: BitIndex.Checked[L, Width])(
-      implicit checkHiLow: BitsHiLo.CheckedShell[H, L], relWidth: RelWidth.TF[H, L], dsn : DFDesign, n : NameIt
+      implicit checkHiLow: BitsHiLo.CheckedShell[H, L], relWidth: RelWidth.TF[H, L], blk : DFBlock, n : NameIt
     ) = {
       checkHiLow.unsafeCheck(relBitHigh, relBitLow)
       protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
     }
 
     final def apply[H, L](implicit relBitHigh: BitIndex.Checked[H, Width], relBitLow: BitIndex.Checked[L, Width],
-      checkHiLow: BitsHiLo.Checked[H, L], relWidth: RelWidth.TF[H, L], dsn : DFDesign, n : NameIt, di: DummyImplicit
+      checkHiLow: BitsHiLo.Checked[H, L], relWidth: RelWidth.TF[H, L], blk : DFBlock, n : NameIt, di: DummyImplicit
     ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
-    final protected def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit dsn : DFDesign, n : NameIt): TBits[PW] =
+    final protected def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit blk : DFBlock, n : NameIt): TBits[PW] =
       DFBits.alias(this, partWidth, width - partWidth).asInstanceOf[TBits[PW]]
 
-    final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit dsn : DFDesign, n : NameIt) = protMSBits(partWidth.unsafeCheck(width))
+    final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit blk : DFBlock, n : NameIt) = protMSBits(partWidth.unsafeCheck(width))
 
-    final def msbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], dsn : DFDesign, n : NameIt, di: DummyImplicit) =
+    final def msbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], blk : DFBlock, n : NameIt, di: DummyImplicit) =
       protMSBits(partWidth.unsafeCheck(width))
 
-    final protected def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit dsn : DFDesign, n : NameIt) : TBits[PW] =
+    final protected def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit blk : DFBlock, n : NameIt) : TBits[PW] =
       DFBits.alias(this, partWidth, 0).asInstanceOf[TBits[PW]]
 
-    final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit dsn : DFDesign, n : NameIt) = protLSBits(partWidth.unsafeCheck(width))
+    final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit blk : DFBlock, n : NameIt) = protLSBits(partWidth.unsafeCheck(width))
 
-    final def lsbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], dsn : DFDesign, n : NameIt, di: DummyImplicit) =
+    final def lsbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], blk : DFBlock, n : NameIt, di: DummyImplicit) =
       protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
-      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], dsn : DFDesign, n : NameIt
-    ) : DFBits.Var[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, dsn)
+      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], blk : DFBlock, n : NameIt
+    ) : DFBits.Var[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
 
     //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
     //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)
@@ -93,10 +93,10 @@ object DFBits extends DFAny.Companion {
     def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
     def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
-    def newEmptyDFVar(implicit dsn : DFDesign, n : NameIt) = ??? //DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
+    def newEmptyDFVar(implicit blk : DFBlock, n : NameIt) = ??? //DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
 
     ///////////////////////////DFUInt.op[W](width, "toDFUInt", DFBits.Token.toUInt(getInit))
-    def toDFUInt(implicit dsn : DFDesign, n : NameIt) : DFUInt[Width] = ??? //new DFUInt.NewVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this, dsn)
+    def toDFUInt(implicit blk : DFBlock, n : NameIt) : DFUInt[Width] = ??? //new DFUInt.NewVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this, blk)
 
     override lazy val typeName : String = s"DFBits[$width]"
   }
@@ -117,10 +117,10 @@ object DFBits extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], n : NameIt, di: DummyImplicit
+    implicit blk : DFBlock, checkedWidth : BitsWidth.Checked[W], n : NameIt, di: DummyImplicit
   ) : DFAny.NewVar with Var[W] = newVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
-    implicit dsn : DFDesign, n : NameIt
+    implicit blk : DFBlock, n : NameIt
   ) : DFAny.NewVar with Var[W] = newVar(checkedWidth.unsafeCheck())
   def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
@@ -130,13 +130,13 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit dsn : DFDesign, n : NameIt) : DFAny.NewVar with Var[W] =
+  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit blk : DFBlock, n : NameIt) : DFAny.NewVar with Var[W] =
     new DFAny.NewVar(width) with Var[W] {
       def constructCodeString : String = s"DFBits($width)"
     }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit blk : DFBlock, n : NameIt) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
       def constructCodeString : String = {
@@ -147,7 +147,7 @@ object DFBits extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def const[W](token : Token)(implicit dsn : DFDesign, n : NameIt) : DFBits[W] =
+  protected[DFiant] def const[W](token : Token)(implicit blk : DFBlock, n : NameIt) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -256,7 +256,7 @@ object DFBits extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign, n : NameIt) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+      implicit def ev[LW](implicit blk : DFBlock, n : NameIt) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
         def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
           alias(left, left.width, 0, -right, left.getInit)
       }

@@ -5,11 +5,11 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class DFDesign(
-  implicit val owner : Option[DFDesign] = None, val basicLib: DFBasicLib, n : NameIt
+abstract class DFBlock(
+  implicit val owner : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFInterface with Implicits {
-  protected implicit val dsn = this
-  final val topDsn : DFDesign = owner match {
+  protected implicit val blk = this
+  final val topDsn : DFBlock = owner match {
     case Some(o) => o.topDsn
     case _ => this
   }
@@ -19,10 +19,10 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
+  final protected[DFiant] val components : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
   final protected[DFiant] val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
 
-  final protected def newComponentGetID(comp : DFDesign) : Int = getNewID(components += comp)
+  final protected def newComponentGetID(comp : DFBlock) : Int = getNewID(components += comp)
   final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
 
   final protected def addComponentToParentGetID : Int = {
@@ -96,12 +96,15 @@ abstract class DFDesign(
 
   final val id = addComponentToParentGetID
 }
-object DFDesign {
+object DFBlock {
 }
 
+abstract class DFDesign(implicit owner : Option[DFBlock] = None, basicLib: DFBasicLib, n : NameIt
+) extends DFBlock
+
 abstract class DFComponent[Comp <: DFComponent[Comp]](
-  implicit dsn : DFDesign, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib, n : NameIt
-) extends DFDesign()(Some(dsn), basicLib, n) {
+  implicit blk : DFBlock, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib, n : NameIt
+) extends DFDesign()(Some(blk), basicLib, n) {
   impl(this.asInstanceOf[Comp])
 }
 

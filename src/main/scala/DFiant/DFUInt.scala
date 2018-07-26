@@ -41,13 +41,13 @@ object DFUInt extends DFAny.Companion {
 //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
-      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], dsn : DFDesign, n : NameIt
-    ) : DFUInt.Var[tfs.Out] = ??? //new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, dsn)
+      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], blk : DFBlock, n : NameIt
+    ) : DFUInt.Var[tfs.Out] = ??? //new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, blk)
 
-    def isZero(implicit dsn : DFDesign, n : NameIt) = left == 0
-    def isNonZero(implicit dsn : DFDesign, n : NameIt) = left != 0
+    def isZero(implicit blk : DFBlock, n : NameIt) = left == 0
+    def isNonZero(implicit blk : DFBlock, n : NameIt) = left != 0
     //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
-    def extendable(implicit dsn : DFDesign, n : NameIt) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
+    def extendable(implicit blk : DFBlock, n : NameIt) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
 
     //    trait matchdf extends super.matchdf {
     //      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
@@ -76,10 +76,10 @@ object DFUInt extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit dsn : DFDesign, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
+    implicit blk : DFBlock, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
   ) : NewVar[W] = new NewVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
-    implicit dsn : DFDesign, n : NameIt
+    implicit blk : DFBlock, n : NameIt
   ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
@@ -94,7 +94,7 @@ object DFUInt extends DFAny.Companion {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar[W](width : TwoFace.Int[W])(
-    implicit dsn : DFDesign, n : NameIt
+    implicit blk : DFBlock, n : NameIt
   ) extends DFAny.NewVar(width) with Var[W] {
     def constructCodeString : String = s"DFUInt($width)"
     //Port Construction
@@ -102,7 +102,7 @@ object DFUInt extends DFAny.Companion {
   }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFUInt.Token] = Seq())(implicit dsn : DFDesign, n : NameIt) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFUInt.Token] = Seq())(implicit blk : DFBlock, n : NameIt) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = {
@@ -113,17 +113,17 @@ object DFUInt extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit dsn : DFDesign, n : NameIt) : Var[W] with Extendable =
+  protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit blk : DFBlock, n : NameIt) : Var[W] with Extendable =
     new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = s"${extendedVar.name}.extendable"
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
 
-  protected[DFiant] def const[W](token : DFUInt.Token)(implicit dsn : DFDesign, n : NameIt) : DFUInt[W] =
+  protected[DFiant] def const[W](token : DFUInt.Token)(implicit blk : DFBlock, n : NameIt) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit dsn : DFDesign, n : NameIt) : DFUInt[W] <> Dir =
+  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit blk : DFBlock, n : NameIt) : DFUInt[W] <> Dir =
     new DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W] {
       def constructCodeString : String = s"DFUInt($width)"
     }
@@ -192,7 +192,7 @@ object DFUInt extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[LW, Dir <: DFDir](implicit dsn : DFDesign, n : NameIt)
+      implicit def conn[LW, Dir <: DFDir](implicit blk : DFBlock, n : NameIt)
       : Builder[DFUInt[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
     }
   }
@@ -238,7 +238,7 @@ object DFUInt extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev[LW](implicit dsn : DFDesign, n : NameIt) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
+      implicit def ev[LW](implicit blk : DFBlock, n : NameIt) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply[P](left : DFUInt[LW], right : Natural.Int.Checked[P]) : DFUInt[LW] =
           DFUInt.alias(left, left.width, 0, -right, left.getInit)
       }
@@ -260,8 +260,8 @@ object DFUInt extends DFAny.Companion {
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def <> [RW, RDIR <: DFDir](port : DFUInt[RW] <> RDIR)(
-        implicit op: `Op<>`.Builder[DFUInt[RW], L], dsn : DFDesign
-      ) = port.connectVal2Port(op(port, left), dsn)
+        implicit op: `Op<>`.Builder[DFUInt[RW], L], blk : DFBlock
+      ) = port.connectVal2Port(op(port, left), blk)
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
     }
     trait Implicits {
@@ -288,7 +288,7 @@ object DFUInt extends DFAny.Companion {
     object PosNeg {
       type Aux[N, W0] = PosNeg[N]{type W = W0}
       import singleton.ops.math.Abs
-      implicit def fromInt[N <: Int](implicit dsn : DFDesign, n : NameIt, w : BitsWidthOf.Int[Abs[N]])
+      implicit def fromInt[N <: Int](implicit blk : DFBlock, n : NameIt, w : BitsWidthOf.Int[Abs[N]])
       : Aux[N, w.Out] = new PosNeg[N] {
         type W = w.Out
         def apply(value : N) : (DFUInt[W], Boolean) = {
@@ -296,7 +296,7 @@ object DFUInt extends DFAny.Companion {
           (const[W](Token(w(absValue), absValue)), value < 0)
         }
       }
-      implicit def fromLong[N <: Long](implicit dsn : DFDesign, n : NameIt, w : BitsWidthOf.Long[Abs[N]])
+      implicit def fromLong[N <: Long](implicit blk : DFBlock, n : NameIt, w : BitsWidthOf.Long[Abs[N]])
       : Aux[N, w.Out] = new PosNeg[N] {
         type W = w.Out
         def apply(value : N) : (DFUInt[W], Boolean) = {
@@ -304,7 +304,7 @@ object DFUInt extends DFAny.Companion {
           (const[W](Token(w(absValue), absValue)), value < 0)
         }
       }
-      implicit def fromBigInt[N <: BigInt](implicit dsn : DFDesign, n : NameIt)
+      implicit def fromBigInt[N <: BigInt](implicit blk : DFBlock, n : NameIt)
       : Aux[N, Int] = new PosNeg[N] {
         type W = Int
         def apply(value : N) : (DFUInt[W], Boolean) = {
@@ -324,7 +324,7 @@ object DFUInt extends DFAny.Companion {
       }
       implicit def fromInt[Sym, N <: Int](
         implicit
-        dsn : DFDesign,
+        blk : DFBlock,
         n : NameIt,
         checkPos : `N >= 0`.Int.CheckedShellSym[Sym, N],
         w : BitsWidthOf.Int[N]
@@ -337,7 +337,7 @@ object DFUInt extends DFAny.Companion {
       }
       implicit def fromLong[Sym, N <: Long](
         implicit
-        dsn : DFDesign,
+        blk : DFBlock,
         n : NameIt,
         checkPos : `N >= 0`.Long.CheckedShellSym[Sym, N],
         w : BitsWidthOf.Long[N]
@@ -348,7 +348,7 @@ object DFUInt extends DFAny.Companion {
           const[W](Token(w(value), value))
         }
       }
-      implicit def fromBigInt[Sym, N <: BigInt](implicit dsn : DFDesign, n : NameIt)
+      implicit def fromBigInt[Sym, N <: BigInt](implicit blk : DFBlock, n : NameIt)
       : Aux[Sym, N, Int] = new PosOnly[Sym, N] {
         type W = Int
         def apply(value : N) : DFUInt[W] = {
@@ -387,7 +387,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
         create[DFUInt[LW], DFUInt[RW], RW]((left, right) => {
@@ -397,7 +397,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], R, DFUInt[RW]] = create[DFUInt[LW], R, RW]((left, rightNum) => {
@@ -418,7 +418,7 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit dsn : DFDesign, n : NameIt) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
+    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit blk : DFBlock, n : NameIt) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
       lazy val c = DFBits.alias[1](wc, 1, wc.width-1)
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = s"???Op+-Comp???"
@@ -455,7 +455,7 @@ object DFUInt extends DFAny.Companion {
       object DetailedBuilder {
         implicit def ev[L, LW, LE, R, RW, NCW, WCW](
           implicit
-          dsn : DFDesign, n : NameIt,
+          blk : DFBlock, n : NameIt,
           ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
@@ -466,7 +466,7 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import dsn.basicLib._
+                  import blk.basicLib._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -506,7 +506,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, LE, R, RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         rConst : Const.PosNeg.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
       ) = detailedBuilder((left, rightNum) => {
@@ -517,7 +517,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         lConst : Const.PosOnly.Aux[Builder[_,_,_], L, LW],
         detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => {
@@ -544,7 +544,7 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     //CW = Carry width
-    class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(implicit dsn : DFDesign) extends DFAny.Alias(wc, ncW, 0) with DFUInt[NCW] {
+    class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(implicit blk : DFBlock) extends DFAny.Alias(wc, ncW, 0) with DFUInt[NCW] {
       lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW)
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = s"???Op*Comp???"
@@ -582,7 +582,7 @@ object DFUInt extends DFAny.Companion {
       object DetailedBuilder {
         implicit def ev[L, LW, LE, R, RW, CW, NCW, WCW](
           implicit
-          dsn : DFDesign, n : NameIt,
+          blk : DFBlock, n : NameIt,
           ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
           cW : Inference.CW[LW, RW, CW],
@@ -594,7 +594,7 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import dsn.basicLib._
+                  import blk.basicLib._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -628,14 +628,14 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, LE, R, RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         rConst : Const.PosOnly.Aux[Builder[_,_,_], R, RW],
         detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
       implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         lConst : Const.PosOnly.Aux[Builder[_,_,_], L, LW],
         detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
@@ -650,7 +650,7 @@ object DFUInt extends DFAny.Companion {
   protected abstract class OpsCompare[DiSoOpKind <: DiSoOp.Kind](opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token]) {
     type CompareOp[LW, RW] = basiclib.DiSoOp[DiSoOpKind, DFUInt[LW], DFUInt[RW], DFBool]
     def compareOp[LW, RW](inLeft : DFUInt[LW] <> IN, inRight : DFUInt[RW] <> IN, outResult : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW]
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
@@ -669,7 +669,7 @@ object DFUInt extends DFAny.Companion {
         type ParamFace = Int
       }
 
-      def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit dsn : DFDesign, n : NameIt)
+      def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit blk : DFBlock, n : NameIt)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
         val result = new DFBool.NewVar().setAutoName(n.value) //opFunc(left.getInit, right.getInit)
@@ -684,7 +684,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Builder[DFUInt[LW], DFUInt[RW]] = create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -693,7 +693,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
       ) : Builder[DFUInt[LW], R] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
@@ -704,7 +704,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evConst_op_DFUInt[L, LW, R <: DFUInt[RW], RW](
         implicit
-        dsn : DFDesign, n : NameIt,
+        blk : DFBlock, n : NameIt,
         lConst : Const.PosOnly.Aux[Builder[_,_], L, LW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
       ) : Builder[L, DFUInt[RW]] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
@@ -716,49 +716,49 @@ object DFUInt extends DFAny.Companion {
   }
   object `Op==` extends OpsCompare[DiSoOp.Kind.==](DFUInt.Token.==) with `Op==` {
     def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `U==U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
   object `Op!=` extends OpsCompare[DiSoOp.Kind.!=](DFUInt.Token.!=) with `Op!=` {
     def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `U!=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
   object `Op<`  extends OpsCompare[DiSoOp.Kind.< ](DFUInt.Token.< ) {
     def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `U<U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
   object `Op>`  extends OpsCompare[DiSoOp.Kind.> ](DFUInt.Token.> ) {
     def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `U>U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
   object `Op<=` extends OpsCompare[DiSoOp.Kind.<=](DFUInt.Token.<=) {
     def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `U<=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
   object `Op>=` extends OpsCompare[DiSoOp.Kind.>=](DFUInt.Token.>=) {
     def compareOp[LW, RW](inLeft0 : DFUInt[LW] <> IN, inRight0 : DFUInt[RW] <> IN, outResult0 : DFBool <> OUT)(
-      implicit dsn : DFDesign
+      implicit blk : DFBlock
     ) : CompareOp[LW, RW] = {
-      import dsn.basicLib._
+      import blk.basicLib._
       new `U>=U`[LW, RW]{val inLeft = inLeft0; val inRight = inRight0; val outResult = outResult0}
     }
   }
