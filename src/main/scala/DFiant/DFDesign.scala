@@ -5,7 +5,7 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class DFBlock(
+sealed abstract class DFBlock(
   implicit val owner : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFInterface with Implicits {
   protected implicit val blk = this
@@ -19,10 +19,10 @@ abstract class DFBlock(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final protected[DFiant] val components : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
+  final protected[DFiant] val blocks : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
   final protected[DFiant] val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
 
-  final protected def newComponentGetID(comp : DFBlock) : Int = getNewID(components += comp)
+  final protected def newComponentGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
   final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
 
   final protected def addComponentToParentGetID : Int = {
@@ -40,7 +40,7 @@ abstract class DFBlock(
     }
   }
   final protected def printComponents() : Unit = {
-    components.foreach(c => println(c.name))
+    blocks.foreach(c => println(c.name))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -79,7 +79,7 @@ abstract class DFBlock(
     //Run init of all rtcomponents
     rtcomponents.foreach(c => c.init)
     //Run init of all components
-    components.foreach(c => c.init)
+    blocks.foreach(c => c.init)
   }
 
   def codeString : String = {
