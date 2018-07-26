@@ -33,4 +33,9 @@ trait DFOwnerConstruct extends DFConstruct {
   }
   protected def discoveryDepenencies : List[Discoverable] = keepList.toList
 
+  final lazy val fullName : String = owner match {
+    case Some(o) => s"${o.fullName}.$name"
+    case _ => name //Top
+  }
+
 }

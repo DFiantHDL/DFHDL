@@ -17,7 +17,7 @@ abstract class RTComponent(implicit blk_ : DFBlock, n : NameIt) extends DFInterf
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   override protected def nameDefault: String = n.value
-  final lazy val fullName : String = s"${blk.fullName}.$name"
+//  final lazy val fullName : String = s"${blk.fullName}.$name"
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
