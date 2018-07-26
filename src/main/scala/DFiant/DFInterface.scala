@@ -4,14 +4,11 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-trait DFInterface extends HasProperties with Nameable with TypeNameable with Discoverable {
+trait DFInterface extends DFOwnerConstruct {
   final lazy val portNodes : List[PortNode] =
     this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir], PortNode](
       classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)
     )
-
-  private var idCnt : Int = 0
-  final protected[DFiant] def getNewID(run : => Unit) : Int = {run; idCnt += 1; idCnt}
 
   final protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
   final protected[DFiant] def newPortGetID(dfval : DFAny.Port[DFAny, DFDir]) : Int = getNewID(ports += dfval)

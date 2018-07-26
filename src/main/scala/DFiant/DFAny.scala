@@ -7,7 +7,7 @@ import scodec.bits._
 
 import scala.collection.mutable.ListBuffer
 
-sealed trait DFAny extends HasProperties with Nameable with TypeNameable with Discoverable {
+sealed trait DFAny extends DFConstruct {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal

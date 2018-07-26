@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
 
 sealed abstract class DFBlock(
   implicit val owner : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
-) extends DFInterface with Implicits {
+) extends DFOwnerConstruct with Implicits {
   protected implicit val blk : DFBlock = this
   final val topDsn : DFBlock = owner match {
     case Some(o) => o.topDsn
@@ -52,12 +52,7 @@ sealed abstract class DFBlock(
   final protected[DFiant] def newDFValGetID(dfval : DFAny) : Int = getNewID(dfvals += dfval)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
   def compileToVHDL(fileName : String) = ???
-  final def keep : this.type = {
-    keepList += this
-    this
-  }
   final def isTop : Boolean = owner.isEmpty
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +67,6 @@ sealed abstract class DFBlock(
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  final protected def discoveryDepenencies : List[Discoverable] = if (isTop) portsOut ++ keepList else keepList.toList
   final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {
@@ -100,8 +94,10 @@ object DFBlock {
 }
 
 abstract class DFDesign(implicit owner : Option[DFBlock] = None, basicLib: DFBasicLib, n : NameIt
-) extends DFBlock {
+) extends DFBlock with DFInterface {
   override protected implicit val blk : DFDesign = this
+  final override protected def discoveryDepenencies : List[Discoverable] =
+    if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 }
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](
