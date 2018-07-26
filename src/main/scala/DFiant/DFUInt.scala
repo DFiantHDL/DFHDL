@@ -123,7 +123,7 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] def const[W](token : DFUInt.Token)(implicit blk : DFBlock, n : NameIt) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit blk : DFBlock, n : NameIt) : DFUInt[W] <> Dir =
+  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit blk : DFDesign, n : NameIt) : DFUInt[W] <> Dir =
     new DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W] {
       def constructCodeString : String = s"DFUInt($width)"
     }
@@ -192,7 +192,7 @@ object DFUInt extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[LW, Dir <: DFDir](implicit blk : DFBlock, n : NameIt)
+      implicit def conn[LW, Dir <: DFDir](implicit blk : DFDesign, n : NameIt)
       : Builder[DFUInt[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
     }
   }

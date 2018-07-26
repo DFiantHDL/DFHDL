@@ -8,7 +8,7 @@ import scala.collection.mutable.ListBuffer
 sealed abstract class DFBlock(
   implicit val owner : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFInterface with Implicits {
-  protected implicit val blk = this
+  protected implicit val blk : DFBlock = this
   final val topDsn : DFBlock = owner match {
     case Some(o) => o.topDsn
     case _ => this
@@ -100,7 +100,9 @@ object DFBlock {
 }
 
 abstract class DFDesign(implicit owner : Option[DFBlock] = None, basicLib: DFBasicLib, n : NameIt
-) extends DFBlock
+) extends DFBlock {
+  override protected implicit val blk : DFDesign = this
+}
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](
   implicit blk : DFBlock, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib, n : NameIt

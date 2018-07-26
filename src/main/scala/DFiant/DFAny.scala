@@ -348,7 +348,7 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
+    implicit protected val blk : DFDesign, cmp : Companion, n : NameIt
   ) extends DFAny.Var with DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
