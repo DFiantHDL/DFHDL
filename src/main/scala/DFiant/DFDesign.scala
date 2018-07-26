@@ -8,7 +8,6 @@ import scala.collection.mutable.ListBuffer
 sealed abstract class DFBlock(
   implicit val owner : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFOwnerConstruct with Implicits {
-  protected implicit val blk : DFBlock = this
   final val topDsn : DFBlock = owner match {
     case Some(o) => o.topDsn
     case _ => this
@@ -17,21 +16,21 @@ sealed abstract class DFBlock(
   final protected[DFiant] lazy val protAlmanac = newAlmanac
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Components
+  // Sub-Blocks
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final protected[DFiant] val blocks : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
-  final protected[DFiant] val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
+  final private val blocks : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
+  final private val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
 
-  final protected def newBlockGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
-  final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
+  final private def newBlockGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
+  final private[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
 
-  final protected def addBlockToOwnerGetID : Int = {
+  final private def addBlockToOwnerGetID : Int = {
     owner match {
       case Some(o) => o.newBlockGetID(this)
       case _ => 0
     }
   }
-  final protected def newAlmanac : Almanac = {
+  final private def newAlmanac : Almanac = {
     owner match {
       case Some(o) =>
         o.protAlmanac.fetchComponent(o.protAlmanac.addBlock(new Almanac(name, Some(o.protAlmanac))))
@@ -47,9 +46,9 @@ sealed abstract class DFBlock(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFVals
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final protected val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
+  final private val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
   //adds the dataflow value to the list and returns its ID (starting from 1)
-  final protected[DFiant] def newDFValGetID(dfval : DFAny) : Int = getNewID(dfvals += dfval)
+  final private[DFiant] def newDFValGetID(dfval : DFAny) : Int = getNewID(dfvals += dfval)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   def compileToVHDL(fileName : String) = ???
@@ -95,7 +94,6 @@ object DFBlock {
 
 abstract class DFDesign(implicit owner : Option[DFBlock] = None, basicLib: DFBasicLib, n : NameIt
 ) extends DFBlock with DFInterface {
-  override protected implicit val blk : DFDesign = this
   final override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 }

@@ -9,6 +9,8 @@ trait DFConstruct extends HasProperties with Nameable with TypeNameable with Dis
 }
 
 trait DFOwnerConstruct extends DFConstruct {
+  protected implicit val blk : this.type = this
+
   private var idCnt : Int = 0
   final protected[DFiant] def getNewID(run : => Unit) : Int = {run; idCnt += 1; idCnt}
 
