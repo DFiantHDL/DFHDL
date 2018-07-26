@@ -94,7 +94,7 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def addComponent(almanac: Almanac) : Almanac = {
+  def addBlock(almanac: Almanac) : Almanac = {
     require(phase == AlmanacPhaseConstruct, "Unexpected almanac component addition during a non-construction phase")
     components += almanac
     almanac

@@ -22,24 +22,24 @@ sealed abstract class DFBlock(
   final protected[DFiant] val blocks : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
   final protected[DFiant] val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
 
-  final protected def newComponentGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
+  final protected def newBlockGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
   final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
 
-  final protected def addComponentToParentGetID : Int = {
+  final protected def addBlockToOwnerGetID : Int = {
     owner match {
-      case Some(o) => o.newComponentGetID(this)
+      case Some(o) => o.newBlockGetID(this)
       case _ => 0
     }
   }
   final protected def newAlmanac : Almanac = {
     owner match {
       case Some(o) =>
-        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac(name, Some(o.protAlmanac))))
+        o.protAlmanac.fetchComponent(o.protAlmanac.addBlock(new Almanac(name, Some(o.protAlmanac))))
       case _ =>
         new Almanac(name, None)
     }
   }
-  final protected def printComponents() : Unit = {
+  final protected def printBlocks() : Unit = {
     blocks.foreach(c => println(c.name))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -94,7 +94,7 @@ sealed abstract class DFBlock(
     protAlmanac.printInfo()
   }
 
-  final val id = addComponentToParentGetID
+  final val id = addBlockToOwnerGetID
 }
 object DFBlock {
 }
