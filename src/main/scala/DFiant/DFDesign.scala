@@ -6,13 +6,13 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 sealed abstract class DFBlock(
-  implicit val owner : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
+  implicit owner_ : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFOwnerConstruct with Implicits {
-  final val topDsn : DFBlock = owner match {
+  final val owner = owner_
+  final val topDsn : DFDesign = owner match {
     case Some(o) => o.topDsn
-    case _ => this
+    case _ => this.asInstanceOf[DFDesign] //The top will always be a DFDesign
   }
-  final protected implicit val childParent = Some(this)
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks

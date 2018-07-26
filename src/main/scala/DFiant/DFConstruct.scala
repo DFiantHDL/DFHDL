@@ -11,6 +11,7 @@ trait DFConstruct extends HasProperties with Nameable with TypeNameable with Dis
 trait DFOwnerConstruct extends DFConstruct {
   protected implicit val blk : this.type = this
   val owner : Option[DFOwnerConstruct]
+  final protected implicit val childParent : Option[this.type] = Some(this)
 
   final protected[DFiant] lazy val protAlmanac = newAlmanac
   final private def newAlmanac : Almanac = {
