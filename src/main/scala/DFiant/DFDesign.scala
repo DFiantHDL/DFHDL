@@ -13,7 +13,6 @@ sealed abstract class DFBlock(
     case _ => this
   }
   final protected implicit val childParent = Some(this)
-  final protected[DFiant] lazy val protAlmanac = newAlmanac
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -28,14 +27,6 @@ sealed abstract class DFBlock(
     owner match {
       case Some(o) => o.newBlockGetID(this)
       case _ => 0
-    }
-  }
-  final private def newAlmanac : Almanac = {
-    owner match {
-      case Some(o) =>
-        o.protAlmanac.fetchComponent(o.protAlmanac.addBlock(new Almanac(name, Some(o.protAlmanac))))
-      case _ =>
-        new Almanac(name, None)
     }
   }
   final protected def printBlocks() : Unit = {

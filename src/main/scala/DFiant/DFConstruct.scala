@@ -10,6 +10,17 @@ trait DFConstruct extends HasProperties with Nameable with TypeNameable with Dis
 
 trait DFOwnerConstruct extends DFConstruct {
   protected implicit val blk : this.type = this
+  val owner : Option[DFOwnerConstruct]
+
+  final protected[DFiant] lazy val protAlmanac = newAlmanac
+  final private def newAlmanac : Almanac = {
+    owner match {
+      case Some(o) =>
+        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac(name, Some(o.protAlmanac))))
+      case _ =>
+        new Almanac(name, None)
+    }
+  }
 
   private var idCnt : Int = 0
   final protected[DFiant] def getNewID(run : => Unit) : Int = {run; idCnt += 1; idCnt}
