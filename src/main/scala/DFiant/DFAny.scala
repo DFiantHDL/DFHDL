@@ -338,8 +338,8 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val isAnonymous : Boolean = n.value == "$anon"
-    override protected def nameDefault: String = if (isAnonymous) s"$token" else n.value
+    final val isAnonymous : Boolean = false
+    override protected def nameDefault: String = s"$token"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

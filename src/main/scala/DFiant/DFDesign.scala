@@ -22,14 +22,8 @@ abstract class DFDesign(
   final protected[DFiant] val components : ListBuffer[DFDesign] = ListBuffer.empty[DFDesign]
   final protected[DFiant] val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
 
-  final protected def newComponentGetID(comp : DFDesign) : Int = {
-    components += comp
-    components.size
-  }
-  final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = {
-    rtcomponents += comp
-    rtcomponents.size
-  }
+  final protected def newComponentGetID(comp : DFDesign) : Int = getNewID(components += comp)
+  final protected[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
 
   final protected def addComponentToParentGetID : Int = {
     owner match {
@@ -55,10 +49,7 @@ abstract class DFDesign(
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final protected val dfvals : ListBuffer[DFAny] = ListBuffer.empty[DFAny]
   //adds the dataflow value to the list and returns its ID (starting from 1)
-  final protected[DFiant] def newDFValGetID(dfval : DFAny) : Int = {
-    dfvals += dfval
-    dfvals.size
-  }
+  final protected[DFiant] def newDFValGetID(dfval : DFAny) : Int = getNewID(dfvals += dfval)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected[DFiant] val keepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]

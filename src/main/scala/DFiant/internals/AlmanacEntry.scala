@@ -69,7 +69,7 @@ object AlmanacEntryNewDFVar {
 }
 
 
-final class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token], val name : String, _codeString : => String)(implicit almanac : Almanac) extends AlmanacEntryNamed {
+final class AlmanacEntryAliasDFVar private (val aliasedEntry : AlmanacEntryNamed, val relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token], val name : String, _codeString : => String)(implicit almanac : Almanac) extends AlmanacEntryNamed {
   val id : AlmanacID = aliasedEntry.id
   val address : AlmanacAddress = aliasedEntry.address
   val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(relBitsRange)
@@ -77,7 +77,7 @@ final class AlmanacEntryAliasDFVar private (aliasedEntry : AlmanacEntry, relBits
 }
 
 object AlmanacEntryAliasDFVar {
-  def apply(aliasedEntry : AlmanacEntry, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token], name : String, codeString : => String)(implicit almanac : Almanac) : AlmanacEntryAliasDFVar =
+  def apply(aliasedEntry : AlmanacEntryNamed, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token], name : String, codeString : => String)(implicit almanac : Almanac) : AlmanacEntryAliasDFVar =
     almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init, name, codeString))
 }
 

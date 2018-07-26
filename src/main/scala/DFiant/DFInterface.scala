@@ -10,11 +10,11 @@ trait DFInterface extends HasProperties with Nameable with TypeNameable with Dis
       classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)
     )
 
+  private var idCnt : Int = 0
+  final protected[DFiant] def getNewID(run : => Unit) : Int = {run; idCnt += 1; idCnt}
+
   final protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
-  final protected[DFiant] def newPortGetID(dfval : DFAny.Port[DFAny, DFDir]) : Int = {
-    ports += dfval
-    ports.size
-  }
+  final protected[DFiant] def newPortGetID(dfval : DFAny.Port[DFAny, DFDir]) : Int = getNewID(ports += dfval)
 
   final lazy val portsIn : List[DFAny.Port[DFAny, IN]] =
     ports.toList.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
