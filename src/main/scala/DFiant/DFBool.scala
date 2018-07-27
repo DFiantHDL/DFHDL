@@ -79,7 +79,7 @@ object DFBool extends DFAny.Companion {
   protected[DFiant] def const(token : DFBool.Token)(implicit blk : DFBlock, n : NameIt) : DFBool =
     new DFAny.Const(token) with DFBool
 
-  protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit blk : DFDesign, n : NameIt) : DFBool <> Dir =
+  protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit ctx : DFAny.Port.Context) : DFBool <> Dir =
     new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool {
       def constructCodeString : String = s"DFBool()"
 
@@ -137,7 +137,7 @@ object DFBool extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[Dir <: DFDir](implicit blk : DFDesign, n : NameIt)
+      implicit def conn[Dir <: DFDir](implicit ctx : DFAny.Port.Context)
       : Builder[DFBool, Dir] = (right, dir) => port[Dir](right, dir)
     }
   }

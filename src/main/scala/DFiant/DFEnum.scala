@@ -67,7 +67,7 @@ object DFEnum extends DFAny.Companion {
   ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
 
   protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
-    implicit blk : DFDesign, n : NameIt
+    implicit ctx : DFAny.Port.Context
   ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {
     def constructCodeString : String = s"DFEnum(???)"
   }
@@ -150,7 +150,7 @@ object DFEnum extends DFAny.Companion {
   object Port extends Port {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[E <: Enum, Dir <: DFDir](implicit blk : DFDesign, n : NameIt)
+      implicit def conn[E <: Enum, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
       : Builder[DFEnum[E], Dir] = (right, dir) => port[E, Dir](right, dir)
     }
   }

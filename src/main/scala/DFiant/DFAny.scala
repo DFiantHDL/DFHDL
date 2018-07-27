@@ -348,11 +348,12 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit protected val blk : DFDesign, cmp : Companion, n : NameIt
+    implicit ctx : Port.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
+    final implicit val blk : DFDesign = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -466,13 +467,23 @@ object DFAny {
     final val isPort = true
     protected def constructCodeString : String
     final def codeString : String = s"val $name = $constructCodeString <> $dir $initCodeString"
-    override protected def nameDefault: String = n.value
+    override protected def nameDefault: String = ctx.n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
 
-    final val id = blk.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
+    final val id = ctx.owner.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
   }
   object Port {
+    trait Context {
+      val owner : DFDesign
+      val n : NameIt
+    }
+    object Context {
+      implicit def ev(implicit evOwner : DFDesign, evNameIt : NameIt) : Context = new Context {
+        val owner: DFDesign = evOwner
+        val n: NameIt = evNameIt
+      }
+    }
     trait Builder[L <: DFAny, Dir <: DFDir] {
       def apply(right : L, dir : Dir) : L <> Dir
     }
