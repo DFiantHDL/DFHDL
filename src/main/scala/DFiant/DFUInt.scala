@@ -474,18 +474,8 @@ object DFUInt extends DFAny.Companion {
                   val opWidth = wcW(left.width, right.width)
                   val opInit = creationKind.opFunc(left.getInit, right.getInit)
                   val opInst = creationKind match {
-                    case `Ops+Or-`.+ =>
-                      new `U+U` {
-                        final val leftWidth = left.width
-                        final val rightWidth = right.width
-                        final val resultWidth = opWidth
-                      }
-                    case `Ops+Or-`.- =>
-                      new `U-U` {
-                        final val leftWidth = left.width
-                        final val rightWidth = right.width
-                        final val resultWidth = opWidth
-                      }
+                    case `Ops+Or-`.+ => new `U+U`(left.width, right.width, opWidth)
+                    case `Ops+Or-`.- => new `U-U`(left.width, right.width, opWidth)
                   }
                   val wc = new NewVar[WCW](opWidth).setAutoName(s"${n.value}.wc") //opInst.outResult.getInit
                   opInst.inLeft <> left
@@ -605,11 +595,7 @@ object DFUInt extends DFAny.Companion {
                   val opInit = Token.*(left.getInit, right.getInit)
                   val wc = new NewVar[WCW](wcWidth)
 
-                  val opInst = new `U*U` {
-                    final val leftWidth = left.width
-                    final val rightWidth = right.width
-                    final val resultWidth = wcWidth
-                  }
+                  val opInst = new `U*U`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   opInst.outResult <> wc
