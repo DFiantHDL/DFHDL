@@ -411,7 +411,7 @@ object DFAny {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
-    final implicit val owner : DFDesign = ctx.owner
+    final implicit val owner : DFInterface = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -533,12 +533,12 @@ object DFAny {
   }
   object Port {
     trait Context {
-      val owner : DFDesign
+      val owner : DFInterface
       val n : NameIt
     }
     object Context {
-      implicit def ev(implicit evOwner : DFDesign, evNameIt : NameIt) : Context = new Context {
-        val owner: DFDesign = evOwner
+      implicit def ev(implicit evOwner : DFInterface, evNameIt : NameIt) : Context = new Context {
+        val owner: DFInterface = evOwner
         val n: NameIt = evNameIt
       }
     }

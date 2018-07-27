@@ -92,24 +92,27 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   final override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 }
+
 object DFDesign {
   trait Context {
     val owner : Option[DFBlock]
     val basicLib : DFBasicLib
     val n : NameIt
   }
-  object Context {
-    implicit def ev(implicit evOwner : Option[DFBlock] = None, evBasicLib : DFBasicLib, evNameIt : NameIt)
-    : Context = new Context {
-      val owner: Option[DFBlock] = evOwner
-      val basicLib: DFBasicLib = evBasicLib
-      val n: NameIt = evNameIt
-    }
+  trait LowPriorityContext {
     implicit def ev2[Comp <: DFComponent[Comp]](implicit evCompCtx : DFComponent.Context[Comp])
     : Context = new Context {
       val owner: Option[DFBlock] = Some(evCompCtx.owner)
       val basicLib: DFBasicLib = evCompCtx.basicLib
       val n: NameIt = evCompCtx.n
+    }
+  }
+  object Context extends LowPriorityContext {
+    implicit def ev(implicit evOwner : Option[DFBlock] = None, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    : Context = new Context {
+      val owner: Option[DFBlock] = evOwner
+      val basicLib: DFBasicLib = evBasicLib
+      val n: NameIt = evNameIt
     }
   }
 }

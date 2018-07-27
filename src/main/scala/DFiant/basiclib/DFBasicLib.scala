@@ -8,7 +8,7 @@ trait DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFUInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class UopUeqU[Kind <: DiSoOp.Kind](leftWidth : Int, rightWidth : Int, resultWidth : Int)(
+  class UopUeqU[Kind <: DiSoOp.Kind](val leftWidth : Int, val rightWidth : Int, val resultWidth : Int)(
     implicit ctx : DFComponent.Context[UopUeqU[Kind]]
   ) extends DFComponent[UopUeqU[Kind]] {
     final lazy val inLeft = DFUInt(leftWidth) <> IN

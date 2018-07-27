@@ -3,30 +3,19 @@ import DFiant._
 import DFiant.DFComponent.Implementation
 
 trait Series {
-  trait RTAddSub extends RTComponent {
-//    protected val aWidth : Int
-//    protected val bWidth : Int
-//    protected val sWidth : Int
-    val A : DFUInt.Unbounded <> IN
-    val B : DFUInt.Unbounded <> IN
-    val S : DFUInt.Unbounded <> OUT
-//    final lazy val A = DFUInt(aWidth) <> IN
-//    final lazy val B = DFUInt(bWidth) <> IN
-//    final lazy val S = DFUInt(sWidth) <> OUT
+  class RTAddSub(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : DFAny.Op.Context) extends RTComponent {
+    final val A = DFUInt(aWidth) <> IN
+    final val B = DFUInt(bWidth) <> IN
+    final val S = DFUInt(sWidth) <> OUT
   }
 
   implicit object basicLib extends DFiant.basiclib.DFBasicLib {
     implicit def `evU+U`(implicit ctx : DFAny.Op.Context) : Implementation[`U+U`] = ifc => {
       import ifc._
-//      val rtInst = new RTAddSub {
-////        protected val aWidth : Int = inLeft.width
-////        protected val bWidth : Int = inRight.width
-////        protected val sWidth : Int = outResult.width
-//        val A = inLeft
-//        val B = inRight
-//        val S = outResult
-//      }
-
+      val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)
+      rtInst.A <> inLeft
+      rtInst.B <> inRight
+      rtInst.S <> outResult
     }
     implicit def `evU-U`(implicit ctx : DFAny.Op.Context) : Implementation[`U-U`] = ifc => {
       import ifc._
