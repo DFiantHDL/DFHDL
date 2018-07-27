@@ -117,10 +117,10 @@ object DFBits extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit blk : DFBlock, checkedWidth : BitsWidth.Checked[W], n : NameIt, di: DummyImplicit
+    implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : DFAny.NewVar with Var[W] = newVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
-    implicit blk : DFBlock, n : NameIt
+    implicit ctx : DFAny.NewVar.Context
   ) : DFAny.NewVar with Var[W] = newVar(checkedWidth.unsafeCheck())
   def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
@@ -130,13 +130,13 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit blk : DFBlock, n : NameIt) : DFAny.NewVar with Var[W] =
+  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit ctx : DFAny.NewVar.Context) : DFAny.NewVar with Var[W] =
     new DFAny.NewVar(width) with Var[W] {
       def constructCodeString : String = s"DFBits($width)"
     }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit blk : DFBlock, n : NameIt) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit ctx : DFAny.Alias.Context) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
       def constructCodeString : String = {
@@ -147,7 +147,7 @@ object DFBits extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def const[W](token : Token)(implicit blk : DFBlock, n : NameIt) : DFBits[W] =
+  protected[DFiant] def const[W](token : Token)(implicit ctx : DFAny.Const.Context) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

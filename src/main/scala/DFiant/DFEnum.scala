@@ -38,8 +38,8 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit blk : DFBlock, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
-  def apply[E <: Enum](e : E)(implicit blk : DFBlock, w : WidthOf[E], n : NameIt) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](e : E)(implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]) : NewVar[E] = new NewVar[E]()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -47,7 +47,7 @@ object DFEnum extends DFAny.Companion {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar[E <: Enum]()(
-    implicit blk : DFBlock, w : WidthOf[E], n : NameIt
+    implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]
   ) extends DFAny.NewVar(w) with Var[E]  {
     def constructCodeString : String = s"DFEnum(???)"
     //Port Construction
@@ -56,14 +56,14 @@ object DFEnum extends DFAny.Companion {
 
   protected[DFiant] def alias[E <: Enum]
   (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token[E]] = Seq())(
-    implicit blk : DFBlock, w : WidthOf[E], n : NameIt
+    implicit ctx : DFAny.Alias.Context, w : WidthOf[E]
   ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
     def constructCodeString : String = "AliasOfDFEnum???"
   }
 
   protected[DFiant] def const[E <: Enum](token : Token[E])(
-    implicit blk : DFBlock, w : WidthOf[E], n : NameIt
+    implicit ctx : DFAny.Const.Context, w : WidthOf[E]
   ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
 
   protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(

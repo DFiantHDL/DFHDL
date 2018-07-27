@@ -50,7 +50,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply()(implicit blk : DFBlock, n : NameIt) : NewVar = new NewVar()
+  implicit def apply()(implicit ctx : DFAny.NewVar.Context) : NewVar = new NewVar()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -58,14 +58,14 @@ object DFBool extends DFAny.Companion {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar()(
-    implicit blk : DFBlock, n : NameIt
+    implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar(1) with Var {
     def constructCodeString : String = s"DFBool()"
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit blk : DFBlock, n : NameIt) : Var =
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit ctx : DFAny.Alias.Context) : Var =
     new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
       def constructCodeString : String = {
@@ -76,7 +76,7 @@ object DFBool extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def const(token : DFBool.Token)(implicit blk : DFBlock, n : NameIt) : DFBool =
+  protected[DFiant] def const(token : DFBool.Token)(implicit ctx : DFAny.Const.Context) : DFBool =
     new DFAny.Const(token) with DFBool
 
   protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit ctx : DFAny.Port.Context) : DFBool <> Dir =

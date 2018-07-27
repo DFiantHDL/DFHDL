@@ -76,10 +76,10 @@ object DFUInt extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit blk : DFBlock, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit, n : NameIt
+    implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : NewVar[W] = new NewVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
-    implicit blk : DFBlock, n : NameIt
+    implicit ctx : DFAny.NewVar.Context
   ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
@@ -94,7 +94,7 @@ object DFUInt extends DFAny.Companion {
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar[W](width : TwoFace.Int[W])(
-    implicit blk : DFBlock, n : NameIt
+    implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar(width) with Var[W] {
     def constructCodeString : String = s"DFUInt($width)"
     //Port Construction
@@ -102,7 +102,7 @@ object DFUInt extends DFAny.Companion {
   }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFUInt.Token] = Seq())(implicit blk : DFBlock, n : NameIt) : Var[W] =
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[DFUInt.Token] = Seq())(implicit ctx : DFAny.Alias.Context) : Var[W] =
     new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = {
@@ -113,14 +113,14 @@ object DFUInt extends DFAny.Companion {
       }
     }
 
-  protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit blk : DFBlock, n : NameIt) : Var[W] with Extendable =
+  protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit ctx : DFAny.Alias.Context) : Var[W] with Extendable =
     new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = s"${extendedVar.name}.extendable"
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
 
-  protected[DFiant] def const[W](token : DFUInt.Token)(implicit blk : DFBlock, n : NameIt) : DFUInt[W] =
+  protected[DFiant] def const[W](token : DFUInt.Token)(implicit ctx : DFAny.Const.Context) : DFUInt[W] =
     new DFAny.Const(token) with DFUInt[W]
 
   protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit ctx : DFAny.Port.Context) : DFUInt[W] <> Dir =

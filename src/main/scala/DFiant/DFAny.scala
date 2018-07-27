@@ -276,9 +276,10 @@ object DFAny {
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int)(
-    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
+    implicit ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
+    final implicit val blk : DFBlock = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
@@ -287,7 +288,7 @@ object DFAny {
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = blk.newDFValGetID(this)
-    final val isAnonymous : Boolean = n.value == "$anon"
+    final val isAnonymous : Boolean = ctx.n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -295,25 +296,26 @@ object DFAny {
     //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     override protected def nameDefault: String = {
       if (isAnonymous) "$" + s"anon$id"
-      else n.value
+      else ctx.n.value
     }
   }
   object NewVar {
     trait Context {
-      val owner : DFOwnerConstruct
+      val owner : DFBlock
       val n : NameIt
     }
     object Context {
-      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
-        val owner: DFOwnerConstruct = evOwner
+      implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
+        val owner: DFBlock = evOwner
         val n: NameIt = evNameIt
       }
     }
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
-    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
+    implicit ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
+    final implicit val blk : DFBlock = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -334,28 +336,29 @@ object DFAny {
     final val isPort = false
 
     final val id = blk.newDFValGetID(this)
-    final val isAnonymous : Boolean = n.value == "$anon"
+    final val isAnonymous : Boolean = ctx.n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
     override protected def nameDefault: String =
-      if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName else n.value
+      if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName else ctx.n.value
   }
   object Alias {
     trait Context {
-      val owner : DFOwnerConstruct
+      val owner : DFBlock
       val n : NameIt
     }
     object Context {
-      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
-        val owner: DFOwnerConstruct = evOwner
+      implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
+        val owner: DFBlock = evOwner
         val n: NameIt = evNameIt
       }
     }
   }
 
   abstract class Const(token : Token)(
-    implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
+    implicit ctx : Const.Context, cmp : Companion
   ) extends DFAny {
+    final implicit val blk : DFBlock = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -368,12 +371,12 @@ object DFAny {
   }
   object Const {
     trait Context {
-      val owner : DFOwnerConstruct
+      val owner : DFBlock
       val n : NameIt
     }
     object Context {
-      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
-        val owner: DFOwnerConstruct = evOwner
+      implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
+        val owner: DFBlock = evOwner
         val n: NameIt = evNameIt
       }
     }
