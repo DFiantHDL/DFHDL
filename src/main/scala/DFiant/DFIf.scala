@@ -4,21 +4,21 @@ import DFiant.internals._
 import DFiant.basiclib.DFBasicLib
 
 object ifdf {
-  protected[DFiant] def execIf(cond: DFBool)(block: => Unit)(implicit blk : DFBlock) {
+  protected[DFiant] def execIf(cond: DFBool)(block: => Unit)(implicit ctx : DFAny.Op.Context) {
     block
   }
-  def apply(cond: DFBool)(block: => Unit)(implicit blk : DFBlock): IfBool = {
+  def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFAny.Op.Context): IfBool = {
     new IfBool(cond)
   }
 
 }
 
-class ElseIfClause(val cond : DFBool, _block: => Unit)(implicit blk : DFBlock){
+class ElseIfClause(val cond : DFBool, _block: => Unit)(implicit ctx : DFAny.Op.Context){
   def unary_! : ElseIfClause = new ElseIfClause(!cond, _block)
   def block = _block
 }
 
-class IfBool (prevCond: DFBool)(implicit blk : DFBlock) {
+class IfBool (prevCond: DFBool)(implicit ctx : DFAny.Op.Context) {
   def elseifdf (clause : DFBool)(block : => Unit) : IfBool = ??? //privElseifdf(clause.cond)(clause.block)
 //  def elseifdf (clause : ElseIfClause) : IfBool = privElseifdf(clause.cond)(clause.block)
   private def privElseifdf (cond : DFBool)(block: => Unit) : IfBool = {

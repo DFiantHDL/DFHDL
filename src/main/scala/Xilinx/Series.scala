@@ -16,7 +16,7 @@ trait Series {
   }
 
   implicit object basicLib extends DFiant.basiclib.DFBasicLib {
-    implicit def `evU+U`(implicit blk : DFBlock) : Implementation[`U+U`] = ifc => {
+    implicit def `evU+U`(implicit ctx : DFAny.Op.Context) : Implementation[`U+U`] = ifc => {
       import ifc._
 //      val rtInst = new RTAddSub {
 ////        protected val aWidth : Int = inLeft.width
@@ -28,36 +28,36 @@ trait Series {
 //      }
 
     }
-    implicit def `evU-U`(implicit blk : DFBlock) : Implementation[`U-U`] = ifc => {
+    implicit def `evU-U`(implicit ctx : DFAny.Op.Context) : Implementation[`U-U`] = ifc => {
       import ifc._
     }
-    implicit def `evU*U`(implicit blk : DFBlock) : Implementation[`U*U`] = ifc => {
-      import ifc._
-    }
-
-    implicit def `evU==U`[LW, RW](implicit blk : DFBlock) : Implementation[`U==U`[LW, RW]] = ifc => {
-      import ifc._
-    }
-    implicit def `evU!=U`[LW, RW](implicit blk : DFBlock) : Implementation[`U!=U`[LW, RW]] = ifc => {
-      import ifc._
-    }
-    implicit def `evU<U`[LW, RW](implicit blk : DFBlock) : Implementation[`U<U`[LW, RW]] = ifc => {
-      import ifc._
-    }
-    implicit def `evU>U`[LW, RW](implicit blk : DFBlock) : Implementation[`U>U`[LW, RW]] = ifc => {
-      import ifc._
-    }
-    implicit def `evU<=U`[LW, RW](implicit blk : DFBlock) : Implementation[`U<=U`[LW, RW]] = ifc => {
-      import ifc._
-    }
-    implicit def `evU>=U`[LW, RW](implicit blk : DFBlock) : Implementation[`U>=U`[LW, RW]] = ifc => {
+    implicit def `evU*U`(implicit ctx : DFAny.Op.Context) : Implementation[`U*U`] = ifc => {
       import ifc._
     }
 
-    implicit def `evE==E`[E <: Enum](implicit blk : DFBlock) : Implementation[`E==E`[E]] = ifc => {
+    implicit def `evU==U`(implicit ctx : DFAny.Op.Context) : Implementation[`U==U`] = ifc => {
       import ifc._
     }
-    implicit def `evE!=E`[E <: Enum](implicit blk : DFBlock) : Implementation[`E!=E`[E]] = ifc => {
+    implicit def `evU!=U`(implicit ctx : DFAny.Op.Context) : Implementation[`U!=U`] = ifc => {
+      import ifc._
+    }
+    implicit def `evU<U`(implicit ctx : DFAny.Op.Context) : Implementation[`U<U`] = ifc => {
+      import ifc._
+    }
+    implicit def `evU>U`(implicit ctx : DFAny.Op.Context) : Implementation[`U>U`] = ifc => {
+      import ifc._
+    }
+    implicit def `evU<=U`(implicit ctx : DFAny.Op.Context) : Implementation[`U<=U`] = ifc => {
+      import ifc._
+    }
+    implicit def `evU>=U`(implicit ctx : DFAny.Op.Context) : Implementation[`U>=U`] = ifc => {
+      import ifc._
+    }
+
+    implicit def `evE==E`[E <: Enum](implicit ctx : DFAny.Op.Context) : Implementation[`E==E`[E]] = ifc => {
+      import ifc._
+    }
+    implicit def `evE!=E`[E <: Enum](implicit blk : DFAny.Op.Context) : Implementation[`E!=E`[E]] = ifc => {
       import ifc._
     }
 

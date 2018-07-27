@@ -180,7 +180,7 @@ sealed trait DFAny extends DFConstruct {
   def simWatch : BigInt = ???
   //////////////////////////////////////////////////////////////////////////
 
-  def casedf(a: TVal)(block : => Unit)(implicit blk : DFBlock) : DFCase[TVal] = {
+  def casedf(a: TVal)(block : => Unit)(implicit ctx : DFAny.Op.Context) : DFCase[TVal] = {
 //    def casedf_(block : => Unit) : Unit = {}
     ???
   }
@@ -234,8 +234,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     private type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], blk : DFBlock
-    ) = assign(op(left, right), blk)
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
+    ) = assign(op(left, right), ctx.owner)
     final protected var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny, blk : DFBlock) : TVar = {
       assigned = true
@@ -304,7 +304,13 @@ object DFAny {
       val owner : DFBlock
       val n : NameIt
     }
-    object Context {
+    trait LowPriorityContext {
+      implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
+        val owner: DFBlock = evOpContext.owner
+        val n: NameIt = evOpContext.n
+      }
+    }
+    object Context extends LowPriorityContext {
       implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
         val owner: DFBlock = evOwner
         val n: NameIt = evNameIt
@@ -347,7 +353,13 @@ object DFAny {
       val owner : DFBlock
       val n : NameIt
     }
-    object Context {
+    trait LowPriorityContext {
+      implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
+        val owner: DFBlock = evOpContext.owner
+        val n: NameIt = evOpContext.n
+      }
+    }
+    object Context extends LowPriorityContext {
       implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
         val owner: DFBlock = evOwner
         val n: NameIt = evNameIt
@@ -374,7 +386,13 @@ object DFAny {
       val owner : DFBlock
       val n : NameIt
     }
-    object Context {
+    trait LowPriorityContext {
+      implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
+        val owner: DFBlock = evOpContext.owner
+        val n: NameIt = evOpContext.n
+      }
+    }
+    object Context extends LowPriorityContext {
       implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
         val owner: DFBlock = evOwner
         val n: NameIt = evNameIt
@@ -480,7 +498,7 @@ object DFAny {
       }
       connect(fromPort, toPort)
     }
-    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit blk : DFBlock) : Unit = connectPort2Port(right, blk)
+    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : DFAny.Op.Context) : Unit = connectPort2Port(right, ctx.owner)
     final protected[DFiant] def connectVal2Port(dfVal : DFAny, blk : DFBlock) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
@@ -499,8 +517,8 @@ object DFAny {
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op<>`.Builder[TVal, R], blk : DFBlock
-    ) : Unit = connectVal2Port(op(left, right), blk)
+      implicit op: protComp.`Op<>`.Builder[TVal, R], ctx : DFAny.Op.Context
+    ) : Unit = connectVal2Port(op(left, right), ctx.owner)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP

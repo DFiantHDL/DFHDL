@@ -17,17 +17,17 @@ object DFBool extends DFAny.Companion {
     type TVar = DFBool.Var
     type TToken = DFBool.Token
     type Width = 1
-    def unary_!(implicit blk : DFBlock)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
+    def unary_!(implicit ctx : DFAny.Op.Context)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
 
     def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
     def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
     //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
     //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
     //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
-    def rising (implicit blk : DFBlock, n : NameIt) : DFBool = left && !left.prev(1)
-    def falling (implicit blk : DFBlock, n : NameIt) : DFBool = !left && left.prev(1)
+    def rising (implicit ctx : DFAny.Op.Context) : DFBool = left && !left.prev(1)
+    def falling (implicit ctx : DFAny.Op.Context) : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit blk : DFBlock, n : NameIt) = ??? //new DFBool.NewVar(Seq(DFBool.Token(false)))
+    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = ??? //new DFBool.NewVar(Seq(DFBool.Token(false)))
 
     override lazy val typeName : String = s"DFBool"
 
@@ -197,8 +197,8 @@ object DFBool extends DFAny.Companion {
       def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       def <> [RDIR <: DFDir](port : DFBool <> RDIR)(
-        implicit op: `Op<>`.Builder[DFBool, L], blk : DFBlock
-      ) = port.connectVal2Port(op(port, left), blk)
+        implicit op: `Op<>`.Builder[DFBool, L], ctx : DFAny.Op.Context
+      ) = port.connectVal2Port(op(port, left), ctx.owner)
     }
     trait Implicits {
       implicit class DFBoolFromXInt[L <: XInt](left : L) extends Able[L](left)
@@ -217,12 +217,12 @@ object DFBool extends DFAny.Companion {
     def apply(value : N) : DFBool
   }
   object Const {
-    implicit def fromInt[Sym, N <: Int](implicit blk : DFBlock, n : NameIt, checkBin : BinaryInt.CheckedShellSym[Sym, N])
+    implicit def fromInt[Sym, N <: Int](implicit ctx : DFAny.Const.Context, checkBin : BinaryInt.CheckedShellSym[Sym, N])
     : Const[Sym, N] = value => {
       checkBin.unsafeCheck(value)
       const(Token(value))
     }
-    implicit def fromBoolean[Sym, N <: Boolean](implicit blk : DFBlock, n : NameIt)
+    implicit def fromBoolean[Sym, N <: Boolean](implicit ctx : DFAny.Const.Context)
     : Const[Sym, N] = value => const(Token(value))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,10 +246,10 @@ object DFBool extends DFAny.Companion {
         def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
       }
 
-      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit blk : DFBlock, n : NameIt)
+      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit ctx : DFAny.Op.Context)
       : Aux[DFBool, DFBool, DFBool] = create[DFBool, DFBool]((left, right) => right)
 
-      implicit def evDFBool_op_Const[L <: DFBool, R](implicit blk : DFBlock, n : NameIt, rConst : Const[Builder[_,_], R])
+      implicit def evDFBool_op_Const[L <: DFBool, R](implicit ctx : DFAny.Op.Context, rConst : Const[Builder[_,_], R])
       : Aux[DFBool, R, DFBool] = create[DFBool, R]((left, rightNum) => {
         val right = rConst(rightNum)
         right
@@ -269,7 +269,7 @@ object DFBool extends DFAny.Companion {
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
     object Builder {
-      def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit blk : DFBlock, n : NameIt)
+      def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = new Builder[L, R] {
         def apply(leftL : L, rightR : R) : Comp = {
           val (left, right) = properLR(leftL, rightR)
@@ -279,16 +279,16 @@ object DFBool extends DFAny.Companion {
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](
         implicit
-        blk : DFBlock, n : NameIt,
+        ctx : DFAny.Op.Context,
       ) : Builder[DFBool, DFBool] =  create[DFBool, DFBool]((left, right) => (left, right))
 
-      implicit def evDFBool_op_Const[L <: DFBool, R](implicit blk : DFBlock, n : NameIt, rConst : Const[Builder[_,_], R])
+      implicit def evDFBool_op_Const[L <: DFBool, R](implicit ctx : DFAny.Op.Context, rConst : Const[Builder[_,_], R])
       : Builder[DFBool, R] = create[DFBool, R]((left, rightNum) => {
         val right = rConst(rightNum)
         (left, right)
       })
 
-      implicit def evConst_op_DFBool[L, R <: DFBool](implicit blk : DFBlock, n : NameIt, lConst : Const[Builder[_,_], L])
+      implicit def evConst_op_DFBool[L, R <: DFBool](implicit ctx : DFAny.Op.Context, lConst : Const[Builder[_,_], L])
       : Builder[L, DFBool] = create[L, DFBool]((leftNum, right) => {
         val left = lConst(leftNum)
         (left, right)
@@ -313,7 +313,7 @@ object DFBool extends DFAny.Companion {
   // For If Clause
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit class ElseIfClauseBuilder[B <: Unbounded](cond : B){
-    def apply(block : => Unit)(implicit blk : DFBlock, n : NameIt): ElseIfClause = ??? //new ElseIfClause(cond, block)
+    def apply(block : => Unit)(implicit ctx : DFAny.Op.Context): ElseIfClause = ??? //new ElseIfClause(cond, block)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
