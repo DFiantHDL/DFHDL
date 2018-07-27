@@ -32,7 +32,7 @@ class IfBool (prevCond: DFBool)(implicit blk : DFBlock) {
 }
 
 
-protected abstract class DFIfBlock(cond : DFBool)(implicit blk : DFBlock, basicLib: DFBasicLib, n : NameIt
-) extends DFBlock()(Some(blk), basicLib, n) {
-}
+//protected abstract class DFIfBlock(cond : DFBool)(implicit blk : DFBlock, basicLib: DFBasicLib, n : NameIt
+//) extends DFBlock()(Some(blk), basicLib, n) {
+//}
 

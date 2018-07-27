@@ -24,6 +24,12 @@ object GlobalDesignName extends NameIt {
   override val value: String = "???"
 }
 
-object GlobalDesign extends DFDesign()(None, DFGlobalLib, GlobalDesignName) {
+object GlobalContext extends DFDesign.Context {
+  override val owner: Option[DFBlock] = None
+  override val basicLib: DFBasicLib = DFGlobalLib
+  override val n: NameIt = GlobalDesignName
+}
+
+object GlobalDesign extends DFDesign()(GlobalContext) {
   override implicit val blk = this
 }

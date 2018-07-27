@@ -5,10 +5,9 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-protected abstract class DFBlock(
-  implicit owner_ : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
-) extends DFOwnerConstruct with Implicits {
-  final val owner = owner_
+protected abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFOwnerConstruct with Implicits {
+  final val owner = ctx.owner
+  final implicit val basicLib = ctx.basicLib
   final val topDsn : DFDesign = owner match {
     case Some(o) => o.topDsn
     case _ => this.asInstanceOf[DFDesign] //The top will always be a DFDesign
@@ -48,7 +47,7 @@ protected abstract class DFBlock(
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final def isTop : Boolean = owner.isEmpty
-  final override protected def nameDefault: String = if (isTop && n.value == "$anon") "top" else n.value
+  final override protected def nameDefault: String = if (isTop && ctx.n.value == "$anon") "top" else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,21 +75,77 @@ protected abstract class DFBlock(
   final val id = addBlockToOwnerGetID
 }
 object DFBlock {
+  trait Context {
+    val owner : Option[DFBlock]
+    val basicLib : DFBasicLib
+    val n : NameIt
+  }
+  object Context {
+    implicit def ev(implicit evOwner : Option[DFBlock] = None, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    : Context = new Context {
+      val owner: Option[DFBlock] = evOwner
+      val basicLib: DFBasicLib = evBasicLib
+      val n: NameIt = evNameIt
+    }
+    implicit def ev2(implicit evDesignContext : DFDesign.Context)
+    : Context = new Context {
+      val owner: Option[DFBlock] = evDesignContext.owner
+      val basicLib: DFBasicLib = evDesignContext.basicLib
+      val n: NameIt = evDesignContext.n
+    }
+  }
 }
 
-abstract class DFDesign(implicit owner : Option[DFBlock] = None, basicLib: DFBasicLib, n : NameIt
-) extends DFBlock with DFInterface {
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   final override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 }
+object DFDesign {
+  trait Context {
+    val owner : Option[DFBlock]
+    val basicLib : DFBasicLib
+    val n : NameIt
+  }
+  object Context {
+    implicit def ev(implicit evOwner : Option[DFBlock] = None, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    : Context = new Context {
+      val owner: Option[DFBlock] = evOwner
+      val basicLib: DFBasicLib = evBasicLib
+      val n: NameIt = evNameIt
+    }
+    implicit def ev2[Comp <: DFComponent[Comp]](implicit evCompCtx : DFComponent.Context[Comp])
+    : Context = new Context {
+      val owner: Option[DFBlock] = Some(evCompCtx.owner)
+      val basicLib: DFBasicLib = evCompCtx.basicLib
+      val n: NameIt = evCompCtx.n
+    }
+  }
+}
 
-abstract class DFComponent[Comp <: DFComponent[Comp]](
-  implicit blk : DFBlock, impl : DFComponent.Implementation[Comp], basicLib: DFBasicLib, n : NameIt
-) extends DFDesign()(Some(blk), basicLib, n) {
-  impl(this.asInstanceOf[Comp])
+
+abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp])
+  extends DFDesign {
+  ctx.impl(this.asInstanceOf[Comp])
 }
 
 object DFComponent {
+  trait Context[Comp <: DFComponent[Comp]] {
+    val owner : DFBlock
+    val impl : DFComponent.Implementation[Comp]
+    val basicLib : DFBasicLib
+    val n : NameIt
+  }
+  object Context {
+    implicit def ev[Comp <: DFComponent[Comp]](
+      implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib, evNameIt : NameIt
+    ) : Context[Comp] = new Context[Comp] {
+      val owner: DFBlock = evOwner
+      val impl: DFComponent.Implementation[Comp] = evImpl
+      val basicLib: DFBasicLib = evBasicLib
+      val n: NameIt = evNameIt
+    }
+  }
+
   trait Implementation[Comp <: DFComponent[Comp]] {
     def apply(comp : Comp) : Unit
   }
