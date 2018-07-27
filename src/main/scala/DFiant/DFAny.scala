@@ -143,7 +143,7 @@ sealed trait DFAny extends DFConstruct {
   // Naming
   //////////////////////////////////////////////////////////////////////////
   val isAnonymous : Boolean
-  lazy val fullName : String = s"${blk.fullName}.$name"
+  lazy val fullName : String = s"${owner.fullName}.$name"
   def codeString : String
   override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
@@ -160,11 +160,11 @@ sealed trait DFAny extends DFConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  implicit protected val blk : DFBlock
+  implicit protected val owner : DFOwnerConstruct
   protected def discoveryDepenencies : List[Discoverable] = List()
-  final implicit protected lazy val protAlmanac : Almanac = blk.protAlmanac
+  final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
   def keep : this.type = {
-    blk.keepList += this
+    owner.keepList += this
     this
   }
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
@@ -239,7 +239,7 @@ object DFAny {
     final protected var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny, blk : DFBlock) : TVar = {
       assigned = true
-      if (this.blk ne blk) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${blk.fullName})")
+      if (this.owner ne blk) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${blk.fullName})")
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -258,7 +258,7 @@ object DFAny {
     final private var initialized : Boolean = false
     final protected def initialize(updatedInit : () => Seq[TToken], blk : DFOwnerConstruct) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-      if (this.blk ne blk) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${blk.fullName})")
+      if (this.owner ne blk) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${blk.fullName})")
       initialized = true
       setInitFunc(updatedInit)
     }
@@ -279,7 +279,7 @@ object DFAny {
     implicit ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
-    final implicit val blk : DFBlock = ctx.owner
+    final implicit val owner : DFOwnerConstruct = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
@@ -287,7 +287,7 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val id = blk.newDFValGetID(this)
+    final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = ctx.n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -321,7 +321,7 @@ object DFAny {
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
     implicit ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
-    final implicit val blk : DFBlock = ctx.owner
+    final implicit val owner : DFOwnerConstruct = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -341,7 +341,7 @@ object DFAny {
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
 
-    final val id = blk.newDFValGetID(this)
+    final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = ctx.n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
@@ -350,18 +350,18 @@ object DFAny {
   }
   object Alias {
     trait Context {
-      val owner : DFBlock
+      val owner : DFOwnerConstruct
       val n : NameIt
     }
     trait LowPriorityContext {
       implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
-        val owner: DFBlock = evOpContext.owner
+        val owner: DFOwnerConstruct = evOpContext.owner
         val n: NameIt = evOpContext.n
       }
     }
     object Context extends LowPriorityContext {
-      implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
-        val owner: DFBlock = evOwner
+      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
+        val owner: DFOwnerConstruct = evOwner
         val n: NameIt = evNameIt
       }
     }
@@ -370,7 +370,7 @@ object DFAny {
   abstract class Const(token : Token)(
     implicit ctx : Const.Context, cmp : Companion
   ) extends DFAny {
-    final implicit val blk : DFBlock = ctx.owner
+    final implicit val owner : DFOwnerConstruct = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -411,7 +411,7 @@ object DFAny {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
-    final implicit val blk : DFDesign = ctx.owner
+    final implicit val owner : DFDesign = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -448,7 +448,7 @@ object DFAny {
     private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], blk : DFBlock) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
-      val (fromPort, toPort) = (left.blk, right.blk, blk) match {
+      val (fromPort, toPort) = (left.owner, right.owner, blk) match {
         //Ports in the same design, connected at the same design
         case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
@@ -504,13 +504,13 @@ object DFAny {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], blk)
       else {
-        if (port.blk.owner.isDefined && (port.blk.owner.get eq dfVal.blk)) {
+        if (port.owner.owner.isDefined && (port.owner.owner.get eq dfVal.owner)) {
           if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
-          if (blk ne dfVal.blk) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
+          if (blk ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
         }
-        else if (port.blk eq dfVal.blk) {
+        else if (port.owner eq dfVal.owner) {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
-          if (blk ne dfVal.blk) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
+          if (blk ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port")
         connect(dfVal, port)
