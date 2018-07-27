@@ -135,7 +135,7 @@ object DFEnum extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev[E <: Enum](implicit blk : DFBlock, w : WidthOf[E], n : NameIt) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
+      implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context, w : WidthOf[E]) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
           alias(left, 0, -right, left.getInit)
       }

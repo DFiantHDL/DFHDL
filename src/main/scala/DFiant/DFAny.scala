@@ -30,38 +30,38 @@ sealed trait DFAny extends DFConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
-  final protected def protBit[I](relBit : TwoFace.Int[I])(implicit blk : DFBlock, n : NameIt) : TBool =
+  final protected def protBit[I](relBit : TwoFace.Int[I])(implicit ctx : DFAny.Alias.Context) : TBool =
     DFBool.alias(this, relBit).asInstanceOf[TBool]
 
-  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit blk : DFBlock, n : NameIt) : TBool =
+  final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Alias.Context) : TBool =
     protBit(relBit.unsafeCheck(width))
-  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], blk : DFBlock, n : NameIt, di : DummyImplicit) : TBool =
+  final def bit[I](implicit relBit : BitIndex.Checked[I, Width], ctx : DFAny.Alias.Context, di : DummyImplicit) : TBool =
     protBit(relBit.unsafeCheck(width))
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits()(implicit blk : DFBlock, n : NameIt) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
+  final def bits()(implicit ctx : DFAny.Alias.Context) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
-    implicit relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt
+    implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
   ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt
+    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
   ) = {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
 
   final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
-    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt, di : DummyImplicit
+    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context, di : DummyImplicit
   ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
   final def bits[H <: Int, L <: Int](range : XRange.Int[L, H])(
     implicit relBitHigh : BitIndex.CheckedShell[H, Width], relBitLow : BitIndex.CheckedShell[L, Width],
-    relWidth : RelWidth.TF[H, L], blk : DFBlock, n : NameIt
+    relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
   ) = {
     relBitHigh.unsafeCheck(range.end, width)
     relBitLow.unsafeCheck(range.start, width)
@@ -72,19 +72,19 @@ sealed trait DFAny extends DFConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
-  final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit blk : DFBlock, n : NameIt)
+  final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit ctx : DFAny.Alias.Context)
   : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
-    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], blk : DFBlock, n : NameIt
+    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Alias.Context
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
   }
 
   final def bitsWL[W, L](implicit relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width],
-    checkRelWidth : PartWidth.CheckedShell[W, Width - L], blk : DFBlock, n : NameIt, di : DummyImplicit
+    checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Alias.Context, di : DummyImplicit
   ) = {
     checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
     protBitsWL(relWidth, relBitLow.unsafeCheck(width))
@@ -250,13 +250,13 @@ object DFAny {
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
     final def init(that : protComp.Init.Able[TVal]*)(
-      implicit op : protComp.Init.Builder[TVal, TToken], blk : DFBlock
+      implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
-      initialize(() => op(left, that), blk)
+      initialize(() => op(left, that), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected def initialize(updatedInit : () => Seq[TToken], blk : DFBlock) : Unit = {
+    final protected def initialize(updatedInit : () => Seq[TToken], blk : DFOwnerConstruct) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.blk ne blk) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${blk.fullName})")
       initialized = true

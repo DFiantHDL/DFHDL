@@ -179,7 +179,7 @@ object DFBool extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev(implicit blk : DFBlock, n : NameIt) : Builder[DFBool] = new Builder[DFBool] {
+      implicit def ev(implicit ctx : DFAny.Alias.Context) : Builder[DFBool] = new Builder[DFBool] {
         def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
           DFBool.alias(left, 0, -right, left.getInit)
       }

@@ -238,7 +238,7 @@ object DFUInt extends DFAny.Companion {
   object Prev extends Prev {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
-      implicit def ev[LW](implicit blk : DFBlock, n : NameIt) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
+      implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply[P](left : DFUInt[LW], right : Natural.Int.Checked[P]) : DFUInt[LW] =
           DFUInt.alias(left, left.width, 0, -right, left.getInit)
       }
