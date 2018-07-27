@@ -1,5 +1,8 @@
 package DFiant
 
+import DFiant.internals._
+import DFiant.basiclib.DFBasicLib
+
 object ifdf {
   protected[DFiant] def execIf(cond: DFBool)(block: => Unit)(implicit blk : DFBlock) {
     block
@@ -29,5 +32,7 @@ class IfBool (prevCond: DFBool)(implicit blk : DFBlock) {
 }
 
 
-
+protected abstract class DFIfBlock(cond : DFBool)(implicit blk : DFBlock, basicLib: DFBasicLib, n : NameIt
+) extends DFBlock()(Some(blk), basicLib, n) {
+}
 

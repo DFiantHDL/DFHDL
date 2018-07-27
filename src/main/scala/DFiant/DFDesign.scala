@@ -5,7 +5,7 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-sealed abstract class DFBlock(
+protected abstract class DFBlock(
   implicit owner_ : Option[DFBlock] = None, val basicLib: DFBasicLib, n : NameIt
 ) extends DFOwnerConstruct with Implicits {
   final val owner = owner_

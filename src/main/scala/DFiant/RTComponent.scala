@@ -4,14 +4,14 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class RTComponent(implicit blk_ : DFBlock, n : NameIt) extends DFInterface {
+abstract class RTComponent(implicit blk : DFBlock, n : NameIt) extends DFInterface {
   protected def newGeneric() : Unit = {}
 
   final override protected def discoveryDepenencies : List[Discoverable] =
     portNodes.map(pn => pn.dfport).filter(p => p.dir.isIn)
   final protected def discovery : Unit = {}
 
-  final val id = blk_.newRTComponentGetID(this)
+  final val id = blk.newRTComponentGetID(this)
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
