@@ -30,7 +30,7 @@ object TestUtils {
     true
   }
 
-  def trimWhites(s : String) : String = s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "").trim
+  def trimWhites(s : String) : String = s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "").trim.filter(_ >= ' ')
 
   implicit class StringEnhancer(s : String) {
     def =@= (that : String) : Boolean = trimWhites(s) == trimWhites(that)
