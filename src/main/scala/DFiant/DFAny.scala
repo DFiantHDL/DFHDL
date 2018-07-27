@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -297,6 +298,18 @@ object DFAny {
       else n.value
     }
   }
+  object NewVar {
+    trait Context {
+      val owner : DFOwnerConstruct
+      val n : NameIt
+    }
+    object Context {
+      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
+        val owner: DFOwnerConstruct = evOwner
+        val n: NameIt = evNameIt
+      }
+    }
+  }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
     implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
@@ -327,6 +340,18 @@ object DFAny {
     override protected def nameDefault: String =
       if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName else n.value
   }
+  object Alias {
+    trait Context {
+      val owner : DFOwnerConstruct
+      val n : NameIt
+    }
+    object Context {
+      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
+        val owner: DFOwnerConstruct = evOwner
+        val n: NameIt = evNameIt
+      }
+    }
+  }
 
   abstract class Const(token : Token)(
     implicit protected val blk : DFBlock, cmp : Companion, n : NameIt
@@ -340,6 +365,18 @@ object DFAny {
     final val isPort = false
     final val isAnonymous : Boolean = false
     override protected def nameDefault: String = s"$token"
+  }
+  object Const {
+    trait Context {
+      val owner : DFOwnerConstruct
+      val n : NameIt
+    }
+    object Context {
+      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
+        val owner: DFOwnerConstruct = evOwner
+        val n: NameIt = evNameIt
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -611,6 +648,18 @@ object DFAny {
     trait Builder[L, R] {
       type Comp <: DFAny
       def apply(left : L, rightR : R) : Comp
+    }
+    trait Context {
+      val owner : DFBlock
+      val basicLib : DFBasicLib
+      val n : NameIt
+    }
+    object Context {
+      implicit def ev(implicit evOwner : DFBlock, evBasicLib : DFBasicLib, evNameIt : NameIt) : Context = new Context {
+        val owner: DFBlock = evOwner
+        val basicLib: DFBasicLib = evBasicLib
+        val n: NameIt = evNameIt
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
