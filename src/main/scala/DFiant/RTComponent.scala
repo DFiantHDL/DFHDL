@@ -12,8 +12,6 @@ abstract class RTComponent(implicit ctx : DFAny.Op.Context) extends DFInterface 
     portNodes.map(pn => pn.dfport).filter(p => p.dir.isIn)
   final protected def discovery : Unit = {}
 
-  final val id = ctx.owner.newRTComponentGetID(this)
-
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +23,7 @@ abstract class RTComponent(implicit ctx : DFAny.Op.Context) extends DFInterface 
     //set Output Ports Dependency
     portNodes.map(pn => pn.dfport).filter(p => p.dir.isOut).foreach(p => p.setComponentDependency(this))
   }
-
+  final val id = getID
 }
 
 object RTComponent {

@@ -10,14 +10,14 @@ trait DFInterface extends DFAnyOwner {
       classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)
     )
 
-  final protected val ports : ListBuffer[DFAny.Port[DFAny, DFDir]] = ListBuffer.empty[DFAny.Port[DFAny, DFDir]]
-  final protected[DFiant] def newPortGetID(dfval : DFAny.Port[DFAny, DFDir]) : Int = getNewID(ports += dfval)
+  final protected lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
+    ownedList.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
 
   final lazy val portsIn : List[DFAny.Port[DFAny, IN]] =
-    ports.toList.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
+    ports.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
 
   final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
-    ports.toList.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
+    ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
   val fullName : String
   override lazy val typeName: String = {

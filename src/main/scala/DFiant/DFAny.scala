@@ -283,7 +283,6 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = ctx.n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -294,6 +293,7 @@ object DFAny {
       if (isAnonymous) "$" + s"anon$id"
       else ctx.n.value
     }
+    final val id = getID
   }
   object NewVar {
     trait Context {
@@ -337,12 +337,12 @@ object DFAny {
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
 
-    final val id = owner.newDFValGetID(this)
     final val isAnonymous : Boolean = ctx.n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
     override protected def nameDefault: String =
       if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName else ctx.n.value
+    final val id = getID
   }
   object Alias {
     trait Context {
@@ -376,6 +376,7 @@ object DFAny {
     final val isPort = false
     final val isAnonymous : Boolean = false
     override protected def nameDefault: String = s"$token"
+    final val id = getID
   }
   object Const {
     trait Context {
@@ -524,8 +525,7 @@ object DFAny {
     override protected def nameDefault: String = ctx.n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
-
-    final val id = ctx.owner.newPortGetID(this.asInstanceOf[Port[DFAny, DFDir]])
+    final val id = getID
   }
   object Port {
     trait Context {

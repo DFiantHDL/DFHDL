@@ -15,19 +15,8 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final private val blocks : ListBuffer[DFBlock] = ListBuffer.empty[DFBlock]
-  final private val rtcomponents : ListBuffer[RTComponent] = ListBuffer.empty[RTComponent]
-
-  final private def newBlockGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
-  final private[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
-
-  final private def addBlockToOwnerGetID : Int =
-    if (owner != null) owner.newBlockGetID(this)
-    else 0
-
-  final protected def printBlocks() : Unit = {
-    blocks.foreach(c => println(c.name))
-  }
+  final private lazy val blocks : List[DFBlock] = ownedList.collect{case o : DFBlock => o}
+  final private lazy val rtcomponents : List[RTComponent] = ownedList.collect{case o : RTComponent => o}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   def compileToVHDL(fileName : String) = ???
@@ -50,6 +39,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   }
 
   def codeString : String = {
+//    print(mut)
     init
     discover
     protAlmanac.codeString
@@ -61,7 +51,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
     protAlmanac.printInfo()
   }
 
-  final val id = addBlockToOwnerGetID
+  final val id = getID
 }
 object DFBlock {
   trait Context {
