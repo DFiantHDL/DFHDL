@@ -14,5 +14,5 @@ object GlobalContext extends DFDesign.Context {
 }
 
 object GlobalDesign extends DFDesign()(GlobalContext) {
-  override implicit val protChildOwner = this //Make it public for the global design
+  implicit val publicOwner = this //Make it public for the global design
 }
