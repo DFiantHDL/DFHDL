@@ -8,10 +8,9 @@ import scala.collection.mutable.ListBuffer
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFOwnerConstruct with Implicits {
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
-  final val topDsn : DFDesign = owner match {
-    case Some(o) => o.topDsn
-    case _ => this.asInstanceOf[DFDesign] //The top will always be a DFDesign
-  }
+  final val topDsn : DFDesign =
+    if (owner != null) owner.topDsn
+    else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -22,12 +21,10 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFOwnerConstruct 
   final private def newBlockGetID(comp : DFBlock) : Int = getNewID(blocks += comp)
   final private[DFiant] def newRTComponentGetID(comp : RTComponent) : Int = getNewID(rtcomponents += comp)
 
-  final private def addBlockToOwnerGetID : Int = {
-    owner match {
-      case Some(o) => o.newBlockGetID(this)
-      case _ => 0
-    }
-  }
+  final private def addBlockToOwnerGetID : Int =
+    if (owner != null) owner.newBlockGetID(this)
+    else 0
+
   final protected def printBlocks() : Unit = {
     blocks.foreach(c => println(c.name))
   }
@@ -38,7 +35,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFOwnerConstruct 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final def isTop : Boolean = owner.isEmpty
+  final def isTop : Boolean = owner == null
   final override protected def nameDefault: String = if (isTop && ctx.n.value == "$anon") "top" else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,20 +65,20 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFOwnerConstruct 
 }
 object DFBlock {
   trait Context {
-    val owner : Option[DFBlock]
+    val owner : DFBlock
     val basicLib : DFBasicLib
     val n : NameIt
   }
   object Context {
-    implicit def ev(implicit evOwner : Option[DFBlock] = None, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    implicit def ev(implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evNameIt : NameIt)
     : Context = new Context {
-      val owner: Option[DFBlock] = evOwner
+      val owner: DFBlock = evOwner
       val basicLib: DFBasicLib = evBasicLib
       val n: NameIt = evNameIt
     }
     implicit def ev2(implicit evDesignContext : DFDesign.Context)
     : Context = new Context {
-      val owner: Option[DFBlock] = evDesignContext.owner
+      val owner: DFBlock = evDesignContext.owner
       val basicLib: DFBasicLib = evDesignContext.basicLib
       val n: NameIt = evDesignContext.n
     }
@@ -95,22 +92,22 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
 object DFDesign {
   trait Context {
-    val owner : Option[DFBlock]
+    val owner : DFBlock
     val basicLib : DFBasicLib
     val n : NameIt
   }
   trait LowPriorityContext {
     implicit def ev2[Comp <: DFComponent[Comp]](implicit evCompCtx : DFComponent.Context[Comp])
     : Context = new Context {
-      val owner: Option[DFBlock] = Some(evCompCtx.owner)
+      val owner: DFBlock = evCompCtx.owner
       val basicLib: DFBasicLib = evCompCtx.basicLib
       val n: NameIt = evCompCtx.n
     }
   }
   object Context extends LowPriorityContext {
-    implicit def ev(implicit evOwner : Option[DFBlock] = None, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    implicit def ev(implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evNameIt : NameIt)
     : Context = new Context {
-      val owner: Option[DFBlock] = evOwner
+      val owner: DFBlock = evOwner
       val basicLib: DFBasicLib = evBasicLib
       val n: NameIt = evNameIt
     }

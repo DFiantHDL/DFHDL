@@ -4,24 +4,21 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-trait DFConstruct extends HasProperties with Nameable with TypeNameable with Discoverable {
+trait DFConstruct {
 
 }
 
-trait DFOwnerConstruct extends DFConstruct {
-  val owner : Option[DFOwnerConstruct]
-  final protected implicit val protChildOwnerOption : Option[this.type] = Some(this) //to be fed implicitly
+trait DFOwnableConstruct extends DFConstruct with HasProperties with Nameable with TypeNameable with Discoverable{
+  val owner : DFOwnerConstruct
+}
+trait DFOwnerConstruct extends DFOwnableConstruct  {
   final protected implicit val protChildOwner : this.type = this
 
   final protected[DFiant] lazy val protAlmanac = newAlmanac
-  final private def newAlmanac : Almanac = {
-    owner match {
-      case Some(o) =>
-        o.protAlmanac.fetchComponent(o.protAlmanac.addComponent(new Almanac(name, Some(o.protAlmanac))))
-      case _ =>
-        new Almanac(name, None)
-    }
-  }
+  final private def newAlmanac : Almanac =
+    if (owner != null)
+      owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(new Almanac(name, Some(owner.protAlmanac))))
+    else new Almanac(name, None)
 
   private var idCnt : Int = 0
   final protected[DFiant] def getNewID(run : => Unit) : Int = {run; idCnt += 1; idCnt}
@@ -33,10 +30,10 @@ trait DFOwnerConstruct extends DFConstruct {
   }
   protected def discoveryDepenencies : List[Discoverable] = keepList.toList
 
-  final lazy val fullName : String = owner match {
-    case Some(o) => s"${o.fullName}.$name"
-    case _ => name //Top
-  }
+  final lazy val fullName : String =
+    if (owner != null) s"${owner.fullName}.$name"
+    else name //Top
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFVals
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////

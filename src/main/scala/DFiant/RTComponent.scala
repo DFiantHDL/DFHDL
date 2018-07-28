@@ -6,7 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx : DFAny.Op.Context) extends DFInterface {
   protected def newGeneric() : Unit = {}
-  val owner : Option[DFBlock] = Some(ctx.owner)
+  final val owner : DFBlock = ctx.owner
 
   final override protected def discoveryDepenencies : List[Discoverable] =
     portNodes.map(pn => pn.dfport).filter(p => p.dir.isIn)
