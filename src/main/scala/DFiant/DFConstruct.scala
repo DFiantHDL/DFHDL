@@ -5,7 +5,8 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFConstruct {
-
+//  val id : Int
+//  def codeString : String
 }
 
 trait DFOwnableConstruct extends DFConstruct with HasProperties with Nameable with TypeNameable with Discoverable{
