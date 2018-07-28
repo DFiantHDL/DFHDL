@@ -1,8 +1,6 @@
 package DFiant
 import DFiant.internals._
 
-import scala.collection.mutable.ListBuffer
-
 trait DFAnyOwner extends DSLOwnerConstruct {
   val owner : DFAnyOwner
   final protected[DFiant] lazy val protAlmanac = newAlmanac
@@ -14,7 +12,7 @@ trait DFAnyOwner extends DSLOwnerConstruct {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFVals
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final private lazy val dfvals : List[DFAny.NewVar] = ownedList.collect{case o : DFAny.NewVar => o}
+  final protected lazy val dfVals : List[DFAny.NewVar] = ownedList.collect{case o : DFAny.NewVar => o}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }
