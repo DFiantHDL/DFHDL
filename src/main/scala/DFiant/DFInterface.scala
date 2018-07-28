@@ -4,7 +4,7 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-trait DFInterface extends DFOwnerConstruct {
+trait DFInterface extends DFAnyOwner {
   final lazy val portNodes : List[PortNode] =
     this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir], PortNode](
       classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)

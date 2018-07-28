@@ -8,7 +8,7 @@ import scodec.bits._
 
 import scala.collection.mutable.ListBuffer
 
-sealed trait DFAny extends DFOwnableConstruct {
+sealed trait DFAny extends DSLOwnableConstruct {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -160,13 +160,9 @@ sealed trait DFAny extends DFOwnableConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  implicit val owner : DFOwnerConstruct
+  implicit val owner : DFAnyOwner
   protected def discoveryDepenencies : List[Discoverable] = List()
   final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
-  def keep : this.type = {
-    owner.keepList += this
-    this
-  }
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
@@ -256,7 +252,7 @@ object DFAny {
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected def initialize(updatedInit : () => Seq[TToken], owner : DFOwnerConstruct) : Unit = {
+    final protected def initialize(updatedInit : () => Seq[TToken], owner : DFAnyOwner) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       initialized = true
@@ -279,7 +275,7 @@ object DFAny {
     implicit ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
-    final implicit val owner : DFOwnerConstruct = ctx.owner
+    final implicit val owner : DFAnyOwner = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
@@ -321,7 +317,7 @@ object DFAny {
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
     implicit ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
-    final implicit val owner : DFOwnerConstruct = ctx.owner
+    final implicit val owner : DFAnyOwner = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -350,18 +346,18 @@ object DFAny {
   }
   object Alias {
     trait Context {
-      val owner : DFOwnerConstruct
+      val owner : DFAnyOwner
       val n : NameIt
     }
     trait LowPriorityContext {
       implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
-        val owner: DFOwnerConstruct = evOpContext.owner
+        val owner: DFAnyOwner = evOpContext.owner
         val n: NameIt = evOpContext.n
       }
     }
     object Context extends LowPriorityContext {
-      implicit def ev(implicit evOwner : DFOwnerConstruct, evNameIt : NameIt) : Context = new Context {
-        val owner: DFOwnerConstruct = evOwner
+      implicit def ev(implicit evOwner : DFAnyOwner, evNameIt : NameIt) : Context = new Context {
+        val owner: DFAnyOwner = evOwner
         val n: NameIt = evNameIt
       }
     }
@@ -370,7 +366,7 @@ object DFAny {
   abstract class Const(token : Token)(
     implicit ctx : Const.Context, cmp : Companion
   ) extends DFAny {
-    final implicit val owner : DFOwnerConstruct = ctx.owner
+    final implicit val owner : DFAnyOwner = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
