@@ -46,7 +46,7 @@ trait Series {
     implicit def `evE==E`[E <: Enum](implicit ctx : DFAny.Op.Context) : Implementation[`E==E`[E]] = ifc => {
       import ifc._
     }
-    implicit def `evE!=E`[E <: Enum](implicit blk : DFAny.Op.Context) : Implementation[`E!=E`[E]] = ifc => {
+    implicit def `evE!=E`[E <: Enum](implicit ctx : DFAny.Op.Context) : Implementation[`E!=E`[E]] = ifc => {
       import ifc._
     }
 

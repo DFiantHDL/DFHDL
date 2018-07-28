@@ -237,9 +237,9 @@ object DFAny {
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
     ) = assign(op(left, right), ctx.owner)
     final protected var assigned : Boolean = false
-    protected[DFiant] def assign(that : DFAny, blk : DFBlock) : TVar = {
+    protected[DFiant] def assign(that : DFAny, owner : DFBlock) : TVar = {
       assigned = true
-      if (this.owner ne blk) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${blk.fullName})")
+      if (this.owner ne owner) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${owner.fullName})")
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -256,9 +256,9 @@ object DFAny {
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected def initialize(updatedInit : () => Seq[TToken], blk : DFOwnerConstruct) : Unit = {
+    final protected def initialize(updatedInit : () => Seq[TToken], owner : DFOwnerConstruct) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-      if (this.owner ne blk) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${blk.fullName})")
+      if (this.owner ne owner) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       initialized = true
       setInitFunc(updatedInit)
     }
@@ -430,9 +430,9 @@ object DFAny {
     }
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ privComponentDependency
     protected def connected : Boolean = connectedSource.isDefined
-    final override protected[DFiant] def assign(that : DFAny, blk : DFBlock) : TVar = {
+    final override protected[DFiant] def assign(that : DFAny, owner : DFBlock) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
-      super.assign(that, blk)
+      super.assign(that, owner)
     }
     private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -445,10 +445,10 @@ object DFAny {
       toPort.connectedSource = Some(fromVal)
       toPort.protAssignDependencies += fromVal
     }
-    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], blk : DFBlock) : Unit = {
+    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], owner : DFBlock) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
-      val (fromPort, toPort) = (left.owner, right.owner, blk) match {
+      val (fromPort, toPort) = (left.owner, right.owner, owner) match {
         //Ports in the same design, connected at the same design
         case (lDsn, rDsn, cDsn) if (lDsn eq rDsn) && (lDsn eq cDsn) => (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
@@ -493,24 +493,24 @@ object DFAny {
         case (l, r, c) if !((l eq r) || (l.owner.isDefined && (l.owner.get eq r)) || (r.owner.isDefined && (r.owner.get eq l)) || (l.owner.isDefined && r.owner.isDefined && (l.owner.get eq r.owner.get))) =>
           throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
         case (l, r, c) if !((l eq c) || (r eq c) || (l.owner.isDefined && r.owner.isDefined && (l.owner.get eq c) && (r.owner.get eq c))) =>
-          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${blk.fullName}")
+          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${owner.fullName}")
         case _ => throwConnectionError("Unexpected connection error")
       }
       connect(fromPort, toPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : DFAny.Op.Context) : Unit = connectPort2Port(right, ctx.owner)
-    final protected[DFiant] def connectVal2Port(dfVal : DFAny, blk : DFBlock) : Unit = {
+    final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-      if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], blk)
+      if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], owner)
       else {
         if (port.owner.owner.isDefined && (port.owner.owner.get eq dfVal.owner)) {
           if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
-          if (blk ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
+          if (owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${owner.fullName}")
         }
         else if (port.owner eq dfVal.owner) {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
-          if (blk ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${blk.fullName}")
+          if (owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${owner.fullName}")
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port")
         connect(dfVal, port)
