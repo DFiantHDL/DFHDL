@@ -31,5 +31,5 @@ object GlobalContext extends DFDesign.Context {
 }
 
 object GlobalDesign extends DFDesign()(GlobalContext) {
-  override implicit val blk = this
+  override implicit val protChildOwner = this
 }
