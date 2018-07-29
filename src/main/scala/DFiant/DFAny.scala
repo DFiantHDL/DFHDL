@@ -612,7 +612,7 @@ object DFAny {
       type Comp <: DFAny
       def apply(left : L, rightR : R) : Comp
     }
-    type Context = DFAnyOwner.ContextWithBasicLib[DFBlock]
+    type Context = DFAnyOwner.ContextWithLib
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

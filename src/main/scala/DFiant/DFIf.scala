@@ -32,7 +32,8 @@ class IfBool (prevCond: DFBool)(implicit ctx : DFAny.Op.Context) {
 }
 
 
-//protected abstract class DFIfBlock(cond : DFBool)(implicit blk : DFBlock, basicLib: DFBasicLib, n : NameIt
-//) extends DFBlock()(Some(blk), basicLib, n) {
-//}
-
+protected abstract class DFIfBlock(cond : DFBool)(implicit ctx : DFIfBlock.Context) extends DFBlock {
+}
+object DFIfBlock {
+  type Context = DFAnyOwner.ContextWithLib
+}

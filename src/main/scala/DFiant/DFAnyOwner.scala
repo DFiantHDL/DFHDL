@@ -30,17 +30,17 @@ object DFAnyOwner {
       val n : NameIt = evNameIt
     }
   }
-  trait ContextWithBasicLib[+Owner <: DFAnyOwner] extends Context[Owner] {
+  trait ContextWithLib extends Context[DFBlock] {
     val basicLib : DFBasicLib
   }
-  trait LowPriorityContextWithBasicLib {
-    implicit def getBasicLib[Owner <: DFAnyOwner](implicit evContext : ContextWithBasicLib[Owner])
+  trait LowPriorityContextWithLib {
+    implicit def getBasicLib(implicit evContext : ContextWithLib)
     : DFBasicLib = evContext.basicLib
   }
-  object ContextWithBasicLib extends LowPriorityContextWithBasicLib {
-    implicit def ev[Owner <: DFAnyOwner](implicit evOwner : Owner, evBasicLib : DFBasicLib, evNameIt : NameIt)
-    : ContextWithBasicLib[Owner] = new ContextWithBasicLib[Owner] {
-      val owner: Owner = evOwner
+  object ContextWithLib extends LowPriorityContextWithLib {
+    implicit def ev(implicit evOwner : DFBlock, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    : ContextWithLib = new ContextWithLib {
+      val owner: DFBlock = evOwner
       val basicLib : DFBasicLib = evBasicLib
       val n : NameIt = evNameIt
     }
