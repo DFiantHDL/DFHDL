@@ -10,6 +10,16 @@ trait IODesignConn1 extends DFDesign {
   o <> i
 }
 
+trait IODesignIf extends DFDesign {
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
+  o <> i
+  val b = DFBool()
+  val myIf = ifdf (b) {
+
+  }
+}
+
 trait IODesignConn2 extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
@@ -93,6 +103,7 @@ object BasicTest extends App {
   val top_containerConn1 = new ContainerConn1 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
+  val top_ioDesignIf = new IODesignIf {}
   println(top_containerConn3.codeString)
 
 }

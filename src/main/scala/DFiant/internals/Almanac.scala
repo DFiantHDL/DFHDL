@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable._
-final class Almanac(val name : String, val owner : Option[Almanac]) {
+class Almanac(val name : String, val owner : Option[Almanac]) {
   currentAlmanac =>
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
@@ -94,15 +94,15 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Components
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def addComponent(almanac: Almanac) : Almanac = {
+  def addComponent[A <: Almanac](almanac: A) : A = {
     require(phase == AlmanacPhaseConstruct, "Unexpected almanac component addition during a non-construction phase")
     components += almanac
     almanac
   }
 
-  def fetchComponent(componentConstructor: => Almanac) : Almanac = {
+  def fetchComponent[A <: Almanac](componentConstructor: => A) : A = {
     if (isSimulating)
-      simulationComponentsIter.next()
+      simulationComponentsIter.next().asInstanceOf[A]
     else
       componentConstructor
   }
@@ -157,6 +157,20 @@ final class Almanac(val name : String, val owner : Option[Almanac]) {
     println(s"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 }
 
+
+class AlmanacIf(name : String, owner : Almanac, val cond : AlmanacEntryNamed) 
+  extends Almanac(name, Some(owner)) {
+  override def codeString : String = s"ifdf (${cond.codeString}) {$bodyCodeString\n}"
+}
+
+class AlmanacElseIf(name : String, owner : Almanac, val prevIf : AlmanacIf, cond : AlmanacEntryNamed)
+  extends AlmanacIf(name, owner, cond) {
+  override def codeString : String = s".elseifdf (${cond.codeString}) {$bodyCodeString\n}"
+}
+
+class AlmanacElse(name : String, owner : Almanac, val previf : AlmanacIf)
+  extends Almanac(name, Some(owner)) {
+  override def codeString : String = s".elsedf () {$bodyCodeString\n}"
+}
