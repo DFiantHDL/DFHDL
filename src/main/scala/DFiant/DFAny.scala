@@ -161,7 +161,6 @@ sealed trait DFAny extends DSLOwnableConstruct {
   // Administration
   //////////////////////////////////////////////////////////////////////////
   implicit val owner : DFAnyOwner
-  protected def discoveryDepenencies : List[Discoverable] = List()
   final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)

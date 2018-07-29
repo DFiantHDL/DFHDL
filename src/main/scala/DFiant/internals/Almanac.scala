@@ -160,13 +160,14 @@ class Almanac(val name : String, val owner : Option[Almanac]) {
 }
 
 
-class AlmanacIf(name : String, owner : Almanac, val cond : AlmanacEntryNamed) 
+class AlmanacIf(name : String, owner : Almanac, cond_ : => AlmanacEntryNamed)
   extends Almanac(name, Some(owner)) {
-  override def codeString : String = s"ifdf (${cond.codeString}) {$bodyCodeString\n}"
+  final lazy val cond = cond_
+  override def codeString : String = s"ifdf (${cond_.codeString}) {$bodyCodeString\n}"
 }
 
-class AlmanacElseIf(name : String, owner : Almanac, val prevIf : AlmanacIf, cond : AlmanacEntryNamed)
-  extends AlmanacIf(name, owner, cond) {
+class AlmanacElseIf(name : String, owner : Almanac, val prevIf : AlmanacIf, cond_ : => AlmanacEntryNamed)
+  extends AlmanacIf(name, owner, cond_) {
   override def codeString : String = s".elseifdf (${cond.codeString}) {$bodyCodeString\n}"
 }
 

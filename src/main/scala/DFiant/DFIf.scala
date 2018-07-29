@@ -17,6 +17,7 @@ protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBloc
   : Unit = new DFElseBlock(block)
 
   override protected def newAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
+  override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
 
   block
 }

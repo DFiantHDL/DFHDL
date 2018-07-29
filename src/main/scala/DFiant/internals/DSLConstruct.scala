@@ -12,6 +12,7 @@ trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable 
     owner.mutableKeepList += this
     this
   }
+  protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
   final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
   val id : Int
 }
@@ -29,7 +30,7 @@ trait DSLOwnerConstruct extends DSLOwnableConstruct {
 
   private[internals] val mutableKeepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
   final lazy val keepList : List[Discoverable] = mutableKeepList.toList
-  protected def discoveryDepenencies : List[Discoverable] = keepList
+  override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
 
   final lazy val fullName : String =
     if (owner != null) s"${owner.fullName}.$name"
