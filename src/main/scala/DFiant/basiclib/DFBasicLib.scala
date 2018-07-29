@@ -15,11 +15,11 @@ trait DFBasicLib {
   }
 
   protected[DFiant] type `U+U` = UopUeqU[DiSoOp.Kind.+]
-  implicit def `evU+U`(implicit ctx : DFAny.Op.Context) : Implementation[`U+U`]
+  implicit def `evU+U`(implicit ctx : Implementation.Context) : Implementation[`U+U`]
   protected[DFiant] type `U-U` = UopUeqU[DiSoOp.Kind.-]
-  implicit def `evU-U`(implicit ctx : DFAny.Op.Context) : Implementation[`U-U`]
+  implicit def `evU-U`(implicit ctx : Implementation.Context) : Implementation[`U-U`]
   protected[DFiant] type `U*U` = UopUeqU[DiSoOp.Kind.*]
-  implicit def `evU*U`(implicit ctx : DFAny.Op.Context) : Implementation[`U*U`]
+  implicit def `evU*U`(implicit ctx : Implementation.Context) : Implementation[`U*U`]
 
   class UopUeqB[Kind <: DiSoOp.Kind](leftWidth : Int, rightWidth : Int)(
     implicit ctx : DFComponent.Context[UopUeqB[Kind]]
@@ -30,17 +30,17 @@ trait DFBasicLib {
   }
 
   protected[DFiant] type `U==U` = UopUeqB[DiSoOp.Kind.==]
-  implicit def `evU==U`(implicit ctx : DFAny.Op.Context) : Implementation[`U==U`]
+  implicit def `evU==U`(implicit ctx : Implementation.Context) : Implementation[`U==U`]
   protected[DFiant] type `U!=U` = UopUeqB[DiSoOp.Kind.!=]
-  implicit def `evU!=U`(implicit ctx : DFAny.Op.Context) : Implementation[`U!=U`]
+  implicit def `evU!=U`(implicit ctx : Implementation.Context) : Implementation[`U!=U`]
   protected[DFiant] type `U<U` = UopUeqB[DiSoOp.Kind.<]
-  implicit def `evU<U`(implicit ctx : DFAny.Op.Context) : Implementation[`U<U`]
+  implicit def `evU<U`(implicit ctx : Implementation.Context) : Implementation[`U<U`]
   protected[DFiant] type `U>U` = UopUeqB[DiSoOp.Kind.>]
-  implicit def `evU>U`(implicit ctx : DFAny.Op.Context) : Implementation[`U>U`]
+  implicit def `evU>U`(implicit ctx : Implementation.Context) : Implementation[`U>U`]
   protected[DFiant] type `U<=U` = UopUeqB[DiSoOp.Kind.<=]
-  implicit def `evU<=U`(implicit ctx : DFAny.Op.Context) : Implementation[`U<=U`]
+  implicit def `evU<=U`(implicit ctx : Implementation.Context) : Implementation[`U<=U`]
   protected[DFiant] type `U>=U` = UopUeqB[DiSoOp.Kind.>=]
-  implicit def `evU>=U`(implicit ctx : DFAny.Op.Context) : Implementation[`U>=U`]
+  implicit def `evU>=U`(implicit ctx : Implementation.Context) : Implementation[`U>=U`]
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -55,9 +55,9 @@ trait DFBasicLib {
     final lazy val outResult = ??? //DFBool() <> OUT
   }
   protected[DFiant] type `E==E`[E <: Enum] = EopEeqB[DiSoOp.Kind.==, E]
-  implicit def `evE==E`[E <: Enum](implicit ctx : DFAny.Op.Context) : Implementation[`E==E`[E]]
+  implicit def `evE==E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E==E`[E]]
   protected[DFiant] type `E!=E`[E <: Enum] = EopEeqB[DiSoOp.Kind.!=, E]
-  implicit def `evE!=E`[E <: Enum](implicit ctx : DFAny.Op.Context) : Implementation[`E!=E`[E]]
+  implicit def `evE!=E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E!=E`[E]]
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 

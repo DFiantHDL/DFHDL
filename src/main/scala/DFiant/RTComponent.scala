@@ -4,7 +4,7 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class RTComponent(implicit ctx : DFAny.Op.Context) extends DFInterface {
+abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterface {
   protected def newGeneric() : Unit = {}
   final val owner : DFBlock = ctx.owner
 
@@ -27,22 +27,5 @@ abstract class RTComponent(implicit ctx : DFAny.Op.Context) extends DFInterface 
 }
 
 object RTComponent {
-  trait Context {
-    val owner : DFBlock
-    val n : NameIt
-  }
-  trait LowPriorityContext {
-    implicit def ev2[Comp <: DFComponent[Comp]](implicit evCompCtx : DFComponent.Context[Comp])
-    : Context = new Context {
-      val owner: DFBlock = evCompCtx.owner
-      val n: NameIt = evCompCtx.n
-    }
-  }
-  object Context extends LowPriorityContext {
-    implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt)
-    : Context = new Context {
-      val owner: DFBlock = evOwner
-      val n: NameIt = evNameIt
-    }
-  }
+  type Context = DFAnyOwner.Context[DFBlock]
 }

@@ -119,5 +119,8 @@ object DFComponent {
   trait Implementation[Comp <: DFComponent[Comp]] {
     def apply(comp : Comp) : Unit
   }
+  object Implementation {
+    type Context = DFAnyOwner.ContextWithBasicLib[DFBlock]
+  }
 }
 
