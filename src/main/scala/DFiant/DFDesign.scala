@@ -54,44 +54,13 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final val id = getID
 }
 object DFBlock {
-  trait Context {
-    val owner : DFBlock
-    val basicLib : DFBasicLib
-    val n : NameIt
-  }
-  object Context {
-    implicit def ev(implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evNameIt : NameIt)
-    : Context = new Context {
-      val owner: DFBlock = evOwner
-      val basicLib: DFBasicLib = evBasicLib
-      val n: NameIt = evNameIt
-    }
-    implicit def ev2(implicit evDesignContext : DFDesign.Context)
-    : Context = new Context {
-      val owner: DFBlock = evDesignContext.owner
-      val basicLib: DFBasicLib = evDesignContext.basicLib
-      val n: NameIt = evDesignContext.n
-    }
-  }
-}
-
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  final override protected def discoveryDepenencies : List[Discoverable] =
-    if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
-}
-
-object DFDesign {
-  trait Context {
-    val owner : DFBlock
-    val basicLib : DFBasicLib
-    val n : NameIt
-  }
+  trait Context extends DFAnyOwner.ContextWithBasicLib[DFBlock]
   trait LowPriorityContext {
-    implicit def ev2[Comp <: DFComponent[Comp]](implicit evCompCtx : DFComponent.Context[Comp])
+    implicit def evContext[Comp <: DFComponent[Comp]](implicit evCompCtx : DFComponent.Context[Comp], evNameIt : NameIt)
     : Context = new Context {
       val owner: DFBlock = evCompCtx.owner
       val basicLib: DFBasicLib = evCompCtx.basicLib
-      val n: NameIt = evCompCtx.n
+      val n: NameIt = evNameIt
     }
   }
   object Context extends LowPriorityContext {
@@ -104,6 +73,15 @@ object DFDesign {
   }
 }
 
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
+  final override protected def discoveryDepenencies : List[Discoverable] =
+    if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
+}
+
+object DFDesign {
+  type Context = DFBlock.Context
+}
+
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp])
   extends DFDesign {
@@ -111,7 +89,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 }
 
 object DFComponent {
-  trait Context[Comp <: DFComponent[Comp]] {
+  trait Context[Comp <: DFComponent[Comp]] extends DFAnyOwner.ContextWithBasicLib[DFBlock]{
     val owner : DFBlock
     val impl : DFComponent.Implementation[Comp]
     val basicLib : DFBasicLib
@@ -119,12 +97,12 @@ object DFComponent {
   }
   trait LowPriorityContext {
     implicit def ev2[Comp <: DFComponent[Comp]](
-      implicit evOpContext : DFAny.Op.Context, evImpl : DFComponent.Implementation[Comp]
+      implicit evContext : DFAnyOwner.ContextWithBasicLib[DFBlock], evImpl : DFComponent.Implementation[Comp], evNameIt : NameIt
     ) : Context[Comp] = new Context[Comp] {
-      val owner: DFBlock = evOpContext.owner
+      val owner: DFBlock = evContext.owner
       val impl: DFComponent.Implementation[Comp] = evImpl
-      val basicLib: DFBasicLib = evOpContext.basicLib
-      val n: NameIt = evOpContext.n
+      val basicLib: DFBasicLib = evContext.basicLib
+      val n: NameIt = evNameIt
     }
   }
   object Context extends LowPriorityContext {

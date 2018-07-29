@@ -35,3 +35,9 @@ trait DSLOwnerConstruct extends DSLOwnableConstruct {
     if (owner != null) s"${owner.fullName}.$name"
     else name //Top
 }
+object DSLOwnerConstruct {
+  trait Context[+Owner <: DSLOwnerConstruct] {
+    val owner : Owner
+    val n : NameIt
+  }
+}

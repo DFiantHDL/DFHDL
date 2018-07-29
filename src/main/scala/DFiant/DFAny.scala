@@ -296,22 +296,7 @@ object DFAny {
     final val id = getID
   }
   object NewVar {
-    trait Context {
-      val owner : DFBlock
-      val n : NameIt
-    }
-    trait LowPriorityContext {
-      implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
-        val owner: DFBlock = evOpContext.owner
-        val n: NameIt = evOpContext.n
-      }
-    }
-    object Context extends LowPriorityContext {
-      implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
-        val owner: DFBlock = evOwner
-        val n: NameIt = evNameIt
-      }
-    }
+    type Context = DFAnyOwner.Context[DFBlock]
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
@@ -345,22 +330,7 @@ object DFAny {
     final val id = getID
   }
   object Alias {
-    trait Context {
-      val owner : DFAnyOwner
-      val n : NameIt
-    }
-    trait LowPriorityContext {
-      implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
-        val owner: DFAnyOwner = evOpContext.owner
-        val n: NameIt = evOpContext.n
-      }
-    }
-    object Context extends LowPriorityContext {
-      implicit def ev(implicit evOwner : DFAnyOwner, evNameIt : NameIt) : Context = new Context {
-        val owner: DFAnyOwner = evOwner
-        val n: NameIt = evNameIt
-      }
-    }
+    type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
   abstract class Const(token : Token)(
@@ -379,22 +349,7 @@ object DFAny {
     final val id = getID
   }
   object Const {
-    trait Context {
-      val owner : DFBlock
-      val n : NameIt
-    }
-    trait LowPriorityContext {
-      implicit def ev2(implicit evOpContext : Op.Context) : Context = new Context {
-        val owner: DFBlock = evOpContext.owner
-        val n: NameIt = evOpContext.n
-      }
-    }
-    object Context extends LowPriorityContext {
-      implicit def ev(implicit evOwner : DFBlock, evNameIt : NameIt) : Context = new Context {
-        val owner: DFBlock = evOwner
-        val n: NameIt = evNameIt
-      }
-    }
+    type Context = DFAnyOwner.Context[DFBlock]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -528,16 +483,7 @@ object DFAny {
     final val id = getID
   }
   object Port {
-    trait Context {
-      val owner : DFInterface
-      val n : NameIt
-    }
-    object Context {
-      implicit def ev(implicit evOwner : DFInterface, evNameIt : NameIt) : Context = new Context {
-        val owner: DFInterface = evOwner
-        val n: NameIt = evNameIt
-      }
-    }
+    type Context = DFAnyOwner.Context[DFInterface]
     trait Builder[L <: DFAny, Dir <: DFDir] {
       def apply(right : L, dir : Dir) : L <> Dir
     }
@@ -666,18 +612,7 @@ object DFAny {
       type Comp <: DFAny
       def apply(left : L, rightR : R) : Comp
     }
-    trait Context {
-      val owner : DFBlock
-      val basicLib : DFBasicLib
-      val n : NameIt
-    }
-    object Context {
-      implicit def ev(implicit evOwner : DFBlock, evBasicLib : DFBasicLib, evNameIt : NameIt) : Context = new Context {
-        val owner: DFBlock = evOwner
-        val basicLib: DFBasicLib = evBasicLib
-        val n: NameIt = evNameIt
-      }
-    }
+    type Context = DFAnyOwner.ContextWithBasicLib[DFBlock]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
