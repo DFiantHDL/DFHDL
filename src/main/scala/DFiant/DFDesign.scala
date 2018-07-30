@@ -35,7 +35,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   }
 
   def codeString : String = {
-    discoveredList.codeString
+    discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const]).codeString
   }
 
   def printInfo() : Unit = {
