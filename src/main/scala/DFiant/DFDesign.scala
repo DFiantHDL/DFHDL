@@ -34,8 +34,11 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final protected lazy val init : Unit = {
   }
 
+
   def codeString : String = {
-    discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const]).codeString
+    val delim = "  "
+    val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
+    delim + noConst.codeString.replaceAll("\n","\n" + delim)
   }
 
   def printInfo() : Unit = {
@@ -71,9 +74,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   override def codeString: String = {
-    val delim = "  "
-    val body = delim + super.codeString.replaceAll("\n","\n" + delim)
-    s"val $name = new DFDesign {\n$body\n}"
+    s"val $name = new DFDesign {\n${super.codeString}\n}"
   }
 }
 

@@ -11,15 +11,16 @@ object ifdf {
 
 protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
   extends DFBlock {
-  def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context) 
+  def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context)
   : DFIfBlock = new DFElseIfBlock(this, elseCond, elseBlock)
   def elsedf(block: => Unit)(implicit ctx : DFIfBlock.Context)
   : Unit = new DFElseBlock(this, block)
 
   override protected def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
+  override def codeString: String =
+    s"val $name = ifdf(${cond.name}) {\n${super.codeString}\n}"
 
-  block
 }
 
 protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)

@@ -15,9 +15,13 @@ trait IODesignIf extends DFDesign {
   val o = DFUInt(8) <> OUT
   o <> i
   val b = DFBool()
+  b := b
   val myIf = ifdf (b) {
-
+    val c = DFUInt(8)
+    c.keep
   }
+  b := b
+  myIf.keep
 }
 
 trait IODesignConn2 extends DFDesign {
@@ -104,7 +108,7 @@ object BasicTest extends App {
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_containerConn4.codeString)
+  println(top_ioDesignIf.codeString)
 
 }
 
