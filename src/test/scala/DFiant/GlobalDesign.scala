@@ -9,7 +9,6 @@ object GlobalDesignName extends NameIt {
 
 object GlobalContext extends DFDesign.Context {
   override val owner: DFBlock = null
-  override val ifBlock: DFBlock = null
   override val basicLib: DFBasicLib = psuedoVendor.family.device.basicLib
   override val n: NameIt = GlobalDesignName
 }

@@ -17,8 +17,11 @@ trait IODesignIf extends DFDesign {
   val b = DFBool()
   b := b
   val myIf = ifdf (b) {
-    val c = DFUInt(8)
-    c.keep
+    val myIf2 = ifdf (b) {
+      val c = DFUInt(8)
+      c.keep
+    }
+    myIf2.keep
   }
   b := b
   myIf.keep

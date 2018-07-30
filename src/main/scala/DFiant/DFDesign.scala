@@ -6,13 +6,12 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
-  private var updatedOwner : DFBlock = this
-  override protected implicit def protChildOwner : DFBlock = updatedOwner
+  override protected implicit def protChildOwner : DFBlock = this
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
-//  final val topDsn : DFDesign =
-//    if (owner != null) owner.topDsn
-//    else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
+  final val topDsn : DFDesign =
+    if (owner != null) owner.topDsn
+    else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -22,18 +21,6 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   def compileToVHDL(fileName : String) = ???
-  object ifdf {
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = { //
-      val originalOwner = updatedOwner
-      val ifBlock = new DFIfBlock(cond, block)
-      println(ifBlock.fullName)
-      updatedOwner = ifBlock
-      implicit val tryme = updatedOwner
-      block
-      updatedOwner = originalOwner
-      ifBlock
-    }
-  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
@@ -55,25 +42,21 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final val id = getID
 }
 object DFBlock {
-  trait Context extends DFAnyOwner.ContextWithLib {
-    val ifBlock: DFBlock
-  }
+  trait Context extends DFAnyOwner.ContextWithLib
   trait LowPriorityContext {
     implicit def evContext[Comp <: DFComponent[Comp]](
-      implicit evContext : DFAnyOwner.ContextWithLib, evIfBlock : DFBlock = null, evNameIt : NameIt
+      implicit evContext : DFAnyOwner.ContextWithLib, evNameIt : NameIt
     ) : Context = new Context {
       val owner: DFBlock = evContext.owner
-      val ifBlock: DFBlock = evIfBlock
       val basicLib: DFBasicLib = evContext.basicLib
       val n: NameIt = evNameIt
     }
   }
   object Context extends LowPriorityContext {
     implicit def ev (
-      implicit evOwner : DFBlock = null, evIfBlock : DFBlock = null, evBasicLib : DFBasicLib, evNameIt : NameIt
+      implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evNameIt : NameIt
     ) : Context = new Context {
       val owner: DFBlock = evOwner
-      val ifBlock: DFBlock = evIfBlock
       val basicLib: DFBasicLib = evBasicLib
       val n: NameIt = evNameIt
     }
@@ -81,8 +64,21 @@ object DFBlock {
 }
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  override protected implicit def protChildOwner : DFDesign = this
-  final override protected def discoveryDepenencies : List[Discoverable] =
+  protected var updatedOwner : DFDesign = this
+  override protected implicit def protChildOwner : DFDesign = updatedOwner
+
+  object ifdf {
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = {
+      val originalOwner = updatedOwner
+      val ifBlock = new DFIfBlock(cond, block)
+      updatedOwner = ifBlock
+      block
+      updatedOwner = originalOwner
+      ifBlock
+    }
+  }
+
+  override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   override def codeString: String = {

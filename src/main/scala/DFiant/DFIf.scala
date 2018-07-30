@@ -10,7 +10,7 @@ import DFiant.basiclib.DFBasicLib
 //}
 
 protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
-  extends DFBlock {
+  extends DFDesign {
   def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context)
   : DFIfBlock = new DFElseIfBlock(this, elseCond, elseBlock)
   def elsedf(block: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -32,14 +32,12 @@ protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => 
 }
 
 protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ctx : DFIfBlock.Context)
-  extends DFBlock {
+  extends DFDesign {
   override protected def createAlmanac : AlmanacElse =
     new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
   override def codeString: String =
     s".elsedf() {\n$bodyCodeString\n}"
-
-  block
 }
 
 object DFIfBlock {
