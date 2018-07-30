@@ -17,7 +17,11 @@ trait IODesignIf extends DFDesign {
   val myIf = ifdf (b) {
     val myIf2 = ifdf (b) {
       o := i
+    }.elseifdf(b) {
+      o := i
     }
+  }.elsedf {
+    o := i
   }
 }
 

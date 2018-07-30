@@ -297,7 +297,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString $initCodeString"
+    final def codeString : String = s"val $name = $constructCodeString $initCodeString\n"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -331,7 +331,7 @@ object DFAny {
       bitsInit.map(protTokenBitsToTToken)
     }
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString"
+    final def codeString : String = s"val $name = $constructCodeString\n"
     final protected[DFiant] lazy val almanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
@@ -358,7 +358,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
-    final def codeString : String = s"$token"
+    final def codeString : String = s"$token\n"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -489,7 +489,7 @@ object DFAny {
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString <> $dir $initCodeString"
+    final def codeString : String = s"val $name = $constructCodeString <> $dir $initCodeString\n"
     override protected def nameDefault: String = ctx.n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
