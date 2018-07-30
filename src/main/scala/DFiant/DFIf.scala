@@ -5,12 +5,16 @@ import DFiant.basiclib.DFBasicLib
 
 object ifdf {
   def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = {
-    new DFIfBlock(cond, block)
+    val ifBlock = new DFIfBlock(cond, block)
+    ctx.owner.asInstanceOf[DFDesign].injectOwner(ifBlock)
+    block
+    ctx.owner.asInstanceOf[DFDesign].injectOwner(ctx.owner.asInstanceOf[DFDesign])
+    ifBlock
   }
 }
 
 protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
-  extends DFBlock {
+  extends DFDesign {
   def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context)
   : DFIfBlock = new DFElseIfBlock(this, elseCond, elseBlock)
   def elsedf(block: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -20,8 +24,6 @@ protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBloc
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
   override def codeString: String =
     s"val $name = ifdf(${cond.name}) {\n$bodyCodeString\n}"
-
-  block
 }
 
 protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -34,7 +36,7 @@ protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => 
 }
 
 protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ctx : DFIfBlock.Context)
-  extends DFBlock {
+  extends DFDesign {
   override protected def createAlmanac : AlmanacElse =
     new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
@@ -45,5 +47,5 @@ protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ct
 }
 
 object DFIfBlock {
-  type Context = DFAnyOwner.ContextWithLib
+  type Context = DFBlock.Context
 }

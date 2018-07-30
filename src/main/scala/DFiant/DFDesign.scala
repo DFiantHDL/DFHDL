@@ -6,6 +6,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
+  override protected implicit def protChildOwner : DFBlock = this
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
   final val topDsn : DFDesign =
@@ -67,7 +68,11 @@ object DFBlock {
 }
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  final override protected def discoveryDepenencies : List[Discoverable] =
+  private var injectedOwner : DFDesign = this
+  private[DFiant] def injectOwner(newOwner : DFDesign) : Unit = injectedOwner = newOwner.asInstanceOf[DFDesign]
+  override protected implicit def protChildOwner : DFDesign = injectedOwner
+
+  override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   override def codeString: String = {
