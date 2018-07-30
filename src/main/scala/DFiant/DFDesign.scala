@@ -69,6 +69,12 @@ object DFBlock {
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   final override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
+
+  override def codeString: String = {
+    val delim = "  "
+    val body = delim + super.codeString.replaceAll("\n","\n" + delim)
+    s"val $name = new DFDesign {\n$body\n}"
+  }
 }
 
 object DFDesign {
