@@ -6,12 +6,13 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
-  override protected implicit def protChildOwner : DFBlock = this
+  private var updatedOwner : DFBlock = this
+  override protected implicit def protChildOwner : DFBlock = updatedOwner
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
-  final val topDsn : DFDesign =
-    if (owner != null) owner.topDsn
-    else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
+//  final val topDsn : DFDesign =
+//    if (owner != null) owner.topDsn
+//    else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -21,6 +22,18 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   def compileToVHDL(fileName : String) = ???
+  object ifdf {
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = { //
+      val originalOwner = updatedOwner
+      val ifBlock = new DFIfBlock(cond, block)
+      println(ifBlock.fullName)
+      updatedOwner = ifBlock
+      implicit val tryme = updatedOwner
+      block
+      updatedOwner = originalOwner
+      ifBlock
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
@@ -37,12 +50,6 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   //final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {
-  }
-
-  def printInfo() : Unit = {
-    init
-    discover
-    protAlmanac.printInfo()
   }
 
   final val id = getID

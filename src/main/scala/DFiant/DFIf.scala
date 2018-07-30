@@ -3,11 +3,11 @@ package DFiant
 import DFiant.internals._
 import DFiant.basiclib.DFBasicLib
 
-object ifdf {
-  def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = {
-    new DFIfBlock(cond, block)
-  }
-}
+//object ifdf {
+//  def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = {
+//    new DFIfBlock(cond, block)
+//  }
+//}
 
 protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
   extends DFBlock {
@@ -20,8 +20,6 @@ protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBloc
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
   override def codeString: String =
     s"val $name = ifdf(${cond.name}) {\n$bodyCodeString\n}"
-
-  block
 }
 
 protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -45,5 +43,5 @@ protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ct
 }
 
 object DFIfBlock {
-  type Context = DFAnyOwner.ContextWithLib
+  type Context = DFBlock.Context
 }
