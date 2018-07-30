@@ -19,7 +19,7 @@ trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable 
 }
 
 trait DSLOwnerConstruct extends DSLOwnableConstruct {
-  protected implicit def protChildOwner : DSLOwnerConstruct = this
+  final protected implicit val protChildOwner : this.type = this
   private var idCnt : Int = 0
   private val mutableOwnedList : ListBuffer[DSLOwnableConstruct] = ListBuffer.empty[DSLOwnableConstruct]
   final lazy val ownedList : List[DSLOwnableConstruct] = mutableOwnedList.toList
