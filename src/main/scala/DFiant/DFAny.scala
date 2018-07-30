@@ -246,9 +246,12 @@ object DFAny {
 
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
+    final private var customInitString : String = ""
     final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
+      val updatedInit = op(left, that)
+      customInitString = s"init${updatedInit.codeString}"
       initialize(() => op(left, that), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
@@ -264,7 +267,7 @@ object DFAny {
     final protected def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
     final private val initLB = LazyBox(_initFunc())
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
-    final def initCodeString : String = if (initialized) s"init${protInit.codeString}" else ""
+    final def initCodeString : String = customInitString
   }
 
   case class ConnectorPlaceholder(toPort : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
@@ -274,13 +277,13 @@ object DFAny {
       else s"${dfVal.owner.name}.${dfVal.name}"
     }
     final implicit val owner : DFAnyOwner = ctx.owner
-    def codeString : String = s"${relativeRef(toPort)} <> ${relativeRef(fromVal)}"
+    def codeString : String = s"\n${relativeRef(toPort)} <> ${relativeRef(fromVal)}"
     final val id = getID
   }
 
   case class AssignPlaceholder(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
-    def codeString : String = s"${toVar.name} := ${fromVal.name}"
+    def codeString : String = s"\n${toVar.name} := ${fromVal.name}"
     final val id = getID
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -297,7 +300,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString $initCodeString\n"
+    final def codeString : String = s"\nval $name = $constructCodeString $initCodeString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -331,7 +334,7 @@ object DFAny {
       bitsInit.map(protTokenBitsToTToken)
     }
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString\n"
+    final def codeString : String = s"\nval $name = $constructCodeString"
     final protected[DFiant] lazy val almanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
@@ -358,7 +361,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
-    final def codeString : String = s"$token\n"
+    final def codeString : String = s"\n$token"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -489,7 +492,7 @@ object DFAny {
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
     protected def constructCodeString : String
-    final def codeString : String = s"val $name = $constructCodeString <> $dir $initCodeString\n"
+    final def codeString : String = s"\nval $name = $constructCodeString <> $dir $initCodeString"
     override protected def nameDefault: String = ctx.n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val isAnonymous : Boolean = false
