@@ -13,18 +13,12 @@ trait IODesignConn1 extends DFDesign {
 trait IODesignIf extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
-  o <> i
-  val b = DFBool()
-  b := b
+  val b = DFBool() <> IN
   val myIf = ifdf (b) {
     val myIf2 = ifdf (b) {
-      val c = DFUInt(8)
-      c.keep
+      o := i
     }
-    myIf2.keep
   }
-  b := b
-  myIf.keep
 }
 
 trait IODesignConn2 extends DFDesign {

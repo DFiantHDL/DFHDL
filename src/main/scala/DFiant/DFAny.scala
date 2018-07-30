@@ -234,7 +234,8 @@ object DFAny {
     final protected var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : TVar = {
       assigned = true
-      if (this.owner ne owner) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${owner.fullName})")
+      //TODO: fix check with if hierarchy
+//      if (this.owner ne owner) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${owner.fullName})")
       protAssignDependencies += AssignPlaceholder(this, that)
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
