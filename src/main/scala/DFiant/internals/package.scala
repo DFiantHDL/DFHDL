@@ -259,4 +259,10 @@ package object internals {
   }
 
   type Arg0IsNonLit = Require[IsNonLiteral[GetArg0]]
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  implicit class EntryList(list : List[DSLOwnableConstruct]) {
+    def codeString : String = if (list.isEmpty) "" else list.map(e => e.codeString).mkString("", "\n", "")
+  }
 }

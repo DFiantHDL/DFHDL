@@ -12,22 +12,30 @@ object ifdf {
 protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
   extends DFBlock {
   def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context) 
-  : DFIfBlock = new DFElseIfBlock(elseCond, elseBlock)
+  : DFIfBlock = new DFElseIfBlock(this, elseCond, elseBlock)
   def elsedf(block: => Unit)(implicit ctx : DFIfBlock.Context)
-  : Unit = new DFElseBlock(block)
+  : Unit = new DFElseBlock(this, block)
 
-  override protected def newAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
+  override protected def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
 
   block
 }
 
-protected class DFElseIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
+protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
   extends DFIfBlock(cond, block) {
+  override protected def createAlmanac : AlmanacElseIf =
+    new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
+  override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
 }
 
-protected class DFElseBlock(block: => Unit)(implicit ctx : DFIfBlock.Context) extends
-  DFIfBlock(DFBool.const(DFBool.Token(true)), block) {
+protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ctx : DFIfBlock.Context)
+  extends DFBlock {
+  override protected def createAlmanac : AlmanacElse =
+    new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
+  override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
+
+  block
 }
 
 object DFIfBlock {

@@ -8,9 +8,8 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   protected def newGeneric() : Unit = {}
   final val owner : DFBlock = ctx.owner
 
-  final override protected def discoveryDepenencies : List[Discoverable] =
-    portNodes.map(pn => pn.dfport).filter(p => p.dir.isIn)
-  final protected def discovery : Unit = {}
+  final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn
+  //final protected def discovery : Unit = {}
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
@@ -21,9 +20,11 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
 
   final protected[DFiant] lazy val init : Unit = {
     //set Output Ports Dependency
-    portNodes.map(pn => pn.dfport).filter(p => p.dir.isOut).foreach(p => p.setComponentDependency(this))
+//    portNodes.map(pn => pn.dfport).filter(p => p.dir.isOut).foreach(p => p.setComponentDependency(this))
   }
   final val id = getID
+
+  def codeString: String = "???SomeRTComponent???"
 }
 
 object RTComponent {

@@ -4,12 +4,13 @@ import DFiant.internals._
 
 trait DFAnyOwner extends DSLOwnerConstruct {
   val owner : DFAnyOwner
-  final protected[DFiant] lazy val protAlmanac = newAlmanac
+  final protected[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
   //create alamanac and add to owner
-  protected def newAlmanac : Almanac =
-    if (owner != null)
-      owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(new Almanac(name, Some(owner.protAlmanac))))
-    else new Almanac(name, None) //top almanac
+  final protected def fetchOrCreateAlmanac : Almanac =
+    if (owner != null) owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(createAlmanac))
+    else createTopAlmanac
+  final def createTopAlmanac = new Almanac(name, None)
+  protected def createAlmanac = new Almanac(name, Some(owner.protAlmanac))
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFVals

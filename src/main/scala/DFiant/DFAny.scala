@@ -220,7 +220,7 @@ object DFAny {
     // Administration
     //////////////////////////////////////////////////////////////////////////
     protected val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    override protected def discoveryDepenencies : List[Discoverable] = protAssignDependencies.toList
+    override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
     //////////////////////////////////////////////////////////////////////////
 
 
@@ -232,9 +232,10 @@ object DFAny {
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
     ) = assign(op(left, right), ctx.owner)
     final protected var assigned : Boolean = false
-    protected[DFiant] def assign(that : DFAny, owner : DFBlock) : TVar = {
+    protected[DFiant] def assign(that : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : TVar = {
       assigned = true
       if (this.owner ne owner) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${owner.fullName})")
+      protAssignDependencies += AssignPlaceholder(this, that)
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -264,6 +265,23 @@ object DFAny {
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
     final def initCodeString : String = if (initialized) s"init${protInit.codeString}" else ""
   }
+
+  case class ConnectorPlaceholder(toPort : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
+    def relativeRef(dfVal : DFAny) : String = {
+      //TODO: fix for the general case
+      if (ctx.owner eq dfVal.owner) dfVal.name
+      else s"${dfVal.owner.name}.${dfVal.name}"
+    }
+    final implicit val owner : DFAnyOwner = ctx.owner
+    def codeString : String = s"${relativeRef(toPort)} <> ${relativeRef(fromVal)}"
+    final val id = getID
+  }
+
+  case class AssignPlaceholder(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
+    final implicit val owner : DFAnyOwner = ctx.owner
+    def codeString : String = s"${toVar.name} := ${fromVal.name}"
+    final val id = getID
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -280,7 +298,7 @@ object DFAny {
     protected def constructCodeString : String
     final def codeString : String = s"val $name = $constructCodeString $initCodeString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
-    final protected[DFiant] def discovery : Unit = almanacEntry
+    //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val isAnonymous : Boolean = ctx.n.value == "$anon"
     //Port Construction
@@ -317,7 +335,7 @@ object DFAny {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
     }
-    final protected[DFiant] def discovery : Unit = almanacEntry
+    //final protected[DFiant] def discovery : Unit = almanacEntry
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
 
@@ -341,7 +359,7 @@ object DFAny {
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     final def codeString : String = s"$token"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
-    final protected[DFiant] def discovery : Unit = almanacEntry
+    //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val isAnonymous : Boolean = false
     override protected def nameDefault: String = s"$token"
@@ -372,20 +390,14 @@ object DFAny {
       AlmanacEntryPort(width, protInit, sourceEntry, dir, name, codeString)
     }
     final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("Circular dependency detected"))
-    final protected[DFiant] def discovery : Unit = almanacEntry
-    private val privComponentDependency : ListBuffer[DFInterface] = ListBuffer.empty[DFInterface]
-    final protected[DFiant] def setComponentDependency(comp : DFInterface) : Unit = {
-      if (privComponentDependency.nonEmpty)
-        throw new IllegalArgumentException(s"The dataflow value $name is already connected to an output port in the component ${privComponentDependency.head.fullName}")
-      else privComponentDependency += comp
-    }
-    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ privComponentDependency
+    //final protected[DFiant] def discovery : Unit = almanacEntry
+    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
     protected def connected : Boolean = connectedSource.isDefined
-    final override protected[DFiant] def assign(that : DFAny, owner : DFBlock) : TVar = {
+    final override protected[DFiant] def assign(that : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       super.assign(that, owner)
     }
-    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir]) : Unit = {
+    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir])(implicit ctx : DFAny.Op.Context) : Unit = {
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
       if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
@@ -394,9 +406,10 @@ object DFAny {
       //All is well. We can now connect fromVal->toPort
       toPort.setInitFunc(() => fromVal.getInit.asInstanceOf[Seq[toPort.TToken]])
       toPort.connectedSource = Some(fromVal)
+      toPort.protAssignDependencies += ConnectorPlaceholder(toPort, fromVal)
       toPort.protAssignDependencies += fromVal
     }
-    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], owner : DFBlock) : Unit = {
+    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], owner : DFBlock)(implicit ctx : DFAny.Op.Context) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
       val (fromPort, toPort) = (left.owner, right.owner, owner) match {
@@ -450,7 +463,7 @@ object DFAny {
       connect(fromPort, toPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : DFAny.Op.Context) : Unit = connectPort2Port(right, ctx.owner)
-    final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock) : Unit = {
+    final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], owner)

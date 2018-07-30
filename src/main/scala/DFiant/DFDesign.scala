@@ -28,21 +28,14 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final override protected def nameDefault: String = if (isTop && ctx.n.value == "$anon") "top" else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  final protected def discovery : Unit = protAlmanac
+  def bodyCodeString : String = discoveredList.codeString
+  //final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {
-    //Run init of all rtcomponents
-    rtcomponents.foreach(c => c.init)
-    //Run init of all components
-    blocks.foreach(c => c.init)
   }
 
   def codeString : String = {
-//    print(mut)
-    init
-    discover
-    protAlmanac.codeString
+    discoveredList.codeString
   }
 
   def printInfo() : Unit = {
