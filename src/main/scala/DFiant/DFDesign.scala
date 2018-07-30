@@ -28,17 +28,14 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final override protected def nameDefault: String = if (isTop && ctx.n.value == "$anon") "top" else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def bodyCodeString : String = discoveredList.codeString
-  //final protected def discovery : Unit = protAlmanac
-
-  final protected lazy val init : Unit = {
-  }
-
-
-  def codeString : String = {
+  protected def bodyCodeString : String = {
     val delim = "  "
     val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
     delim + noConst.codeString.replaceAll("\n","\n" + delim)
+  }
+  //final protected def discovery : Unit = protAlmanac
+
+  final protected lazy val init : Unit = {
   }
 
   def printInfo() : Unit = {
@@ -74,7 +71,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   override def codeString: String = {
-    s"val $name = new DFDesign {\n${super.codeString}\n}"
+    s"val $name = new DFDesign {\n$bodyCodeString\n}"
   }
 }
 

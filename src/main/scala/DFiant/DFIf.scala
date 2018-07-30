@@ -19,8 +19,9 @@ protected class DFIfBlock(cond : DFBool, block: => Unit)(implicit ctx : DFIfBloc
   override protected def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
   override def codeString: String =
-    s"val $name = ifdf(${cond.name}) {\n${super.codeString}\n}"
+    s"val $name = ifdf(${cond.name}) {\n$bodyCodeString\n}"
 
+  block
 }
 
 protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -28,6 +29,8 @@ protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block: => 
   override protected def createAlmanac : AlmanacElseIf =
     new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
+  override def codeString: String =
+    s".elseifdf(${cond.name}) {\n$bodyCodeString\n}"
 }
 
 protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -35,6 +38,8 @@ protected class DFElseBlock(prevIfBlock : DFIfBlock, block: => Unit)(implicit ct
   override protected def createAlmanac : AlmanacElse =
     new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
+  override def codeString: String =
+    s".elsedf() {\n$bodyCodeString\n}"
 
   block
 }
