@@ -5,6 +5,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterface {
+  override protected implicit def protChildOwner : RTComponent = this
   protected def newGeneric() : Unit = {}
   final val owner : DFBlock = ctx.owner
 
