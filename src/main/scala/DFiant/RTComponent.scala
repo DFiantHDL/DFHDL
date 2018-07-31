@@ -19,6 +19,10 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : () => Seq[dfVal.TToken])
+  : Unit = dfVal.setInitFunc(value)
+  final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
+
   final protected[DFiant] lazy val init : Unit = {
     //set Output Ports Dependency
 //    portNodes.map(pn => pn.dfport).filter(p => p.dir.isOut).foreach(p => p.setComponentDependency(this))

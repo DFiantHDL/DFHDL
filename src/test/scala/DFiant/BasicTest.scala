@@ -39,17 +39,19 @@ trait IODesignConn3 extends DFDesign {
   o <> aa
 }
 
-class RTAddSub(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
+class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val A = DFUInt(aWidth) <> IN
   final val B = DFUInt(bWidth) <> IN
   final val S = DFUInt(sWidth) <> OUT
+  private lazy val SInit = () => DFUInt.Token.+(getInit(A), getInit(B))
+  setInitFunc(S)(SInit)
 }
 
 
 trait IODesignConn4 extends DFDesign {
-  val i = DFUInt(8) <> IN
+  val i = DFUInt(8) <> IN init(1, 2, Bubble)
   val o = DFUInt(8) <> OUT
-  val add = new RTAddSub(8, 8, 8)
+  val add = new RTAdd(8, 8, 8)
   add.A <> i
   add.B <> 1
   add.S <> o
