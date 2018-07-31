@@ -25,7 +25,9 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   }
   final val id = getID
 
-  def codeString: String = "???SomeRTComponent???"
+  override def codeString: String = {
+    s"\nval $name = new $typeName {$bodyCodeString\n}"
+  }
 }
 
 object RTComponent {

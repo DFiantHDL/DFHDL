@@ -29,11 +29,6 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final override protected def nameDefault: String = if (isTop && ctx.n.value == "$anon") "top" else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected def bodyCodeString : String = {
-    val delim = "  "
-    val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
-    delim + noConst.codeString.replaceAll("\n","\n" + delim)
-  }
   //final protected def discovery : Unit = protAlmanac
 
   final protected lazy val init : Unit = {

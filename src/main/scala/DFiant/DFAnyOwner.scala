@@ -18,6 +18,12 @@ trait DFAnyOwner extends DSLOwnerConstruct {
   final protected lazy val dfVals : List[DFAny.NewVar] = ownedList.collect{case o : DFAny.NewVar => o}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  protected def bodyCodeString : String = {
+    val delim = "  "
+    val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
+    delim + noConst.codeString.replaceAll("\n","\n" + delim)
+  }
+
 }
 
 object DFAnyOwner {
