@@ -320,7 +320,7 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFBlock]
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0)(
     implicit ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
     final implicit val owner : DFAnyOwner = ctx.owner
@@ -328,7 +328,7 @@ object DFAny {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = {
-      val initTemp : Seq[Token] = if (updatedInit.isEmpty) aliasedVar.getInit else updatedInit
+      val initTemp : Seq[Token] = aliasedVar.getInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
       val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
       bitsInit.map(protTokenBitsToTToken)

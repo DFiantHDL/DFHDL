@@ -55,9 +55,9 @@ object DFEnum extends DFAny.Companion {
   }
 
   protected[DFiant] def alias[E <: Enum]
-  (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token[E]] = Seq())(
+  (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0)(
     implicit ctx : DFAny.Alias.Context, w : WidthOf[E]
-  ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, updatedInit) with Var[E] {
+  ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep) with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
     def constructCodeString : String = "AliasOfDFEnum???"
   }
@@ -137,7 +137,7 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context, w : WidthOf[E]) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
-          alias(left, 0, -right, left.getInit)
+          alias(left, 0, -right)
       }
     }
   }

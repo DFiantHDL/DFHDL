@@ -65,14 +65,13 @@ object DFBool extends DFAny.Companion {
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, updatedInit : Seq[DFBool.Token] = Seq())(implicit ctx : DFAny.Alias.Context) : Var =
-    new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, updatedInit) with Var {
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0)(implicit ctx : DFAny.Alias.Context) : Var =
+    new DFAny.Alias(aliasedVar, 1, relBit, deltaStep) with Var {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
       def constructCodeString : String = {
         val bitCodeString = s".bit($relBit)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
-        val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$name$bitCodeString$initCodeString$prevCodeString"
+        s"$name$bitCodeString$prevCodeString"
       }
     }
 
@@ -181,7 +180,7 @@ object DFBool extends DFAny.Companion {
     object Builder {
       implicit def ev(implicit ctx : DFAny.Alias.Context) : Builder[DFBool] = new Builder[DFBool] {
         def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
-          DFBool.alias(left, 0, -right, left.getInit)
+          DFBool.alias(left, 0, -right)
       }
     }
   }

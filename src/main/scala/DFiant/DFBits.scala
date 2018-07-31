@@ -136,14 +136,13 @@ object DFBits extends DFAny.Companion {
     }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, updatedInit : Seq[Token] = Seq())(implicit ctx : DFAny.Alias.Context) : Var[W] =
-    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, updatedInit) with Var[W] {
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0)(implicit ctx : DFAny.Alias.Context) : Var[W] =
+    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
       def constructCodeString : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s".bitsWL($relWidth, $relBitLow)"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
-        val initCodeString = if (updatedInit.isEmpty) "" else s".init(${updatedInit.codeString})"
-        s"$name$bitsCodeString$initCodeString$prevCodeString"
+        s"$name$bitsCodeString$prevCodeString"
       }
     }
 
@@ -258,7 +257,7 @@ object DFBits extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
         def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
-          alias(left, left.width, 0, -right, left.getInit)
+          alias(left, left.width, 0, -right)
       }
     }
   }
