@@ -21,10 +21,12 @@ trait TypeNameable {
 
 
 trait NameIt {
+  val isAnonymous : Boolean
   val value : String
 }
 object NameIt {
-  implicit def ev(implicit n : sourcecode.Name) : NameIt = new NameIt {
-    val value: String = n.value
+  implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName) : NameIt = new NameIt {
+    val isAnonymous : Boolean = name.value == "$anon"
+    val value: String = if (isAnonymous) ownerName.value else name.value
   }
 }
