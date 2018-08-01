@@ -39,17 +39,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
 }
 object DFBlock {
   trait Context extends DFAnyOwner.ContextWithLib
-  trait LowPriorityContext {
-    implicit def evContext[Comp <: DFComponent[Comp]](
-      implicit evContext : DFAnyOwner.ContextWithLib, evNameIt : NameIt
-    ) : Context = new Context {
-      val owner: DFBlock = evContext.owner
-      val basicLib: DFBasicLib = evContext.basicLib
-      val config: DFAnyConfiguration = evContext.config
-      val n: NameIt = evNameIt
-    }
-  }
-  object Context extends LowPriorityContext {
+  object Context {
     implicit def ev (
       implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : Context = new Context {
@@ -132,7 +122,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 }
 
 object DFComponent {
-  trait Context[Comp <: DFComponent[Comp]] extends DFAnyOwner.ContextWithLib{
+  trait Context[Comp <: DFComponent[Comp]] extends DFBlock.Context {
     val impl : DFComponent.Implementation[Comp]
   }
   trait LowPriorityContext {
