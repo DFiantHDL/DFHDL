@@ -26,11 +26,35 @@ trait IODesignIf extends DFDesign {
   bb.keep
 }
 
-trait IODesignConn2 extends DFDesign {
+class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
+  final val I = DFUInt(width) <> IN
+  final val O = DFUInt(width) <> OUT
+  private lazy val OInit = () => DFUInt.Token.+(getInit(I), getInit(I))
+  setInitFunc(O)(OInit)
+}
+
+trait Comp extends DFComponent[Comp] {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
-  i <> o
 }
+object Comp {
+  implicit val ev : DFComponent.Implementation[Comp] = ifc => {
+    import ifc._
+    val rt = new RTx2(8)
+    rt.I <> i
+    rt.O <> o
+  }
+}
+
+trait IODesignConn2 extends DFDesign{
+  val i = DFUInt(8) <> IN init 1
+  val o = DFUInt(8) <> OUT
+
+  val io = new Comp {}
+  i <> io.i
+  o <> io.o
+}
+
 
 trait IODesignConn3 extends DFDesign {
   val i = DFUInt(8) <> IN
@@ -123,13 +147,14 @@ object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.detailed
   val top_ioDesignConn1 = new IODesignConn1 {}
+  val top_ioDesignConn2 = new IODesignConn2 {}
   val top_ioDesignConn3 = new IODesignConn3 {}
   val top_ioDesignConn4 = new IODesignConn4 {}
   val top_containerConn1 = new ContainerConn1 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignConn3.codeString)
+  println(top_ioDesignConn2.codeString)
 
 }
 

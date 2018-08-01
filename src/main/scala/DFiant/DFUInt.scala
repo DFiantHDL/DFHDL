@@ -478,10 +478,9 @@ object DFUInt extends DFAny.Companion {
                   opInst.inRight <> right
                   wc := opInst.outResult
                   wc.setInitFunc(() => opInst.outResult.getInit)
-                  wc.keep
 //                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc).keep//.setAutoName(n.value)
+                  new Component[NCW, WCW](wc)//.setAutoName(n.value)
                 }
               }
           }

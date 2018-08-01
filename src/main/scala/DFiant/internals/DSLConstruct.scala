@@ -17,6 +17,8 @@ trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable 
   protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
   final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
   def codeString : String
+  protected def lateRun : Unit = {}
+  final private[internals] lazy val lateRunOnce : Unit = lateRun
   val id : Int
 }
 
@@ -24,7 +26,10 @@ trait DSLOwnerConstruct extends DSLOwnableConstruct {
   protected implicit def protChildOwner : DSLOwnerConstruct = this
   private var idCnt : Int = 0
   private val mutableOwnedList : ListBuffer[DSLOwnableConstruct] = ListBuffer.empty[DSLOwnableConstruct]
-  final lazy val ownedList : List[DSLOwnableConstruct] = mutableOwnedList.toList
+  final lazy val ownedList : List[DSLOwnableConstruct] = {
+    mutableOwnedList.foreach(e => e.lateRunOnce)
+    mutableOwnedList.toList
+  }
   final protected[internals] def newItemGetID(item : DSLOwnableConstruct) : Int = {
     mutableOwnedList += item
     idCnt += 1

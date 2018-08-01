@@ -32,9 +32,6 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //final protected def discovery : Unit = protAlmanac
 
-  final protected lazy val init : Unit = {
-  }
-
   final val id = getID
 }
 object DFBlock {
@@ -118,7 +115,7 @@ object DFDesign {
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp])
   extends DFDesign {
-  ctx.impl(this.asInstanceOf[Comp])
+  override protected def lateRun = ctx.impl(this.asInstanceOf[Comp])
 }
 
 object DFComponent {
