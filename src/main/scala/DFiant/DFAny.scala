@@ -161,6 +161,7 @@ sealed trait DFAny extends DSLOwnableConstruct {
   // Administration
   //////////////////////////////////////////////////////////////////////////
   implicit val owner : DFAnyOwner
+  implicit val config : DFAnyConfiguration
   final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
@@ -267,7 +268,8 @@ object DFAny {
     final protected[DFiant] def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
     final private val initLB = LazyBox(_initFunc())
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
-    final def initCodeString : String = customInitString// s"$customInitString      //init= ${getInit.codeString}"
+    final def initCodeString : String =
+      if (config.commentInitValues) s"$customInitString  //init = ${getInit.codeString}" else customInitString
   }
 
   case class ConnectorPlaceholder(toPort : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
