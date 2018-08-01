@@ -5,7 +5,8 @@ import scala.collection.mutable.ListBuffer
 trait DSLConstruct {
 
 }
-trait CodeStringOptions
+
+trait DSLConfiguration
 
 trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
@@ -43,8 +44,9 @@ trait DSLOwnerConstruct extends DSLOwnableConstruct {
     else name //Top
 }
 object DSLOwnerConstruct {
-  trait Context[+Owner <: DSLOwnerConstruct] {
+  trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {
     val owner : Owner
+    val config : Config
     val n : NameIt
   }
 }

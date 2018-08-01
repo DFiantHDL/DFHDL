@@ -26,15 +26,29 @@ trait DFAnyOwner extends DSLOwnerConstruct {
 
 }
 
+trait DFAnyConfiguration extends DSLConfiguration {
+  val commentInitValues : Boolean
+}
+object DFAnyConfiguration {
+  implicit object default extends DFAnyConfiguration {
+    val commentInitValues: Boolean = false
+  }
+  object detailed extends DFAnyConfiguration {
+    val commentInitValues: Boolean = true
+  }
+}
+
 object DFAnyOwner {
-  trait Context[+Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner]
+  trait Context[+Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
   protected trait LowPriorityContext {
     implicit def getOwner[Owner <: DFAnyOwner](implicit evContext : Context[Owner]) : Owner = evContext.owner
+//    implicit def getConfig[Owner <: DFAnyOwner](implicit evContext : Context[Owner]) : DFAnyConfiguration = evContext.config
   }
   object Context extends LowPriorityContext {
-    implicit def ev[Owner <: DFAnyOwner](implicit evOwner : Owner, evNameIt : NameIt)
+    implicit def ev[Owner <: DFAnyOwner](implicit evOwner : Owner, evConfig : DFAnyConfiguration, evNameIt : NameIt)
     : Context[Owner] = new Context[Owner] {
       val owner: Owner = evOwner
+      val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt
     }
   }
@@ -46,10 +60,11 @@ object DFAnyOwner {
     : DFBasicLib = evContext.basicLib
   }
   object ContextWithLib extends LowPriorityContextWithLib {
-    implicit def ev(implicit evOwner : DFBlock, evBasicLib : DFBasicLib, evNameIt : NameIt)
+    implicit def ev(implicit evOwner : DFBlock, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt)
     : ContextWithLib = new ContextWithLib {
       val owner: DFBlock = evOwner
       val basicLib : DFBasicLib = evBasicLib
+      val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt
     }
   }

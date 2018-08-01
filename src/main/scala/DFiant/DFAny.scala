@@ -297,6 +297,7 @@ object DFAny {
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
     final implicit val owner : DFAnyOwner = ctx.owner
+    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
@@ -324,6 +325,7 @@ object DFAny {
     implicit ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
     final implicit val owner : DFAnyOwner = ctx.owner
+    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -358,6 +360,7 @@ object DFAny {
     implicit ctx : Const.Context, cmp : Companion
   ) extends DFAny {
     final implicit val owner : DFAnyOwner = ctx.owner
+    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -385,6 +388,7 @@ object DFAny {
     type TPostInit = TVal <> Dir
     type TDir = Dir
     final implicit val owner : DFInterface = ctx.owner
+    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]

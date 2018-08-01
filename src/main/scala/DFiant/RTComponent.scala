@@ -8,6 +8,7 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   override protected implicit def protChildOwner : RTComponent = this
   protected def newGeneric() : Unit = {}
   final val owner : DFBlock = ctx.owner
+  final implicit val config = ctx.config
 
   final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn
   //final protected def discovery : Unit = {}

@@ -9,6 +9,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   override protected implicit def protChildOwner : DFBlock = this
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
+  final implicit val config = ctx.config
   final val topDsn : DFDesign =
     if (owner != null) owner.topDsn
     else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
@@ -44,15 +45,17 @@ object DFBlock {
     ) : Context = new Context {
       val owner: DFBlock = evContext.owner
       val basicLib: DFBasicLib = evContext.basicLib
+      val config: DFAnyConfiguration = evContext.config
       val n: NameIt = evNameIt
     }
   }
   object Context extends LowPriorityContext {
     implicit def ev (
-      implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evNameIt : NameIt
+      implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : Context = new Context {
       val owner: DFBlock = evOwner
       val basicLib: DFBasicLib = evBasicLib
+      val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
     }
   }
@@ -130,10 +133,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 
 object DFComponent {
   trait Context[Comp <: DFComponent[Comp]] extends DFAnyOwner.ContextWithLib{
-    val owner : DFBlock
     val impl : DFComponent.Implementation[Comp]
-    val basicLib : DFBasicLib
-    val n : NameIt
   }
   trait LowPriorityContext {
     implicit def ev2[Comp <: DFComponent[Comp]](
@@ -142,16 +142,18 @@ object DFComponent {
       val owner: DFBlock = evContext.owner
       val impl: DFComponent.Implementation[Comp] = evImpl
       val basicLib: DFBasicLib = evContext.basicLib
+      val config: DFAnyConfiguration = evContext.config
       val n: NameIt = evNameIt
     }
   }
   object Context extends LowPriorityContext {
     implicit def ev[Comp <: DFComponent[Comp]](
-      implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib, evNameIt : NameIt
+      implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : Context[Comp] = new Context[Comp] {
       val owner: DFBlock = evOwner
       val impl: DFComponent.Implementation[Comp] = evImpl
       val basicLib: DFBasicLib = evBasicLib
+      val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
     }
   }

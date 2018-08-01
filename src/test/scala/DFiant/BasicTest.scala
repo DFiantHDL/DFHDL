@@ -121,6 +121,7 @@ trait ContainerConn4 extends DFDesign {
 
 object BasicTest extends App {
   import psuedoVendor.family.device._
+  implicit val a = DFAnyConfiguration.detailed
   val top_ioDesignConn1 = new IODesignConn1 {}
   val top_ioDesignConn3 = new IODesignConn3 {}
   val top_ioDesignConn4 = new IODesignConn4 {}
