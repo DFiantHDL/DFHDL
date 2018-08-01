@@ -469,18 +469,19 @@ object DFUInt extends DFAny.Companion {
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
-                  val opInit = creationKind.opFunc(left.getInit, right.getInit)
                   val opInst = creationKind match {
                     case `Ops+Or-`.+ => new `U+U`(left.width, right.width, opWidth)
                     case `Ops+Or-`.- => new `U-U`(left.width, right.width, opWidth)
                   }
-                  val wc = new NewVar[WCW](opWidth).setAutoName(s"${ctx.n.value}.wc") //opInst.outResult.getInit
+                  val wc = new NewVar[WCW](opWidth).setAutoName(s"${ctx.n.value}.wc")
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   wc := opInst.outResult
+                  wc.setInitFunc(() => opInst.outResult.getInit)
+                  wc.keep
 //                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc)//.setAutoName(n.value)
+                  new Component[NCW, WCW](wc).keep//.setAutoName(n.value)
                 }
               }
           }
@@ -513,11 +514,11 @@ object DFUInt extends DFAny.Companion {
     }
   }
   protected object `Ops+Or-` {
-    abstract class Kind(val opString : String, val opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token]) {
+    abstract class Kind(val opString : String) {
       def unary_- : Kind
     }
-    case object + extends Kind("+", DFUInt.Token.+) {def unary_- : Kind = `Ops+Or-`.-}
-    case object - extends Kind("-", DFUInt.Token.-) {def unary_- : Kind = `Ops+Or-`.+}
+    case object + extends Kind("+") {def unary_- : Kind = `Ops+Or-`.-}
+    case object - extends Kind("-") {def unary_- : Kind = `Ops+Or-`.+}
   }
   object `Op+` extends `Ops+Or-`(`Ops+Or-`.+)
   object `Op-` extends `Ops+Or-`(`Ops+Or-`.-)

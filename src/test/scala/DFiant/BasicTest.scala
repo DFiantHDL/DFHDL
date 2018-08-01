@@ -35,8 +35,8 @@ trait IODesignConn2 extends DFDesign {
 trait IODesignConn3 extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
-  val aa = i + 1
-  o <> aa
+  val plusOne = i + 1
+  o <> plusOne
 }
 
 class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
@@ -120,7 +120,7 @@ trait ContainerConn4 extends DFDesign {
 
 
 object BasicTest extends App {
-  import psuedoVendor.family.device._
+  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.detailed
   val top_ioDesignConn1 = new IODesignConn1 {}
   val top_ioDesignConn3 = new IODesignConn3 {}
@@ -129,7 +129,7 @@ object BasicTest extends App {
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignConn4.codeString)
+  println(top_ioDesignConn3.codeString)
 
 }
 
