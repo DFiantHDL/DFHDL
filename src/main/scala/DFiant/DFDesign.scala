@@ -104,8 +104,9 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
+  private def commentClassName : String = if (ctx.config.commentClassNames) s"  //$typeName" else ""
   override def codeString: String = {
-    s"\nval $name = new DFDesign {$bodyCodeString\n}"
+    s"\nval $name = new DFDesign {$commentClassName$bodyCodeString\n}"
   }
 }
 

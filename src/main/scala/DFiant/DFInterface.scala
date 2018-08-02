@@ -19,7 +19,6 @@ trait DFInterface extends DFAnyOwner {
   final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
     ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
-  val fullName : String
   override lazy val typeName: String = {
     val cls = getClass
     val ifc = cls.getInterfaces

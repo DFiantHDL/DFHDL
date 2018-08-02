@@ -28,13 +28,16 @@ trait DFAnyOwner extends DSLOwnerConstruct {
 
 trait DFAnyConfiguration extends DSLConfiguration {
   val commentInitValues : Boolean
+  val commentClassNames : Boolean
 }
 object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
     val commentInitValues: Boolean = false
+    val commentClassNames : Boolean = false
   }
   object detailed extends DFAnyConfiguration {
     val commentInitValues: Boolean = true
+    val commentClassNames : Boolean = true
   }
 }
 
