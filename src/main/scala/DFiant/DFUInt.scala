@@ -421,7 +421,7 @@ object DFUInt extends DFAny.Companion {
     class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
       lazy val c = DFBits.alias[1](wc, 1, wc.width-1)
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-      def constructCodeString : String = s"???Op+-Comp???"
+      def constructCodeString : String = s"${wc.owner.name}.${wc.name}.bits(7,0).uint"
       override def nameDefault: String = ctx.n.value
     }
 
@@ -478,14 +478,14 @@ object DFUInt extends DFAny.Companion {
                     case `Ops+Or-`.+ => new `U+U`(left.width, right.width, opWidth)
                     case `Ops+Or-`.- => new `U-U`(left.width, right.width, opWidth)
                   }
-                  val wc = new NewVar[WCW](opWidth).setAutoName(s"${ctx.n.value}.wc")
+//                  val wc = new NewVar[WCW](opWidth).setAutoName(s"${ctx.n.value}.wc")
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  wc := opInst.outResult
-                  wc.setInitFunc(() => opInst.outResult.getInit)
+//                  wc := opInst.outResult
+//                  wc.setInitFunc(() => opInst.outResult.getInit)
 //                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc)//.setAutoName(n.value)
+                  new Component[NCW, WCW](opInst.outResult)//.setAutoName(n.value)
                 }
               }
           }
