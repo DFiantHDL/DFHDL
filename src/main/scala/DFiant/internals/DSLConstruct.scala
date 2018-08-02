@@ -8,7 +8,7 @@ trait DSLConstruct {
 
 trait DSLConfiguration
 
-trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
+trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
   def keep : this.type = {
     owner.mutableKeepList += this
@@ -40,16 +40,16 @@ trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable 
   val id : Int
 }
 
-trait DSLOwnerConstruct extends DSLOwnableConstruct {
+trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   private var idCnt : Int = 0
-  private val mutableOwnedList : ListBuffer[DSLOwnableConstruct] = ListBuffer.empty[DSLOwnableConstruct]
-  final lazy val ownedList : List[DSLOwnableConstruct] = {
-    mutableOwnedList.foreach(e => e.lateRunOnce)
-    mutableOwnedList.toList
+  private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+  final lazy val memberList : List[DSLMemberConstruct] = {
+    mutableMemberList.foreach(e => e.lateRunOnce)
+    mutableMemberList.toList
   }
-  final protected[internals] def newItemGetID(item : DSLOwnableConstruct) : Int = {
-    mutableOwnedList += item
+  final protected[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
+    mutableMemberList += item
     idCnt += 1
     idCnt
   }
@@ -57,9 +57,9 @@ trait DSLOwnerConstruct extends DSLOwnableConstruct {
   private[internals] val mutableKeepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
   final lazy val keepList : List[Discoverable] = mutableKeepList.toList
   override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
-  final lazy val discoveredList : List[DSLOwnableConstruct] = {
+  final lazy val discoveredList : List[DSLMemberConstruct] = {
     discover
-    ownedList.filterNot(o => o.isNotDiscovered)
+    memberList.filterNot(o => o.isNotDiscovered)
   }
 }
 object DSLOwnerConstruct {

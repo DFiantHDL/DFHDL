@@ -17,8 +17,8 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final private lazy val blocks : List[DFBlock] = ownedList.collect{case o : DFBlock => o}
-  final private lazy val rtcomponents : List[RTComponent] = ownedList.collect{case o : RTComponent => o}
+  final private lazy val blocks : List[DFBlock] = memberList.collect{case o : DFBlock => o}
+  final private lazy val rtcomponents : List[RTComponent] = memberList.collect{case o : RTComponent => o}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   def compileToVHDL(fileName : String) = ???

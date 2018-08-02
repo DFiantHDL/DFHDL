@@ -262,7 +262,7 @@ package object internals {
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  implicit class EntryList(list : List[DSLOwnableConstruct]) {
+  implicit class EntryList(list : List[DSLMemberConstruct]) {
     def codeString : String = if (list.isEmpty) "" else list.map(e => e.codeString).mkString
   }
 }

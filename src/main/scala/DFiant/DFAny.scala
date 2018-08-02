@@ -8,7 +8,7 @@ import scodec.bits._
 
 import scala.collection.mutable.ListBuffer
 
-sealed trait DFAny extends DSLOwnableConstruct {
+sealed trait DFAny extends DSLMemberConstruct {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -275,7 +275,7 @@ object DFAny {
       if (config.commentInitValues) s"$customInitString  //init = ${getInit.codeString}" else customInitString
   }
 
-  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLOwnableConstruct {
+  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
     def codeString : String = s"\n${toPort.relativeName} <> ${fromVal.relativeName}"
     final val id = getID
@@ -284,7 +284,7 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFBlock]
   }
 
-  case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
+  case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
     def codeString : String = s"\n${toVar.name} := ${fromVal.name}"
     final val id = getID
