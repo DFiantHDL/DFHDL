@@ -5,11 +5,6 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFInterface extends DFAnyOwner {
-  final lazy val portNodes : List[PortNode] =
-    this.getNestedDeclaredFieldsOf[DFAny.Port[DFAny, DFDir], PortNode](
-      classOf[DFAny.Port[DFAny, DFDir]], (f, t) => PortNode(t, f.getName)
-    )
-
   final protected lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
     ownedList.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
 
