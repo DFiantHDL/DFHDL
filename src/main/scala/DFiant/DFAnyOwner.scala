@@ -39,25 +39,28 @@ object DFAnyConfiguration {
 }
 
 object DFAnyOwner {
-  trait Context[+Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
-  object Context {
-    implicit def ev[Owner <: DFAnyOwner](implicit evOwner : Owner, evConfig : DFAnyConfiguration, evNameIt : NameIt)
-    : Context[Owner] = new Context[Owner] {
-      val owner: Owner = evOwner
-      val config : DFAnyConfiguration = evConfig
+  trait ContextOf[T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
+  object ContextOf {
+    implicit def ev[T, Owner <: DFAnyOwner](implicit evOwner : Owner, evConfig : DFAnyConfiguration, evNameIt : NameIt)
+    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
+      implicit val owner: Owner = evOwner
+      implicit val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt
     }
   }
-  trait ContextWithLib extends Context[DFBlock] {
-    val basicLib : DFBasicLib
+  type Context[+Owner <: DFAnyOwner] = ContextOf[Nothing, Owner]
+  trait ContextWithLibOf[T, +Owner <: DFAnyOwner] extends ContextOf[T, Owner] {
+    implicit val basicLib : DFBasicLib
   }
-  object ContextWithLib {
-    implicit def ev(implicit evOwner : DFBlock, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt)
-    : ContextWithLib = new ContextWithLib {
-      val owner: DFBlock = evOwner
-      val basicLib : DFBasicLib = evBasicLib
-      val config : DFAnyConfiguration = evConfig
+  object ContextWithLibOf {
+    implicit def ev[T, Owner <: DFAnyOwner](implicit evOwner : Owner, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt)
+    : ContextWithLibOf[T, Owner] = new ContextWithLibOf[T, Owner] {
+      implicit val owner: Owner = evOwner
+      implicit val basicLib : DFBasicLib = evBasicLib
+      implicit val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt
     }
   }
+  type ContextWithLib[+Owner <: DFAnyOwner] = ContextWithLibOf[Nothing, Owner]
+
 }

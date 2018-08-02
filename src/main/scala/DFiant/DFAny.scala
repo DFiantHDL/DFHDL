@@ -237,7 +237,7 @@ object DFAny {
       assigned = true
       //TODO: fix check with if hierarchy
 //      if (this.owner ne owner) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${owner.fullName})")
-      protAssignDependencies += AssignPlaceholder(this, that)
+      protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
@@ -272,7 +272,7 @@ object DFAny {
       if (config.commentInitValues) s"$customInitString  //init = ${getInit.codeString}" else customInitString
   }
 
-  case class ConnectorPlaceholder(toPort : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
+  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLOwnableConstruct {
     def relativeRef(dfVal : DFAny) : String = {
       //TODO: fix for the general case
       if (ctx.owner eq dfVal.owner) dfVal.name
@@ -282,8 +282,11 @@ object DFAny {
     def codeString : String = s"\n${relativeRef(toPort)} <> ${relativeRef(fromVal)}"
     final val id = getID
   }
+  object Connector {
+    type Context = DFAnyOwner.Context[DFBlock]
+  }
 
-  case class AssignPlaceholder(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
+  case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLOwnableConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
     def codeString : String = s"\n${toVar.name} := ${fromVal.name}"
     final val id = getID
@@ -320,7 +323,7 @@ object DFAny {
     final val id = getID
   }
   object NewVar {
-    type Context = DFAnyOwner.Context[DFBlock]
+    type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0)(
@@ -407,7 +410,7 @@ object DFAny {
       if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       super.assign(that, owner)
     }
-    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir])(implicit ctx : DFAny.Op.Context) : Unit = {
+    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
       if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
@@ -416,10 +419,10 @@ object DFAny {
       //All is well. We can now connect fromVal->toPort
       toPort.setInitFunc(() => fromVal.getInit.asInstanceOf[Seq[toPort.TToken]])
       toPort.connectedSource = Some(fromVal)
-      toPort.protAssignDependencies += ConnectorPlaceholder(toPort, fromVal)
+      toPort.protAssignDependencies += Connector(toPort, fromVal)
       toPort.protAssignDependencies += fromVal
     }
-    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], owner : DFBlock)(implicit ctx : DFAny.Op.Context) : Unit = {
+    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], owner : DFBlock)(implicit ctx : Connector.Context) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
       val (fromPort, toPort) = (left.owner, right.owner, owner) match {
@@ -472,8 +475,8 @@ object DFAny {
       }
       connect(fromPort, toPort)
     }
-    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : DFAny.Op.Context) : Unit = connectPort2Port(right, ctx.owner)
-    final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : Unit = {
+    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : Connector.Context) : Unit = connectPort2Port(right, ctx.owner)
+    final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock)(implicit ctx : Connector.Context) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]], owner)
@@ -491,7 +494,7 @@ object DFAny {
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op<>`.Builder[TVal, R], ctx : DFAny.Op.Context
+      implicit op: protComp.`Op<>`.Builder[TVal, R], ctx : DFAny.Connector.Context
     ) : Unit = connectVal2Port(op(left, right), ctx.owner)
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
@@ -634,7 +637,7 @@ object DFAny {
       type Comp <: DFAny
       def apply(left : L, rightR : R) : Comp
     }
-    type Context = DFAnyOwner.ContextWithLib
+    type Context = DFBlock.Context
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

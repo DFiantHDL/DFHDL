@@ -1,6 +1,7 @@
 package Xilinx
 import DFiant._
 import DFiant.DFComponent.Implementation
+import DFiant.basiclib.DFBasicLib
 
 trait Series {
   class RTAddSub(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -13,17 +14,17 @@ trait Series {
   }
 
   implicit object basicLib extends DFiant.basiclib.DFBasicLib {
-    implicit def `evU+U`(implicit ctx : Implementation.Context) : Implementation[`U+U`] = ifc => {
+    implicit def `evU+U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U+U`[LW, RW, OW]] = ifc => {
       import ifc._
       val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.+)
       rtInst.A <> inLeft
       rtInst.B <> inRight
       rtInst.S <> outResult
     }
-    implicit def `evU-U`(implicit ctx : Implementation.Context) : Implementation[`U-U`] = ifc => {
+    implicit def `evU-U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U-U`[LW, RW, OW]] = ifc => {
       import ifc._
     }
-    implicit def `evU*U`(implicit ctx : Implementation.Context) : Implementation[`U*U`] = ifc => {
+    implicit def `evU*U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U*U`[LW, RW, OW]] = ifc => {
       import ifc._
     }
 

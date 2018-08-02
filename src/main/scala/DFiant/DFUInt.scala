@@ -75,6 +75,9 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  final def unchecked[W](width : TwoFace.Int[W])(
+    implicit auc : AllowUnchecked, ctx : DFAny.NewVar.Context)
+  : NewVar[W] = new NewVar[W](width)
   implicit def apply[W](
     implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : NewVar[W] = new NewVar(checkedWidth)
@@ -259,7 +262,7 @@ object DFUInt extends DFAny.Companion {
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def <> [RW, RDIR <: DFDir](port : DFUInt[RW] <> RDIR)(
-        implicit op: `Op<>`.Builder[DFUInt[RW], L], ctx : DFAny.Op.Context
+        implicit op: `Op<>`.Builder[DFUInt[RW], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left), ctx.owner)
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
     }
@@ -361,7 +364,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
+  trait `Ops:=,<>`[Ctx, SkipLengthCheck] extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -371,7 +374,7 @@ object DFUInt extends DFAny.Companion {
       }
 
       object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = (LW >= RW) || SkipLengthCheck
+        type Cond[LW, RW] = SkipLengthCheck || (LW >= RW)
         type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
@@ -384,7 +387,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
-        ctx : DFAny.Op.Context,
+        ctx : Ctx,
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
         create[DFUInt[LW], DFUInt[RW], RW]((left, right) => {
@@ -394,7 +397,7 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
-        ctx : DFAny.Op.Context,
+        ctx : Ctx,
         rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFUInt[LW], R, DFUInt[RW]] = create[DFUInt[LW], R, RW]((left, rightNum) => {
@@ -404,8 +407,8 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  object `Op:=` extends `Ops:=,<>`[false]
-  object `Op<>` extends `Ops:=,<>`[true]
+  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context, false]
+  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context, true]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -463,12 +466,14 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx.basicLib._
+                  import ctx._
+                  import basicLib._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
+                  implicitly[DFBasicLib]
                   val opInst = creationKind match {
                     case `Ops+Or-`.+ => new `U+U`(left.width, right.width, opWidth)
                     case `Ops+Or-`.- => new `U-U`(left.width, right.width, opWidth)
@@ -581,7 +586,8 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx.basicLib._
+                  import ctx._
+                  import basicLib._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)

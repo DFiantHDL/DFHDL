@@ -57,7 +57,7 @@ trait IODesignConn2 extends DFDesign{
 
 
 trait IODesignConn3 extends DFDesign {
-  val i = DFUInt(8) <> IN
+  val i = DFUInt(8) <> IN init 5
   val o = DFUInt(8) <> OUT
   val plusOne = i + 1
   o <> plusOne
@@ -154,7 +154,7 @@ object BasicTest extends App {
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignConn2.codeString)
+  println(top_ioDesignConn3.codeString)
 
 }
 

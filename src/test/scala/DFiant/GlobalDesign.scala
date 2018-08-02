@@ -10,7 +10,7 @@ object GlobalDesignName extends NameIt {
 
 object GlobalContext extends DFDesign.Context {
   override val owner: DFBlock = null
-  override val basicLib: DFBasicLib = psuedoVendor.family.device.basicLib
+  override val basicLib: DFBasicLib = Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.basicLib
   override val config: DFAnyConfiguration = DFAnyConfiguration.default
   override val n: NameIt = GlobalDesignName
 }

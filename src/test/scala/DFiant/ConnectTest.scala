@@ -3,7 +3,7 @@ package DFiant
 import org.scalacheck._
 import shapeless.test.illTyped
 import TestUtils._
-import psuedoVendor.family.device._
+import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
 
 class ConnectTest extends Properties("ConnectTest") {
   trait IODesignConn1 extends DFDesign {
