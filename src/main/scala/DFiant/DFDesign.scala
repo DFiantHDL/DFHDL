@@ -27,7 +27,8 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final def isTop : Boolean = owner == null
-  final override protected def nameDefault: String = if (isTop && ctx.n.value == "$anon") "top" else ctx.n.value
+  final override protected def nameDefault: String =
+    if (isTop && ctx.n.isAnonymous) "top" else if (ctx.n.isAnonymous) "$anon" + s"$id" else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //final protected def discovery : Unit = protAlmanac
@@ -35,7 +36,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final val id = getID
 }
 object DFBlock {
-  trait ContextOf[T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner]
+  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner]
   object ContextOf {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit evOwner : Owner = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
@@ -50,6 +51,7 @@ object DFBlock {
 }
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
+  self =>
   private var updatedOwner : DFDesign = this
   override implicit def theOwnerToBe : DFDesign = updatedOwner
 
@@ -61,8 +63,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       updatedOwner = originalOwner
       ifBlock
     }
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock =
-      genIf(new DFIfBlock(cond), block).setAutoName(ctx.n.value)
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock = {
+      val retIf = genIf(new DFIfBlock(cond), block)
+      retIf.setAutoName(if (ctx.n.isAnonymous) "$anon" + s"${retIf.id}" else ctx.n.value)
+    }
 
     protected class DFIfBlock(cond : DFBool)(implicit ctx : DFIfBlock.Context)
       extends DFDesign {
@@ -112,7 +116,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
-  type ContextOf[T] = DFBlock.ContextOf[T, DFDesign]
+  type ContextOf[+T] = DFBlock.ContextOf[T, DFDesign]
 }
 
 

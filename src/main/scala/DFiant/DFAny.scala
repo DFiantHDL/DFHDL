@@ -142,7 +142,6 @@ sealed trait DFAny extends DSLOwnableConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Naming
   //////////////////////////////////////////////////////////////////////////
-  val isAnonymous : Boolean
   def codeString : String
   override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
@@ -159,12 +158,17 @@ sealed trait DFAny extends DSLOwnableConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  implicit val owner : DFAnyOwner
-  implicit val config : DFAnyConfiguration
+  protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
+  implicit lazy val owner : DFAnyOwner = ctx.owner
+  final lazy implicit val config : DFAnyConfiguration = ctx.config
   final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
+  override protected def nameDefault: String = {
+    if (ctx.n.isAnonymous) "$" + s"anon$id"
+    else ctx.n.value
+  }
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -292,11 +296,9 @@ object DFAny {
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int)(
-    implicit ctx : NewVar.Context, cmp : Companion
+    implicit val ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
-    final implicit val owner : DFAnyOwner = ctx.owner
-    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     protected def constructCodeString : String
@@ -304,16 +306,11 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val isAnonymous : Boolean = ctx.n.value == "$anon"
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
     //    def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
     //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
-    override protected def nameDefault: String = {
-      if (isAnonymous) "$" + s"anon$id"
-      else ctx.n.value
-    }
     final val id = getID
   }
   object NewVar {
@@ -321,10 +318,8 @@ object DFAny {
   }
 
   abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0)(
-    implicit ctx : Alias.Context, cmp : Companion
+    implicit val ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
-    final implicit val owner : DFAnyOwner = ctx.owner
-    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -344,11 +339,8 @@ object DFAny {
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
 
-    final val isAnonymous : Boolean = ctx.n.value == "$anon"
     private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
                                            else s"${aliasedVar.fullName}__???"
-    override protected def nameDefault: String =
-      if (isAnonymous) "$" + s"anon$id" + "$$" + derivedName else ctx.n.value
     final val id = getID
   }
   object Alias {
@@ -356,10 +348,8 @@ object DFAny {
   }
 
   abstract class Const(token : Token)(
-    implicit ctx : Const.Context, cmp : Companion
+    implicit val ctx : Const.Context, cmp : Companion
   ) extends DFAny {
-    final implicit val owner : DFAnyOwner = ctx.owner
-    final implicit val config = ctx.config
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -367,7 +357,6 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final val isAnonymous : Boolean = false
     override protected def nameDefault: String = s"$token"
     final val id = getID
   }
@@ -381,13 +370,12 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit ctx : Port.Context, cmp : Companion
+    implicit val ctx : Port.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
-    final implicit val owner : DFInterface = ctx.owner
-    final implicit val config = ctx.config
+    final override lazy val owner : DFInterface = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -496,9 +484,7 @@ object DFAny {
     final val isPort = true
     protected def constructCodeString : String
     final def codeString : String = s"\nval $name = $constructCodeString <> $dir $initCodeString"
-    override protected def nameDefault: String = ctx.n.value
     override def toString : String = s"$fullName : $typeName <> $dir"
-    final val isAnonymous : Boolean = false
     final val id = getID
   }
   object Port {

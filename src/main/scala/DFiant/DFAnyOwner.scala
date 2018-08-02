@@ -42,7 +42,7 @@ object DFAnyConfiguration {
 }
 
 object DFAnyOwner {
-  trait ContextOf[T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
+  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
   object ContextOf {
     implicit def ev[T, Owner <: DFAnyOwner](implicit evOwner : Owner, evConfig : DFAnyConfiguration, evNameIt : NameIt)
     : ContextOf[T, Owner] = new ContextOf[T, Owner] {
@@ -52,7 +52,7 @@ object DFAnyOwner {
     }
   }
   type Context[+Owner <: DFAnyOwner] = ContextOf[Nothing, Owner]
-  trait ContextWithLibOf[T, +Owner <: DFAnyOwner] extends ContextOf[T, Owner] {
+  trait ContextWithLibOf[+T, +Owner <: DFAnyOwner] extends ContextOf[T, Owner] {
     implicit val basicLib : DFBasicLib
   }
   object ContextWithLibOf {
