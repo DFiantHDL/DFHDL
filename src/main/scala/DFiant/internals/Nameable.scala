@@ -26,7 +26,9 @@ trait NameIt {
 }
 object NameIt {
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName) : NameIt = new NameIt {
-    val isAnonymous : Boolean = name.value == "$anon"
-    val value: String = if (isAnonymous) ownerName.value else name.value
+    private val nameIsAnon = name.value == "$anon"
+    private val ownerNameIsAnon = ownerName.value.contains('<')
+    val isAnonymous : Boolean = nameIsAnon && ownerNameIsAnon || ownerName.value == "DFiant"
+    val value: String = if (isAnonymous) "$anon" else if (nameIsAnon) ownerName.value else name.value
   }
 }

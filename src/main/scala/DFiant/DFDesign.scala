@@ -62,7 +62,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       ifBlock
     }
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock =
-      genIf(new DFIfBlock(cond), block)
+      genIf(new DFIfBlock(cond), block).setAutoName(ctx.n.value)
 
     protected class DFIfBlock(cond : DFBool)(implicit ctx : DFIfBlock.Context)
       extends DFDesign {
