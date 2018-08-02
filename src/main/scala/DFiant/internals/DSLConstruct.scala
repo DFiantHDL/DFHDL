@@ -14,6 +14,24 @@ trait DSLOwnableConstruct extends DSLConstruct with HasProperties with Nameable 
     owner.mutableKeepList += this
     this
   }
+  final lazy val fullName : String =
+    if (owner != null) s"${owner.fullName}.$name"
+    else name //Top
+
+  private def relativeName(refFullName : String, callFullName : String) : String = {
+    val c = callFullName.split('.')
+    val r = refFullName.split('.')
+    if (r.length < c.length)
+      refFullName
+    else {
+      val same = c.zip(r).filter(e => e._1 != e._2).isEmpty
+      if (same) r.takeRight(r.length-c.length).mkString(".") else ""
+    }
+  }
+
+  def relativeName[Owner <: DSLOwnerConstruct, Config <: DSLConfiguration](
+    implicit ctx : DSLOwnerConstruct.Context[Owner, Config]) : String = relativeName(fullName, ctx.owner.fullName)
+
   protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
   final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
   def codeString : String
@@ -43,10 +61,6 @@ trait DSLOwnerConstruct extends DSLOwnableConstruct {
     discover
     ownedList.filterNot(o => o.isNotDiscovered)
   }
-
-  final lazy val fullName : String =
-    if (owner != null) s"${owner.fullName}.$name"
-    else name //Top
 }
 object DSLOwnerConstruct {
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {

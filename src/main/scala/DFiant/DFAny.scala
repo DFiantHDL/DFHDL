@@ -143,7 +143,6 @@ sealed trait DFAny extends DSLOwnableConstruct {
   // Naming
   //////////////////////////////////////////////////////////////////////////
   val isAnonymous : Boolean
-  lazy val fullName : String = s"${owner.fullName}.$name"
   def codeString : String
   override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
@@ -273,13 +272,8 @@ object DFAny {
   }
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLOwnableConstruct {
-    def relativeRef(dfVal : DFAny) : String = {
-      //TODO: fix for the general case
-      if (ctx.owner eq dfVal.owner) dfVal.name
-      else s"${dfVal.owner.name}.${dfVal.name}"
-    }
     final implicit val owner : DFAnyOwner = ctx.owner
-    def codeString : String = s"\n${relativeRef(toPort)} <> ${relativeRef(fromVal)}"
+    def codeString : String = s"\n${toPort.relativeName} <> ${fromVal.relativeName}"
     final val id = getID
   }
   object Connector {
