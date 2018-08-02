@@ -129,18 +129,7 @@ object DFComponent {
   trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Nothing, DFBlock] {
     implicit val impl : DFComponent.Implementation[Comp]
   }
-  trait LowPriorityContext {
-    implicit def ev2[Comp <: DFComponent[Comp]](
-      implicit evContext : DFAnyOwner.ContextWithLib[DFBlock], evImpl : DFComponent.Implementation[Comp], evNameIt : NameIt
-    ) : Context[Comp] = new Context[Comp] {
-      implicit val owner: DFBlock = evContext.owner
-      implicit val impl: DFComponent.Implementation[Comp] = evImpl
-      implicit val basicLib: DFBasicLib = evContext.basicLib
-      implicit val config: DFAnyConfiguration = evContext.config
-      val n: NameIt = evNameIt
-    }
-  }
-  object Context extends LowPriorityContext {
+  object Context {
     implicit def ev[Comp <: DFComponent[Comp]](
       implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : Context[Comp] = new Context[Comp] {
