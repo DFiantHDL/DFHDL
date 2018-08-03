@@ -30,8 +30,10 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   }
   final val id = getID
 
+  override lazy val typeName: String = getClass.getName
+
   override def codeString: String = {
-    s"\nval $name = new $typeName {$bodyCodeString\n}"
+    s"\nval $name = new $typeName {}"
   }
 }
 

@@ -473,7 +473,6 @@ object DFUInt extends DFAny.Companion {
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
-                  implicitly[DFBasicLib]
                   val opInst = creationKind match {
                     case `Ops+Or-`.+ => new `U+U`(left.width, right.width, opWidth)
                     case `Ops+Or-`.- => new `U-U`(left.width, right.width, opWidth)

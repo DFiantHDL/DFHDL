@@ -39,6 +39,35 @@ class ConnectTest extends Properties("ConnectTest") {
     bb.keep
   }
 
+  class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
+    final val I = DFUInt(width) <> IN
+    final val O = DFUInt(width) <> OUT
+    private lazy val OInit = () => DFUInt.Token.+(getInit(I), getInit(I))
+    setInitFunc(O)(OInit)
+  }
+
+  trait Comp extends DFComponent[Comp] {
+    val i = DFUInt(8) <> IN
+    val o = DFUInt(8) <> OUT
+  }
+  object Comp {
+    implicit val ev : DFComponent.Implementation[Comp] = ifc => {
+      import ifc._
+      val rt = new RTx2(8)
+      rt.I <> i
+      rt.O <> o
+    }
+  }
+
+  trait IODesignConn2 extends DFDesign{
+    val i = DFUInt(8) <> IN init 1
+    val o = DFUInt(8) <> OUT
+
+    val io = new Comp {}
+    i <> io.i
+    o <> io.o
+  }
+
   property("DFDesign.codeString") = {
     val topIO = new DFDesign {
       val i = DFUInt(8) <> IN init(1, 2)
@@ -107,6 +136,31 @@ class ConnectTest extends Properties("ConnectTest") {
       """.stripMargin
 
     top_ioDesignIf.codeString =@= compare
+  }
+
+  property("IODesignConn2.codeString") = {
+    implicit val config = DFAnyConfiguration.detailed
+    val top_ioDesignConn2 = new IODesignConn2 {}
+
+    val compare =
+      """
+        |val top_ioDesignConn2 = new DFDesign {  //DFiant.ConnectTest$IODesignConn2
+        |  val i = DFUInt(8) <> IN init(1)  //init = (1)
+        |  val o = DFUInt(8) <> OUT   //init = (2)
+        |  val io = new DFDesign {  //DFiant.ConnectTest$Comp
+        |    val i = DFUInt(8) <> IN   //init = (1)
+        |    val o = DFUInt(8) <> OUT   //init = (2)
+        |    val rt = new DFiant.ConnectTest$RTx2 {}
+        |    rt.I <> i
+        |    o <> rt.O
+        |  }
+        |  io.i <> i
+        |  o <> io.o
+        |}
+      """.stripMargin
+
+    println(top_ioDesignConn2.codeString)
+    top_ioDesignConn2.codeString =@= compare
   }
 
 }

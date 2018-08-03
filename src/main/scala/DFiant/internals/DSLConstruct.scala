@@ -10,10 +10,21 @@ trait DSLConfiguration
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
+  def isSiblingOf(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
+  def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
+    if (that == null) false
+    else if (owner eq that) true
+    else isDownstreamMemberOf(that.owner)
   def keep : this.type = {
     owner.mutableKeepList += this
     this
   }
+  protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
+  protected def lateRun : Unit = {}
+  final private[internals] lazy val lateRunOnce : Unit = lateRun
+  final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
+  val id : Int
+
   final lazy val fullName : String =
     if (owner != null) s"${owner.fullName}.$name"
     else name //Top
@@ -32,12 +43,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
   def relativeName[Owner <: DSLOwnerConstruct, Config <: DSLConfiguration](
     implicit ctx : DSLOwnerConstruct.Context[Owner, Config]) : String = relativeName(fullName, ctx.owner.fullName)
 
-  protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
-  final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
   def codeString : String
-  protected def lateRun : Unit = {}
-  final private[internals] lazy val lateRunOnce : Unit = lateRun
-  val id : Int
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
