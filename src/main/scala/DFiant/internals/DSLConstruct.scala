@@ -35,7 +35,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     if (r.length < c.length)
       refFullName
     else {
-      val same = c.zip(r).filter(e => e._1 != e._2).isEmpty
+      val same = c.zip(r).forall(e => e._1 == e._2)
       if (same) r.takeRight(r.length-c.length).mkString(".") else ""
     }
   }
