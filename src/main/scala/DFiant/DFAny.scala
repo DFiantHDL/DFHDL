@@ -166,10 +166,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
   final def isAnonymous : Boolean = ctx.n.isAnonymous
-  override protected def nameDefault: String = {
-    if (ctx.n.isAnonymous) "$" + s"anon$id"
-    else ctx.n.value
-  }
+  override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
   protected def constructCodeString : String
 //  final def refCodeString : String =
 //    if (ctx.n.isAnonymous) constructCodeString else name
@@ -357,7 +354,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
-    protected def constructCodeString : String = name
+    protected def constructCodeString : String = s"$token"
     final def codeString : String = s"\n$token"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry

@@ -1,6 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.HashMap
 
 trait DSLConstruct {
 
@@ -25,9 +26,11 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
   final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
   val id : Int
 
-  final lazy val fullName : String =
-    if (owner != null) s"${owner.fullName}.$name"
-    else name //Top
+  final lazy val fullPath : String =
+    if (owner != null) s"${owner.fullName}"
+    else "" //Top
+
+  final lazy val fullName : String = s"$fullPath.$name"
 
   private def relativeName(refFullName : String, callFullName : String) : String = {
     val c = callFullName.split('.')
@@ -40,8 +43,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     }
   }
 
-  def relativeName(
-    implicit callOwner : DSLOwnerConstruct) : String = relativeName(fullName, callOwner.fullName)
+  def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(fullName, callOwner.fullName)
 
   def codeString : String
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = relativeName
@@ -59,6 +61,17 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     mutableMemberList += item
     idCnt += 1
     idCnt
+  }
+  //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
+  //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
+  private val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
+  final private[DFiant] def getUniqueMemberName(suggestedName : String) : String = nameTable.get(suggestedName) match {
+    case Some(v) =>
+      nameTable.update(suggestedName, v + 1)
+      suggestedName + "$" + v
+    case _ =>
+      nameTable.update(suggestedName, 1)
+      suggestedName
   }
 
   private[internals] val mutableKeepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]

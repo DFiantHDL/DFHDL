@@ -28,7 +28,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final def isTop : Boolean = owner == null
   final override protected def nameDefault: String =
-    if (isTop && ctx.n.isAnonymous) "top" else if (ctx.n.isAnonymous) "$anon" + s"$id" else ctx.n.value
+    if (owner != null) owner.getUniqueMemberName(ctx.n.value) else ctx.n.value
   override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //final protected def discovery : Unit = protAlmanac
