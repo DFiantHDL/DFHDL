@@ -44,6 +44,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     implicit ctx : DSLOwnerConstruct.Context[Owner, Config]) : String = relativeName(fullName, ctx.owner.fullName)
 
   def codeString : String
+  def refCodeString : String = name //(implicit callOwner : DSLOwnerConstruct)
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {

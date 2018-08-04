@@ -75,11 +75,19 @@ class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent
 trait IODesignConn4 extends DFDesign {
   val i = DFUInt(8) <> IN init(1, 2, Bubble)
   val o = DFUInt(8) <> OUT
-  val add = new RTAdd(8, 8, 8)
-  add.A <> i
-  add.B <> 1
-  add.S <> o
+//  val temp = i.prev()
+  o <> i.prev.prev.prev.prev
 }
+
+trait IODesignConn5 extends DFDesign {
+  val myloop = for (i <- 0 to 2) {
+    val i = DFUInt(8) <> IN init(1, 2, Bubble)
+    val o = DFUInt(8) <> OUT
+    //  val temp = i.prev()
+    o <> i.prev.prev.prev.prev
+  }
+}
+
 trait ContainerConn1 extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
@@ -150,11 +158,12 @@ object BasicTest extends App {
   val top_ioDesignConn2 = new IODesignConn2 {}
   val top_ioDesignConn3 = new IODesignConn3 {}
   val top_ioDesignConn4 = new IODesignConn4 {}
+  val top_ioDesignConn5 = new IODesignConn5 {}
   val top_containerConn1 = new ContainerConn1 {}
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignConn2.codeString)
+  println(top_ioDesignConn5.codeString)
 
 }
 

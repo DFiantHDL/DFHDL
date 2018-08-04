@@ -4,6 +4,7 @@ import DFiant.internals._
 
 trait DFAnyOwner extends DSLOwnerConstruct {
   val owner : DFAnyOwner
+  val config : DFAnyConfiguration
   final protected[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
   //create alamanac and add to owner
   final protected def fetchOrCreateAlmanac : Almanac =
@@ -21,21 +22,27 @@ trait DFAnyOwner extends DSLOwnerConstruct {
   protected def bodyCodeString : String = {
     val delim = "  "
     val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
-    delim + noConst.codeString.replaceAll("\n","\n" + delim)
+    val noAnonymous =
+      if (config.showAnonymousEntries) noConst
+      else discoveredList.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous)
+    delim + noAnonymous.codeString.replaceAll("\n","\n" + delim)
   }
 
 }
 
 trait DFAnyConfiguration extends DSLConfiguration {
+  val showAnonymousEntries : Boolean
   val commentInitValues : Boolean
   val commentClassNames : Boolean
 }
 object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
+    val showAnonymousEntries : Boolean = false
     val commentInitValues: Boolean = false
     val commentClassNames : Boolean = false
   }
   object detailed extends DFAnyConfiguration {
+    val showAnonymousEntries : Boolean = true
     val commentInitValues: Boolean = true
     val commentClassNames : Boolean = true
   }

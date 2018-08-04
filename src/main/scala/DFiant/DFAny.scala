@@ -165,10 +165,17 @@ sealed trait DFAny extends DSLMemberConstruct {
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
+  final def isAnonymous : Boolean = ctx.n.isAnonymous
   override protected def nameDefault: String = {
     if (ctx.n.isAnonymous) "$" + s"anon$id"
     else ctx.n.value
   }
+  protected def constructCodeString : String
+//  final def refCodeString : String =
+//    if (ctx.n.isAnonymous) constructCodeString else name
+  final protected def initCommentString : String =
+    if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
+
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -271,8 +278,7 @@ object DFAny {
     final protected[DFiant] def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
     final private val initLB = LazyBox(_initFunc())
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
-    final def initCodeString : String =
-      if (config.commentInitValues) s"$customInitString  //init = ${getInit.codeString}" else customInitString
+    final def initCodeString : String = s"$customInitString"
   }
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
@@ -301,8 +307,7 @@ object DFAny {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    protected def constructCodeString : String
-    final def codeString : String = s"\nval $name = $constructCodeString $initCodeString"
+    final def codeString : String = s"\nval $name = $constructCodeString $initCodeString$initCommentString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -329,8 +334,7 @@ object DFAny {
       val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
       bitsInit.map(protTokenBitsToTToken)
     }
-    protected def constructCodeString : String
-    final def codeString : String = s"\nval $name = $constructCodeString"
+    final def codeString : String = s"\nval $name = $constructCodeString$initCommentString"
     final protected[DFiant] lazy val almanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
@@ -353,6 +357,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
+    protected def constructCodeString : String = name
     final def codeString : String = s"\n$token"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
@@ -482,8 +487,7 @@ object DFAny {
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
-    protected def constructCodeString : String
-    final def codeString : String = s"\nval $name = $constructCodeString <> $dir $initCodeString"
+    final def codeString : String = s"\nval $name = $constructCodeString <> $dir $initCodeString$initCommentString"
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val id = getID
   }

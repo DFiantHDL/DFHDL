@@ -111,7 +111,7 @@ object DFUInt extends DFAny.Companion {
       def constructCodeString : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
         val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
-        s"$name$bitsCodeString$prevCodeString"
+        s"${aliasedVar.refCodeString}$bitsCodeString$prevCodeString"
       }
     }
 
