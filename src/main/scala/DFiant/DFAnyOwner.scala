@@ -42,7 +42,7 @@ object DFAnyConfiguration {
     val commentClassNames : Boolean = false
   }
   object detailed extends DFAnyConfiguration {
-    val showAnonymousEntries : Boolean = true
+    val showAnonymousEntries : Boolean = false
     val commentInitValues: Boolean = true
     val commentClassNames : Boolean = true
   }

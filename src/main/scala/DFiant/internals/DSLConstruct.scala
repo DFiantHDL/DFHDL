@@ -30,20 +30,25 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     if (owner != null) s"${owner.fullName}"
     else "" //Top
 
-  final lazy val fullName : String = s"$fullPath.$name"
+  final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
 
-  private def relativeName(refFullName : String, callFullName : String) : String = {
-    val c = callFullName.split('.')
-    val r = refFullName.split('.')
-    if (r.length < c.length)
-      refFullName
-    else {
-      val same = c.zip(r).forall(e => e._1 == e._2)
-      if (same) r.takeRight(r.length-c.length).mkString(".") else ""
+  private def relativePath(refFullPath : String, callFullPath : String) : String = {
+
+    val c = callFullPath.split('.')
+    val r = refFullPath.split('.')
+    if (r.length < c.length) {
+      val idx = r.zip(c).indexWhere(e => e._1 != e._2)
+      if (idx == -1) "" else r.takeRight(c.length-idx-1).mkString(".")
+    } else {
+      val idx = c.zip(r).indexWhere(e => e._1 != e._2)
+      if (idx == -1) r.takeRight(r.length-c.length).mkString(".") else r.takeRight(r.length-idx).mkString(".")
     }
   }
 
-  def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(fullName, callOwner.fullName)
+  def relativeName(implicit callOwner : DSLOwnerConstruct) : String = {
+    val path = relativePath(fullPath, callOwner.fullName)
+    if (path == "") name else s"$path.$name"
+  }
 
   def codeString : String
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = relativeName

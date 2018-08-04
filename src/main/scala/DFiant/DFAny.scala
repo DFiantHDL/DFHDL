@@ -168,8 +168,8 @@ sealed trait DFAny extends DSLMemberConstruct {
   final def isAnonymous : Boolean = ctx.n.isAnonymous
   override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
   protected def constructCodeString : String
-//  final def refCodeString : String =
-//    if (ctx.n.isAnonymous) constructCodeString else name
+  final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
+    if (isAnonymous && !config.showAnonymousEntries) constructCodeString else relativeName
   final protected def initCommentString : String =
     if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
 
@@ -280,7 +280,7 @@ object DFAny {
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
-    def codeString : String = s"\n${toPort.relativeName} <> ${fromVal.relativeName}"
+    def codeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     final val id = getID
   }
   object Connector {
