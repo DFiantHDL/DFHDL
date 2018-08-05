@@ -70,6 +70,9 @@ object DFBits extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.NewVar.Context
     ) : DFBits.Var[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
 
+    def as[T <: DFAny.NewVar](mold : T) : T#TVal = ???
+    def uint : TUInt[LW] = ???
+
     //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
     //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)
     //  def & (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpAnd(this, that)
@@ -81,17 +84,11 @@ object DFBits extends DFAny.Companion {
     //  def >> (that : Int)           : DFBits.Unsafe = ??? //AlmanacEntryOpRsh(this, AlmanacEntryConst(that))
     //  def ## (that : DFBits.Unsafe)        : DFBits.Unsafe = ??? //AlmanacEntryOpCat(this, that)
     //      def ## (that : DFBool)        : DFBits.Unsafe = AlmanacEntryOpCat(this, that.bits())
-    def ==(that: Int): DFBool = ??? //__==(this, AlmanacEntryConst(that))
-    def ==(that: Long): DFBool = ??? //__==(this, AlmanacEntryConst(that))
-    def ==(that: BigInt): DFBool = ??? //__==(this, AlmanacEntryConst(that))
-    def !=(that: Int): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
-    def !=(that: Long): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
-    def !=(that: BigInt): DFBool = ??? //__!=(this, AlmanacEntryConst(that))
-    def isZero: DFBool = this == 0
-    def isNonZero: DFBool = this != 0
+//    def isZero: DFBool = this == 0
+//    def isNonZero: DFBool = this != 0
 
-    def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
-    def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
+//    def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
+//    def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
     def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = ??? //DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
 
@@ -106,6 +103,7 @@ object DFBits extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var {
+    final override def as[T <: DFAny.NewVar](mold : T) : T#TVar = ???
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}

@@ -38,7 +38,6 @@ object DFUInt extends DFAny.Companion {
     def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
-//    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
 
     def extBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], ctx : DFAny.NewVar.Context
@@ -49,6 +48,7 @@ object DFUInt extends DFAny.Companion {
     //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
     def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
 
+    //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
     //    trait matchdf extends super.matchdf {
     //      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
     //      def casedf[R](that : Int)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
