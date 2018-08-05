@@ -17,6 +17,14 @@ trait IODesignIf extends DFDesign {
     val myIf2 = ifdf (b) {
       o := i
     }.elseifdf(b) {
+      val bb = DFBool()
+      println(bb.fullName)
+
+      o := i
+    }.elseifdf(b) {
+      val bb = DFBool()
+      println(bb.fullName)
+
       o := i
     }
   }.elsedf {
@@ -163,7 +171,7 @@ object BasicTest extends App {
   val top_containerConn3 = new ContainerConn3 {}
   val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_containerConn1.codeString)
+  println(top_ioDesignIf.codeString)
 
 }
 
