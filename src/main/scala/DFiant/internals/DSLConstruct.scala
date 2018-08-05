@@ -11,11 +11,11 @@ trait DSLConfiguration
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
-  def sameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
+  def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
   def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
-    if (that == null) false
+    if ((owner == null) || (that == null)) false
     else if (owner eq that) true
-    else isDownstreamMemberOf(that.owner)
+    else owner.isDownstreamMemberOf(that)
   def keep : this.type = {
     owner.mutableKeepList += this
     this
