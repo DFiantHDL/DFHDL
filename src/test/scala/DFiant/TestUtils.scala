@@ -33,6 +33,10 @@ object TestUtils {
   def trimWhites(s : String) : String = s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "").trim.filter(_ >= ' ')
 
   implicit class StringEnhancer(s : String) {
-    def =@= (that : String) : Boolean = trimWhites(s) == trimWhites(that)
+    def =@= (that : String) : Boolean = {
+      val ret = trimWhites(s) == trimWhites(that)
+      if (!ret) println(s)
+      ret
+    }
   }
 }

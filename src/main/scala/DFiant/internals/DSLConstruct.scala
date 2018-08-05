@@ -11,7 +11,7 @@ trait DSLConfiguration
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
-  def isSiblingOf(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
+  def sameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
   def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
     if (that == null) false
     else if (owner eq that) true

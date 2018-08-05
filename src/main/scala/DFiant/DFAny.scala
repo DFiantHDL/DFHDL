@@ -409,6 +409,8 @@ object DFAny {
       toPort.protAssignDependencies += Connector(toPort, fromVal)
       toPort.protAssignDependencies += fromVal
     }
+    private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
+    
     private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir], owner : DFBlock)(implicit ctx : Connector.Context) : Unit = {
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
