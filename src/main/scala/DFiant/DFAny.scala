@@ -169,7 +169,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
   protected def constructCodeString : String
   final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
-    if (isAnonymous && !config.showAnonymousEntries) constructCodeString else relativeName
+    if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
   final protected def initCommentString : String =
     if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
 
@@ -289,7 +289,7 @@ object DFAny {
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
-    def codeString : String = s"\n${toVar.name} := ${fromVal.name}"
+    def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,6 +331,7 @@ object DFAny {
       val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
       bitsInit.map(protTokenBitsToTToken)
     }
+    protected val prevCodeString = if (deltaStep < -1) s".prev(${-deltaStep})" else if (deltaStep == -1) ".prev" else ""
     final def codeString : String = s"\nval $name = $constructCodeString$initCommentString"
     final protected[DFiant] lazy val almanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)

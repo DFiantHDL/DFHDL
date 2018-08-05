@@ -110,7 +110,6 @@ object DFUInt extends DFAny.Companion {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       def constructCodeString : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
-        val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         s"${aliasedVar.refCodeString}$bitsCodeString$prevCodeString"
       }
     }

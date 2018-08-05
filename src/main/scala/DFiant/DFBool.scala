@@ -70,7 +70,6 @@ object DFBool extends DFAny.Companion {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
       def constructCodeString : String = {
         val bitCodeString = s".bit($relBit)"
-        val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         s"$name$bitCodeString$prevCodeString"
       }
     }

@@ -45,8 +45,12 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     }
   }
 
-  def relativeName(implicit callOwner : DSLOwnerConstruct) : String = {
-    val path = relativePath(fullPath, callOwner.fullName)
+  def relativePath(implicit callOwner : DSLOwnerConstruct) : String =
+    relativePath(fullPath, callOwner.fullName)
+
+  def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(name)(callOwner)
+  def relativeName(name : String)(implicit callOwner : DSLOwnerConstruct) : String = {
+    val path = relativePath(callOwner)
     if (path == "") name else s"$path.$name"
   }
 

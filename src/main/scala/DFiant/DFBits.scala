@@ -141,7 +141,6 @@ object DFBits extends DFAny.Companion {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
       def constructCodeString : String = {
         val bitsCodeString = if (relWidth == aliasedVar.width) "" else s".bitsWL($relWidth, $relBitLow)"
-        val prevCodeString = if (deltaStep < 0) s".prev(${-deltaStep})" else ""
         s"$name$bitsCodeString$prevCodeString"
       }
     }
