@@ -173,7 +173,6 @@ sealed trait DFAny extends DSLMemberConstruct {
     if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
   final protected def initCommentString : String =
     if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
-
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -243,10 +242,9 @@ object DFAny {
     ) = assign(op(left, right))
     final protected var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
-//      def isInSameDesignBlock(dsnBlock : DFBlock) : Boolean = if (this.owner )
       assigned = true
-      //TODO: fix check with if hierarchy
-      if (this.owner ne ctx.owner) throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
+      if (!ctx.owner.callSiteSameAsOwnerOf(that))
+        throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
