@@ -458,7 +458,7 @@ object DFAny {
           case (ld : IN,  rd : OUT) => (right, left)
           case _ => throwConnectionError("Unexpected connection error")
         }
-        else if (!left.isDownstreamMemberOf(right.owner) || right.isDownstreamMemberOf(left.owner))
+        else if (!left.isDownstreamMemberOf(right.owner) || !right.isDownstreamMemberOf(left.owner))
           throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
         else if (!isConnectedAtEitherSide)
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
