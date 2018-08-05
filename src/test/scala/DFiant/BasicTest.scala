@@ -159,10 +159,10 @@ object BasicTest extends App {
 //  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_containerConn1 = new ContainerConn1 {}
-  val top_containerConn3 = new ContainerConn3 {}
+//  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-//  val top_ioDesignIf = new IODesignIf {}
-  println(top_containerConn3.codeString)
+  val top_ioDesignIf = new IODesignIf {}
+  println(top_ioDesignIf.codeString)
 
 }
 

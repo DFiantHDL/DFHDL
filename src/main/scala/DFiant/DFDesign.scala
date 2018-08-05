@@ -50,6 +50,8 @@ object DFBlock {
   type Context = ContextOf[Nothing, DFBlock]
 }
 
+protected[DFiant] trait ConditionalBlock
+
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   self =>
   private var updatedOwner : DFDesign = this
@@ -67,7 +69,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       genIf(new DFIfBlock(cond), block)
 
     protected class DFIfBlock(cond : DFBool)(implicit ctx : DFIfBlock.Context)
-      extends DFDesign {
+      extends DFDesign with ConditionalBlock {
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context)
       : DFIfBlock = genIf(new DFElseIfBlock(this, elseCond), elseBlock)
       def elsedf(elseBlock: => Unit)(implicit ctx : DFIfBlock.Context)
@@ -91,7 +93,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     }
 
     protected class DFElseBlock(prevIfBlock : DFIfBlock)(implicit ctx : DFIfBlock.Context)
-      extends DFDesign {
+      extends DFDesign with ConditionalBlock {
       override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value + "$else")
       override protected def createAlmanac : AlmanacElse =
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])

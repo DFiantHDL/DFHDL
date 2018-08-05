@@ -240,12 +240,13 @@ object DFAny {
     private type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right), ctx.owner)
+    ) = assign(op(left, right))
     final protected var assigned : Boolean = false
-    protected[DFiant] def assign(that : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : TVar = {
+    protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
+//      def isInSameDesignBlock(dsnBlock : DFBlock) : Boolean = if (this.owner )
       assigned = true
       //TODO: fix check with if hierarchy
-//      if (this.owner ne owner) throw new IllegalArgumentException(s"Target assignment variable (${this.fullName}) is not at the same design as this assignment call (${owner.fullName})")
+      if (this.owner ne ctx.owner) throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
       AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
@@ -268,7 +269,7 @@ object DFAny {
     final private var initialized : Boolean = false
     final protected def initialize(updatedInit : () => Seq[TToken], owner : DFAnyOwner) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-      if (this.owner ne owner) throw new IllegalArgumentException(s"Initialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
+      if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       initialized = true
       setInitFunc(updatedInit)
     }
@@ -276,7 +277,7 @@ object DFAny {
     final private var _initFunc : () => Seq[TToken] = () => Seq()
     final protected[DFiant] def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
     final private val initLB = LazyBox(_initFunc())
-    final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("Ciruclar initialization detected"))
+    final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCiruclar initialization detected"))
     final def initCodeString : String = s"$customInitString"
   }
 
@@ -389,13 +390,13 @@ object DFAny {
       val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
       AlmanacEntryPort(width, protInit, sourceEntry, dir, name, codeString)
     }
-    final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("Circular dependency detected"))
+    final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("\nCircular dependency detected"))
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
     protected def connected : Boolean = connectedSource.isDefined
-    final override protected[DFiant] def assign(that : DFAny, owner : DFBlock)(implicit ctx : DFAny.Op.Context) : TVar = {
-      if (this.connected) throw new IllegalArgumentException(s"Target assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
-      super.assign(that, owner)
+    final override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
+      if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
+      super.assign(that)
     }
     private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -469,7 +470,7 @@ object DFAny {
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : Connector.Context) : Unit = connectPort2Port(right)
     final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock)(implicit ctx : Connector.Context) : Unit = {
       val port = this
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]])
       else {
         if (port.owner.owner!=null && (port.owner.owner eq dfVal.owner)) {
