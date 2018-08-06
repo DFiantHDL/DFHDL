@@ -75,9 +75,9 @@ object DFBits extends DFAny.Companion {
 //    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
     def uint : TUInt[LW] = ???
 
-    //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
-    //  def | (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpOr(this, that)
-    //  def & (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpAnd(this, that)
+    def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
+    def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
+    def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
 
     //  def unary_~                   : DFBits.Unsafe = ??? //AlmanacEntryOpInv(this)
     //  def >> (that : DFBits.Unsafe)        : DFBits.Unsafe = ???
@@ -234,12 +234,11 @@ object DFBits extends DFAny.Companion {
   object Init extends Init {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
-      private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
-      private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
-      implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
+      implicit class DFBitsInt0(val right : 0) extends Able[DFBits[1]]
+      implicit class DFBitsInt1(val right : 1) extends Able[DFBits[1]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
@@ -319,9 +318,8 @@ object DFBits extends DFAny.Companion {
     implicit def fromBitsVector(implicit ctx : DFAny.Const.Context)
     : Aux[BitVector, Int] = new Const[BitVector] {
       type W = Int
-      def apply(value : N) : (DFBits[W], Boolean) = {
-        val absValue = value.abs
-        (const[W](Token(absValue.bitsWidth, absValue)), value < 0)
+      def apply(value : BitVector) : DFBits[W] = {
+        const[W](Token(value.length.toInt, value))
       }
     }
   }
@@ -331,7 +329,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>`[Ctx, SkipLengthCheck] extends `Op:=` with `Op<>` {
+  trait `Ops:=,<>`[Ctx] extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -340,9 +338,9 @@ object DFBits extends DFAny.Companion {
         type Comp = Comp0
       }
 
-      object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = SkipLengthCheck || (LW >= RW)
-        type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "An assignment/connection operation does not permit different widths. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
 
@@ -355,7 +353,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
         implicit
         ctx : Ctx,
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFBits[LW], DFBits[RW], DFBits[RW]] =
         create[DFBits[LW], DFBits[RW], RW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
@@ -365,8 +363,8 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : Ctx,
-        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        rConst : Const.Aux[R, RW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFBits[LW], R, DFBits[RW]] = create[DFBits[LW], R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -374,11 +372,14 @@ object DFBits extends DFAny.Companion {
       })
     }
   }
-  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context, false]
-  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context, true]
+  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context]
+  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Logic operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait OpsLogic {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
@@ -387,12 +388,6 @@ object DFBits extends DFAny.Companion {
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW
         type Msg[LW, RW] = "Logic operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
-        type ParamFace = Int
-      }
-
-      object `VecW >= ConstW` extends Checked1Param.Int { //Needs to be mitigated to a warning
-      type Cond[VW, CW] = VW >= CW
-        type Msg[VW, CW] = "A static boolean result detected, due to an unsigned comparison between a DF variable and a larger number. Found: DFVar-width = "+ ToString[VW] + " and Num-width = " + ToString[CW]
         type ParamFace = Int
       }
 
@@ -420,8 +415,8 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
-        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
-        checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
+        rConst : Const.Aux[R, RW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -431,30 +426,21 @@ object DFBits extends DFAny.Companion {
       implicit def evConst_op_DFBits[L, LW, R <: DFBits[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
-        lConst : Const.PosOnly.Aux[Builder[_,_], L, LW],
-        checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
+        lConst : Const.Aux[L, LW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
         checkLWvRW.unsafeCheck(right.width, left.width)
         (left, right)
       })
     }
-  } 
-  
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op:=` extends `Op:=` {
-
   }
+  object `Op|` extends OpsLogic
+  object `Op&` extends OpsLogic
+  object `Op^` extends OpsLogic
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Connect
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<>` extends `Op<>` {
 
-  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   object `Op==` extends `Op==` {

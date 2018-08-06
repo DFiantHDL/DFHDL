@@ -1,5 +1,6 @@
 package Proc
 import DFiant._
+import scodec.bits._
 import singleton.ops._
 
 trait Proc extends DFDesign {
@@ -19,7 +20,7 @@ trait Proc extends DFDesign {
 
   //Register file
   val regsNum = 32
-  val regs = Array.fill(regsNum)(DFBits[XLEN].init(0))
+  val regs = Array.fill(regsNum)(DFBits[XLEN].init(BitVector.low(valueOf[XLEN].toLong)))
 
 
   val pc = DFUInt[XLEN].init(0)
