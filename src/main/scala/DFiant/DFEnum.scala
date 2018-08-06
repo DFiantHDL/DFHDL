@@ -1,6 +1,5 @@
 package DFiant
 
-import scodec.bits._
 import singleton.ops._
 import singleton.twoface._
 import DFiant.basiclib._

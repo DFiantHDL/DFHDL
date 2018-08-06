@@ -1,6 +1,5 @@
 package Proc
 import DFiant._
-import scodec.bits._
 
 
 trait Opcode extends Enum.Manual[7] {

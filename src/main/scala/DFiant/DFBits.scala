@@ -4,7 +4,6 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 import DFiant.basiclib._
-import scodec.bits._
 
 
 trait DFBits[W] extends DFBits.Unbounded {

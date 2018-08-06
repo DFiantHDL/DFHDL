@@ -4,7 +4,6 @@ import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import scodec.bits._
 
 import scala.collection.mutable.ListBuffer
 

@@ -1,14 +1,5 @@
-def relativePath(refFullPath : String, callFullPath : String) : String = {
-  val c = callFullPath.split('.')
-  val r = refFullPath.split('.')
-  if (r.length < c.length) {
-    val idx = r.zip(c).indexWhere(e => e._1 != e._2)
-    if (idx == -1) "" else r.takeRight(c.length-idx-1).mkString(".")
-  } else {
-    val idx = c.zip(r).indexWhere(e => e._1 != e._2)
-    if (idx == -1) r.takeRight(r.length-c.length).mkString(".") else r.takeRight(r.length-idx).mkString(".")
-  }
-}
-val ref = "oron.port.it.th.best"
-val call = "oron.port.is"
-relativePath(ref,call)
+import DFiant.internals._
+val x = BigInt("-3171012112421152018518536320569410269995035861398973545241218213818649698302741461658067324053713058046128132549677877127240841949596981436722248600272373")
+val y = BigInt("115792089237316195423570985008687907853269984665640564039457584007908834671663")
+val r = x mod y
+r

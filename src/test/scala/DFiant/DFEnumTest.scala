@@ -2,7 +2,6 @@
 //
 //import org.scalacheck._
 //import shapeless.test.illTyped
-//import scodec.bits._
 //import singleton.ops._
 //
 //class DFEnumAutoTest extends Properties("DFEnumAutoTest") {

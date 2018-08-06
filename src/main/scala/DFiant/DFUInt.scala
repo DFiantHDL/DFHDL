@@ -4,7 +4,6 @@ import DFiant.basiclib._
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import scodec.bits._
 import shapeless.<:!<
 
 trait DFUInt[W] extends DFUInt.Unbounded {

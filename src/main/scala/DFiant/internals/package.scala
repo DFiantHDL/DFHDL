@@ -4,7 +4,6 @@ import java.lang.Double._
 import java.lang.Float._
 import singleton.ops._
 import singleton.twoface._
-import scodec.bits._
 import scala.math.{ceil, floor, log}
 
 package object internals {

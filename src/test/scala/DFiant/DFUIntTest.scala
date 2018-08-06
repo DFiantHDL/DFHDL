@@ -2,7 +2,6 @@
 //
 //import DFiant.TestUtils._
 //import org.scalacheck._
-//import scodec.bits._
 //import shapeless.test.illTyped
 //
 //class DFUIntTest extends Properties("DFUIntTestSpec") {
