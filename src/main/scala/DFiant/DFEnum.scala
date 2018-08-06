@@ -161,7 +161,7 @@ object DFEnum extends DFAny.Companion {
       val left = value
       def <> [E <: Enum, RDIR <: DFDir](port : DFEnum[E] <> RDIR)(
         implicit op: `Op<>`.Builder[DFEnum[E], L], ctx : DFAny.Connector.Context
-      ) = port.connectVal2Port(op(port, left), ctx.owner)
+      ) = port.connectVal2Port(op(port, left))
     }
     trait Implicits {
       implicit class DFEnumFromEntry[L <: Enum.Entry](left : L) extends Able[L](left)

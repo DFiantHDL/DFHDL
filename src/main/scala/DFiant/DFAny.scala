@@ -464,18 +464,18 @@ object DFAny {
       connect(fromPort, toPort)
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : Connector.Context) : Unit = connectPort2Port(right)
-    final protected[DFiant] def connectVal2Port(dfVal : DFAny, owner : DFBlock)(implicit ctx : Connector.Context) : Unit = {
+    final protected[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]])
       else {
         if (port.owner.owner!=null && (port.owner.owner eq dfVal.owner)) {
           if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
-          if (owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${owner.fullName}")
+          if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
         }
         else if (port.owner eq dfVal.owner) {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
-          if (owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${owner.fullName}")
+          if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port")
         connect(dfVal, port)
@@ -483,7 +483,7 @@ object DFAny {
     }
     final def <> [R](right: protComp.Op.Able[R])(
       implicit op: protComp.`Op<>`.Builder[TVal, R], ctx : DFAny.Connector.Context
-    ) : Unit = connectVal2Port(op(left, right), ctx.owner)
+    ) : Unit = connectVal2Port(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
