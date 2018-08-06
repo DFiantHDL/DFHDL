@@ -144,6 +144,9 @@ object DFBits extends DFAny.Companion {
 
   protected[DFiant] def const[W](token : Token)(implicit ctx : DFAny.Const.Context) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
+
+  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFBits[W], dir : Dir)(implicit ctx : DFAny.Port.Context) : DFBits[W] <> Dir =
+    new DFAny.Port[DFBits[W], Dir](dfVar, dir) with DFBits[W] { }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -199,7 +202,6 @@ object DFBits extends DFAny.Companion {
     def toUInt(left : Seq[Token]) : Seq[DFUInt.Token] = TokenSeq(left)(t => t.toUInt)
 
     def apply(width : Int, value : Int) : Token = Token(width, BitVector.fromInt(value, width))
-    def apply(width : Int, value : Long) : Token = Token(width, BitVector.fromLong(value, width))
     def apply(width : Int, value : BitVector) : Token = {
       //TODO: Boundary checks
       new Token(width, value.toLength(width), BitVector.low(width))
@@ -208,6 +210,19 @@ object DFBits extends DFAny.Companion {
     def apply(width : Int, value : Token) : Token = {
       //TODO: Boundary checks
       value.bits(width-1, 0)
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Port
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Port extends Port {
+    trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
+    object Builder {
+      implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
+      : Builder[DFBits[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -225,7 +240,6 @@ object DFBits extends DFAny.Companion {
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
       implicit class DFBitsInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFBits[LW]]
-      implicit class DFBitsLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFBits[LW]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
@@ -233,7 +247,6 @@ object DFBits extends DFAny.Companion {
           case (t : Bubble) => Token(width, t)
           case (t : Token) => Token(width, t)
           case (t : Int) => Token(width, t)
-          case (t : Long) => Token(width, t)
           case (t : BitVector) => Token(width, t)
         })
     }
@@ -259,16 +272,175 @@ object DFBits extends DFAny.Companion {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  object Port extends Port {
 
-  }
-
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Op
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends Op {
-    class Able[L](val value : L) extends DFAny.Op.Able[L]
-    trait Implicits
+    class Able[L](val value : L) extends DFAny.Op.Able[L] {
+      val left = value
+      def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
+      def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
+      def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+      def <> [RW, RDIR <: DFDir](port : DFBits[RW] <> RDIR)(
+        implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFAny.Connector.Context
+      ) = port.connectVal2Port(op(port, left))
+    }
+    trait Implicits {
+      implicit class DFBitsFrom0(left : 0) extends Able[0](left)
+      implicit class DFBitsFrom1(left : 1) extends Able[1](left)
+      implicit class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
+      implicit def ofDFBits[R <: DFBits.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
+    }
     object Able extends Implicits
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Constant Implicit Evidence of DFUInt
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Const[N] {
+    type W
+    def apply(value : N) : DFBits[W]
+  }
+  object Const {
+    type Aux[N, W0] = Const[N]{type W = W0}
+    implicit def from0(implicit ctx : DFAny.Const.Context)
+    : Aux[0, 1] = new Const[0] {
+      type W = 1
+      def apply(value : 0) : DFBits[W] = const[W](Token(1, 0))
+    }
+    implicit def from1(implicit ctx : DFAny.Const.Context)
+    : Aux[1, 1] = new Const[1] {
+      type W = 1
+      def apply(value : 1) : DFBits[W] = const[W](Token(1, 1))
+    }
+    implicit def fromBitsVector(implicit ctx : DFAny.Const.Context)
+    : Aux[BitVector, Int] = new Const[BitVector] {
+      type W = Int
+      def apply(value : N) : (DFBits[W], Boolean) = {
+        val absValue = value.abs
+        (const[W](Token(absValue.bitsWidth, absValue)), value < 0)
+      }
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Assign & Connect
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait `Ops:=,<>`[Ctx, SkipLengthCheck] extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, R, Comp0] = Builder[L, R] {
+        type Comp = Comp0
+      }
+
+      object `LW >= RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = SkipLengthCheck || (LW >= RW)
+        type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      def create[L, R, RW](properR : (L, R) => DFBits[RW]) : Aux[L, R, DFBits[RW]] =
+        new Builder[L, R] {
+          type Comp = DFBits[RW]
+          def apply(leftL : L, rightR : R) : Comp =  properR(leftL, rightR)
+        }
+
+      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+        implicit
+        ctx : Ctx,
+        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Aux[DFBits[LW], DFBits[RW], DFBits[RW]] =
+        create[DFBits[LW], DFBits[RW], RW]((left, right) => {
+          checkLWvRW.unsafeCheck(left.width, right.width)
+          right
+        })
+
+      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+        implicit
+        ctx : Ctx,
+        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
+        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Aux[DFBits[LW], R, DFBits[RW]] = create[DFBits[LW], R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right
+      })
+    }
+  }
+  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context, false]
+  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context, true]
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  
+  trait OpsLogic {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "Logic operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      object `VecW >= ConstW` extends Checked1Param.Int { //Needs to be mitigated to a warning
+      type Cond[VW, CW] = VW >= CW
+        type Msg[VW, CW] = "A static boolean result detected, due to an unsigned comparison between a DF variable and a larger number. Found: DFVar-width = "+ ToString[VW] + " and Num-width = " + ToString[CW]
+        type ParamFace = Int
+      }
+
+      def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
+      : Builder[L, R] = (leftL, rightR) => {
+        val (left, right) = properLR(leftL, rightR)
+        import ctx.basicLib._
+        //        val op = new UopUeqB[DiSoOpKind](left.width, right.width)
+        //        op.inLeft <> left
+        //        op.inRight <> right
+        //
+        //        op.outResult
+        ???
+      }
+
+      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[DFBits[LW], DFBits[RW]] = create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        (left, right)
+      })
+
+      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
+        checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
+      ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        (left, right)
+      })
+
+      implicit def evConst_op_DFBits[L, LW, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        lConst : Const.PosOnly.Aux[Builder[_,_], L, LW],
+        checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
+      ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
+        val left = lConst(leftNum)
+        checkLWvRW.unsafeCheck(right.width, left.width)
+        (left, right)
+      })
+    }
+  } 
+  
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
