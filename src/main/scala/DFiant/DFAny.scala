@@ -302,11 +302,12 @@ object DFAny {
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final def codeString : String = s"\nval $name = $constructCodeString $initCodeString$initCommentString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
+    final private[DFiant] def alias(left : DFAny) : TVar = ???
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -323,7 +324,7 @@ object DFAny {
   ) extends DFAny.Var {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
-    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = {
       val initTemp : Seq[Token] = aliasedVar.getInit
       val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
@@ -346,13 +347,16 @@ object DFAny {
   }
   object Alias {
     type Context = DFAnyOwner.Context[DFAnyOwner]
+    trait Builder[L <: DFAny, R <: DFAny] {
+      def apply(left : L, right : R) : R#TVar
+    }
   }
 
   abstract class Const(token : Token)(
     implicit val ctx : Const.Context, cmp : Companion
   ) extends DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
-    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected def constructCodeString : String = s"$token"
     final def codeString : String = s"\n$token"
@@ -380,7 +384,7 @@ object DFAny {
     final override lazy val owner : DFInterface = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
-    final protected val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     private var connectedSource : Option[DFAny] = None
     private val almanacEntryLB = LazyBox {
       val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
@@ -633,6 +637,10 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
 
+    trait Alias {
+      type Builder[L <: DFAny, R <: DFAny] <: DFAny.Alias.Builder[L, R]
+    }
+    val Alias : Alias = ???
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Port
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

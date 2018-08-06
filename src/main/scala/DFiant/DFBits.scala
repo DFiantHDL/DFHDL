@@ -70,7 +70,9 @@ object DFBits extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.NewVar.Context
     ) : DFBits.Var[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
 
-    def as[T <: DFAny.NewVar](mold : T) : T#TVal = ???
+    def as[T <: DFAny.NewVar](mold : T)(
+      implicit alias : mold.protComp.Alias.Builder[TVal, T]
+    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
     def uint : TUInt[LW] = ???
 
     //  def ^ (that : DFBits.Unsafe)         : DFBits.Unsafe = ??? //AlmanacEntryOpXor(this, that)
@@ -103,7 +105,9 @@ object DFBits extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var {
-    final override def as[T <: DFAny.NewVar](mold : T) : T#TVar = ???
+    final override def as[T <: DFAny.NewVar](mold : T)(
+      implicit alias : mold.protComp.Alias.Builder[TVal, T]
+    ) : T#TVar = alias(this.asInstanceOf[TVal], mold)
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
