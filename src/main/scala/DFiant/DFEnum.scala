@@ -48,8 +48,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar[E <: Enum]()(
     implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]
-  ) extends DFAny.NewVar(w) with Var[E]  {
-    def constructCodeString : String = s"DFEnum(???)"
+  ) extends DFAny.NewVar(w, s"DFEnum(???)") with Var[E]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
@@ -57,9 +56,8 @@ object DFEnum extends DFAny.Companion {
   protected[DFiant] def alias[E <: Enum]
   (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0)(
     implicit ctx : DFAny.Alias.Context, w : WidthOf[E]
-  ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep) with Var[E] {
+  ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, "AliasOfDFEnum???") with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
-    def constructCodeString : String = "AliasOfDFEnum???"
   }
 
   protected[DFiant] def const[E <: Enum](token : Token[E])(
@@ -68,9 +66,7 @@ object DFEnum extends DFAny.Companion {
 
   protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
     implicit ctx : DFAny.Port.Context
-  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {
-    def constructCodeString : String = s"DFEnum(???)"
-  }
+  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

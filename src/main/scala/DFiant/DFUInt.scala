@@ -98,26 +98,21 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar(width) with Var[W] {
-    def constructCodeString : String = s"DFUInt($width)"
+  ) extends DFAny.NewVar(width, s"DFUInt($width)") with Var[W] {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
   protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0)(implicit ctx : DFAny.Alias.Context) : Var[W] =
-    new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep) with Var[W] {
+  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, aliasCodeString : String)(
+    implicit ctx : DFAny.Alias.Context
+  ) : Var[W] = new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, aliasCodeString) with Var[W] {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-      def constructCodeString : String = {
-        val bitsCodeString = if (relWidth == aliasedVar.width) "" else s"Unsupported DFUInt Alias codeString"
-        s"${aliasedVar.refCodeString}$bitsCodeString$prevCodeString"
-      }
     }
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit ctx : DFAny.Alias.Context) : Var[W] with Extendable =
-    new DFAny.Alias(extendedVar, extendedVar.width, 0) with Var[W] with Extendable {
+    new DFAny.Alias(extendedVar, extendedVar.width, 0, 0, ".extendable") with Var[W] with Extendable {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-      def constructCodeString : String = s"${extendedVar.name}.extendable"
       override def toString : String = s"DFUInt[$width] & Extendable"
     }
 
@@ -125,9 +120,7 @@ object DFUInt extends DFAny.Companion {
     new DFAny.Const(token) with DFUInt[W]
 
   protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit ctx : DFAny.Port.Context) : DFUInt[W] <> Dir =
-    new DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W] {
-      def constructCodeString : String = s"DFUInt($width)"
-    }
+    new DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W] { }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -241,7 +234,7 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply[P](left : DFUInt[LW], right : Natural.Int.Checked[P]) : DFUInt[LW] =
-          DFUInt.alias(left, left.width, 0, -right)
+          DFUInt.alias(left, left.width, 0, -right, "")
       }
     }
   }
@@ -417,11 +410,10 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends DFAny.Alias(wc, wc.width-1, 0) with DFUInt[NCW] {
-      lazy val c = DFBits.alias[1](wc, 1, wc.width-1)
+    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+      DFAny.Alias(wc, wc.width-1, 0, 0, s"${wc.owner.name}.${wc.name}.bits(7,0).uint") with DFUInt[NCW] {
+      lazy val c = DFBits.alias[1](wc, 1, wc.width-1, 0, ".c")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-      def constructCodeString : String = s"${wc.owner.name}.${wc.name}.bits(7,0).uint"
-      override def nameDefault: String = ctx.n.value
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
@@ -534,10 +526,11 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     //CW = Carry width
-    class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(implicit ctx : DFAny.Alias.Context) extends DFAny.Alias(wc, ncW, 0) with DFUInt[NCW] {
-      lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW)
+    class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
+      implicit ctx : DFAny.Alias.Context
+    ) extends DFAny.Alias(wc, ncW, 0, 0, s"???Op*Comp???") with DFUInt[NCW] {
+      lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW, 0, ".c")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-      def constructCodeString : String = s"???Op*Comp???"
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")

@@ -59,29 +59,21 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final class NewVar()(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar(1) with Var {
-    def constructCodeString : String = s"DFBool()"
+  ) extends DFAny.NewVar(1, "DFBool()") with Var {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0)(implicit ctx : DFAny.Alias.Context) : Var =
-    new DFAny.Alias(aliasedVar, 1, relBit, deltaStep) with Var {
+  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, aliasCodeString : String)(implicit ctx : DFAny.Alias.Context) : Var =
+    new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, aliasCodeString) with Var {
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
-      def constructCodeString : String = {
-        val bitCodeString = s".bit($relBit)"
-        s"$name$bitCodeString$prevCodeString"
-      }
     }
 
   protected[DFiant] def const(token : DFBool.Token)(implicit ctx : DFAny.Const.Context) : DFBool =
     new DFAny.Const(token) with DFBool
 
   protected[DFiant] def port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(implicit ctx : DFAny.Port.Context) : DFBool <> Dir =
-    new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool {
-      def constructCodeString : String = s"DFBool()"
-
-    }
+    new DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool {}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -179,7 +171,7 @@ object DFBool extends DFAny.Companion {
     object Builder {
       implicit def ev(implicit ctx : DFAny.Alias.Context) : Builder[DFBool] = new Builder[DFBool] {
         def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
-          DFBool.alias(left, 0, -right)
+          DFBool.alias(left, 0, -right, "")
       }
     }
   }

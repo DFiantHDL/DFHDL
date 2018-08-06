@@ -31,7 +31,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBit[I](relBit : TwoFace.Int[I])(implicit ctx : DFAny.Alias.Context) : TBool =
-    DFBool.alias(this, relBit).asInstanceOf[TBool]
+    DFBool.alias(this, relBit, 0, s".bit($relBit)").asInstanceOf[TBool]
 
   final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Alias.Context) : TBool =
     protBit(relBit.unsafeCheck(width))
@@ -42,11 +42,12 @@ sealed trait DFAny extends DSLMemberConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits()(implicit ctx : DFAny.Alias.Context) : TBits[Width] = DFBits.alias(this, width, 0).asInstanceOf[TBits[Width]]
+  final def bits()(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
+    DFBits.alias(this, width, 0, 0, ".bits()").asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
-  ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow).asInstanceOf[TBits[relWidth.Out]]
+  ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow, 0, s".bits($relBitHigh, $relBitLow)").asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
     implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
@@ -73,7 +74,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit ctx : DFAny.Alias.Context)
-  : TBits[W] = DFBits.alias(this, relWidth, relBitLow).asInstanceOf[TBits[W]]
+  : TBits[W] = DFBits.alias(this, relWidth, relBitLow, 0, s".bitsWL($relWidth, $relBitLow)").asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
@@ -142,7 +143,14 @@ sealed trait DFAny extends DSLMemberConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Naming
   //////////////////////////////////////////////////////////////////////////
-  def codeString : String
+  final def isAnonymous : Boolean = ctx.n.isAnonymous
+  final override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
+  protected def constructCodeString : String
+  final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
+    if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
+  final protected def initCommentString : String =
+    if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
+  final def codeString : String = s"\nval $name = $constructCodeString$initCommentString"
   override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
 
@@ -165,13 +173,6 @@ sealed trait DFAny extends DSLMemberConstruct {
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
   final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
-  final def isAnonymous : Boolean = ctx.n.isAnonymous
-  override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
-  protected def constructCodeString : String
-  final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
-    if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
-  final protected def initCommentString : String =
-    if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -258,7 +259,7 @@ object DFAny {
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
       val updatedInit = op(left, that)
-      customInitString = s"init${updatedInit.codeString}"
+      customInitString = s" init${updatedInit.codeString}"
       initialize(() => op(left, that), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
@@ -297,13 +298,13 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class NewVar(_width : Int)(
+  abstract class NewVar(_width : Int, newVarCodeString : String)(
     implicit val ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final def codeString : String = s"\nval $name = $constructCodeString $initCodeString$initCommentString"
+    final protected def constructCodeString : String = s"$newVarCodeString$initCodeString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -319,7 +320,7 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0)(
+  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, aliasCodeString : String)(
     implicit val ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
@@ -331,8 +332,8 @@ object DFAny {
       val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
       bitsInit.map(protTokenBitsToTToken)
     }
-    protected val prevCodeString = if (deltaStep < -1) s".prev(${-deltaStep})" else if (deltaStep == -1) ".prev" else ""
-    final def codeString : String = s"\nval $name = $constructCodeString$initCommentString"
+    private def prevCodeString = if (deltaStep < -1) s".prev(${-deltaStep})" else if (deltaStep == -1) ".prev" else ""
+    final protected def constructCodeString : String = s"${aliasedVar.refCodeString}$prevCodeString$aliasCodeString"
     final protected[DFiant] lazy val almanacEntry = {
       val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
       AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
@@ -340,9 +341,6 @@ object DFAny {
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
-
-    private lazy val derivedName : String = if (deltaStep < 0) s"${aliasedVar.fullName}__prev${-deltaStep}"
-                                           else s"${aliasedVar.fullName}__???"
     final val id = getID
   }
   object Alias {
@@ -359,11 +357,9 @@ object DFAny {
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     protected def constructCodeString : String = s"$token"
-    final def codeString : String = s"\n$token"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    override protected def nameDefault: String = s"$token"
     final val id = getID
   }
   object Const {
@@ -398,7 +394,7 @@ object DFAny {
       if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
       super.assign(that)
     }
-    private def connect(fromVal : DFAny, toPort :Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
+    private def connect(fromVal : DFAny, toPort : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
       if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
@@ -492,7 +488,7 @@ object DFAny {
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
-    final def codeString : String = s"\nval $name = $constructCodeString <> $dir $initCodeString$initCommentString"
+    protected def constructCodeString : String = s"${dfVar.constructCodeString} <> $dir$initCodeString"
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val id = getID
   }
@@ -637,10 +633,10 @@ object DFAny {
   trait Companion {
     type Unbounded <: DFAny.Unbounded[this.type]
 
-    trait Alias {
-      type Builder[L <: DFAny, R <: DFAny] <: DFAny.Alias.Builder[L, R]
-    }
-    val Alias : Alias = ???
+//    trait Alias {
+//      type Builder[L <: DFAny, R <: DFAny] <: DFAny.Alias.Builder[L, R]
+//    }
+//    val Alias : Alias = ???
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Port
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

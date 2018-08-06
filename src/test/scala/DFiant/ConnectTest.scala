@@ -149,10 +149,10 @@ class ConnectTest extends Properties("ConnectTest") {
       """
         |val top_ioDesignConn2 = new DFDesign {  //DFiant.ConnectTest$IODesignConn2
         |  val i = DFUInt(8) <> IN init(1)  //init = (1)
-        |  val o = DFUInt(8) <> OUT   //init = (2)
+        |  val o = DFUInt(8) <> OUT  //init = (2)
         |  val io = new DFDesign {  //DFiant.ConnectTest$Comp
-        |    val i = DFUInt(8) <> IN   //init = (1)
-        |    val o = DFUInt(8) <> OUT   //init = (2)
+        |    val i = DFUInt(8) <> IN  //init = (1)
+        |    val o = DFUInt(8) <> OUT  //init = (2)
         |    val rt = new DFiant.ConnectTest$RTx2 {}
         |    rt.I <> i
         |    o <> rt.O
@@ -171,21 +171,21 @@ class ConnectTest extends Properties("ConnectTest") {
       """
         |val top_ioDesignConn5 = new DFDesign {  //DFiant.ConnectTest$IODesignConn5
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-        |  val o = DFUInt(8) <> OUT   //init = (Φ)
+        |  val o = DFUInt(8) <> OUT  //init = (Φ)
         |  val $anon = i.prev  //init = (2, 3, 4, Φ)
         |  val $anon$1 = $anon.prev  //init = (3, 4, Φ)
         |  val $anon$2 = $anon$1.prev  //init = (4, Φ)
         |  val $anon$3 = $anon$2.prev  //init = (Φ)
         |  o <> $anon$3
         |  val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-        |  val o$1 = DFUInt(8) <> OUT   //init = (Φ)
+        |  val o$1 = DFUInt(8) <> OUT  //init = (Φ)
         |  val $anon$4 = i$1.prev  //init = (2, 3, 4, Φ)
         |  val $anon$5 = $anon$4.prev  //init = (3, 4, Φ)
         |  val $anon$6 = $anon$5.prev  //init = (4, Φ)
         |  val $anon$7 = $anon$6.prev  //init = (Φ)
         |  o$1 <> $anon$7
         |  val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-        |  val o$2 = DFUInt(8) <> OUT   //init = (Φ)
+        |  val o$2 = DFUInt(8) <> OUT  //init = (Φ)
         |  val $anon$8 = i$2.prev  //init = (2, 3, 4, Φ)
         |  val $anon$9 = $anon$8.prev  //init = (3, 4, Φ)
         |  val $anon$10 = $anon$9.prev  //init = (4, Φ)
@@ -195,7 +195,29 @@ class ConnectTest extends Properties("ConnectTest") {
       """.stripMargin
     top_ioDesignConn5.codeString =@= compare
   }
-
+  val top_ioDesignConn5 = new DFDesign {  //DFiant.ConnectTest$IODesignConn5
+    val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
+    val o = DFUInt(8) <> OUT  //init = (Φ)
+    val $anon = i.prev  //init = (2, 3, 4, Φ)
+    val $anon$1 = $anon.prev  //init = (3, 4, Φ)
+    val $anon$2 = $anon$1.prev  //init = (4, Φ)
+    val $anon$3 = $anon$2.prev  //init = (Φ)
+    o <> $anon$3
+    val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
+    val o$1 = DFUInt(8) <> OUT  //init = (Φ)
+    val $anon$4 = i$1.prev  //init = (2, 3, 4, Φ)
+    val $anon$5 = $anon$4.prev  //init = (3, 4, Φ)
+    val $anon$6 = $anon$5.prev  //init = (4, Φ)
+    val $anon$7 = $anon$6.prev  //init = (Φ)
+    o$1 <> $anon$7
+    val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
+    val o$2 = DFUInt(8) <> OUT  //init = (Φ)
+    val $anon$8 = i$2.prev  //init = (2, 3, 4, Φ)
+    val $anon$9 = $anon$8.prev  //init = (3, 4, Φ)
+    val $anon$10 = $anon$9.prev  //init = (4, Φ)
+    val $anon$11 = $anon$10.prev  //init = (Φ)
+    o$2 <> $anon$11
+  }
   property("IODesignConn5.codeString default") = {
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
