@@ -236,16 +236,15 @@ object DFBits extends DFAny.Companion {
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
-      implicit class DFBitsInt0(val right : 0) extends Able[DFBits[1]]
-      implicit class DFBitsInt1(val right : 1) extends Able[DFBits[1]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
+      implicit class DFBitsByteVector[LW](val right : ByteVector) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
         right.toSeqAny.map(e => e match {
           case (t : Bubble) => Token(width, t)
           case (t : Token) => Token(width, t)
-          case (t : Int) => Token(width, t)
           case (t : BitVector) => Token(width, t)
+          case (t : ByteVector) => Token(width, t.bits)
         })
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
@@ -285,9 +284,8 @@ object DFBits extends DFAny.Companion {
       ) = port.connectVal2Port(op(port, left))
     }
     trait Implicits {
-      implicit class DFBitsFrom0(left : 0) extends Able[0](left)
-      implicit class DFBitsFrom1(left : 1) extends Able[1](left)
       implicit class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
+      implicit class DFBitsFromByteVector(left : ByteVector) extends Able[BitVector](left.bits)
       implicit def ofDFBits[R <: DFBits.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits

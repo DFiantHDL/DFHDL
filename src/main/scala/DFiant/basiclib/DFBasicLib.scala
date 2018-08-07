@@ -14,7 +14,7 @@ trait DFBasicLib {
     val leftWidth : TwoFace.Int[LW], val rightWidth : TwoFace.Int[RW], val resultWidth : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[UopUeqU[Kind, LW, RW, OW]]
   ) extends DFComponent[UopUeqU[Kind, LW, RW, OW]] {
-    final val inLeft = DFUInt.unchecked[LW](leftWidth) <> IN
+    final val inLeft = DFUInt.unchecked(leftWidth) <> IN
     final val inRight = DFUInt.unchecked(rightWidth) <> IN
     final val outResult = DFUInt.unchecked(resultWidth) <> OUT
   }
@@ -26,26 +26,27 @@ trait DFBasicLib {
   protected[DFiant] type `U*U`[LW, RW, OW] = UopUeqU[DiSoOp.Kind.*, LW, RW, OW]
   implicit def `evU*U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U*U`[LW, RW, OW]]
 
-  class UopUeqB[Kind <: DiSoOp.Kind](leftWidth : Int, rightWidth : Int)(
-    implicit ctx : DFComponent.Context[UopUeqB[Kind]]
-  ) extends DFComponent[UopUeqB[Kind]] {
-    final val inLeft = DFUInt(leftWidth) <> IN
-    final val inRight = DFUInt(rightWidth) <> IN
+  class UopUeqB[Kind <: DiSoOp.Kind, LW, RW](
+    val leftWidth : TwoFace.Int[LW], val rightWidth : TwoFace.Int[RW])(
+    implicit ctx : DFComponent.Context[UopUeqB[Kind, LW, RW]]
+  ) extends DFComponent[UopUeqB[Kind, LW, RW]] {
+    final val inLeft = DFUInt.unchecked(leftWidth) <> IN
+    final val inRight = DFUInt.unchecked(rightWidth) <> IN
     final val outResult = DFBool() <> OUT
   }
 
-  protected[DFiant] type `U==U` = UopUeqB[DiSoOp.Kind.==]
-  implicit def `evU==U`(implicit ctx : Implementation.Context) : Implementation[`U==U`]
-  protected[DFiant] type `U!=U` = UopUeqB[DiSoOp.Kind.!=]
-  implicit def `evU!=U`(implicit ctx : Implementation.Context) : Implementation[`U!=U`]
-  protected[DFiant] type `U<U` = UopUeqB[DiSoOp.Kind.<]
-  implicit def `evU<U`(implicit ctx : Implementation.Context) : Implementation[`U<U`]
-  protected[DFiant] type `U>U` = UopUeqB[DiSoOp.Kind.>]
-  implicit def `evU>U`(implicit ctx : Implementation.Context) : Implementation[`U>U`]
-  protected[DFiant] type `U<=U` = UopUeqB[DiSoOp.Kind.<=]
-  implicit def `evU<=U`(implicit ctx : Implementation.Context) : Implementation[`U<=U`]
-  protected[DFiant] type `U>=U` = UopUeqB[DiSoOp.Kind.>=]
-  implicit def `evU>=U`(implicit ctx : Implementation.Context) : Implementation[`U>=U`]
+  protected[DFiant] type `U==U`[LW, RW] = UopUeqB[DiSoOp.Kind.==, LW, RW]
+  implicit def `evU==U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U==U`[LW, RW]]
+  protected[DFiant] type `U!=U`[LW, RW] = UopUeqB[DiSoOp.Kind.!=, LW, RW]
+  implicit def `evU!=U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U!=U`[LW, RW]]
+  protected[DFiant] type `U<U`[LW, RW] = UopUeqB[DiSoOp.Kind.<, LW, RW]
+  implicit def `evU<U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U<U`[LW, RW]]
+  protected[DFiant] type `U>U`[LW, RW] = UopUeqB[DiSoOp.Kind.>, LW, RW]
+  implicit def `evU>U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U>U`[LW, RW]]
+  protected[DFiant] type `U<=U`[LW, RW] = UopUeqB[DiSoOp.Kind.<=, LW, RW]
+  implicit def `evU<=U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U<=U`[LW, RW]]
+  protected[DFiant] type `U>=U`[LW, RW] = UopUeqB[DiSoOp.Kind.>=, LW, RW]
+  implicit def `evU>=U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U>=U`[LW, RW]]
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

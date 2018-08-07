@@ -68,6 +68,17 @@ class ConnectTest extends Properties("ConnectTest") {
     o <> io.o
   }
 
+  trait IODesignConn3 extends DFDesign {
+    val i = DFUInt(8) <> IN init 5
+    val o = DFUInt(8) <> OUT
+    val o_wc = DFUInt(9) <> OUT
+    val o_c = DFBool() <> OUT
+    val plusOne = i + 1
+    o <> plusOne
+    o_wc <> plusOne.wc
+    o_c <> plusOne.c
+  }
+
   trait IODesignConn5 extends DFDesign {
     val myloop = for (i <- 0 to 2) {
       val i = DFUInt(8) <> IN init(1, 2, 3, 4, Bubble)
@@ -195,29 +206,7 @@ class ConnectTest extends Properties("ConnectTest") {
       """.stripMargin
     top_ioDesignConn5.codeString =@= compare
   }
-  val top_ioDesignConn5 = new DFDesign {  //DFiant.ConnectTest$IODesignConn5
-    val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-    val o = DFUInt(8) <> OUT  //init = (Φ)
-    val $anon = i.prev  //init = (2, 3, 4, Φ)
-    val $anon$1 = $anon.prev  //init = (3, 4, Φ)
-    val $anon$2 = $anon$1.prev  //init = (4, Φ)
-    val $anon$3 = $anon$2.prev  //init = (Φ)
-    o <> $anon$3
-    val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-    val o$1 = DFUInt(8) <> OUT  //init = (Φ)
-    val $anon$4 = i$1.prev  //init = (2, 3, 4, Φ)
-    val $anon$5 = $anon$4.prev  //init = (3, 4, Φ)
-    val $anon$6 = $anon$5.prev  //init = (4, Φ)
-    val $anon$7 = $anon$6.prev  //init = (Φ)
-    o$1 <> $anon$7
-    val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-    val o$2 = DFUInt(8) <> OUT  //init = (Φ)
-    val $anon$8 = i$2.prev  //init = (2, 3, 4, Φ)
-    val $anon$9 = $anon$8.prev  //init = (3, 4, Φ)
-    val $anon$10 = $anon$9.prev  //init = (4, Φ)
-    val $anon$11 = $anon$10.prev  //init = (Φ)
-    o$2 <> $anon$11
-  }
+
   property("IODesignConn5.codeString default") = {
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
@@ -235,6 +224,38 @@ class ConnectTest extends Properties("ConnectTest") {
         |}
       """.stripMargin
     top_ioDesignConn5.codeString =@= compare
+  }
+
+  property("IODesignConn3.codeString detailed") = {
+    implicit val config = DFAnyConfiguration.detailed
+    val top_ioDesignConn3 = new IODesignConn3 {}
+    val compare =
+      """
+        |val top_ioDesignConn3 = new DFDesign {  //DFiant.ConnectTest$IODesignConn3
+        |  val i = DFUInt(8) <> IN init(5)  //init = (5)
+        |  val o = DFUInt(8) <> OUT  //init = (6)
+        |  val o_wc = DFUInt(9) <> OUT  //init = (6)
+        |  val o_c = DFBool() <> OUT  //init = (false)
+        |  val opInst = new DFDesign {  //DFiant.DFComponent
+        |    val inLeft = DFUInt(8) <> IN  //init = (5)
+        |    val inRight = DFUInt(1) <> IN  //init = (1)
+        |    val outResult = DFUInt(9) <> OUT  //init = (6)
+        |    val rtInst = new Xilinx.Series$RTAddSub {}
+        |    rtInst.A <> inLeft
+        |    rtInst.B <> inRight
+        |    outResult <> rtInst.S
+        |  }
+        |  opInst.inLeft <> i
+        |  opInst.inRight <> 1
+        |  val plusOne = opInst.outResult.bits(7, 0).uint  //init = (6)
+        |  o <> plusOne
+        |  o_wc <> opInst.outResult
+        |  val plusOne$1 = opInst.outResult.bit(8)  //init = (false)
+        |  o_c <> plusOne$1
+        |}
+        |
+      """.stripMargin
+    top_ioDesignConn3.codeString =@= compare
   }
 
 }

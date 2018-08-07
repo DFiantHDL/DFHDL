@@ -619,7 +619,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[DiSoOpKind <: DiSoOp.Kind](opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token]) {
+  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token]) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
@@ -638,14 +638,21 @@ object DFUInt extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
+        import ctx._
+        import basicLib._
         val (left, right) = properLR(leftL, rightR)
-        import ctx.basicLib._
-//        val op = new UopUeqB[DiSoOpKind](left.width, right.width)
-//        op.inLeft <> left
-//        op.inRight <> right
-//
-//        op.outResult
-        ???
+        val opInst = opKind match {
+          case DiSoOp.Kind.== => new `U==U`(left.width, right.width)
+          case DiSoOp.Kind.!= => new `U!=U`(left.width, right.width)
+          case DiSoOp.Kind.<  => new `U<U`(left.width, right.width)
+          case DiSoOp.Kind.>  => new `U>U`(left.width, right.width)
+          case DiSoOp.Kind.<= => new `U<=U`(left.width, right.width)
+          case DiSoOp.Kind.>= => new `U>=U`(left.width, right.width)
+          case _ => throw new IllegalArgumentException("Unexpected compare operation")
+        }
+        opInst.inLeft <> left
+        opInst.inRight <> right
+        opInst.outResult
       }
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
@@ -680,11 +687,11 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends OpsCompare[DiSoOp.Kind.==](DFUInt.Token.==) with `Op==`
-  object `Op!=` extends OpsCompare[DiSoOp.Kind.!=](DFUInt.Token.!=) with `Op!=`
-  object `Op<`  extends OpsCompare[DiSoOp.Kind.< ](DFUInt.Token.< )
-  object `Op>`  extends OpsCompare[DiSoOp.Kind.> ](DFUInt.Token.> )
-  object `Op<=` extends OpsCompare[DiSoOp.Kind.<=](DFUInt.Token.<=)
-  object `Op>=` extends OpsCompare[DiSoOp.Kind.>=](DFUInt.Token.>=)
+  object `Op==` extends OpsCompare(DiSoOp.Kind.==)(DFUInt.Token.==) with `Op==`
+  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=)(DFUInt.Token.!=) with `Op!=`
+  object `Op<`  extends OpsCompare(DiSoOp.Kind.< )(DFUInt.Token.< )
+  object `Op>`  extends OpsCompare(DiSoOp.Kind.> )(DFUInt.Token.> )
+  object `Op<=` extends OpsCompare(DiSoOp.Kind.<=)(DFUInt.Token.<=)
+  object `Op>=` extends OpsCompare(DiSoOp.Kind.>=)(DFUInt.Token.>=)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

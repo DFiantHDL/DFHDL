@@ -2,17 +2,26 @@ package DFiant.basiclib
 
 //Dual Input, Single Output Operation
 object DiSoOp {
-  trait Kind
+  sealed trait Kind
   object Kind {
-    trait +  extends Kind
-    trait -  extends Kind
-    trait *  extends Kind
-    trait == extends Kind
-    trait != extends Kind
-    trait <  extends Kind
-    trait >  extends Kind
-    trait <= extends Kind
-    trait >= extends Kind
+    sealed trait +  extends Kind
+    sealed trait -  extends Kind
+    sealed trait *  extends Kind
+    sealed trait == extends Kind
+    sealed trait != extends Kind
+    sealed trait <  extends Kind
+    sealed trait >  extends Kind
+    sealed trait <= extends Kind
+    sealed trait >= extends Kind
+    case object +  extends +
+    case object -  extends -
+    case object *  extends *
+    case object == extends ==
+    case object != extends !=
+    case object <  extends <
+    case object >  extends >
+    case object <= extends <=
+    case object >= extends >=
   }
 
 
