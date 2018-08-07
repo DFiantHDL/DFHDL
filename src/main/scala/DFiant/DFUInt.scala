@@ -410,8 +410,8 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias(wc, wc.width-1, 0, 0, s"${wc.owner.name}.${wc.name}.bits(7,0).uint") with DFUInt[NCW] {
-      lazy val c = DFBits.alias[1](wc, 1, wc.width-1, 0, ".c")
+      DFAny.Alias(wc, wc.width-1, 0, 0, s".bits(${wc.width-2},0).uint") with DFUInt[NCW] {
+      lazy val c = DFBool.alias(wc, wc.width-1, 0, s".bit(${wc.width-1})")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
