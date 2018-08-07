@@ -302,21 +302,19 @@ object DFBits extends DFAny.Companion {
   }
   object Const {
     type Aux[N, W0] = Const[N]{type W = W0}
-    implicit def from0(implicit ctx : DFAny.Const.Context)
-    : Aux[0, 1] = new Const[0] {
-      type W = 1
-      def apply(value : 0) : DFBits[W] = const[W](Token(1, 0))
-    }
-    implicit def from1(implicit ctx : DFAny.Const.Context)
-    : Aux[1, 1] = new Const[1] {
-      type W = 1
-      def apply(value : 1) : DFBits[W] = const[W](Token(1, 1))
-    }
     implicit def fromBitsVector(implicit ctx : DFAny.Const.Context)
     : Aux[BitVector, Int] = new Const[BitVector] {
       type W = Int
       def apply(value : BitVector) : DFBits[W] = {
         const[W](Token(value.length.toInt, value))
+      }
+    }
+    implicit def fromByteVector(implicit ctx : DFAny.Const.Context)
+    : Aux[ByteVector, Int] = new Const[ByteVector] {
+      type W = Int
+      def apply(value : ByteVector) : DFBits[W] = {
+        val bits = value.bits
+        const[W](Token(bits.length.toInt, bits))
       }
     }
   }
