@@ -410,7 +410,7 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias(wc, wc.width-1, 0, 0, s".bits(${wc.width-2},0).uint") with DFUInt[NCW] {
+      DFAny.Alias(wc, wc.width-1, 0, 0, s".bits(${wc.width-2}, 0).uint") with DFUInt[NCW] {
       lazy val c = DFBool.alias(wc, wc.width-1, 0, s".bit(${wc.width-1})")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
@@ -467,14 +467,10 @@ object DFUInt extends DFAny.Companion {
                     case `Ops+Or-`.+ => new `U+U`(left.width, right.width, opWidth)
                     case `Ops+Or-`.- => new `U-U`(left.width, right.width, opWidth)
                   }
-//                  val wc = new NewVar[WCW](opWidth).setAutoName(s"${ctx.n.value}.wc")
                   opInst.inLeft <> left
                   opInst.inRight <> right
-//                  wc := opInst.outResult
-//                  wc.setInitFunc(() => opInst.outResult.getInit)
-//                  opInst.outResult <> wc
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](opInst.outResult)//.setAutoName(n.value)
+                  new Component[NCW, WCW](opInst.outResult)
                 }
               }
           }
@@ -527,8 +523,8 @@ object DFUInt extends DFAny.Companion {
     //CW = Carry width
     class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias(wc, ncW, 0, 0, s"???Op*Comp???") with DFUInt[NCW] {
-      lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW, 0, ".c")
+    ) extends DFAny.Alias(wc, ncW, 0, 0, s".bits(${wc.width-cW-1}, 0).uint") with DFUInt[NCW] {
+      lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW, 0, s".bits(${wc.width-1}, ${wc.width-cW})")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
@@ -585,16 +581,13 @@ object DFUInt extends DFAny.Companion {
                   val wcWidth = wcW(left.width, right.width)
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
-                  val opInit = Token.*(left.getInit, right.getInit)
-                  val wc = new NewVar[WCW](wcWidth)
 
                   val opInst = new `U*U`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  opInst.outResult <> wc
 
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW, CW](wc, ncWidth, cWidth).setAutoName(ctx.n.value)
+                  new Component[NCW, WCW, CW](opInst.outResult, ncWidth, cWidth)
                 }
               }
           }
