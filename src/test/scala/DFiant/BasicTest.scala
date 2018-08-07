@@ -152,7 +152,7 @@ trait ContainerConn4 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
   val top_ioDesignConn3 = new IODesignConn3 {}
@@ -162,7 +162,7 @@ object BasicTest extends App {
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignIf.codeString)
+  println(top_ioDesignConn3.codeString)
 
 }
 

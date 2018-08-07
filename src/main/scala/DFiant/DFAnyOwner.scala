@@ -24,7 +24,7 @@ trait DFAnyOwner extends DSLOwnerConstruct {
     val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
     val noAnonymous =
       if (config.showAnonymousEntries) noConst
-      else discoveredList.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous)
+      else noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous)
     delim + noAnonymous.codeString.replaceAll("\n","\n" + delim)
   }
 
