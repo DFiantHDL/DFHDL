@@ -377,7 +377,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Logic operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait OpsLogic {
+  protected abstract class OpsLogic(opKind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -390,13 +390,21 @@ object DFBits extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        val (left, right) = properLR(leftL, rightR)
-        import ctx.basicLib._
-        //        val op = new UopUeqB[DiSoOpKind](left.width, right.width)
-        //        op.inLeft <> left
-        //        op.inRight <> right
-        //
-        //        op.outResult
+        import ctx._
+        import basicLib._
+//        val (left, right) = properLR(leftL, rightR)
+//        val opInst = opKind match {
+//          case DiSoOp.Kind.== => new `U==U`(left.width, right.width)
+//          case DiSoOp.Kind.!= => new `U!=U`(left.width, right.width)
+//          case DiSoOp.Kind.<  => new `U<U`(left.width, right.width)
+//          case DiSoOp.Kind.>  => new `U>U`(left.width, right.width)
+//          case DiSoOp.Kind.<= => new `U<=U`(left.width, right.width)
+//          case DiSoOp.Kind.>= => new `U>=U`(left.width, right.width)
+//          case _ => throw new IllegalArgumentException("Unexpected compare operation")
+//        }
+//        opInst.inLeft <> left
+//        opInst.inRight <> right
+//        opInst.outResult
         ???
       }
 
@@ -432,9 +440,9 @@ object DFBits extends DFAny.Companion {
       })
     }
   }
-  object `Op|` extends OpsLogic
-  object `Op&` extends OpsLogic
-  object `Op^` extends OpsLogic
+  object `Op|` extends OpsLogic(DiSoOp.Kind.|)
+  object `Op&` extends OpsLogic(DiSoOp.Kind.&)
+  object `Op^` extends OpsLogic(DiSoOp.Kind.^)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
