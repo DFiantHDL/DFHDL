@@ -469,8 +469,9 @@ object DFUInt extends DFAny.Companion {
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
+                  val wc = DFUInt.alias[WCW](opInst.outResult, opWidth, 0, 0, "")
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](opInst.outResult)
+                  new Component[NCW, WCW](wc)
                 }
               }
           }
@@ -585,9 +586,10 @@ object DFUInt extends DFAny.Companion {
                   val opInst = new `Comp*`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
+                  val wc = DFUInt.alias[WCW](opInst.outResult, wcWidth, 0, 0, "")
 
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW, CW](opInst.outResult, ncWidth, cWidth)
+                  new Component[NCW, WCW, CW](wc, ncWidth, cWidth)
                 }
               }
           }
