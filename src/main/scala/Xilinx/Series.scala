@@ -32,69 +32,72 @@ trait Series {
   }
 
   implicit object basicLib extends DFiant.basiclib.DFBasicLib {
-    implicit def `evU+U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U+U`[LW, RW, OW]] = ifc => {
-      import ifc._
-      val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.+)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU-U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U-U`[LW, RW, OW]] = ifc => {
-      import ifc._
-      val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.-)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU*U`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`U*U`[LW, RW, OW]] = ifc => {
-      import ifc._
-      val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)(DFUInt.Token.*)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
+    object DFUIntOps extends DFBasicLib.DFUIntOps {
+      implicit def `ev+`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`Comp+`[LW, RW, OW]] = ifc => {
+        import ifc._
+        val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.+)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev-`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`Comp-`[LW, RW, OW]] = ifc => {
+        import ifc._
+        val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.-)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev*`[LW, RW, OW](implicit ctx : Implementation.Context) : Implementation[`Comp*`[LW, RW, OW]] = ifc => {
+        import ifc._
+        val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)(DFUInt.Token.*)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
 
-    implicit def `evU==U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U==U`[LW, RW]] = ifc => {
-      import ifc._
-      val rtInst = new RTInfixCompareOp("==")(leftWidth, rightWidth)(DFUInt.Token.==)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU!=U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U!=U`[LW, RW]] = ifc => {
-      import ifc._
-      val rtInst = new RTInfixCompareOp("!=")(leftWidth, rightWidth)(DFUInt.Token.!=)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU<U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U<U`[LW, RW]] = ifc => {
-      import ifc._
-      val rtInst = new RTInfixCompareOp("<")(leftWidth, rightWidth)(DFUInt.Token.<)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU>U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U>U`[LW, RW]] = ifc => {
-      import ifc._
-      val rtInst = new RTInfixCompareOp(">")(leftWidth, rightWidth)(DFUInt.Token.>)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU<=U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U<=U`[LW, RW]] = ifc => {
-      import ifc._
-      val rtInst = new RTInfixCompareOp("<=")(leftWidth, rightWidth)(DFUInt.Token.<=)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
-    }
-    implicit def `evU>=U`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`U>=U`[LW, RW]] = ifc => {
-      import ifc._
-      val rtInst = new RTInfixCompareOp(">=")(leftWidth, rightWidth)(DFUInt.Token.>=)
-      rtInst.A <> inLeft
-      rtInst.B <> inRight
-      rtInst.S <> outResult
+      implicit def `ev==`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`Comp==`[LW, RW]] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixCompareOp("==")(leftWidth, rightWidth)(DFUInt.Token.==)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev!=`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`Comp!=`[LW, RW]] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixCompareOp("!=")(leftWidth, rightWidth)(DFUInt.Token.!=)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev<`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`Comp<`[LW, RW]] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixCompareOp("<")(leftWidth, rightWidth)(DFUInt.Token.<)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev>`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`Comp>`[LW, RW]] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixCompareOp(">")(leftWidth, rightWidth)(DFUInt.Token.>)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev<=`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`Comp<=`[LW, RW]] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixCompareOp("<=")(leftWidth, rightWidth)(DFUInt.Token.<=)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev>=`[LW, RW](implicit ctx : Implementation.Context) : Implementation[`Comp>=`[LW, RW]] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixCompareOp(">=")(leftWidth, rightWidth)(DFUInt.Token.>=)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+
     }
 
     implicit def `evE==E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E==E`[E]] = ifc => {
