@@ -57,14 +57,11 @@ trait IODesignConn2 extends DFDesign{
 
 
 trait IODesignConn3 extends DFDesign {
-  val i = DFUInt(8) <> IN init 5
-  val o = DFUInt(8) <> OUT
-  val o_wc = DFUInt(9) <> OUT
-  val o_c = DFBool() <> OUT
-  val plusOne = i + 1
-  o <> plusOne
-  o_wc <> plusOne.wc
-  o_c <> plusOne.c
+  val i1 = DFUInt(8) <> IN init 8
+  val i2 = DFUInt(8) <> IN init 1
+  val o = DFBool() <> OUT
+  val check = i2 < i1
+  o <> check
 }
 
 class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent.Context) extends RTComponent {

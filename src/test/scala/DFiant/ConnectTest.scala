@@ -79,6 +79,14 @@ class ConnectTest extends Properties("ConnectTest") {
     o_c <> plusOne.c
   }
 
+  trait IODesignConn4 extends DFDesign {
+    val i1 = DFUInt(8) <> IN init 8
+    val i2 = DFUInt(8) <> IN init 1
+    val o = DFBool() <> OUT
+    val check = i2 < i1
+    o <> check
+  }
+
   trait IODesignConn5 extends DFDesign {
     val myloop = for (i <- 0 to 2) {
       val i = DFUInt(8) <> IN init(1, 2, 3, 4, Bubble)
@@ -253,9 +261,34 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val plusOne$1 = opInst.outResult.bit(8)  //init = (false)
         |  o_c <> plusOne$1
         |}
-        |
       """.stripMargin
     top_ioDesignConn3.codeString =@= compare
+  }
+
+  property("IODesignConn4.codeString detailed") = {
+    implicit val config = DFAnyConfiguration.detailed
+    val top_ioDesignConn4 = new IODesignConn4 {}
+    val compare =
+      """
+        |val top_ioDesignConn4 = new DFDesign {  //DFiant.ConnectTest$IODesignConn4
+        |  val i1 = DFUInt(8) <> IN init(8)  //init = (8)
+        |  val i2 = DFUInt(8) <> IN init(1)  //init = (1)
+        |  val o = DFBool() <> OUT  //init = (true)
+        |  val opInst = new DFDesign {  //DFiant.DFComponent
+        |    val inLeft = DFUInt(8) <> IN  //init = (1)
+        |    val inRight = DFUInt(8) <> IN  //init = (8)
+        |    val outResult = DFBool() <> OUT  //init = (true)
+        |    val rtInst = new Xilinx.Series$RTInfixCompareOp {}
+        |    rtInst.A <> inLeft
+        |    rtInst.B <> inRight
+        |    outResult <> rtInst.S
+        |  }
+        |  opInst.inLeft <> i2
+        |  opInst.inRight <> i1
+        |  o <> opInst.outResult
+        |}
+      """.stripMargin
+    top_ioDesignConn4.codeString =@= compare
   }
 
 }
