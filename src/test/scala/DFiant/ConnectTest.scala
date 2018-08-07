@@ -255,11 +255,12 @@ class ConnectTest extends Properties("ConnectTest") {
         |  }
         |  opInst.inLeft <> i
         |  opInst.inRight <> 1
-        |  val plusOne = opInst.outResult.bits(7, 0).uint  //init = (6)
+        |  val plusOneWC = opInst.outResult  //init = (6)
+        |  val plusOne = plusOneWC.bits(7, 0).uint  //init = (6)
         |  o <> plusOne
-        |  o_wc <> opInst.outResult
-        |  val plusOne$1 = opInst.outResult.bit(8)  //init = (false)
-        |  o_c <> plusOne$1
+        |  o_wc <> plusOneWC
+        |  val plusOneC = plusOneWC.bit(8)  //init = (false)
+        |  o_c <> plusOneC
         |}
       """.stripMargin
     top_ioDesignConn3.codeString =@= compare

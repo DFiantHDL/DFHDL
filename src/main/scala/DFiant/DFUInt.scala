@@ -411,7 +411,7 @@ object DFUInt extends DFAny.Companion {
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
       DFAny.Alias(wc, wc.width-1, 0, 0, s".bits(${wc.width-2}, 0).uint") with DFUInt[NCW] {
-      lazy val c = DFBool.alias(wc, wc.width-1, 0, s".bit(${wc.width-1})")
+      lazy val c = DFBool.alias(wc, wc.width-1, 0, s".bit(${wc.width-1})").setAutoName(s"${ctx.n.value}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
@@ -469,7 +469,7 @@ object DFUInt extends DFAny.Companion {
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val wc = DFUInt.alias[WCW](opInst.outResult, opWidth, 0, 0, "")
+                  val wc = DFUInt.alias[WCW](opInst.outResult, opWidth, 0, 0, "").setAutoName(s"${ctx.n.value}WC")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](wc)
                 }
@@ -525,7 +525,7 @@ object DFUInt extends DFAny.Companion {
     class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
     ) extends DFAny.Alias(wc, ncW, 0, 0, s".bits(${wc.width-cW-1}, 0).uint") with DFUInt[NCW] {
-      lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW, 0, s".bits(${wc.width-1}, ${wc.width-cW})")
+      lazy val c = DFBits.alias[CW](wc, cW, wc.width - cW, 0, s".bits(${wc.width-1}, ${wc.width-cW})").setAutoName(s"${ctx.n.value}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
@@ -586,7 +586,7 @@ object DFUInt extends DFAny.Companion {
                   val opInst = new `Comp*`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val wc = DFUInt.alias[WCW](opInst.outResult, wcWidth, 0, 0, "")
+                  val wc = DFUInt.alias[WCW](opInst.outResult, wcWidth, 0, 0, "").setAutoName(s"${ctx.n.value}WC")
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](wc, ncWidth, cWidth)
