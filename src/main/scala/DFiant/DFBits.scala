@@ -117,22 +117,29 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected[DFiant] def unchecked[W](width : TwoFace.Int[W])(
+    implicit auc : AllowUnchecked, ctx : DFAny.NewVar.Context
+  ) : NewVar[W] = new NewVar[W](width)
   implicit def apply[W](
     implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
-  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth)
+  ) : NewVar[W] = new NewVar(checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit ctx : DFAny.NewVar.Context
-  ) : DFAny.NewVar with Var[W] = newVar(checkedWidth.unsafeCheck())
-  def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
-  def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
+  ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
+//  def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
+//  def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def newVar[W](width : TwoFace.Int[W])(implicit ctx : DFAny.NewVar.Context) : DFAny.NewVar with Var[W] =
-    new DFAny.NewVar(width, s"DFBits($width)") with Var[W] {}
+  final class NewVar[W](width : TwoFace.Int[W])(
+    implicit ctx : DFAny.NewVar.Context
+  ) extends DFAny.NewVar(width, s"DFBits($width)") with Var[W] {
+    //Port Construction
+    def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+  }
 
   protected[DFiant] def alias[W]
   (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, aliasCodeString : String)(
@@ -380,62 +387,79 @@ object DFBits extends DFAny.Companion {
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
+      type Aux[L, R, Comp0] = Builder[L, R] {
+        type Comp = Comp0
+      }
+
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW
         type Msg[LW, RW] = "Logic operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
 
-      def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
-      : Builder[L, R] = (leftL, rightR) => {
-        import ctx._
-        import basicLib._
-//        val (left, right) = properLR(leftL, rightR)
-//        val opInst = opKind match {
-//          case DiSoOp.Kind.== => new `U==U`(left.width, right.width)
-//          case DiSoOp.Kind.!= => new `U!=U`(left.width, right.width)
-//          case DiSoOp.Kind.<  => new `U<U`(left.width, right.width)
-//          case DiSoOp.Kind.>  => new `U>U`(left.width, right.width)
-//          case DiSoOp.Kind.<= => new `U<=U`(left.width, right.width)
-//          case DiSoOp.Kind.>= => new `U>=U`(left.width, right.width)
-//          case _ => throw new IllegalArgumentException("Unexpected compare operation")
-//        }
-//        opInst.inLeft <> left
-//        opInst.inRight <> right
-//        opInst.outResult
-        ???
+      object Inference {
+        import singleton.ops.math.Max
+        type CalcW[LW, RW] = Max[LW, RW]
+        type OW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcW, LW, Int, RW, Int, ResW]
+      }
+
+      trait DetailedBuilder[L, LW, R, RW] {
+        type Comp
+        def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Comp]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LW, R, RW, OW](
+          implicit
+          ctx : DFAny.Op.Context,
+          oW : Inference.OW[LW, RW, OW],
+          checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        ) : DetailedBuilder[L, LW, R, RW]{type Comp = DFBits[OW]} =
+          new DetailedBuilder[L, LW, R, RW]{
+            type Comp = DFBits[OW]
+            def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Comp] =
+              new Builder[L, R] {
+                type Comp = DFBits[OW]
+                def apply(leftL : L, rightR : R) : Comp = {
+                  import ctx._
+                  import basicLib.DFBitsOps._
+                  val (left, right) = properLR(leftL, rightR)
+                  // Completing runtime checks
+                  checkLWvRW.unsafeCheck(left.width, right.width)
+                  // Constructing op
+                  val oWidth = oW(left.width, right.width)
+                  val opInst = opKind match {
+                    case DiSoOp.Kind.| => new `Comp|`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.& => new `Comp&`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.^ => new `Comp^`(left.width, right.width, oWidth)
+                    case _ => throw new IllegalArgumentException("Unexpected logic operation")
+                  }
+                  opInst.inLeft <> left
+                  opInst.inRight <> right
+                  val out = DFBits.alias[OW](opInst.outResult, oWidth, 0, 0, "")
+                  out
+                }
+              }
+          }
       }
 
       implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
         implicit
-        ctx : DFAny.Op.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFBits[LW], DFBits[RW]] = create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
-        checkLWvRW.unsafeCheck(left.width, right.width)
-        (left, right)
-      })
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, DFBits[RW], RW]
+      ) = detailedBuilder((left, right) => (left, right))
 
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
         rConst : Const.Aux[R, RW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
-        val right = rConst(rightNum)
-        checkLWvRW.unsafeCheck(left.width, right.width)
-        (left, right)
-      })
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, R, RW]
+      ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
-      implicit def evConst_op_DFBits[L, LW, R <: DFBits[RW], RW](
+      implicit def evConst_op_DFBits[L, LW, LE, R <: DFBits[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
         lConst : Const.Aux[L, LW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
-        val left = lConst(leftNum)
-        checkLWvRW.unsafeCheck(right.width, left.width)
-        (left, right)
-      })
+        detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
+      ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
   }
   object `Op|` extends OpsLogic(DiSoOp.Kind.|)
