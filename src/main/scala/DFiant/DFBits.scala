@@ -66,7 +66,7 @@ object DFBits extends DFAny.Companion {
 
 //    def ## [N](right : BitVector) :
 
-    def extendBy[N](numOfBits : Natural.Int.Checked[N])(
+    def extendLeftBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
@@ -94,9 +94,6 @@ object DFBits extends DFAny.Companion {
 //    def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
     def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = ??? //DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
-
-    ///////////////////////////DFUInt.op[W](width, "toDFUInt", DFBits.Token.toUInt(getInit))
-    def toDFUInt(implicit ctx : DFAny.NewVar.Context) : DFUInt[Width] = ??? //new DFUInt.NewVar[Width](width, DFBits.Token.toUInt(getInit)).assign(this, blk)
 
     override lazy val typeName : String = s"DFBits[$width]"
   }

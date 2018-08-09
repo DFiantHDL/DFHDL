@@ -3,16 +3,16 @@ import DFiant._
 
 
 trait Opcode extends Enum.Manual[7] {
-  val LUI     = Entry(bin"0110111")
-  val AUIPC   = Entry(bin"0010111")
-  val JAL     = Entry(bin"1101111")
-  val JALR    = Entry(bin"1100111")
-  val BEQ     = Entry(bin"1100011")
-  val BNE     = Entry(bin"0110111")
-  val BLT     = Entry(bin"0110111")
-  val BGE     = Entry(bin"0110111")
-  val BLTU    = Entry(bin"0110111")
-  val BGEU    = Entry(bin"0110111")
+  val LUI     = Entry(b"0110111")
+  val AUIPC   = Entry(b"0010111")
+  val JAL     = Entry(b"1101111")
+  val JALR    = Entry(b"1100111")
+  val BEQ     = Entry(b"1100011")
+  val BNE     = Entry(b"0110111")
+  val BLT     = Entry(b"0110111")
+  val BGE     = Entry(b"0110111")
+  val BLTU    = Entry(b"0110111")
+  val BGEU    = Entry(b"0110111")
 }
 object Opcode extends Opcode
 
