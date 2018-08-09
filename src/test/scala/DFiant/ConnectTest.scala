@@ -248,7 +248,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |    val inLeft = DFUInt(8) <> IN  //init = (5)
         |    val inRight = DFUInt(1) <> IN  //init = (1)
         |    val outResult = DFUInt(9) <> OUT  //init = (6)
-        |    val rtInst = new Xilinx.Series$RTAddSub {}
+        |    val rtInst = new Xilinx.Series$basicLib$DFUIntOps$RTAddSub {}
         |    rtInst.A <> inLeft
         |    rtInst.B <> inRight
         |    outResult <> rtInst.S
@@ -279,7 +279,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |    val inLeft = DFUInt(8) <> IN  //init = (1)
         |    val inRight = DFUInt(8) <> IN  //init = (8)
         |    val outResult = DFBool() <> OUT  //init = (true)
-        |    val rtInst = new Xilinx.Series$RTInfixCompareOp {}
+        |    val rtInst = new Xilinx.Series$basicLib$DFUIntOps$RTInfixRelationalOp {}
         |    rtInst.A <> inLeft
         |    rtInst.B <> inRight
         |    outResult <> rtInst.S
