@@ -8,7 +8,7 @@ sealed trait AllowUnchecked
 trait DFBasicLib {
 
   val DFUIntOps : DFBasicLib.DFUIntOps
-  val DFBitsOps : DFBasicLib.DFBitsOps = ???
+  val DFBitsOps : DFBasicLib.DFBitsOps
 
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,10 +96,10 @@ object DFBasicLib {
     implicit def `ev&`(implicit ctx : Implementation.Context) : Implementation[`Comp&`]
     type `Comp^` = Bitwise[DiSoOp.Kind.^]
     implicit def `ev^`(implicit ctx : Implementation.Context) : Implementation[`Comp^`]
-    type `Comp<<` = Bitwise[DiSoOp.Kind.<<] //left-shift by vector
-    implicit def `ev<<`(implicit ctx : Implementation.Context) : Implementation[`Comp<<`]
-    type `Comp>>` = Bitwise[DiSoOp.Kind.>>] //right-shift by vector
-    implicit def `ev>>`(implicit ctx : Implementation.Context) : Implementation[`Comp>>`]
+//    type `Comp<<` = Bitwise[DiSoOp.Kind.<<] //left-shift by vector
+//    implicit def `ev<<`(implicit ctx : Implementation.Context) : Implementation[`Comp<<`]
+//    type `Comp>>` = Bitwise[DiSoOp.Kind.>>] //right-shift by vector
+//    implicit def `ev>>`(implicit ctx : Implementation.Context) : Implementation[`Comp>>`]
 
     class Relational[Kind <: DiSoOp.Kind](
       val leftWidth : Int, val rightWidth : Int)(

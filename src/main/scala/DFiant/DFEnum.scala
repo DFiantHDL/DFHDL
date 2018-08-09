@@ -311,6 +311,10 @@ object Enum {
           t
         }
       }
+      private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
+      def apply[W](t : XBitVector[W])(implicit check : RequireMsg[W == Width, Msg2[W]]) : Entry = new Entry {
+        val value : BigInt = t.toBigInt
+      }
       def apply(t : BitVector) : Entry = new Entry {
         val value : BigInt = {
           require(t.length == width.toLong, s"Entry value width (${t.length}) is different than the enumeration width ($width)")
