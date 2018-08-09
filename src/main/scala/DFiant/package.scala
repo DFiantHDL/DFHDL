@@ -1,5 +1,5 @@
 import scala.language.experimental.macros
-
+import singleton.ops._
 
 package object DFiant extends {
   ////////////////////////////////////////////////////////////////////////////////////
@@ -52,13 +52,15 @@ package object DFiant extends {
 
   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    */
+  protected trait WidthTag {
+    type Width
+  }
+  type XBitVector[W] = scodec.bits.BitVector with WidthTag{type Width = W}
   type BitVector = scodec.bits.BitVector
   val BitVector = scodec.bits.BitVector
-  type ByteVector = scodec.bits.ByteVector
-  val ByteVector = scodec.bits.ByteVector
 
   /**
-    * Provides the `bin` string interpolator, which returns `BitVector` instances from binary strings.
+    * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
   final implicit class BinStringSyntax(val sc: StringContext) extends AnyVal {
 
@@ -68,21 +70,66 @@ package object DFiant extends {
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
       * of type `BitVector`.
       */
-    def bin(args: BitVector*): BitVector = macro scodec.bits.LiteralSyntaxMacros.binStringInterpolator
-  }
-
-  /**
-    * Provides the `hex` string interpolator, which returns `ByteVector` instances from hexadecimal strings.
-    */
-  final implicit class HexStringSyntax(val sc: StringContext) extends AnyVal {
+    def h[W](args: BitVector*) : XBitVector[W] = macro Macro.hexStringInterpolator
 
     /**
-      * Converts this hexadecimal literal string to a `ByteVector`. Whitespace characters are ignored.
+      * Converts this hexadecimal literal string to a `BitVector`. Whitespace characters are ignored.
       *
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
-      * of type `ByteVector`.
+      * of type `BitVector`.
       */
-    def hex(args: ByteVector*): ByteVector = macro scodec.bits.LiteralSyntaxMacros.hexStringInterpolator
+    def b[W](args: BitVector*) : XBitVector[W] = macro Macro.binStringInterpolator
+  }
+
+  object Macro {
+    object whitebox { type Context = scala.reflect.macros.whitebox.Context }
+    def binStringInterpolator(c: whitebox.Context)(args: c.Expr[BitVector]*): c.Tree = {
+      import c.universe._
+
+      val Apply(_, List(Apply(_, parts))) = c.prefix.tree
+      val partLiterals: List[String] = parts map {
+        case Literal(Constant(part: String)) =>
+          if (BitVector.fromBin(part).isEmpty)
+            c.error(c.enclosingPosition, "binary string literal may only contain characters [0, 1]")
+          part
+      }
+      val length = BitVector.fromBin(partLiterals.head).get.length.toInt
+
+      val headPart = c.Expr[String](Literal(Constant(partLiterals.head)))
+      val initialStringBuilder = reify { new StringBuilder().append(headPart.splice) }
+      val stringBuilder = (args zip partLiterals.tail).foldLeft(initialStringBuilder) {
+        case (sb, (arg, part)) =>
+          val partExpr = c.Expr[String](Literal(Constant(part)))
+          reify { sb.splice.append(arg.splice.toBin).append(partExpr.splice) }
+      }
+      val buildTree = reify { BitVector.fromValidBin(stringBuilder.splice.toString) }.tree
+      val widthTpe = c.internal.constantType(Constant(length))
+      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+    }
+
+    def hexStringInterpolator(c: whitebox.Context)(args: c.Expr[BitVector]*): c.Tree = {
+      import c.universe._
+
+      val Apply(_, List(Apply(_, parts))) = c.prefix.tree
+      val partLiterals: List[String] = parts map {
+        case Literal(Constant(part: String)) =>
+          if (BitVector.fromHex(part).isEmpty)
+            c.error(c.enclosingPosition, "binary string literal may only contain characters [0, 1]")
+          part
+      }
+      val length = BitVector.fromHex(partLiterals.head).get.length.toInt
+
+      val headPart = c.Expr[String](Literal(Constant(partLiterals.head)))
+      val initialStringBuilder = reify { new StringBuilder().append(headPart.splice) }
+      val stringBuilder = (args zip partLiterals.tail).foldLeft(initialStringBuilder) {
+        case (sb, (arg, part)) =>
+          val partExpr = c.Expr[String](Literal(Constant(part)))
+          reify { sb.splice.append(arg.splice.toBin).append(partExpr.splice) }
+      }
+      val buildTree = reify { BitVector.fromValidHex(stringBuilder.splice.toString) }.tree
+      val widthTpe = c.internal.constantType(Constant(length))
+      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+    }
   }
   ////////////////////////////////////////////////////////////////////////////////////
 

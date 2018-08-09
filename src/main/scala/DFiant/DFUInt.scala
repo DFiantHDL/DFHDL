@@ -38,8 +38,8 @@ object DFUInt extends DFAny.Companion {
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
 
-    def extBy[N](numOfBits : Natural.Int.Checked[N])(
-      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], ctx : DFAny.NewVar.Context
+    def extendBy[N](numOfBits : Natural.Int.Checked[N])(
+      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFUInt.Var[tfs.Out] = ??? //new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, blk)
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0

@@ -64,15 +64,17 @@ object DFBits extends DFAny.Companion {
       protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
-    def extBy[N](numOfBits : Natural.Int.Checked[N])(
+//    def ## [N](right : BitVector) :
+
+    def extendBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
-      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.NewVar.Context
-    ) : DFBits.Var[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
+      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
+    ) : DFBits[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
 
 //    def as[T <: DFAny.NewVar](mold : T)(
 //      implicit alias : mold.protComp.Alias.Builder[TVal, T]
 //    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
-    def uint : TUInt[LW] = ???
+    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] = DFUInt.alias[LW](this, width, 0, 0, ".uint").asInstanceOf[TUInt[LW]]
 
     def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
@@ -244,14 +246,13 @@ object DFBits extends DFAny.Companion {
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
-      implicit class DFBitsByteVector[LW](val right : ByteVector) extends Able[DFBits[LW]]
+      implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
         right.toSeqAny.map(e => e match {
           case (t : Bubble) => Token(width, t)
           case (t : Token) => Token(width, t)
           case (t : BitVector) => Token(width, t)
-          case (t : ByteVector) => Token(width, t.bits)
         })
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
@@ -292,7 +293,7 @@ object DFBits extends DFAny.Companion {
     }
     trait Implicits {
       implicit class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
-      implicit class DFBitsFromByteVector(left : ByteVector) extends Able[BitVector](left.bits)
+      implicit class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able[XBitVector[W]](left)
       implicit def ofDFBits[R <: DFBits.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
@@ -309,19 +310,18 @@ object DFBits extends DFAny.Companion {
   }
   object Const {
     type Aux[N, W0] = Const[N]{type W = W0}
-    implicit def fromBitsVector(implicit ctx : DFAny.Const.Context)
+    implicit def fromBitVector(implicit ctx : DFAny.Const.Context)
     : Aux[BitVector, Int] = new Const[BitVector] {
       type W = Int
       def apply(value : BitVector) : DFBits[W] = {
         const[W](Token(value.length.toInt, value))
       }
     }
-    implicit def fromByteVector(implicit ctx : DFAny.Const.Context)
-    : Aux[ByteVector, Int] = new Const[ByteVector] {
-      type W = Int
-      def apply(value : ByteVector) : DFBits[W] = {
-        val bits = value.bits
-        const[W](Token(bits.length.toInt, bits))
+    implicit def fromXBitVector[W0](implicit ctx : DFAny.Const.Context)
+    : Aux[XBitVector[W0], W0] = new Const[XBitVector[W0]] {
+      type W = W0
+      def apply(value : XBitVector[W0]) : DFBits[W] = {
+        const[W](Token(value.length.toInt, value))
       }
     }
   }
