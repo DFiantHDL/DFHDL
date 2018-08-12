@@ -68,17 +68,37 @@ object AlmanacEntryNewDFVar {
     almanac.fetchEntry(new AlmanacEntryNewDFVar(width, init, name, codeString))
 }
 
+sealed trait AliasReference {
+  val aliasCodeString : String
+}
+object AliasReference {
+  case class AsIs(aliasCodeString : String) extends AliasReference
+  case class BitsWL(relWidth : Int, relBitLow : Int, aliasCodeString : String) extends AliasReference
+  case class Prev(step : Int) extends AliasReference {
+    val aliasCodeString : String = if (step == 1) ".prev" else s".prev($step)"
+  }
+  case class BitReverse(aliasCodeString : String) extends AliasReference
+  case class Invert(aliasCodeString : String) extends AliasReference
+}
 
-final class AlmanacEntryAliasDFVar private (val aliasedEntry : AlmanacEntryNamed, val relBitsRange: BitsRange, val timeRef: AlmanacTimeRef, val init : Seq[Token], val name : String, _codeString : => String)(implicit almanac : Almanac) extends AlmanacEntryNamed {
+
+final class AlmanacEntryAliasDFVar private (val aliasedEntry : AlmanacEntryNamed, aliasReference : AliasReference, val init : Seq[Token], val name : String, _codeString : => String)(implicit almanac : Almanac) extends AlmanacEntryNamed {
   val id : AlmanacID = aliasedEntry.id
   val address : AlmanacAddress = aliasedEntry.address
-  val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(relBitsRange)
+  val bitsRange : BitsRange = aliasedEntry.bitsRange.subRangeRel(aliasReference match {
+    case AliasReference.BitsWL(relWidth, relBitLow, _) => BitsRange(relBitLow + relWidth - 1, relBitLow)
+    case _ => aliasedEntry.bitsRange
+  })
+  val timeRef : AlmanacTimeRef = aliasReference match {
+    case AliasReference.Prev(step) => aliasedEntry.timeRef.stepBy(-step)
+    case _ => aliasedEntry.timeRef
+  }
   def codeString : String = _codeString
 }
 
 object AlmanacEntryAliasDFVar {
-  def apply(aliasedEntry : AlmanacEntryNamed, relBitsRange: BitsRange, timeRef: AlmanacTimeRef, init : Seq[Token], name : String, codeString : => String)(implicit almanac : Almanac) : AlmanacEntryAliasDFVar =
-    almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, relBitsRange, timeRef, init, name, codeString))
+  def apply(aliasedEntry : AlmanacEntryNamed, aliasReference : AliasReference, init : Seq[Token], name : String, codeString : => String)(implicit almanac : Almanac) : AlmanacEntryAliasDFVar =
+    almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntry, aliasReference, init, name, codeString))
 }
 
 

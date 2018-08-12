@@ -62,10 +62,11 @@ object DFBool extends DFAny.Companion {
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias(aliasedVar : DFAny, relBit : Int, deltaStep : Int = 0, aliasCodeString : String)(implicit ctx : DFAny.Alias.Context) : Var =
-    new DFAny.Alias(aliasedVar, 1, relBit, deltaStep, aliasCodeString) with Var {
-      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
-    }
+  final class Alias(aliasedVar : DFAny, reference : AliasReference)(
+    implicit ctx : DFAny.Alias.Context
+  ) extends DFAny.Alias(aliasedVar, reference) with Var {
+    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
+  }
 
   protected[DFiant] def const(token : DFBool.Token)(implicit ctx : DFAny.Const.Context) : DFBool =
     new DFAny.Const(token) with DFBool
@@ -169,7 +170,7 @@ object DFBool extends DFAny.Companion {
     object Builder {
       implicit def ev(implicit ctx : DFAny.Alias.Context) : Builder[DFBool] = new Builder[DFBool] {
         def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
-          DFBool.alias(left, 0, -right, "")
+          new Alias(left, AliasReference.Prev(right))
       }
     }
   }

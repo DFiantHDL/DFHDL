@@ -30,7 +30,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBit[I](relBit : TwoFace.Int[I])(implicit ctx : DFAny.Alias.Context) : TBool =
-    DFBool.alias(this, relBit, 0, s".bit($relBit)").asInstanceOf[TBool]
+    new DFBool.Alias(this, AliasReference.BitsWL(1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
 
   final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Alias.Context) : TBool =
     protBit(relBit.unsafeCheck(width))
@@ -42,11 +42,12 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
   final def bits()(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
-    DFBits.alias(this, width, 0, 0, ".bits()").asInstanceOf[TBits[Width]]
+    new DFBits.Alias[Width](this, AliasReference.BitsWL(width, 0, ".bits()")).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
-  ) : TBits[relWidth.Out] = DFBits.alias(this, relWidth(relBitHigh, relBitLow), relBitLow, 0, s".bits($relBitHigh, $relBitLow)").asInstanceOf[TBits[relWidth.Out]]
+  ) : TBits[relWidth.Out] =
+    new DFBits.Alias[relWidth.Out](this, AliasReference.BitsWL(relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
     implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
@@ -73,7 +74,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit ctx : DFAny.Alias.Context)
-  : TBits[W] = DFBits.alias(this, relWidth, relBitLow, 0, s".bitsWL($relWidth, $relBitLow)").asInstanceOf[TBits[W]]
+  : TBits[W] = new DFBits.Alias[W](this, AliasReference.BitsWL(relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
@@ -318,24 +319,29 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias(aliasedVar : DFAny, relWidth : Int, relBitLow : Int, deltaStep : Int = 0, aliasCodeString : String)(
+  abstract class Alias(aliasedVar : DFAny, reference : AliasReference)(
     implicit val ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
-    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](relWidth)
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](reference match {
+      case AliasReference.BitsWL(relWidth, _, _) => relWidth
+      case _ => aliasedVar.width
+    })
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = {
-      val initTemp : Seq[Token] = aliasedVar.getInit
-      val prevInit = if (deltaStep < 0) initTemp.prevInit(-deltaStep) else initTemp //TODO: What happens for `next`?
-      val bitsInit = prevInit.bitsWL(relWidth, relBitLow)
-      bitsInit.map(protTokenBitsToTToken)
+      val currentInit : Seq[DFBits.Token] = aliasedVar.getInit.bits()
+      val updatedInit : Seq[DFBits.Token] = reference match {
+        case AliasReference.BitsWL(relWidth, relBitLow, _) => currentInit.bitsWL(relWidth, relBitLow)
+        case AliasReference.Prev(step) => currentInit.prevInit(step)
+        case AliasReference.AsIs(_) => currentInit
+        case AliasReference.BitReverse(_) => DFBits.Token.reverse(currentInit)
+        case AliasReference.Invert(_) => DFBits.Token.unary_~(currentInit)
+      }
+      updatedInit.map(protTokenBitsToTToken)
     }
-    private def prevCodeString = if (deltaStep < -1) s".prev(${-deltaStep})" else if (deltaStep == -1) ".prev" else ""
-    final protected def constructCodeString : String = s"${aliasedVar.refCodeString}$prevCodeString$aliasCodeString"
-    final protected[DFiant] lazy val almanacEntry = {
-      val timeRef = aliasedVar.almanacEntry.timeRef.stepBy(deltaStep)
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, BitsRange(relBitLow + relWidth - 1, relBitLow), timeRef, protInit, name, codeString)
-    }
+    final protected def constructCodeString : String = s"${aliasedVar.refCodeString}${reference.aliasCodeString}"
+    final protected[DFiant] lazy val almanacEntry =
+      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, reference, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
     final val isPort = false
@@ -553,6 +559,8 @@ object DFAny {
         //More tokens are available than the step size, so we drop the first, according to the step count
         else tokenSeq.drop(step)
       }
+      def bits() : Seq[DFBits.Token] =
+        tokenSeq.map(t => t.bits())
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
       def codeString : String = tokenSeq.mkString("(", ", ", ")")

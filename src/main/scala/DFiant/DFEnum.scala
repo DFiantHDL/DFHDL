@@ -52,10 +52,9 @@ object DFEnum extends DFAny.Companion {
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias[E <: Enum]
-  (aliasedVar : DFAny, relBitLow : Int, deltaStep : Int = 0)(
+  final class Alias[E <: Enum](aliasedVar : DFAny, reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context, w : WidthOf[E]
-  ) : Var[E] = new DFAny.Alias(aliasedVar, w, relBitLow, deltaStep, "AliasOfDFEnum???") with Var[E] {
+  ) extends DFAny.Alias(aliasedVar, reference) with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
   }
 
@@ -132,7 +131,7 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context, w : WidthOf[E]) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
-          alias(left, 0, -right)
+          new Alias(left, AliasReference.Prev(right))
       }
     }
   }

@@ -48,7 +48,7 @@ object DFBits extends DFAny.Companion {
     ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
     final protected def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context): TBits[PW] =
-      DFBits.alias(this, partWidth, width - partWidth, 0, s".msbits($partWidth)").asInstanceOf[TBits[PW]]
+      new DFBits.Alias[PW](this, AliasReference.BitsWL(partWidth, width - partWidth, s".msbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protMSBits(partWidth.unsafeCheck(width))
 
@@ -56,7 +56,7 @@ object DFBits extends DFAny.Companion {
       protMSBits(partWidth.unsafeCheck(width))
 
     final protected def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context) : TBits[PW] =
-      DFBits.alias(this, partWidth, 0, 0, s".lsbits($partWidth)").asInstanceOf[TBits[PW]]
+      new DFBits.Alias[PW](this, AliasReference.BitsWL(partWidth, 0, s".lsbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protLSBits(partWidth.unsafeCheck(width))
 
@@ -74,7 +74,7 @@ object DFBits extends DFAny.Companion {
 //    def as[T <: DFAny.NewVar](mold : T)(
 //      implicit alias : mold.protComp.Alias.Builder[TVal, T]
 //    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
-    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] = DFUInt.alias[LW](this, width, 0, 0, ".uint").asInstanceOf[TUInt[LW]]
+    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] = new DFUInt.Alias[LW](this, AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
 
     def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
@@ -140,12 +140,11 @@ object DFBits extends DFAny.Companion {
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  protected[DFiant] def alias[W]
-  (aliasedVar : DFAny, relWidth : TwoFace.Int[W], relBitLow : Int, deltaStep : Int = 0, aliasCodeString : String)(
+  final class Alias[W](aliasedVar : DFAny, reference: AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) : Var[W] = new DFAny.Alias(aliasedVar, relWidth, relBitLow, deltaStep, aliasCodeString) with Var[W] {
-      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
-    }
+  ) extends DFAny.Alias(aliasedVar, reference) with Var[W] {
+    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
+  }
 
   protected[DFiant] def const[W](token : Token)(implicit ctx : DFAny.Const.Context) : DFBits[W] =
     new DFAny.Const(token) with DFBits[W]
@@ -189,6 +188,12 @@ object DFBits extends DFAny.Companion {
       val outBubbleMask = this.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
+    final def reverse : Token = {
+      val outWidth = this.width
+      val outBitsValue = this.valueBits.reverseBitOrder
+      val outBubbleMask = this.bubbleMask.reverseBitOrder
+      new Token(outWidth, outBitsValue, outBubbleMask)
+    }
     final def == (that : Token) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
     final def != (that : Token) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
     def toUInt : DFUInt.Token = {
@@ -208,6 +213,7 @@ object DFBits extends DFAny.Companion {
     def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
     def unary_~ (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => ~t)
+    def reverse (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => t.reverse)
     def toUInt(left : Seq[Token]) : Seq[DFUInt.Token] = TokenSeq(left)(t => t.toUInt)
 
     def apply(width : Int, value : Int) : Token = Token(width, BitVector.fromInt(value, width))
@@ -272,7 +278,7 @@ object DFBits extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
         def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
-          alias(left, left.width, 0, -right, "")
+          new Alias(left, AliasReference.Prev(right))
       }
     }
   }
@@ -436,7 +442,7 @@ object DFBits extends DFAny.Companion {
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val out = DFBits.alias[OW](opInst.outResult, oWidth, 0, 0, "")
+                  val out = new DFBits.Alias[OW](opInst.outResult, AliasReference.AsIs(""))
                   out
                 }
               }
