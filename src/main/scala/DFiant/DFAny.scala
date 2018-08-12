@@ -150,7 +150,6 @@ sealed trait DFAny extends DSLMemberConstruct {
   final protected def initCommentString : String =
     if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
   final def codeString : String = s"\nval $name = $constructCodeString$initCommentString"
-  override def toString : String = s"$fullName : $typeName"
   //////////////////////////////////////////////////////////////////////////
 
 

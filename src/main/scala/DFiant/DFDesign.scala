@@ -29,13 +29,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final def isTop : Boolean = owner == null
   override protected def nameDefault: String =
     if (owner != null) owner.getUniqueMemberName(ctx.n.value) else ctx.n.value
-  override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
-    if (this eq dfVal.owner) true
-    else if (this.owner == null) false
-    else if (this.isInstanceOf[ConditionalBlock]) this.owner.callSiteSameAsOwnerOf(dfVal)
-    else false
 
   //final protected def discovery : Unit = protAlmanac
 

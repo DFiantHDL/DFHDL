@@ -19,6 +19,12 @@ trait DFAnyOwner extends DSLOwnerConstruct {
   final protected lazy val dfVals : List[DFAny.NewVar] = memberList.collect{case o : DFAny.NewVar => o}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
+    if (this eq dfVal.owner) true
+    else if (this.owner == null) false
+    else if (this.isInstanceOf[ConditionalBlock]) this.owner.callSiteSameAsOwnerOf(dfVal)
+    else false
+
   protected def bodyCodeString : String = {
     val delim = "  "
     val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])

@@ -56,6 +56,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
 
   def codeString : String
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = relativeName
+  override def toString: String = s"$fullName : $typeName"
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {

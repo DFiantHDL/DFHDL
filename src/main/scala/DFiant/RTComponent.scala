@@ -17,7 +17,6 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
-  override def toString: String = s"$fullName : $typeName"
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : () => Seq[dfVal.TToken])
