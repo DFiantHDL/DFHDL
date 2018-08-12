@@ -31,6 +31,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     else "" //Top
 
   final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
+  final private[internals] def getUniqueName(suggestedName : String) : String =
+    if (owner != null) owner.getUniqueMemberName(suggestedName) else suggestedName
 
   private def relativePath(refFullPath : String, callFullPath : String) : String = {
 

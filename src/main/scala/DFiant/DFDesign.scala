@@ -27,8 +27,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final def isTop : Boolean = owner == null
-  override protected def nameDefault: String =
-    if (owner != null) owner.getUniqueMemberName(ctx.n.value) else ctx.n.value
+  override protected def nameDefault: String = ctx.n.value
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //final protected def discovery : Unit = protAlmanac
@@ -77,14 +76,14 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
       override protected def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
-      override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value)
+      override protected def nameDefault: String = ctx.n.value
       override def codeString: String =
         s"\nval $name = ifdf(${cond.name}) {$bodyCodeString\n}"
     }
 
     protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool)(implicit ctx : DFIfBlock.Context)
       extends DFIfBlock(cond) {
-      override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value + "$elseif")
+      override protected def nameDefault: String = ctx.n.value + "$elseif"
       override protected def createAlmanac : AlmanacElseIf =
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
@@ -94,7 +93,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
     protected class DFElseBlock(prevIfBlock : DFIfBlock)(implicit ctx : DFIfBlock.Context)
       extends DFDesign with ConditionalBlock {
-      override protected def nameDefault: String = owner.getUniqueMemberName(ctx.n.value + "$else")
+      override protected def nameDefault: String = ctx.n.value + "$else"
       override protected def createAlmanac : AlmanacElse =
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
