@@ -74,7 +74,8 @@ object DFBits extends DFAny.Companion {
 //    def as[T <: DFAny.NewVar](mold : T)(
 //      implicit alias : mold.protComp.Alias.Builder[TVal, T]
 //    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
-    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] = new DFUInt.Alias[LW](this, AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
+    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
+      new DFUInt.Alias[LW](this, AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
 
     def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
