@@ -571,7 +571,7 @@ object DFAny {
         tokenSeq.map(t => t.bits())
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
-      def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ",", ")")
+      def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
     }
   }
 
