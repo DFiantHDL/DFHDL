@@ -347,7 +347,7 @@ object DFAny {
     }
     final protected def constructCodeString : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
-      else s"${aliasedVars.map(a => a.refCodeString).mkString("(",",",")")}${reference.aliasCodeString}"
+      else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
     final protected[DFiant] lazy val almanacEntry =
       AlmanacEntryAliasDFVar(aliasedVars.map(a => a.almanacEntry), reference, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry

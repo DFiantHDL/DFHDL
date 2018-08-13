@@ -88,10 +88,10 @@ trait IODesignConn5 extends DFDesign {
 }
 
 trait IODesignConn6 extends DFDesign {
-  val in = DFBits(8) <> IN init b"10000000"
+  val in = DFBits(7) <> IN init b"10000000"
   val out = DFBits(9) <> OUT
 
-  out := in ## b"1"
+  out <> b"0" ## in ## b"1"
 }
 
 trait ContainerConn1 extends DFDesign {
