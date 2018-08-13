@@ -20,7 +20,7 @@ trait Proc extends DFDesign {
 
   //Register file
   val regsNum = 32
-  val regs = Array.fill(regsNum)(DFBits[XLEN].init(0.toBitVector(valueOf[XLEN])))
+//  val regs = Array.fill(regsNum)(DFBits[XLEN].init(0.toBitVector(valueOf[XLEN])))
 
 
   val pc = DFUInt[XLEN].init(0)

@@ -48,7 +48,7 @@ object DFBits extends DFAny.Companion {
     ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
     final protected def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context): TBits[PW] =
-      new DFBits.Alias[PW](this, AliasReference.BitsWL(partWidth, width - partWidth, s".msbits($partWidth)")).asInstanceOf[TBits[PW]]
+      new DFBits.Alias[PW](List(this), AliasReference.BitsWL(partWidth, width - partWidth, s".msbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protMSBits(partWidth.unsafeCheck(width))
 
@@ -56,7 +56,7 @@ object DFBits extends DFAny.Companion {
       protMSBits(partWidth.unsafeCheck(width))
 
     final protected def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context) : TBits[PW] =
-      new DFBits.Alias[PW](this, AliasReference.BitsWL(partWidth, 0, s".lsbits($partWidth)")).asInstanceOf[TBits[PW]]
+      new DFBits.Alias[PW](List(this), AliasReference.BitsWL(partWidth, 0, s".lsbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protLSBits(partWidth.unsafeCheck(width))
 
@@ -75,11 +75,12 @@ object DFBits extends DFAny.Companion {
 //      implicit alias : mold.protComp.Alias.Builder[TVal, T]
 //    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
     def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
-      new DFUInt.Alias[LW](this, AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
+      new DFUInt.Alias[LW](List(this), AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
 
     def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
     def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
+    def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
 
     //  def unary_~                   : DFBits.Unsafe = ??? //AlmanacEntryOpInv(this)
     //  def >> (that : DFBits.Unsafe)        : DFBits.Unsafe = ???
@@ -141,9 +142,9 @@ object DFBits extends DFAny.Companion {
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  final class Alias[W](aliasedVar : DFAny, reference: AliasReference)(
+  final class Alias[W](aliasedVars : List[DFAny], reference: AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVar, reference) with Var[W] {
+  ) extends DFAny.Alias(aliasedVars, reference) with Var[W] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
   }
 
@@ -279,7 +280,7 @@ object DFBits extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
         def apply[P](left : DFBits[LW], right : Natural.Int.Checked[P]) : DFBits[LW] =
-          new Alias(left, AliasReference.Prev(right))
+          new Alias(List(left), AliasReference.Prev(right))
       }
     }
   }
@@ -295,6 +296,7 @@ object DFBits extends DFAny.Companion {
       def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
       def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
       def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+      def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
       def <> [RW, RDIR <: DFDir](port : DFBits[RW] <> RDIR)(
         implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
@@ -443,7 +445,7 @@ object DFBits extends DFAny.Companion {
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val out = new DFBits.Alias[OW](opInst.outResult, AliasReference.AsIs(""))
+                  val out = new DFBits.Alias[OW](List(opInst.outResult), AliasReference.AsIs(""))
                   out
                 }
               }
@@ -473,6 +475,72 @@ object DFBits extends DFAny.Companion {
   object `Op|` extends OpsLogic(DiSoOp.Kind.|)
   object `Op&` extends OpsLogic(DiSoOp.Kind.&)
   object `Op^` extends OpsLogic(DiSoOp.Kind.^)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Concatenation operation
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op##` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, R, Comp0] = Builder[L, R] {
+        type Comp = Comp0
+      }
+
+      object Inference {
+        type CalcW[LW, RW] = LW + RW
+        type OW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcW, LW, Int, RW, Int, ResW]
+      }
+
+      trait DetailedBuilder[L, LW, R, RW] {
+        type Comp
+        def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Comp]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LW, R, RW, OW](
+          implicit
+          ctx : DFAny.Alias.Context,
+          oW : Inference.OW[LW, RW, OW],
+        ) : DetailedBuilder[L, LW, R, RW]{type Comp = DFBits[OW]} =
+          new DetailedBuilder[L, LW, R, RW]{
+            type Comp = DFBits[OW]
+            def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Comp] =
+              new Builder[L, R] {
+                type Comp = DFBits[OW]
+                def apply(leftL : L, rightR : R) : Comp = {
+                  val (left, right) = properLR(leftL, rightR)
+                  // Constructing op
+                  val oWidth = oW(left.width, right.width)
+                  val out = new DFBits.Alias[OW](List(left, right), AliasReference.AsIs(".bits"))
+                  out
+                }
+              }
+          }
+      }
+
+      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+        implicit
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, DFBits[RW], RW]
+      ) = detailedBuilder((left, right) => (left, right))
+
+      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+        implicit
+        ctx : DFAny.Alias.Context,
+        rConst : Const.Aux[R, RW],
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, R, RW]
+      ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
+
+      implicit def evConst_op_DFBits[L, LW, LE, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Alias.Context,
+        lConst : Const.Aux[L, LW],
+        detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
+      ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
+    }
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

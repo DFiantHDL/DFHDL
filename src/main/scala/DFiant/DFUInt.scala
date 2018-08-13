@@ -102,14 +102,14 @@ object DFUInt extends DFAny.Companion {
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  final class Alias[W](aliasedVar : DFAny, reference : AliasReference)(
+  final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVar, reference) with Var[W] {
+  ) extends DFAny.Alias(aliasedVars, reference) with Var[W] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
   }
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit ctx : DFAny.Alias.Context)
-  : Var[W] with Extendable = new DFAny.Alias(extendedVar, AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
+  : Var[W] with Extendable = new DFAny.Alias(List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     override def toString : String = s"DFUInt[$width] & Extendable"
   }
@@ -232,7 +232,7 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply[P](left : DFUInt[LW], right : Natural.Int.Checked[P]) : DFUInt[LW] =
-          new Alias(left, AliasReference.Prev(right))
+          new Alias(List(left), AliasReference.Prev(right))
       }
     }
   }
@@ -409,8 +409,8 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias(wc, AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
-      lazy val c = new DFBool.Alias(wc, AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.n.value}C")
+      DFAny.Alias(List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
+      lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.n.value}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
@@ -468,7 +468,7 @@ object DFUInt extends DFAny.Companion {
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val wc = new DFUInt.Alias[WCW](opInst.outResult, AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
+                  val wc = new DFUInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](wc)
                 }
@@ -523,8 +523,8 @@ object DFUInt extends DFAny.Companion {
     //CW = Carry width
     class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias(wc, AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
-      lazy val c = new DFBits.Alias[CW](wc, AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.n.value}C")
+    ) extends DFAny.Alias(List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
+      lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.n.value}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
@@ -585,7 +585,7 @@ object DFUInt extends DFAny.Companion {
                   val opInst = new `Comp*`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val wc = new DFUInt.Alias[WCW](opInst.outResult, AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
+                  val wc = new DFUInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](wc, ncWidth, cWidth)

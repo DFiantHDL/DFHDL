@@ -30,7 +30,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBit[I](relBit : TwoFace.Int[I])(implicit ctx : DFAny.Alias.Context) : TBool =
-    new DFBool.Alias(this, AliasReference.BitsWL(1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
+    new DFBool.Alias(List(this), AliasReference.BitsWL(1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
 
   final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Alias.Context) : TBool =
     protBit(relBit.unsafeCheck(width))
@@ -42,12 +42,12 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
   final def bits()(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
-    new DFBits.Alias[Width](this, AliasReference.BitsWL(width, 0, ".bits()")).asInstanceOf[TBits[Width]]
+    new DFBits.Alias[Width](List(this), AliasReference.BitsWL(width, 0, ".bits()")).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
   ) : TBits[relWidth.Out] =
-    new DFBits.Alias[relWidth.Out](this, AliasReference.BitsWL(relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
+    new DFBits.Alias[relWidth.Out](List(this), AliasReference.BitsWL(relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
     implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
@@ -74,7 +74,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit ctx : DFAny.Alias.Context)
-  : TBits[W] = new DFBits.Alias[W](this, AliasReference.BitsWL(relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
+  : TBits[W] = new DFBits.Alias[W](List(this), AliasReference.BitsWL(relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
@@ -254,7 +254,7 @@ object DFAny {
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
     final private var customInitString : String = ""
-    final def init(that : protComp.Init.Able[TVal]*)(
+    final def  init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
       val updatedInit = op(left, that)
@@ -319,31 +319,39 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias(aliasedVar : DFAny, reference : AliasReference)(
+  abstract class Alias(aliasedVars : List[DFAny], reference : AliasReference)(
     implicit val ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
-    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](reference match {
-      case AliasReference.BitsWL(relWidth, _, _) => relWidth
-      case _ => aliasedVar.width
+    final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({
+      val widthSeq : List[Int] = aliasedVars.map(aliasedVar => reference match {
+        case AliasReference.BitsWL(relWidth, _, _) => relWidth
+        case _ => aliasedVar.width.getValue
+      })
+      widthSeq.sum
     })
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = {
-      val currentInit : Seq[DFBits.Token] = aliasedVar.getInit.bits()
-      val updatedInit : Seq[DFBits.Token] = reference match {
-        case AliasReference.BitsWL(relWidth, relBitLow, _) => currentInit.bitsWL(relWidth, relBitLow)
-        case AliasReference.Prev(step) => currentInit.prevInit(step)
-        case AliasReference.AsIs(_) => currentInit
-        case AliasReference.BitReverse(_) => DFBits.Token.reverse(currentInit)
-        case AliasReference.Invert(_) => DFBits.Token.unary_~(currentInit)
-      }
-      updatedInit.map(protTokenBitsToTToken)
+      val initList : List[Seq[DFBits.Token]] = aliasedVars.map(aliasedVar => {
+        val currentInit: Seq[DFBits.Token] = aliasedVar.getInit.bits()
+        val updatedInit: Seq[DFBits.Token] = reference match {
+          case AliasReference.BitsWL(relWidth, relBitLow, _) => currentInit.bitsWL(relWidth, relBitLow)
+          case AliasReference.Prev(step) => currentInit.prevInit(step)
+          case AliasReference.AsIs(_) => currentInit
+          case AliasReference.BitReverse(_) => DFBits.Token.reverse(currentInit)
+          case AliasReference.Invert(_) => DFBits.Token.unary_~(currentInit)
+        }
+        updatedInit
+      })
+      initList.drop(1).foldLeft(initList.head)(DFBits.Token.##).map(protTokenBitsToTToken)
     }
-    final protected def constructCodeString : String = s"${aliasedVar.refCodeString}${reference.aliasCodeString}"
+    final protected def constructCodeString : String =
+      if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
+      else s"${aliasedVars.map(a => a.refCodeString).mkString("(",",",")")}${reference.aliasCodeString}"
     final protected[DFiant] lazy val almanacEntry =
-      AlmanacEntryAliasDFVar(aliasedVar.almanacEntry, reference, protInit, name, codeString)
+      AlmanacEntryAliasDFVar(aliasedVars.map(a => a.almanacEntry), reference, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
-    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies :+ aliasedVar
+    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ aliasedVars
     final val isPort = false
     final val id = getID
   }
@@ -686,6 +694,69 @@ object DFAny {
     val Prev : Prev
     implicit val cmp = this
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Tuple-handling Implicits
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  abstract class VarProductExtender(e : Product) {
+    type WSum
+    protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
+    def bits()(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits.Var[w.Out] =
+      new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], AliasReference.AsIs(".bits"))
+  }
+
+  abstract class ValProductExtender(e : Product) {
+    type WSum
+    protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
+    def bits()(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] =
+      new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], AliasReference.AsIs(".bits"))
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Tuple 1
+  /////////////////////////////////////////////////////////////////////////////////////
+  implicit class VarTuple1[T1 <: DFAny.Var](val e : Tuple1[T1])
+    extends VarProductExtender(e) {
+    type WSum = e._1.Width
+  }
+
+  implicit class ValTuple1[T1 <: DFAny](val e : Tuple1[T1])
+    extends ValProductExtender(e){
+    type WSum = e._1.Width
+  }
+  /////////////////////////////////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Tuple 2
+  /////////////////////////////////////////////////////////////////////////////////////
+  implicit class VarTuple2[T1 <: DFAny.Var, T2 <: DFAny.Var](val e : Tuple2[T1, T2])
+    extends VarProductExtender(e) {
+    type WSum = e._1.Width + e._2.Width
+  }
+
+  implicit class ValTuple2[T1 <: DFAny, T2 <: DFAny](val e : Tuple2[T1, T2])
+    extends ValProductExtender(e){
+    type WSum = e._1.Width + e._2.Width
+  }
+  /////////////////////////////////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Tuple 3
+  /////////////////////////////////////////////////////////////////////////////////////
+  implicit class VarTuple3[T1 <: DFAny.Var, T2 <: DFAny.Var, T3 <: DFAny.Var](val e : Tuple3[T1, T2, T3])
+    extends VarProductExtender(e) {
+    type WSum = e._1.Width + e._2.Width + e._3.Width
+  }
+
+  implicit class ValTuple3[T1 <: DFAny, T2 <: DFAny, T3 <: DFAny.Var](val e : Tuple3[T1, T2, T3])
+    extends ValProductExtender(e){
+    type WSum = e._1.Width + e._2.Width + e._3.Width
+  }
+  /////////////////////////////////////////////////////////////////////////////////////
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 

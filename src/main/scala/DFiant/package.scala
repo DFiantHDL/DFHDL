@@ -39,6 +39,7 @@ package object DFiant extends {
 
   ////////////////////////////////////////////////////////////////////////////////////
   // BitVector from scodec library https://github.com/scodec/scodec
+  // TODO: change after fix for https://github.com/scala/bug/issues/11070
   ////////////////////////////////////////////////////////////////////////////////////
   /*
   Copyright (c) 2013-2014, Michael Pilquist and Paul Chiusano
@@ -64,13 +65,15 @@ package object DFiant extends {
     */
   final implicit class BinStringSyntax(val sc: StringContext) extends AnyVal {
 
+//    def w[W](args: WidthTag*) : XBitVector[W] = macro Macro.hexStringInterpolator
     /**
       * Converts this binary literal string to a `BitVector`. Whitespace characters are ignored.
       *
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
       * of type `BitVector`.
       */
-    def h[W](args: BitVector*) : XBitVector[W] = macro Macro.hexStringInterpolator
+//    def h[W](args: BitVector*) : XBitVector[W] = macro Macro.hexStringInterpolator
+    def h[W](args: BitVector*) : BitVector = macro Macro.hexStringInterpolator
 
     /**
       * Converts this hexadecimal literal string to a `BitVector`. Whitespace characters are ignored.
@@ -78,7 +81,8 @@ package object DFiant extends {
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
       * of type `BitVector`.
       */
-    def b[W](args: BitVector*) : XBitVector[W] = macro Macro.binStringInterpolator
+//    def b[W](args: BitVector*) : XBitVector[W] = macro Macro.binStringInterpolator
+    def b[W](args: BitVector*) : BitVector = macro Macro.binStringInterpolator
   }
 
   object Macro {
@@ -104,7 +108,8 @@ package object DFiant extends {
       }
       val buildTree = reify { BitVector.fromValidBin(stringBuilder.splice.toString) }.tree
       val widthTpe = c.internal.constantType(Constant(length))
-      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+//      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+      q"$buildTree"
     }
 
     def hexStringInterpolator(c: whitebox.Context)(args: c.Expr[BitVector]*): c.Tree = {
@@ -128,7 +133,8 @@ package object DFiant extends {
       }
       val buildTree = reify { BitVector.fromValidHex(stringBuilder.splice.toString) }.tree
       val widthTpe = c.internal.constantType(Constant(length))
-      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+//      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+      q"$buildTree"
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////
