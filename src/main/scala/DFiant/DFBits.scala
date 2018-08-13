@@ -64,8 +64,6 @@ object DFBits extends DFAny.Companion {
       protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
-//    def ## [N](right : BitVector) :
-
     def extendLeftBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
@@ -81,21 +79,36 @@ object DFBits extends DFAny.Companion {
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
     def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
     def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
+    def << [N](right: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
+      val shift = right.unsafeCheck().getValue
+      if (shift >= width) DFBits.const[LW](DFBits.Token(width, 0))
+      else {
+        val remainingBits = this.protLSBits(width - shift)
+        val zeros = DFBits.const[Int](DFBits.Token(shift, 0))
+        new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits"))
+      }
+    }
+    def >> [N](right: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
+      val shift = right.unsafeCheck().getValue
+      if (shift >= width) DFBits.const[LW](DFBits.Token(width, 0))
+      else {
+        val remainingBits = this.protMSBits(width - shift)
+        val zeros = DFBits.const[Int](DFBits.Token(shift, 0))
+        new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits"))
+      }
+    }
 
-    //  def unary_~                   : DFBits.Unsafe = ??? //AlmanacEntryOpInv(this)
-    //  def >> (that : DFBits.Unsafe)        : DFBits.Unsafe = ???
-    //  def << (that : DFBits.Unsafe)        : DFBits.Unsafe = ???
-    //  def << (that : Int)           : DFBits.Unsafe = ??? //AlmanacEntryOpLsh(this, AlmanacEntryConst(that))
-    //  def >> (that : Int)           : DFBits.Unsafe = ??? //AlmanacEntryOpRsh(this, AlmanacEntryConst(that))
-    //  def ## (that : DFBits.Unsafe)        : DFBits.Unsafe = ??? //AlmanacEntryOpCat(this, that)
-    //      def ## (that : DFBool)        : DFBits.Unsafe = AlmanacEntryOpCat(this, that.bits())
+//    def << [RW](right: DFBits[RW])(implicit op: `Op<<`.Builder[TVal, DFBits[RW]]) = op(left, right)
+
+    def unary_~(implicit ctx : DFAny.Alias.Context) : DFBits[LW] =
+      new DFBits.Alias[LW](List(this), AliasReference.Invert(".invert")) //TODO: change refCodeString to accept prefix
 //    def isZero: DFBool = this == 0
 //    def isNonZero: DFBool = this != 0
 
 //    def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
 //    def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
-    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = ??? //DFBits.newVar(width, Seq(DFBits.Token(width, 0)))
+    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = new DFBits.NewVar[LW](width)
 
     override lazy val typeName : String = s"DFBits[$width]"
   }

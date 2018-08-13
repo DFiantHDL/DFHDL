@@ -376,7 +376,7 @@ object DFAny {
     final val id = getID
   }
   object Const {
-    type Context = DFAnyOwner.Context[DFBlock]
+    type Context = DFAnyOwner.Context[DFAnyOwner]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
