@@ -124,6 +124,7 @@ package object internals {
       val ext = vec.padLeft(len + 1)
       BigInt(ext.padToMulsOf(8).toByteArray)
     }
+    def codeString : String = s"""b"${vec.toBin}""""
   }
 
   implicit class IntExtras(value : Int) {

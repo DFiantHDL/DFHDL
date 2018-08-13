@@ -204,6 +204,8 @@ object DFBits extends DFAny.Companion {
       val outBubble = isBubble
       new DFUInt.Token(outWidth, outValueUInt, outBubble)
     }
+
+    override def codeString: String = if (isBubble) "Φ" else valueBits.codeString
   }
 
   object Token {

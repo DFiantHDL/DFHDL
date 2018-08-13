@@ -369,7 +369,7 @@ object DFAny {
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeString
-    protected def constructCodeString : String = s"$token"
+    protected def constructCodeString : String = s"${token.codeString}"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -571,7 +571,7 @@ object DFAny {
         tokenSeq.map(t => t.bits())
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
-      def codeString : String = tokenSeq.mkString("(", ", ", ")")
+      def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ",", ")")
     }
   }
 
