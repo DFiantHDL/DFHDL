@@ -69,7 +69,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     mutableMemberList.collect{case e : DSLOwnerConstruct => e.lateRunOnce}
     mutableMemberList.toList
   }
-  final protected[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
+  final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
     mutableMemberList += item
     idCnt += 1
     idCnt
@@ -77,7 +77,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
   //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
   private val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
-  final private[DFiant] def getUniqueMemberName(suggestedName : String) : String = nameTable.get(suggestedName) match {
+  final private[internals] def getUniqueMemberName(suggestedName : String) : String = nameTable.get(suggestedName) match {
     case Some(v) =>
       nameTable.update(suggestedName, v + 1)
       suggestedName + "$" + v
