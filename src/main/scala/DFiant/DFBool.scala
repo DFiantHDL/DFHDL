@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.basiclib.DiSoOp
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -15,22 +16,17 @@ object DFBool extends DFAny.Companion {
     type TVar = DFBool.Var
     type TToken = DFBool.Token
     type Width = 1
-    def unary_!(implicit ctx : DFAny.Op.Context)               : DFBool = ??? //DFBool.op("!", DFBool.Token.unary_!(getInit), this)
+    def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
+      new DFBool.Alias(List(this), AliasReference.Invert(".invert"))
 
     def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
     def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
-    //  def ^^ (that : DFBool) : DFBool = AlmanacEntryOpXor(this, that)
-    //  def ## (that : DFBits.Unsafe)    : DFBits.Unsafe = this.bits() ## that
-    //  def ## (that : DFBool)    : DFBits.Unsafe = this.bits() ## that.bits()
     def rising (implicit ctx : DFAny.Op.Context) : DFBool = left && !left.prev(1)
     def falling (implicit ctx : DFAny.Op.Context) : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = ??? //new DFBool.NewVar(Seq(DFBool.Token(false)))
+    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = DFBool()
 
     override lazy val typeName : String = s"DFBool"
-
-    //  protected[DFiant] def __!= (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0!=arg1
-    //  protected[DFiant] def __== (arg0 : DFBool, arg1 : DFBool) : DFBool = arg0==arg1
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,8 +35,8 @@ object DFBool extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var extends DFAny.Var with DFBool {
-//    final def set() : DFBool = this := true
-//    final def clear() : DFBool = this := false
+    final def set(implicit ctx : DFAny.Op.Context) : DFBool = this := true
+    final def clear(implicit ctx : DFAny.Op.Context) : DFBool = this := false
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -263,23 +259,32 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class BoolOps(kind : BoolOps.Kind) {
+  protected abstract class BoolOps(kind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit ctx : DFAny.Op.Context)
-      : Builder[L, R] = new Builder[L, R] {
-        def apply(leftL : L, rightR : R) : Comp = {
-          val (left, right) = properLR(leftL, rightR)
-          ??? //DFBool.op(kind.opString, kind.opFunc(left.getInit, right.getInit), left, right)
+      : Builder[L, R] = (leftL, rightR) => {
+        import ctx._
+        import basicLib.DFBoolOps._
+        val (left, right) = properLR(leftL, rightR)
+        val opInst = kind match {
+          case DiSoOp.Kind.|| => new `Comp||`()
+          case DiSoOp.Kind.&& => new `Comp&&`()
+          case DiSoOp.Kind.== => new `Comp==`()
+          case DiSoOp.Kind.!= => new `Comp!=`()
+          case _ => throw new IllegalArgumentException("Unexpected boolean operation")
         }
+        opInst.inLeft <> left
+        opInst.inRight <> right
+        opInst.outResult.setAutoName(ctx.n.value)
       }
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](
         implicit
         ctx : DFAny.Op.Context,
-      ) : Builder[DFBool, DFBool] =  create[DFBool, DFBool]((left, right) => (left, right))
+      ) : Builder[DFBool, DFBool] = create[DFBool, DFBool]((left, right) => (left, right))
 
       implicit def evDFBool_op_Const[L <: DFBool, R](implicit ctx : DFAny.Op.Context, rConst : Const[Builder[_,_], R])
       : Builder[DFBool, R] = create[DFBool, R]((left, rightNum) => {
@@ -294,16 +299,9 @@ object DFBool extends DFAny.Companion {
       })
     }
   }
-  protected object BoolOps {
-    class Kind(val opString : String, val opFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
-    case object == extends Kind("==", DFBool.Token.==)
-    case object != extends Kind("!=", DFBool.Token.!=)
-    case object || extends Kind("||", DFBool.Token.||)
-    case object && extends Kind("&&", DFBool.Token.&&)
-  }
-  object `Op==` extends BoolOps(BoolOps.==) with `Op==`
-  object `Op!=` extends BoolOps(BoolOps.!=) with `Op!=`
-  object `Op||` extends BoolOps(BoolOps.||)
-  object `Op&&` extends BoolOps(BoolOps.&&)
+  object `Op==` extends BoolOps(DiSoOp.Kind.==) with `Op==`
+  object `Op!=` extends BoolOps(DiSoOp.Kind.!=) with `Op!=`
+  object `Op||` extends BoolOps(DiSoOp.Kind.||)
+  object `Op&&` extends BoolOps(DiSoOp.Kind.&&)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

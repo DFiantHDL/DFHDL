@@ -9,6 +9,7 @@ trait DFBasicLib {
 
   val DFUIntOps : DFBasicLib.DFUIntOps
   val DFBitsOps : DFBasicLib.DFBitsOps
+  val DFBoolOps : DFBasicLib.DFBoolOps
 
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,6 +114,30 @@ object DFBasicLib {
     type `Comp==` = Relational[DiSoOp.Kind.==]
     implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`]
     type `Comp!=` = Relational[DiSoOp.Kind.!=]
+    implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`]
+  }
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // DFBool
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait DFBoolOps {
+    class BoolopBool[Kind <: DiSoOp.Kind](
+      implicit ctx : DFComponent.Context[BoolopBool[Kind]]
+    ) extends DFComponent[BoolopBool[Kind]] {
+      final val inLeft = DFBool() <> IN
+      final val inRight = DFBool() <> IN
+      final val outResult = DFBool() <> OUT
+    }
+
+    type `Comp||` = BoolopBool[DiSoOp.Kind.||]
+    implicit def `ev||`(implicit ctx : Implementation.Context) : Implementation[`Comp||`]
+    type `Comp&&` = BoolopBool[DiSoOp.Kind.&&]
+    implicit def `ev&&`(implicit ctx : Implementation.Context) : Implementation[`Comp&&`]
+    type `Comp==` = BoolopBool[DiSoOp.Kind.==]
+    implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`]
+    type `Comp!=` = BoolopBool[DiSoOp.Kind.!=]
     implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////

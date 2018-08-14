@@ -5,6 +5,9 @@ import DFiant.basiclib.DFBasicLib
 
 trait Series {
   implicit object basicLib extends DFiant.basiclib.DFBasicLib {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFUInt
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFUIntOps extends DFBasicLib.DFUIntOps {
       class RTAddSub(aWidth : Int, bWidth : Int, sWidth : Int)
         (initFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token])
@@ -97,9 +100,12 @@ trait Series {
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
-
     }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFUInt
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFBitsOps extends DFBasicLib.DFBitsOps {
       class RTInfixBitwiseOp(opString : String)(aWidth : Int, bWidth : Int, sWidth : Int)
         (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBits.Token])
@@ -153,13 +159,57 @@ trait Series {
         rtInst.S <> outResult
       }
     }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     implicit def `evE==E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E==E`[E]] = ifc => {
       import ifc._
     }
     implicit def `evE!=E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E!=E`[E]] = ifc => {
       import ifc._
     }
-
+    
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFBool
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    object DFBoolOps extends DFBasicLib.DFBoolOps {
+      class RTInfixBoolOp(opString : String)
+        (initFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFBool() <> IN
+        final val B = DFBool() <> IN
+        final val S = DFBool() <> OUT
+        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+      }
+      implicit def `ev||`(implicit ctx : Implementation.Context) : Implementation[`Comp||`] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixBoolOp("||")(DFBool.Token.||)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev&&`(implicit ctx : Implementation.Context) : Implementation[`Comp&&`] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixBoolOp("&&")(DFBool.Token.&&)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`] = ifc => {
+        import ifc._
+        val rtInst = new RTInfixBoolOp("!=")(DFBool.Token.!=)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
 
 }

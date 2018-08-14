@@ -67,7 +67,10 @@ object DFBits extends DFAny.Companion {
     def extendLeftBy[N](numOfBits : Natural.Int.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFBits[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
+    ) : DFBits[tfs.Out] = {
+      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendLeftBy($numOfBits)"))
+    }
 
     protected object SameWidth extends Checked1Param.Int {
       type Cond[MW, W] = MW == W
@@ -582,13 +585,66 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Comparison operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token]) {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
-  object `Op==` extends `Op==` {
+    object Builder {
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "Comparison operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
 
+      def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
+      : Builder[L, R] = (leftL, rightR) => {
+        import ctx._
+        import basicLib.DFBitsOps._
+        val (left, right) = properLR(leftL, rightR)
+        val opInst = opKind match {
+          case DiSoOp.Kind.== => new `Comp==`(left.width, right.width)
+          case DiSoOp.Kind.!= => new `Comp!=`(left.width, right.width)
+          case _ => throw new IllegalArgumentException("Unexpected compare operation")
+        }
+        opInst.inLeft <> left
+        opInst.inRight <> right
+        opInst.outResult
+      }
+
+      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[DFBits[LW], DFBits[RW]] = create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        (left, right)
+      })
+
+      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        rConst : Const.Aux[R, RW],
+      ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        (left, right)
+      })
+
+      implicit def evConst_op_DFBits[L, LW, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        lConst : Const.Aux[L, LW],
+      ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
+        val left = lConst(leftNum)
+        (left, right)
+      })
+    }
   }
-
-  object `Op!=` extends `Op!=` {
-
-  }
+  object `Op==` extends OpsCompare(DiSoOp.Kind.==)(DFBits.Token.==) with `Op==`
+  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=)(DFBits.Token.!=) with `Op!=`
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

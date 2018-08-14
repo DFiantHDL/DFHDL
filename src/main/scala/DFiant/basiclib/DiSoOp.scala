@@ -18,6 +18,8 @@ object DiSoOp {
     sealed trait ^  extends Kind
     sealed trait << extends Kind
     sealed trait >> extends Kind
+    sealed trait || extends Kind
+    sealed trait && extends Kind
     case object +  extends +
     case object -  extends -
     case object *  extends *
@@ -32,6 +34,8 @@ object DiSoOp {
     case object ^  extends ^
     case object << extends <<
     case object >> extends >>
+    case object || extends ||
+    case object && extends &&
   }
 
 
