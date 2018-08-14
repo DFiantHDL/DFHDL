@@ -11,12 +11,12 @@ trait DSLConfiguration
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
-  def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
-  def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
+  private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
+  private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
     if ((owner == null) || (that == null)) false
     else if (owner eq that) true
     else owner.isDownstreamMemberOf(that)
-  def keep : this.type = {
+  final def keep : this.type = {
     owner.mutableKeepList += this
     this
   }
@@ -32,7 +32,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
   final private[internals] def getUniqueName(suggestedName : String) : String =
     if (owner != null) owner.getUniqueMemberName(suggestedName) else suggestedName
 
-  private def relativePath(refFullPath : String, callFullPath : String) : String = {
+  final private def relativePath(refFullPath : String, callFullPath : String) : String = {
 
     val c = callFullPath.split('.')
     val r = refFullPath.split('.')
@@ -45,11 +45,11 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
     }
   }
 
-  def relativePath(implicit callOwner : DSLOwnerConstruct) : String =
+  final private def relativePath(implicit callOwner : DSLOwnerConstruct) : String =
     relativePath(fullPath, callOwner.fullName)
 
-  def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(name)(callOwner)
-  def relativeName(name : String)(implicit callOwner : DSLOwnerConstruct) : String = {
+  final private[DFiant] def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(name)(callOwner)
+  final private[DFiant] def relativeName(name : String)(implicit callOwner : DSLOwnerConstruct) : String = {
     val path = relativePath(callOwner)
     if (path == "") name else s"$path.$name"
   }
@@ -101,3 +101,5 @@ object DSLOwnerConstruct {
     val n : NameIt
   }
 }
+
+trait DSLFoldedOwnerConstruct extends DSLOwnerConstruct

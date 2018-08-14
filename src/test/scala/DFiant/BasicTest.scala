@@ -182,7 +182,6 @@ object BasicTest extends App {
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
-  top_ioDesignConn2.io
   println(top_ioDesignConn2.codeString)
 
 }
