@@ -63,10 +63,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   private var idCnt : Int = 0
   private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
-  protected def lateRun : Unit = {}
-  final protected[internals] lazy val lateRunOnce : Unit = lateRun
   final lazy val memberList : List[DSLMemberConstruct] = {
-    mutableMemberList.collect{case e : DSLOwnerConstruct => e.lateRunOnce}
+    mutableMemberList.collect{case e : DSLFoldedOwnerConstruct => e.unfold}
     mutableMemberList.toList
   }
   final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
@@ -102,4 +100,7 @@ object DSLOwnerConstruct {
   }
 }
 
-trait DSLFoldedOwnerConstruct extends DSLOwnerConstruct
+trait DSLFoldedOwnerConstruct extends DSLOwnerConstruct {
+  private[DFiant] lazy val unfold : Unit = {}
+
+}
