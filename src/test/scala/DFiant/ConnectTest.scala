@@ -1,4 +1,4 @@
-package DFiant
+import DFiant._
 
 import org.scalacheck._
 import shapeless.test.illTyped
@@ -166,13 +166,13 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn2 = new IODesignConn2 {}
     val compare =
       """
-        |val top_ioDesignConn2 = new DFDesign {  //DFiant.ConnectTest$IODesignConn2
+        |val top_ioDesignConn2 = new DFDesign {  //ConnectTest$IODesignConn2
         |  val i = DFUInt(8) <> IN init(1)  //init = (1)
         |  val o = DFUInt(8) <> OUT  //init = (2)
-        |  val io = new DFDesign {  //DFiant.ConnectTest$Comp
+        |  val io = new DFDesign {  //ConnectTest$Comp
         |    val i = DFUInt(8) <> IN  //init = (1)
         |    val o = DFUInt(8) <> OUT  //init = (2)
-        |    val rt = new DFiant.ConnectTest$RTx2 {}
+        |    val rt = new ConnectTest$RTx2 {}
         |    rt.I <> i
         |    o <> rt.O
         |  }
@@ -188,7 +188,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
       """
-        |val top_ioDesignConn5 = new DFDesign {  //DFiant.ConnectTest$IODesignConn5
+        |val top_ioDesignConn5 = new DFDesign {  //ConnectTest$IODesignConn5
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT  //init = (Φ)
         |  val $anon = i.prev  //init = (2, 3, 4, Φ)
@@ -239,7 +239,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn3 = new IODesignConn3 {}
     val compare =
       """
-        |val top_ioDesignConn3 = new DFDesign {  //DFiant.ConnectTest$IODesignConn3
+        |val top_ioDesignConn3 = new DFDesign {  //ConnectTest$IODesignConn3
         |  val i = DFUInt(8) <> IN init(5)  //init = (5)
         |  val o = DFUInt(8) <> OUT  //init = (6)
         |  val o_wc = DFUInt(9) <> OUT  //init = (6)
@@ -271,7 +271,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn4 = new IODesignConn4 {}
     val compare =
       """
-        |val top_ioDesignConn4 = new DFDesign {  //DFiant.ConnectTest$IODesignConn4
+        |val top_ioDesignConn4 = new DFDesign {  //ConnectTest$IODesignConn4
         |  val i1 = DFUInt(8) <> IN init(8)  //init = (8)
         |  val i2 = DFUInt(8) <> IN init(1)  //init = (1)
         |  val o = DFBool() <> OUT  //init = (true)
