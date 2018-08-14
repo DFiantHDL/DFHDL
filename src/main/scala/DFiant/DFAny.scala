@@ -307,7 +307,6 @@ object DFAny {
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
-    final private[DFiant] def alias(left : DFAny) : TVar = ???
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
