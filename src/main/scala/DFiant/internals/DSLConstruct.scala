@@ -101,6 +101,7 @@ object DSLOwnerConstruct {
 }
 
 trait DSLFoldedOwnerConstruct extends DSLOwnerConstruct {
-  private[DFiant] lazy val unfold : Unit = {}
+  private[DFiant] var folded : Boolean = true
+  private[DFiant] lazy val unfold : Unit = folded = false
 
 }
