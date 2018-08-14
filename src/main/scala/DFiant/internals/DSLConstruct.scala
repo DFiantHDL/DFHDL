@@ -64,7 +64,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   private var idCnt : Int = 0
   private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   protected def lateRun : Unit = {}
-  final private[internals] lazy val lateRunOnce : Unit = lateRun
+  final protected[internals] lazy val lateRunOnce : Unit = lateRun
   final lazy val memberList : List[DSLMemberConstruct] = {
     mutableMemberList.collect{case e : DSLOwnerConstruct => e.lateRunOnce}
     mutableMemberList.toList
