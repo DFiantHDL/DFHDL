@@ -69,9 +69,19 @@ object DFBits extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = ??? //DFBits.newVar(tfs(width, numOfBits), getInit).assign(this, blk)
 
-//    def as[T <: DFAny.NewVar](mold : T)(
-//      implicit alias : mold.protComp.Alias.Builder[TVal, T]
-//    ) : T#TVal = alias(this.asInstanceOf[TVal], mold)
+    protected object SameWidth extends Checked1Param.Int {
+      type Cond[MW, W] = MW == W
+      type Msg[MW, W] = "The mold constructor width " + ToString[MW] + " is different than the aliased variable width " + ToString[W]
+      type ParamFace = Int
+    }
+
+    def as[T <: DFAny.NewVar](mold : T)(
+      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
+    ) : mold.TVal = {
+      sameWidth.unsafeCheck(mold.width, width)
+      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVal]
+    }
+
     def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
       new DFUInt.Alias[LW](List(this), AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
 
@@ -118,9 +128,12 @@ object DFBits extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var {
-//    final override def as[T <: DFAny.NewVar](mold : T)(
-//      implicit alias : mold.protComp.Alias.Builder[TVal, T]
-//    ) : T#TVar = alias(this.asInstanceOf[TVal], mold)
+    final override def as[T <: DFAny.NewVar](mold : T)(
+      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
+    ) : mold.TVar = {
+      sameWidth.unsafeCheck(mold.width, width)
+      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVar]
+    }
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
@@ -256,6 +269,16 @@ object DFBits extends DFAny.Companion {
       implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
       : Builder[DFBits[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
     }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Alias
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Alias extends AliasCO {
+    def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : mold.TVar =
+      new Alias[mold.Width](List(left), AliasReference.AsIs(s".as(DFBits(${mold.width}))"))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

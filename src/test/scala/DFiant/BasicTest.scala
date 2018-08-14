@@ -96,9 +96,10 @@ trait IODesignConn6 extends DFDesign {
 
 trait IODesignConn7 extends DFDesign {
   val in = DFBits(8) <> IN init b"00000010"
-  val out = DFBits(8) <> OUT
+  val out = DFUInt(8) <> OUT
 
-  out <> (in << 2)
+  val s = in.as(DFUInt(8))
+  out <> s
 }
 
 trait ContainerConn1 extends DFDesign {
