@@ -56,7 +56,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   final override implicit def theOwnerToBe : DFDesign = updatedOwner
 
   object ifdf {
-    def genIf[IB <: DFDesign](ifBlock : IB, block: => Unit)(implicit ctx : DFIfBlock.Context) : IB = {
+    private def genIf[IB <: DFDesign](ifBlock : IB, block: => Unit)(implicit ctx : DFIfBlock.Context) : IB = {
       val originalOwner = updatedOwner
       updatedOwner = ifBlock
       block
