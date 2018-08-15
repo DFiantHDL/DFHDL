@@ -1,7 +1,7 @@
 package DFiant.internals
 
 trait Nameable {
-  protected def nameDefault : String = "???"
+  private[DFiant] def nameDefault : String = "???"
   private var nameManual : String = ""
   private var nameAuto : String = ""
   final def hasName : Boolean = !nameManual.isEmpty || !nameAuto.isEmpty
