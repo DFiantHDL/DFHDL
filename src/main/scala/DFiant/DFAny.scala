@@ -390,7 +390,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
 
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    private var connectedSource : Option[DFAny] = None
+    private[DFiant] var connectedSource : Option[DFAny] = None
     private val almanacEntryLB = LazyBox {
       val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
       AlmanacEntryPort(width, protInit, sourceEntry, dir, name, codeString)

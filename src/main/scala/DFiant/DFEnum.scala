@@ -172,8 +172,8 @@ object DFEnum extends DFAny.Companion {
       ) = port.connectVal2Port(op(port, left))
     }
     trait Implicits {
-      implicit class DFEnumFromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
-      implicit def ofDFEnum[R <: DFEnum.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
+      final implicit class DFEnumFromEntry[L <: Enum.Entry](left : L) extends Able[L](left)
+      final implicit def ofDFEnum[R <: DFEnum.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
   }

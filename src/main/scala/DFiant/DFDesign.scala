@@ -74,31 +74,28 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       def elsedf(elseBlock: => Unit)(implicit ctx : DFIfBlock.Context)
       : Unit = genIf(new DFElseBlock(this), elseBlock)
 
-      override protected def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
+      override private[DFiant] def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
       override protected def nameDefault: String = ctx.n.value
-      override def codeString: String =
-        s"\nval $name = ifdf(${cond.name}) {$bodyCodeString\n}"
+      override def codeString: String = s"\nval $name = ifdf(${cond.name}) {$bodyCodeString\n}"
     }
 
     protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool)(implicit ctx : DFIfBlock.Context)
       extends DFIfBlock(cond) {
       override protected def nameDefault: String = ctx.n.value + "$elseif"
-      override protected def createAlmanac : AlmanacElseIf =
+      override private[DFiant] def createAlmanac : AlmanacElseIf =
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
-      override def codeString: String =
-        s".elseifdf(${cond.name}) {$bodyCodeString\n}"
+      override def codeString: String = s".elseifdf(${cond.name}) {$bodyCodeString\n}"
     }
 
     protected class DFElseBlock(prevIfBlock : DFIfBlock)(implicit ctx : DFIfBlock.Context)
       extends DFDesign with ConditionalBlock {
       override protected def nameDefault: String = ctx.n.value + "$else"
-      override protected def createAlmanac : AlmanacElse =
+      override private[DFiant] def createAlmanac : AlmanacElse =
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
-      override def codeString: String =
-        s".elsedf {$bodyCodeString\n}"
+      override def codeString: String = s".elsedf {$bodyCodeString\n}"
     }
 
     object DFIfBlock {
@@ -107,13 +104,14 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
   }
 
+  def constructCodeString : String = s"new DFDesign {$commentClassName$bodyCodeString\n}"
+
   override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   private def commentClassName : String = if (ctx.config.commentClassNames) s"  //$typeName" else ""
-  override def codeString: String = {
-    s"\nval $name = new DFDesign {$commentClassName$bodyCodeString\n}"
-  }
+  override def codeString: String = s"\nval $name = $constructCodeString"
+
 }
 
 object DFDesign {
@@ -124,7 +122,7 @@ object DFDesign {
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp])
   extends DFDesign with DSLFoldedOwnerConstruct {
-  def foldedCodeString : String = ""
+  def foldedConstructCodeString : String = super.constructCodeString
   final override private[DFiant] lazy val unfold = {
     ctx.impl(this.asInstanceOf[Comp])
     folded = false
@@ -133,6 +131,14 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : () => Seq[dfVal.TToken])
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
+
+  final override def constructCodeString : String = if (folded) foldedConstructCodeString else super.constructCodeString
+  final override def codeString : String = super.codeString
+
+  implicit class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
+    def isOpen : Boolean = dfVal.connectedSource.isEmpty
+  }
+//  override lazy val typeName: String = getClass.getSimpleName
 }
 
 object DFComponent {

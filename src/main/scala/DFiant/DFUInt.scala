@@ -267,12 +267,12 @@ object DFUInt extends DFAny.Companion {
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
     }
     trait Implicits {
-      implicit class DFUIntFromInt[L <: Int](left : L) extends Able[L](left)
-      implicit class DFUIntFromXInt[L <: XInt](left : L) extends Able[L](left)
-      implicit class DFUIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends Able[L](left)
-      implicit class DFUIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends Able[L](left)
-      implicit class DFUIntFromBigInt[L <: BigInt](left : L) extends Able[L](left)
-      implicit def ofDFUInt[R <: DFUInt.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
+      final implicit class DFUIntFromInt[L <: Int](left : L) extends Able[L](left)
+      final implicit class DFUIntFromXInt[L <: XInt](left : L) extends Able[L](left)
+      final implicit class DFUIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends Able[L](left)
+      final implicit class DFUIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends Able[L](left)
+      final implicit class DFUIntFromBigInt[L <: BigInt](left : L) extends Able[L](left)
+      final implicit def ofDFUInt[R <: DFUInt.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
   }

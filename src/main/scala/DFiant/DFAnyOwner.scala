@@ -5,13 +5,13 @@ import DFiant.internals._
 trait DFAnyOwner extends DSLOwnerConstruct {
   val owner : DFAnyOwner
   val config : DFAnyConfiguration
-  final protected[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
+  final private[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
   //create alamanac and add to owner
   final protected def fetchOrCreateAlmanac : Almanac =
     if (owner != null) owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(createAlmanac))
     else createTopAlmanac
-  final def createTopAlmanac = new Almanac(name, None)
-  protected def createAlmanac = new Almanac(name, Some(owner.protAlmanac))
+  private final def createTopAlmanac = new Almanac(name, None)
+  private[DFiant] def createAlmanac = new Almanac(name, Some(owner.protAlmanac))
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFVals
@@ -25,7 +25,7 @@ trait DFAnyOwner extends DSLOwnerConstruct {
     else if (this.isInstanceOf[ConditionalBlock]) this.owner.callSiteSameAsOwnerOf(dfVal)
     else false
 
-  protected def bodyCodeString : String = {
+  private[DFiant] def bodyCodeString : String = {
     val delim = "  "
     val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
     val noAnonymous =

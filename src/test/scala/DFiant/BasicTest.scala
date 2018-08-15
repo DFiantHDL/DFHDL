@@ -1,5 +1,5 @@
-package DFiant
-
+import DFiant.DFBool.Op
+import DFiant._
 import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 

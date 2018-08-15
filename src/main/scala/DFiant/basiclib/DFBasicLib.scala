@@ -39,11 +39,17 @@ object DFBasicLib {
   trait DFUIntOps {
     class Arithmetic[Kind <: DiSoOp.Kind](
       val leftWidth : Int, val rightWidth : Int, val resultWidth : Int)(
-      implicit ctx : DFComponent.Context[Arithmetic[Kind]]
+      implicit ctx : DFComponent.Context[Arithmetic[Kind]], kind : Kind
     ) extends DFComponent[Arithmetic[Kind]] {
       final val inLeft = DFUInt.unchecked(leftWidth) <> IN
       final val inRight = DFUInt.unchecked(rightWidth) <> IN
       final val outResult = DFUInt.unchecked(resultWidth) <> OUT
+      kind match {
+        case _: DiSoOp.Kind.+ => setInitFunc(outResult)(() => DFUInt.Token.+(getInit(inLeft), getInit(inRight)))
+        case _: DiSoOp.Kind.- => setInitFunc(outResult)(() => DFUInt.Token.-(getInit(inLeft), getInit(inRight)))
+        case _: DiSoOp.Kind.* => setInitFunc(outResult)(() => DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
+        case _ =>
+      }
     }
 
     type `Comp+` = Arithmetic[DiSoOp.Kind.+]
