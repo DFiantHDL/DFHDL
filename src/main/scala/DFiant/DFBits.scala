@@ -343,9 +343,9 @@ object DFBits extends DFAny.Companion {
       ) = port.connectVal2Port(op(port, left))
     }
     trait Implicits {
-      final class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
+      sealed class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
-      final class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able[XBitVector[W]](left)
+      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able[XBitVector[W]](left)
       final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
       final implicit def ofDFBits[R <: DFBits.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
