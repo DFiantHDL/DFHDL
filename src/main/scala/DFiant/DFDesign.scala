@@ -3,7 +3,7 @@ package DFiant
 import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{HashMap, ListBuffer}
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
   override implicit def theOwnerToBe : DFBlock = this
@@ -13,8 +13,8 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final val topDsn : DFDesign =
     if (owner != null) owner.topDsn
     else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
-  private[DFiant] val designSet : HashMap[String, Int] =
-    if (owner == null) HashMap.empty[String, Int] else owner.designSet
+  private[DFiant] val designDB : DFDesign.DB =
+    if (owner == null) new DFDesign.DB else owner.designDB
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -78,7 +78,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       override private[DFiant] def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
       override private[DFiant] def nameDefault: String = ctx.n.value
-      override def codeString: String = s"\nval $name = ifdf(${cond.name}) {$bodyCodeString\n}"
+      override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
     }
 
     protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool)(implicit ctx : DFIfBlock.Context)
@@ -87,7 +87,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       override private[DFiant] def createAlmanac : AlmanacElseIf =
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
-      override def codeString: String = s".elseifdf(${cond.name}) {$bodyCodeString\n}"
+      override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
     }
 
     protected class DFElseBlock(prevIfBlock : DFIfBlock)(implicit ctx : DFIfBlock.Context)
@@ -119,6 +119,16 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
   type ContextOf[+T] = DFBlock.ContextOf[T, DFDesign]
+  private[DFiant] class DB {
+    case class Info(id : Int, designs : ListBuffer[DFDesign])
+    private val db = HashMap.empty[String, HashMap[String, Info]]
+    def addDesignCodeString(designTypeName : String, designCodeString : String, design : DFDesign) : String = {
+      val csHM = db.getOrElse(designTypeName, HashMap.empty[String, Info])
+      val info = csHM.getOrElse(designCodeString, Info(0, ListBuffer.empty))
+      info.designs += design
+      designTypeName + "$" + info.id
+    }
+  }
 }
 
 
