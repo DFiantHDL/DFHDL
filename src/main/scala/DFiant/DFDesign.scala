@@ -3,7 +3,7 @@ package DFiant
 import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.HashMap
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
   override implicit def theOwnerToBe : DFBlock = this
@@ -13,6 +13,8 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final val topDsn : DFDesign =
     if (owner != null) owner.topDsn
     else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
+  private[DFiant] val designSet : HashMap[String, Int] =
+    if (owner == null) HashMap.empty[String, Int] else owner.designSet
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -55,7 +57,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   private var updatedOwner : DFDesign = this
   final override implicit def theOwnerToBe : DFDesign = updatedOwner
 
-  object ifdf {
+  final object ifdf {
     private def genIf[IB <: DFDesign](ifBlock : IB, block: => Unit)(implicit ctx : DFIfBlock.Context) : IB = {
       val originalOwner = updatedOwner
       updatedOwner = ifBlock
@@ -97,7 +99,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
     }
 
-    object DFIfBlock {
+    protected object DFIfBlock {
       type Context = DFDesign.ContextOf[DFIfBlock]
     }
 
