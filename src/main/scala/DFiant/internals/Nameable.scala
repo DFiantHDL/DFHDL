@@ -4,14 +4,14 @@ trait Nameable {
   protected def nameDefault : String = "???"
   private var nameManual : String = ""
   private var nameAuto : String = ""
-  def hasName : Boolean = !nameManual.isEmpty || !nameAuto.isEmpty
-  lazy val name : String = getUniqueName (
+  final def hasName : Boolean = !nameManual.isEmpty || !nameAuto.isEmpty
+  final lazy val name : String = getUniqueName (
     if (!nameManual.isEmpty) nameManual
     else if (!nameAuto.isEmpty) nameAuto
     else nameDefault
   )
   private[internals] def getUniqueName(suggestedName : String) : String
-  def setName(name : String) : this.type = {nameManual = name; this}
+  final def setName(name : String) : this.type = {nameManual = name; this}
   final protected[DFiant] def setAutoName(name : String) : this.type = {nameAuto = name; this}
   override def toString : String = name
 }

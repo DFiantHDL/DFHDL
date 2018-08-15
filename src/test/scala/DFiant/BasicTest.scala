@@ -1,4 +1,6 @@
 import DFiant._
+import DFiant.internals.DSLOwnerConstruct
+import singleton.ops.{XInt, XLong}
 
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)

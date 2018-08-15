@@ -267,11 +267,16 @@ object DFUInt extends DFAny.Companion {
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
     }
     trait Implicits {
-      final implicit class DFUIntFromInt[L <: Int](left : L) extends Able[L](left)
-      final implicit class DFUIntFromXInt[L <: XInt](left : L) extends Able[L](left)
-      final implicit class DFUIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends Able[L](left)
-      final implicit class DFUIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends Able[L](left)
-      final implicit class DFUIntFromBigInt[L <: BigInt](left : L) extends Able[L](left)
+      final class DFUIntFromInt[L <: Int](left : L) extends Able[L](left)
+      final implicit def DFUIntFromInt[L <: Int](left: L): DFUIntFromInt[L] = new DFUIntFromInt(left)
+      final class DFUIntFromXInt[L <: XInt](left : L) extends Able[L](left)
+      final implicit def DFUIntFromXInt[L <: XInt](left: L): DFUIntFromXInt[L] = DFUIntFromXInt(left)
+      final class DFUIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends Able[L](left)
+      final implicit def DFUIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): DFUIntFromLong[L] = new DFUIntFromLong(left)
+      final class DFUIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends Able[L](left)
+      final implicit def DFUIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFUIntFromXLong[L] = DFUIntFromXLong(left)
+      final class DFUIntFromBigInt[L <: BigInt](left : L) extends Able[L](left)
+      final implicit def DFUIntFromBigInt[L <: BigInt](left: L): DFUIntFromBigInt[L] = new DFUIntFromBigInt[L](left)
       final implicit def ofDFUInt[R <: DFUInt.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits

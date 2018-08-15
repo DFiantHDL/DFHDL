@@ -54,7 +54,7 @@ protected[DFiant] trait ConditionalBlock
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   self =>
   private var updatedOwner : DFDesign = this
-  override implicit def theOwnerToBe : DFDesign = updatedOwner
+  final override implicit def theOwnerToBe : DFDesign = updatedOwner
 
   object ifdf {
     def genIf[IB <: DFDesign](ifBlock : IB, block: => Unit)(implicit ctx : DFIfBlock.Context) : IB = {
@@ -105,6 +105,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   }
 
   def constructCodeString : String = s"new DFDesign {$commentClassName$bodyCodeString\n}"
+  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
   override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
@@ -135,9 +136,10 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   final override def constructCodeString : String = if (folded) foldedConstructCodeString else super.constructCodeString
   final override def codeString : String = super.codeString
 
-  implicit class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
+  final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
     def isOpen : Boolean = dfVal.connectedSource.isEmpty
   }
+  final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
 //  override lazy val typeName: String = getClass.getSimpleName
 }
 

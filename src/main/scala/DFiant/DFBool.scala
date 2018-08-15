@@ -196,8 +196,10 @@ object DFBool extends DFAny.Companion {
       ) = port.connectVal2Port(op(port, left))
     }
     trait Implicits {
-      final implicit class DFBoolFromXInt[L <: XInt](left : L) extends Able[L](left)
-      final implicit class DFBoolFromBoolean[L <: Boolean](left : L) extends Able[L](left)
+      final class DFBoolFromXInt[L <: XInt](left : L) extends Able[L](left)
+      final implicit def DFBoolFromXInt[L <: XInt](left: L): DFBoolFromXInt[L] = new DFBoolFromXInt[L](left)
+      final class DFBoolFromBoolean[L <: Boolean](left : L) extends Able[L](left)
+      final implicit def DFBoolFromBoolean[L <: Boolean](left: L): DFBoolFromBoolean[L] = new DFBoolFromBoolean[L](left)
       final implicit def ofDFBool[R <: DFBool.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
