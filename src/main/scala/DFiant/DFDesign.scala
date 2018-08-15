@@ -52,7 +52,6 @@ object DFBlock {
 protected[DFiant] trait ConditionalBlock
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  self =>
   private var updatedOwner : DFDesign = this
   final override implicit def theOwnerToBe : DFDesign = updatedOwner
 
