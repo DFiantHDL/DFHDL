@@ -1,7 +1,4 @@
-import DFiant.DFBool.Op
 import DFiant._
-import DFiant.basiclib.DFBasicLib
-import DFiant.internals._
 
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
@@ -183,6 +180,5 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
   println(top_ioDesignConn2.codeString)
-
 }
 
