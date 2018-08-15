@@ -105,14 +105,20 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
   }
 
-  def constructCodeString : String = s"new DFDesign {$commentClassName$bodyCodeString\n}"
+  def constructCodeString : String = {
+    val actualTypeName = designDB.addDesignCodeString(typeName, bodyCodeString, this)
+    s"new $actualTypeName {}"
+  }
   final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
   override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   private def commentClassName : String = if (ctx.config.commentClassNames) s"  //$typeName" else ""
-  override def codeString: String = s"\nval $name = $constructCodeString"
+  override def codeString: String = {
+    val ret = s"\nval $name = $constructCodeString"
+    if (isTop) s"${designDB.codeString}\n$ret" else ret
+  }
 
 }
 
@@ -122,11 +128,21 @@ object DFDesign {
   private[DFiant] class DB {
     case class Info(id : Int, designs : ListBuffer[DFDesign])
     private val db = HashMap.empty[String, HashMap[String, Info]]
-    def addDesignCodeString(designTypeName : String, designCodeString : String, design : DFDesign) : String = {
-      val csHM = db.getOrElse(designTypeName, HashMap.empty[String, Info])
-      val info = csHM.getOrElse(designCodeString, Info(0, ListBuffer.empty))
+    def actualTypeName(designTypeName : String, info : Info) : String =
+      if (info.id == 0) designTypeName else designTypeName + "$" + info.id
+    def addDesignCodeString(designTypeName : String, designBodyString : String, design : DFDesign) : String = {
+      val csHM = db.getOrElseUpdate(designTypeName, HashMap.empty[String, Info])
+      val info = csHM.getOrElseUpdate(designBodyString, Info(csHM.size, ListBuffer.empty))
       info.designs += design
-      designTypeName + "$" + info.id
+      actualTypeName(designTypeName, info)
+    }
+    def designTraitCodeString(designTypeName : String, designBodyString : String, info : Info) : String =
+      s"\ntrait ${actualTypeName(designTypeName, info)} {$designBodyString\n}"
+    def codeString : String = {
+      db.flatMap(e => {
+        val designTypeName = e._1
+        e._2.map(e => designTraitCodeString(designTypeName, e._1, e._2))
+      }).mkString("\n")
     }
   }
 }
