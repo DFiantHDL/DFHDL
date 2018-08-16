@@ -19,14 +19,14 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFUIntOps {
     import DFiant.basiclib.DFUIntOps._
-    implicit val `Comp+` : Implementation[`Comp+`]
-    implicit val `Comp-` : Implementation[`Comp-`]
-    implicit val `Comp*` : Implementation[`Comp*`]
+    implicit val `Comp+`  : Implementation[`Comp+`]
+    implicit val `Comp-`  : Implementation[`Comp-`]
+    implicit val `Comp*`  : Implementation[`Comp*`]
 
     implicit val `Comp==` : Implementation[`Comp==`]
     implicit val `Comp!=` : Implementation[`Comp!=`]
-    implicit val `Comp<` : Implementation[`Comp<`]
-    implicit val `Comp>` : Implementation[`Comp>`]
+    implicit val `Comp<`  : Implementation[`Comp<`]
+    implicit val `Comp>`  : Implementation[`Comp>`]
     implicit val `Comp<=` : Implementation[`Comp<=`]
     implicit val `Comp>=` : Implementation[`Comp>=`]
   }
@@ -38,9 +38,9 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBitsOps {
     import DFiant.basiclib.DFBitsOps._
-    implicit val `Comp|` : Implementation[`Comp|`]
-    implicit val `Comp&` : Implementation[`Comp&`]
-    implicit val `Comp^` : Implementation[`Comp^`]
+    implicit val `Comp|`  : Implementation[`Comp|`]
+    implicit val `Comp&`  : Implementation[`Comp&`]
+    implicit val `Comp^`  : Implementation[`Comp^`]
 
     implicit val `Comp==` : Implementation[`Comp==`]
     implicit val `Comp!=` : Implementation[`Comp!=`]
