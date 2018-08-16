@@ -176,6 +176,17 @@ object DFComponent {
     val compName : sourcecode.Name.OfType[Comp]
   }
   object Context {
+    implicit def evFromOpContext[Comp <: DFComponent[Comp]](
+      implicit evContext : DFAny.Op.Context, evImpl : DFComponent.Implementation[Comp],
+      evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
+    ) : Context[Comp] = new Context[Comp] {
+      implicit val owner: DFBlock = evContext.owner
+      implicit val impl: DFComponent.Implementation[Comp] = evImpl
+      implicit val basicLib: DFBasicLib = evContext.basicLib
+      implicit val config: DFAnyConfiguration = evContext.config
+      val n: NameIt = evNameIt
+      val compName = evCompName
+    }
     implicit def ev[Comp <: DFComponent[Comp]](
       implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib,
       evConfig : DFAnyConfiguration, evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]

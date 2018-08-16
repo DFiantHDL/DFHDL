@@ -467,16 +467,15 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx._
-                  import basicLib.DFUIntOps._
+                  import ctx.basicLib.DFUIntOps._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInst = creationKind match {
-                    case `Ops+Or-`.+ => new `Comp+`(left.width, right.width, opWidth)
-                    case `Ops+Or-`.- => new `Comp-`(left.width, right.width, opWidth)
+                    case `Ops+Or-`.+ => new DFiant.basiclib.DFUIntOps.`Comp+`(left.width, right.width, opWidth)
+                    case `Ops+Or-`.- => new DFiant.basiclib.DFUIntOps.`Comp-`(left.width, right.width, opWidth)
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
@@ -584,8 +583,7 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx._
-                  import basicLib.DFUIntOps._
+                  import ctx.basicLib.DFUIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -594,7 +592,7 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
 
-                  val opInst = new `Comp*`(left.width, right.width, wcWidth)
+                  val opInst = new DFiant.basiclib.DFUIntOps.`Comp*`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   val wc = new DFUInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
@@ -651,16 +649,15 @@ object DFUInt extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import ctx._
-        import basicLib.DFUIntOps._
+        import ctx.basicLib.DFUIntOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-          case DiSoOp.Kind.== => new `Comp==`(left.width, right.width)
-          case DiSoOp.Kind.!= => new `Comp!=`(left.width, right.width)
-          case DiSoOp.Kind.<  => new `Comp<`(left.width, right.width)
-          case DiSoOp.Kind.>  => new `Comp>`(left.width, right.width)
-          case DiSoOp.Kind.<= => new `Comp<=`(left.width, right.width)
-          case DiSoOp.Kind.>= => new `Comp>=`(left.width, right.width)
+          case DiSoOp.Kind.== => new DFiant.basiclib.DFUIntOps.`Comp==`(left.width, right.width)
+          case DiSoOp.Kind.!= => new DFiant.basiclib.DFUIntOps.`Comp!=`(left.width, right.width)
+          case DiSoOp.Kind.<  => new DFiant.basiclib.DFUIntOps.`Comp<`(left.width, right.width)
+          case DiSoOp.Kind.>  => new DFiant.basiclib.DFUIntOps.`Comp>`(left.width, right.width)
+          case DiSoOp.Kind.<= => new DFiant.basiclib.DFUIntOps.`Comp<=`(left.width, right.width)
+          case DiSoOp.Kind.>= => new DFiant.basiclib.DFUIntOps.`Comp>=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
         opInst.inLeft <> left

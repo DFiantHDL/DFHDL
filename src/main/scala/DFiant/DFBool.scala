@@ -268,14 +268,13 @@ object DFBool extends DFAny.Companion {
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import ctx._
-        import basicLib.DFBoolOps._
+        import ctx.basicLib.DFBoolOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = kind match {
-          case DiSoOp.Kind.|| => new `Comp||`()
-          case DiSoOp.Kind.&& => new `Comp&&`()
-          case DiSoOp.Kind.== => new `Comp==`()
-          case DiSoOp.Kind.!= => new `Comp!=`()
+          case DiSoOp.Kind.|| => new DFiant.basiclib.DFBoolOps.`Comp||`()
+          case DiSoOp.Kind.&& => new DFiant.basiclib.DFBoolOps.`Comp&&`()
+          case DiSoOp.Kind.== => new DFiant.basiclib.DFBoolOps.`Comp==`()
+          case DiSoOp.Kind.!= => new DFiant.basiclib.DFBoolOps.`Comp!=`()
           case _ => throw new IllegalArgumentException("Unexpected boolean operation")
         }
         opInst.inLeft <> left

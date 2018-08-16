@@ -470,17 +470,16 @@ object DFBits extends DFAny.Companion {
               new Builder[L, R] {
                 type Comp = DFBits[OW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx._
-                  import basicLib.DFBitsOps._
+                  import ctx.basicLib.DFBitsOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val oWidth = oW(left.width, right.width)
                   val opInst = opKind match {
-                    case DiSoOp.Kind.| => new `Comp|`(left.width, right.width, oWidth)
-                    case DiSoOp.Kind.& => new `Comp&`(left.width, right.width, oWidth)
-                    case DiSoOp.Kind.^ => new `Comp^`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.| => new DFiant.basiclib.DFBitsOps.`Comp|`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.& => new DFiant.basiclib.DFBitsOps.`Comp&`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.^ => new DFiant.basiclib.DFBitsOps.`Comp^`(left.width, right.width, oWidth)
                     case _ => throw new IllegalArgumentException("Unexpected logic operation")
                   }
                   opInst.inLeft <> left
@@ -602,12 +601,11 @@ object DFBits extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import ctx._
-        import basicLib.DFBitsOps._
+        import ctx.basicLib.DFBitsOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-          case DiSoOp.Kind.== => new `Comp==`(left.width, right.width)
-          case DiSoOp.Kind.!= => new `Comp!=`(left.width, right.width)
+          case DiSoOp.Kind.== => new DFiant.basiclib.DFBitsOps.`Comp==`(left.width, right.width)
+          case DiSoOp.Kind.!= => new DFiant.basiclib.DFBitsOps.`Comp!=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
         opInst.inLeft <> left

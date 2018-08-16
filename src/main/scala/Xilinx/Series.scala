@@ -9,6 +9,7 @@ trait Series {
     // DFUInt
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFUIntOps extends DFBasicLib.DFUIntOps {
+      import DFiant.basiclib.DFUIntOps._
       class RTAddSub(aWidth : Int, bWidth : Int, sWidth : Int)
         (initFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
@@ -107,6 +108,7 @@ trait Series {
     // DFUInt
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFBitsOps extends DFBasicLib.DFBitsOps {
+      import DFiant.basiclib.DFBitsOps._
       class RTInfixBitwiseOp(opString : String)(aWidth : Int, bWidth : Int, sWidth : Int)
         (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBits.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
@@ -172,6 +174,7 @@ trait Series {
     // DFBool
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFBoolOps extends DFBasicLib.DFBoolOps {
+      import DFiant.basiclib.DFBoolOps._
       class RTInfixBoolOp(opString : String)
         (initFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
