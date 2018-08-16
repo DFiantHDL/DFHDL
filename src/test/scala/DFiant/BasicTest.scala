@@ -28,15 +28,13 @@ trait IODesignIf extends DFDesign {
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val I = DFUInt(width) <> IN
   final val O = DFUInt(width) <> OUT
-  private lazy val OInit = () => DFUInt.Token.+(getInit(I), getInit(I))
-  setInitFunc(O)(OInit)
+  setInitFunc(O)(DFUInt.Token.+(getInit(I), getInit(I)))
 }
 
 trait Comp extends DFComponent[Comp] {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
-  private lazy val OInit = () => DFUInt.Token.+(getInit(i), getInit(i))
-  setInitFunc(o)(OInit)
+  setInitFunc(o)(DFUInt.Token.+(getInit(i), getInit(i)))
 }
 object Comp {
   implicit val ev : DFComponent.Implementation[Comp] = ifc => {
@@ -69,8 +67,7 @@ class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent
   final val A = DFUInt(aWidth) <> IN
   final val B = DFUInt(bWidth) <> IN
   final val S = DFUInt(sWidth) <> OUT
-  private lazy val SInit = () => DFUInt.Token.+(getInit(A), getInit(B))
-  setInitFunc(S)(SInit)
+  setInitFunc(S)(DFUInt.Token.+(getInit(A), getInit(B)))
 }
 
 

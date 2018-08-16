@@ -259,11 +259,11 @@ object DFAny {
     ) : TPostInit = {
       val updatedInit = op(left, that)
       customInitString = s" init${updatedInit.codeString}"
-      initialize(() => op(left, that), ctx.owner)
+      initialize(op(left, that), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected def initialize(updatedInit : () => Seq[TToken], owner : DFAnyOwner) : Unit = {
+    final protected def initialize(updatedInit : => Seq[TToken], owner : DFAnyOwner) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       initialized = true
@@ -271,7 +271,7 @@ object DFAny {
     }
     final def reInit(cond : DFBool) : Unit = ???
     final private var _initFunc : () => Seq[TToken] = () => Seq()
-    final protected[DFiant] def setInitFunc(value : () => Seq[TToken]) : Unit = _initFunc = value
+    final protected[DFiant] def setInitFunc(value : => Seq[TToken]) : Unit = _initFunc = () => value
     final private val initLB = LazyBox(_initFunc())
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCiruclar initialization detected"))
     final def initCodeString : String = s"$customInitString"
@@ -410,7 +410,7 @@ object DFAny {
       if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
       if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toPort
-      toPort.setInitFunc(() => fromVal.getInit.asInstanceOf[Seq[toPort.TToken]])
+      toPort.setInitFunc(fromVal.getInit.asInstanceOf[Seq[toPort.TToken]])
       toPort.connectedSource = Some(fromVal)
       toPort.protAssignDependencies += Connector(toPort, fromVal)
       toPort.protAssignDependencies += fromVal

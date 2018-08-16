@@ -16,7 +16,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
 
       class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -25,7 +25,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
 
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
@@ -34,7 +34,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
 
       implicit object `Comp+` extends Implementation[`Comp+`] {
@@ -134,7 +134,7 @@ trait Series {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBits(sWidth) <> OUT
-        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
         (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token])
@@ -142,7 +142,7 @@ trait Series {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
       implicit object `Comp|` extends Implementation[`Comp|`] {
         def apply(comp: `Comp|`): Unit = {
@@ -204,7 +204,7 @@ trait Series {
         final val A = DFBool() <> IN
         final val B = DFBool() <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
       implicit object `Comp||` extends Implementation[`Comp||`] {
         def apply(comp: `Comp||`): Unit = {

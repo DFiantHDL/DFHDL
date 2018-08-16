@@ -10,9 +10,9 @@ object DFUIntOps {
     final val inRight = DFUInt(rightWidth) <> IN
     final val outResult = DFUInt(resultWidth) <> OUT
     kind match {
-      case _: DiSoOp.Kind.+ => setInitFunc(outResult)(() => DFUInt.Token.+(getInit(inLeft), getInit(inRight)))
-      case _: DiSoOp.Kind.- => setInitFunc(outResult)(() => DFUInt.Token.-(getInit(inLeft), getInit(inRight)))
-      case _: DiSoOp.Kind.* => setInitFunc(outResult)(() => DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
+      case _: DiSoOp.Kind.+ => setInitFunc(outResult)(DFUInt.Token.+(getInit(inLeft), getInit(inRight)))
+      case _: DiSoOp.Kind.- => setInitFunc(outResult)(DFUInt.Token.-(getInit(inLeft), getInit(inRight)))
+      case _: DiSoOp.Kind.* => setInitFunc(outResult)(DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
       case _ =>
     }
   }
