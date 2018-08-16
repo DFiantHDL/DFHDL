@@ -37,69 +37,88 @@ trait Series {
         setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
       }
 
-      implicit def `ev+`(implicit ctx : Implementation.Context) : Implementation[`Comp+`] = ifc => {
-        import ifc._
-        val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.+)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
-      }
-      implicit def `ev-`(implicit ctx : Implementation.Context) : Implementation[`Comp-`] = ifc => {
-        import ifc._
-        val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.-)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
-      }
-      implicit def `ev*`(implicit ctx : Implementation.Context) : Implementation[`Comp*`] = ifc => {
-        import ifc._
-        val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)(DFUInt.Token.*)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp+` extends Implementation[`Comp+`] {
+        def apply(comp: `Comp+`): Unit = {
+          import comp._
+          val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.+)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
 
-      implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFUInt.Token.==)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp-` extends Implementation[`Comp-`] {
+        def apply(comp: `Comp-`): Unit = {
+          import comp._
+          val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.-)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFUInt.Token.!=)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp*` extends Implementation[`Comp*`] {
+        def apply(comp: `Comp*`): Unit = {
+          import comp._
+          val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)(DFUInt.Token.*)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev<`(implicit ctx : Implementation.Context) : Implementation[`Comp<`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)(DFUInt.Token.<)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+
+      implicit object `Comp==` extends Implementation[`Comp==`] {
+        def apply(comp: `Comp==`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFUInt.Token.==)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev>`(implicit ctx : Implementation.Context) : Implementation[`Comp>`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)(DFUInt.Token.>)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp!=` extends Implementation[`Comp!=`] {
+        def apply(comp: `Comp!=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFUInt.Token.!=)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev<=`(implicit ctx : Implementation.Context) : Implementation[`Comp<=`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)(DFUInt.Token.<=)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp<` extends Implementation[`Comp<`] {
+        def apply(comp: `Comp<`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)(DFUInt.Token.<)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev>=`(implicit ctx : Implementation.Context) : Implementation[`Comp>=`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)(DFUInt.Token.>=)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp>` extends Implementation[`Comp>`] {
+        def apply(comp: `Comp>`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)(DFUInt.Token.>)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp<=` extends Implementation[`Comp<=`] {
+        def apply(comp: `Comp<=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)(DFUInt.Token.<=)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp>=` extends Implementation[`Comp>=`] {
+        def apply(comp: `Comp>=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)(DFUInt.Token.>=)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,40 +144,50 @@ trait Series {
         final val S = DFBool() <> OUT
         setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
       }
-      implicit def `ev|`(implicit ctx : Implementation.Context) : Implementation[`Comp|`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBitwiseOp("|")(leftWidth, rightWidth, resultWidth)(DFBits.Token.|)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp|` extends Implementation[`Comp|`] {
+        def apply(comp: `Comp|`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBitwiseOp("|")(leftWidth, rightWidth, resultWidth)(DFBits.Token.|)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev&`(implicit ctx : Implementation.Context) : Implementation[`Comp&`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBitwiseOp("&")(leftWidth, rightWidth, resultWidth)(DFBits.Token.&)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp&` extends Implementation[`Comp&`] {
+        def apply(comp: `Comp&`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBitwiseOp("&")(leftWidth, rightWidth, resultWidth)(DFBits.Token.&)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev^`(implicit ctx : Implementation.Context) : Implementation[`Comp^`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBitwiseOp("^")(leftWidth, rightWidth, resultWidth)(DFBits.Token.^)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp^` extends Implementation[`Comp^`] {
+        def apply(comp: `Comp^`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBitwiseOp("^")(leftWidth, rightWidth, resultWidth)(DFBits.Token.^)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFBits.Token.==)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp==` extends Implementation[`Comp==`] {
+        def apply(comp: `Comp==`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFBits.Token.==)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFBits.Token.!=)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp!=` extends Implementation[`Comp!=`] {
+        def apply(comp: `Comp!=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFBits.Token.!=)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -177,47 +206,44 @@ trait Series {
         final val S = DFBool() <> OUT
         setInitFunc(S)(() => initFunc(getInit(A), getInit(B)))
       }
-      implicit def `ev||`(implicit ctx : Implementation.Context) : Implementation[`Comp||`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBoolOp("||")(DFBool.Token.||)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp||` extends Implementation[`Comp||`] {
+        def apply(comp: `Comp||`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBoolOp("||")(DFBool.Token.||)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev&&`(implicit ctx : Implementation.Context) : Implementation[`Comp&&`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBoolOp("&&")(DFBool.Token.&&)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp&&` extends Implementation[`Comp&&`] {
+        def apply(comp: `Comp&&`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBoolOp("&&")(DFBool.Token.&&)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp==` extends Implementation[`Comp==`] {
+        def apply(comp: `Comp==`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
-      implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`] = ifc => {
-        import ifc._
-        val rtInst = new RTInfixBoolOp("!=")(DFBool.Token.!=)
-        rtInst.A <> inLeft
-        rtInst.B <> inRight
-        rtInst.S <> outResult
+      implicit object `Comp!=` extends Implementation[`Comp!=`] {
+        def apply(comp: `Comp!=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixBoolOp("!=")(DFBool.Token.!=)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-    object DFEnumOps extends DFBasicLib.DFEnumOps {
-      import DFiant.basiclib.DFEnumOps._
-      implicit def `ev==`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp==`[E]] = ifc => {
-        import ifc._
-      }
-      implicit def `ev!=`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp!=`[E]] = ifc => {
-        import ifc._
-      }
-    }
   }
 
 }

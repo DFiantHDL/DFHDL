@@ -9,7 +9,6 @@ trait DFBasicLib {
   val DFUIntOps : DFBasicLib.DFUIntOps
   val DFBitsOps : DFBasicLib.DFBitsOps
   val DFBoolOps : DFBasicLib.DFBoolOps
-  val DFEnumOps : DFBasicLib.DFEnumOps
 
 }
 
@@ -20,16 +19,16 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFUIntOps {
     import DFiant.basiclib.DFUIntOps._
-    implicit def `ev+`(implicit ctx : Implementation.Context) : Implementation[`Comp+`]
-    implicit def `ev-`(implicit ctx : Implementation.Context) : Implementation[`Comp-`]
-    implicit def `ev*`(implicit ctx : Implementation.Context) : Implementation[`Comp*`]
+    implicit val `Comp+` : Implementation[`Comp+`]
+    implicit val `Comp-` : Implementation[`Comp-`]
+    implicit val `Comp*` : Implementation[`Comp*`]
 
-    implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`]
-    implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`]
-    implicit def `ev<`(implicit ctx : Implementation.Context) : Implementation[`Comp<`]
-    implicit def `ev>`(implicit ctx : Implementation.Context) : Implementation[`Comp>`]
-    implicit def `ev<=`(implicit ctx : Implementation.Context) : Implementation[`Comp<=`]
-    implicit def `ev>=`(implicit ctx : Implementation.Context) : Implementation[`Comp>=`]
+    implicit val `Comp==` : Implementation[`Comp==`]
+    implicit val `Comp!=` : Implementation[`Comp!=`]
+    implicit val `Comp<` : Implementation[`Comp<`]
+    implicit val `Comp>` : Implementation[`Comp>`]
+    implicit val `Comp<=` : Implementation[`Comp<=`]
+    implicit val `Comp>=` : Implementation[`Comp>=`]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,12 +38,12 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBitsOps {
     import DFiant.basiclib.DFBitsOps._
-    implicit def `ev|`(implicit ctx : Implementation.Context) : Implementation[`Comp|`]
-    implicit def `ev&`(implicit ctx : Implementation.Context) : Implementation[`Comp&`]
-    implicit def `ev^`(implicit ctx : Implementation.Context) : Implementation[`Comp^`]
+    implicit val `Comp|` : Implementation[`Comp|`]
+    implicit val `Comp&` : Implementation[`Comp&`]
+    implicit val `Comp^` : Implementation[`Comp^`]
 
-    implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`]
-    implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`]
+    implicit val `Comp==` : Implementation[`Comp==`]
+    implicit val `Comp!=` : Implementation[`Comp!=`]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -54,21 +53,10 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBoolOps {
     import DFiant.basiclib.DFBoolOps._
-    implicit def `ev||`(implicit ctx : Implementation.Context) : Implementation[`Comp||`]
-    implicit def `ev&&`(implicit ctx : Implementation.Context) : Implementation[`Comp&&`]
-    implicit def `ev==`(implicit ctx : Implementation.Context) : Implementation[`Comp==`]
-    implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`]
-  }
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // DFEnum
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait DFEnumOps {
-    import DFiant.basiclib.DFEnumOps._
-    implicit def `ev==`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp==`[E]]
-    implicit def `ev!=`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp!=`[E]]
+    implicit val `Comp||` : Implementation[`Comp||`]
+    implicit val `Comp&&` : Implementation[`Comp&&`]
+    implicit val `Comp==` : Implementation[`Comp==`]
+    implicit val `Comp!=` : Implementation[`Comp!=`]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

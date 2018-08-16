@@ -175,7 +175,7 @@ object DFComponent {
     implicit val impl : DFComponent.Implementation[Comp]
     val compName : sourcecode.Name.OfType[Comp]
   }
-  object Context {
+  trait LowPriority {
     implicit def evFromOpContext[Comp <: DFComponent[Comp]](
       implicit evContext : DFAny.Op.Context, evImpl : DFComponent.Implementation[Comp],
       evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
@@ -187,6 +187,8 @@ object DFComponent {
       val n: NameIt = evNameIt
       val compName = evCompName
     }
+  }
+  object Context extends LowPriority {
     implicit def ev[Comp <: DFComponent[Comp]](
       implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib,
       evConfig : DFAnyConfiguration, evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
@@ -202,9 +204,6 @@ object DFComponent {
 
   trait Implementation[Comp <: DFComponent[Comp]] {
     def apply(comp : Comp) : Unit
-  }
-  object Implementation {
-    type Context = DFAnyOwner.ContextWithLibOf[Implementation[_],DFBlock]
   }
 }
 

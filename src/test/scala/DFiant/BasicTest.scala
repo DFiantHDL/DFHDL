@@ -1,7 +1,6 @@
 import DFiant._
-import DFiant.internals.DSLOwnerConstruct
-import Xilinx.FPGAs
-import singleton.ops.{XInt, XLong}
+import DFiant.basiclib.DFBasicLib
+import DFiant.basiclib.DFUIntOps.`Comp+`
 
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
@@ -185,29 +184,26 @@ object BasicTest extends App {
 //  println(top_ioDesignConn2.codeString)
   println(top_ioDesignConn3.codeString)
 }
-
+//
 //object BlaBla extends App {
 //  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
 //
+////  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.basicLib.DFUIntOps._
 //  trait IODesignConn3 extends DFDesign {
 //    val i = DFUInt(8) <> IN init(5)
 //    val o = DFUInt(8) <> OUT
-//    import basicLib.DFUIntOps._
-//    val opInst = new basicLib.DFUIntOps.Arithmetic[DFiant.basiclib.DiSoOp.Kind.+](8, 1, 9) {}
-////    val opInst = new basicLib.DFUIntOps.`Comp+`(8, 1, 9) {}
+//    val opInst = new DFiant.basiclib.DFUIntOps.Arithmetic[DFiant.basiclib.DiSoOp.Kind.+](8, 1, 9) {}
 //    opInst.inLeft <> i
 //    opInst.inRight <> 1
 //    val plusOneWC = opInst.outResult
-//    implicitly[plusOneWC.Width =:= Int]
-//    val plusOne = plusOneWC.bits(7,0).uint
-//    val opInst$1 = new basicLib.DFUIntOps.`Comp+`(8, 1, 9) {}
+//    val plusOne = plusOneWC.bits(7, 0).uint
+//    val opInst$1 = new DFiant.basiclib.DFUIntOps.Arithmetic[DFiant.basiclib.DiSoOp.Kind.+](8, 1, 9) {}
 //    opInst$1.inLeft <> plusOne
 //    opInst$1.inRight <> 1
 //    val plusTwoWC = opInst$1.outResult
 //    val plusTwo = plusTwoWC.bits(7, 0).uint
 //    o <> plusTwo
 //  }
-//
 //
 //  val top_ioDesignConn3 = new IODesignConn3 {}
 //}
