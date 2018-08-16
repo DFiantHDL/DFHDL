@@ -167,7 +167,8 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     def isOpen : Boolean = dfVal.connectedSource.isEmpty
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-  override lazy val typeName: String = ctx.compName.value + args.value.dropRight(1).head.map(e => e.value).mkString("(",", ",")")
+  override lazy val typeName: String =
+    ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
 }
 
 object DFComponent {
