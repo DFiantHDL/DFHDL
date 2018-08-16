@@ -39,18 +39,15 @@ trait DFAnyOwner extends DSLOwnerConstruct {
 trait DFAnyConfiguration extends DSLConfiguration {
   val showAnonymousEntries : Boolean
   val commentInitValues : Boolean
-  val commentClassNames : Boolean
 }
 object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = false
     val commentInitValues: Boolean = false
-    val commentClassNames : Boolean = false
   }
   object detailed extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = true
     val commentInitValues: Boolean = true
-    val commentClassNames : Boolean = true
   }
 }
 

@@ -105,20 +105,19 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
   }
 
-  def constructCodeString : String = {
-    val actualTypeName = designDB.addDesignCodeString(typeName, bodyCodeString, this)
-    s"new $actualTypeName {}"
-  }
+  def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
+
+  def valCodeString : String = s"\nval $name = new $constructCodeString {}"
   final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
   override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
-  private def commentClassName : String = if (ctx.config.commentClassNames) s"  //$typeName" else ""
   override def codeString: String = {
-    val ret = s"\nval $name = $constructCodeString"
-    if (isTop) s"${designDB.codeString}\n$ret" else ret
+    val valCode = valCodeString
+    if (isTop) s"${designDB.codeString}\n$valCode" else valCode
   }
+
 
 }
 
@@ -139,10 +138,11 @@ object DFDesign {
     def designTraitCodeString(designTypeName : String, designBodyString : String, info : Info) : String =
       s"\ntrait ${actualTypeName(designTypeName, info)} extends DFDesign {$designBodyString\n}"
     def codeString : String = {
-      db.flatMap(e => {
+      val ret = db.flatMap(e => {
         val designTypeName = e._1
         e._2.map(e => designTraitCodeString(designTypeName, e._1, e._2))
       }).mkString("\n")
+      ret
     }
   }
 }
@@ -150,7 +150,10 @@ object DFDesign {
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct {
-  def foldedConstructCodeString : String = super.constructCodeString
+  def foldedConstructCodeString : String = {
+    ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
+  }
+
   final override private[DFiant] def unfoldedRun = {
     ctx.impl(this.asInstanceOf[Comp])
     folded = false
@@ -168,8 +171,8 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     def isOpen : Boolean = dfVal.connectedSource.isEmpty
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-  override lazy val typeName: String =
-    ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
+  override lazy val typeName: String = getClass.getName
+
 }
 
 object DFComponent {
