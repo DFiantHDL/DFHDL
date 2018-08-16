@@ -151,10 +151,11 @@ object DFDesign {
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldedOwnerConstruct {
   def foldedConstructCodeString : String = super.constructCodeString
-  final override private[DFiant] lazy val unfold = {
+  final override private[DFiant] lazy val unfoldedRun = {
     ctx.impl(this.asInstanceOf[Comp])
     folded = false
   }
+
   override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn //TODO: should be changed so that any DFComponent can set its own port dependencies
   final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : () => Seq[dfVal.TToken])
   : Unit = dfVal.setInitFunc(value)

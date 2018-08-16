@@ -64,7 +64,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   private var idCnt : Int = 0
   private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   final lazy val memberList : List[DSLMemberConstruct] = {
-    mutableMemberList.collect{case e : DSLFoldedOwnerConstruct => e.unfold}
+    mutableMemberList.collect{case e : DSLFoldedOwnerConstruct => e.unfoldedRun}
     mutableMemberList.toList
   }
   final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
@@ -102,6 +102,6 @@ object DSLOwnerConstruct {
 
 trait DSLFoldedOwnerConstruct extends DSLOwnerConstruct {
   private[DFiant] var folded : Boolean = true
-  private[DFiant] lazy val unfold : Unit = folded = false
+  private[DFiant] lazy val unfoldedRun : Unit = folded = false
 
 }
