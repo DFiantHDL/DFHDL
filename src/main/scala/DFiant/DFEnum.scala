@@ -216,7 +216,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[DiSoOpKind <: DiSoOp.Kind] {
+  protected abstract class OpsCompare(kind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
@@ -224,14 +224,16 @@ object DFEnum extends DFAny.Companion {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Op.Context, w : WidthOf[E])
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val result = new DFBool.NewVar().setAutoName(ctx.n.value) //opFunc(left.getInit, right.getInit)
+        val leftBits = left.bits()
+        val rightBits = right.bits()
 
-//        compareOp[E] (
-//          inLeft = ???, //FullyConnected(left),
-//          inRight = ???, //FullyConnected(right),
-//          outResult = ??? //FullyConnected(result)
-//        )
-        result
+        val result : DFBool = kind match {
+          case DiSoOp.Kind.== => leftBits == rightBits
+          case DiSoOp.Kind.!= => leftBits != rightBits
+          case _ => throw new IllegalArgumentException("Unexpected compare operation")
+        }
+
+        result.setAutoName(ctx.n.value)
       }
 
       implicit def evDFEnum_op_DFEnum[E <: Enum](implicit ctx : DFAny.Op.Context, w : WidthOf[E])
@@ -245,8 +247,8 @@ object DFEnum extends DFAny.Companion {
     }
   }
 
-  object `Op==` extends OpsCompare[DiSoOp.Kind.==] with `Op==`
-  object `Op!=` extends OpsCompare[DiSoOp.Kind.!=] with `Op!=`
+  object `Op==` extends OpsCompare(DiSoOp.Kind.==) with `Op==`
+  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=) with `Op!=`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }
