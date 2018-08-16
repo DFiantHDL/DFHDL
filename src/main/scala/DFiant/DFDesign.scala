@@ -148,7 +148,7 @@ object DFDesign {
 }
 
 
-abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp])
+abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldedOwnerConstruct {
   def foldedConstructCodeString : String = super.constructCodeString
   final override private[DFiant] lazy val unfold = {
@@ -167,22 +167,25 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     def isOpen : Boolean = dfVal.connectedSource.isEmpty
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-  override lazy val typeName: String = getClass.getName
+  override lazy val typeName: String = ctx.compName.value + args.value.dropRight(1).head.map(e => e.value).mkString("(",", ",")")
 }
 
 object DFComponent {
   trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Nothing, DFBlock] {
     implicit val impl : DFComponent.Implementation[Comp]
+    val compName : sourcecode.Name.OfType[Comp]
   }
   object Context {
     implicit def ev[Comp <: DFComponent[Comp]](
-      implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
+      implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib,
+      evConfig : DFAnyConfiguration, evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
     ) : Context[Comp] = new Context[Comp] {
       implicit val owner: DFBlock = evOwner
       implicit val impl: DFComponent.Implementation[Comp] = evImpl
       implicit val basicLib: DFBasicLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
+      val compName = evCompName
     }
   }
 

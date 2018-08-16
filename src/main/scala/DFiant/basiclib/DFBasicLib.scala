@@ -47,7 +47,7 @@ object DFBasicLib {
         case _: DiSoOp.Kind.* => setInitFunc(outResult)(() => DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
         case _ =>
       }
-      override lazy val typeName: String = s"`basicLib$$DFUIntOps$$Comp$kind`"
+//      override lazy val typeName: String = s"`basicLib$$DFUIntOps$$Comp$kind`"
     }
 
     type `Comp+` = Arithmetic[DiSoOp.Kind.+]

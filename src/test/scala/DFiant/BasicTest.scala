@@ -193,7 +193,8 @@ object BlaBla extends App {
     val i = DFUInt(8) <> IN init(5)
     val o = DFUInt(8) <> OUT
     import basicLib.DFUIntOps._
-    val opInst = new basicLib.DFUIntOps.`Comp+`(8, 1, 9) {}
+    val opInst = new basicLib.DFUIntOps.Arithmetic[DFiant.basiclib.DiSoOp.Kind.+](8, 1, 9) {}
+//    val opInst = new basicLib.DFUIntOps.`Comp+`(8, 1, 9) {}
     opInst.inLeft <> i
     opInst.inRight <> 1
     val plusOneWC = opInst.outResult
