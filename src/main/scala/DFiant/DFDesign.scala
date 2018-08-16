@@ -137,7 +137,7 @@ object DFDesign {
       actualTypeName(designTypeName, info)
     }
     def designTraitCodeString(designTypeName : String, designBodyString : String, info : Info) : String =
-      s"\ntrait ${actualTypeName(designTypeName, info)} {$designBodyString\n}"
+      s"\ntrait ${actualTypeName(designTypeName, info)} extends DFDesign {$designBodyString\n}"
     def codeString : String = {
       db.flatMap(e => {
         val designTypeName = e._1
@@ -167,7 +167,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     def isOpen : Boolean = dfVal.connectedSource.isEmpty
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-//  override lazy val typeName: String = getClass.getSimpleName
+  override lazy val typeName: String = getClass.getName
 }
 
 object DFComponent {

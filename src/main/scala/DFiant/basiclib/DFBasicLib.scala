@@ -3,7 +3,6 @@ package DFiant.basiclib
 import DFiant._
 import DFComponent.Implementation
 import singleton.twoface._
-sealed trait AllowUnchecked
 
 trait DFBasicLib {
 
@@ -31,8 +30,6 @@ trait DFBasicLib {
 
 
 object DFBasicLib {
-  protected implicit object AllowUnchecked extends AllowUnchecked
-
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFUInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,15 +38,16 @@ object DFBasicLib {
       val leftWidth : Int, val rightWidth : Int, val resultWidth : Int)(
       implicit ctx : DFComponent.Context[Arithmetic[Kind]], kind : Kind
     ) extends DFComponent[Arithmetic[Kind]] {
-      final val inLeft = DFUInt.unchecked(leftWidth) <> IN
-      final val inRight = DFUInt.unchecked(rightWidth) <> IN
-      final val outResult = DFUInt.unchecked(resultWidth) <> OUT
+      final val inLeft = DFUInt(leftWidth) <> IN
+      final val inRight = DFUInt(rightWidth) <> IN
+      final val outResult = DFUInt(resultWidth) <> OUT
       kind match {
         case _: DiSoOp.Kind.+ => setInitFunc(outResult)(() => DFUInt.Token.+(getInit(inLeft), getInit(inRight)))
         case _: DiSoOp.Kind.- => setInitFunc(outResult)(() => DFUInt.Token.-(getInit(inLeft), getInit(inRight)))
         case _: DiSoOp.Kind.* => setInitFunc(outResult)(() => DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
         case _ =>
       }
+      override lazy val typeName: String = s"`basicLib$$DFUIntOps$$Comp$kind`"
     }
 
     type `Comp+` = Arithmetic[DiSoOp.Kind.+]
@@ -61,11 +59,12 @@ object DFBasicLib {
 
     class Relational[Kind <: DiSoOp.Kind](
       val leftWidth : Int, val rightWidth : Int)(
-      implicit ctx : DFComponent.Context[Relational[Kind]]
+      implicit ctx : DFComponent.Context[Relational[Kind]], kind : Kind
     ) extends DFComponent[Relational[Kind]] {
-      final val inLeft = DFUInt.unchecked(leftWidth) <> IN
-      final val inRight = DFUInt.unchecked(rightWidth) <> IN
+      final val inLeft = DFUInt(leftWidth) <> IN
+      final val inRight = DFUInt(rightWidth) <> IN
       final val outResult = DFBool() <> OUT
+      override lazy val typeName: String = s"`basicLib$$DFUIntOps$$Comp$kind`"
     }
 
     type `Comp==` = Relational[DiSoOp.Kind.==]
@@ -90,11 +89,12 @@ object DFBasicLib {
   trait DFBitsOps {
     class Bitwise[Kind <: DiSoOp.Kind](
       val leftWidth : Int, val rightWidth : Int, val resultWidth : Int)(
-      implicit ctx : DFComponent.Context[Bitwise[Kind]]
+      implicit ctx : DFComponent.Context[Bitwise[Kind]], kind : Kind
     ) extends DFComponent[Bitwise[Kind]] {
-      final val inLeft = DFBits.unchecked(leftWidth) <> IN
-      final val inRight = DFBits.unchecked(rightWidth) <> IN
-      final val outResult = DFBits.unchecked(resultWidth) <> OUT
+      final val inLeft = DFBits(leftWidth) <> IN
+      final val inRight = DFBits(rightWidth) <> IN
+      final val outResult = DFBits(resultWidth) <> OUT
+      override lazy val typeName: String = s"`basicLib$$DFBitsOps$$Comp$kind`"
     }
 
     type `Comp|` = Bitwise[DiSoOp.Kind.|]
@@ -110,11 +110,12 @@ object DFBasicLib {
 
     class Relational[Kind <: DiSoOp.Kind](
       val leftWidth : Int, val rightWidth : Int)(
-      implicit ctx : DFComponent.Context[Relational[Kind]]
+      implicit ctx : DFComponent.Context[Relational[Kind]], kind : Kind
     ) extends DFComponent[Relational[Kind]] {
-      final val inLeft = DFBits.unchecked(leftWidth) <> IN
-      final val inRight = DFBits.unchecked(rightWidth) <> IN
+      final val inLeft = DFBits(leftWidth) <> IN
+      final val inRight = DFBits(rightWidth) <> IN
       final val outResult = DFBool() <> OUT
+      override lazy val typeName: String = s"`basicLib$$DFBitsOps$$Comp$kind`"
     }
 
     type `Comp==` = Relational[DiSoOp.Kind.==]
@@ -130,11 +131,12 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBoolOps {
     class BoolopBool[Kind <: DiSoOp.Kind](
-      implicit ctx : DFComponent.Context[BoolopBool[Kind]]
+      implicit ctx : DFComponent.Context[BoolopBool[Kind]], kind : Kind
     ) extends DFComponent[BoolopBool[Kind]] {
       final val inLeft = DFBool() <> IN
       final val inRight = DFBool() <> IN
       final val outResult = DFBool() <> OUT
+      override lazy val typeName: String = s"`basicLib$$DFBoolOps$$Comp$kind`"
     }
 
     type `Comp||` = BoolopBool[DiSoOp.Kind.||]

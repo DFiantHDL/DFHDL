@@ -147,9 +147,6 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def unchecked[W](width : TwoFace.Int[W])(
-    implicit auc : AllowUnchecked, ctx : DFAny.NewVar.Context
-  ) : NewVar[W] = new NewVar[W](width)
   implicit def apply[W](
     implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : NewVar[W] = new NewVar(checkedWidth)

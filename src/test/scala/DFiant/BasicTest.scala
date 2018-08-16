@@ -1,5 +1,6 @@
 import DFiant._
 import DFiant.internals.DSLOwnerConstruct
+import Xilinx.FPGAs
 import singleton.ops.{XInt, XLong}
 
 trait IODesignConn1 extends DFDesign {
@@ -61,7 +62,8 @@ trait IODesignConn3 extends DFDesign {
   val i = DFUInt(8) <> IN init 5
   val o = DFUInt(8) <> OUT
   val plusOne = i + 1
-  o <> plusOne
+  val plusTwo = plusOne + 1
+  o <> plusTwo
 }
 
 class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
@@ -171,16 +173,40 @@ object BasicTest extends App {
 //  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
-//  val top_ioDesignConn3 = new IODesignConn3 {}
+  val top_ioDesignConn3 = new IODesignConn3 {}
 //  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //  val top_containerConn1 = new ContainerConn1 {}
-  val top_containerConn3 = new ContainerConn3 {}
+//  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
-  println(top_containerConn3.codeString)
+  println(top_ioDesignConn3.codeString)
 }
 
+object BlaBla extends App {
+  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+
+  trait IODesignConn3 extends DFDesign {
+    val i = DFUInt(8) <> IN init(5)
+    val o = DFUInt(8) <> OUT
+    import basicLib.DFUIntOps._
+    val opInst = new basicLib.DFUIntOps.`Comp+`(8, 1, 9) {}
+    opInst.inLeft <> i
+    opInst.inRight <> 1
+    val plusOneWC = opInst.outResult
+    implicitly[plusOneWC.Width =:= Int]
+    val plusOne = plusOneWC.bits(7,0).uint
+    val opInst$1 = new basicLib.DFUIntOps.`Comp+`(8, 1, 9) {}
+    opInst$1.inLeft <> plusOne
+    opInst$1.inRight <> 1
+    val plusTwoWC = opInst$1.outResult
+    val plusTwo = plusTwoWC.bits(7, 0).uint
+    o <> plusTwo
+  }
+
+
+  val top_ioDesignConn3 = new IODesignConn3 {}
+}
