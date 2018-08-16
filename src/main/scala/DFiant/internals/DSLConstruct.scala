@@ -7,7 +7,9 @@ trait DSLConstruct {
 
 }
 
-trait DSLConfiguration
+trait DSLConfiguration {
+  val foldComponents : Boolean
+}
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
   val owner : DSLOwnerConstruct
@@ -61,6 +63,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable w
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
+  val config : DSLConfiguration
   private var idCnt : Int = 0
   private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   final lazy val memberList : List[DSLMemberConstruct] = {
@@ -101,13 +104,13 @@ object DSLOwnerConstruct {
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
-  private var foldRequest : Boolean = false
-  val fold : this.type = {foldRequest = true; this}
-  val unfold : this.type = {foldRequest = false; this}
+//  private[DFiant] var foldRequest : Boolean = true
+//  val fold : this.type = {foldRequest = true; this}
+//  val unfold : this.type = {foldRequest = false; this}
   private[DFiant] var folded : Boolean = true
   private[DFiant] def unfoldedRun : Unit = folded = false
   //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
   protected def foldedRun : Unit = unfoldedRun
-  private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = if (foldRequest) foldedRun else unfoldedRun
+  private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = if (config.foldComponents) foldedRun else unfoldedRun
 
 }

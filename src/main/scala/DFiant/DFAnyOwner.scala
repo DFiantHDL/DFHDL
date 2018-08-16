@@ -43,10 +43,12 @@ trait DFAnyConfiguration extends DSLConfiguration {
 object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = false
+    val foldComponents : Boolean = true
     val commentInitValues: Boolean = false
   }
   object detailed extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = true
+    val foldComponents : Boolean = false
     val commentInitValues: Boolean = true
   }
 }

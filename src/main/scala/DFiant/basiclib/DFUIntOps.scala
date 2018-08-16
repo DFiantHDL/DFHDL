@@ -9,11 +9,13 @@ object DFUIntOps {
     final val inLeft = DFUInt(leftWidth) <> IN
     final val inRight = DFUInt(rightWidth) <> IN
     final val outResult = DFUInt(resultWidth) <> OUT
-    kind match {
-      case _: DiSoOp.Kind.+ => setInitFunc(outResult)(DFUInt.Token.+(getInit(inLeft), getInit(inRight)))
-      case _: DiSoOp.Kind.- => setInitFunc(outResult)(DFUInt.Token.-(getInit(inLeft), getInit(inRight)))
-      case _: DiSoOp.Kind.* => setInitFunc(outResult)(DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
-      case _ =>
+    override protected def foldedRun: Unit = {
+      kind match {
+        case _: DiSoOp.Kind.+ => setInitFunc(outResult)(DFUInt.Token.+(getInit(inLeft), getInit(inRight)))
+        case _: DiSoOp.Kind.- => setInitFunc(outResult)(DFUInt.Token.-(getInit(inLeft), getInit(inRight)))
+        case _: DiSoOp.Kind.* => setInitFunc(outResult)(DFUInt.Token.*(getInit(inLeft), getInit(inRight)))
+        case _ =>
+      }
     }
   }
 

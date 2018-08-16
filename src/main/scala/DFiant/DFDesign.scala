@@ -164,14 +164,14 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 
-  final override def constructCodeString : String = if (folded) foldedConstructCodeString else super.constructCodeString
+  final override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
   final override def codeString : String = super.codeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
     def isOpen : Boolean = dfVal.connectedSource.isEmpty
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-  override lazy val typeName: String = getClass.getName
+  override lazy val typeName: String = getClass.getSimpleName
 
 }
 
