@@ -151,7 +151,7 @@ object DFDesign {
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct {
   def foldedConstructCodeString : String = super.constructCodeString
-  final override private[DFiant] lazy val unfoldedRun = {
+  final override private[DFiant] def unfoldedRun = {
     ctx.impl(this.asInstanceOf[Comp])
     folded = false
   }

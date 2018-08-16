@@ -10,37 +10,49 @@ trait Series {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFUIntOps extends DFBasicLib.DFUIntOps {
       import DFiant.basiclib.DFUIntOps._
-      class RTAddSub(aWidth : Int, bWidth : Int, sWidth : Int)
-        (initFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token])
+      class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(DFUInt.Token.+(getInit(A), getInit(B)))
+      }
+
+      class RTSub(aWidth : Int, bWidth : Int, sWidth : Int)
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFUInt(aWidth) <> IN
+        final val B = DFUInt(bWidth) <> IN
+        final val S = DFUInt(sWidth) <> OUT
+        setInitFunc(S)(DFUInt.Token.-(getInit(A), getInit(B)))
       }
 
       class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
-        (initFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(DFUInt.Token.*(getInit(A), getInit(B)))
       }
 
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
-        (initFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        opString match {
+          case "==" => setInitFunc(S)(DFUInt.Token.==(getInit(A), getInit(B)))
+          case "!=" => setInitFunc(S)(DFUInt.Token.!=(getInit(A), getInit(B)))
+          case "<"  => setInitFunc(S)(DFUInt.Token.<(getInit(A), getInit(B)))
+          case ">"  => setInitFunc(S)(DFUInt.Token.>(getInit(A), getInit(B)))
+          case "<=" => setInitFunc(S)(DFUInt.Token.<=(getInit(A), getInit(B)))
+          case ">=" => setInitFunc(S)(DFUInt.Token.>=(getInit(A), getInit(B)))
+        }
       }
 
       implicit object `Comp+` extends Implementation[`Comp+`] {
         def apply(comp: `Comp+`): Unit = {
           import comp._
-          val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.+)
+          val rtInst = new RTAdd(leftWidth, rightWidth, resultWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -50,7 +62,7 @@ trait Series {
       implicit object `Comp-` extends Implementation[`Comp-`] {
         def apply(comp: `Comp-`): Unit = {
           import comp._
-          val rtInst = new RTAddSub(leftWidth, rightWidth, resultWidth)(DFUInt.Token.-)
+          val rtInst = new RTSub(leftWidth, rightWidth, resultWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -59,7 +71,7 @@ trait Series {
       implicit object `Comp*` extends Implementation[`Comp*`] {
         def apply(comp: `Comp*`): Unit = {
           import comp._
-          val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)(DFUInt.Token.*)
+          val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -69,7 +81,7 @@ trait Series {
       implicit object `Comp==` extends Implementation[`Comp==`] {
         def apply(comp: `Comp==`): Unit = {
           import comp._
-          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFUInt.Token.==)
+          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -78,7 +90,7 @@ trait Series {
       implicit object `Comp!=` extends Implementation[`Comp!=`] {
         def apply(comp: `Comp!=`): Unit = {
           import comp._
-          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFUInt.Token.!=)
+          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -87,7 +99,7 @@ trait Series {
       implicit object `Comp<` extends Implementation[`Comp<`] {
         def apply(comp: `Comp<`): Unit = {
           import comp._
-          val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)(DFUInt.Token.<)
+          val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -96,7 +108,7 @@ trait Series {
       implicit object `Comp>` extends Implementation[`Comp>`] {
         def apply(comp: `Comp>`): Unit = {
           import comp._
-          val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)(DFUInt.Token.>)
+          val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -105,7 +117,7 @@ trait Series {
       implicit object `Comp<=` extends Implementation[`Comp<=`] {
         def apply(comp: `Comp<=`): Unit = {
           import comp._
-          val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)(DFUInt.Token.<=)
+          val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -114,7 +126,7 @@ trait Series {
       implicit object `Comp>=` extends Implementation[`Comp>=`] {
         def apply(comp: `Comp>=`): Unit = {
           import comp._
-          val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)(DFUInt.Token.>=)
+          val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight
           rtInst.S <> outResult
@@ -122,6 +134,7 @@ trait Series {
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFUInt

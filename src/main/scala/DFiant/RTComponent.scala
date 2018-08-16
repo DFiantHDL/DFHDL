@@ -4,7 +4,7 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterface {
+abstract class RTComponent(implicit ctx : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
   override implicit def theOwnerToBe : RTComponent = this
   protected def newGeneric() : Unit = {}
   final val owner : DFBlock = ctx.owner
@@ -23,13 +23,11 @@ abstract class RTComponent(implicit ctx : RTComponent.Context) extends DFInterfa
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 
-  final protected[DFiant] lazy val init : Unit = {
-    //set Output Ports Dependency
-//    portNodes.map(pn => pn.dfport).filter(p => p.dir.isOut).foreach(p => p.setComponentDependency(this))
-  }
+  final protected[DFiant] lazy val init : Unit = {}
   final val id = getID
 
-  override lazy val typeName: String = getClass.getName
+  override lazy val typeName: String =
+    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
 
   override def codeString: String = {
     s"\nval $name = new $typeName {}"
