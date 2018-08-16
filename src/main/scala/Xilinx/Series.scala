@@ -163,13 +163,7 @@ trait Series {
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    implicit def `evE==E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E==E`[E]] = ifc => {
-      import ifc._
-    }
-    implicit def `evE!=E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E!=E`[E]] = ifc => {
-      import ifc._
-    }
-    
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBool
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -213,6 +207,17 @@ trait Series {
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    object DFEnumOps extends DFBasicLib.DFEnumOps {
+      import DFiant.basiclib.DFEnumOps._
+      implicit def `ev==`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp==`[E]] = ifc => {
+        import ifc._
+      }
+      implicit def `ev!=`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp!=`[E]] = ifc => {
+        import ifc._
+      }
+    }
   }
 
 }

@@ -9,23 +9,8 @@ trait DFBasicLib {
   val DFUIntOps : DFBasicLib.DFUIntOps
   val DFBitsOps : DFBasicLib.DFBitsOps
   val DFBoolOps : DFBasicLib.DFBoolOps
+  val DFEnumOps : DFBasicLib.DFEnumOps
 
-
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // DFEnum
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class EopEeqB[Kind <: DiSoOp.Kind, E <: Enum](e : E)(
-    implicit ctx : DFComponent.Context[EopEeqB[Kind, E]]
-  ) extends DFComponent[EopEeqB[Kind, E]] {
-    final lazy val inLeft = ??? //new DFEnum.NewVar[E]() <> IN
-    final lazy val inRight = ??? //new DFEnum.NewVar[E]() <> IN
-    final lazy val outResult = ??? //DFBool() <> OUT
-  }
-  type `E==E`[E <: Enum] = EopEeqB[DiSoOp.Kind.==, E]
-  implicit def `evE==E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E==E`[E]]
-  type `E!=E`[E <: Enum] = EopEeqB[DiSoOp.Kind.!=, E]
-  implicit def `evE!=E`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`E!=E`[E]]
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 
@@ -75,4 +60,16 @@ object DFBasicLib {
     implicit def `ev!=`(implicit ctx : Implementation.Context) : Implementation[`Comp!=`]
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // DFEnum
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait DFEnumOps {
+    import DFiant.basiclib.DFEnumOps._
+    implicit def `ev==`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp==`[E]]
+    implicit def `ev!=`[E <: Enum](implicit ctx : Implementation.Context) : Implementation[`Comp!=`[E]]
+  }
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 }
