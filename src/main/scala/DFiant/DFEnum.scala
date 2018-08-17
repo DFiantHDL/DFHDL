@@ -316,11 +316,11 @@ object Enum {
   abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(implicit n : NameIt) extends Enum {
     type EntryWidth = Int
     final lazy val width : TwoFace.Int[EntryWidth] = encoding.calcWidth(entries.size)
-    private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = new Entry {}  //${e._1.codeString}").mkString
+    private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry()  //${e._1.codeString}").mkString
     private def encodingCodeString : String = if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
     final def codeString : String = s"\nobject $name extends Enum.Auto$encodingCodeString {$entriesCodeString\n}"
 
-    class Entry private[Auto] (implicit val enumOwner : Enum, n : NameIt) extends Enum.Entry {
+    class Entry private[DFiant] (implicit val enumOwner : Enum, n : NameIt) extends Enum.Entry {
       val value : BigInt = encoding.func(entries.size)
       val name : String = n.value
       enumOwner.update(this)
@@ -335,43 +335,42 @@ object Enum {
     private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry(${e._1.toBitVector(width).codeString})").mkString
     final def codeString : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
 
-    class Entry private (val value : BigInt, val enumOwner : Enum, val name : String) extends Enum.Entry {
+    class Entry private[DFiant] (val value : BigInt, val enumOwner : Enum, val name : String) extends Enum.Entry {
       enumOwner.update(this)
       latestEntryValue = Some(value)
     }
-    object Entry {
-      def apply[T <: Int with Singleton](t : T)(
-        implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : Enum, n : NameIt
-      ) : Entry = new Entry(t, enumOwner, n.value)
 
-      def apply[T <: Long with Singleton](t : T)(
-        implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]], enumOwner : Enum, n : NameIt
-      ) : Entry = new Entry(t, enumOwner, n.value)
+    def Entry[T <: Int with Singleton](t : T)(
+      implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : Enum, n : NameIt
+    ) : Entry = new Entry(t, enumOwner, n.value)
 
-      def apply(t : BigInt)(
-        implicit enumOwner : Enum, n : NameIt
-      ) : Entry = {
-        require(t.bitsWidth <= width, s"`${n.value}` entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
-        new Entry(t, enumOwner, n.value)
-      }
+    def Entry[T <: Long with Singleton](t : T)(
+      implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]], enumOwner : Enum, n : NameIt
+    ) : Entry = new Entry(t, enumOwner, n.value)
 
-      private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
-      def apply[W](t : XBitVector[W])(
-        implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : Enum, n : NameIt
-      ) : Entry = new Entry(t.toBigInt, enumOwner, n.value)
-
-      def apply(t : BitVector)(
-        implicit enumOwner : Enum, n : NameIt
-      ) : Entry = {
-        require(t.length.toInt == width.getValue, s"`${n.value}` entry value width (${t.length}) is different than the enumeration width ($width)")
-        new Entry(t.toBigInt, enumOwner, n.value)
-      }
-
-      def incLastBy(t : BigInt)(implicit n : NameIt) : Entry = Entry(latestEntryValue match {
-        case Some(value) => value + 1
-        case None => BigInt(0)
-      })
-      def incLastBy(t : BitVector) : Entry = incLastBy(t.toBigInt)
+    def Entry(t : BigInt)(
+      implicit enumOwner : Enum, n : NameIt
+    ) : Entry = {
+      require(t.bitsWidth <= width, s"`${n.value}` entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
+      new Entry(t, enumOwner, n.value)
     }
+
+    private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
+    def Entry[W](t : XBitVector[W])(
+      implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : Enum, n : NameIt
+    ) : Entry = new Entry(t.toBigInt, enumOwner, n.value)
+
+    def Entry(t : BitVector)(
+      implicit enumOwner : Enum, n : NameIt
+    ) : Entry = {
+      require(t.length.toInt == width.getValue, s"`${n.value}` entry value width (${t.length}) is different than the enumeration width ($width)")
+      new Entry(t.toBigInt, enumOwner, n.value)
+    }
+
+    def EntryIncLastBy(t : BigInt)(implicit n : NameIt) : Entry = Entry(latestEntryValue match {
+      case Some(value) => value + 1
+      case None => BigInt(0)
+    })
+    def EntryIncLastBy(t : BitVector) : Entry = EntryIncLastBy(t.toBigInt)
   }
 }

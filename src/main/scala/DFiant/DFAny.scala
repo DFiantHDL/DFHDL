@@ -147,9 +147,10 @@ sealed trait DFAny extends DSLMemberConstruct {
   protected def constructCodeString : String
   override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
     if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
-  final protected def initCommentString : String =
-    if (config.commentInitValues) s"  //init = ${getInit.codeString}" else ""
-  final def codeString : String = s"\nval $name = $constructCodeString$initCommentString"
+  private def initCommentString : String =
+    if (config.commentInitValues) s"//init = ${getInit.codeString}" else ""
+  private def valCodeString : String = s"\nval $name = $constructCodeString"
+  final def codeString : String = f"$valCodeString%-60s$initCommentString"
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -354,6 +355,7 @@ object DFAny {
     final val id = getID
   }
   object Alias {
+    trait Tag
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 

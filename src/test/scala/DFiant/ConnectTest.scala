@@ -170,16 +170,16 @@ class ConnectTest extends Properties("ConnectTest") {
     val compare =
       """
         |trait $anon$1 extends DFDesign {
-        |  val i = DFUInt(8) <> IN  //init = (1)
-        |  val o = DFUInt(8) <> OUT  //init = (2)
+        |  val i = DFUInt(8) <> IN                                    //init = (1)
+        |  val o = DFUInt(8) <> OUT                                   //init = (2)
         |  val rt = new ConnectTest$RTx2(8) {}
         |  rt.I <> i
         |  o <> rt.O
         |}
         |
         |trait ConnectTest$IODesignConn2 extends DFDesign {
-        |  val i = DFUInt(8) <> IN init(1)  //init = (1)
-        |  val o = DFUInt(8) <> OUT  //init = (2)
+        |  val i = DFUInt(8) <> IN init(1)                            //init = (1)
+        |  val o = DFUInt(8) <> OUT                                   //init = (2)
         |  val io = new $anon$1 {}
         |  io.i <> i
         |  o <> io.o
@@ -196,26 +196,26 @@ class ConnectTest extends Properties("ConnectTest") {
     val compare =
       """
         |trait ConnectTest$IODesignConn5 extends DFDesign {
-        |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-        |  val o = DFUInt(8) <> OUT  //init = (Φ)
-        |  val $anon = i.prev  //init = (2, 3, 4, Φ)
-        |  val $anon$1 = $anon.prev  //init = (3, 4, Φ)
-        |  val $anon$2 = $anon$1.prev  //init = (4, Φ)
-        |  val $anon$3 = $anon$2.prev  //init = (Φ)
+        |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)                //init = (1, 2, 3, 4, Φ)
+        |  val o = DFUInt(8) <> OUT                                   //init = (Φ)
+        |  val $anon = i.prev                                         //init = (2, 3, 4, Φ)
+        |  val $anon$1 = $anon.prev                                   //init = (3, 4, Φ)
+        |  val $anon$2 = $anon$1.prev                                 //init = (4, Φ)
+        |  val $anon$3 = $anon$2.prev                                 //init = (Φ)
         |  o <> $anon$3
-        |  val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-        |  val o$1 = DFUInt(8) <> OUT  //init = (Φ)
-        |  val $anon$4 = i$1.prev  //init = (2, 3, 4, Φ)
-        |  val $anon$5 = $anon$4.prev  //init = (3, 4, Φ)
-        |  val $anon$6 = $anon$5.prev  //init = (4, Φ)
-        |  val $anon$7 = $anon$6.prev  //init = (Φ)
+        |  val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
+        |  val o$1 = DFUInt(8) <> OUT                                 //init = (Φ)
+        |  val $anon$4 = i$1.prev                                     //init = (2, 3, 4, Φ)
+        |  val $anon$5 = $anon$4.prev                                 //init = (3, 4, Φ)
+        |  val $anon$6 = $anon$5.prev                                 //init = (4, Φ)
+        |  val $anon$7 = $anon$6.prev                                 //init = (Φ)
         |  o$1 <> $anon$7
-        |  val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)  //init = (1, 2, 3, 4, Φ)
-        |  val o$2 = DFUInt(8) <> OUT  //init = (Φ)
-        |  val $anon$8 = i$2.prev  //init = (2, 3, 4, Φ)
-        |  val $anon$9 = $anon$8.prev  //init = (3, 4, Φ)
-        |  val $anon$10 = $anon$9.prev  //init = (4, Φ)
-        |  val $anon$11 = $anon$10.prev  //init = (Φ)
+        |  val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
+        |  val o$2 = DFUInt(8) <> OUT                                 //init = (Φ)
+        |  val $anon$8 = i$2.prev                                     //init = (2, 3, 4, Φ)
+        |  val $anon$9 = $anon$8.prev                                 //init = (3, 4, Φ)
+        |  val $anon$10 = $anon$9.prev                                //init = (4, Φ)
+        |  val $anon$11 = $anon$10.prev                               //init = (Φ)
         |  o$2 <> $anon$11
         |}
         |
@@ -251,9 +251,9 @@ class ConnectTest extends Properties("ConnectTest") {
     val compare =
       """
         |trait Arithmetic extends DFDesign {
-        |  val inLeft = DFUInt(8) <> IN  //init = (5)
-        |  val inRight = DFUInt(1) <> IN  //init = (1)
-        |  val outResult = DFUInt(9) <> OUT  //init = (6)
+        |  val inLeft = DFUInt(8) <> IN                               //init = (5)
+        |  val inRight = DFUInt(1) <> IN                              //init = (1)
+        |  val outResult = DFUInt(9) <> OUT                           //init = (6)
         |  val rtInst = new Xilinx.Series$basicLib$DFUIntOps$RTAdd(8, 1, 9) {}
         |  rtInst.A <> inLeft
         |  rtInst.B <> inRight
@@ -261,18 +261,18 @@ class ConnectTest extends Properties("ConnectTest") {
         |}
         |
         |trait ConnectTest$IODesignConn3 extends DFDesign {
-        |  val i = DFUInt(8) <> IN init(5)  //init = (5)
-        |  val o = DFUInt(8) <> OUT  //init = (6)
-        |  val o_wc = DFUInt(9) <> OUT  //init = (6)
-        |  val o_c = DFBool() <> OUT  //init = (false)
+        |  val i = DFUInt(8) <> IN init(5)                            //init = (5)
+        |  val o = DFUInt(8) <> OUT                                   //init = (6)
+        |  val o_wc = DFUInt(9) <> OUT                                //init = (6)
+        |  val o_c = DFBool() <> OUT                                  //init = (false)
         |  val opInst = new Arithmetic {}
         |  opInst.inLeft <> i
         |  opInst.inRight <> 1
-        |  val plusOneWC = opInst.outResult  //init = (6)
-        |  val plusOne = plusOneWC.bits(7, 0).uint  //init = (6)
+        |  val plusOneWC = opInst.outResult                           //init = (6)
+        |  val plusOne = plusOneWC.bits(7, 0).uint                    //init = (6)
         |  o <> plusOne
         |  o_wc <> plusOneWC
-        |  val plusOneC = plusOneWC.bit(8)  //init = (false)
+        |  val plusOneC = plusOneWC.bit(8)                            //init = (false)
         |  o_c <> plusOneC
         |}
         |
@@ -287,9 +287,9 @@ class ConnectTest extends Properties("ConnectTest") {
     val compare =
       """
         |trait Relational extends DFDesign {
-        |  val inLeft = DFUInt(8) <> IN  //init = (1)
-        |  val inRight = DFUInt(8) <> IN  //init = (8)
-        |  val outResult = DFBool() <> OUT  //init = (true)
+        |  val inLeft = DFUInt(8) <> IN                               //init = (1)
+        |  val inRight = DFUInt(8) <> IN                              //init = (8)
+        |  val outResult = DFBool() <> OUT                            //init = (true)
         |  val rtInst = new Xilinx.Series$basicLib$DFUIntOps$RTInfixRelationalOp(<)(8, 8) {}
         |  rtInst.A <> inLeft
         |  rtInst.B <> inRight
@@ -297,9 +297,9 @@ class ConnectTest extends Properties("ConnectTest") {
         |}
         |
         |trait ConnectTest$IODesignConn4 extends DFDesign {
-        |  val i1 = DFUInt(8) <> IN init(8)  //init = (8)
-        |  val i2 = DFUInt(8) <> IN init(1)  //init = (1)
-        |  val o = DFBool() <> OUT  //init = (true)
+        |  val i1 = DFUInt(8) <> IN init(8)                           //init = (8)
+        |  val i2 = DFUInt(8) <> IN init(1)                           //init = (1)
+        |  val o = DFBool() <> OUT                                    //init = (true)
         |  val opInst = new Relational {}
         |  opInst.inLeft <> i2
         |  opInst.inRight <> i1

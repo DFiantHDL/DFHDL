@@ -170,26 +170,21 @@ trait IODesignConn8 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
-//  val top_ioDesignConn4 = new IODesignConn4 {}
+  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
-    val top_ioDesignConn8 = new IODesignConn8 {}
+//    val top_ioDesignConn8 = new IODesignConn8 {}
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
-  println(top_ioDesignConn8.codeString)
-
-  object PCSel extends Enum.Auto(Enum.Encoding.Grey) {
-    val Plus4, Branch, Jump, JumpReg, Exception = Entry
-  }
-  println(PCSel.codeString)
+  println(top_ioDesignConn4.codeString)
 }
 //
 //object BlaBla extends App {

@@ -1,4 +1,4 @@
-package DFiant
+import DFiant._
 
 import org.scalacheck._
 import shapeless.test.illTyped
@@ -47,11 +47,11 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     val compare =
       """
         |object Foo extends Enum.Auto {
-        |  val Baz0            = new Entry {}  //0
-        |  val Baz1            = new Entry {}  //1
-        |  val Baz2            = new Entry {}  //2
-        |  val Baz3            = new Entry {}  //3
-        |  val Baz4            = new Entry {}  //4
+        |  val Baz0            = Entry()  //0
+        |  val Baz1            = Entry()  //1
+        |  val Baz2            = Entry()  //2
+        |  val Baz3            = Entry()  //3
+        |  val Baz4            = Entry()  //4
         |}
       """.stripMargin
     Foo.codeString =@= compare
@@ -61,11 +61,11 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     val compare =
       """
         |object GreyFoo extends Enum.Auto(Enum.Encoding.Grey) {
-        |  val Baz0            = new Entry {}  //0
-        |  val Baz1            = new Entry {}  //1
-        |  val Baz2            = new Entry {}  //3
-        |  val Baz3            = new Entry {}  //2
-        |  val Baz4            = new Entry {}  //6
+        |  val Baz0            = Entry()  //0
+        |  val Baz1            = Entry()  //1
+        |  val Baz2            = Entry()  //3
+        |  val Baz3            = Entry()  //2
+        |  val Baz4            = Entry()  //6
         |}
       """.stripMargin
     GreyFoo.codeString =@= compare
@@ -75,11 +75,11 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     val compare =
       """
         |object OneHotFoo extends Enum.Auto(Enum.Encoding.OneHot) {
-        |  val Baz0            = new Entry {}  //1
-        |  val Baz1            = new Entry {}  //2
-        |  val Baz2            = new Entry {}  //4
-        |  val Baz3            = new Entry {}  //8
-        |  val Baz4            = new Entry {}  //16
+        |  val Baz0            = Entry()  //1
+        |  val Baz1            = Entry()  //2
+        |  val Baz2            = Entry()  //4
+        |  val Baz3            = Entry()  //8
+        |  val Baz4            = Entry()  //16
         |}
       """.stripMargin
     OneHotFoo.codeString =@= compare
@@ -89,11 +89,11 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     val compare =
       """
         |object StartAt25Foo extends Enum.Auto(Enum.Encoding.StartAt(25)) {
-        |  val Baz0            = new Entry {}  //25
-        |  val Baz1            = new Entry {}  //26
-        |  val Baz2            = new Entry {}  //27
-        |  val Baz3            = new Entry {}  //28
-        |  val Baz4            = new Entry {}  //29
+        |  val Baz0            = Entry()  //25
+        |  val Baz1            = Entry()  //26
+        |  val Baz2            = Entry()  //27
+        |  val Baz3            = Entry()  //28
+        |  val Baz4            = Entry()  //29
         |}
       """.stripMargin
     StartAt25Foo.codeString =@= compare
@@ -105,11 +105,11 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
   object Foo extends Enum.Manual(2) {
     val Bar0 = Entry(0)
     val Bar1 = Entry(1)
-    val Bar2 = Entry.incLastBy(1)
+    val Bar2 = EntryIncLastBy(1)
     val Bar3 = Entry(b"11")
     illRun {val Bar0a = Entry(0L)}
     illRun {val Bar0b = Entry(BigInt(0))}
-    illRun {val Bar4 = Entry.incLastBy(1)}
+    illRun {val Bar4 = EntryIncLastBy(1)}
   }
 
   trait MyDesign extends DFDesign {
