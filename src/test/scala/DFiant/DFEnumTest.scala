@@ -40,7 +40,7 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
 
 
 class DFEnumManualTest extends Properties("DFEnumManualTest") {
-  object Foo extends Enum.Manual[2] {
+  object Foo extends Enum.Manual(2) {
     val Bar1 = Entry(1)
     val Bar2 = Entry(0)
     val Bar3 = Entry(0L)

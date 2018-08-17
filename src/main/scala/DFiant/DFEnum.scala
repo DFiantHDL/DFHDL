@@ -263,6 +263,12 @@ object DFEnum extends DFAny.Companion {
 
 sealed abstract class Enum(implicit n : NameIt) {
   private[DFiant] val entries : HashMap[BigInt, Enum.Entry] = HashMap.empty[BigInt, Enum.Entry]
+  private[DFiant] def update(entry : Enum.Entry) : Unit = {
+    entries.get(entry.value) match {
+      case Some(existingEntry) => throw new IllegalArgumentException(s"\nDuplicate enum entry values. Attempted to create new entry `$entry` with the value ${entry.value}. The value is already taken by entry `$existingEntry`.")
+      case None => entries.update(entry.value, entry)
+    }
+  }
   final protected implicit val EnumOwnerToBe : Enum = this
   type Entry <: Enum.Entry
   type EntryWidth
@@ -276,6 +282,7 @@ object Enum {
     val enumOwner : Enum
     val name : String
     lazy val fullName = s"${enumOwner.name}.$name"
+    override def toString: String = name
   }
 
   trait Encoding {
@@ -300,7 +307,7 @@ object Enum {
       val func : Int => BigInt = t => BigInt(1) << t
     }
   }
-  
+
   abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(implicit n : NameIt) extends Enum {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
@@ -315,15 +322,35 @@ object Enum {
     abstract class Entry(implicit cnt : Counter, val enumOwner : Enum, n : NameIt) extends Enum.Entry {
       val value : BigInt = cnt.getValue
       cnt.inc
+      enumOwner.update(this)
+      val name : String = n.value
+    }
+  }
+
+  abstract class AutoMax[Width <: Int with Singleton, E <: Encoding](width : Width)
+    (val encoding : E = Encoding.Default)(implicit n : NameIt) extends Enum {
+    type EntryWidth = Width
+    final protected implicit val cnt = new Auto.Counter(encoding.func) {}
+  }
+  object AutoMax {
+    abstract class Counter(func : Int => BigInt) {
+      def getValue : BigInt = func(cnt)
+      private var cnt : Int = 0
+      def inc : Unit = {cnt = cnt + 1}
+    }
+    abstract class Entry(implicit cnt : Counter, val enumOwner : Enum, n : NameIt) extends Enum.Entry {
+      val value : BigInt = cnt.getValue
+      cnt.inc
       enumOwner.entries.update(value, this)
       val name : String = n.value
     }
   }
-  abstract class Manual[Width](implicit width : SafeInt[Width]) extends Enum {
+
+  abstract class Manual[Width <: Int with Singleton](width : Width) extends Enum {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     class Entry private (val value : BigInt, val enumOwner : Enum, val name : String) extends Enum.Entry {
-      enumOwner.entries.update(value, this)
+      enumOwner.update(this)
     }
     object Entry {
       def apply[T <: Int with Singleton](t : T)(

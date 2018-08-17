@@ -2,7 +2,7 @@ package Proc
 import DFiant._
 
 
-trait Opcode extends Enum.Manual[7] {
+object Opcode extends Enum.Manual(7) {
   val LUI     = Entry(b"0110111")
   val AUIPC   = Entry(b"0010111")
   val JAL     = Entry(b"1101111")
@@ -14,7 +14,14 @@ trait Opcode extends Enum.Manual[7] {
   val BLTU    = Entry(b"0110111")
   val BGEU    = Entry(b"0110111")
 }
-object Opcode extends Opcode
+
+object PCSel extends Enum.Manual(3) {
+  val Plus4   = Entry(0)  // PC + 4
+  val Branch  = Entry(1)  // branch_target
+  val Jump    = Entry(2)  // jump_target
+  val JumpR   = Entry(3)  // jump_reg_target
+  val Except  = Entry(4)  // exception
+}
 
 
 trait Instr extends DFBits[Instr.XLEN] {
