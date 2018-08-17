@@ -260,7 +260,8 @@ object DFEnum extends DFAny.Companion {
 
 
 sealed abstract class Enum(implicit n : NameIt) {
-  final protected[DFiant] implicit val entries : HashMap[BigInt, Enum.Entry] = HashMap.empty[BigInt, Enum.Entry]
+  private[DFiant] val entries : HashMap[BigInt, Enum.Entry] = HashMap.empty[BigInt, Enum.Entry]
+  final protected implicit val EnumOwnerToBe : Enum = this
   type Entry <: Enum.Entry
   type EntryWidth
   val name : String = n.value
@@ -270,6 +271,7 @@ sealed abstract class Enum(implicit n : NameIt) {
 object Enum {
   sealed trait Entry {
     val value : BigInt
+    val enumOwner : Enum
   }
 
   trait Encoding {
@@ -306,38 +308,49 @@ object Enum {
       private var cnt : Int = 0
       def inc : Unit = {cnt = cnt + 1}
     }
-    abstract class Entry(implicit cnt : Counter, entries : HashMap[BigInt, Enum.Entry]) extends Enum.Entry {
+    abstract class Entry(implicit cnt : Counter, val enumOwner : Enum) extends Enum.Entry {
       val value : BigInt = cnt.getValue
       cnt.inc
-      entries.update(value, this)
+      enumOwner.entries.update(value, this)
     }
   }
   abstract class Manual[Width](implicit width : SafeInt[Width]) extends Enum {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
-    abstract class Entry private extends Enum.Entry
+    abstract class Entry private (val enumOwner : Enum) extends Enum.Entry
     object Entry {
-      def apply[T <: Int with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]]) : Entry = new Entry {
+      def apply[T <: Int with Singleton](t : T)(
+        implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : Enum
+      ) : Entry = new Entry(enumOwner) {
         val value : BigInt = t
+        enumOwner.entries.update(value, this)
       }
-      def apply[T <: Long with Singleton](t : T)(implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]]) : Entry = new Entry {
+      def apply[T <: Long with Singleton](t : T)(
+        implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]], enumOwner : Enum
+      ) : Entry = new Entry(enumOwner) {
         val value : BigInt = t
+        enumOwner.entries.update(value, this)
       }
-      def apply(t : BigInt) : Entry = new Entry {
+      def apply(t : BigInt)(implicit enumOwner : Enum) : Entry = new Entry(enumOwner) {
         val value : BigInt = {
           require(t.bitsWidth <= width, s"Entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
           t
         }
+        enumOwner.entries.update(value, this)
       }
       private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
-      def apply[W](t : XBitVector[W])(implicit check : RequireMsg[W == Width, Msg2[W]]) : Entry = new Entry {
+      def apply[W](t : XBitVector[W])(
+        implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : Enum
+      ) : Entry = new Entry(enumOwner) {
         val value : BigInt = t.toBigInt
+        enumOwner.entries.update(value, this)
       }
-      def apply(t : BitVector) : Entry = new Entry {
+      def apply(t : BitVector)(implicit enumOwner : Enum) : Entry = new Entry(enumOwner) {
         val value : BigInt = {
           require(t.length == width.toLong, s"Entry value width (${t.length}) is different than the enumeration width ($width)")
           t.toBigInt
         }
+        enumOwner.entries.update(value, this)
       }
     }
   }
