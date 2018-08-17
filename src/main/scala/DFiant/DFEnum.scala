@@ -87,6 +87,8 @@ object DFEnum extends DFAny.Companion {
       case _ => DFBool.Token(Bubble)
     }
     final def != (that : Token[E]) : DFBool.Token = !(this == that)
+
+    override def codeString: String = if (isBubble) "Φ" else valueEnum.get.fullName
   }
 
   object Token {
@@ -299,7 +301,7 @@ object Enum {
     }
   }
   
-  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default) extends Enum {
+  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(implicit n : NameIt) extends Enum {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
     final protected implicit val cnt = new Auto.Counter(encoding.func) {}

@@ -137,11 +137,16 @@ trait ContainerConn4 extends DFDesign {
   true <> ob
 }
 
-//trait IODesign extends DFDesign {
-//  val i = DFUInt(8) <> IN
-//  val o = DFUInt(8) <> OUT
-//  o := i
-//}
+object Foo extends Enum.Auto {
+  sealed trait Entry extends Enum.Auto.Entry
+  val Baz0, Baz1, Baz2, Baz3, Baz4 = new Entry {}
+}
+
+trait IODesignConn8 extends DFDesign {
+  val i = DFEnum(Foo) <> IN init Foo.Baz3
+  val o = DFEnum(Foo) <> OUT
+  o := i
+}
 //
 //trait IODesign1 extends DFDesign {
 //  val i = DFUInt(8) <> IN
@@ -169,17 +174,18 @@ object BasicTest extends App {
 //  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
-  val top_ioDesignConn3 = new IODesignConn3 {}
+//  val top_ioDesignConn3 = new IODesignConn3 {}
 //  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
+    val top_ioDesignConn8 = new IODesignConn8 {}
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
-  println(top_ioDesignConn3.codeString)
+  println(top_ioDesignConn8.codeString)
 }
 //
 //object BlaBla extends App {
