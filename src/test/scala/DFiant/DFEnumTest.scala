@@ -3,6 +3,7 @@ package DFiant
 import org.scalacheck._
 import shapeless.test.illTyped
 import singleton.ops._
+import TestUtils._
 
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   object Foo extends Enum.Auto {
@@ -36,16 +37,24 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
     illTyped("""DFEnum(NotSealedFoo)""", """No enumeration entries found or the Entry is not a sealed trait""")
     illTyped("""DFEnum(NoEntriesFoo)""", """No enumeration entries found or the Entry is not a sealed trait""")
   }
+
+  property("MyDesign") = {
+    import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+    val myDesign = new MyDesign {}
+    true
+  }
 }
 
 
 class DFEnumManualTest extends Properties("DFEnumManualTest") {
   object Foo extends Enum.Manual(2) {
+    val Bar0 = Entry(0)
     val Bar1 = Entry(1)
-    val Bar2 = Entry(0)
-    val Bar3 = Entry(0L)
-    val Bar4 = Entry(BigInt(0))
-    val Bar5 = Entry(b"11")
+    val Bar2 = Entry.incLastBy(1)
+    val Bar3 = Entry(b"11")
+    illRun {val Bar0a = Entry(0L)}
+    illRun {val Bar0b = Entry(BigInt(0))}
+    illRun {val Bar4 = Entry.incLastBy(1)}
   }
 
   trait MyDesign extends DFDesign {
@@ -56,5 +65,11 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
     f == Foo.Bar2
     f.prev.bits(1,0)
     illTyped("""f.bits(3,0)""", "Bit index 3 is out of range of width 2")
+  }
+
+  property("MyDesign") = {
+    import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+    val myDesign = new MyDesign {}
+    true
   }
 }

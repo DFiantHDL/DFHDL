@@ -332,7 +332,10 @@ object Enum {
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     class Entry private (val value : BigInt, val enumOwner : Enum, val name : String) extends Enum.Entry {
       enumOwner.update(this)
+      latestEntryValue = Some(value)
+
     }
+    private var latestEntryValue : Option[BigInt] = None
     object Entry {
       def apply[T <: Int with Singleton](t : T)(
         implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : Enum, n : NameIt
@@ -360,6 +363,12 @@ object Enum {
         require(t.length == width.toLong, s"Entry value width (${t.length}) is different than the enumeration width ($width)")
         new Entry(t.toBigInt, enumOwner, n.value)
       }
+
+      def incLastBy(t : BigInt)(implicit n : NameIt) : Entry = Entry(latestEntryValue match {
+        case Some(value) => value + 1
+        case None => BigInt(0)
+      })
+      def incLastBy(t : BitVector) : Entry = incLastBy(t.toBigInt)
     }
   }
 }
