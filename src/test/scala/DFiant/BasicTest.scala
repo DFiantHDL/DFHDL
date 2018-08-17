@@ -186,6 +186,12 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
   println(top_ioDesignConn8.codeString)
+
+  object PCSel extends Enum.Auto(Enum.Encoding.Grey) {
+    sealed trait Entry extends Enum.Auto.Entry
+    val Plus4, Branch, Jump, JumpReg, Exception = new Entry {}
+  }
+  println(PCSel.codeString)
 }
 //
 //object BlaBla extends App {

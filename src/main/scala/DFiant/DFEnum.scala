@@ -5,7 +5,7 @@ import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.internals._
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.LinkedHashMap
 
 
 trait DFEnum[E <: Enum] extends DFEnum.Unbounded {
@@ -262,7 +262,7 @@ object DFEnum extends DFAny.Companion {
 
 
 sealed abstract class Enum(implicit n : NameIt) {
-  private[DFiant] val entries : HashMap[BigInt, Enum.Entry] = HashMap.empty[BigInt, Enum.Entry]
+  private[DFiant] val entries : LinkedHashMap[BigInt, Enum.Entry] = LinkedHashMap.empty[BigInt, Enum.Entry]
   private[DFiant] def update(entry : Enum.Entry) : Unit = {
     entries.get(entry.value) match {
       case Some(existingEntry) => throw new IllegalArgumentException(s"\nDuplicate enum entry values. Attempted to create new entry `$entry` with the value ${entry.value}. The value is already taken by entry `$existingEntry`.")
@@ -273,6 +273,7 @@ sealed abstract class Enum(implicit n : NameIt) {
   type Entry <: Enum.Entry
   type EntryWidth
   val name : String = n.value
+  def codeString : String
   override def toString: String = name
 }
 
@@ -288,23 +289,28 @@ object Enum {
   trait Encoding {
     type EntryWidth[Entry]
     val func : Int => BigInt
+    def codeString : String
   }
   object Encoding {
     object Default extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
       val func : Int => BigInt = t => BigInt(t)
+      def codeString : String = "Enum.Encoding.Default"
     }
     object Grey extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1]
       val func : Int => BigInt = t => BigInt(t ^ (t >>> 1))
+      def codeString : String = "Enum.Encoding.Grey"
     }
     case class StartAt[V <: Int with Singleton](value : V) extends Encoding {
       type EntryWidth[Entry] = BitsWidthOf.CalcInt[EnumCount[Entry]-1 + V]
       val func : Int => BigInt = t => BigInt(t + value)
+      def codeString : String = s"Enum.Encoding.StartAt($value)"
     }
     object OneHot extends Encoding {
       type EntryWidth[Entry] = EnumCount[Entry]
       val func : Int => BigInt = t => BigInt(1) << t
+      def codeString : String = "Enum.Encoding.OneHot"
     }
   }
 
@@ -312,6 +318,10 @@ object Enum {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
     final protected implicit val cnt = new Auto.Counter(encoding.func) {}
+    private def sealedEntryTraitCodeString : String = "\n  sealed trait Entry extends Enum.Auto.Entry"
+    private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = new Entry {}  //${e._1.codeString}").mkString
+    private def encodingCodeString : String = if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
+    def codeString : String = s"\nobject $name extends Enum.Auto$encodingCodeString {$sealedEntryTraitCodeString$entriesCodeString\n}"
   }
   object Auto {
     abstract class Counter(func : Int => BigInt) {
@@ -327,7 +337,7 @@ object Enum {
     }
   }
 
-  abstract class Manual[Width <: Int with Singleton](width : Width) extends Enum {
+  abstract class Manual[Width <: Int with Singleton](width : Width)(implicit n : NameIt) extends Enum {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     class Entry private (val value : BigInt, val enumOwner : Enum, val name : String) extends Enum.Entry {
@@ -335,6 +345,8 @@ object Enum {
       latestEntryValue = Some(value)
 
     }
+    private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry(${e._1.toBitVector(width).codeString})").mkString
+    def codeString : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
     private var latestEntryValue : Option[BigInt] = None
     object Entry {
       def apply[T <: Int with Singleton](t : T)(

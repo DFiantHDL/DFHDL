@@ -1,7 +1,5 @@
 package Proc
 import DFiant._
-import DFiant.internals._
-import singleton.ops._
 
 trait Proc extends DFDesign {
   type MEM_ADDRW = 32
