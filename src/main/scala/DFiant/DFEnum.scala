@@ -117,8 +117,8 @@ object DFEnum extends DFAny.Companion {
   // Alias
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
-    def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny = ???
-    ///new Alias[LW](List(left), AliasReference.BitsWL(mold.width, 0, s".as(DFBits(${mold.width}))"))
+    def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
+      new Alias[mold.TEnum](mold.enum, List(left), AliasReference.AsIs(s".as(DFEnum(${mold.enum}))"))(ctx, ???)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
