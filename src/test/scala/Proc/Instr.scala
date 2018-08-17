@@ -16,13 +16,38 @@ object Opcode extends Enum.Manual(7) {
 }
 
 object PCSel extends Enum.Manual(3) {
-  val Plus4   = Entry(0)  // PC + 4
-  val Branch  = Entry(1)  // branch_target
-  val Jump    = Entry(2)  // jump_target
-  val JumpR   = Entry(3)  // jump_reg_target
-  val Except  = Entry(4)  // exception
+  val Plus4, Branch, Jump, JumpReg, Exception = Entry.incLastBy(1)
 }
 
+object BranchSel extends Enum.Manual(4) {
+  val Next, NotEqual, Equal, GreaterEqual,
+      GreaterEqualUnsigned, LessThan, LessThanUnsigned, Jump, JumpReg = Entry.incLastBy(1)
+}
+
+object RS1OpSel extends Enum.Manual(2) {
+  val RegSource1, ImmediateUType, ZeroExtendedCSRI  = Entry.incLastBy(1)
+  val DontCare = RegSource1 //Giving another name to an entry as a Don't Care value
+}
+
+object RS2OpSel extends Enum.Manual(2) {
+  val RegSource2, ImmediateIType, ImmediateSType, PC  = Entry.incLastBy(1)
+  val DontCare = RegSource2
+}
+
+object ControlSel extends Enum.Manual(1) {
+  val Disable, Enable = Entry.incLastBy(1)
+  val DontCare = Disable
+}
+
+object WriteBackSel extends Enum.Manual(2) {
+  val ALU, Mem, PCPlus4, CSR = Entry.incLastBy(1)
+  val DontCare = ALU
+}
+
+object MemFuncSel extends Enum.Manual(2) {
+  val Read, Write, Fence = Entry.incLastBy(1)
+  val DontCare = Read
+}
 
 trait Instr extends DFBits[Instr.XLEN] {
   val opcode  = bits( 6,  0)

@@ -348,7 +348,7 @@ object Enum {
       def apply(t : BigInt)(
         implicit enumOwner : Enum, n : NameIt
       ) : Entry = {
-        require(t.bitsWidth <= width, s"Entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
+        require(t.bitsWidth <= width, s"`${n.value}` entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
         new Entry(t, enumOwner, n.value)
       }
 
@@ -360,7 +360,7 @@ object Enum {
       def apply(t : BitVector)(
         implicit enumOwner : Enum, n : NameIt
       ) : Entry = {
-        require(t.length == width.toLong, s"Entry value width (${t.length}) is different than the enumeration width ($width)")
+        require(t.length == width.toLong, s"`${n.value}` entry value width (${t.length}) is different than the enumeration width ($width)")
         new Entry(t.toBigInt, enumOwner, n.value)
       }
 

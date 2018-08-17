@@ -1,6 +1,7 @@
-abstract class TTT(implicit n : sourcecode.Name) {
-  val a=n.value
-}
+import DFiant._
 
-object Foo extends TTT
-Foo.a
+object PCSel extends Enum.Manual(3) {
+  val Plus4, Branch, Jump, JumpReg, Exception = Entry.incLastBy(1)
+}
+PCSel.Plus4.value
+PCSel.Branch.value
