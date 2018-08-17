@@ -1,6 +1,6 @@
-import DFiant._
-
-object PCSel extends Enum.Manual(3) {
-  val Plus4, Branch, Jump, JumpReg, Exception = Entry.incLastBy(1)
+class Foo
+object Foo {
+  def apply : Foo = new Foo
 }
-PCSel.codeString
+val foo = Foo
+val foo2 = Foo

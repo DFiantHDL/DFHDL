@@ -7,41 +7,96 @@ import TestUtils._
 
 class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   object Foo extends Enum.Auto {
-    sealed trait Entry extends Enum.Auto.Entry
-    val Baz0, Baz1, Baz2, Baz3, Baz4 = new Entry {}
+    val Baz0, Baz1, Baz2, Baz3, Baz4 = Entry
   }
 
-  object NotSealedFoo extends Enum.Auto {
-    class Entry extends Enum.Auto.Entry
-    val Baz0, Baz1, Baz2, Baz3, Baz4 = new Entry {}
+  object GreyFoo extends Enum.Auto(Enum.Encoding.Grey) {
+    val Baz0, Baz1, Baz2, Baz3, Baz4 = Entry
   }
 
-  object NoEntriesFoo extends Enum.Auto(Enum.Encoding.Default) {
-    sealed class Entry extends Enum.Auto.Entry
+  object OneHotFoo extends Enum.Auto(Enum.Encoding.OneHot) {
+    val Baz0, Baz1, Baz2, Baz3, Baz4 = Entry
   }
+
+  object StartAt25Foo extends Enum.Auto(Enum.Encoding.StartAt(25)) {
+    val Baz0, Baz1, Baz2, Baz3, Baz4 = Entry
+  }
+
 
   trait MyDesign extends DFDesign {
     val p1 = DFEnum(Foo) <> IN
     val p2 = DFEnum(Foo) <> IN init Foo.Baz2
     val p3 = DFEnum(Foo) <> OUT
-    p3 := Foo.Baz1
+    p3 := DFEnumFromEntry(Foo.Baz1)
     val e = DFEnum(Foo)
     val p4 = DFEnum(Foo) <> IN
     val p5 = DFEnum(Foo) <> OUT
-    implicitly[Require[e.Width == 3]]
     e := Foo.Baz1
     e == Foo.Baz2
     e.bits(1,0)
-    illTyped("""e.bits(4,0)""", "Bit index 4 is out of range of width 3")
-
-    illTyped("""DFEnum(NotSealedFoo)""", """No enumeration entries found or the Entry is not a sealed trait""")
-    illTyped("""DFEnum(NoEntriesFoo)""", """No enumeration entries found or the Entry is not a sealed trait""")
+    illRun {e.bits(4,0)}
   }
 
   property("MyDesign") = {
     import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
     val myDesign = new MyDesign {}
     true
+  }
+
+  property("Foo.codeString") = {
+    val compare =
+      """
+        |object Foo extends Enum.Auto {
+        |  val Baz0            = new Entry {}  //0
+        |  val Baz1            = new Entry {}  //1
+        |  val Baz2            = new Entry {}  //2
+        |  val Baz3            = new Entry {}  //3
+        |  val Baz4            = new Entry {}  //4
+        |}
+      """.stripMargin
+    Foo.codeString =@= compare
+  }
+
+  property("GreyFoo.codeString") = {
+    val compare =
+      """
+        |object GreyFoo extends Enum.Auto(Enum.Encoding.Grey) {
+        |  val Baz0            = new Entry {}  //0
+        |  val Baz1            = new Entry {}  //1
+        |  val Baz2            = new Entry {}  //3
+        |  val Baz3            = new Entry {}  //2
+        |  val Baz4            = new Entry {}  //6
+        |}
+      """.stripMargin
+    GreyFoo.codeString =@= compare
+  }
+
+  property("OneHotFoo.codeString") = {
+    val compare =
+      """
+        |object OneHotFoo extends Enum.Auto(Enum.Encoding.OneHot) {
+        |  val Baz0            = new Entry {}  //1
+        |  val Baz1            = new Entry {}  //2
+        |  val Baz2            = new Entry {}  //4
+        |  val Baz3            = new Entry {}  //8
+        |  val Baz4            = new Entry {}  //16
+        |}
+      """.stripMargin
+    OneHotFoo.codeString =@= compare
+  }
+
+  property("StartAt25Foo.codeString") = {
+    val compare =
+      """
+        |object StartAt25Foo extends Enum.Auto(Enum.Encoding.StartAt(25)) {
+        |  val Baz0            = new Entry {}  //25
+        |  val Baz1            = new Entry {}  //26
+        |  val Baz2            = new Entry {}  //27
+        |  val Baz3            = new Entry {}  //28
+        |  val Baz4            = new Entry {}  //29
+        |}
+      """.stripMargin
+    StartAt25Foo.codeString =@= compare
   }
 }
 
@@ -71,5 +126,18 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
     import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
     val myDesign = new MyDesign {}
     true
+  }
+
+  property("Foo.codeString") = {
+    val compare =
+      """
+        |object Foo extends Enum.Manual(2) {
+        |  val Bar0            = Entry(b"00")
+        |  val Bar1            = Entry(b"01")
+        |  val Bar2            = Entry(b"10")
+        |  val Bar3            = Entry(b"11")
+        |}
+      """.stripMargin
+    Foo.codeString =@= compare
   }
 }

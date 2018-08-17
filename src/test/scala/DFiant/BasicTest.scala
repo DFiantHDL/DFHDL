@@ -138,12 +138,11 @@ trait ContainerConn4 extends DFDesign {
 }
 
 object Foo extends Enum.Auto {
-  sealed trait Entry extends Enum.Auto.Entry
-  val Baz0, Baz1, Baz2, Baz3, Baz4 = new Entry {}
+  val Baz0, Baz1, Baz2, Baz3, Baz4 = Entry
 }
 
 trait IODesignConn8 extends DFDesign {
-  val i = DFEnum(Foo) <> IN init Foo.Baz3
+  val i = DFEnum(Foo) <> IN// init Foo.Baz3
   val o = DFEnum(Foo) <> OUT
   o := i
 }
@@ -188,8 +187,7 @@ object BasicTest extends App {
   println(top_ioDesignConn8.codeString)
 
   object PCSel extends Enum.Auto(Enum.Encoding.Grey) {
-    sealed trait Entry extends Enum.Auto.Entry
-    val Plus4, Branch, Jump, JumpReg, Exception = new Entry {}
+    val Plus4, Branch, Jump, JumpReg, Exception = Entry
   }
   println(PCSel.codeString)
 }
