@@ -1,5 +1,6 @@
-abstract class TTT(implicit n : sourcecode.Name.OfClass) {
-  println(n.value)
+abstract class TTT(implicit n : sourcecode.Name) {
+  val a=n.value
 }
 
-new TTT {}
+object Foo extends TTT
+Foo.a

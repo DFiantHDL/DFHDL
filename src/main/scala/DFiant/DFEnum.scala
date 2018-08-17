@@ -5,6 +5,8 @@ import singleton.twoface._
 import DFiant.basiclib._
 import DFiant.internals._
 
+import scala.collection.mutable.HashMap
+
 
 trait DFEnum[E <: Enum] extends DFEnum.Unbounded {
   type TEnum = E
@@ -21,6 +23,7 @@ object DFEnum extends DFAny.Companion {
     type TVal = DFEnum[TEnum]
     type TVar = DFEnum.Var[TEnum]
     type TToken = DFEnum.Token[TEnum]
+    val enum : TEnum
     def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
   }
@@ -37,34 +40,35 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]) : NewVar[E] = new NewVar[E]()
-  def apply[E <: Enum](e : E)(implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](implicit ctx : DFAny.NewVar.Context, w : WidthOf[E], e : E) : NewVar[E] = new NewVar[E](e)
+  def apply[E <: Enum](e : E)(implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]) : NewVar[E] = new NewVar[E](e)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[E <: Enum]()(
+  final class NewVar[E <: Enum](val enum : E)(
     implicit ctx : DFAny.NewVar.Context, w : WidthOf[E]
-  ) extends DFAny.NewVar(w, s"DFEnum(???)") with Var[E]  {
+  ) extends DFAny.NewVar(w, s"DFEnum(${enum.name})") with Var[E]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
   }
 
-  final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : AliasReference)(
+  final class Alias[E <: Enum](val enum : E, aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context, w : WidthOf[E]
   ) extends DFAny.Alias(aliasedVars, reference) with Var[E] {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = ??? //token
+    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken =
+      Token[E](enum.entries(token.valueBits.toBigInt).asInstanceOf[E#Entry])
   }
 
-  protected[DFiant] def const[E <: Enum](token : Token[E])(
+  protected[DFiant] def const[E <: Enum](enum_ : E, token : Token[E])(
     implicit ctx : DFAny.Const.Context, w : WidthOf[E]
-  ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {  }
+  ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {val enum = enum_  }
 
   protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
     implicit ctx : DFAny.Port.Context
-  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {}
+  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {val enum = dfVar.enum}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -97,15 +101,38 @@ object DFEnum extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Port
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Port extends Port {
+    trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
+    object Builder {
+      implicit def conn[E <: Enum, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
+      : Builder[DFEnum[E], Dir] = (right, dir) => port[E, Dir](right, dir)
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Alias
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Alias extends AliasCO {
+    def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny = ???
+    ///new Alias[LW](List(left), AliasReference.BitsWL(mold.width, 0, s".as(DFBits(${mold.width}))"))
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Init extends Init {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       implicit class DFEnumBubble[E <: Enum](val right : Bubble) extends Able[DFEnum[E]]
-      implicit class DFEnumEntry[E <: Enum](val right : E#Entry) extends Able[DFEnum[E]]
       implicit class DFEnumToken[E <: Enum](val right : Token[E]) extends Able[DFEnum[E]]
       implicit class DFEnumTokenSeq[E <: Enum](val right : Seq[Token[E]]) extends Able[DFEnum[E]]
+      implicit class DFEnumEntry[E <: Enum](val right : E#Entry) extends Able[DFEnum[E]]
 
       def toTokenSeq[E <: Enum](width : Int, right : Seq[Able[DFEnum[E]]])(implicit w : WidthOf[E]) : Seq[Token[E]] =
         right.toSeqAny.map(e => e match {
@@ -131,32 +158,9 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context, w : WidthOf[E]) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
-          new Alias(List(left), AliasReference.Prev(right))
+          new Alias(left.enum, List(left), AliasReference.Prev(right))
       }
     }
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Port
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends Port {
-    trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
-    object Builder {
-      implicit def conn[E <: Enum, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFEnum[E], Dir] = (right, dir) => port[E, Dir](right, dir)
-    }
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Alias
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Alias extends AliasCO {
-    def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny = ???
-    ///new Alias[LW](List(left), AliasReference.BitsWL(mold.width, 0, s".as(DFBits(${mold.width}))"))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -205,7 +209,7 @@ object DFEnum extends DFAny.Companion {
 
       implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit ctx : DFAny.Op.Context, w : WidthOf[E])
       : Aux[DFEnum[E], Entry, DFEnum[E]] =
-        create[E, DFEnum[E], Entry]((left, rightEntry) => const(Token[E](rightEntry)))
+        create[E, DFEnum[E], Entry]((left, rightEntry) => const(left.enum, Token[E](rightEntry)))
     }
   }
   object `Op:=` extends `Ops:=,<>`
@@ -240,10 +244,10 @@ object DFEnum extends DFAny.Companion {
       : Builder[DFEnum[E], DFEnum[E]] = create[E, DFEnum[E], DFEnum[E]]((left, right) => (left, right))
 
       implicit def evDFEnum_op_Entry[E <: Enum, R <: E#Entry](implicit ctx : DFAny.Op.Context, w : WidthOf[E])
-      : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, const(Token[E](rightEntry))))
+      : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, const(left.enum, Token[E](rightEntry))))
 
       implicit def evEntry_op_DFEnum[E <: Enum, L <: E#Entry](implicit ctx : DFAny.Op.Context, w : WidthOf[E])
-      : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (const(Token[E](leftEntry)), right))
+      : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (const(right.enum, Token[E](leftEntry)), right))
     }
   }
 
@@ -255,10 +259,11 @@ object DFEnum extends DFAny.Companion {
 
 
 
-sealed abstract class Enum {
+sealed abstract class Enum(implicit n : NameIt) {
+  final protected[DFiant] implicit val entries : HashMap[BigInt, Enum.Entry] = HashMap.empty[BigInt, Enum.Entry]
   type Entry <: Enum.Entry
   type EntryWidth
-  val name : String = "???"
+  val name : String = n.value
   override def toString: String = name
 }
 
@@ -293,7 +298,7 @@ object Enum {
   abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default) extends Enum {
     type CheckEntry[Entry] = RequireMsgSym[EnumCount[Entry] != 0, "No enumeration entries found or the Entry is not a sealed trait", SafeInt[_]]
     type EntryWidth = CheckEntry[Entry] ==> encoding.EntryWidth[Entry]
-    implicit val cnt = new Auto.Counter(encoding.func) {}
+    final protected implicit val cnt = new Auto.Counter(encoding.func) {}
   }
   object Auto {
     abstract class Counter(func : Int => BigInt) {
@@ -301,9 +306,10 @@ object Enum {
       private var cnt : Int = 0
       def inc : Unit = {cnt = cnt + 1}
     }
-    abstract class Entry(implicit cnt : Counter) extends Enum.Entry {
+    abstract class Entry(implicit cnt : Counter, entries : HashMap[BigInt, Enum.Entry]) extends Enum.Entry {
       val value : BigInt = cnt.getValue
       cnt.inc
+      entries.update(value, this)
     }
   }
   abstract class Manual[Width](implicit width : SafeInt[Width]) extends Enum {
