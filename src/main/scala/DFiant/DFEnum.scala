@@ -327,25 +327,6 @@ object Enum {
     }
   }
 
-  abstract class AutoMax[Width <: Int with Singleton, E <: Encoding](width : Width)
-    (val encoding : E = Encoding.Default)(implicit n : NameIt) extends Enum {
-    type EntryWidth = Width
-    final protected implicit val cnt = new Auto.Counter(encoding.func) {}
-  }
-  object AutoMax {
-    abstract class Counter(func : Int => BigInt) {
-      def getValue : BigInt = func(cnt)
-      private var cnt : Int = 0
-      def inc : Unit = {cnt = cnt + 1}
-    }
-    abstract class Entry(implicit cnt : Counter, val enumOwner : Enum, n : NameIt) extends Enum.Entry {
-      val value : BigInt = cnt.getValue
-      cnt.inc
-      enumOwner.entries.update(value, this)
-      val name : String = n.value
-    }
-  }
-
   abstract class Manual[Width <: Int with Singleton](width : Width) extends Enum {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
