@@ -132,7 +132,7 @@ object DFEnum extends DFAny.Companion {
       implicit class DFEnumBubble[E <: Enum](val right : Bubble) extends Able[DFEnum[E]]
       implicit class DFEnumToken[E <: Enum](val right : Token[E]) extends Able[DFEnum[E]]
       implicit class DFEnumTokenSeq[E <: Enum](val right : Seq[Token[E]]) extends Able[DFEnum[E]]
-      implicit class DFEnumEntry[E <: Enum](val right : E#Entry) extends Able[DFEnum[E]]
+      implicit class DFEnumEntry[E <: Enum, R <: E#Entry](val right : R) extends Able[DFEnum[E]]
 
       def toTokenSeq[E <: Enum](width : Int, right : Seq[Able[DFEnum[E]]])(implicit w : WidthOf[E]) : Seq[Token[E]] =
         right.toSeqAny.map(e => e match {

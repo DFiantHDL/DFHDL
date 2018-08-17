@@ -21,21 +21,20 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
 
   trait MyDesign extends DFDesign {
     val p1 = DFEnum(Foo) <> IN
-    val p2 = DFEnum(Foo) <> IN
-    p2 init Foo.Baz2
+    val p2 = DFEnum(Foo) <> IN init Foo.Baz2
     val p3 = DFEnum(Foo) <> OUT
     p3 := Foo.Baz1
-//    val e = DFEnum(Foo)
-//    val p4 = DFEnum(Foo) <> IN := e
-//    val p5 = DFEnum(Foo) <> OUT := e
-//    implicitly[Require[e.Width == 3]]
-//    e := Foo.Baz1
-//    e == Foo.Baz2
-//    e.bits(1,0)
-//    illTyped("""e.bits(4,0)""", "Bit index 4 is out of range of width 3")
-//
-//    illTyped("""DFEnum[NotSealedFoo]""", """No enumeration entries found or the Entry is not a sealed trait""")
-//    illTyped("""DFEnum[NoEntriesFoo]""", """No enumeration entries found or the Entry is not a sealed trait""")
+    val e = DFEnum(Foo)
+    val p4 = DFEnum(Foo) <> IN
+    val p5 = DFEnum(Foo) <> OUT
+    implicitly[Require[e.Width == 3]]
+    e := Foo.Baz1
+    e == Foo.Baz2
+    e.bits(1,0)
+    illTyped("""e.bits(4,0)""", "Bit index 4 is out of range of width 3")
+
+    illTyped("""DFEnum(NotSealedFoo)""", """No enumeration entries found or the Entry is not a sealed trait""")
+    illTyped("""DFEnum(NoEntriesFoo)""", """No enumeration entries found or the Entry is not a sealed trait""")
   }
 }
 
