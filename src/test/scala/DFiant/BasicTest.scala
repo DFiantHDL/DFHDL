@@ -186,26 +186,3 @@ object BasicTest extends App {
 //  println(top_ioDesignConn2.codeString)
   println(top_ioDesignConn4.codeString)
 }
-//
-//object BlaBla extends App {
-//  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//
-////  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.basicLib.DFUIntOps._
-//  trait IODesignConn3 extends DFDesign {
-//    val i = DFUInt(8) <> IN init(5)
-//    val o = DFUInt(8) <> OUT
-//    val opInst = new DFiant.basiclib.DFUIntOps.Arithmetic[DFiant.basiclib.DiSoOp.Kind.+](8, 1, 9) {}
-//    opInst.inLeft <> i
-//    opInst.inRight <> 1
-//    val plusOneWC = opInst.outResult
-//    val plusOne = plusOneWC.bits(7, 0).uint
-//    val opInst$1 = new DFiant.basiclib.DFUIntOps.Arithmetic[DFiant.basiclib.DiSoOp.Kind.+](8, 1, 9) {}
-//    opInst$1.inLeft <> plusOne
-//    opInst$1.inRight <> 1
-//    val plusTwoWC = opInst$1.outResult
-//    val plusTwo = plusTwoWC.bits(7, 0).uint
-//    o <> plusTwo
-//  }
-//
-//  val top_ioDesignConn3 = new IODesignConn3 {}
-//}
