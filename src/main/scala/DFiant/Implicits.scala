@@ -6,5 +6,6 @@ trait Implicits extends
   XRange.Implicits with
   DFBits.Op.Implicits with
   DFUInt.Op.Implicits with
+  DFSInt.Op.Implicits with
   DFEnum.Op.Implicits with
   DFBool.Op.Implicits

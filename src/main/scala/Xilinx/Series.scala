@@ -137,7 +137,138 @@ trait Series {
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // DFUInt
+    // DFSInt
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    object DFSIntOps extends DFBasicLib.DFSIntOps {
+      import DFiant.basiclib.DFSIntOps._
+      class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFSInt(aWidth) <> IN
+        final val B = DFSInt(bWidth) <> IN
+        final val S = DFSInt(sWidth) <> OUT
+        setInitFunc(S)(DFSInt.Token.+(getInit(A), getInit(B)))
+      }
+
+      class RTSub(aWidth : Int, bWidth : Int, sWidth : Int)
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFSInt(aWidth) <> IN
+        final val B = DFSInt(bWidth) <> IN
+        final val S = DFSInt(sWidth) <> OUT
+        setInitFunc(S)(DFSInt.Token.-(getInit(A), getInit(B)))
+      }
+
+      class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFSInt(aWidth) <> IN
+        final val B = DFSInt(bWidth) <> IN
+        final val S = DFSInt(sWidth) <> OUT
+        setInitFunc(S)(DFSInt.Token.*(getInit(A), getInit(B)))
+      }
+
+      class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFSInt(aWidth) <> IN
+        final val B = DFSInt(bWidth) <> IN
+        final val S = DFBool() <> OUT
+        opString match {
+          case "==" => setInitFunc(S)(DFSInt.Token.==(getInit(A), getInit(B)))
+          case "!=" => setInitFunc(S)(DFSInt.Token.!=(getInit(A), getInit(B)))
+          case "<"  => setInitFunc(S)(DFSInt.Token.<(getInit(A), getInit(B)))
+          case ">"  => setInitFunc(S)(DFSInt.Token.>(getInit(A), getInit(B)))
+          case "<=" => setInitFunc(S)(DFSInt.Token.<=(getInit(A), getInit(B)))
+          case ">=" => setInitFunc(S)(DFSInt.Token.>=(getInit(A), getInit(B)))
+        }
+      }
+
+      implicit object `Comp+` extends Implementation[`Comp+`] {
+        def apply(comp: `Comp+`): Unit = {
+          import comp._
+          val rtInst = new RTAdd(leftWidth, rightWidth, resultWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+
+      implicit object `Comp-` extends Implementation[`Comp-`] {
+        def apply(comp: `Comp-`): Unit = {
+          import comp._
+          val rtInst = new RTSub(leftWidth, rightWidth, resultWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp*` extends Implementation[`Comp*`] {
+        def apply(comp: `Comp*`): Unit = {
+          import comp._
+          val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+
+      implicit object `Comp==` extends Implementation[`Comp==`] {
+        def apply(comp: `Comp==`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp!=` extends Implementation[`Comp!=`] {
+        def apply(comp: `Comp!=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp<` extends Implementation[`Comp<`] {
+        def apply(comp: `Comp<`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp>` extends Implementation[`Comp>`] {
+        def apply(comp: `Comp>`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp<=` extends Implementation[`Comp<=`] {
+        def apply(comp: `Comp<=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+      implicit object `Comp>=` extends Implementation[`Comp>=`] {
+        def apply(comp: `Comp>=`): Unit = {
+          import comp._
+          val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)
+          rtInst.A <> inLeft
+          rtInst.B <> inRight
+          rtInst.S <> outResult
+        }
+      }
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DFBits
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFBitsOps extends DFBasicLib.DFBitsOps {
       import DFiant.basiclib.DFBitsOps._

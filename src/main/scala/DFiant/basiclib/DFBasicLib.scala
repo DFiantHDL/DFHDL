@@ -7,6 +7,7 @@ import singleton.twoface._
 trait DFBasicLib {
 
   val DFUIntOps : DFBasicLib.DFUIntOps
+  val DFSIntOps : DFBasicLib.DFSIntOps
   val DFBitsOps : DFBasicLib.DFBitsOps
   val DFBoolOps : DFBasicLib.DFBoolOps
 
@@ -19,6 +20,25 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFUIntOps {
     import DFiant.basiclib.DFUIntOps._
+    implicit val `Comp+`  : Implementation[`Comp+`]
+    implicit val `Comp-`  : Implementation[`Comp-`]
+    implicit val `Comp*`  : Implementation[`Comp*`]
+
+    implicit val `Comp==` : Implementation[`Comp==`]
+    implicit val `Comp!=` : Implementation[`Comp!=`]
+    implicit val `Comp<`  : Implementation[`Comp<`]
+    implicit val `Comp>`  : Implementation[`Comp>`]
+    implicit val `Comp<=` : Implementation[`Comp<=`]
+    implicit val `Comp>=` : Implementation[`Comp>=`]
+  }
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // DFSInt
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait DFSIntOps {
+    import DFiant.basiclib.DFSIntOps._
     implicit val `Comp+`  : Implementation[`Comp+`]
     implicit val `Comp-`  : Implementation[`Comp-`]
     implicit val `Comp*`  : Implementation[`Comp*`]
