@@ -53,18 +53,17 @@ package object DFiant extends {
 
   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    */
-  protected trait WidthTag {
-    type Width
+  protected trait WidthTag[W] {
+    type Width = W
   }
-  type XBitVector[W] = scodec.bits.BitVector with WidthTag{type Width = W}
+  type XBitVector[W] = scodec.bits.BitVector with WidthTag[W]
   type BitVector = scodec.bits.BitVector
   val BitVector = scodec.bits.BitVector
 
   /**
     * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
-  final implicit class BinStringSyntax(val sc: StringContext) extends AnyVal {
-
+  final implicit class BinStringSyntax(val sc: StringContext) {
 //    def w[W](args: WidthTag*) : XBitVector[W] = macro Macro.hexStringInterpolator
     /**
       * Converts this binary literal string to a `BitVector`. Whitespace characters are ignored.
@@ -81,16 +80,45 @@ package object DFiant extends {
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
       * of type `BitVector`.
       */
-//    def b[W](args: BitVector*) : XBitVector[W] = macro Macro.binStringInterpolator
-    def b[W](args: BitVector*) : BitVector = macro Macro.binStringInterpolator
+    def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
   }
 
-  object Macro {
-    object whitebox { type Context = scala.reflect.macros.whitebox.Context }
-    def binStringInterpolator(c: whitebox.Context)(args: c.Expr[BitVector]*): c.Tree = {
-      import c.universe._
+  trait Interpolator[T] {
+    type Out <: T
+    def apply() : Out
+  }
 
-      val Apply(_, List(Apply(_, parts))) = c.prefix.tree
+  object Interpolator {
+    type Aux[T, Out0 <: T] = Interpolator[T]{type Out = Out0}
+    implicit def ev[W] : Interpolator.Aux[BitVector, XBitVector[W]] = macro Macro.binImplStringInterpolator
+  }
+
+  protected object Macro {
+    object whitebox { type Context = scala.reflect.macros.whitebox.Context }
+    def binImplStringInterpolator(c: whitebox.Context) : c.Tree = {
+      import c.universe._
+      def calcArgsLength(argsTrees : List[Tree]) : Option[Int] = {
+        if (argsTrees.isEmpty) Some(0)
+        else {
+          val tpes = argsTrees.map(e => e.tpe.dealias)
+          val lengths : List[Option[Int]] = tpes.map(e => e match {
+            case RefinedType(parents, scope) => parents.last.typeArgs.head match {
+              case ConstantType(Constant(t : Int)) => Some(t)
+              case _ => None
+            }
+            case _ => None
+          })
+          def sumOption(a : Option[Int], b : Option[Int]) : Option[Int] = (a, b) match {
+            case (Some(aa), Some(bb)) => Some(aa + bb)
+            case _ => None
+          }
+          lengths.reduceLeft(sumOption)
+        }
+      }
+
+      val Apply(TypeApply(Select(properTree,_), _), argsTrees) = c.enclosingImplicits.last.tree
+      val args = argsTrees.map(e => c.Expr[BitVector](e))
+      val Apply(_, List(Apply(_, parts))) = properTree
       val partLiterals: List[String] = parts map {
         case Literal(Constant(part: String)) =>
           if (BitVector.fromBin(part).isEmpty)
@@ -107,9 +135,16 @@ package object DFiant extends {
           reify { sb.splice.append(arg.splice.toBin).append(partExpr.splice) }
       }
       val buildTree = reify { BitVector.fromValidBin(stringBuilder.splice.toString) }.tree
-      val widthTpe = c.internal.constantType(Constant(length))
-//      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
-      q"$buildTree"
+      val widthTpe : Type = calcArgsLength(argsTrees) match {
+        case Some(t) => c.internal.constantType(Constant(length + t))
+        case _ => typeOf[Int]
+      }
+      q"""
+         new Interpolator[BitVector] {
+           type Out = XBitVector[$widthTpe]
+           def apply() : XBitVector[$widthTpe] = $buildTree.asInstanceOf[XBitVector[$widthTpe]]
+         }
+       """
     }
 
     def hexStringInterpolator(c: whitebox.Context)(args: c.Expr[BitVector]*): c.Tree = {
@@ -133,10 +168,11 @@ package object DFiant extends {
       }
       val buildTree = reify { BitVector.fromValidHex(stringBuilder.splice.toString) }.tree
       val widthTpe = c.internal.constantType(Constant(length))
-//      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
+      //      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
       q"$buildTree"
     }
   }
+
   ////////////////////////////////////////////////////////////////////////////////////
 
 

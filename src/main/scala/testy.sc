@@ -1,5 +1,6 @@
 import DFiant._
 import DFiant.internals._
+
 //object Testy {
 //  type BV[W] = BitVector//[W]
 //  class Instr32(val instr : BV[32]) {
