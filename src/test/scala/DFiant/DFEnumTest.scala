@@ -105,11 +105,11 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
   object Foo extends Enum.Manual(2) {
     val Bar0 = Entry(0)
     val Bar1 = Entry(1)
-    val Bar2 = EntryIncLastBy(1)
+    val Bar2 = EntryDelta(1)
     val Bar3 = Entry(b"11")
     illRun {val Bar0a = Entry(0L)}
     illRun {val Bar0b = Entry(BigInt(0))}
-    illRun {val Bar4 = EntryIncLastBy(1)}
+    illRun {val Bar4 = EntryDelta(1)}
   }
 
   trait MyDesign extends DFDesign {

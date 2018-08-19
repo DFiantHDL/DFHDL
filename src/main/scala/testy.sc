@@ -88,22 +88,22 @@ object Testy {
     }
   }
 
-  //            RD         RS1          Shamt                                              Funct7   Funct3   Opcode
-  class SLLI(rd : BV[5], rs1 : BV[5], shamt : BV[5]); object SLLI  extends RType.InstrCO(b"0000000", b"001", b"0010011")
-  class SRLI(rd : BV[5], rs1 : BV[5], shamt : BV[5]); object SRLI  extends RType.InstrCO(b"0000000", b"101", b"0010011")
-  class SRAI(rd : BV[5], rs1 : BV[5], shamt : BV[5]); object SRAI  extends RType.InstrCO(b"0100000", b"101", b"0010011")
+  //                                                 Funct7   Funct3   Opcode
+  class SLLI(); object SLLI  extends RType.InstrCO(b"0000000", b"001", b"0010011")
+  class SRLI(); object SRLI  extends RType.InstrCO(b"0000000", b"101", b"0010011")
+  class SRAI(); object SRAI  extends RType.InstrCO(b"0100000", b"101", b"0010011")
 
-  //            RD         RS1          RS2                                                Funct7   Funct3   Opcode
-  class ADD (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object ADD  extends RType.InstrCO(b"0000000", b"000", b"0110011")
-  class SUB (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object SUB  extends RType.InstrCO(b"0100000", b"000", b"0110011")
-  class SLL (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object SLL  extends RType.InstrCO(b"0000000", b"001", b"0110011")
-  class SLT (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object SLT  extends RType.InstrCO(b"0000000", b"010", b"0110011")
-  class SLTU(rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object SLTU extends RType.InstrCO(b"0000000", b"011", b"0110011")
-  class XOR (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object XOR  extends RType.InstrCO(b"0000000", b"100", b"0110011")
-  class SRL (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object SRL  extends RType.InstrCO(b"0000000", b"101", b"0110011")
-  class SRA (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object SRA  extends RType.InstrCO(b"0100000", b"101", b"0110011")
-  class OR  (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object OR   extends RType.InstrCO(b"0000000", b"110", b"0110011")
-  class AND (rd : BV[5], rs1 : BV[5], rs2   : BV[5]); object AND  extends RType.InstrCO(b"0000000", b"111", b"0110011")
+  //                                                 Funct7   Funct3   Opcode
+  class ADD (); object ADD  extends RType.InstrCO(b"0000000", b"000", b"0110011")
+  class SUB (); object SUB  extends RType.InstrCO(b"0100000", b"000", b"0110011")
+  class SLL (); object SLL  extends RType.InstrCO(b"0000000", b"001", b"0110011")
+  class SLT (); object SLT  extends RType.InstrCO(b"0000000", b"010", b"0110011")
+  class SLTU(); object SLTU extends RType.InstrCO(b"0000000", b"011", b"0110011")
+  class XOR (); object XOR  extends RType.InstrCO(b"0000000", b"100", b"0110011")
+  class SRL (); object SRL  extends RType.InstrCO(b"0000000", b"101", b"0110011")
+  class SRA (); object SRA  extends RType.InstrCO(b"0100000", b"101", b"0110011")
+  class OR  (); object OR   extends RType.InstrCO(b"0000000", b"110", b"0110011")
+  class AND (); object AND  extends RType.InstrCO(b"0000000", b"111", b"0110011")
 
   //  case class ADD2 (rd : BV[5], rs1 : BV[5], rs2   : BV[5]) extends RType(b"0000000", rs2, rs1, b"000", rd, b"0110011") {
   //  }

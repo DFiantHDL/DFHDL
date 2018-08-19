@@ -72,6 +72,14 @@ object DFBits extends DFAny.Companion {
       new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendLeftBy($numOfBits)"))
     }
 
+    def extendRightBy[N](numOfBits : Natural.Int.Checked[N])(
+      implicit
+      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
+    ) : DFBits[tfs.Out] = {
+      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      new DFBits.Alias[tfs.Out](List(this, zeros), AliasReference.AsIs(s".extendRightBy($numOfBits)"))
+    }
+
     protected object SameWidth extends Checked1Param.Int {
       type Cond[MW, W] = MW == W
       type Msg[MW, W] = "The mold constructor width " + ToString[MW] + " is different than the aliased variable width " + ToString[W]

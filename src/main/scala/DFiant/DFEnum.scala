@@ -367,10 +367,10 @@ object Enum {
       new Entry(t.toBigInt, enumOwner, n.value)
     }
 
-    def EntryIncLastBy(t : BigInt)(implicit n : NameIt) : Entry = Entry(latestEntryValue match {
+    def EntryDelta(t : BigInt = BigInt(1))(implicit n : NameIt) : Entry = Entry(latestEntryValue match {
       case Some(value) => value + 1
       case None => BigInt(0)
     })
-    def EntryIncLastBy(t : BitVector) : Entry = EntryIncLastBy(t.toBigInt)
+    def EntryIncLastBy(t : BitVector) : Entry = EntryDelta(t.toBigInt)
   }
 }
