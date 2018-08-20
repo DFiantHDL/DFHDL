@@ -20,7 +20,7 @@ object DFSInt extends DFAny.Companion {
     type TVar = DFSInt.Var[LW]
     type TToken = DFSInt.Token
 
-    lazy val sign = bits().setAnonymous().msbit.setAnonymous().setAutoConstructCodeString(s"$refCodeString.sign")
+    lazy val sign = bits.setAnonymous().msbit.setAnonymous().setAutoConstructCodeString(s"$refCodeString.sign")
 
     def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
@@ -46,11 +46,14 @@ object DFSInt extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFSInt[tfs.Out] = {
       val extension = List.fill(numOfBits)(sign)
-      new DFSInt.Alias[tfs.Out](extension :+ this, AliasReference.AsIs(s".bits().sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
+      new DFSInt.Alias[tfs.Out](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[Width] =
-      new DFUInt.Alias[Width](List(this), AliasReference.AsIs(s".uint")).asInstanceOf[TUInt[Width]]
+    def extendTo[EW](numOfBits : ExtWidth.Checked[EW,LW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = {
+      val extension = List.fill(width - numOfBits)(sign)
+      new DFSInt.Alias[EW](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
+    }
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
     def isPositive(implicit ctx : DFAny.Op.Context) = left > 0

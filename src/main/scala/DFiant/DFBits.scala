@@ -69,7 +69,13 @@ object DFBits extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
       val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
-      new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendLeftBy($numOfBits)"))
+      new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftBy($numOfBits)")
+    }
+
+    def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    : DFBits[EW] = {
+      val zeros = DFBits.const[LW](DFBits.Token(width - numOfBits, 0))
+      new DFBits.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftTo($numOfBits)")
     }
 
     def extendRightBy[N](numOfBits : Positive.Checked[N])(
@@ -77,7 +83,13 @@ object DFBits extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
       val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
-      new DFBits.Alias[tfs.Out](List(this, zeros), AliasReference.AsIs(s".extendRightBy($numOfBits)"))
+      new DFBits.Alias[tfs.Out](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightBy($numOfBits)")
+    }
+
+    def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    : DFBits[EW] = {
+      val zeros = DFBits.const[LW](DFBits.Token(width - numOfBits, 0))
+      new DFBits.Alias[EW](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightTo($numOfBits)")
     }
 
     protected object SameWidth extends Checked1Param.Int {
@@ -95,6 +107,11 @@ object DFBits extends DFAny.Companion {
 
     def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
       new DFUInt.Alias[LW](List(this), AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
+
+    def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Alias.Context) : TSInt[Width] = {
+      widthCheck.unsafeCheck(width)
+      new DFSInt.Alias[Width](List(this), AliasReference.AsIs(s".sint")).asInstanceOf[TSInt[Width]]
+    }
 
     def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)

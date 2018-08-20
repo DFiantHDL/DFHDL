@@ -125,26 +125,33 @@ trait RType extends Instr {
 }
 
 trait IType extends Instr {
-  def imm     = bits(31, 20)
+  val imm     = bits(31, 20).sint.extendTo(32)
   val rs1     = bits(19, 15)
   val func3   = bits(14, 12)
   val rd      = bits(11,  7)
 }
 
 trait SType extends Instr {
-  val imm     = (bits(31, 25), bits(11, 7)).bits()
+  val imm     = (bits(31, 25), bits(11, 7)).bits.sint.extendTo(32)
+  val rs2     = bits(24, 20)
+  val rs1     = bits(19, 15)
+  val func3   = bits(14, 12)
+}
+
+trait SBType extends Instr {
+  val imm     = (bit(31), bit(7), bits(30, 25), bits(11, 8)).bits.extendRightBy(1).sint.extendTo(32)
   val rs2     = bits(24, 20)
   val rs1     = bits(19, 15)
   val func3   = bits(14, 12)
 }
 
 trait UType extends Instr {
-  val imm     = bits(31, 12)
+  val imm     = bits(31, 12).extendRightTo(32).sint
   val rd      = bits(11,  7)
 }
 
 trait UJType extends Instr {
-  val imm     = bits(31, 12)
+  val imm     = (bit(31), bits(19, 12), bit(20), bits(30, 21)).bits.extendRightBy(1).sint.extendTo(32)
   val rd      = bits(11,  7)
 }
 

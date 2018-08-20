@@ -232,6 +232,12 @@ package object internals {
     type ParamFace = Int
   }
 
+  object ExtWidth extends Checked1Param.Int {
+    type Cond[EW, W] = EW > W
+    type Msg[EW, W] = "Extended width " + ToString[EW] + " is not larger than current width " + ToString[W]
+    type ParamFace = Int
+  }
+
   object BitsWidth extends Checked0Param.Int {
     type Cond[W] = (W > 0)
     type Msg[W] = "DFBits/DFUInt width must be positive. Found width = " + ToString[W]

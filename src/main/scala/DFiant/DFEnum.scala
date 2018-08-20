@@ -228,8 +228,8 @@ object DFEnum extends DFAny.Companion {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val leftBits = left.bits()
-        val rightBits = right.bits()
+        val leftBits = left.bits
+        val rightBits = right.bits
 
         val result : DFBool = kind match {
           case DiSoOp.Kind.== => leftBits == rightBits

@@ -41,8 +41,8 @@ sealed trait DFAny extends DSLMemberConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
-  final def bits()(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
-    new DFBits.Alias[Width](List(this), AliasReference.BitsWL(width, 0, ".bits()")).asInstanceOf[TBits[Width]]
+  final def bits(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
+    new DFBits.Alias[Width](List(this), AliasReference.BitsWL(width, 0, ".bits")).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
@@ -55,10 +55,6 @@ sealed trait DFAny extends DSLMemberConstruct {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
-
-  final def bits[H, L](implicit relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width],
-    checkHiLow : BitsHiLo.Checked[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context, di : DummyImplicit
-  ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
   final def bits[H <: Int, L <: Int](range : XRange.Int[L, H])(
     implicit relBitHigh : BitIndex.CheckedShell[H, Width], relBitLow : BitIndex.CheckedShell[L, Width],
@@ -338,7 +334,7 @@ object DFAny {
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = {
       val initList : List[Seq[DFBits.Token]] = aliasedVars.map(aliasedVar => {
-        val currentInit: Seq[DFBits.Token] = aliasedVar.getInit.bits()
+        val currentInit: Seq[DFBits.Token] = aliasedVar.getInit.bits
         val updatedInit: Seq[DFBits.Token] = reference match {
           case AliasReference.BitsWL(relWidth, relBitLow, _) => currentInit.bitsWL(relWidth, relBitLow)
           case AliasReference.Prev(step) => currentInit.prevInit(step)
@@ -535,7 +531,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bit(relBit)
       new DFBool.Token(outBitsValue, outBubbleMask)
     }
-    final def bits() : DFBits.Token = new DFBits.Token(width, valueBits, bubbleMask)
+    final def bits : DFBits.Token = new DFBits.Token(width, valueBits, bubbleMask)
     final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token = {
       val outWidth = relBitHigh - relBitLow + 1
       val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
@@ -570,8 +566,8 @@ object DFAny {
         //More tokens are available than the step size, so we drop the first, according to the step count
         else tokenSeq.drop(step)
       }
-      def bits() : Seq[DFBits.Token] =
-        tokenSeq.map(t => t.bits())
+      def bits : Seq[DFBits.Token] =
+        tokenSeq.map(t => t.bits)
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
@@ -732,14 +728,14 @@ object DFAny {
   abstract class VarProductExtender(e : Product) {
     type WSum
     protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
-    def bits()(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits.Var[w.Out] =
+    def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits.Var[w.Out] =
       new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], AliasReference.AsIs(".bits"))
   }
 
   abstract class ValProductExtender(e : Product) {
     type WSum
     protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
-    def bits()(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] =
+    def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] =
       new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], AliasReference.AsIs(".bits"))
   }
 
@@ -779,9 +775,23 @@ object DFAny {
     type WSum = e._1.Width + e._2.Width + e._3.Width
   }
 
-  implicit class ValTuple3[T1 <: DFAny, T2 <: DFAny, T3 <: DFAny.Var](val e : Tuple3[T1, T2, T3])
+  implicit class ValTuple3[T1 <: DFAny, T2 <: DFAny, T3 <: DFAny](val e : Tuple3[T1, T2, T3])
     extends ValProductExtender(e){
     type WSum = e._1.Width + e._2.Width + e._3.Width
+  }
+  /////////////////////////////////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Tuple 4
+  /////////////////////////////////////////////////////////////////////////////////////
+  implicit class VarTuple4[T1 <: DFAny.Var, T2 <: DFAny.Var, T3 <: DFAny.Var, T4 <: DFAny.Var](val e : Tuple4[T1, T2, T3, T4])
+    extends VarProductExtender(e) {
+    type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
+  }
+
+  implicit class ValTuple4[T1 <: DFAny, T2 <: DFAny, T3 <: DFAny, T4 <: DFAny](val e : Tuple4[T1, T2, T3, T4])
+    extends ValProductExtender(e){
+    type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
   }
   /////////////////////////////////////////////////////////////////////////////////////
 

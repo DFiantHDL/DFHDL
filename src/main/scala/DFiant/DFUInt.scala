@@ -37,18 +37,18 @@ object DFUInt extends DFAny.Companion {
     def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
-
     def extendBy[N](numOfBits : Positive.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFUInt[tfs.Out] = {
       val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
-      new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendBy($numOfBits)"))
+      new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Alias.Context) : TSInt[Width] = {
-      widthCheck.unsafeCheck(width)
-      new DFSInt.Alias[Width](List(this), AliasReference.AsIs(s".sint")).asInstanceOf[TSInt[Width]]
+    def extendTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = {
+      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      new DFUInt.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
