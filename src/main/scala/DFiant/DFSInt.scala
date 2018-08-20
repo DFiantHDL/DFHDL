@@ -19,13 +19,12 @@ object DFSInt extends DFAny.Companion {
     type TVal = DFSInt[LW]
     type TVar = DFSInt.Var[LW]
     type TToken = DFSInt.Token
-    type Extendable
 
     final def sign(implicit ctx : DFAny.Alias.Context) = bits().msbit
 
-    def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
-    def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
-    def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, Extendable, R]) = op(left, right)
+    def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
+    def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, R]) = op(left, right)
+    def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, R]) = op(left, right)
     //  def /  (right : DFSInt)         : DFSInt = ???
 
     def <  [R](right: Op.Able[R])(implicit op: `Op<`.Builder[TVal, R]) = op(left, right)
@@ -56,7 +55,6 @@ object DFSInt extends DFAny.Companion {
     def isPositive(implicit ctx : DFAny.Op.Context) = left > 0
     def isNegative(implicit ctx : DFAny.Op.Context) = sign
     def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
-    def extendable(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] with DFSInt.Extendable = DFSInt.extendable[LW](left)
 
     override lazy val typeName: String = s"DFSInt[$width]"
   }
@@ -67,10 +65,6 @@ object DFSInt extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFSInt[W] with DFAny.Var {}
-
-  trait Extendable {
-    type Extendable = true
-  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -106,12 +100,6 @@ object DFSInt extends DFAny.Companion {
     implicit ctx : DFAny.Alias.Context
   ) extends DFAny.Alias(aliasedVars, reference) with Var[W] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
-  }
-
-  protected[DFiant] def extendable[W](extendedVar : DFSInt[W])(implicit ctx : DFAny.Alias.Context)
-  : Var[W] with Extendable = new DFAny.Alias(List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
-    override def toString : String = s"DFSInt[$width] & Extendable"
   }
 
   protected[DFiant] def const[W](token : DFSInt.Token)(implicit ctx : DFAny.Const.Context) : DFSInt[W] =
@@ -252,8 +240,8 @@ object DFSInt extends DFAny.Companion {
   object Op extends Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
-      def +  [RW](right : DFSInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFSInt[RW]]) = op(left, right)
-      def -  [RW](right : DFSInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFSInt[RW]]) = op(left, right)
+      def +  [RW](right : DFSInt[RW])(implicit op: `Op+`.Builder[L, DFSInt[RW]]) = op(left, right)
+      def -  [RW](right : DFSInt[RW])(implicit op: `Op-`.Builder[L, DFSInt[RW]]) = op(left, right)
       def <  [RW](right : DFSInt[RW])(implicit op: `Op<`.Builder[L, DFSInt[RW]]) = op(left, right)
       def >  [RW](right : DFSInt[RW])(implicit op: `Op>`.Builder[L, DFSInt[RW]]) = op(left, right)
       def <= [RW](right : DFSInt[RW])(implicit op: `Op<=`.Builder[L, DFSInt[RW]]) = op(left, right)
@@ -373,18 +361,11 @@ object DFSInt extends DFAny.Companion {
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
-    trait Builder[L, LE, R] extends DFAny.Op.Builder[L, R]
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
-      type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
+      type Aux[L, R, Comp0] = Builder[L, R] {
         type Comp = Comp0
-      }
-
-      object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = LW >= RW
-        type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
-        type ParamFace = Int
-        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
       }
 
       object Inference {
@@ -395,28 +376,25 @@ object DFSInt extends DFAny.Companion {
         type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
       }
 
-      trait DetailedBuilder[L, LW, LE, R, RW] {
+      trait DetailedBuilder[L, LW, R, RW] {
         type Comp
-        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, LE, R, Comp]
+        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp]
       }
       object DetailedBuilder {
-        implicit def ev[L, LW, LE, R, RW, NCW, WCW](
+        implicit def ev[L, LW, R, RW, NCW, WCW](
           implicit
           ctx : DFAny.Op.Context,
           ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
-          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[NCW, WCW]} =
-          new DetailedBuilder[L, LW, LE, R, RW]{
+        ) : DetailedBuilder[L, LW, R, RW]{type Comp = Component[NCW, WCW]} =
+          new DetailedBuilder[L, LW, R, RW]{
             type Comp = Component[NCW, WCW]
-            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, LE, R, Comp] =
-              new Builder[L, LE, R] {
+            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp] =
+              new Builder[L, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
                   import ctx.basicLib.DFSIntOps._
                   val (left, right) = properLR(leftL, rightR)
-                  // Completing runtime checks
-                  checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInst = kind match {
@@ -434,23 +412,23 @@ object DFSInt extends DFAny.Companion {
           }
       }
 
-      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, LE, R <: DFSInt[RW], RW](
+      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
         implicit
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, LE, DFSInt[RW], RW]
+        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, DFSInt[RW], RW]
       ) = detailedBuilder((left, right) => (left, right))
 
-      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, LE, R, RW](
+      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
         rConst : Const.Aux[R, RW],
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, LE, R, RW]
+        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
-      implicit def evConst_op_DFSInt[L, LW, LE, R <: DFSInt[RW], RW](
+      implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
         lConst : Const.Aux[L, LW],
-        detailedBuilder: DetailedBuilder[L, LW, LE, DFSInt[RW], RW]
+        detailedBuilder: DetailedBuilder[L, LW, DFSInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
   }
@@ -474,18 +452,11 @@ object DFSInt extends DFAny.Companion {
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")
-    trait Builder[L, LE, R] extends DFAny.Op.Builder[L, R]
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
-      type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
+      type Aux[L, R, Comp0] = Builder[L, R] {
         type Comp = Comp0
-      }
-
-      object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = LW >= RW
-        type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
-        type ParamFace = Int
-        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
       }
 
       object Inference {
@@ -498,29 +469,26 @@ object DFSInt extends DFAny.Companion {
         type CW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcCW, LW, Int, RW, Int, ResW]
       }
 
-      trait DetailedBuilder[L, LW, LE, R, RW] {
+      trait DetailedBuilder[L, LW, R, RW] {
         type Comp
-        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, LE, R, Comp]
+        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp]
       }
       object DetailedBuilder {
-        implicit def ev[L, LW, LE, R, RW, CW, NCW, WCW](
+        implicit def ev[L, LW, R, RW, CW, NCW, WCW](
           implicit
           ctx : DFAny.Op.Context,
           ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
           cW : Inference.CW[LW, RW, CW],
-          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-        ) : DetailedBuilder[L, LW, LE, R, RW]{type Comp = Component[NCW, WCW, CW]} =
-          new DetailedBuilder[L, LW, LE, R, RW]{
+        ) : DetailedBuilder[L, LW, R, RW]{type Comp = Component[NCW, WCW, CW]} =
+          new DetailedBuilder[L, LW, R, RW]{
             type Comp = Component[NCW, WCW, CW]
-            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, LE, R, Comp] =
-              new Builder[L, LE, R] {
+            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp] =
+              new Builder[L, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
                   import ctx.basicLib.DFSIntOps._
                   val (left, right) = properLR(leftL, rightR)
-                  // Completing runtime checks
-                  checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val wcWidth = wcW(left.width, right.width)
                   val ncWidth = ncW(left.width, right.width)
@@ -538,23 +506,23 @@ object DFSInt extends DFAny.Companion {
           }
       }
 
-      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, LE, R <: DFSInt[RW], RW](
+      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
         implicit
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, LE, DFSInt[RW], RW]
+        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, DFSInt[RW], RW]
       ) = detailedBuilder((left, right) => (left, right))
 
-      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, LE, R, RW](
+      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
         rConst : Const.Aux[R, RW],
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, LE, R, RW]
+        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
-      implicit def evConst_op_DFSInt[L, LW, LE, R <: DFSInt[RW], RW](
+      implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
         lConst : Const.Aux[L, LW],
-        detailedBuilder: DetailedBuilder[L, LW, LE, DFSInt[RW], RW]
+        detailedBuilder: DetailedBuilder[L, LW, DFSInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
   }
