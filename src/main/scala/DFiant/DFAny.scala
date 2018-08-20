@@ -13,6 +13,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   type TBool <: DFBool
   type TBits[W2] <: DFBits[W2]
   type TUInt[W2] <: DFUInt[W2]
+  type TSInt[W2] <: DFSInt[W2]
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken <: DFAny.Token
@@ -203,6 +204,7 @@ object DFAny {
     type TBool = DFBool.Var//DFBool#TVar
     type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
     type TUInt[W2] = DFUInt.Var[W2]//DFUInt[W2]#TVar
+    type TSInt[W2] = DFSInt.Var[W2]//DFSInt[W2]#TVar
     type TDir <: DFDir
 
     //////////////////////////////////////////////////////////////////////////

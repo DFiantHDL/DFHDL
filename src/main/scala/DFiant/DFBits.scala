@@ -64,7 +64,7 @@ object DFBits extends DFAny.Companion {
       protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
-    def extendLeftBy[N](numOfBits : Natural.Int.Checked[N])(
+    def extendLeftBy[N](numOfBits : Positive.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
@@ -72,7 +72,7 @@ object DFBits extends DFAny.Companion {
       new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendLeftBy($numOfBits)"))
     }
 
-    def extendRightBy[N](numOfBits : Natural.Int.Checked[N])(
+    def extendRightBy[N](numOfBits : Positive.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {

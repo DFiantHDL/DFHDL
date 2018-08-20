@@ -38,13 +38,21 @@ object DFUInt extends DFAny.Companion {
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
 
-    def extendBy[N](numOfBits : Natural.Int.Checked[N])(
-      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFUInt.Var[tfs.Out] = ??? //new DFUInt.NewVar(tfs(width, numOfBits), getInit).assign(left, blk)
+    def extendBy[N](numOfBits : Positive.Checked[N])(
+      implicit
+      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
+    ) : DFUInt[tfs.Out] = {
+      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendBy($numOfBits)"))
+    }
+
+    def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Op.Context) : TSInt[Width] = {
+      widthCheck.unsafeCheck(width)
+      new DFSInt.Alias[Width](List(this), AliasReference.AsIs(s".sint")).asInstanceOf[TSInt[Width]]
+    }
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
     def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
-    //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
     def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
@@ -75,9 +83,9 @@ object DFUInt extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
+    implicit ctx : DFAny.NewVar.Context, checkedWidth : SIntWidth.Checked[W], di: DummyImplicit
   ) : NewVar[W] = new NewVar(checkedWidth)
-  def apply[W](checkedWidth : BitsWidth.Checked[W])(
+  def apply[W](checkedWidth : SIntWidth.Checked[W])(
     implicit ctx : DFAny.NewVar.Context
   ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))

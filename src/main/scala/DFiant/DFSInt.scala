@@ -20,6 +20,9 @@ object DFSInt extends DFAny.Companion {
     type TVar = DFSInt.Var[LW]
     type TToken = DFSInt.Token
     type Extendable
+
+    final def sign(implicit ctx : DFAny.Alias.Context) = bits().msbit
+
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
     def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
     def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, Extendable, R]) = op(left, right)
@@ -38,23 +41,23 @@ object DFSInt extends DFAny.Companion {
     def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
 
-    def extendBy[N](numOfBits : Natural.Int.Checked[N])(
-      implicit tfs : TwoFace.Int.Shell2[+, LW, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFSInt.Var[tfs.Out] = ??? //new DFSInt.NewVar(tfs(width, numOfBits), getInit).assign(left, blk)
+    def extendBy[N](numOfBits : Positive.Checked[N])(
+      implicit
+      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
+    ) : DFSInt[tfs.Out] = {
+      val extension = List.fill(numOfBits)(sign)
+      new DFSInt.Alias[tfs.Out](List(sign, this), AliasReference.AsIs(s".extendBy($numOfBits)"))
+    }
+
+    def uint(implicit ctx : DFAny.Op.Context) : TUInt[Width] =
+      new DFUInt.Alias[Width](List(this), AliasReference.AsIs(s".uint")).asInstanceOf[TUInt[Width]]
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
+    def isPositive(implicit ctx : DFAny.Op.Context) = left > 0
+    def isNegative(implicit ctx : DFAny.Op.Context) = sign
     def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
-    //  def toDFSInt[SW](implicit tfs : TwoFace.Int.)
     def extendable(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] with DFSInt.Extendable = DFSInt.extendable[LW](left)
 
-    //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
-    //    trait matchdf extends super.matchdf {
-    //      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
-    //      def casedf[R](that : Int)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
-    //      def casedf[R](that : Long)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
-    //      def casedf(that : BigInt)(block : => Unit)(implicit op: `Op==`.Builder[TVal, BigInt]) : Unit = {}
-    //
-    //    }
     override lazy val typeName: String = s"DFSInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,16 +128,16 @@ object DFSInt extends DFAny.Companion {
   class Token private[DFiant] (val width : Int, val valueSInt : BigInt, val bubble : Boolean) extends DFAny.Token {
     lazy val valueBits : BitVector = valueSInt.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
-    def mkTokenU(that : Token, result : BigInt, resultWidth : Int) : Token = {
+    def mkTokenS(that : Token, result : BigInt, resultWidth : Int) : Token = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
-      else Token(resultWidth, result.asUnsigned(resultWidth))
+      else Token(resultWidth, result)
     }
 
-    final def + (that : Token) : Token = mkTokenU(that, this.valueSInt + that.valueSInt, scala.math.max(this.width, that.width) + 1)
-    final def - (that : Token) : Token = mkTokenU(that, this.valueSInt - that.valueSInt, scala.math.max(this.width, that.width) + 1)
-    final def * (that : Token) : Token = mkTokenU(that, this.valueSInt * that.valueSInt, this.width + that.width)
-    final def / (that : Token) : Token = mkTokenU(that, this.valueSInt / that.valueSInt, this.width)
-    final def % (that : Token) : Token = mkTokenU(that, this.valueSInt % that.valueSInt, that.width)
+    final def + (that : Token) : Token = mkTokenS(that, this.valueSInt + that.valueSInt, scala.math.max(this.width, that.width) + 1)
+    final def - (that : Token) : Token = mkTokenS(that, this.valueSInt - that.valueSInt, scala.math.max(this.width, that.width) + 1)
+    final def * (that : Token) : Token = mkTokenS(that, this.valueSInt * that.valueSInt, this.width + that.width)
+    final def / (that : Token) : Token = mkTokenS(that, this.valueSInt / that.valueSInt, this.width)
+    final def % (that : Token) : Token = mkTokenS(that, this.valueSInt % that.valueSInt, that.width)
     final def <  (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt < that.valueSInt, this.isBubble || that.isBubble)
     final def >  (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt > that.valueSInt, this.isBubble || that.isBubble)
     final def <= (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt <= that.valueSInt, this.isBubble || that.isBubble)
@@ -162,10 +165,7 @@ object DFSInt extends DFAny.Companion {
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
-    def apply(width : Int, value : BigInt) : Token = {
-      if (value < 0 ) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
-      new Token(width, value, false)
-    }
+    def apply(width : Int, value : BigInt) : Token = new Token(width, value, false)
     def apply(width : Int, value : Bubble) : Token = new Token(width, 0, true)
     def apply(width : Int, token : Token) : Token = {
       //TODO: Boundary checks
