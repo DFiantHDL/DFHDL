@@ -78,9 +78,9 @@ object DFSInt extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
-    implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
+    implicit ctx : DFAny.NewVar.Context, checkedWidth : SIntWidth.Checked[W], di: DummyImplicit
   ) : NewVar[W] = new NewVar(checkedWidth)
-  def apply[W](checkedWidth : BitsWidth.Checked[W])(
+  def apply[W](checkedWidth : SIntWidth.Checked[W])(
     implicit ctx : DFAny.NewVar.Context
   ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
@@ -204,8 +204,8 @@ object DFSInt extends DFAny.Companion {
   object Init extends Init {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
-      private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
-      private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
+      private type IntWithinWidth[LW] = CompileTime[BitsWidthOf.CalcInt[GetArg0] <= LW]
+      private type LongWithinWidth[LW] = CompileTime[BitsWidthOf.CalcLong[GetArg0] <= LW]
       implicit class DFSIntBubble[LW](val right : Bubble) extends Able[DFSInt[LW]]
       implicit class DFSIntToken[LW](val right : DFSInt.Token) extends Able[DFSInt[LW]]
       implicit class DFSIntTokenSeq[LW](val right : Seq[DFSInt.Token]) extends Able[DFSInt[LW]]
