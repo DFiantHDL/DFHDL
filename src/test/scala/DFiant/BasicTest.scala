@@ -185,4 +185,15 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
   println(top_ioDesignConn4.codeString)
+
+
+  trait MyDesign extends DFDesign{
+    val in = DFSInt(4) <> IN init -1
+    val out = DFSInt(4) <> OUT
+
+    out <> in.prev.prev
+  }
+
+  val myDesign = new MyDesign {}
+  println(myDesign.codeString)
 }

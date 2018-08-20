@@ -46,7 +46,7 @@ object DFUInt extends DFAny.Companion {
       new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".extendBy($numOfBits)"))
     }
 
-    def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Op.Context) : TSInt[Width] = {
+    def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Alias.Context) : TSInt[Width] = {
       widthCheck.unsafeCheck(width)
       new DFSInt.Alias[Width](List(this), AliasReference.AsIs(s".sint")).asInstanceOf[TSInt[Width]]
     }

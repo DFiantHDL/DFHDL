@@ -49,7 +49,7 @@ object DFSInt extends DFAny.Companion {
       new DFSInt.Alias[tfs.Out](List(sign, this), AliasReference.AsIs(s".extendBy($numOfBits)"))
     }
 
-    def uint(implicit ctx : DFAny.Op.Context) : TUInt[Width] =
+    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[Width] =
       new DFUInt.Alias[Width](List(this), AliasReference.AsIs(s".uint")).asInstanceOf[TUInt[Width]]
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0

@@ -118,23 +118,23 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_containerConn3 = new ContainerConn3 {}
     val compare =
       """
-        |trait ConnectTest$ContainerConn3 extends DFDesign {
-        |  val i = DFUInt(8) <> IN
-        |  val o = DFUInt(8) <> OUT
-        |  val io1 = new ConnectTest$IODesignConn1 {}
-        |  val io2 = new ConnectTest$IODesignConn1 {}
-        |  io1.i <> i
-        |  io2.i <> io1.o
-        |  o <> io2.o
-        |}
-        |
-        |trait ConnectTest$IODesignConn1 extends DFDesign {
+        |trait IODesignConn1 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2)
         |  val o = DFUInt(8) <> OUT
         |  o <> i
         |}
         |
-        |val top_containerConn3 = new ConnectTest$ContainerConn3 {}
+        |trait ContainerConn3 extends DFDesign {
+        |  val i = DFUInt(8) <> IN
+        |  val o = DFUInt(8) <> OUT
+        |  val io1 = new IODesignConn1 {}
+        |  val io2 = new IODesignConn1 {}
+        |  io1.i <> i
+        |  io2.i <> io1.o
+        |  o <> io2.o
+        |}
+        |
+        |val top_containerConn3 = new ContainerConn3 {}
       """.stripMargin
     top_containerConn3.codeString =@= compare
   }
@@ -143,7 +143,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignIf = new IODesignIf {}
     val compare =
       """
-        |trait ConnectTest$IODesignIf extends DFDesign {
+        |trait IODesignIf extends DFDesign {
         |  val i = DFUInt(8) <> IN
         |  val o = DFUInt(8) <> OUT
         |  val b = DFBool() <> IN
@@ -159,7 +159,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val bb = DFBool()
         |}
         |
-        |val top_ioDesignIf = new ConnectTest$IODesignIf {}
+        |val top_ioDesignIf = new IODesignIf {}
       """.stripMargin
     top_ioDesignIf.codeString =@= compare
   }
@@ -177,7 +177,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  o <> rt.O
         |}
         |
-        |trait ConnectTest$IODesignConn2 extends DFDesign {
+        |trait IODesignConn2 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1)                            //init = (1)
         |  val o = DFUInt(8) <> OUT                                   //init = (2)
         |  val io = new $anon$1 {}
@@ -185,7 +185,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  o <> io.o
         |}
         |
-        |val top_ioDesignConn2 = new ConnectTest$IODesignConn2 {}
+        |val top_ioDesignConn2 = new IODesignConn2 {}
       """.stripMargin
     top_ioDesignConn2.codeString =@= compare
   }
@@ -195,7 +195,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
       """
-        |trait ConnectTest$IODesignConn5 extends DFDesign {
+        |trait IODesignConn5 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)                //init = (1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT                                   //init = (Φ)
         |  val $anon = i.prev                                         //init = (2, 3, 4, Φ)
@@ -219,7 +219,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  o$2 <> $anon$11
         |}
         |
-        |val top_ioDesignConn5 = new ConnectTest$IODesignConn5 {}
+        |val top_ioDesignConn5 = new IODesignConn5 {}
       """.stripMargin
     top_ioDesignConn5.codeString =@= compare
   }
@@ -228,7 +228,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
       """
-        |trait ConnectTest$IODesignConn5 extends DFDesign {
+        |trait IODesignConn5 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT
         |  o <> i.prev.prev.prev.prev
@@ -240,7 +240,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  o$2 <> i$2.prev.prev.prev.prev
         |}
         |
-        |val top_ioDesignConn5 = new ConnectTest$IODesignConn5 {}
+        |val top_ioDesignConn5 = new IODesignConn5 {}
       """.stripMargin
     top_ioDesignConn5.codeString =@= compare
   }
@@ -260,7 +260,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  outResult <> rtInst.S
         |}
         |
-        |trait ConnectTest$IODesignConn3 extends DFDesign {
+        |trait IODesignConn3 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(5)                            //init = (5)
         |  val o = DFUInt(8) <> OUT                                   //init = (6)
         |  val o_wc = DFUInt(9) <> OUT                                //init = (6)
@@ -276,7 +276,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  o_c <> plusOneC
         |}
         |
-        |val top_ioDesignConn3 = new ConnectTest$IODesignConn3 {}
+        |val top_ioDesignConn3 = new IODesignConn3 {}
       """.stripMargin
     top_ioDesignConn3.codeString =@= compare
   }
@@ -296,7 +296,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  outResult <> rtInst.S
         |}
         |
-        |trait ConnectTest$IODesignConn4 extends DFDesign {
+        |trait IODesignConn4 extends DFDesign {
         |  val i1 = DFUInt(8) <> IN init(8)                           //init = (8)
         |  val i2 = DFUInt(8) <> IN init(1)                           //init = (1)
         |  val o = DFBool() <> OUT                                    //init = (true)
@@ -306,7 +306,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  o <> opInst.outResult
         |}
         |
-        |val top_ioDesignConn4 = new ConnectTest$IODesignConn4 {}
+        |val top_ioDesignConn4 = new IODesignConn4 {}
       """.stripMargin
     top_ioDesignConn4.codeString =@= compare
   }

@@ -78,13 +78,16 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
   //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
   private val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
-  final private[internals] def getUniqueMemberName(suggestedName : String) : String = nameTable.get(suggestedName) match {
-    case Some(v) =>
-      nameTable.update(suggestedName, v + 1)
-      suggestedName + "$" + v
-    case _ =>
-      nameTable.update(suggestedName, 1)
-      suggestedName
+  final private[internals] def getUniqueMemberName(suggestedName : String) : String = {
+    val possiblyAnonName = if (suggestedName == typeName) "$anon" else suggestedName
+    nameTable.get(possiblyAnonName) match {
+      case Some(v) =>
+        nameTable.update(possiblyAnonName, v + 1)
+        possiblyAnonName + "$" + v
+      case _ =>
+        nameTable.update(possiblyAnonName, 1)
+        possiblyAnonName
+    }
   }
 
   private[internals] val mutableKeepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]

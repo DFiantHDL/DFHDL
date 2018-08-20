@@ -143,7 +143,7 @@ sealed trait DFAny extends DSLMemberConstruct {
   //////////////////////////////////////////////////////////////////////////
   // Naming
   //////////////////////////////////////////////////////////////////////////
-  final def isAnonymous : Boolean = ctx.n.isAnonymous
+  final def isAnonymous : Boolean = name.startsWith("$")
   final override private[DFiant] def nameDefault: String = ctx.n.value
   protected def constructCodeString : String
   override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =

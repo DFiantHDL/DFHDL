@@ -17,7 +17,7 @@ trait DFInterface extends DFAnyOwner {
   override lazy val typeName: String = {
     val cls = getClass
     val ifc = cls.getInterfaces
-    if (ifc.isEmpty) cls.getSuperclass.getName else ifc.head.getName
+    if (ifc.isEmpty) cls.getSuperclass.getName else ifc.head.getSimpleName
   }
 
   override def toString: String = s"$name : $typeName"
