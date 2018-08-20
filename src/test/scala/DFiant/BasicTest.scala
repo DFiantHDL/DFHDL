@@ -170,7 +170,7 @@ trait IODesignConn8 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-  implicit val a = DFAnyConfiguration.detailed
+//  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
@@ -189,9 +189,9 @@ object BasicTest extends App {
 
   trait MyDesign extends DFDesign{
     val in = DFSInt(4) <> IN init -1
-    val out = DFSInt(4) <> OUT
+    val out = DFSInt(8) <> OUT
 
-    out <> -in
+    out <> in.extendBy(4)
   }
 
   val myDesign = new MyDesign {}

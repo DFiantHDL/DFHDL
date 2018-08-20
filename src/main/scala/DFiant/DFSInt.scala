@@ -20,7 +20,7 @@ object DFSInt extends DFAny.Companion {
     type TVar = DFSInt.Var[LW]
     type TToken = DFSInt.Token
 
-    final def sign(implicit ctx : DFAny.Alias.Context) = bits().msbit
+    lazy val sign = bits().setAutoName("$anon").msbit.setAutoName(s"${name}$$sign")
 
     def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
@@ -46,7 +46,7 @@ object DFSInt extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFSInt[tfs.Out] = {
       val extension = List.fill(numOfBits)(sign)
-      new DFSInt.Alias[tfs.Out](List(sign, this), AliasReference.AsIs(s".extendBy($numOfBits)"))
+      new DFSInt.Alias[tfs.Out](extension :+ this, AliasReference.AsIs(s".bits().sint"))
     }
 
     def uint(implicit ctx : DFAny.Alias.Context) : TUInt[Width] =
