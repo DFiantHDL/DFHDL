@@ -191,7 +191,7 @@ object BasicTest extends App {
     val in = DFSInt(4) <> IN init -1
     val out = DFSInt(4) <> OUT
 
-    out <> in.prev.prev
+    out <> -in
   }
 
   val myDesign = new MyDesign {}

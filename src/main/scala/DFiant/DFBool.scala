@@ -279,7 +279,7 @@ object DFBool extends DFAny.Companion {
         }
         opInst.inLeft <> left
         opInst.inRight <> right
-        opInst.outResult.setAutoName(ctx.n.value)
+        opInst.outResult.setAutoName(ctx.getName)
       }
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](

@@ -43,11 +43,7 @@ package object internals {
       ITE[
         IsPositive[V],
         W - NumberOfLeadingZeros[V],
-        ITE[
-          IsZero[V],
-          1,
-          W + 1 - NumberOfLeadingZeros[Negate[V]]
-          ]
+        1
         ]
     type CalcInt[V] = Calc[V, 32]
     type CalcLong[V] = Calc[V, 64]
@@ -57,6 +53,29 @@ package object internals {
     type IntAux[V, Ret_Out] = Int[V] {type Out = Ret_Out}
     type Long[V] = TwoFace.Int.Shell1[CalcLong, V, scala.Long]
     type LongAux[V, Ret_Out] = Long[V] {type Out = Ret_Out}
+    object Signed {
+      private type Zero[V] = ITE[IsLong[V], 0L, 0]
+      private type IsPositive[V] = V > Zero[V]
+      private type IsZero[V] = V == Zero[V]
+      private type Calc[V, W] =
+        ITE[
+          IsPositive[V],
+          W + 1 - NumberOfLeadingZeros[V],
+          ITE[
+            IsZero[V],
+            2,
+            W + 1 - NumberOfLeadingZeros[Negate[V]]
+            ]
+          ]
+      type CalcInt[V] = Calc[V, 32]
+      type CalcLong[V] = Calc[V, 64]
+      type Arg0Int = TwoFace.Int.Shell1[CalcInt, GetArg0, scala.Int]
+      type Arg0Long = TwoFace.Int.Shell1[CalcLong, GetArg0, scala.Long]
+      type Int[V] = TwoFace.Int.Shell1[CalcInt, V, scala.Int]
+      type IntAux[V, Ret_Out] = Int[V] {type Out = Ret_Out}
+      type Long[V] = TwoFace.Int.Shell1[CalcLong, V, scala.Long]
+      type LongAux[V, Ret_Out] = Long[V] {type Out = Ret_Out}
+    }
   }
 
   implicit class BigIntExtras(value : BigInt) {

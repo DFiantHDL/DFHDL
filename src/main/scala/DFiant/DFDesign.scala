@@ -29,7 +29,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final def isTop : Boolean = owner == null
-  override private[DFiant] def nameDefault: String = ctx.n.value
+  override private[DFiant] def nameDefault: String = ctx.getName
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //final protected def discovery : Unit = protAlmanac
@@ -77,13 +77,13 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
       override private[DFiant] def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
-      override private[DFiant] def nameDefault: String = ctx.n.value
+      override private[DFiant] def nameDefault: String = ctx.getName
       override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
     }
 
     protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool)(implicit ctx : DFIfBlock.Context)
       extends DFIfBlock(cond) {
-      override private[DFiant] def nameDefault: String = ctx.n.value + "$elseif"
+      override private[DFiant] def nameDefault: String = ctx.getName + "$elseif"
       override private[DFiant] def createAlmanac : AlmanacElseIf =
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
@@ -92,7 +92,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
     protected class DFElseBlock(prevIfBlock : DFIfBlock)(implicit ctx : DFIfBlock.Context)
       extends DFDesign with ConditionalBlock {
-      override private[DFiant] def nameDefault: String = ctx.n.value + "$else"
+      override private[DFiant] def nameDefault: String = ctx.getName + "$else"
       override private[DFiant] def createAlmanac : AlmanacElse =
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock

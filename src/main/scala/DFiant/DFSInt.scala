@@ -22,6 +22,7 @@ object DFSInt extends DFAny.Companion {
 
     final def sign(implicit ctx : DFAny.Alias.Context) = bits().msbit
 
+    def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
     def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, R]) = op(left, right)
     def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, R]) = op(left, right)
@@ -192,8 +193,8 @@ object DFSInt extends DFAny.Companion {
   object Init extends Init {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
-      private type IntWithinWidth[LW] = CompileTime[BitsWidthOf.CalcInt[GetArg0] <= LW]
-      private type LongWithinWidth[LW] = CompileTime[BitsWidthOf.CalcLong[GetArg0] <= LW]
+      private type IntWithinWidth[LW] = CompileTime[BitsWidthOf.Signed.CalcInt[GetArg0] <= LW]
+      private type LongWithinWidth[LW] = CompileTime[BitsWidthOf.Signed.CalcLong[GetArg0] <= LW]
       implicit class DFSIntBubble[LW](val right : Bubble) extends Able[DFSInt[LW]]
       implicit class DFSIntToken[LW](val right : DFSInt.Token) extends Able[DFSInt[LW]]
       implicit class DFSIntTokenSeq[LW](val right : Seq[DFSInt.Token]) extends Able[DFSInt[LW]]
@@ -278,12 +279,12 @@ object DFSInt extends DFAny.Companion {
   }
   object Const {
     type Aux[N, W0] = Const[N]{type W = W0}
-    implicit def fromInt[N <: Int](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Int[N])
+    implicit def fromInt[N <: Int](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Int[N])
     : Aux[N, w.Out] = new Const[N] {
       type W = w.Out
       def apply(value : N) : DFSInt[W] = const[W](Token(w(value), value))
     }
-    implicit def fromLong[N <: Long](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Long[N])
+    implicit def fromLong[N <: Long](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Long[N])
     : Aux[N, w.Out] = new Const[N] {
       type W = w.Out
       def apply(value : N) : DFSInt[W] = const[W](Token(w(value), value))
@@ -356,7 +357,7 @@ object DFSInt extends DFAny.Companion {
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
       DFAny.Alias(List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).sint")) with DFSInt[NCW] {
-      lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.n.value}C")
+      lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
     }
 
@@ -404,7 +405,7 @@ object DFSInt extends DFAny.Companion {
                   }
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val wc = new DFSInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
+                  val wc = new DFSInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.getName}WC")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](wc)
                 }
@@ -447,7 +448,7 @@ object DFSInt extends DFAny.Companion {
     class Component[NCW, WCW, CW](val wc : DFSInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
     ) extends DFAny.Alias(List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).sint")) with DFSInt[NCW] {
-      lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.n.value}C")
+      lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
     }
 
@@ -497,7 +498,7 @@ object DFSInt extends DFAny.Companion {
                   val opInst = new DFiant.basiclib.DFSIntOps.`Comp*`(left.width, right.width, wcWidth)
                   opInst.inLeft <> left
                   opInst.inRight <> right
-                  val wc = new DFSInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.n.value}WC")
+                  val wc = new DFSInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.getName}WC")
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](wc, ncWidth, cWidth)

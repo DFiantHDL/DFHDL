@@ -237,7 +237,7 @@ object DFEnum extends DFAny.Companion {
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
 
-        result.setAutoName(ctx.n.value)
+        result.setAutoName(ctx.getName)
       }
 
       implicit def evDFEnum_op_DFEnum[E <: Enum](implicit ctx : DFAny.Op.Context)
