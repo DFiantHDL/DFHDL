@@ -13,6 +13,7 @@ trait Nameable {
   private[internals] def getUniqueName(suggestedName : String) : String
   final def setName(name : String) : this.type = {nameManual = name; this}
   final protected[DFiant] def setAutoName(name : String) : this.type = {nameAuto = name; this}
+  final protected[DFiant] def setAnonymous() : this.type = setAutoName("$anon")
   override def toString : String = name
 }
 

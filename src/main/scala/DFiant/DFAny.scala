@@ -145,7 +145,11 @@ sealed trait DFAny extends DSLMemberConstruct {
   //////////////////////////////////////////////////////////////////////////
   final def isAnonymous : Boolean = name.startsWith("$")
   final override private[DFiant] def nameDefault: String = ctx.getName
-  protected def constructCodeString : String
+  private var autoConstructCodeString : String = ""
+  final private[DFiant] def setAutoConstructCodeString(cs : String) : this.type = {autoConstructCodeString = cs; this}
+  private[DFiant] def constructCodeStringDefault : String
+  private def constructCodeString : String =
+    if (autoConstructCodeString.isEmpty || config.showAnonymousEntries) constructCodeStringDefault else autoConstructCodeString
   override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
     if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
   private def initCommentString : String =
@@ -305,7 +309,7 @@ object DFAny {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected def constructCodeString : String = s"$newVarCodeString$initCodeString"
+    final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -346,7 +350,7 @@ object DFAny {
       })
       initList.drop(1).foldLeft(initList.head)(DFBits.Token.##).map(protTokenBitsToTToken)
     }
-    final protected def constructCodeString : String =
+    final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
     final protected[DFiant] lazy val almanacEntry =
@@ -367,8 +371,8 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
-    final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeString
-    protected def constructCodeString : String = s"${token.codeString}"
+    final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
+    private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
@@ -500,7 +504,7 @@ object DFAny {
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
-    protected def constructCodeString : String = s"${dfVar.constructCodeString} <> $dir$initCodeString"
+    private[DFiant] def constructCodeStringDefault : String = s"${dfVar.constructCodeStringDefault} <> $dir$initCodeString"
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val id = getID
   }
