@@ -139,7 +139,7 @@ trait SType extends Instr {
 }
 
 trait SBType extends Instr {
-  val imm     = (bit(31), bit(7), bits(30, 25), bits(11, 8)).bits.extendRightBy(1).sint.extendTo(32)
+  val imm     = (bit(31), bit(7), bits(30, 25), bits(11, 8), b"0").bits.sint.extendTo(32)
   val rs2     = bits(24, 20)
   val rs1     = bits(19, 15)
   val func3   = bits(14, 12)
@@ -151,7 +151,7 @@ trait UType extends Instr {
 }
 
 trait UJType extends Instr {
-  val imm     = (bit(31), bits(19, 12), bit(20), bits(30, 21)).bits.extendRightBy(1).sint.extendTo(32)
+  val imm     = (bit(31), bits(19, 12), bit(20), bits(30, 21), b"0").bits.sint.extendTo(32)
   val rd      = bits(11,  7)
 }
 

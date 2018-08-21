@@ -282,6 +282,7 @@ object DFBits extends DFAny.Companion {
       //TODO: Boundary checks
       new Token(width, value.toLength(width), BitVector.low(width))
     }
+    def apply(value : BitVector) : Token = Token(value.length.toInt, value)
     def apply(width : Int, value : Bubble) : Token = new Token(width, BitVector.low(width), BitVector.high(width))
     def apply(width : Int, value : Token) : Token = {
       //TODO: Boundary checks

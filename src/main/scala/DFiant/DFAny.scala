@@ -6,7 +6,7 @@ import singleton.twoface._
 
 import scala.collection.mutable.ListBuffer
 
-sealed trait DFAny extends DSLMemberConstruct {
+sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   type TVal <: DFAny
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -19,7 +19,6 @@ sealed trait DFAny extends DSLMemberConstruct {
   type TToken <: DFAny.Token
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
-  type Width
   val width : TwoFace.Int[Width]
   protected val protComp : TCompanion
   import protComp._
@@ -734,9 +733,17 @@ object DFAny {
 
   abstract class ValProductExtender(e : Product) {
     type WSum
-    protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
-    def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] =
-      new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], AliasReference.AsIs(".bits"))
+    protected val wsum : Int = e.productIterator.toList.collect{
+      case dfAny : DFAny => dfAny.width.getValue
+      case bv : BitVector => bv.length.toInt
+    }.sum
+    def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] = {
+      val list : List[DFAny] = e.productIterator.toList.collect{
+        case dfAny : DFAny => dfAny
+        case bv : BitVector => DFBits.const[Int](DFBits.Token(bv))
+      }
+      new DFBits.Alias[w.Out](list, AliasReference.AsIs(".bits"))
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////////////
@@ -747,7 +754,7 @@ object DFAny {
     type WSum = e._1.Width
   }
 
-  implicit class ValTuple1[T1 <: DFAny](val e : Tuple1[T1])
+  implicit class ValTuple1[T1 <: HasWidth](val e : Tuple1[T1])
     extends ValProductExtender(e){
     type WSum = e._1.Width
   }
@@ -761,7 +768,7 @@ object DFAny {
     type WSum = e._1.Width + e._2.Width
   }
 
-  implicit class ValTuple2[T1 <: DFAny, T2 <: DFAny](val e : Tuple2[T1, T2])
+  implicit class ValTuple2[T1 <: HasWidth, T2 <: HasWidth](val e : Tuple2[T1, T2])
     extends ValProductExtender(e){
     type WSum = e._1.Width + e._2.Width
   }
@@ -775,7 +782,7 @@ object DFAny {
     type WSum = e._1.Width + e._2.Width + e._3.Width
   }
 
-  implicit class ValTuple3[T1 <: DFAny, T2 <: DFAny, T3 <: DFAny](val e : Tuple3[T1, T2, T3])
+  implicit class ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](val e : Tuple3[T1, T2, T3])
     extends ValProductExtender(e){
     type WSum = e._1.Width + e._2.Width + e._3.Width
   }
@@ -789,9 +796,23 @@ object DFAny {
     type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
   }
 
-  implicit class ValTuple4[T1 <: DFAny, T2 <: DFAny, T3 <: DFAny, T4 <: DFAny](val e : Tuple4[T1, T2, T3, T4])
+  implicit class ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](val e : Tuple4[T1, T2, T3, T4])
     extends ValProductExtender(e){
     type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
+  }
+  /////////////////////////////////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Tuple 5
+  /////////////////////////////////////////////////////////////////////////////////////
+  implicit class VarTuple5[T1 <: DFAny.Var, T2 <: DFAny.Var, T3 <: DFAny.Var, T4 <: DFAny.Var, T5 <: DFAny.Var](val e : Tuple5[T1, T2, T3, T4, T5])
+    extends VarProductExtender(e) {
+    type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
+  }
+
+  implicit class ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](val e : Tuple5[T1, T2, T3, T4, T5])
+    extends ValProductExtender(e){
+    type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
   }
   /////////////////////////////////////////////////////////////////////////////////////
 
