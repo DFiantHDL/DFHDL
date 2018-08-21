@@ -103,13 +103,13 @@ package object DFiant extends {
         if (argsTrees.isEmpty) Some(0)
         else {
           val tpes = argsTrees.map(e => e.tpe.dealias)
-          val lengths : List[Option[Int]] = tpes.map(e => e match {
+          val lengths : List[Option[Int]] = tpes.collect {
             case RefinedType(parents, scope) => parents.last.typeArgs.head match {
               case ConstantType(Constant(t : Int)) => Some(t)
               case _ => None
             }
             case _ => None
-          })
+          }
           def sumOption(a : Option[Int], b : Option[Int]) : Option[Int] = (a, b) match {
             case (Some(aa), Some(bb)) => Some(aa + bb)
             case _ => None
