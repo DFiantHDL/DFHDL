@@ -6,7 +6,8 @@ import DFiant.internals._
 import scala.collection.mutable.{HashMap, ListBuffer}
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
-  override implicit def theOwnerToBe : DFBlock = this
+  private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
+  override implicit def theOwnerToBe : DFBlock = mutableOwner.value
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
   final implicit val config = ctx.config
@@ -15,6 +16,18 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
     else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
   private[DFiant] val designDB : DFDesign.DB =
     if (owner == null) new DFDesign.DB else owner.designDB
+
+
+  implicit class NewVarExtender[DF <: DFAny.NewVar](newVar : DF) {
+    final object ifdf {
+      def apply(cond: DFBool)(block: => DF#TVal)(implicit ctx : DFIfBlock.Context): DFIfBlock[DF#TVal] =
+        new DFIfBlock(cond, block)
+    }
+  }
+  final object ifdf {
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock[Unit] =
+      new DFIfBlock(cond, block)
+  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
@@ -106,12 +119,10 @@ object DFIfBlock {
   type Context = DFDesign.Context
 }
 
-class MutableOwner(var value : DFDesign)
+class MutableOwner(var value : DFBlock)
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  private implicit val mutableOwner : MutableOwner = new MutableOwner(this)
-  final override implicit def theOwnerToBe : DFDesign = mutableOwner.value
-
+  final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
   //The block by value object is created within the context of the current DFDesign,
   //so we mutate `theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs
   private[DFiant] def injectConditionalBlock[IB <: DFDesign](ifBlock : IB, block: => Unit)(mutableOwner: MutableOwner) : IB = {
@@ -120,18 +131,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     block
     mutableOwner.value = originalOwner
     ifBlock
-  }
-
-  implicit class NewVarExtender[DF <: DFAny.NewVar](newVar : DF) {
-    final object ifdf {
-      def apply(cond: DFBool)(block: => DF#TVal)(implicit ctx : DFIfBlock.Context): DFIfBlock[DF#TVal] =
-        new DFIfBlock(cond, block)
-    }
-
-  }
-  final object ifdf {
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock[Unit] =
-      new DFIfBlock(cond, block)
   }
 
   def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
@@ -146,8 +145,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     val valCode = valCodeString
     if (isTop) s"${designDB.codeString}\n$valCode" else valCode
   }
-
-
 }
 
 object DFDesign {

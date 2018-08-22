@@ -84,10 +84,10 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit def apply[W](
     implicit ctx : DFAny.NewVar.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
-  ) : NewVar[W] = new NewVar(checkedWidth)
+  ) : NewVar[W] = new NewVar[W](checkedWidth)
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit ctx : DFAny.NewVar.Context
-  ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
+  ) : NewVar[W] = new NewVar[W](checkedWidth.unsafeCheck())
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
   //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
