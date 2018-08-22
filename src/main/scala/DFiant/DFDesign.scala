@@ -133,9 +133,9 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     ifBlock
   }
 
-  def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
+  private[DFiant] def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
 
-  def valCodeString : String = s"\nval $name = new $constructCodeString {}"
+  private def valCodeString : String = s"\nval $name = new $constructCodeString {}"
   final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
   override protected def discoveryDepenencies : List[Discoverable] =
@@ -190,7 +190,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 
-  final override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
+  final private[DFiant] override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
   final override def codeString : String = super.codeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
