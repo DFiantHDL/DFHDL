@@ -12,19 +12,13 @@ trait IODesignIf extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
   val b = DFBool() <> IN
-  Comment("Something")
   val myIf = ifdf (b) {
-    Comment("very")
     val myIf2 = ifdf (b) {
-      Comment("nice")
       o := i
     }.elseifdf(b) {
-      Comment("ugly")
       o := i
     }
-    Comment("but")
   }.elsedf {
-    Comment("hopeful")
     o := i
   }
   val bb = DFBool()

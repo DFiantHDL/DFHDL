@@ -61,12 +61,12 @@ object DFBlock {
 
 protected[DFiant] trait ConditionalBlock
 
-protected class DFIfBlock(cond : DFBool, mutableOwner: MutableOwner)(ctx : DFIfBlock.Context)
-  extends DFDesign()(ctx) with ConditionalBlock {
-  def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit n : NameIt)
-  : DFIfBlock = genIf(new DFElseIfBlock(this, elseCond, mutableOwner)(ctx), elseBlock)(mutableOwner)
-  def elsedf(elseBlock: => Unit)(implicit n : NameIt)
-  : Unit = genIf(new DFElseBlock(this)(ctx), elseBlock)(mutableOwner)
+protected class DFIfBlock(cond : DFBool)(implicit ctx : DFIfBlock.Context, mutableOwner: MutableOwner)
+  extends DFDesign with ConditionalBlock {
+  def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : DFIfBlock.Context)
+  : DFIfBlock = injectConditionalBlock(new DFElseIfBlock(this, elseCond), elseBlock)(mutableOwner)
+  def elsedf(elseBlock: => Unit)(implicit ctx : DFIfBlock.Context)
+  : Unit = injectConditionalBlock(new DFElseBlock(this), elseBlock)(mutableOwner)
 
   override private[DFiant] def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
@@ -74,8 +74,8 @@ protected class DFIfBlock(cond : DFBool, mutableOwner: MutableOwner)(ctx : DFIfB
   override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
 }
 
-protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, mutableOwner : MutableOwner)(ctx : DFIfBlock.Context)
-  extends DFIfBlock(cond, mutableOwner)(ctx) {
+protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool)(implicit ctx : DFIfBlock.Context, mutableOwner : MutableOwner)
+  extends DFIfBlock(cond) {
   override private[DFiant] def nameDefault: String = ctx.getName + "$elseif"
   override private[DFiant] def createAlmanac : AlmanacElseIf =
     new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
@@ -83,8 +83,8 @@ protected class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, mutableOwn
   override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
 }
 
-protected class DFElseBlock(prevIfBlock : DFIfBlock)(ctx : DFIfBlock.Context)
-  extends DFDesign()(ctx) with ConditionalBlock {
+protected class DFElseBlock(prevIfBlock : DFIfBlock)(implicit ctx : DFIfBlock.Context)
+  extends DFDesign with ConditionalBlock {
   override private[DFiant] def nameDefault: String = ctx.getName + "$else"
   override private[DFiant] def createAlmanac : AlmanacElse =
     new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
@@ -99,29 +99,22 @@ object DFIfBlock {
 class MutableOwner(var value : DFDesign)
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  self =>
-  private val mutableOwner : MutableOwner = new MutableOwner(this)
+  private implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value
 
-  private[DFiant] def genIf[IB <: DFDesign](ifBlock : IB, block: => Unit)(mutableOwner: MutableOwner) : IB = {
-    //      println(s"The owner to be ${implicitly[DFAnyOwner].fullName}  ctx.owner = ${ctx.owner.fullName}")
-    println(s"originalOwner <- ${mutableOwner.value.fullName}")
+  //The block by value object is created within the context of the current DFDesign,
+  //so we mutate `theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs
+  private[DFiant] def injectConditionalBlock[IB <: DFDesign](ifBlock : IB, block: => Unit)(mutableOwner: MutableOwner) : IB = {
     val originalOwner = mutableOwner.value
     mutableOwner.value = ifBlock
-    println(s"updatedOwner = ${mutableOwner.value.fullName}")
     block
     mutableOwner.value = originalOwner
-    println(s"updatedOwner -> ${originalOwner.fullName}")
     ifBlock
   }
 
   final object ifdf {
-
-
-    def apply(cond: DFBool)(block: => Unit)(implicit n : NameIt): DFIfBlock =
-      genIf(new DFIfBlock(cond, mutableOwner)(ctx.updateOwner(theOwnerToBe)), block)(mutableOwner)
-
-
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock =
+      injectConditionalBlock(new DFIfBlock(cond), block)(mutableOwner)
   }
 
   def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
