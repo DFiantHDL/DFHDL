@@ -21,6 +21,9 @@ trait IODesignIf extends DFDesign {
   }.elsedf {
     o := i
   }
+  val retIf = DFUInt(8).ifdf (b) {
+    i
+  }
   val bb = DFBool()
   bb.keep
 }
