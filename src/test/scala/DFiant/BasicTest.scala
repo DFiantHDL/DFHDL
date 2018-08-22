@@ -12,7 +12,9 @@ trait IODesignIf extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
   val b = DFBool() <> IN
+  Comment("Something")
   val myIf = ifdf (b) {
+    Comment("nice")
     val myIf2 = ifdf (b) {
       o := i
     }.elseifdf(b) {
@@ -174,7 +176,7 @@ object BasicTest extends App {
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
-  val top_ioDesignConn4 = new IODesignConn4 {}
+//  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
@@ -182,18 +184,18 @@ object BasicTest extends App {
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-//  val top_ioDesignIf = new IODesignIf {}
+  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
-  println(top_ioDesignConn4.codeString)
+  println(top_ioDesignIf.codeString)
 
 
-  trait MyDesign extends DFDesign{
-    val in = DFSInt(4) <> IN init -1
-    val out = DFSInt(8) <> OUT
-
-    out <> (b"1111", in).bits.sint
-  }
-
-  val myDesign = new MyDesign {}
-  println(myDesign.codeString)
+//  trait MyDesign extends DFDesign{
+//    val in = DFSInt(4) <> IN init -1
+//    val out = DFSInt(8) <> OUT
+//
+//    out <> (b"1111", in).bits.sint
+//  }
+//
+//  val myDesign = new MyDesign {}
+//  println(myDesign.codeString)
 }
