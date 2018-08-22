@@ -28,21 +28,21 @@ object MatchTest {
   val b = DFUInt[8]
   val aa = 0 to 5
 
-  a.casedf(a) {
-
-//    casedf(b) {
+//  a.casedf(a) {
 //
-//    }
-//    casedf_ {
+////    casedf(b) {
+////
+////    }
+////    casedf_ {
+////
+////    }
+//  }.casedf(b, b, b, b, b) {
 //
-//    }
-  }.casedf(b, b, b, b, b) {
-
-  }.casedf(a) {
-
-  }.case_ {
-
-  }
+//  }.casedf(a) {
+//
+//  }.case_ {
+//
+//  }
 }
 
 import DFiant.internals._

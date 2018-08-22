@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.DFAny.Op.Context
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -17,6 +18,7 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken <: DFAny.Token
+  type TMatch[MV <: DFAny] = DFAny.Match[MV] with TVal
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   val width : TwoFace.Int[Width]
@@ -181,11 +183,6 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
   //////////////////////////////////////////////////////////////////////////
-
-  def casedf(a: TVal)(block : => Unit)(implicit ctx : DFAny.Op.Context) : DFCase[TVal] = {
-//    def casedf_(block : => Unit) : Unit = {}
-    ???
-  }
 
   abstract class matchdf[T <: DFAny.NewVar](t : T) {
     def casedf[C, TT >: T#TVal](cond : C)(body : => TT) : TT = body
@@ -525,9 +522,15 @@ object DFAny {
   abstract class Match[MV <: DFAny](matchVal : MV)(
     implicit val ctx : Match.Context, cmp : Companion
   ) extends DFAny {
-
+    def casedf[MC](matchCond : MC)(block: => TVal)(implicit bld : Match.Builder[MV, MC, TVal])
+    : TMatch[MV] = bld(matchVal, matchCond, block)
+    def casedf_(block: => TVal)(implicit ctx: Match.Context) : TVal = ???
   }
+
   object Match {
+    trait Builder[MV <: DFAny, MC, RV <: DFAny] {
+      def apply(matchVal : MV, matchCond : MC, block : => RV) : Match[MV] with RV
+    }
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
