@@ -25,7 +25,6 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
-  final def ?! [R <: DFAny](that : R) = this -> that
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
@@ -304,9 +303,6 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Foo[RV <: DFAny] {
-    def ?! [A, B](a : Tuple2[A, B]) : RV = ???
-  }
   abstract class NewVar(_width : Int, newVarCodeString : String)(
     implicit val ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
@@ -322,7 +318,8 @@ object DFAny {
     //Also see https://github.com/scala/bug/issues/11026
     //    def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
     //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
-    def ?? (cond : DFBool) : Foo[TVal] = ???
+    def select(cond : DFBool)(thenSel : TVal, elseSel : TVal) : TVal = ???
+    def select[SW](sel : DFUInt[SW], default : TVal)(args : TVal*) : TVal = ???
     final val id = getID
   }
   object NewVar {

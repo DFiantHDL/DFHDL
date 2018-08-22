@@ -8,7 +8,10 @@ trait ALU extends DFDesign {
   val aluSel = DFEnum(ALUSel) <> IN
   val out = DFBits(32) <> OUT
 
-  val a = DFBool() select op1 ?! op2
+  val cond = DFBool()
+  val a = DFBits(32).select(cond)(op1, op2)
+  val sel = DFUInt(2)
+  val b = DFBits(32).select(sel, op1)(op1, op2, op1, op2)
   implicit class Bla(a : DFAny) {
     def matchdf[T](body : => T) : T = ???
 //    def casedf[T](sel : DF)
