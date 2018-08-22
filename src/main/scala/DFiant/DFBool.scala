@@ -16,6 +16,7 @@ object DFBool extends DFAny.Companion {
     type TVar = DFBool.Var
     type TToken = DFBool.Token
     type Width = 1
+    def select[T <: DFAny, L >: T, R >: T](t : Tuple2[L, R]) : T = ???
     def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), AliasReference.Invert(".invert"))
 

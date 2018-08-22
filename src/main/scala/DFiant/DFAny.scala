@@ -25,6 +25,7 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
+  final def ?! [R <: DFAny](that : R) = this -> that
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
@@ -186,6 +187,11 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
 //    def casedf_(block : => Unit) : Unit = {}
     ???
   }
+
+  abstract class matchdf[T <: DFAny.NewVar](t : T) {
+    def casedf[C, TT >: T#TVal](cond : C)(body : => TT) : TT = body
+//    def casedf[C](condBody : C => T#TVal) : T#TVal = condBody(???)
+  }
 }
 
 
@@ -298,6 +304,9 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Foo[RV <: DFAny] {
+    def ?! [A, B](a : Tuple2[A, B]) : RV = ???
+  }
   abstract class NewVar(_width : Int, newVarCodeString : String)(
     implicit val ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
@@ -313,6 +322,7 @@ object DFAny {
     //Also see https://github.com/scala/bug/issues/11026
     //    def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
     //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+    def ?? (cond : DFBool) : Foo[TVal] = ???
     final val id = getID
   }
   object NewVar {
@@ -508,6 +518,20 @@ object DFAny {
     trait Builder[L <: DFAny, Dir <: DFDir] {
       def apply(right : L, dir : Dir) : L <> Dir
     }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Match
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  abstract class Match[MV <: DFAny](matchVal : MV)(
+    implicit val ctx : Match.Context, cmp : Companion
+  ) extends DFAny {
+
+  }
+  object Match {
+    type Context = DFAnyOwner.Context[DFAnyOwner]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

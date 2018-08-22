@@ -40,6 +40,10 @@ object ControlSel extends Enum.Manual(1) {
   val DontCare = Disable
 }
 
+object ALUSel extends Enum.Manual(4) {
+  val DontCare, ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
+}
+
 object WriteBackSel extends Enum.Manual(2) {
   val ALU, Mem, PCPlus4, CSR = EntryDelta()
   val DontCare = ALU
