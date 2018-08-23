@@ -1,6 +1,5 @@
 package DFiant
 
-import DFiant.basiclib.DFBasicLib
 import DFiant.internals._
 
 import scala.collection.mutable.{HashMap, ListBuffer}
