@@ -406,6 +406,7 @@ object DFSInt extends DFAny.Companion {
                     case DiSoOp.Kind.- => new DFiant.basiclib.DFSIntOps.`Comp-`(left.width, right.width, opWidth)
                     case _ => throw new IllegalArgumentException("Unexpected operation")
                   }
+                  opInst.setAutoName(s"${ctx.getName}Comp")
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   val wc = new DFSInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.getName}WC")
@@ -499,6 +500,7 @@ object DFSInt extends DFAny.Companion {
                   val cWidth = cW(left.width, right.width)
 
                   val opInst = new DFiant.basiclib.DFSIntOps.`Comp*`(left.width, right.width, wcWidth)
+                  opInst.setAutoName(s"${ctx.getName}Comp")
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   val wc = new DFSInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.getName}WC")
@@ -560,6 +562,7 @@ object DFSInt extends DFAny.Companion {
           case DiSoOp.Kind.>= => new DFiant.basiclib.DFSIntOps.`Comp>=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
+        opInst.setAutoName(s"${ctx.getName}Comp")
         opInst.inLeft <> left
         opInst.inRight <> right
         opInst.outResult

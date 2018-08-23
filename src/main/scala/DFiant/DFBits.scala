@@ -517,6 +517,7 @@ object DFBits extends DFAny.Companion {
                     case DiSoOp.Kind.^ => new DFiant.basiclib.DFBitsOps.`Comp^`(left.width, right.width, oWidth)
                     case _ => throw new IllegalArgumentException("Unexpected logic operation")
                   }
+                  opInst.setAutoName(s"${ctx.getName}Comp")
                   opInst.inLeft <> left
                   opInst.inRight <> right
                   val out = new DFBits.Alias[OW](List(opInst.outResult), AliasReference.AsIs(""))
@@ -643,6 +644,7 @@ object DFBits extends DFAny.Companion {
           case DiSoOp.Kind.!= => new DFiant.basiclib.DFBitsOps.`Comp!=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
+        opInst.setAutoName(s"${ctx.getName}Comp")
         opInst.inLeft <> left
         opInst.inRight <> right
         opInst.outResult

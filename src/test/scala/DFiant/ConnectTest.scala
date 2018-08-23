@@ -265,10 +265,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val o = DFUInt(8) <> OUT                                   //init = (6)
         |  val o_wc = DFUInt(9) <> OUT                                //init = (6)
         |  val o_c = DFBool() <> OUT                                  //init = (false)
-        |  val opInst = new Arithmetic {}
-        |  opInst.inLeft <> i
-        |  opInst.inRight <> 1
-        |  val plusOneWC = opInst.outResult                           //init = (6)
+        |  val plusOneComp = new Arithmetic {}
+        |  plusOneComp.inLeft <> i
+        |  plusOneComp.inRight <> 1
+        |  val plusOneWC = plusOneComp.outResult                      //init = (6)
         |  val plusOne = plusOneWC.bits(7, 0).uint                    //init = (6)
         |  o <> plusOne
         |  o_wc <> plusOneWC
@@ -300,10 +300,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val i1 = DFUInt(8) <> IN init(8)                           //init = (8)
         |  val i2 = DFUInt(8) <> IN init(1)                           //init = (1)
         |  val o = DFBool() <> OUT                                    //init = (true)
-        |  val opInst = new Relational {}
-        |  opInst.inLeft <> i2
-        |  opInst.inRight <> i1
-        |  o <> opInst.outResult
+        |  val checkComp = new Relational {}
+        |  checkComp.inLeft <> i2
+        |  checkComp.inRight <> i1
+        |  o <> checkComp.outResult
         |}
         |
         |val top_ioDesignConn4 = new IODesignConn4 {}

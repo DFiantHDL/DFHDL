@@ -278,6 +278,7 @@ object DFBool extends DFAny.Companion {
           case DiSoOp.Kind.!= => new DFiant.basiclib.DFBoolOps.`Comp!=`()
           case _ => throw new IllegalArgumentException("Unexpected boolean operation")
         }
+        opInst.setAutoName(s"${ctx.getName}Comp")
         opInst.inLeft <> left
         opInst.inRight <> right
         opInst.outResult.setAutoName(ctx.getName)
