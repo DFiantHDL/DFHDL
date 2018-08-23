@@ -21,12 +21,12 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   implicit class NewVarExtender[DF <: DFAny.NewVar](newVar : DF) {
     final object ifdf {
       def apply(cond: DFBool)(block: => DF#TVal)(implicit ctx : DFIfBlock.Context): DFIfBlock[DF#TVal] =
-        new DFIfBlock(cond, block)
+        new DFIfBlock(cond, block, Some(newVar.asInstanceOf[DF#TVal]))
     }
   }
   final object ifdf {
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock[Unit] =
-      new DFIfBlock(cond, block)
+      new DFIfBlock(cond, block, None)
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,36 +72,55 @@ object DFBlock {
   type Context = ContextOf[Nothing, DFBlock]
 }
 
-protected[DFiant] trait ConditionalBlock
+protected[DFiant] trait ConditionalBlock {
+//  val mutableOwner : MutableOwner
+//  def block : Unit
+}
 
-protected class DFIfBlock[RV](cond : DFBool, block : => RV)(implicit ctx : DFIfBlock.Context, mutableOwner: MutableOwner)
+protected case class Select[RV](cond : Boolean)(thenSel : RV, elseSel : RV)(implicit ctx : DFIfBlock.Context) {
+  def getValue : RV = ???
+}
+
+protected class DFIfBlock[RV](cond : DFBool, block : => RV, returnVar : Option[RV])(implicit ctx : DFIfBlock.Context, mutableOwner: MutableOwner)
   extends DFDesign with ConditionalBlock {
   def elseifdf(elseCond : DFBool)(elseBlock : => RV)(implicit ctx : DFIfBlock.Context)
-  : DFIfBlock[RV] = new DFElseIfBlock[RV](this, elseCond, elseBlock)
+  : DFIfBlock[RV] = new DFElseIfBlock[RV](this, elseCond, elseBlock, returnVar)
   def elsedf(elseBlock: => RV)(implicit ctx : DFIfBlock.Context)
-  : DFElseBlock[RV] = new DFElseBlock[RV](this, elseBlock)
+  : RV = {
+    val dfElseBlock = new DFElseBlock[RV](this, elseBlock, returnVar)
+    returnVar match {
+      case Some(v) => v
+      case _ => {}.asInstanceOf[RV]
+    }
+  }
 
   override private[DFiant] def createAlmanac : AlmanacIf = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ cond
-  override private[DFiant] def nameDefault: String = ctx.getName
+  override private[DFiant] def nameDefault: String = if (returnVar.isDefined) ctx.getName + "$if" else ctx.getName
   override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+  lazy val ifList : List[DFIfBlock[RV]] = List(this)
 
   private val originalOwner = mutableOwner.value
   mutableOwner.value = this
-  block
+  final val returnValue : RV = block
+  returnVar match {
+    case Some(v : DFAny.Var) => v.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(mutableOwner.value))
+    case _ =>
+  }
   mutableOwner.value = originalOwner
 }
 
-protected class DFElseIfBlock[RV](prevIfBlock : DFIfBlock[RV], cond : DFBool, block : => RV)(implicit ctx : DFIfBlock.Context, mutableOwner : MutableOwner)
-  extends DFIfBlock[RV](cond, block) {
+protected class DFElseIfBlock[RV](prevIfBlock : DFIfBlock[RV], cond : DFBool, block : => RV, returnVar : Option[RV])(implicit ctx : DFIfBlock.Context, mutableOwner : MutableOwner)
+  extends DFIfBlock[RV](cond, block, returnVar) {
   override private[DFiant] def nameDefault: String = ctx.getName + "$elseif"
   override private[DFiant] def createAlmanac : AlmanacElseIf =
     new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
   override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+  override lazy val ifList : List[DFIfBlock[RV]] = prevIfBlock.ifList :+ this
 }
 
-protected class DFElseBlock[RV](prevIfBlock : DFIfBlock[RV], block : => RV)(implicit ctx : DFIfBlock.Context, mutableOwner : MutableOwner)
+protected class DFElseBlock[RV](prevIfBlock : DFIfBlock[RV], block : => RV, returnVar : Option[RV])(implicit ctx : DFIfBlock.Context, mutableOwner : MutableOwner)
   extends DFDesign with ConditionalBlock {
   override private[DFiant] def nameDefault: String = ctx.getName + "$else"
   override private[DFiant] def createAlmanac : AlmanacElse =
@@ -109,15 +128,23 @@ protected class DFElseBlock[RV](prevIfBlock : DFIfBlock[RV], block : => RV)(impl
   override protected def discoveryDepenencies = super.discoveryDepenencies :+ prevIfBlock
   override def codeString: String = s".elsedf {$bodyCodeString\n}"
 
+  lazy val ifList : List[DFIfBlock[RV]] = prevIfBlock.ifList
   private val originalOwner = mutableOwner.value
   mutableOwner.value = this
-  block
+  final val returnValue : RV = block
+  returnVar match {
+    case Some(v : DFAny.Var) => v.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(mutableOwner.value))
+    case _ =>
+  }
   mutableOwner.value = originalOwner
 }
 
 object DFIfBlock {
   type Context = DFDesign.Context
 }
+
+
+
 
 class MutableOwner(var value : DFBlock)
 
