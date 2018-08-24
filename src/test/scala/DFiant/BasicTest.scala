@@ -11,18 +11,18 @@ trait IODesignConn1 extends DFDesign {
 trait IODesignIf extends DFDesign {
   val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
   val i2 = DFUInt(8) <> IN init (2, Bubble)
-//  val o = DFUInt(8) <> OUT
-  val o = DFUInt(8) <> OUT
+  val o1 = DFUInt(8) <> OUT
+  val o2 = DFUInt(8) <> OUT
   val b = DFBool() <> IN init (false, true, true, true)
-//  val myIf = ifdf (b) {
-//    val myIf2 = ifdf (b) {
-//      o := i
-//    }.elseifdf(b) {
-//      o := i
-//    }
-//  }.elsedf {
-//    o := i
-//  }
+  val myIf = ifdf (b) {
+    val myIf2 = ifdf (b) {
+      o1 := i1
+    }.elseifdf(b) {
+      o1 := i1
+    }
+  }.elsedf {
+    o1 := i1
+  }
   val ret = DFUInt(8).ifdf (b) {
     DFUInt(8).ifdf (b) {
       i1
@@ -32,9 +32,7 @@ trait IODesignIf extends DFDesign {
   }.elsedf {
     i2
   }
-  o <> ret
-//  val bb = DFBool()
-//  bb.keep
+  o2 <> ret
 }
 
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {

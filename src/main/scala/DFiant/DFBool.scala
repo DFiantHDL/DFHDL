@@ -58,7 +58,7 @@ object DFBool extends DFAny.Companion {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
-    final object ifdf extends ConditionalBlock.WithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
+    final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
   final class Alias(aliasedVars : List[DFAny], reference : AliasReference)(

@@ -16,11 +16,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   private[DFiant] val designDB : DFDesign.DB =
     if (owner == null) new DFDesign.DB else owner.designDB
 
-  final object ifdf {
-    import ConditionalBlock.NoRetVal._
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : ConditionalBlock.Context): DFIfBlock =
-      new DFIfBlock(cond, block)
-  }
+  final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks

@@ -9,7 +9,7 @@ protected[DFiant] trait ConditionalBlock
 
 object ConditionalBlock {
   type Context = DFDesign.Context
-  class WithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar) {
+  class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[RV, R])
@@ -59,7 +59,7 @@ object ConditionalBlock {
       implicit ctx : Context, op : Builder[RV, R]
     ) : DFIfBlock = new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
-  object NoRetVal {
+  class IfNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)
@@ -96,6 +96,9 @@ object ConditionalBlock {
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
     }
+
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
+      new DFIfBlock(cond, block)(ctx, mutableOwner)
   }
 
 }
