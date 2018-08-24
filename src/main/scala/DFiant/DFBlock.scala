@@ -9,6 +9,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   final val owner = ctx.owner
   final implicit val basicLib = ctx.basicLib
   final implicit val config = ctx.config
+  private[DFiant] lazy val nameIt = ctx.n
   final val topDsn : DFDesign =
     if (owner != null) owner.topDsn
     else this.asInstanceOf[DFDesign] //The top will always be a DFDesign

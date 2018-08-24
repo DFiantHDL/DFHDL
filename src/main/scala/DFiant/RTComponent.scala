@@ -17,6 +17,7 @@ abstract class RTComponent(implicit ctx : RTComponent.Context, args : sourcecode
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final override private[DFiant] def nameDefault: String = ctx.getName
+  private[DFiant] lazy val nameIt = ctx.n
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : => Seq[dfVal.TToken])

@@ -24,12 +24,11 @@ trait IODesignIf extends DFDesign {
 //    o := i
 //  }
   val ret = DFUInt(8).ifdf (b) {
-    val ret2 = DFUInt(8).ifdf (b) {
+    DFUInt(8).ifdf (b) {
       i1
     }.elsedf {
       i1
     }
-    ret2
   }.elsedf {
     i2
   }

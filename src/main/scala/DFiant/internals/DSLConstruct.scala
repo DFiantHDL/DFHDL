@@ -101,7 +101,7 @@ object DSLOwnerConstruct {
     implicit val owner : Owner
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (owner == null) n.value else if (n.value == owner.typeName) "$anon" else n.value
+    def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) "$anon" else n.value
   }
 }
 

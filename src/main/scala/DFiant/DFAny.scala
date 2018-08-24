@@ -169,6 +169,7 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
   implicit lazy val owner : DFAnyOwner = ctx.owner
+  private[DFiant] lazy val nameIt = ctx.n
   final lazy implicit val config : DFAnyConfiguration = ctx.config
   final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
   protected[DFiant] val almanacEntry : AlmanacEntryNamed
@@ -281,6 +282,7 @@ object DFAny {
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
+    private[DFiant] lazy val nameIt = ctx.n
     def codeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     final val id = getID
   }
@@ -290,6 +292,7 @@ object DFAny {
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
+    private[DFiant] lazy val nameIt = ctx.n
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
   }

@@ -4,6 +4,7 @@ trait Nameable {
   private[DFiant] def nameDefault : String = "???"
   private var nameManual : String = ""
   private var nameAuto : String = ""
+  private[DFiant] val nameIt : NameIt
   final def hasName : Boolean = !nameManual.isEmpty || !nameAuto.isEmpty
   final lazy val name : String = getUniqueName (
     if (!nameManual.isEmpty) nameManual
@@ -34,5 +35,6 @@ object NameIt {
     private val ownerNameIsAnon = ownerName.value.contains('<')
     val isAnonymous : Boolean = ownerNameIsAnon || ownerName.value == "DFiant" || name.value == "$anonfun"
     val value: String = if (isAnonymous) "$anon" else if (nameIsAnon) ownerName.value else name.value
+//    println(s"${name.value}, ${ownerName.value}, ${isAnonymous}")
   }
 }
