@@ -265,7 +265,7 @@ object DFBits extends DFAny.Companion {
     override def codeString: String = if (isBubble) "Φ" else valueBits.codeString
   }
 
-  object Token {
+  object Token extends TokenCO {
     import DFAny.TokenSeq
     def | (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l | r)
     def & (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l & r)
@@ -295,7 +295,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends Port {
+  object Port extends PortCO {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
@@ -318,7 +318,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init extends Init {
+  object Init extends InitCO {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
@@ -345,7 +345,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Prev
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Prev extends Prev {
+  object Prev extends PrevCO {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
@@ -360,7 +360,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends Op {
+  object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)

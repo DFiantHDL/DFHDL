@@ -80,7 +80,6 @@ object DFBool extends DFAny.Companion {
     val width : Int = 1
     lazy val valueBits : BitVector = BitVector.bit(valueBool)
     lazy val bubbleMask: BitVector = BitVector.bit(bubble)
-
     final def && (that : Token) : Token = {
       if (this.isBubble || that.isBubble) Token(Bubble)
       else Token(this.valueBool && that.valueBool)
@@ -93,12 +92,15 @@ object DFBool extends DFAny.Companion {
       if (this.isBubble) Token(Bubble)
       else Token(!this.valueBool)
     }
+    def select[ST <: DFAny.Token](leftSel : ST, rightSel : ST) : ST = {
+      if (this.valueBool) leftSel else rightSel
+    }
     final def == (that : Token) : Token = DFBool.Token(this.valueBool == that.valueBool, this.isBubble || that.isBubble)
     final def != (that : Token) : Token = DFBool.Token(this.valueBool != that.valueBool, this.isBubble || that.isBubble)
     override def valueString : String = valueBool.toString()
   }
 
-  object Token {
+  object Token extends TokenCO {
     import DFAny.TokenSeq
     def || (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l || r)
     def && (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l && r)
@@ -110,6 +112,7 @@ object DFBool extends DFAny.Companion {
       case 0 => Token(false)
       case 1 => Token(true)
     }
+    def apply(token : DFBits.Token) : Token = Token(token.valueBits(0))
     def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
@@ -120,7 +123,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends Port {
+  object Port extends PortCO {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[Dir <: DFDir](implicit ctx : DFAny.Port.Context)
@@ -143,7 +146,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init extends Init {
+  object Init extends InitCO {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       private type IntIsBoolean = CompileTime[(GetArg0 == 0) || (GetArg0 == 1)]
@@ -172,7 +175,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Prev
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Prev extends Prev {
+  object Prev extends PrevCO {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
       implicit def ev(implicit ctx : DFAny.Alias.Context) : Builder[DFBool] = new Builder[DFBool] {
@@ -187,7 +190,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends Op {
+  object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)

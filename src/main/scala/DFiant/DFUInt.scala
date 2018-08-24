@@ -154,7 +154,7 @@ object DFUInt extends DFAny.Companion {
     override def valueString : String = valueUInt.toString()
   }
 
-  object Token {
+  object Token extends TokenCO {
     import DFAny.TokenSeq
     def +  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l + r)
     def -  (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l - r)
@@ -186,7 +186,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends Port {
+  object Port extends PortCO {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
@@ -209,7 +209,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init extends Init {
+  object Init extends InitCO {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
@@ -242,7 +242,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Prev
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Prev extends Prev {
+  object Prev extends PrevCO {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
@@ -257,7 +257,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends Op {
+  object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)

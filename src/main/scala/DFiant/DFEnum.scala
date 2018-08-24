@@ -89,7 +89,7 @@ object DFEnum extends DFAny.Companion {
     override def codeString: String = if (isBubble) "Φ" else valueEnum.get.fullName
   }
 
-  object Token {
+  object Token extends TokenCO {
     import DFAny.TokenSeq
     def == [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
@@ -103,7 +103,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends Port {
+  object Port extends PortCO {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[E <: Enum, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
@@ -126,7 +126,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init extends Init {
+  object Init extends InitCO {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       implicit class DFEnumBubble[E <: Enum](val right : Bubble) extends Able[DFEnum[E]]
@@ -153,7 +153,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Prev
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Prev extends Prev {
+  object Prev extends PrevCO {
     trait Builder[L <: DFAny] extends DFAny.Prev.Builder[L]
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
@@ -168,7 +168,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends Op {
+  object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def <> [E <: Enum, RDIR <: DFDir](port : DFEnum[E] <> RDIR)(
