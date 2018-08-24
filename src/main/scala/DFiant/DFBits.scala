@@ -191,6 +191,8 @@ object DFBits extends DFAny.Companion {
   ) extends DFAny.NewVar(width, s"DFBits($width)") with Var[W] {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+    //Dataflow If
+    final object ifdf extends ConditionalBlock.WithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
   final class Alias[W](aliasedVars : List[DFAny], reference: AliasReference)(

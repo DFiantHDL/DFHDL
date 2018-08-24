@@ -52,6 +52,8 @@ object DFEnum extends DFAny.Companion {
   ) extends DFAny.NewVar(enum.width, s"DFEnum(${enum.name})") with Var[E]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+    //Dataflow If
+    final object ifdf extends ConditionalBlock.WithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
   final class Alias[E <: Enum](val enum : E, aliasedVars : List[DFAny], reference : AliasReference)(

@@ -302,7 +302,6 @@ object DFAny {
   abstract class NewVar(_width : Int, newVarCodeString : String)(
     implicit val ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
-    ThisNewVar =>
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -315,19 +314,10 @@ object DFAny {
     //Also see https://github.com/scala/bug/issues/11026
     //    def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
     //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
-
-//    //////////////////////////////////////////////////////////////////////////
-//    // Dataflow If
-//    //////////////////////////////////////////////////////////////////////////
-//    TODO: Implement generically after upgrading to 2.13.0-M5
-//    Also see https://github.com/scala/bug/issues/11026
-//    final object ifdf {
-//      import ConditionalBlock.WithRetVal._
-//      def apply[R](cond: DFBool)(block: => protComp.Op.Able[R])(
-//        implicit ctx : ConditionalBlock.WithRetVal.Context, op : protComp.`Op:=`.Builder[TVal, R]
-//      ) : DFIfBlock[TVal] =new DFIfBlock[TVal](cond, op(left, block).asInstanceOf[TVal], ThisNewVar)(ctx, ctx.owner.mutableOwner)
-//    }
-//    //////////////////////////////////////////////////////////////////////////
+    //Dataflow If
+    //TODO: Implement generically after upgrading to 2.13.0-M5
+    //Also see https://github.com/scala/bug/issues/11026
+    //final object ifdf extends ConditionalBlock.WithRetVal[TVal, protComp.Op.Able, protComp.`Op:=`.Builder](NewVar.this)
 
     def select(cond : DFBool)(thenSel : TVal, elseSel : TVal) : TVal = ???
     def select[SW](sel : DFUInt[SW], default : TVal)(args : TVal*) : TVal = ???
