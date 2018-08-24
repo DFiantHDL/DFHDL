@@ -260,15 +260,14 @@ object DFAny {
     final def  init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
-      val updatedInit = op(left, that)
-      customInitString = s" init${updatedInit.codeString}"
       initialize(op(left, that), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected def initialize(updatedInit : => Seq[TToken], owner : DFAnyOwner) : Unit = {
+    final protected[DFiant] def initialize(updatedInit : => Seq[TToken], owner : DFAnyOwner) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
+      customInitString = s" init${updatedInit.codeString}"
       initialized = true
       setInitFunc(updatedInit)
     }
@@ -599,6 +598,14 @@ object DFAny {
   }
 
   object TokenSeq {
+    def apply[O <: Token, T1 <: Token, T2 <: Token, T3 <: Token](t1 : Seq[T1], t2 : Seq[T2], t3 : Seq[T3])(op : (T1, T2, T3) => O) : Seq[O] =
+      if (t1.isEmpty || t2.isEmpty || t3.isEmpty) Seq() else{
+        val leftSeq = t1
+        val rightSeq = t2
+        val leftSeq2 = leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last)
+        val rightSeq2 = t3
+        leftSeq2.zipAll(rightSeq2, leftSeq2.last, rightSeq2.last).map(t => op(t._1._1, t._1._2, t._2))
+      }
     def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
       if (leftSeq.isEmpty || rightSeq.isEmpty) Seq() else
       leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))

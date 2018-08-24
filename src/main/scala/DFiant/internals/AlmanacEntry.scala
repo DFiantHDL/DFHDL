@@ -144,12 +144,12 @@ object AlmanacEntryStruct {
 ///////////////////////////////////////////////////////////////////////////////////////
 //(:=) Identity assignment
 ///////////////////////////////////////////////////////////////////////////////////////
-final class AlmanacEntryAssign private (arg0 : AlmanacEntryNamed, arg1 : AlmanacEntryNamed)(implicit almanac : Almanac) extends AlmanacEntry {
-  val id : AlmanacID = arg0.id
-  val address : AlmanacAddress = almanac.getCurrentAddress
-  val width : Int = arg0.width
-  val timeRef : AlmanacTimeRef = arg0.timeRef
-  val init : Seq[Token] = arg0.init
+final class AlmanacEntryAssign private (arg0 : => AlmanacEntryNamed, arg1 : => AlmanacEntryNamed)(implicit almanac : Almanac) extends AlmanacEntry {
+  lazy val id : AlmanacID = arg0.id
+  lazy val address : AlmanacAddress = almanac.getCurrentAddress
+  lazy val width : Int = arg0.width
+  lazy val timeRef : AlmanacTimeRef = arg0.timeRef
+  lazy val init : Seq[Token] = arg0.init
 
   def codeString: String = s"${arg0.name} := ${arg1.name}"
 }

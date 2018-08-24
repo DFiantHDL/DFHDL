@@ -24,7 +24,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   }
   final object ifdf {
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock[Unit] =
-      new DFIfBlock(cond, block, None)
+      new DFIfBlock[Unit](cond, block, None)
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////

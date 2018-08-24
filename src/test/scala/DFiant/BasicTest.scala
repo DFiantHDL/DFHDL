@@ -9,27 +9,28 @@ trait IODesignConn1 extends DFDesign {
 }
 
 trait IODesignIf extends DFDesign {
-  val i = DFUInt(8) <> IN
+  val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+  val i2 = DFUInt(8) <> IN init (2, Bubble)
+//  val o = DFUInt(8) <> OUT
   val o = DFUInt(8) <> OUT
-  val o2 = DFUInt(8) <> OUT
-  val b = DFBool() <> IN
-  val myIf = ifdf (b) {
-    val myIf2 = ifdf (b) {
-      o := i
-    }.elseifdf(b) {
-      o := i
-    }
-  }.elsedf {
-    o := i
-  }
+  val b = DFBool() <> IN init (false, true, true, true)
+//  val myIf = ifdf (b) {
+//    val myIf2 = ifdf (b) {
+//      o := i
+//    }.elseifdf(b) {
+//      o := i
+//    }
+//  }.elsedf {
+//    o := i
+//  }
   val ret = DFUInt(8).ifdf (b) {
-    i
+    i1
   }.elsedf {
-    i
+    i2
   }
-  o2 <> ret
-  val bb = DFBool()
-  bb.keep
+  o <> ret
+//  val bb = DFBool()
+//  bb.keep
 }
 
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
@@ -180,14 +181,14 @@ object BasicTest extends App {
   implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1 = new IODesignConn1 {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
-  val top_ioDesignConn3 = new IODesignConn3 {}
+//  val top_ioDesignConn3 = new IODesignConn3 {}
 //  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}
 //  val top_containerConn1 = new ContainerConn1 {}
-  val top_containerConn3 = new ContainerConn3 {}
+//  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)

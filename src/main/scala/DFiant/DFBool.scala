@@ -110,6 +110,7 @@ object DFBool extends DFAny.Companion {
     def == (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l == r)
     def != (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l != r)
     def unary_! (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => !t)
+    def select[ST <: DFAny.Token](cond : Seq[Token], thenSel : Seq[ST], elseSel : Seq[ST]) : Seq[ST] = TokenSeq(cond, thenSel, elseSel)((c, t, e) => c.select(t, e))
 
     def apply(value : Int) : Token = value match {
       case 0 => Token(false)
