@@ -259,7 +259,7 @@ object DFAny {
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
     final private var customInitString : String = ""
-    final def  init(that : protComp.Init.Able[TVal]*)(
+    final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
       initialize(op(left, that), ctx.owner)
