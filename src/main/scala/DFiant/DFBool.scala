@@ -77,11 +77,11 @@ object DFBool extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Token private[DFiant] (val valueBool : Boolean, val bubble : Boolean) extends DFAny.Token {
-    type TToken = Token
-    type Builder = Token.Builder[TToken]
     val width : Int = 1
     lazy val valueBits : BitVector = BitVector.bit(valueBool)
     lazy val bubbleMask: BitVector = BitVector.bit(bubble)
+    def toBubbleToken : Token = Token(Bubble)
+
     final def && (that : Token) : Token = {
       if (this.isBubble || that.isBubble) Token(Bubble)
       else Token(this.valueBool && that.valueBool)
@@ -94,12 +94,10 @@ object DFBool extends DFAny.Companion {
       if (this.isBubble) Token(Bubble)
       else Token(!this.valueBool)
     }
-//    def select[ST <: DFAny.Token](leftSel : ST, rightSel : ST)(implicit tknBld : ST#Builder) : ST = {
-//      if (this.valueBool)
-//        if (this.isBubble) tknBld.toBubbleToken(leftSel.asInstanceOf[ST#TToken]).asInstanceOf[ST] else leftSel
-//      else
-//        if (this.isBubble) tknBld.toBubbleToken(rightSel.asInstanceOf[ST#TToken]).asInstanceOf[ST] else rightSel
-//    }
+    def select[ST <: DFAny.Token](thenSel : ST, elseSel : ST) : ST = {
+      if (this.valueBool) if (this.isBubble) thenSel.toBubbleToken.asInstanceOf[ST] else thenSel
+      else if (this.isBubble) elseSel.toBubbleToken.asInstanceOf[ST] else elseSel
+    }
     final def == (that : Token) : Token = DFBool.Token(this.valueBool == that.valueBool, this.isBubble || that.isBubble)
     final def != (that : Token) : Token = DFBool.Token(this.valueBool != that.valueBool, this.isBubble || that.isBubble)
     override def valueString : String = valueBool.toString()
@@ -120,14 +118,6 @@ object DFBool extends DFAny.Companion {
     def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
-
-    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
-    object Builder {
-      implicit def ev : Builder[Token] = new Builder[Token] {
-        def toBubbleToken(token : Token) : Token = Token(Bubble)
-        def fromBitsToken(bitsToken : DFBits.Token) : Token = DFBool.Token(bitsToken.valueBits(0))
-      }
-    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -79,6 +79,7 @@ object DFEnum extends DFAny.Companion {
       case Some(e) => (e.value.toBitVector(width), false.toBitVector(width))
       case None => (0.toBitVector(width), true.toBitVector(width))
     }
+    def toBubbleToken : Token[E] = Token(width, Bubble)
 
     final def == (that : Token[E]) : DFBool.Token = (this.valueEnum, that.valueEnum) match {
       case (Some(left), Some(right)) => DFBool.Token(left == right)
@@ -96,14 +97,6 @@ object DFEnum extends DFAny.Companion {
 
     def apply[E <: Enum](width : Int, value : Bubble) : Token[E] = new Token[E](width, None)
     def apply[E <: Enum](width : Int, value : E#Entry) : Token[E] = new Token[E](width, Some(value))
-
-    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
-    object Builder {
-      implicit def ev[E <: Enum](implicit enum : E) : Builder[Token[E]] = new Builder[Token[E]] {
-        def toBubbleToken(token : Token[E]) : Token[E] = Token(token.width, Bubble)
-        def fromBitsToken(bitsToken : DFBits.Token) : Token[E] = Token[E](enum.width, enum.entries(bitsToken.valueBits.toBigInt).asInstanceOf[E#Entry])
-      }
-    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

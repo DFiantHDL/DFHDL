@@ -540,8 +540,6 @@ object DFAny {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Token {
-    type TToken <: Token
-    type Builder <: Token.Builder[TToken]
     //maximum token value width
     val width : Int
     final lazy val widthOfValue : Int = scala.math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
@@ -550,6 +548,7 @@ object DFAny {
     //leading zero counter
     final lazy val lzc : Int = scala.math.min(valueBits.lzc, bubbleMask.lzc).toInt
     final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
+    def toBubbleToken : Token
 
     final def bit(relBit : Int) : DFBool.Token = {
       val outBitsValue = valueBits.bit(relBit)
@@ -596,10 +595,6 @@ object DFAny {
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
-    }
-    trait Builder[T <: DFAny.Token] {
-      def toBubbleToken(token : T) : T
-      def fromBitsToken(bitsToken : DFBits.Token) : T
     }
   }
 
@@ -697,9 +692,7 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Token
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    trait TokenCO {
-      type Builder[T <: DFAny.Token] <: DFAny.Token.Builder[T]
-    }
+    trait TokenCO
     val Token : TokenCO
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

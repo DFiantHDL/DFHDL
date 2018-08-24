@@ -133,6 +133,7 @@ object DFUInt extends DFAny.Companion {
   class Token private[DFiant] (val width : Int, val valueUInt : BigInt, val bubble : Boolean) extends DFAny.Token {
     lazy val valueBits : BitVector = valueUInt.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
+    def toBubbleToken : Token = Token(width, Bubble)
     def mkTokenU(that : Token, result : BigInt, resultWidth : Int) : Token = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result.asUnsigned(resultWidth))
@@ -178,14 +179,6 @@ object DFUInt extends DFAny.Companion {
     def apply(width : Int, token : Token) : Token = {
       //TODO: Boundary checks
       new Token(width, token.valueUInt, token.bubble)
-    }
-
-    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
-    object Builder {
-      implicit def ev : Builder[Token] = new Builder[Token] {
-        def toBubbleToken(token : Token) : Token = Token(token.width, Bubble)
-        def fromBitsToken(bitsToken : DFBits.Token) : Token = bitsToken.toUInt
-      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

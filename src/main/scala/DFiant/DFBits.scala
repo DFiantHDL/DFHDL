@@ -211,6 +211,7 @@ object DFBits extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Token private[DFiant] (val width : Int, val valueBits : BitVector, val bubbleMask : BitVector) extends DFAny.Token {
+    def toBubbleToken : Token = Token(width, Bubble)
     final def | (that : Token) : Token = {
       val outWidth = scala.math.max(this.width, that.width)
       val outBitsValue = this.valueBits | that.valueBits
@@ -287,14 +288,6 @@ object DFBits extends DFAny.Companion {
     def apply(width : Int, value : Token) : Token = {
       //TODO: Boundary checks
       value.bits(width-1, 0)
-    }
-
-    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
-    object Builder {
-      implicit def ev : Builder[Token] = new Builder[Token] {
-        def toBubbleToken(token : Token) : Token = Token(token.width, Bubble)
-        def fromBitsToken(bitsToken : DFBits.Token) : Token = bitsToken
-      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
