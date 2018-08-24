@@ -288,6 +288,14 @@ object DFBits extends DFAny.Companion {
       //TODO: Boundary checks
       value.bits(width-1, 0)
     }
+
+    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
+    object Builder {
+      implicit def ev : Builder[Token] = new Builder[Token] {
+        def toBubbleToken(token : Token) : Token = Token(token.width, Bubble)
+        def fromBitsToken(bitsToken : DFBits.Token) : Token = bitsToken
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

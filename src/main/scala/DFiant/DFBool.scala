@@ -77,6 +77,8 @@ object DFBool extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Token private[DFiant] (val valueBool : Boolean, val bubble : Boolean) extends DFAny.Token {
+    type TToken = Token
+    type Builder = Token.Builder[TToken]
     val width : Int = 1
     lazy val valueBits : BitVector = BitVector.bit(valueBool)
     lazy val bubbleMask: BitVector = BitVector.bit(bubble)
@@ -92,9 +94,12 @@ object DFBool extends DFAny.Companion {
       if (this.isBubble) Token(Bubble)
       else Token(!this.valueBool)
     }
-    def select[ST <: DFAny.Token](leftSel : ST, rightSel : ST) : ST = {
-      if (this.valueBool) leftSel else rightSel
-    }
+//    def select[ST <: DFAny.Token](leftSel : ST, rightSel : ST)(implicit tknBld : ST#Builder) : ST = {
+//      if (this.valueBool)
+//        if (this.isBubble) tknBld.toBubbleToken(leftSel.asInstanceOf[ST#TToken]).asInstanceOf[ST] else leftSel
+//      else
+//        if (this.isBubble) tknBld.toBubbleToken(rightSel.asInstanceOf[ST#TToken]).asInstanceOf[ST] else rightSel
+//    }
     final def == (that : Token) : Token = DFBool.Token(this.valueBool == that.valueBool, this.isBubble || that.isBubble)
     final def != (that : Token) : Token = DFBool.Token(this.valueBool != that.valueBool, this.isBubble || that.isBubble)
     override def valueString : String = valueBool.toString()
@@ -112,10 +117,17 @@ object DFBool extends DFAny.Companion {
       case 0 => Token(false)
       case 1 => Token(true)
     }
-    def apply(token : DFBits.Token) : Token = Token(token.valueBits(0))
     def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
+
+    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
+    object Builder {
+      implicit def ev : Builder[Token] = new Builder[Token] {
+        def toBubbleToken(token : Token) : Token = Token(Bubble)
+        def fromBitsToken(bitsToken : DFBits.Token) : Token = DFBool.Token(bitsToken.valueBits(0))
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

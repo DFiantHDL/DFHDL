@@ -22,7 +22,7 @@ object DFEnum extends DFAny.Companion {
     type TVal = DFEnum[TEnum]
     type TVar = DFEnum.Var[TEnum]
     type TToken = DFEnum.Token[TEnum]
-    val enum : TEnum
+    implicit val enum : TEnum
     def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
   }
@@ -96,6 +96,14 @@ object DFEnum extends DFAny.Companion {
 
     def apply[E <: Enum](width : Int, value : Bubble) : Token[E] = new Token[E](width, None)
     def apply[E <: Enum](width : Int, value : E#Entry) : Token[E] = new Token[E](width, Some(value))
+
+    trait Builder[T <: DFAny.Token] extends DFAny.Token.Builder[T]
+    object Builder {
+      implicit def ev[E <: Enum](implicit enum : E) : Builder[Token[E]] = new Builder[Token[E]] {
+        def toBubbleToken(token : Token[E]) : Token[E] = Token(token.width, Bubble)
+        def fromBitsToken(bitsToken : DFBits.Token) : Token[E] = Token[E](enum.width, enum.entries(bitsToken.valueBits.toBigInt).asInstanceOf[E#Entry])
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

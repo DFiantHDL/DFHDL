@@ -540,6 +540,8 @@ object DFAny {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Token {
+    type TToken <: Token
+    type Builder <: Token.Builder[TToken]
     //maximum token value width
     val width : Int
     final lazy val widthOfValue : Int = scala.math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
@@ -596,8 +598,8 @@ object DFAny {
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
     }
     trait Builder[T <: DFAny.Token] {
-      def apply(bubble : Bubble) : T
-      def apply(bitsToken : DFBits.Token) : T
+      def toBubbleToken(token : T) : T
+      def fromBitsToken(bitsToken : DFBits.Token) : T
     }
   }
 
