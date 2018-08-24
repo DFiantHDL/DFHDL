@@ -18,13 +18,15 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
 
   implicit class NewVarExtender[DF <: DFAny.NewVar](newVar : DF) {
     final object ifdf {
-      def apply(cond: DFBool)(block: => DF#TVal)(implicit ctx : DFIfBlock.Context): DFIfBlock[DF#TVal] =
-        new DFIfBlock(cond, block, Some(newVar.asInstanceOf[DF#TVal]))
+      import ConditionalBlock.WithRetVal._
+      def apply(cond: DFBool)(block: => DF#TVal)(implicit ctx : Context): DFIfBlock[DF#TVal] =
+        new DFIfBlock(cond, block, newVar)
     }
   }
   final object ifdf {
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : DFIfBlock.Context): DFIfBlock[Unit] =
-      new DFIfBlock[Unit](cond, block, None)
+    import ConditionalBlock.NoRetVal._
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
+      new DFIfBlock(cond, block)
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
