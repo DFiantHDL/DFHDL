@@ -145,10 +145,11 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   private var autoConstructCodeString : String = ""
   final private[DFiant] def setAutoConstructCodeString(cs : String) : this.type = {autoConstructCodeString = cs; this}
   private[DFiant] def constructCodeStringDefault : String
+  private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar]
   private def constructCodeString : String =
-    if (autoConstructCodeString.isEmpty || config.showAnonymousEntries) constructCodeStringDefault else autoConstructCodeString
+    if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
   override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
-    if (isAnonymous && !config.showAnonymousEntries) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
+    if (isAnonymous && !showAnonymous) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${getInit.codeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
