@@ -109,10 +109,9 @@ object DFUInt extends DFAny.Companion {
     //////////////////////////////////////////////////////////////////////////
     // Dataflow If
     //////////////////////////////////////////////////////////////////////////
-    final object ifdf {
-      import ConditionalBlock.WithRetVal._
+    final object ifdf extends ConditionalBlock.WithRetVal[Op.Able, `Op:=`.Builder]{
       def apply[R](cond: DFBool)(block: => Op.Able[R])(
-        implicit ctx : ConditionalBlock.WithRetVal.Context, op : `Op:=`.Builder[TVal, R]
+        implicit ctx : ConditionalBlock.Context, op : `Op:=`.Builder[TVal, R]
       ) : DFIfBlock[TVal] = new DFIfBlock[TVal](cond, op(left, block).asInstanceOf[TVal], NewVar.this)(ctx, ctx.owner.mutableOwner)
     }
     //////////////////////////////////////////////////////////////////////////

@@ -8,15 +8,15 @@ protected[DFiant] trait ConditionalBlock
 //}
 
 object ConditionalBlock {
-  object WithRetVal {
-    type Context = DFDesign.Context
+  type Context = DFDesign.Context
+  class WithRetVal[Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]] {
     protected[DFiant] class DFIfBlock[RV <: DFAny](val cond : DFBool, block : => RV, returnVar : DFAny.NewVar)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
-      def elseifdf(elseCond : DFBool)(elseBlock : => RV)(implicit ctx : Context)
-      : DFIfBlock[RV] = new DFElseIfBlock[RV](this, elseCond, elseBlock, returnVar)
-      def elsedf(elseBlock: => RV)(implicit ctx : Context)
+      def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[RV, R])
+      : DFIfBlock[RV] = new DFElseIfBlock[RV](this, elseCond, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV], returnVar)
+      def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[RV, R])
       : RV = {
-        val dfIfElseBlock = new DFElseBlock[RV](this, elseBlock, returnVar)
+        val dfIfElseBlock = new DFElseBlock[RV](this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV], returnVar)
         returnVar.initialize(dfIfElseBlock.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
@@ -56,7 +56,6 @@ object ConditionalBlock {
     }
   }
   object NoRetVal {
-    type Context = DFDesign.Context
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)

@@ -17,7 +17,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
 
   final object ifdf {
     import ConditionalBlock.NoRetVal._
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
+    def apply(cond: DFBool)(block: => Unit)(implicit ctx : ConditionalBlock.Context): DFIfBlock =
       new DFIfBlock(cond, block)
   }
 
