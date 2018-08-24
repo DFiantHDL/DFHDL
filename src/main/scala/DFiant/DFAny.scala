@@ -302,6 +302,7 @@ object DFAny {
   abstract class NewVar(_width : Int, newVarCodeString : String)(
     implicit val ctx : NewVar.Context, cmp : Companion
   ) extends DFAny.Var with DFAny.Uninitialized {
+    ThisNewVar =>
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
@@ -314,6 +315,17 @@ object DFAny {
     //Also see https://github.com/scala/bug/issues/11026
     //    def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
     //     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+
+    //////////////////////////////////////////////////////////////////////////
+    // Dataflow If
+    //////////////////////////////////////////////////////////////////////////
+    final object ifdf {
+      import ConditionalBlock.WithRetVal._
+      def apply(cond: DFBool)(block: => TVal)(implicit ctx : ConditionalBlock.WithRetVal.Context): DFIfBlock[TVal] =
+        new DFIfBlock[TVal](cond, block, ThisNewVar)(ctx, ctx.owner.mutableOwner)
+    }
+    //////////////////////////////////////////////////////////////////////////
+
     def select(cond : DFBool)(thenSel : TVal, elseSel : TVal) : TVal = ???
     def select[SW](sel : DFUInt[SW], default : TVal)(args : TVal*) : TVal = ???
     final val id = getID

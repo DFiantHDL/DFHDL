@@ -15,14 +15,6 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
   private[DFiant] val designDB : DFDesign.DB =
     if (owner == null) new DFDesign.DB else owner.designDB
 
-
-  implicit class NewVarExtender[DF <: DFAny.NewVar](newVar : DF) {
-    final object ifdf {
-      import ConditionalBlock.WithRetVal._
-      def apply(cond: DFBool)(block: => DF#TVal)(implicit ctx : Context): DFIfBlock[DF#TVal] =
-        new DFIfBlock(cond, block, newVar)
-    }
-  }
   final object ifdf {
     import ConditionalBlock.NoRetVal._
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
