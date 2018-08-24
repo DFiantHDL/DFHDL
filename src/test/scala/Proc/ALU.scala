@@ -23,7 +23,7 @@ trait ALU extends DFDesign {
     override type TVar = DFAny.Var
   }
   new aluSel.matchdf(DFBits(32)) {
-    casedf(ALUSel.ADD){b"11111111111111111111111111111111"}
+//    casedf(ALUSel.ADD){b"11111111111111111111111111111111"}
     casedf(ALUSel.SUB){(op1u - op2u).bits}
   }
 

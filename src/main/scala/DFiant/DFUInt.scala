@@ -105,6 +105,17 @@ object DFUInt extends DFAny.Companion {
   ) extends DFAny.NewVar(width, s"DFUInt($width)") with Var[W] {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+
+    //////////////////////////////////////////////////////////////////////////
+    // Dataflow If
+    //////////////////////////////////////////////////////////////////////////
+    final object ifdf {
+      import ConditionalBlock.WithRetVal._
+      def apply[R](cond: DFBool)(block: => Op.Able[R])(
+        implicit ctx : ConditionalBlock.WithRetVal.Context, op : `Op:=`.Builder[TVal, R]
+      ) : DFIfBlock[TVal] = new DFIfBlock[TVal](cond, op(left, block).asInstanceOf[TVal], NewVar.this)(ctx, ctx.owner.mutableOwner)
+    }
+    //////////////////////////////////////////////////////////////////////////
   }
 
   final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
