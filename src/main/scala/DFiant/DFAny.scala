@@ -258,7 +258,6 @@ object DFAny {
 
   trait Uninitialized extends DFAny {
     type TPostInit <: TVal
-    final private var customInitString : String = ""
     final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
@@ -266,19 +265,26 @@ object DFAny {
       this.asInstanceOf[TPostInit]
     }
     final private var initialized : Boolean = false
-    final protected[DFiant] def initialize(updatedInit : => Seq[TToken], owner : DFAnyOwner) : Unit = {
+    private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
+    final protected[DFiant] def initialize(updatedInit0 : => Seq[TToken], owner : DFAnyOwner) : Unit = {
       if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
-      customInitString = s" init${updatedInit.codeString}"
+      updatedInit = () => updatedInit0
       initialized = true
-      setInitFunc(updatedInit)
+      setInitFunc(updatedInit0)
     }
     final def reInit(cond : DFBool) : Unit = ???
     final private var _initFunc : () => Seq[TToken] = () => Seq()
-    final protected[DFiant] def setInitFunc(value : => Seq[TToken]) : Unit = _initFunc = () => value
-    final private val initLB = LazyBox(_initFunc())
-    final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCiruclar initialization detected"))
-    final def initCodeString : String = s"$customInitString"
+    final protected[DFiant] def setInitFunc(value : => Seq[TToken]) : Unit = {
+//      println(s"setInitFunc $fullName")
+      _initFunc = () => value
+    }
+    final private val initLB = LazyBox({
+//      println(s"initLB $fullName")
+      _initFunc()
+    })
+    final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCircular initialization detected"))
+    final def initCodeString : String = if (initialized) s" init${updatedInit().codeString}" else ""
   }
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {

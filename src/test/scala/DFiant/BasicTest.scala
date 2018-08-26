@@ -8,6 +8,12 @@ trait IODesignConn1 extends DFDesign {
   o <> i
 }
 
+trait IODesignConn1b extends DFDesign {
+  val i = DFUInt(8) <> IN init(1,2)
+  val o = DFBool() <> OUT
+  o <> (i < 1)
+}
+
 trait IODesignIf extends DFDesign {
   val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
   val i2 = DFUInt(8) <> IN init (2, Bubble)
@@ -24,7 +30,7 @@ trait IODesignIf extends DFDesign {
     o1 := i1
   }
   val ret = DFUInt(8).ifdf (b) {
-    DFUInt(8).ifdf (b) {
+    DFUInt(8).ifdf (i1 < 8) {
       i1
     }.elsedf {
       i1
@@ -180,8 +186,8 @@ trait IODesignConn8 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
-//  val top_ioDesignConn1 = new IODesignConn1 {}
+  implicit val a = DFAnyConfiguration.detailed
+//  val top_ioDesignConn1b = new IODesignConn1b {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
 //  val top_ioDesignConn4 = new IODesignConn4 {}

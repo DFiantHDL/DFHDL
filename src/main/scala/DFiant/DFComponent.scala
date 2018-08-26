@@ -15,7 +15,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   }
 
   override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn //TODO: should be changed so that any DFComponent can set its own port dependencies
-  final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : Seq[dfVal.TToken])
+  final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : => Seq[dfVal.TToken])
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 

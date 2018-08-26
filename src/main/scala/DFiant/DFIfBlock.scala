@@ -101,6 +101,59 @@ object ConditionalBlock {
       new DFIfBlock(cond, block)(ctx, mutableOwner)
   }
 
+//  class MatchNoRetVal[MatchAble[R] <: DFAny.Op.Able[R], MatchBuilder[L, R] <: DFAny.Op.Builder[L, R]](mutableOwner: MutableOwner) {
+//    protected[DFiant] final class DFMatchHeader[MV <: DFAny](matchVal : MV)(implicit ctx : Context) extends DSLMemberConstruct {
+//      def casedf[MC](matchCond : MatchAble[MC])(block : => Unit)(implicit ctx : Context, op : MatchBuilder[MV, MC])
+//      : DFCaseArgsBlock[MV, op.Comp] = new DFCaseArgsBlock[MV, op.Comp](None, matchVal, matchCond, block)
+//      override private[DFiant] def nameDefault: String = ctx.getName
+//      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString})"
+//      private[DFiant] lazy val nameIt = ctx.n
+//      val owner = ctx.owner
+//      val id : Int = getID
+//    }
+//    protected[DFiant] class DFCaseArgsBlock[MV <: DFAny, MC <: DFAny](prevCase : Option[DFCaseArgsBlock[MV, _]], matchVal : MV, matchCond : MC, block : => Unit)(
+//      implicit ctx : Context, mutableOwner: MutableOwner
+//    ) extends DFDesign with ConditionalBlock {
+//      def casedf[MC2](matchCond : MC2)(block : => Unit)(implicit ctx : Context)
+//      : DFCaseArgsBlock[MV, MC2] = new DFCaseArgsBlock[MV, MC2](Some(this), matchVal, matchCond, block)
+////      def casedf_(block : => Unit)(implicit ctx : Context)
+////      : Unit = new DFCase_Block[MV](Some(this), matchVal, matchCond, block)
+//
+//      override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
+//      private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
+//      final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
+//      override private[DFiant] def nameDefault: String = ctx.getName
+//      override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+//
+//      private val originalOwner = mutableOwner.value
+//      mutableOwner.value = this
+//      block
+//      mutableOwner.value = originalOwner
+//    }
+//
+////    protected[DFiant] class DFMatchCaseArgsBlock(prevIfBlock : DFMatchBlock, cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
+////      extends DFMatchBlock(cond, block) {
+////      override private[DFiant] def nameDefault: String = ctx.getName + "$elseif"
+////      override private[DFiant] def createAlmanac : Almanac =
+////        new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
+////      final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
+////      override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+////    }
+//
+////    protected[DFiant] class DFCase_Block[MV <: DFAny](prevIfBlock : DFMatchBlock, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
+////      extends DFMatchBlock(null, block) {
+////      override private[DFiant] def nameDefault: String = ctx.getName + "$else"
+////      override private[DFiant] def createAlmanac : AlmanacElse =
+////        new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
+////      final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
+////      override def codeString: String = s".elsedf {$bodyCodeString\n}"
+////    }
+////
+////    def apply[MV <: DFAny](matchValue : MV)(implicit ctx : Context): DFMatchBlock =
+////      new DFMatchBlock(matchValue)(ctx, mutableOwner)
+//  }
+//
+
 }
 
 

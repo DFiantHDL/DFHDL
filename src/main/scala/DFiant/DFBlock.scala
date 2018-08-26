@@ -17,6 +17,7 @@ abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with I
     if (owner == null) new DFDesign.DB else owner.designDB
 
   final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
+  final object matchdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Sub-Blocks
