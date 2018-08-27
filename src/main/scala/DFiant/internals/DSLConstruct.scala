@@ -82,7 +82,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     nameTable.get(suggestedName) match {
       case Some(v) =>
         nameTable.update(suggestedName, v + 1)
-        suggestedName + "$" + v
+        suggestedName + "ǂ" + v
       case _ =>
         nameTable.update(suggestedName, 1)
         suggestedName
@@ -101,7 +101,7 @@ object DSLOwnerConstruct {
     implicit val owner : Owner
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) "$anon" else n.value
+    def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) "ǂanon" else n.value
   }
 }
 

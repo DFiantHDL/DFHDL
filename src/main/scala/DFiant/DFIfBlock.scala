@@ -25,7 +25,7 @@ object ConditionalBlock {
       override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
-      override private[DFiant] def nameDefault: String = ctx.getName + "$if"
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂif"
       override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
 
       private val originalOwner = mutableOwner.value
@@ -37,7 +37,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(cond, block) {
-      override private[DFiant] def nameDefault: String = ctx.getName + "$elseif"
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
       override private[DFiant] def createAlmanac : Almanac =
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
@@ -47,7 +47,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(null, block) {
-      override private[DFiant] def nameDefault: String = ctx.getName + "$else"
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂelse"
       override private[DFiant] def createAlmanac : AlmanacElse =
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
@@ -81,7 +81,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(cond, block) {
-      override private[DFiant] def nameDefault: String = ctx.getName + "$elseif"
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
       override private[DFiant] def createAlmanac : Almanac =
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
@@ -90,7 +90,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(null, block) {
-      override private[DFiant] def nameDefault: String = ctx.getName + "$else"
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂelse"
       override private[DFiant] def createAlmanac : AlmanacElse =
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
