@@ -22,10 +22,10 @@ trait ALU extends DFDesign {
     override type TVal = DFAny
     override type TVar = DFAny.Var
   }
-  new aluSel.matchdf(DFBits(32)) {
-//    casedf(ALUSel.ADD){b"11111111111111111111111111111111"}
-    casedf(ALUSel.SUB){(op1u - op2u).bits}
-  }
+//  new aluSel.matchdf(DFBits(32)) {
+////    casedf(ALUSel.ADD){b"11111111111111111111111111111111"}
+//    casedf(ALUSel.SUB){(op1u - op2u).bits}
+//  }
 
 //  exe_alu_out := MuxCase(0.U, Array(
 //    (io.ctl.alu_fun === ALU_ADD)  -> (exe_alu_op1 + exe_alu_op2).toUInt,

@@ -19,10 +19,12 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken <: DFAny.Token
   type TPattern <: DFAny.Pattern
+  type TPatternAble[+R] <: DFAny.Pattern.Able[R]
+  type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
   type TUnbounded = TCompanion#Unbounded
 //  type TUInt <: DFUInt
   val width : TwoFace.Int[Width]
-  protected val protComp : TCompanion
+  protected[DFiant] val protComp : TCompanion
   import protComp._
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
@@ -185,11 +187,6 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
   def simWatch : BigInt = ???
   //////////////////////////////////////////////////////////////////////////
-
-  abstract class matchdf[T <: DFAny.NewVar](t : T) {
-    def casedf[C, TT >: T#TVal](cond : C)(body : => TT) : TT = body
-//    def casedf[C](condBody : C => T#TVal) : T#TVal = condBody(???)
-  }
 }
 
 
@@ -733,7 +730,7 @@ object DFAny {
       type Able[R] <: DFAny.Pattern.Able[R]
       type Builder[L <: DFAny] <: DFAny.Pattern.Builder[L, Able]
     }
-//    val Pattern : PatternCO
+    val Pattern : PatternCO
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

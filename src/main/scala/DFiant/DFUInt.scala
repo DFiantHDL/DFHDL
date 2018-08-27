@@ -20,6 +20,8 @@ object DFUInt extends DFAny.Companion {
     type TVar = DFUInt.Var[LW]
     type TToken = DFUInt.Token
     type TPattern = DFUInt.Pattern
+    type TPatternAble[+R] = DFUInt.Pattern.Able[R]
+    type TPatternBuilder[L <: DFAny] = DFUInt.Pattern.Builder[L]
     type Extendable
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
     def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
@@ -59,13 +61,6 @@ object DFUInt extends DFAny.Companion {
     def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
-    //    trait matchdf extends super.matchdf {
-    //      def casedf[R <: Unbounded](right : R)(block : => Unit)(implicit op: `Op==`.Builder[TVal, right.TVal]) : Unit = {}
-    //      def casedf[R](that : Int)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
-    //      def casedf[R](that : Long)(block : => Unit)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : Unit = {}
-    //      def casedf(that : BigInt)(block : => Unit)(implicit op: `Op==`.Builder[TVal, BigInt]) : Unit = {}
-    //
-    //    }
     override lazy val typeName: String = s"DFUInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

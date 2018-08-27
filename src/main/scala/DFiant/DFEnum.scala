@@ -22,6 +22,7 @@ object DFEnum extends DFAny.Companion {
     type TVal = DFEnum[TEnum]
     type TVar = DFEnum.Var[TEnum]
     type TToken = DFEnum.Token[TEnum]
+    type TPattern = DFEnum.Pattern[TEnum]
     implicit val enum : TEnum
     def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
@@ -149,6 +150,15 @@ object DFEnum extends DFAny.Companion {
       implicit def ev[E <: Enum] : Builder[DFEnum[E], Token[E]] = (left, right) =>
         Able.toTokenSeq(left.width, right)
     }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Match Pattern
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Pattern[E <: Enum] extends DFAny.Pattern {}
+  object Pattern extends PatternCO {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

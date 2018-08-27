@@ -41,6 +41,15 @@ trait IODesignIf extends DFDesign {
   o2 <> ret
 }
 
+trait IODesignMatch extends DFDesign {
+  val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+  val i2 = DFUInt(8) <> IN init (2, Bubble)
+  val o1 = DFUInt(8) <> OUT
+  val myMatch = matchdf (i2)
+    .casedf(1 to 5) {o1 := i1}
+    .casedf(7){o1 := i2}
+}
+
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val I = DFUInt(width) <> IN
   final val O = DFUInt(width) <> OUT
@@ -198,13 +207,14 @@ object BasicTest extends App {
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-  val top_ioDesignIf = new IODesignIf {}
+//  val top_ioDesignIf = new IODesignIf {}
+  val top_ioDesignMatch = new IODesignMatch {}
 //  println(top_ioDesignConn2.codeString)
-//  println(top_ioDesignIf.codeString)
+  println(top_ioDesignMatch.codeString)
 
-  import GlobalDesign._
-  val aa = DFUInt(8)
-  println(aa.pattern(1, 2 to 20, 21 to 40))
+//  import GlobalDesign._
+//  val aa = DFUInt(8)
+//  println(aa.pattern(1, 2 to 20, 21 to 40))
 
   //  trait MyDesign extends DFDesign{
 //    val in = DFSInt(4) <> IN init -1
