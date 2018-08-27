@@ -19,6 +19,7 @@ object DFUInt extends DFAny.Companion {
     type TVal = DFUInt[LW]
     type TVar = DFUInt.Var[LW]
     type TToken = DFUInt.Token
+    type TPattern = DFUInt.Pattern
     type Extendable
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
     def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
@@ -50,6 +51,8 @@ object DFUInt extends DFAny.Companion {
       val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
       new DFUInt.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
+
+    def pattern[R](right : Pattern.Able[R]*)(implicit bld : Pattern.Builder[TVal]) = bld(left, right)
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
     def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
@@ -237,6 +240,64 @@ object DFUInt extends DFAny.Companion {
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
       implicit def ev[LW] : Builder[DFUInt[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Match Pattern
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  class Pattern(val intervalSet : IntervalSet[BigInt]) extends DFAny.Pattern {
+    override def codeString: String = intervalSet.toString()
+    override def toString: String = codeString
+  }
+  object Pattern extends PatternCO {
+    trait Able[+L] extends DFAny.Pattern.Able[L] {
+      val intervalSet : IntervalSet[BigInt]
+    }
+    object Able {
+      implicit class DFUIntPatternInt[R <: Int](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.point(BigInt(right)))
+      }
+      implicit class DFULongPatternLong[R <: Long](val right : R)(implicit di : DummyImplicit) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.point(BigInt(right)))
+      }
+      implicit class DFUIntPatternBigInt[R <: BigInt](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.point(right))
+      }
+      implicit class DFUIntPatternRange[R <: Range](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.fromRange(right).toBigIntInterval)
+      }
+      implicit class DFUIntPatternIntervalInt[R <: Interval[Int]](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(right.toBigIntInterval)
+      }
+      implicit class DFUIntPatternIntervalLong[R <: Interval[Long]](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(right.toBigIntInterval)
+      }
+      implicit class DFUIntPatternIntervalBigInt[R <: Interval[BigInt]](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = IntervalSet(right)
+      }
+      implicit class DFUIntPatternIntervalSetInt[R <: IntervalSet[Int]](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = right.map(b => b.toBigIntInterval)
+      }
+      implicit class DFUIntPatternIntervalSetLong[R <: IntervalSet[Long]](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = right.map(b => b.toBigIntInterval)
+      }
+      implicit class DFUIntPatternIntervalSetBigInt[R <: IntervalSet[BigInt]](val right : R) extends Able[R] {
+        val intervalSet: IntervalSet[BigInt] = right
+      }
+    }
+    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    object Builder {
+      implicit def ev[LW] : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
+        def apply[R](left: DFUInt[LW], right: Seq[Able[R]]): Pattern = {
+          val patternSet = right.map(e => e.intervalSet).reduce((a, b) => a union b)
+          val reqInterval = Interval.closed(BigInt(0), BigInt.maxUnsignedFromWidth(left.width))
+          require(patternSet.intersect(reqInterval).nonEmpty, s"\nPattern must intersect with $reqInterval. Pattern is: $patternSet")
+          new Pattern(patternSet)
+        }
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

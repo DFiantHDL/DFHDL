@@ -200,10 +200,15 @@ object BasicTest extends App {
 //  val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignConn2.codeString)
-  println(top_ioDesignIf.codeString)
+//  println(top_ioDesignIf.codeString)
+
+  import GlobalDesign._
 
 
-//  trait MyDesign extends DFDesign{
+  val aa = DFUInt(8)
+  println(aa.pattern(1 to 20, 2000))
+
+  //  trait MyDesign extends DFDesign{
 //    val in = DFSInt(4) <> IN init -1
 //    val out = DFSInt(8) <> OUT
 //

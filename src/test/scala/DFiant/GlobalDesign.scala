@@ -4,7 +4,7 @@ import DFiant.basiclib._
 import DFiant.internals._
 
 object GlobalDesignName extends NameIt {
-  override val value: String = "???"
+  override val value: String = "GlobalDesign"
   override val isAnonymous: Boolean = true
 }
 

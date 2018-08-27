@@ -78,14 +78,16 @@ package object internals {
     }
   }
 
-  implicit class BigIntExtras(value : BigInt) {
+  implicit class BigIntExtrasCO(value : BigInt.type) {
     //get the maximum BigInt given a bits width
-    private def bitsWidthToMaxBigIntBits(width : Int) : BigInt = {
+    def maxUnsignedFromWidth(width : Int) : BigInt = {
       var mask: BigInt = 2
       mask = mask.pow(width) - 1
       mask
     }
+  }
 
+  implicit class BigIntExtras(value : BigInt) {
     def bitsWidth : Int = {
       if (value > 0) value.bitLength
       else if (value == 0) 1
@@ -172,6 +174,13 @@ package object internals {
       _value = _value + 1
       _value.toString(2)
     }
+  }
+
+  implicit class IntervalIntExtras(value : Interval[Int]) {
+    def toBigIntInterval : Interval[BigInt] = value.map(b => BigInt(b))
+  }
+  implicit class IntervalLongExtras(value : Interval[Long]) {
+    def toBigIntInterval : Interval[BigInt] = value.map(b => BigInt(b))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
