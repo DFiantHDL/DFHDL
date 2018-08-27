@@ -254,46 +254,42 @@ object DFUInt extends DFAny.Companion {
   }
   object Pattern extends PatternCO {
     trait Able[+L] extends DFAny.Pattern.Able[L] {
-      val intervalSet : IntervalSet[BigInt]
+      val interval : Interval[BigInt]
     }
     object Able {
       implicit class DFUIntPatternInt[R <: Int](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.point(BigInt(right)))
+        val interval: Interval[BigInt] = Interval.point(BigInt(right))
       }
       implicit class DFULongPatternLong[R <: Long](val right : R)(implicit di : DummyImplicit) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.point(BigInt(right)))
+        val interval: Interval[BigInt] = Interval.point(BigInt(right))
       }
       implicit class DFUIntPatternBigInt[R <: BigInt](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.point(right))
+        val interval: Interval[BigInt] = Interval.point(right)
       }
       implicit class DFUIntPatternRange[R <: Range](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(Interval.fromRange(right).toBigIntInterval)
+        val interval: Interval[BigInt] = Interval.fromRange(right).toBigIntInterval
       }
       implicit class DFUIntPatternIntervalInt[R <: Interval[Int]](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(right.toBigIntInterval)
+        val interval: Interval[BigInt] = right.toBigIntInterval
       }
       implicit class DFUIntPatternIntervalLong[R <: Interval[Long]](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(right.toBigIntInterval)
+        val interval: Interval[BigInt] = right.toBigIntInterval
       }
       implicit class DFUIntPatternIntervalBigInt[R <: Interval[BigInt]](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = IntervalSet(right)
-      }
-      implicit class DFUIntPatternIntervalSetInt[R <: IntervalSet[Int]](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = right.map(b => b.toBigIntInterval)
-      }
-      implicit class DFUIntPatternIntervalSetLong[R <: IntervalSet[Long]](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = right.map(b => b.toBigIntInterval)
-      }
-      implicit class DFUIntPatternIntervalSetBigInt[R <: IntervalSet[BigInt]](val right : R) extends Able[R] {
-        val intervalSet: IntervalSet[BigInt] = right
+        val interval: Interval[BigInt] = right
       }
     }
     trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
     object Builder {
       implicit def ev[LW] : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply[R](left: DFUInt[LW], right: Seq[Able[R]]): Pattern = {
-          val patternSet = right.map(e => e.intervalSet).reduce((a, b) => a union b)
-          val reqInterval = Interval.closed(BigInt(0), BigInt.maxUnsignedFromWidth(left.width))
+          val reqInterval = IntervalSet(Interval.closed(BigInt(0), BigInt.maxUnsignedFromWidth(left.width)))
+          val patternSet = right.map(e => e.interval).foldLeft(IntervalSet.empty[BigInt])((set, interval) => {
+            if (set.intersect(interval).nonEmpty) throw new IllegalArgumentException(s"\nThe interval $interval already intersects with $set")
+            if (!reqInterval.contains(interval)) throw new IllegalArgumentException(s"\nThe interval $interval is outside of range allowed by ${left.name}: $reqInterval")
+            set + interval
+          })
+
           require(patternSet.intersect(reqInterval).nonEmpty, s"\nPattern must intersect with $reqInterval. Pattern is: $patternSet")
           new Pattern(patternSet)
         }
