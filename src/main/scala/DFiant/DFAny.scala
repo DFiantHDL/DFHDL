@@ -8,7 +8,7 @@ import singleton.twoface._
 import scala.collection.mutable.ListBuffer
 
 sealed trait DFAny extends DSLMemberConstruct with HasWidth {
-  type TVal <: DFAny
+  type TVal <: DFAny.Unbounded[TCompanion]
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
   type TBool <: DFBool
@@ -618,7 +618,7 @@ object DFAny {
       val right : R
     }
 
-    trait Builder[L <: DFAny, Able[R] <: Pattern.Able[R]] {
+    trait Builder[L <: DFAny, Able[+R] <: Pattern.Able[R]] {
       def apply[R](left : L, right : Seq[Able[R]]) : L#TPattern
     }
   }
@@ -727,7 +727,7 @@ object DFAny {
     // Match Pattern
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait PatternCO {
-      type Able[R] <: DFAny.Pattern.Able[R]
+      type Able[+R] <: DFAny.Pattern.Able[R]
       type Builder[L <: DFAny] <: DFAny.Pattern.Builder[L, Able]
     }
     val Pattern : PatternCO

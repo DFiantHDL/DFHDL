@@ -18,10 +18,10 @@ trait ALU extends DFDesign {
   }
   val op1u = op1.uint
   val op2u = op2.uint
-  val aaa = new DFAny.NewVar(0,"")(???,???) {
-    override type TVal = DFAny
-    override type TVar = DFAny.Var
-  }
+//  val aaa = new DFAny.NewVar(0,"")(???,???) {
+//    override type TVal = DFAny
+//    override type TVar = DFAny.Var
+//  }
 //  new aluSel.matchdf(DFBits(32)) {
 ////    casedf(ALUSel.ADD){b"11111111111111111111111111111111"}
 //    casedf(ALUSel.SUB){(op1u - op2u).bits}

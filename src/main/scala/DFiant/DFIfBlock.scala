@@ -101,7 +101,6 @@ object ConditionalBlock {
       new DFIfBlock(cond, block)(ctx, mutableOwner)
   }
 
-//[PatternAble[R] <: DFAny.Pattern.Able[R], PatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, PatternAble]]
   class MatchNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](matchVal : MV)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV])
