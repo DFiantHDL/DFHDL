@@ -46,7 +46,7 @@ trait IODesignMatch extends DFDesign {
   val i2 = DFUInt(8) <> IN init (2, Bubble)
   val o1 = DFUInt(8) <> OUT
   val myMatch = matchdf (i2)
-    .casedf(1 to 5) {o1 := i1}
+    .casedf(1 to 5, 10 to 20) {o1 := i1}
     .casedf(7){o1 := i2}
 }
 

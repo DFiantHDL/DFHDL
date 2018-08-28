@@ -244,7 +244,7 @@ object DFUInt extends DFAny.Companion {
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Pattern(val intervalSet : IntervalSet[BigInt]) extends DFAny.Pattern {
-    override def codeString: String = intervalSet.toString()
+    override def codeString: String = intervalSet.map(i => i.codeString).mkString(", ")
     override def toString: String = codeString
   }
   object Pattern extends PatternCO {

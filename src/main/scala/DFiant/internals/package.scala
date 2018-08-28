@@ -182,6 +182,9 @@ package object internals {
   implicit class IntervalLongExtras(value : Interval[Long]) {
     def toBigIntInterval : Interval[BigInt] = value.map(b => BigInt(b))
   }
+  implicit class IntervalBigIntExtras(interval : Interval[BigInt]) {
+    def codeString : String = s"""uip"$interval""""
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
   implicit class ReflectionClassExtras(extended : Any) {
