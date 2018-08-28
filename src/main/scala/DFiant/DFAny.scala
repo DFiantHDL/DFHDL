@@ -613,6 +613,7 @@ object DFAny {
   trait Pattern[T <: Pattern[T]] {
     def overlapsWith(pattern: T) : Boolean
     def codeString : String
+    override def toString: String = codeString
   }
   object Pattern {
     trait Able[+R] {

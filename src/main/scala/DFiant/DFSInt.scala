@@ -232,8 +232,53 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Pattern extends DFAny.Pattern[Pattern] {}
+  class Pattern(val intervalSet : IntervalSet[BigInt]) extends DFAny.Pattern[Pattern] {
+    def overlapsWith(pattern: Pattern) : Boolean = intervalSet.intersect(pattern.intervalSet).nonEmpty
+    override def codeString: String = intervalSet.map(i => i.codeString).mkString(", ")
+  }
   object Pattern extends PatternCO {
+    trait Able[+R] extends DFAny.Pattern.Able[R] {
+      val interval : Interval[BigInt]
+    }
+    object Able {
+      implicit class DFSIntPatternInt[R <: Int](val right : R) extends Able[R] {
+        val interval: Interval[BigInt] = Interval.point(BigInt(right))
+      }
+      implicit class DFULongPatternLong[R <: Long](val right : R)(implicit di : DummyImplicit) extends Able[R] {
+        val interval: Interval[BigInt] = Interval.point(BigInt(right))
+      }
+      implicit class DFSIntPatternBigInt[R <: BigInt](val right : R) extends Able[R] {
+        val interval: Interval[BigInt] = Interval.point(right)
+      }
+      implicit class DFSIntPatternRange[R <: Range](val right : R) extends Able[R] {
+        val interval: Interval[BigInt] = Interval.fromRange(right).toBigIntInterval
+      }
+      implicit class DFSIntPatternIntervalInt[R <: Interval[Int]](val right : R) extends Able[R] {
+        val interval: Interval[BigInt] = right.toBigIntInterval
+      }
+      implicit class DFSIntPatternIntervalLong[R <: Interval[Long]](val right : R) extends Able[R] {
+        val interval: Interval[BigInt] = right.toBigIntInterval
+      }
+      implicit class DFSIntPatternIntervalBigInt[R <: Interval[BigInt]](val right : R) extends Able[R] {
+        val interval: Interval[BigInt] = right
+      }
+    }
+    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    object Builder {
+      implicit def ev[LW] : Builder[DFSInt[LW]] = new Builder[DFSInt[LW]] {
+        def apply[R](left: DFSInt[LW], right: Seq[Able[R]]): Pattern = {
+          val reqInterval = IntervalSet(Interval.closed(BigInt.minSignedFromWidth(left.width), BigInt.maxSignedFromWidth(left.width)))
+          val patternSet = right.map(e => e.interval).foldLeft(IntervalSet.empty[BigInt])((set, interval) => {
+            if (set.intersect(interval).nonEmpty) throw new IllegalArgumentException(s"\nThe interval $interval already intersects with $set")
+            if (!reqInterval.contains(interval)) throw new IllegalArgumentException(s"\nThe interval $interval is outside of range allowed by ${left.name}: $reqInterval")
+            set + interval
+          })
+
+          require(patternSet.intersect(reqInterval).nonEmpty, s"\nPattern must intersect with $reqInterval. Pattern is: $patternSet")
+          new Pattern(patternSet)
+        }
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

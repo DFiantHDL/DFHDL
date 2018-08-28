@@ -50,6 +50,13 @@ trait IODesignMatch extends DFDesign {
     .casedf(1 to 5, 10 to 20) {o1 := i1}
     .casedf(7){o1 := i2}
     .casedf(11){o1 := i2}
+
+  val i3 = DFEnum(Foo) <> IN init (Foo.Baz0, Foo.Baz3)
+  val o2 = DFUInt(8) <> OUT
+  val myEnumMatch = matchdf (i3)
+    .casedf(Foo.Baz0) {o2 := 1}
+    .casedf(Foo.Baz1) {o2 := 0}
+
 }
 
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
@@ -209,9 +216,9 @@ object BasicTest extends App {
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-//  val top_ioDesignIf = new IODesignIf {}
+  val top_ioDesignIf = new IODesignIf {}
+  println(top_ioDesignIf.codeString)
   val top_ioDesignMatch = new IODesignMatch {}
-//  println(top_ioDesignConn2.codeString)
   println(top_ioDesignMatch.codeString)
 
 //  import GlobalDesign._

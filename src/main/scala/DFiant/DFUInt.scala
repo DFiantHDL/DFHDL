@@ -246,10 +246,9 @@ object DFUInt extends DFAny.Companion {
   class Pattern(val intervalSet : IntervalSet[BigInt]) extends DFAny.Pattern[Pattern] {
     def overlapsWith(pattern: Pattern) : Boolean = intervalSet.intersect(pattern.intervalSet).nonEmpty
     override def codeString: String = intervalSet.map(i => i.codeString).mkString(", ")
-    override def toString: String = codeString
   }
   object Pattern extends PatternCO {
-    trait Able[+L] extends DFAny.Pattern.Able[L] {
+    trait Able[+R] extends DFAny.Pattern.Able[R] {
       val interval : Interval[BigInt]
     }
     object Able {

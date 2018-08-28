@@ -80,11 +80,9 @@ package object internals {
 
   implicit class BigIntExtrasCO(value : BigInt.type) {
     //get the maximum BigInt given a bits width
-    def maxUnsignedFromWidth(width : Int) : BigInt = {
-      var mask: BigInt = 2
-      mask = mask.pow(width) - 1
-      mask
-    }
+    def maxUnsignedFromWidth(width : Int) : BigInt = BigInt(2).pow(width) - 1
+    def maxSignedFromWidth(width : Int) : BigInt = BigInt(2).pow(width-1) - 1
+    def minSignedFromWidth(width : Int) : BigInt = -BigInt(2).pow(width-1)
   }
 
   implicit class BigIntExtras(value : BigInt) {

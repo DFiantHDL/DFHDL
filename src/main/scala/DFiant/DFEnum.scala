@@ -159,8 +159,24 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Pattern[E <: Enum] extends DFAny.Pattern[Pattern[E]] {}
+  class Pattern[E <: Enum](val patternSet : Set[E#Entry]) extends DFAny.Pattern[Pattern[E]] {
+    def overlapsWith(pattern: Pattern[E]) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
+    override def codeString: String = patternSet.map(e => e.fullName).mkString(", ")
+  }
   object Pattern extends PatternCO {
+    trait Able[+R] extends DFAny.Pattern.Able[R]
+    object Able {
+      implicit class DFEnumPattern[E <: Enum](val right : E#Entry) extends Able[E#Entry]
+    }
+    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    object Builder {
+      implicit def ev[E <: Enum] : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
+        def apply[R](left: DFEnum[E], right: Seq[Able[R]]): Pattern[E] = {
+
+          new Pattern[E](right.map(e => e.right.asInstanceOf[E#Entry]).toSet)
+        }
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

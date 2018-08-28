@@ -26,15 +26,12 @@ trait TypeNameable {
 
 
 trait NameIt {
-  val isAnonymous : Boolean
   val value : String
 }
 object NameIt {
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName) : NameIt = new NameIt {
     private val nameIsAnon = name.value == "$anon" || name.value == "$anonfun"
-    private val ownerNameIsAnon = ownerName.value.contains('<')
-    val isAnonymous : Boolean = ownerNameIsAnon || ownerName.value == "DFiant" || name.value == "$anonfun"
-    val value: String = if (isAnonymous) "ǂanon" else if (nameIsAnon) ownerName.value else name.value
-//    println(s"${name.value}, ${ownerName.value}, ${isAnonymous}")
+    val value: String = if (nameIsAnon) ownerName.value else name.value
+//    println(s"${name.value}, ${ownerName.value}, $value")
   }
 }

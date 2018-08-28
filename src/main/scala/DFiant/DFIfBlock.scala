@@ -155,7 +155,7 @@ object ConditionalBlock {
       mutableOwner.value = this
       block
       mutableOwner.value = originalOwner
-      val addPatternToHeader : Unit = matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
+      protected val addPatternToHeader : Unit = matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
@@ -164,7 +164,7 @@ object ConditionalBlock {
       override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase_"
       override def codeString: String = s".casedf_ {$bodyCodeString\n}"
-      override val addPatternToHeader : Unit = {}
+      override protected val addPatternToHeader : Unit = {}
     }
 
     def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfiguration = MatchConfiguration.NoOverlappingCases)(implicit ctx : Context): DFMatchHeader[MV#TVal] =
