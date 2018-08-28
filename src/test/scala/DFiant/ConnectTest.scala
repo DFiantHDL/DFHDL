@@ -198,25 +198,25 @@ class ConnectTest extends Properties("ConnectTest") {
         |trait IODesignConn5 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)                //init = (1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT                                   //init = (Φ)
-        |  val $anon = i.prev                                         //init = (2, 3, 4, Φ)
-        |  val $anon$1 = $anon.prev                                   //init = (3, 4, Φ)
-        |  val $anon$2 = $anon$1.prev                                 //init = (4, Φ)
-        |  val $anon$3 = $anon$2.prev                                 //init = (Φ)
-        |  o <> $anon$3
-        |  val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-        |  val o$1 = DFUInt(8) <> OUT                                 //init = (Φ)
-        |  val $anon$4 = i$1.prev                                     //init = (2, 3, 4, Φ)
-        |  val $anon$5 = $anon$4.prev                                 //init = (3, 4, Φ)
-        |  val $anon$6 = $anon$5.prev                                 //init = (4, Φ)
-        |  val $anon$7 = $anon$6.prev                                 //init = (Φ)
-        |  o$1 <> $anon$7
-        |  val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-        |  val o$2 = DFUInt(8) <> OUT                                 //init = (Φ)
-        |  val $anon$8 = i$2.prev                                     //init = (2, 3, 4, Φ)
-        |  val $anon$9 = $anon$8.prev                                 //init = (3, 4, Φ)
-        |  val $anon$10 = $anon$9.prev                                //init = (4, Φ)
-        |  val $anon$11 = $anon$10.prev                               //init = (Φ)
-        |  o$2 <> $anon$11
+        |  val ǂanon = i.prev                                         //init = (2, 3, 4, Φ)
+        |  val ǂanonǂ1 = ǂanon.prev                                   //init = (3, 4, Φ)
+        |  val ǂanonǂ2 = ǂanonǂ1.prev                                 //init = (4, Φ)
+        |  val ǂanonǂ3 = ǂanonǂ2.prev                                 //init = (Φ)
+        |  o <> ǂanonǂ3
+        |  val iǂ1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
+        |  val oǂ1 = DFUInt(8) <> OUT                                 //init = (Φ)
+        |  val ǂanonǂ4 = iǂ1.prev                                     //init = (2, 3, 4, Φ)
+        |  val ǂanonǂ5 = ǂanonǂ4.prev                                 //init = (3, 4, Φ)
+        |  val ǂanonǂ6 = ǂanonǂ5.prev                                 //init = (4, Φ)
+        |  val ǂanonǂ7 = ǂanonǂ6.prev                                 //init = (Φ)
+        |  oǂ1 <> ǂanonǂ7
+        |  val iǂ2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
+        |  val oǂ2 = DFUInt(8) <> OUT                                 //init = (Φ)
+        |  val ǂanonǂ8 = iǂ2.prev                                     //init = (2, 3, 4, Φ)
+        |  val ǂanonǂ9 = ǂanonǂ8.prev                                 //init = (3, 4, Φ)
+        |  val ǂanonǂ10 = ǂanonǂ9.prev                                //init = (4, Φ)
+        |  val ǂanonǂ11 = ǂanonǂ10.prev                               //init = (Φ)
+        |  oǂ2 <> ǂanonǂ11
         |}
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}
@@ -232,12 +232,12 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT
         |  o <> i.prev.prev.prev.prev
-        |  val i$1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o$1 = DFUInt(8) <> OUT
-        |  o$1 <> i$1.prev.prev.prev.prev
-        |  val i$2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o$2 = DFUInt(8) <> OUT
-        |  o$2 <> i$2.prev.prev.prev.prev
+        |  val iǂ1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+        |  val oǂ1 = DFUInt(8) <> OUT
+        |  oǂ1 <> iǂ1.prev.prev.prev.prev
+        |  val iǂ2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+        |  val oǂ2 = DFUInt(8) <> OUT
+        |  oǂ2 <> iǂ2.prev.prev.prev.prev
         |}
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}

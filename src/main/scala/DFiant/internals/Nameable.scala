@@ -30,8 +30,10 @@ trait NameIt {
 }
 object NameIt {
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName) : NameIt = new NameIt {
-    private val nameIsAnon = name.value == "$anon" || name.value == "$anonfun"
-    val value: String = if (nameIsAnon) ownerName.value else name.value
+    val value: String =
+      if (name.value == "$anon") ownerName.value
+      else if (name.value == "$anonfun") "ǂanon" //loops
+      else name.value
 //    println(s"${name.value}, ${ownerName.value}, $value")
   }
 }
