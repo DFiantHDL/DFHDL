@@ -178,7 +178,7 @@ class AlmanacElse(name : String, owner : Almanac, val previf : AlmanacIf)
   override def codeString : String = s"???"
 }
 
-class AlmanacCasePattern(name : String, owner : Almanac, val prevCase : Option[AlmanacCasePattern], matchVal_ : => AlmanacEntryNamed, val pattern : Pattern)
+class AlmanacCasePattern(name : String, owner : Almanac, val prevCase : Option[AlmanacCasePattern], matchVal_ : => AlmanacEntryNamed, val pattern : Pattern[_])
   extends Almanac(name, Some(owner)) {
   final lazy val matchVal = matchVal_
   override def codeString : String = s"???"

@@ -7,6 +7,12 @@ protected[DFiant] trait ConditionalBlock
 //  def getValue : RV = ???
 //}
 
+sealed trait MatchConfiguration
+object MatchConfiguration {
+  object NoOverlappingCases extends MatchConfiguration
+  object AllowOverlappingCases extends MatchConfiguration
+}
+
 object ConditionalBlock {
   type Context = DFDesign.Context
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar) {
@@ -102,30 +108,36 @@ object ConditionalBlock {
   }
 
   class MatchNoRetVal(mutableOwner: MutableOwner) {
-    protected[DFiant] final class DFMatchHeader[MV <: DFAny](matchVal : MV)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
+    protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfiguration)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV])
-      : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](None, matchVal, patternBld(matchVal, pattern), block)
+      : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](None, this, patternBld(matchVal, pattern), block)
       override private[DFiant] def nameDefault: String = ctx.getName
+      private var privHasOverlappingCases : Boolean = false
+      def hasOverlappingCases : Boolean = privHasOverlappingCases
+      override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       implicit val owner = ctx.owner
       override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString})\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
       keep
     }
-    protected[DFiant] class DFCasePatternBlock[MV <: DFAny](prevCase : Option[DFCasePatternBlock[MV]], matchVal : MV, pattern : MV#TPattern, block : => Unit)(
+    protected[DFiant] class DFCasePatternBlock[MV <: DFAny](prevCase : Option[DFCasePatternBlock[MV]], matchHeader : DFMatchHeader[MV], pattern : MV#TPattern, block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
+      final val matchVal = matchHeader.matchVal
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV])
-      : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](Some(this), matchVal, patternBld(matchVal, pattern), block)
+      : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](Some(this), matchHeader, patternBld(matchVal, pattern), block)
       def casedf_(block : => Unit)(implicit ctx : Context)
-      : Unit = new DFCase_Block[MV](Some(this), matchVal, block)
+      : Unit = new DFCase_Block[MV](Some(this), matchHeader, block)
 
       final lazy val prevAlamanc = if (prevCase.isDefined) Some(prevCase.get.protAlmanac.asInstanceOf[AlmanacCasePattern]) else None
       override private[DFiant] def createAlmanac : Almanac =
         new AlmanacCasePattern(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry, pattern)
-      private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = if (prevCase.isDefined) List(matchVal, prevCase.get) else List(matchVal)
+      private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
+        //each case is independent unless there are overlapping cases (which must be enabled by the designer)
+        if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
-      override private[DFiant] def nameDefault: String = ctx.getName
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase"
       override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
 
       private val originalOwner = mutableOwner.value
@@ -134,15 +146,16 @@ object ConditionalBlock {
       mutableOwner.value = originalOwner
     }
 
-    protected[DFiant] class DFCase_Block[MV <: DFAny](prevCase : Option[DFCasePatternBlock[MV]], matchVal : MV, block : => Unit)(
+    protected[DFiant] class DFCase_Block[MV <: DFAny](prevCase : Option[DFCasePatternBlock[MV]], matchHeader : DFMatchHeader[MV], block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFCasePatternBlock[MV](prevCase, matchVal, null.asInstanceOf[MV#TPattern], block) {
+    ) extends DFCasePatternBlock[MV](prevCase, matchHeader, null.asInstanceOf[MV#TPattern], block) {
       override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
+      override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase_"
       override def codeString: String = s".casedf_ {$bodyCodeString\n}"
     }
 
-    def apply[MV <: DFAny](matchValue : MV)(implicit ctx : Context): DFMatchHeader[MV#TVal] =
-      new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal])(ctx, mutableOwner)
+    def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfiguration = MatchConfiguration.NoOverlappingCases)(implicit ctx : Context): DFMatchHeader[MV#TVal] =
+      new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
   }
 
 

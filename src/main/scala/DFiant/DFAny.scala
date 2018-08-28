@@ -18,7 +18,7 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   type TCompanion <: DFAny.Companion
   //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken <: DFAny.Token
-  type TPattern <: DFAny.Pattern
+  type TPattern <: DFAny.Pattern[TPattern]
   type TPatternAble[+R] <: DFAny.Pattern.Able[R]
   type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
   type TUnbounded = TCompanion#Unbounded
@@ -610,7 +610,8 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Pattern {
+  trait Pattern[T <: Pattern[T]] {
+    def overlapsWith(pattern: T) : Boolean
     def codeString : String
   }
   object Pattern {
