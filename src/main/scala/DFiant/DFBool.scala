@@ -16,6 +16,8 @@ object DFBool extends DFAny.Companion {
     type TVar = DFBool.Var
     type TToken = DFBool.Token
     type TPattern = DFBool.Pattern
+    type TPatternAble[+R] = DFBool.Pattern.Able[R]
+    type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
     type Width = 1
     def select[T <: DFAny, L >: T, R >: T](t : Tuple2[L, R]) : T = ???
     def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =

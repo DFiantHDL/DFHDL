@@ -1,3 +1,4 @@
+import DFiant.MatchConfiguration.AllowOverlappingCases
 import DFiant._
 import DFiant.basiclib.DFBasicLib
 import DFiant.basiclib.DFUIntOps.`Comp+`
@@ -45,9 +46,10 @@ trait IODesignMatch extends DFDesign {
   val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
   val i2 = DFUInt(8) <> IN init (2, Bubble)
   val o1 = DFUInt(8) <> OUT
-  val myMatch = matchdf (i2)
+  val myMatch = matchdf (i2, AllowOverlappingCases)
     .casedf(1 to 5, 10 to 20) {o1 := i1}
     .casedf(7){o1 := i2}
+    .casedf(11){o1 := i2}
 }
 
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {

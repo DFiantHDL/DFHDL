@@ -20,6 +20,8 @@ object DFSInt extends DFAny.Companion {
     type TVar = DFSInt.Var[LW]
     type TToken = DFSInt.Token
     type TPattern = DFSInt.Pattern
+    type TPatternAble[+R] = DFSInt.Pattern.Able[R]
+    type TPatternBuilder[L <: DFAny] = DFSInt.Pattern.Builder[L]
 
     lazy val sign = bits.setAnonymous().msbit.setAnonymous().setAutoConstructCodeString(s"$refCodeString.sign")
 

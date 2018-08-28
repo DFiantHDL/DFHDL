@@ -21,6 +21,8 @@ object DFBits extends DFAny.Companion {
     type TVar = DFBits.Var[LW]
     type TToken = DFBits.Token
     type TPattern = DFBits.Pattern
+    type TPatternAble[+R] = DFBits.Pattern.Able[R]
+    type TPatternBuilder[L <: DFAny] = DFBits.Pattern.Builder[L]
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////
