@@ -11,7 +11,8 @@ trait DSLConfiguration {
   val foldComponents : Boolean
 }
 
-trait DSLMemberConstruct extends DSLConstruct with HasProperties with Nameable with TypeNameable with Discoverable {
+trait DSLMemberConstruct extends DSLConstruct with HasProperties
+  with Nameable with TypeNameable with Discoverable with HasPostContructionOnlyDefs {
   val owner : DSLOwnerConstruct
   private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
   private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
