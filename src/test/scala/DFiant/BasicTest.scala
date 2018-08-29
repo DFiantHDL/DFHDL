@@ -1,4 +1,4 @@
-import DFiant.MatchConfiguration.AllowOverlappingCases
+import DFiant.MatchConfig.AllowOverlappingCases
 import DFiant._
 import DFiant.basiclib.DFBasicLib
 import DFiant.basiclib.DFUIntOps.`Comp+`
@@ -216,10 +216,10 @@ object BasicTest extends App {
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-  val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignIf.codeString)
-//  val top_ioDesignMatch = new IODesignMatch {}
-//  println(top_ioDesignMatch.codeString)
+//  val top_ioDesignIf = new IODesignIf {}
+//  println(top_ioDesignIf.codeString)
+  val top_ioDesignMatch = new IODesignMatch {}
+  println(top_ioDesignMatch.codeString)
 
 //  import GlobalDesign._
 //  val aa = DFUInt(8)

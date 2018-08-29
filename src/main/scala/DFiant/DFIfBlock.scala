@@ -9,10 +9,10 @@ protected[DFiant] trait ConditionalBlock
 //  def getValue : RV = ???
 //}
 
-sealed trait MatchConfiguration
-object MatchConfiguration {
-  object NoOverlappingCases extends MatchConfiguration
-  object AllowOverlappingCases extends MatchConfiguration
+sealed trait MatchConfig
+object MatchConfig {
+  object NoOverlappingCases extends MatchConfig
+  object AllowOverlappingCases extends MatchConfig
 }
 
 object ConditionalBlock {
@@ -110,7 +110,7 @@ object ConditionalBlock {
   }
 
   class MatchNoRetVal(mutableOwner: MutableOwner) {
-    protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfiguration)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
+    protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       type TPattern = matchVal.TPattern
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV])
       : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern).asInstanceOf[TPattern], block)
@@ -120,15 +120,17 @@ object ConditionalBlock {
         privHasOverlappingCases =
           if (privHasOverlappingCases) true
           else patternList.foldLeft(false)((ol, p) => ol || p.overlapsWith(pattern))
-        if (privHasOverlappingCases && matchConfig == MatchConfiguration.NoOverlappingCases)
-          throw new IllegalArgumentException(s"\ncase pattern $pattern overlaps with previous case patterns.\nEither change the patterns or apply MatchConfiguration.AllowOverlappingCases to the matchdf's second argument")
+        if (privHasOverlappingCases && matchConfig == MatchConfig.NoOverlappingCases)
+          throw new IllegalArgumentException(s"\ncase pattern $pattern overlaps with previous case patterns.\nEither change the patterns or apply MatchConfig.AllowOverlappingCases to the matchdf's second argument")
         patternList += pattern
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
+      private def matchConfigCodeString : String =
+        if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       implicit val owner = ctx.owner
-      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString})\n"
+      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
     }
@@ -167,7 +169,7 @@ object ConditionalBlock {
       override protected val addPatternToHeader : Unit = {}
     }
 
-    def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfiguration = MatchConfiguration.NoOverlappingCases)(implicit ctx : Context): DFMatchHeader[MV#TVal] =
+    def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(implicit ctx : Context): DFMatchHeader[MV#TVal] =
       new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
   }
 
