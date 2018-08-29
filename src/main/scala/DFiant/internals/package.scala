@@ -183,6 +183,15 @@ package object internals {
   implicit class IntervalBigIntExtras(interval : Interval[BigInt]) {
     def codeString : String = s"""uip"$interval""""
   }
+  implicit class IntervalExtras[T](value : Interval[T]) extends HasCodeString {
+    def codeString : String = s"""uip"$value""""
+  }
+  implicit def csoIntervalBigInt : CodeStringOf[Interval[BigInt]] = t => t.toRange.toString()
+  implicit def csoBitVector : CodeStringOf[BitVector] = t => t.codeString
+
+  implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
+    def codeString : String = codeStringOf(t)
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
   implicit class ReflectionClassExtras(extended : Any) {

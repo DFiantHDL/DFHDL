@@ -5,6 +5,7 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 
+import scala.collection.{GenSet, SetLike}
 import scala.collection.mutable.ListBuffer
 
 sealed trait DFAny extends DSLMemberConstruct with HasWidth {
@@ -612,12 +613,20 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Pattern[T <: Pattern[T]] {
-    def overlapsWith(pattern: T) : Boolean
+  sealed trait Pattern[P <: Pattern[P]] extends HasCodeString {
+    def overlapsWith(pattern: P) : Boolean
     def codeString : String
     override def toString: String = codeString
   }
   object Pattern {
+    class OfIntervalSet[T, P <: OfIntervalSet[T, P]](val patternSet : IntervalSet[T])(implicit codeStringOf: CodeStringOf[Interval[T]]) extends Pattern[P] {
+      def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
+      def codeString : String = patternSet.map(t => t.codeString).mkString(", ")
+    }
+    class OfSet[T, P <: OfSet[T, P]](val patternSet : Set[T])(implicit codeStringOf: CodeStringOf[T]) extends Pattern[P] {
+      def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
+      def codeString : String = patternSet.map(t => t.codeString).mkString(", ")
+    }
     trait Able[+R] {
       val right : R
     }

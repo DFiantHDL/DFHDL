@@ -159,10 +159,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Pattern[E <: Enum](val patternSet : Set[E#Entry]) extends DFAny.Pattern[Pattern[E]] {
-    def overlapsWith(pattern: Pattern[E]) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
-    override def codeString: String = patternSet.map(e => e.fullName).mkString(", ")
-  }
+  class Pattern[E <: Enum](set : Set[E#Entry]) extends DFAny.Pattern.OfSet[E#Entry, Pattern[E]](set)
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R]
     object Able {
@@ -308,11 +305,12 @@ sealed abstract class Enum(implicit n : NameIt) {
 }
 
 object Enum {
-  sealed trait Entry {
+  sealed trait Entry extends HasCodeString {
     val value : BigInt
     val enumOwner : Enum
     val name : String
     final lazy val fullName = s"${enumOwner.name}.$name"
+    def codeString: String = fullName
     final override def toString: String = name
   }
 
