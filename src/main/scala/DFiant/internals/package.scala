@@ -180,13 +180,21 @@ package object internals {
   implicit class IntervalLongExtras(value : Interval[Long]) {
     def toBigIntInterval : Interval[BigInt] = value.map(b => BigInt(b))
   }
-  implicit class IntervalBigIntExtras(interval : Interval[BigInt]) {
-    def codeString : String = s"""uip"$interval""""
+  implicit def csoIntervalBigInt : CodeStringOf[Interval[BigInt]] = t => {
+    import continuum.bound._
+    val lower = t.lower.bound match {
+      case Closed(v) => v
+      case Open(v) => v-1
+      case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
+    }
+    val upper = t.upper.bound match {
+      case Closed(v) => v
+      case Open(v) => v+1
+      case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
+    }
+    if (lower == upper) lower.codeString
+    else s"${lower.codeString} to ${upper.codeString}"
   }
-  implicit class IntervalExtras[T](value : Interval[T]) extends HasCodeString {
-    def codeString : String = s"""uip"$value""""
-  }
-  implicit def csoIntervalBigInt : CodeStringOf[Interval[BigInt]] = t => t.toRange.toString()
   implicit def csoBitVector : CodeStringOf[BitVector] = t => t.codeString
 
   implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
