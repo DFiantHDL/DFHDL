@@ -12,7 +12,7 @@ trait DSLConfiguration {
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
-  with Nameable with TypeNameable with Discoverable with HasPostContructionOnlyDefs {
+  with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs {
   val owner : DSLOwnerConstruct
   private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
   private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
