@@ -20,7 +20,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 
   final private[DFiant] override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
-  final override def codeString : String = super.codeString
+  final override def codeString : String = valCodeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
     def isOpen : Boolean = dfVal.connectedSource.isEmpty

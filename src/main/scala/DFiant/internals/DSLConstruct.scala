@@ -65,12 +65,17 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   val config : DSLConfiguration
   private var idCnt : Int = 0
-  private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+  private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+  private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {
+    temp = true
+    println(s"memberList $fullName")
     mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce}
     mutableMemberList.toList
   }
   final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
+    if (temp)
+      println(s"shit! missed ${item.fullName}")
     mutableMemberList += item
     idCnt += 1
     idCnt

@@ -287,6 +287,7 @@ object DFAny {
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
     private[DFiant] lazy val nameIt = ctx.n
+    override private[DFiant] def nameDefault = "ǂconnect"
     def codeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     final val id = getID
   }
@@ -297,6 +298,7 @@ object DFAny {
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLMemberConstruct {
     final implicit val owner : DFAnyOwner = ctx.owner
     private[DFiant] lazy val nameIt = ctx.n
+    override private[DFiant] def nameDefault = "ǂassign"
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
   }

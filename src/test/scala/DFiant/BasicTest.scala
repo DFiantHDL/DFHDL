@@ -21,15 +21,15 @@ trait IODesignIf extends DFDesign {
   val o1 = DFUInt(8) <> OUT
   val o2 = DFUInt(8) <> OUT
   val b = DFBool() <> IN init (false, true, true, true)
-  val myIf = ifdf (b) {
-    val myIf2 = ifdf (b) {
-      o1 := i1
-    }.elseifdf(b) {
-      o1 := i1
-    }
-  }.elsedf {
-    o1 := i1
-  }
+//  val myIf = ifdf (b) {
+//    val myIf2 = ifdf (b) {
+//      o1 := i1
+//    }.elseifdf(b) {
+//      o1 := i1
+//    }
+//  }.elsedf {
+//    o1 := i1
+//  }
   val ret = DFUInt(8).ifdf (b) {
     DFUInt(8).ifdf (i1 < 8) {
       i1
@@ -204,20 +204,20 @@ trait IODesignConn8 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1b = new IODesignConn1b {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
 //  val top_ioDesignConn4 = new IODesignConn4 {}
-  val top_ioDesignConn5 = new IODesignConn5 {}
+//  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-//  val top_ioDesignIf = new IODesignIf {}
-  println(top_ioDesignConn5.codeString)
+  val top_ioDesignIf = new IODesignIf {}
+  println(top_ioDesignIf.codeString)
 //  val top_ioDesignMatch = new IODesignMatch {}
 //  println(top_ioDesignMatch.codeString)
 
