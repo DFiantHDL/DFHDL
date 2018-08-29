@@ -360,7 +360,7 @@ object DFAny {
         }
         updatedInit
       })
-      initList.drop(1).foldLeft(initList.head)(DFBits.Token.##).map(protTokenBitsToTToken)
+      initList.reduce(DFBits.Token.##).map(protTokenBitsToTToken)
     }
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
