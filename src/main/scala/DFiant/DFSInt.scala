@@ -122,8 +122,8 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token private[DFiant] (val width : Int, val valueSInt : BigInt, val bubble : Boolean) extends DFAny.Token {
-    lazy val valueBits : BitVector = valueSInt.toBitVector(width)
+  class Token private[DFiant] (width : Int, value : BigInt, val bubble : Boolean) extends DFAny.Token.Of[BigInt](width, value) {
+    lazy val valueBits : BitVector = value.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
     def toBubbleToken : Token = Token(width, Bubble)
     def mkTokenS(that : Token, result : BigInt, resultWidth : Int) : Token = {
@@ -131,20 +131,17 @@ object DFSInt extends DFAny.Companion {
       else Token(resultWidth, result)
     }
 
-    final def + (that : Token) : Token = mkTokenS(that, this.valueSInt + that.valueSInt, scala.math.max(this.width, that.width) + 1)
-    final def - (that : Token) : Token = mkTokenS(that, this.valueSInt - that.valueSInt, scala.math.max(this.width, that.width) + 1)
-    final def * (that : Token) : Token = mkTokenS(that, this.valueSInt * that.valueSInt, this.width + that.width)
-    final def / (that : Token) : Token = mkTokenS(that, this.valueSInt / that.valueSInt, this.width)
-    final def % (that : Token) : Token = mkTokenS(that, this.valueSInt % that.valueSInt, that.width)
-    final def <  (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt < that.valueSInt, this.isBubble || that.isBubble)
-    final def >  (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt > that.valueSInt, this.isBubble || that.isBubble)
-    final def <= (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt <= that.valueSInt, this.isBubble || that.isBubble)
-    final def >= (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt >= that.valueSInt, this.isBubble || that.isBubble)
-    final def == (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt == that.valueSInt, this.isBubble || that.isBubble)
-    final def != (that : Token) : DFBool.Token = DFBool.Token(this.valueSInt != that.valueSInt, this.isBubble || that.isBubble)
-
-    override def codeString: String = if (isBubble) "Φ" else valueSInt.codeString
-    override def valueString : String = valueSInt.toString()
+    final def + (that : Token) : Token = mkTokenS(that, this.value + that.value, scala.math.max(this.width, that.width) + 1)
+    final def - (that : Token) : Token = mkTokenS(that, this.value - that.value, scala.math.max(this.width, that.width) + 1)
+    final def * (that : Token) : Token = mkTokenS(that, this.value * that.value, this.width + that.width)
+    final def / (that : Token) : Token = mkTokenS(that, this.value / that.value, this.width)
+    final def % (that : Token) : Token = mkTokenS(that, this.value % that.value, that.width)
+    final def <  (that : Token) : DFBool.Token = DFBool.Token(this.value < that.value, this.isBubble || that.isBubble)
+    final def >  (that : Token) : DFBool.Token = DFBool.Token(this.value > that.value, this.isBubble || that.isBubble)
+    final def <= (that : Token) : DFBool.Token = DFBool.Token(this.value <= that.value, this.isBubble || that.isBubble)
+    final def >= (that : Token) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
+    final def == (that : Token) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
+    final def != (that : Token) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
   }
 
   object Token extends TokenCO {
@@ -167,7 +164,7 @@ object DFSInt extends DFAny.Companion {
     def apply(width : Int, value : Bubble) : Token = new Token(width, 0, true)
     def apply(width : Int, token : Token) : Token = {
       //TODO: Boundary checks
-      new Token(width, token.valueSInt, token.bubble)
+      new Token(width, token.value, token.bubble)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -81,31 +81,29 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token private[DFiant] (val valueBool : Boolean, val bubble : Boolean) extends DFAny.Token {
-    val width : Int = 1
-    lazy val valueBits : BitVector = BitVector.bit(valueBool)
+  class Token private[DFiant] (value : Boolean, val bubble : Boolean) extends DFAny.Token.Of[Boolean](1, value) {
+    lazy val valueBits : BitVector = BitVector.bit(value)
     lazy val bubbleMask: BitVector = BitVector.bit(bubble)
     def toBubbleToken : Token = Token(Bubble)
 
     final def && (that : Token) : Token = {
       if (this.isBubble || that.isBubble) Token(Bubble)
-      else Token(this.valueBool && that.valueBool)
+      else Token(this.value && that.value)
     }
     final def || (that : Token) : Token = {
       if (this.isBubble || that.isBubble) Token(Bubble)
-      else Token(this.valueBool || that.valueBool)
+      else Token(this.value || that.value)
     }
     final def unary_! : Token = {
       if (this.isBubble) Token(Bubble)
-      else Token(!this.valueBool)
+      else Token(!this.value)
     }
     def select[ST <: DFAny.Token](thenSel : ST, elseSel : ST) : ST = {
-      if (this.valueBool) if (this.isBubble) thenSel.toBubbleToken.asInstanceOf[ST] else thenSel
+      if (this.value) if (this.isBubble) thenSel.toBubbleToken.asInstanceOf[ST] else thenSel
       else if (this.isBubble) elseSel.toBubbleToken.asInstanceOf[ST] else elseSel
     }
-    final def == (that : Token) : Token = DFBool.Token(this.valueBool == that.valueBool, this.isBubble || that.isBubble)
-    final def != (that : Token) : Token = DFBool.Token(this.valueBool != that.valueBool, this.isBubble || that.isBubble)
-    override def valueString : String = valueBool.toString()
+    final def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
+    final def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
   }
 
   object Token extends TokenCO {

@@ -533,7 +533,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Token {
+  trait Token extends HasCodeString {
     //maximum token value width
     val width : Int
     final lazy val widthOfValue : Int = scala.math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
@@ -566,14 +566,13 @@ object DFAny {
       else DFBool.Token(this.valueBits != that.valueBits)
     }
 
-    def bubbleString : String = "Φ"
-    def valueString : String = valueBits.toShortString
-    override def toString: String = if (isBubble) bubbleString else valueString
-
-    def codeString : String = toString
+    final override def toString: String = codeString
   }
 
   object Token {
+    abstract class Of[T](val width: Int, val value : T)(implicit codeStringOf : CodeStringOf[T]) extends Token {
+      final def codeString : String = if (isBubble) "Φ" else value.codeString
+    }
     implicit class TokenSeqInit[T <: DFAny.Token](tokenSeq : Seq[T]) {
       def prevInit(step : Int) : Seq[T] = {
         val length = tokenSeq.length

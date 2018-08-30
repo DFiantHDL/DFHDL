@@ -79,20 +79,18 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token[E <: Enum] private[DFiant] (val width : Int, val valueEnum : Option[E#Entry]) extends DFAny.Token {
-    val (valueBits, bubbleMask) : (BitVector, BitVector) = valueEnum match {
+  class Token[E <: Enum] private[DFiant](width : Int, value : Option[E#Entry]) extends DFAny.Token.Of[Option[E#Entry]](width, value) {
+    val (valueBits, bubbleMask) : (BitVector, BitVector) = value match {
       case Some(e) => (e.value.toBitVector(width), false.toBitVector(width))
       case None => (0.toBitVector(width), true.toBitVector(width))
     }
     def toBubbleToken : Token[E] = Token(width, Bubble)
 
-    final def == (that : Token[E]) : DFBool.Token = (this.valueEnum, that.valueEnum) match {
+    final def == (that : Token[E]) : DFBool.Token = (this.value, that.value) match {
       case (Some(left), Some(right)) => DFBool.Token(left == right)
       case _ => DFBool.Token(Bubble)
     }
     final def != (that : Token[E]) : DFBool.Token = !(this == that)
-
-    override def codeString: String = if (isBubble) "Φ" else valueEnum.get.fullName
   }
 
   object Token extends TokenCO {

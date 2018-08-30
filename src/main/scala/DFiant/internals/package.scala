@@ -196,6 +196,7 @@ package object internals {
     else s"${lower.codeString} to ${upper.codeString}"
   }
   implicit def csoBitVector : CodeStringOf[BitVector] = t => t.codeString
+  implicit def csoEnum[E <: Enum.Entry] : CodeStringOf[Option[E]] = t => t.get.codeString
 
   implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
     def codeString : String = codeStringOf(t)
