@@ -285,7 +285,7 @@ object DFEnum extends DFAny.Companion {
 
 
 
-sealed abstract class Enum(implicit n : NameIt) {
+sealed abstract class Enum(implicit n : NameIt) extends HasCodeString {
   private[DFiant] val entries : LinkedHashMap[BigInt, Enum.Entry] = LinkedHashMap.empty[BigInt, Enum.Entry]
   private[DFiant] def update(entry : Enum.Entry) : Unit = {
     entries.get(entry.value) match {
@@ -298,7 +298,6 @@ sealed abstract class Enum(implicit n : NameIt) {
   type EntryWidth
   val width : TwoFace.Int[EntryWidth]
   final val name : String = n.value
-  def codeString : String
   override def toString: String = name
 }
 
@@ -312,7 +311,7 @@ object Enum {
     final override def toString: String = name
   }
 
-  trait Encoding {
+  trait Encoding extends HasCodeString {
     def calcWidth(entryCount : Int) : Int
     val func : Int => BigInt
     def codeString : String
