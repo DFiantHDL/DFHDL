@@ -107,7 +107,7 @@ object DFSInt extends DFAny.Companion {
 
   final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVars, reference) with Var[W] {
+  ) extends DFAny.Alias[DFSInt[W]](aliasedVars, reference) with Var[W] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
   }
 
@@ -413,7 +413,7 @@ object DFSInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias(List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).sint")) with DFSInt[NCW] {
+      DFAny.Alias[DFSInt[NCW]](List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).sint")) with DFSInt[NCW] {
       lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
     }
@@ -505,7 +505,7 @@ object DFSInt extends DFAny.Companion {
     //CW = Carry width
     class Component[NCW, WCW, CW](val wc : DFSInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias(List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).sint")) with DFSInt[NCW] {
+    ) extends DFAny.Alias[DFSInt[NCW]](List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).sint")) with DFSInt[NCW] {
       lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
     }

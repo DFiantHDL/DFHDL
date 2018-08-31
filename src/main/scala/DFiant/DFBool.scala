@@ -66,7 +66,7 @@ object DFBool extends DFAny.Companion {
 
   final class Alias(aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVars, reference) with Var {
+  ) extends DFAny.Alias[DFBool](aliasedVars, reference) with Var {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
   }
 

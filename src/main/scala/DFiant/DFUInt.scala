@@ -109,12 +109,12 @@ object DFUInt extends DFAny.Companion {
 
   final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVars, reference) with Var[W] {
+  ) extends DFAny.Alias[DFUInt[W]](aliasedVars, reference) with Var[W] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
   }
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit ctx : DFAny.Alias.Context)
-  : Var[W] with Extendable = new DFAny.Alias(List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
+  : Var[W] with Extendable = new DFAny.Alias[DFUInt[W]](List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     override def toString : String = s"DFUInt[$width] & Extendable"
   }
@@ -478,7 +478,7 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias(List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
+      DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
       lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
@@ -592,7 +592,7 @@ object DFUInt extends DFAny.Companion {
     //CW = Carry width
     class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias(List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
+    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
       lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }

@@ -337,7 +337,7 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias(aliasedVars : List[DFAny], reference : AliasReference)(
+  abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit val ctx : Alias.Context, cmp : Companion
   ) extends DFAny.Var {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({

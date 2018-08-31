@@ -200,7 +200,7 @@ object DFBits extends DFAny.Companion {
 
   final class Alias[W](aliasedVars : List[DFAny], reference: AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVars, reference) with Var[W] {
+  ) extends DFAny.Alias[DFBits[W]](aliasedVars, reference) with Var[W] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token
   }
 

@@ -61,7 +61,7 @@ object DFEnum extends DFAny.Companion {
 
   final class Alias[E <: Enum](val enum : E, aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias(aliasedVars, reference) with Var[E] {
+  ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E] {
     protected def protTokenBitsToTToken(token : DFBits.Token) : TToken =
       Token[E](enum.width, enum.entries(token.valueBits.toBigInt).asInstanceOf[E#Entry])
   }
