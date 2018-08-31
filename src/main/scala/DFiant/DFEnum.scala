@@ -59,12 +59,9 @@ object DFEnum extends DFAny.Companion {
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
-  final class Alias[E <: Enum](val enum : E, aliasedVars : List[DFAny], reference : AliasReference)(
-    implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E] {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken =
-      Token[E](enum.width, enum.entries(token.valueBits.toBigInt).asInstanceOf[E#Entry])
-  }
+  final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : AliasReference)(
+    implicit val enum : E, ctx : DFAny.Alias.Context
+  ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E]
 
   protected[DFiant] def const[E <: Enum](enum_ : E, token : Token[E])(
     implicit ctx : DFAny.Const.Context
@@ -100,6 +97,8 @@ object DFEnum extends DFAny.Companion {
 
     def apply[E <: Enum](width : Int, value : Bubble) : Token[E] = new Token[E](width, None)
     def apply[E <: Enum](width : Int, value : E#Entry) : Token[E] = new Token[E](width, Some(value))
+    implicit def fromBits[E <: Enum](implicit e : E) : DFBits.Token => Token[E] =
+      t => Token[E](e.width, e.entries(t.valueBits.toBigInt).asInstanceOf[E#Entry])
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,7 +121,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.TEnum](mold.enum, List(left), AliasReference.AsIs(s".as(DFEnum(${mold.enum}))"))
+      new Alias[mold.TEnum](List(left), AliasReference.AsIs(s".as(DFEnum(${mold.enum}))"))(mold.enum, ctx)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -184,7 +183,7 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
-          new Alias(left.enum, List(left), AliasReference.Prev(right))
+          new Alias(List(left), AliasReference.Prev(right))(left.enum, ctx)
       }
     }
   }

@@ -107,9 +107,7 @@ object DFSInt extends DFAny.Companion {
 
   final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFSInt[W]](aliasedVars, reference) with Var[W] {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
-  }
+  ) extends DFAny.Alias[DFSInt[W]](aliasedVars, reference) with Var[W]
 
   protected[DFiant] def const[W](token : DFSInt.Token)(implicit ctx : DFAny.Const.Context) : DFSInt[W] =
     new DFAny.Const(token) with DFSInt[W]
@@ -166,6 +164,7 @@ object DFSInt extends DFAny.Companion {
       //TODO: Boundary checks
       new Token(width, token.value, token.bubble)
     }
+    implicit val fromBits : DFBits.Token => Token = t => t.toSInt
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -66,9 +66,7 @@ object DFBool extends DFAny.Companion {
 
   final class Alias(aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFBool](aliasedVars, reference) with Var {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = DFBool.Token(token.valueBits(0))
-  }
+  ) extends DFAny.Alias[DFBool](aliasedVars, reference) with Var
 
   protected[DFiant] def const(token : DFBool.Token)(implicit ctx : DFAny.Const.Context) : DFBool =
     new DFAny.Const(token) with DFBool
@@ -122,6 +120,7 @@ object DFBool extends DFAny.Companion {
     def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
+    implicit val fromBits : DFBits.Token => Token = t => Token(t.valueBits(0))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

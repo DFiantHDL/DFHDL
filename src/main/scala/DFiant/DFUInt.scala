@@ -109,9 +109,7 @@ object DFUInt extends DFAny.Companion {
 
   final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFUInt[W]](aliasedVars, reference) with Var[W] {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-  }
+  ) extends DFAny.Alias[DFUInt[W]](aliasedVars, reference) with Var[W]
 
   protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit ctx : DFAny.Alias.Context)
   : Var[W] with Extendable = new DFAny.Alias[DFUInt[W]](List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
@@ -177,6 +175,7 @@ object DFUInt extends DFAny.Companion {
       //TODO: Boundary checks
       new Token(width, token.value, token.bubble)
     }
+    implicit val fromBits : DFBits.Token => Token = t => t.toUInt
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -338,7 +338,7 @@ object DFAny {
   }
 
   abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : AliasReference)(
-    implicit val ctx : Alias.Context, cmp : Companion
+    implicit val ctx : Alias.Context, cmp : Companion, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny.Var {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({
       val widthSeq : List[Int] = aliasedVars.map(aliasedVar => reference match {
@@ -347,7 +347,6 @@ object DFAny {
       })
       widthSeq.sum
     })
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = {
       val initList : List[Seq[DFBits.Token]] = aliasedVars.map(aliasedVar => {
@@ -361,7 +360,7 @@ object DFAny {
         }
         updatedInit
       })
-      initList.reduce(DFBits.Token.##).map(protTokenBitsToTToken)
+      initList.reduce(DFBits.Token.##).map(protTokenBitsToTToken.asInstanceOf[DFBits.Token => TToken])
     }
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
