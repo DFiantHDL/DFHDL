@@ -416,6 +416,7 @@ object DFAny {
     }
     final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("\nCircular dependency detected"))
     //final protected[DFiant] def discovery : Unit = almanacEntry
+    private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
     protected def connected : Boolean = connectedSource.isDefined
     final override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {

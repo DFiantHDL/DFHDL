@@ -48,6 +48,7 @@ class ConnectTest extends Properties("ConnectTest") {
   trait Comp extends DFComponent[Comp] {
     val i = DFUInt(8) <> IN
     val o = DFUInt(8) <> OUT
+    final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
   }
   object Comp {
     implicit val ev : DFComponent.Implementation[Comp] = ifc => {

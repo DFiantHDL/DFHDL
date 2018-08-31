@@ -8,6 +8,7 @@ object DFBoolOps {
     final val inLeft = DFBool() <> IN
     final val inRight = DFBool() <> IN
     final val outResult = DFBool() <> OUT
+    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }
 
   type `Comp||` = BoolopBool[DiSoOp.Kind.||]

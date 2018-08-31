@@ -9,6 +9,7 @@ object DFBitsOps {
     final val inLeft = DFBits(leftWidth) <> IN
     final val inRight = DFBits(rightWidth) <> IN
     final val outResult = DFBits(resultWidth) <> OUT
+    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }
 
   type `Comp|` = Bitwise[DiSoOp.Kind.|]
@@ -22,6 +23,7 @@ object DFBitsOps {
     final val inLeft = DFBits(leftWidth) <> IN
     final val inRight = DFBits(rightWidth) <> IN
     final val outResult = DFBool() <> OUT
+    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }
 
   type `Comp==` = Relational[DiSoOp.Kind.==]

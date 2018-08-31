@@ -1,17 +1,19 @@
 package DFiant.internals
 
 trait Discoverable {
-  private var notDiscovered : Boolean = true
-  final protected[internals] def isNotDiscovered : Boolean = notDiscovered
+  private var discovered : Boolean = false
+  final protected[internals] def isNotDiscovered : Boolean = !discovered
   protected def discoveryDepenencies : List[Discoverable]
-  protected def discovery : Unit = {}
+  protected def postDiscoveryRun : Unit = {}
   final protected def discover : Unit = {
-    if (notDiscovered) {
-      notDiscovered = false
+    if (!discovered) {
+      discovered = true
       println(s"discovered ${this.asInstanceOf[DSLMemberConstruct].fullName}")
       val dependencies = discoveryDepenencies
       dependencies.foreach(d => d.discover)
-      discovery
+      postDiscoveryRun
     }
   }
+  private def discoverDependencies : Unit = discoveryDepenencies.foreach(d => d.discover)
+  final private[DFiant] def rediscoverDependencies : Unit = if (discovered) discoverDependencies
 }

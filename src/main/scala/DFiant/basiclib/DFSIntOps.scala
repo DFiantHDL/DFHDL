@@ -18,6 +18,7 @@ object DFSIntOps {
         case _ =>
       }
     }
+    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }
 
   type `Comp+` = Arithmetic[DiSoOp.Kind.+]
@@ -31,6 +32,7 @@ object DFSIntOps {
     final val inLeft = DFSInt(leftWidth) <> IN
     final val inRight = DFSInt(rightWidth) <> IN
     final val outResult = DFBool() <> OUT
+    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }
 
   type `Comp==` = Relational[DiSoOp.Kind.==]

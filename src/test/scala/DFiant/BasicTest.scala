@@ -68,6 +68,7 @@ class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent 
 trait Comp extends DFComponent[Comp] {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
+  final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
   setInitFunc(o)(DFUInt.Token.+(getInit(i), getInit(i)))
 }
 object Comp {
@@ -216,10 +217,10 @@ object BasicTest extends App {
 //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
-//  val top_ioDesignIf = new IODesignIf {}
-//  println(top_ioDesignIf.codeString)
-  val top_ioDesignMatch = new IODesignMatch {}
-  println(top_ioDesignMatch.codeString)
+  val top_ioDesignIf = new IODesignIf {}
+  println(top_ioDesignIf.codeString)
+//  val top_ioDesignMatch = new IODesignMatch {}
+//  println(top_ioDesignMatch.codeString)
 
 //  import GlobalDesign._
 //  val aa = DFUInt(8)
