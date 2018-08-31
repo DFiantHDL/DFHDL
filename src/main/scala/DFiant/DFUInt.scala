@@ -22,10 +22,10 @@ object DFUInt extends DFAny.Companion {
     type TPattern = DFUInt.Pattern
     type TPatternAble[+R] = DFUInt.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFUInt.Pattern.Builder[L]
-    type Extendable
-    def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, Extendable, R]) = op(left, right)
-    def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, Extendable, R]) = op(left, right)
-    def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, Extendable, R]) = op(left, right)
+    type TExtendable
+    def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, TExtendable, R]) = op(left, right)
+    def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, TExtendable, R]) = op(left, right)
+    def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, TExtendable, R]) = op(left, right)
     //  def /  (right : DFUInt)         : DFUInt = ???
 
     def <  [R](right: Op.Able[R])(implicit op: `Op<`.Builder[TVal, R]) = op(left, right)
@@ -44,13 +44,13 @@ object DFUInt extends DFAny.Companion {
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFUInt[tfs.Out] = {
-      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
       new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
     def extendTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
     : DFUInt[EW] = {
-      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
       new DFUInt.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
@@ -58,7 +58,7 @@ object DFUInt extends DFAny.Companion {
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
     def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
-    def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt[LW] with DFUInt.Extendable = DFUInt.extendable[LW](left)
+    def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt.Extendable[LW] = new DFUInt.Extendable[LW](left)
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
     override lazy val typeName: String = s"DFUInt[$width]"
@@ -70,10 +70,6 @@ object DFUInt extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFUInt[W] with DFAny.Var {}
-
-  trait Extendable {
-    type Extendable = true
-  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -98,7 +94,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[W](width : TwoFace.Int[W])(
+  protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar(width, s"DFUInt($width)") with Var[W] {
     //Port Construction
@@ -107,21 +103,24 @@ object DFUInt extends DFAny.Companion {
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
-  final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
+  protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFUInt[W]](aliasedVars, reference) with Var[W]
 
-  protected[DFiant] def extendable[W](extendedVar : DFUInt[W])(implicit ctx : DFAny.Alias.Context)
-  : Var[W] with Extendable = new DFAny.Alias[DFUInt[W]](List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] with Extendable {
-    protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
+  protected[DFiant] final class Extendable[W](extendedVar : DFUInt[W])(
+    implicit ctx : DFAny.Alias.Context
+  ) extends DFAny.Alias[DFUInt[W]](List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] {
+    type TExtendable = true
     override def toString : String = s"DFUInt[$width] & Extendable"
   }
 
-  protected[DFiant] def const[W](token : DFUInt.Token)(implicit ctx : DFAny.Const.Context) : DFUInt[W] =
-    new DFAny.Const(token) with DFUInt[W]
+  protected[DFiant] final class Const[W](token : DFUInt.Token)(
+    implicit ctx : DFAny.Const.Context
+  ) extends DFAny.Const(token) with DFUInt[W]
 
-  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(implicit ctx : DFAny.Port.Context) : DFUInt[W] <> Dir =
-    new DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W] { }
+  protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(
+    implicit ctx : DFAny.Port.Context
+  ) extends DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -187,7 +186,7 @@ object DFUInt extends DFAny.Companion {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFUInt[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
+      : Builder[DFUInt[LW], Dir] = (right, dir) => new Port[LW, Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -300,7 +299,7 @@ object DFUInt extends DFAny.Companion {
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
@@ -308,8 +307,8 @@ object DFUInt extends DFAny.Companion {
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
-      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
-      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable, DFUInt[RW]]) = op(left, right)
+      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable[Int], DFUInt[RW]]) = op(left, right)
+      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable[Int], DFUInt[RW]]) = op(left, right)
       def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
       def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
@@ -353,7 +352,7 @@ object DFUInt extends DFAny.Companion {
         type W = w.Out
         def apply(value : N) : (DFUInt[W], Boolean) = {
           val absValue = scala.math.abs(value)
-          (const[W](Token(w(absValue), absValue)), value < 0)
+          (new Const[W](Token(w(absValue), absValue)), value < 0)
         }
       }
       implicit def fromLong[N <: Long](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Long[Abs[N]])
@@ -361,7 +360,7 @@ object DFUInt extends DFAny.Companion {
         type W = w.Out
         def apply(value : N) : (DFUInt[W], Boolean) = {
           val absValue = scala.math.abs(value)
-          (const[W](Token(w(absValue), absValue)), value < 0)
+          (new Const[W](Token(w(absValue), absValue)), value < 0)
         }
       }
       implicit def fromBigInt[N <: BigInt](implicit ctx : DFAny.Const.Context)
@@ -369,7 +368,7 @@ object DFUInt extends DFAny.Companion {
         type W = Int
         def apply(value : N) : (DFUInt[W], Boolean) = {
           val absValue = value.abs
-          (const[W](Token(absValue.bitsWidth, absValue)), value < 0)
+          (new Const[W](Token(absValue.bitsWidth, absValue)), value < 0)
         }
       }
     }
@@ -391,7 +390,7 @@ object DFUInt extends DFAny.Companion {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
           checkPos.unsafeCheck(value)
-          const[W](Token(w(value), value))
+          new Const[W](Token(w(value), value))
         }
       }
       implicit def fromLong[Sym, N <: Long](
@@ -403,7 +402,7 @@ object DFUInt extends DFAny.Companion {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
           checkPos.unsafeCheck(value)
-          const[W](Token(w(value), value))
+          new Const[W](Token(w(value), value))
         }
       }
       implicit def fromBigInt[Sym, N <: BigInt](implicit ctx : DFAny.Const.Context)
@@ -411,7 +410,7 @@ object DFUInt extends DFAny.Companion {
         type W = Int
         def apply(value : N) : DFUInt[W] = {
           `N >= 0`.BigInt.unsafeCheck(value)
-          const[W](Token(value.bitsWidth, value))
+          new Const[W](Token(value.bitsWidth, value))
         }
       }
     }

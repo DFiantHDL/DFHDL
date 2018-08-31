@@ -96,7 +96,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[W](width : TwoFace.Int[W])(
+  protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar(width, s"DFSInt($width)") with Var[W] {
     //Port Construction
@@ -105,15 +105,17 @@ object DFSInt extends DFAny.Companion {
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
-  final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
+  protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFSInt[W]](aliasedVars, reference) with Var[W]
 
-  protected[DFiant] def const[W](token : DFSInt.Token)(implicit ctx : DFAny.Const.Context) : DFSInt[W] =
-    new DFAny.Const(token) with DFSInt[W]
+  protected[DFiant] final class Const[W](token : DFSInt.Token)(
+    implicit ctx : DFAny.Const.Context
+  ) extends DFAny.Const(token) with DFSInt[W]
 
-  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFSInt[W], dir : Dir)(implicit ctx : DFAny.Port.Context) : DFSInt[W] <> Dir =
-    new DFAny.Port[DFSInt[W], Dir](dfVar, dir) with DFSInt[W] { }
+  protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFSInt[W], dir : Dir)(
+    implicit ctx : DFAny.Port.Context
+  ) extends DFAny.Port[DFSInt[W], Dir](dfVar, dir) with DFSInt[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -176,7 +178,7 @@ object DFSInt extends DFAny.Companion {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFSInt[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
+      : Builder[DFSInt[LW], Dir] = (right, dir) => new Port[LW, Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -306,7 +308,7 @@ object DFSInt extends DFAny.Companion {
       def <> [RW, RDIR <: DFDir](port : DFSInt[RW] <> RDIR)(
         implicit op: `Op<>`.Builder[DFSInt[RW], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
-      def toDFSInt[LW](implicit op : Const.Aux[L, LW]) = op(left)
+      def toDFSInt[LW](implicit op : Const.Builder.Aux[L, LW]) = op(left)
     }
     trait Implicits {
       sealed class DFSIntFromInt[L <: Int](left : L) extends Able[L](left)
@@ -329,26 +331,28 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant Implicit Evidence of DFSInt
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Const[N] {
-    type W
-    def apply(value : N) : DFSInt[W]
-  }
   object Const {
-    type Aux[N, W0] = Const[N]{type W = W0}
-    implicit def fromInt[N <: Int](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Int[N])
-    : Aux[N, w.Out] = new Const[N] {
-      type W = w.Out
-      def apply(value : N) : DFSInt[W] = const[W](Token(w(value), value))
+    trait Builder[N] {
+      type W
+      def apply(value : N) : DFSInt[W]
     }
-    implicit def fromLong[N <: Long](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Long[N])
-    : Aux[N, w.Out] = new Const[N] {
-      type W = w.Out
-      def apply(value : N) : DFSInt[W] = const[W](Token(w(value), value))
-    }
-    implicit def fromBigInt[N <: BigInt](implicit ctx : DFAny.Const.Context)
-    : Aux[N, Int] = new Const[N] {
-      type W = Int
-      def apply(value : N) : DFSInt[W] = const[W](Token(value.bitsWidth, value))
+    object Builder {
+      type Aux[N, W0] = Builder[N]{type W = W0}
+      implicit def fromInt[N <: Int](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Int[N])
+      : Aux[N, w.Out] = new Builder[N] {
+        type W = w.Out
+        def apply(value : N) : DFSInt[W] = new Const[W](Token(w(value), value))
+      }
+      implicit def fromLong[N <: Long](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Long[N])
+      : Aux[N, w.Out] = new Builder[N] {
+        type W = w.Out
+        def apply(value : N) : DFSInt[W] = new Const[W](Token(w(value), value))
+      }
+      implicit def fromBigInt[N <: BigInt](implicit ctx : DFAny.Const.Context)
+      : Aux[N, Int] = new Builder[N] {
+        type W = Int
+        def apply(value : N) : DFSInt[W] = new Const[W](Token(value.bitsWidth, value))
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -391,7 +395,7 @@ object DFSInt extends DFAny.Companion {
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
         ctx : Ctx,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFSInt[LW], R, DFSInt[RW]] = create[DFSInt[LW], R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
@@ -478,14 +482,14 @@ object DFSInt extends DFAny.Companion {
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFSInt[LW], LW, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
       implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
-        lConst : Const.Aux[L, LW],
+        lConst : Const.Builder.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, DFSInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
@@ -573,14 +577,14 @@ object DFSInt extends DFAny.Companion {
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFSInt[LW], LW, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
       implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
-        lConst : Const.Aux[L, LW],
+        lConst : Const.Builder.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, DFSInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
@@ -633,13 +637,13 @@ object DFSInt extends DFAny.Companion {
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
       ) : Builder[DFSInt[LW], R] = create[DFSInt[LW], LW, R, RW]((left, rightNum) => (left, rConst(rightNum)))
 
       implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
-        lConst : Const.Aux[L, LW],
+        lConst : Const.Builder.Aux[L, LW],
       ) : Builder[L, DFSInt[RW]] = create[L, LW, DFSInt[RW], RW]((leftNum, right) => (lConst(leftNum), right))
     }
   }

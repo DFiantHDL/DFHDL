@@ -50,7 +50,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[E <: Enum](val enum : E)(
+  protected[DFiant] final class NewVar[E <: Enum](val enum : E)(
     implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar(enum.width, s"DFEnum(${enum.name})") with Var[E]  {
     //Port Construction
@@ -59,17 +59,17 @@ object DFEnum extends DFAny.Companion {
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
-  final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : AliasReference)(
+  protected[DFiant] final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : AliasReference)(
     implicit val enum : E, ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E]
 
-  protected[DFiant] def const[E <: Enum](enum_ : E, token : Token[E])(
+  protected[DFiant] final class Const[E <: Enum](enum_ : E, token : Token[E])(
     implicit ctx : DFAny.Const.Context
-  ) : DFEnum[E] = new DFAny.Const(token) with DFEnum[E] {val enum = enum_  }
+  ) extends DFAny.Const(token) with DFEnum[E] {val enum = enum_  }
 
-  protected[DFiant] def port[E <: Enum, Dir <: DFDir](dfVar : DFEnum[E], dir : Dir)(
+  protected[DFiant] final class Port[E <: Enum, Dir <: DFDir](val dfVar : DFEnum[E], dir : Dir)(
     implicit ctx : DFAny.Port.Context
-  ) : DFEnum[E] <> Dir = new DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {val enum = dfVar.enum}
+  ) extends DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {val enum = dfVar.enum}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -110,7 +110,7 @@ object DFEnum extends DFAny.Companion {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[E <: Enum, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFEnum[E], Dir] = (right, dir) => port[E, Dir](right, dir)
+      : Builder[DFEnum[E], Dir] = (right, dir) => new Port[E, Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -234,7 +234,7 @@ object DFEnum extends DFAny.Companion {
 
       implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit ctx : DFAny.Op.Context)
       : Aux[DFEnum[E], Entry, DFEnum[E]] =
-        create[E, DFEnum[E], Entry]((left, rightEntry) => const(left.enum, Token[E](left.width, rightEntry)))
+        create[E, DFEnum[E], Entry]((left, rightEntry) => new Const(left.enum, Token[E](left.width, rightEntry)))
     }
   }
   object `Op:=` extends `Ops:=,<>`
@@ -269,10 +269,10 @@ object DFEnum extends DFAny.Companion {
       : Builder[DFEnum[E], DFEnum[E]] = create[E, DFEnum[E], DFEnum[E]]((left, right) => (left, right))
 
       implicit def evDFEnum_op_Entry[E <: Enum, R <: E#Entry](implicit ctx : DFAny.Op.Context)
-      : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, const(left.enum, Token[E](left.width, rightEntry))))
+      : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, new Const(left.enum, Token[E](left.width, rightEntry))))
 
       implicit def evEntry_op_DFEnum[E <: Enum, L <: E#Entry](implicit ctx : DFAny.Op.Context)
-      : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (const(right.enum, Token[E](right.width, leftEntry)), right))
+      : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (new Const(right.enum, Token[E](right.width, leftEntry)), right))
     }
   }
 

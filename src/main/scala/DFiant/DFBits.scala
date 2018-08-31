@@ -71,13 +71,13 @@ object DFBits extends DFAny.Companion {
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
-      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
       new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftBy($numOfBits)")
     }
 
     def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
-      val zeros = DFBits.const[LW](DFBits.Token(width - numOfBits, 0))
+      val zeros = new DFBits.Const[LW](DFBits.Token(width - numOfBits, 0))
       new DFBits.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftTo($numOfBits)")
     }
 
@@ -85,13 +85,13 @@ object DFBits extends DFAny.Companion {
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
-      val zeros = DFBits.const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
       new DFBits.Alias[tfs.Out](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightBy($numOfBits)")
     }
 
     def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
-      val zeros = DFBits.const[LW](DFBits.Token(width - numOfBits, 0))
+      val zeros = new DFBits.Const[LW](DFBits.Token(width - numOfBits, 0))
       new DFBits.Alias[EW](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightTo($numOfBits)")
     }
 
@@ -122,19 +122,19 @@ object DFBits extends DFAny.Companion {
     def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
     def << [N](right: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
       val shift = right.unsafeCheck().getValue
-      if (shift >= width) DFBits.const[LW](DFBits.Token(width, 0))
+      if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protLSBits(width - shift)
-        val zeros = DFBits.const[Int](DFBits.Token(shift, 0))
+        val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
         new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits"))
       }
     }
     def >> [N](right: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
       val shift = right.unsafeCheck().getValue
-      if (shift >= width) DFBits.const[LW](DFBits.Token(width, 0))
+      if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protMSBits(width - shift)
-        val zeros = DFBits.const[Int](DFBits.Token(shift, 0))
+        val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
         new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits"))
       }
     }
@@ -189,7 +189,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final class NewVar[W](width : TwoFace.Int[W])(
+  protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar(width, s"DFBits($width)") with Var[W] {
     //Port Construction
@@ -198,15 +198,17 @@ object DFBits extends DFAny.Companion {
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](NewVar.this)
   }
 
-  final class Alias[W](aliasedVars : List[DFAny], reference: AliasReference)(
+  protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference: AliasReference)(
     implicit ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFBits[W]](aliasedVars, reference) with Var[W]
 
-  protected[DFiant] def const[W](token : Token)(implicit ctx : DFAny.Const.Context) : DFBits[W] =
-    new DFAny.Const(token) with DFBits[W]
+  protected[DFiant] final class Const[W](token : DFBits.Token)(
+    implicit ctx : DFAny.Const.Context
+  ) extends DFAny.Const(token) with DFBits[W]
 
-  protected[DFiant] def port[W, Dir <: DFDir](dfVar : DFBits[W], dir : Dir)(implicit ctx : DFAny.Port.Context) : DFBits[W] <> Dir =
-    new DFAny.Port[DFBits[W], Dir](dfVar, dir) with DFBits[W] { }
+  protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFBits[W], dir : Dir)(
+    implicit ctx : DFAny.Port.Context
+  ) extends DFAny.Port[DFBits[W], Dir](dfVar, dir) with DFBits[W]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -302,7 +304,7 @@ object DFBits extends DFAny.Companion {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFBits[LW], Dir] = (right, dir) => port[LW, Dir](right, dir)
+      : Builder[DFBits[LW], Dir] = (right, dir) => new Port[LW, Dir](right, dir)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -398,24 +400,26 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant Implicit Evidence of DFUInt
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Const[N] {
-    type W
-    def apply(value : N) : DFBits[W]
-  }
   object Const {
-    type Aux[N, W0] = Const[N]{type W = W0}
-    implicit def fromBitVector(implicit ctx : DFAny.Const.Context)
-    : Aux[BitVector, Int] = new Const[BitVector] {
-      type W = Int
-      def apply(value : BitVector) : DFBits[W] = {
-        const[W](Token(value.length.toInt, value))
-      }
+    trait Builder[N] {
+      type W
+      def apply(value : N) : DFBits[W]
     }
-    implicit def fromXBitVector[W0](implicit ctx : DFAny.Const.Context)
-    : Aux[XBitVector[W0], W0] = new Const[XBitVector[W0]] {
-      type W = W0
-      def apply(value : XBitVector[W0]) : DFBits[W] = {
-        const[W](Token(value.length.toInt, value))
+    object Builder {
+      type Aux[N, W0] = Builder[N]{type W = W0}
+      implicit def fromBitVector(implicit ctx : DFAny.Const.Context)
+      : Aux[BitVector, Int] = new Builder[BitVector] {
+        type W = Int
+        def apply(value : BitVector) : DFBits[W] = {
+          new Const[W](Token(value.length.toInt, value))
+        }
+      }
+      implicit def fromXBitVector[W0](implicit ctx : DFAny.Const.Context)
+      : Aux[XBitVector[W0], W0] = new Builder[XBitVector[W0]] {
+        type W = W0
+        def apply(value : XBitVector[W0]) : DFBits[W] = {
+          new Const[W](Token(value.length.toInt, value))
+        }
       }
     }
   }
@@ -459,7 +463,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : Ctx,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Aux[DFBits[LW], R, DFBits[RW]] = create[DFBits[LW], R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
@@ -544,14 +548,14 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFBits[LW], LW, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
       implicit def evConst_op_DFBits[L, LW, LE, R <: DFBits[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
-        lConst : Const.Aux[L, LW],
+        lConst : Const.Builder.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
@@ -613,14 +617,14 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : DFAny.Alias.Context,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
         detailedBuilder: DetailedBuilder[DFBits[LW], LW, R, RW]
       ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
 
       implicit def evConst_op_DFBits[L, LW, LE, R <: DFBits[RW], RW](
         implicit
         ctx : DFAny.Alias.Context,
-        lConst : Const.Aux[L, LW],
+        lConst : Const.Builder.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
@@ -671,7 +675,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
-        rConst : Const.Aux[R, RW],
+        rConst : Const.Builder.Aux[R, RW],
       ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         (left, right)
@@ -680,7 +684,7 @@ object DFBits extends DFAny.Companion {
       implicit def evConst_op_DFBits[L, LW, R <: DFBits[RW], RW](
         implicit
         ctx : DFAny.Op.Context,
-        lConst : Const.Aux[L, LW],
+        lConst : Const.Builder.Aux[L, LW],
       ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
         (left, right)

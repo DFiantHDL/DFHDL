@@ -810,7 +810,7 @@ object DFAny {
     def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] = {
       val list : List[DFAny] = e.productIterator.toList.collect{
         case dfAny : DFAny => dfAny
-        case bv : BitVector => DFBits.const[Int](DFBits.Token(bv))
+        case bv : BitVector => new DFBits.Const[Int](DFBits.Token(bv))
       }
       new DFBits.Alias[w.Out](list, AliasReference.AsIs(".bits"))
     }
