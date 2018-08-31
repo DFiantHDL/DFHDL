@@ -99,7 +99,6 @@ trait Series {
       implicit object `Comp<` extends Implementation[`Comp<`] {
         def apply(comp: `Comp<`): Unit = {
           import comp._
-          println("<<<<<")
           val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
           rtInst.A <> inLeft
           rtInst.B <> inRight

@@ -70,16 +70,14 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {
     temp = true
-    println(s"memberList $fullName")
+//    println(s"memberList $fullName")
     mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce}
     mutableMemberList.toList
   }
   final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
-    if (temp)
-      println(s"shit! missed ${item.fullName}")
     mutableMemberList += item
     idCnt += 1
-    println(s"newItemGetID ${item.fullName}")
+//    println(s"newItemGetID ${item.fullName}")
     idCnt
   }
   //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
