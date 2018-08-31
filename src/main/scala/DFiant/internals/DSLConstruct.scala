@@ -79,6 +79,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
       println(s"shit! missed ${item.fullName}")
     mutableMemberList += item
     idCnt += 1
+    println(s"newItemGetID ${item.fullName}")
     idCnt
   }
   //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
