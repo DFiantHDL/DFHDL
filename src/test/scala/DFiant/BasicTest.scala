@@ -218,6 +218,8 @@ object BasicTest extends App {
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
+  top_ioDesignIf.discover
+  top_ioDesignIf.memberList
   println(top_ioDesignIf.codeString)
 //  val top_ioDesignMatch = new IODesignMatch {}
 //  println(top_ioDesignMatch.codeString)

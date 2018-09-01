@@ -40,7 +40,7 @@ object DFAnyConfiguration {
   }
   object detailed extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = true
-    val foldComponents : Boolean = false
+    val foldComponents : Boolean = true
     val commentInitValues: Boolean = true
   }
 }
