@@ -72,7 +72,7 @@ trait Comp extends DFComponent[Comp] {
   setInitFunc(o)(DFUInt.Token.+(getInit(i), getInit(i)))
 }
 object Comp {
-  implicit val ev : DFComponent.Implementation[Comp] = ifc => {
+  implicit val ev : Comp => Unit = ifc => {
     import ifc._
     val rt = new RTx2(8)
     rt.I <> i

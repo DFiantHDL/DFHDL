@@ -51,7 +51,7 @@ class ConnectTest extends Properties("ConnectTest") {
     final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
   }
   object Comp {
-    implicit val ev : DFComponent.Implementation[Comp] = ifc => {
+    implicit val ev : Comp => Unit = ifc => {
       import ifc._
       val rt = new RTx2(8)
       rt.I <> i

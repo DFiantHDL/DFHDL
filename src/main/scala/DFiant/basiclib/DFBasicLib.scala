@@ -1,7 +1,6 @@
 package DFiant.basiclib
 
 import DFiant._
-import DFComponent.Implementation
 import singleton.twoface._
 
 trait DFBasicLib {
@@ -20,16 +19,16 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFUIntOps {
     import DFiant.basiclib.DFUIntOps._
-    implicit val `Comp+`  : Implementation[`Comp+`]
-    implicit val `Comp-`  : Implementation[`Comp-`]
-    implicit val `Comp*`  : Implementation[`Comp*`]
+    implicit val `Comp+`  : `Comp+` => Unit
+    implicit val `Comp-`  : `Comp-` => Unit
+    implicit val `Comp*`  : `Comp*` => Unit
 
-    implicit val `Comp==` : Implementation[`Comp==`]
-    implicit val `Comp!=` : Implementation[`Comp!=`]
-    implicit val `Comp<`  : Implementation[`Comp<`]
-    implicit val `Comp>`  : Implementation[`Comp>`]
-    implicit val `Comp<=` : Implementation[`Comp<=`]
-    implicit val `Comp>=` : Implementation[`Comp>=`]
+    implicit val `Comp==` : `Comp==` => Unit
+    implicit val `Comp!=` : `Comp!=` => Unit
+    implicit val `Comp<`  : `Comp<` => Unit
+    implicit val `Comp>`  : `Comp>` => Unit
+    implicit val `Comp<=` : `Comp<=` => Unit
+    implicit val `Comp>=` : `Comp>=` => Unit
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,16 +38,16 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFSIntOps {
     import DFiant.basiclib.DFSIntOps._
-    implicit val `Comp+`  : Implementation[`Comp+`]
-    implicit val `Comp-`  : Implementation[`Comp-`]
-    implicit val `Comp*`  : Implementation[`Comp*`]
+    implicit val `Comp+`  : `Comp+` => Unit
+    implicit val `Comp-`  : `Comp-` => Unit
+    implicit val `Comp*`  : `Comp*` => Unit
 
-    implicit val `Comp==` : Implementation[`Comp==`]
-    implicit val `Comp!=` : Implementation[`Comp!=`]
-    implicit val `Comp<`  : Implementation[`Comp<`]
-    implicit val `Comp>`  : Implementation[`Comp>`]
-    implicit val `Comp<=` : Implementation[`Comp<=`]
-    implicit val `Comp>=` : Implementation[`Comp>=`]
+    implicit val `Comp==` : `Comp==` => Unit
+    implicit val `Comp!=` : `Comp!=` => Unit
+    implicit val `Comp<`  : `Comp<` => Unit
+    implicit val `Comp>`  : `Comp>` => Unit
+    implicit val `Comp<=` : `Comp<=` => Unit
+    implicit val `Comp>=` : `Comp>=` => Unit
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -58,12 +57,12 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBitsOps {
     import DFiant.basiclib.DFBitsOps._
-    implicit val `Comp|`  : Implementation[`Comp|`]
-    implicit val `Comp&`  : Implementation[`Comp&`]
-    implicit val `Comp^`  : Implementation[`Comp^`]
+    implicit val `Comp|`  : `Comp|` => Unit
+    implicit val `Comp&`  : `Comp&` => Unit
+    implicit val `Comp^`  : `Comp^` => Unit
 
-    implicit val `Comp==` : Implementation[`Comp==`]
-    implicit val `Comp!=` : Implementation[`Comp!=`]
+    implicit val `Comp==` : `Comp==` => Unit
+    implicit val `Comp!=` : `Comp!=` => Unit
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -73,10 +72,10 @@ object DFBasicLib {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBoolOps {
     import DFiant.basiclib.DFBoolOps._
-    implicit val `Comp||` : Implementation[`Comp||`]
-    implicit val `Comp&&` : Implementation[`Comp&&`]
-    implicit val `Comp==` : Implementation[`Comp==`]
-    implicit val `Comp!=` : Implementation[`Comp!=`]
+    implicit val `Comp||` : `Comp||` => Unit
+    implicit val `Comp&&` : `Comp&&` => Unit
+    implicit val `Comp==` : `Comp==` => Unit
+    implicit val `Comp!=` : `Comp!=` => Unit
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

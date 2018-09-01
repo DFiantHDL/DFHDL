@@ -1,6 +1,5 @@
 package Xilinx
 import DFiant._
-import DFiant.DFComponent.Implementation
 import DFiant.basiclib.DFBasicLib
 
 trait Series {
@@ -49,88 +48,69 @@ trait Series {
         }
       }
 
-      implicit object `Comp+` extends Implementation[`Comp+`] {
-        def apply(comp: `Comp+`): Unit = {
-          import comp._
-          val rtInst = new RTAdd(leftWidth, rightWidth, resultWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp+` : `Comp+` => Unit = comp => {
+        import comp._
+        val rtInst = new RTAdd(leftWidth, rightWidth, resultWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit val `Comp-` : `Comp-` => Unit = comp => {
+        import comp._
+        val rtInst = new RTSub(leftWidth, rightWidth, resultWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit val `Comp*` : `Comp*` => Unit = comp => {
+        import comp._
+        val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
 
-      implicit object `Comp-` extends Implementation[`Comp-`] {
-        def apply(comp: `Comp-`): Unit = {
-          import comp._
-          val rtInst = new RTSub(leftWidth, rightWidth, resultWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp==` : `Comp==` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp*` extends Implementation[`Comp*`] {
-        def apply(comp: `Comp*`): Unit = {
-          import comp._
-          val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp!=` : `Comp!=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-
-      implicit object `Comp==` extends Implementation[`Comp==`] {
-        def apply(comp: `Comp==`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp<` : `Comp<` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp!=` extends Implementation[`Comp!=`] {
-        def apply(comp: `Comp!=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp>` : `Comp>` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp<` extends Implementation[`Comp<`] {
-        def apply(comp: `Comp<`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp<=` : `Comp<=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp>` extends Implementation[`Comp>`] {
-        def apply(comp: `Comp>`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
-      }
-      implicit object `Comp<=` extends Implementation[`Comp<=`] {
-        def apply(comp: `Comp<=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
-      }
-      implicit object `Comp>=` extends Implementation[`Comp>=`] {
-        def apply(comp: `Comp>=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp>=` : `Comp>=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -180,88 +160,69 @@ trait Series {
         }
       }
 
-      implicit object `Comp+` extends Implementation[`Comp+`] {
-        def apply(comp: `Comp+`): Unit = {
-          import comp._
-          val rtInst = new RTAdd(leftWidth, rightWidth, resultWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp+` : `Comp+` => Unit = comp => {
+        import comp._
+        val rtInst = new RTAdd(leftWidth, rightWidth, resultWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit val `Comp-` : `Comp-` => Unit = comp => {
+        import comp._
+        val rtInst = new RTSub(leftWidth, rightWidth, resultWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit val `Comp*` : `Comp*` => Unit = comp => {
+        import comp._
+        val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
 
-      implicit object `Comp-` extends Implementation[`Comp-`] {
-        def apply(comp: `Comp-`): Unit = {
-          import comp._
-          val rtInst = new RTSub(leftWidth, rightWidth, resultWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp==` : `Comp==` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp*` extends Implementation[`Comp*`] {
-        def apply(comp: `Comp*`): Unit = {
-          import comp._
-          val rtInst = new RTMul(leftWidth, rightWidth, resultWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp!=` : `Comp!=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-
-      implicit object `Comp==` extends Implementation[`Comp==`] {
-        def apply(comp: `Comp==`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp<` : `Comp<` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp!=` extends Implementation[`Comp!=`] {
-        def apply(comp: `Comp!=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp>` : `Comp>` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp<` extends Implementation[`Comp<`] {
-        def apply(comp: `Comp<`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("<")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp<=` : `Comp<=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp>` extends Implementation[`Comp>`] {
-        def apply(comp: `Comp>`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp(">")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
-      }
-      implicit object `Comp<=` extends Implementation[`Comp<=`] {
-        def apply(comp: `Comp<=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("<=")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
-      }
-      implicit object `Comp>=` extends Implementation[`Comp>=`] {
-        def apply(comp: `Comp>=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp>=` : `Comp>=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp(">=")(leftWidth, rightWidth)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,50 +249,40 @@ trait Series {
         final val S = DFBool() <> OUT
         setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
-      implicit object `Comp|` extends Implementation[`Comp|`] {
-        def apply(comp: `Comp|`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBitwiseOp("|")(leftWidth, rightWidth, resultWidth)(DFBits.Token.|)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp|` : `Comp|` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBitwiseOp("|")(leftWidth, rightWidth, resultWidth)(DFBits.Token.|)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp&` extends Implementation[`Comp&`] {
-        def apply(comp: `Comp&`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBitwiseOp("&")(leftWidth, rightWidth, resultWidth)(DFBits.Token.&)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp&` : `Comp&` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBitwiseOp("&")(leftWidth, rightWidth, resultWidth)(DFBits.Token.&)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp^` extends Implementation[`Comp^`] {
-        def apply(comp: `Comp^`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBitwiseOp("^")(leftWidth, rightWidth, resultWidth)(DFBits.Token.^)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp^` : `Comp^` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBitwiseOp("^")(leftWidth, rightWidth, resultWidth)(DFBits.Token.^)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp==` extends Implementation[`Comp==`] {
-        def apply(comp: `Comp==`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFBits.Token.==)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp==` : `Comp==` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFBits.Token.==)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp!=` extends Implementation[`Comp!=`] {
-        def apply(comp: `Comp!=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFBits.Token.!=)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp!=` : `Comp!=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFBits.Token.!=)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -350,41 +301,33 @@ trait Series {
         final val S = DFBool() <> OUT
         setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
-      implicit object `Comp||` extends Implementation[`Comp||`] {
-        def apply(comp: `Comp||`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBoolOp("||")(DFBool.Token.||)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp||` : `Comp||` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBoolOp("||")(DFBool.Token.||)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp&&` extends Implementation[`Comp&&`] {
-        def apply(comp: `Comp&&`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBoolOp("&&")(DFBool.Token.&&)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp&&` : `Comp&&` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBoolOp("&&")(DFBool.Token.&&)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp==` extends Implementation[`Comp==`] {
-        def apply(comp: `Comp==`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp==` : `Comp==` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
-      implicit object `Comp!=` extends Implementation[`Comp!=`] {
-        def apply(comp: `Comp!=`): Unit = {
-          import comp._
-          val rtInst = new RTInfixBoolOp("!=")(DFBool.Token.!=)
-          rtInst.A <> inLeft
-          rtInst.B <> inRight
-          rtInst.S <> outResult
-        }
+      implicit val `Comp!=` : `Comp!=` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBoolOp("!=")(DFBool.Token.!=)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
       }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////

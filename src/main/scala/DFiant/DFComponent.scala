@@ -37,16 +37,16 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 
 object DFComponent {
   trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Nothing, DFBlock] {
-    implicit val impl : DFComponent.Implementation[Comp]
+    implicit val impl : Comp => Unit
     val compName : sourcecode.Name.OfType[Comp]
   }
   trait LowPriority {
     implicit def evFromOpContext[Comp <: DFComponent[Comp]](
-      implicit evContext : DFAny.Op.Context, evImpl : DFComponent.Implementation[Comp],
+      implicit evContext : DFAny.Op.Context, evImpl : Comp => Unit,
       evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
     ) : Context[Comp] = new Context[Comp] {
       implicit val owner: DFBlock = evContext.owner
-      implicit val impl: DFComponent.Implementation[Comp] = evImpl
+      implicit val impl: Comp => Unit = evImpl
       implicit val basicLib: DFBasicLib = evContext.basicLib
       implicit val config: DFAnyConfiguration = evContext.config
       val n: NameIt = evNameIt
@@ -55,19 +55,15 @@ object DFComponent {
   }
   object Context extends LowPriority {
     implicit def ev[Comp <: DFComponent[Comp]](
-      implicit evOwner : DFBlock, evImpl : DFComponent.Implementation[Comp], evBasicLib : DFBasicLib,
+      implicit evOwner : DFBlock, evImpl : Comp => Unit, evBasicLib : DFBasicLib,
       evConfig : DFAnyConfiguration, evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
     ) : Context[Comp] = new Context[Comp] {
       implicit val owner: DFBlock = evOwner
-      implicit val impl: DFComponent.Implementation[Comp] = evImpl
+      implicit val impl: Comp => Unit = evImpl
       implicit val basicLib: DFBasicLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
       val compName = evCompName
     }
-  }
-
-  trait Implementation[Comp <: DFComponent[Comp]] {
-    def apply(comp : Comp) : Unit
   }
 }
