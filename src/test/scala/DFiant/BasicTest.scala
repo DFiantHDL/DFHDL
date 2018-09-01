@@ -219,9 +219,6 @@ object BasicTest extends App {
   top_ioDesignIf.memberList
   println(top_ioDesignIf.codeString)
 
-
-
-//  implicitly[basiclib.DFUIntOps.`Comp+`]
 //  val top_ioDesignMatch = new IODesignMatch {}
 //  println(top_ioDesignMatch.codeString)
 
