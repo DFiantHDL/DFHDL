@@ -1,7 +1,4 @@
-import DFiant.MatchConfig.AllowOverlappingCases
 import DFiant._
-import DFiant.basiclib.DFBasicLib
-import DFiant.basiclib.DFUIntOps.`Comp+`
 
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
@@ -46,7 +43,7 @@ trait IODesignMatch extends DFDesign {
   val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
   val i2 = DFUInt(8) <> IN init (2, Bubble)
   val o1 = DFUInt(8) <> OUT
-  val myMatch = matchdf (i2, AllowOverlappingCases)
+  val myMatch = matchdf (i2, MatchConfig.AllowOverlappingCases)
     .casedf(1 to 5, 10 to 20) {o1 := i1}
     .casedf(7){o1 := i2}
     .casedf(11){o1 := i2}
@@ -221,6 +218,10 @@ object BasicTest extends App {
   top_ioDesignIf.discover
   top_ioDesignIf.memberList
   println(top_ioDesignIf.codeString)
+
+
+
+//  implicitly[basiclib.DFUIntOps.`Comp+`]
 //  val top_ioDesignMatch = new IODesignMatch {}
 //  println(top_ioDesignMatch.codeString)
 

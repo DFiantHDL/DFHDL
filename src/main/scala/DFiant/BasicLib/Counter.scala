@@ -1,4 +1,4 @@
-package DFiant.basiclib
+package DFiant.BasicLib
 
 //
 //case class Counter(range : Range, initVal : BigInt) {

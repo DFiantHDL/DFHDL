@@ -1,6 +1,6 @@
 package DFiant
 
-import DFiant.basiclib._
+import DFiant.BasicLib._
 import DFiant.internals._
 
 object GlobalDesignName extends NameIt {

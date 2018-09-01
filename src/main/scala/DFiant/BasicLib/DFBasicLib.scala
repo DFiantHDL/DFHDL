@@ -1,4 +1,4 @@
-package DFiant.basiclib
+package DFiant.BasicLib
 
 import DFiant._
 import singleton.twoface._
@@ -18,7 +18,7 @@ object DFBasicLib {
   // DFUInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFUIntOps {
-    import DFiant.basiclib.DFUIntOps._
+    import DFiant.BasicLib.DFUIntOps._
     implicit val `Comp+`  : `Comp+` => Unit
     implicit val `Comp-`  : `Comp-` => Unit
     implicit val `Comp*`  : `Comp*` => Unit
@@ -30,6 +30,7 @@ object DFBasicLib {
     implicit val `Comp<=` : `Comp<=` => Unit
     implicit val `Comp>=` : `Comp>=` => Unit
   }
+  object DFUIntOps
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -37,7 +38,7 @@ object DFBasicLib {
   // DFSInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFSIntOps {
-    import DFiant.basiclib.DFSIntOps._
+    import DFiant.BasicLib.DFSIntOps._
     implicit val `Comp+`  : `Comp+` => Unit
     implicit val `Comp-`  : `Comp-` => Unit
     implicit val `Comp*`  : `Comp*` => Unit
@@ -56,7 +57,7 @@ object DFBasicLib {
   // DFBits
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBitsOps {
-    import DFiant.basiclib.DFBitsOps._
+    import DFiant.BasicLib.DFBitsOps._
     implicit val `Comp|`  : `Comp|` => Unit
     implicit val `Comp&`  : `Comp&` => Unit
     implicit val `Comp^`  : `Comp^` => Unit
@@ -71,7 +72,7 @@ object DFBasicLib {
   // DFBool
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBoolOps {
-    import DFiant.basiclib.DFBoolOps._
+    import DFiant.BasicLib.DFBoolOps._
     implicit val `Comp||` : `Comp||` => Unit
     implicit val `Comp&&` : `Comp&&` => Unit
     implicit val `Comp==` : `Comp==` => Unit

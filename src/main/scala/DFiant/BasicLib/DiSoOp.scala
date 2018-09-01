@@ -1,4 +1,4 @@
-package DFiant.basiclib
+package DFiant.BasicLib
 
 //Dual Input, Single Output Operation
 object DiSoOp {

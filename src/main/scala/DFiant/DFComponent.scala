@@ -1,6 +1,6 @@
 package DFiant
 
-import DFiant.basiclib.DFBasicLib
+import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)

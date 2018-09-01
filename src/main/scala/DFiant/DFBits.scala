@@ -3,7 +3,7 @@ package DFiant
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import DFiant.basiclib._
+import DFiant.BasicLib._
 
 
 trait DFBits[W] extends DFBits.Unbounded {
@@ -525,9 +525,9 @@ object DFBits extends DFAny.Companion {
                   // Constructing op
                   val oWidth = oW(left.width, right.width)
                   val opInst = opKind match {
-                    case DiSoOp.Kind.| => new DFiant.basiclib.DFBitsOps.`Comp|`(left.width, right.width, oWidth)
-                    case DiSoOp.Kind.& => new DFiant.basiclib.DFBitsOps.`Comp&`(left.width, right.width, oWidth)
-                    case DiSoOp.Kind.^ => new DFiant.basiclib.DFBitsOps.`Comp^`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.| => new DFiant.BasicLib.DFBitsOps.`Comp|`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.& => new DFiant.BasicLib.DFBitsOps.`Comp&`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.^ => new DFiant.BasicLib.DFBitsOps.`Comp^`(left.width, right.width, oWidth)
                     case _ => throw new IllegalArgumentException("Unexpected logic operation")
                   }
                   opInst.setAutoName(s"${ctx.getName}Comp")
@@ -653,8 +653,8 @@ object DFBits extends DFAny.Companion {
         import ctx.basicLib.DFBitsOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-          case DiSoOp.Kind.== => new DFiant.basiclib.DFBitsOps.`Comp==`(left.width, right.width)
-          case DiSoOp.Kind.!= => new DFiant.basiclib.DFBitsOps.`Comp!=`(left.width, right.width)
+          case DiSoOp.Kind.== => new DFiant.BasicLib.DFBitsOps.`Comp==`(left.width, right.width)
+          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFBitsOps.`Comp!=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
         opInst.setAutoName(s"${ctx.getName}Comp")

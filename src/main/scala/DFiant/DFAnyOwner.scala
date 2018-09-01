@@ -1,5 +1,5 @@
 package DFiant
-import DFiant.basiclib.DFBasicLib
+import DFiant.BasicLib.DFBasicLib
 import DFiant.internals._
 
 trait DFAnyOwner extends DSLOwnerConstruct {

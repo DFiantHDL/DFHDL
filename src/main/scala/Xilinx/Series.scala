@@ -1,14 +1,14 @@
 package Xilinx
 import DFiant._
-import DFiant.basiclib.DFBasicLib
+import DFiant.BasicLib.DFBasicLib
 
 trait Series {
-  implicit object basicLib extends DFiant.basiclib.DFBasicLib {
+  implicit object basicLib extends DFiant.BasicLib.DFBasicLib {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFUInt
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFUIntOps extends DFBasicLib.DFUIntOps {
-      import DFiant.basiclib.DFUIntOps._
+      import DFiant.BasicLib.DFUIntOps._
       class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFUInt(aWidth) <> IN
@@ -120,7 +120,7 @@ trait Series {
     // DFSInt
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFSIntOps extends DFBasicLib.DFSIntOps {
-      import DFiant.basiclib.DFSIntOps._
+      import DFiant.BasicLib.DFSIntOps._
       class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFSInt(aWidth) <> IN
@@ -232,7 +232,7 @@ trait Series {
     // DFBits
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFBitsOps extends DFBasicLib.DFBitsOps {
-      import DFiant.basiclib.DFBitsOps._
+      import DFiant.BasicLib.DFBitsOps._
       class RTInfixBitwiseOp(opString : String)(aWidth : Int, bWidth : Int, sWidth : Int)
         (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBits.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
@@ -292,7 +292,7 @@ trait Series {
     // DFBool
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     object DFBoolOps extends DFBasicLib.DFBoolOps {
-      import DFiant.basiclib.DFBoolOps._
+      import DFiant.BasicLib.DFBoolOps._
       class RTInfixBoolOp(opString : String)
         (initFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {

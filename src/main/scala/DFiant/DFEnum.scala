@@ -2,7 +2,7 @@ package DFiant
 
 import singleton.ops._
 import singleton.twoface._
-import DFiant.basiclib._
+import DFiant.BasicLib._
 import DFiant.internals._
 
 import scala.collection.mutable.LinkedHashMap

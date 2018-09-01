@@ -1,6 +1,6 @@
 package DFiant
 
-import DFiant.basiclib.DiSoOp
+import DFiant.BasicLib.DiSoOp
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -293,10 +293,10 @@ object DFBool extends DFAny.Companion {
         import ctx.basicLib.DFBoolOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = kind match {
-          case DiSoOp.Kind.|| => new DFiant.basiclib.DFBoolOps.`Comp||`()
-          case DiSoOp.Kind.&& => new DFiant.basiclib.DFBoolOps.`Comp&&`()
-          case DiSoOp.Kind.== => new DFiant.basiclib.DFBoolOps.`Comp==`()
-          case DiSoOp.Kind.!= => new DFiant.basiclib.DFBoolOps.`Comp!=`()
+          case DiSoOp.Kind.|| => new DFiant.BasicLib.DFBoolOps.`Comp||`()
+          case DiSoOp.Kind.&& => new DFiant.BasicLib.DFBoolOps.`Comp&&`()
+          case DiSoOp.Kind.== => new DFiant.BasicLib.DFBoolOps.`Comp==`()
+          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFBoolOps.`Comp!=`()
           case _ => throw new IllegalArgumentException("Unexpected boolean operation")
         }
         opInst.setAutoName(s"${ctx.getName}Comp")

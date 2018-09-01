@@ -1,4 +1,4 @@
-package DFiant.basiclib.macros
+package DFiant.BasicLib.macros
 
 import DFiant.DFAny
 

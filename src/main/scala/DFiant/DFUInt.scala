@@ -1,6 +1,6 @@
 package DFiant
 
-import DFiant.basiclib._
+import DFiant.BasicLib._
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -529,8 +529,8 @@ object DFUInt extends DFAny.Companion {
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInst = creationKind match {
-                    case `Ops+Or-`.+ => new DFiant.basiclib.DFUIntOps.`Comp+`(left.width, right.width, opWidth)
-                    case `Ops+Or-`.- => new DFiant.basiclib.DFUIntOps.`Comp-`(left.width, right.width, opWidth)
+                    case `Ops+Or-`.+ => new DFiant.BasicLib.DFUIntOps.`Comp+`(left.width, right.width, opWidth)
+                    case `Ops+Or-`.- => new DFiant.BasicLib.DFUIntOps.`Comp-`(left.width, right.width, opWidth)
                   }
                   opInst.setAutoName(s"${ctx.getName}Comp")
                   opInst.inLeft <> left
@@ -648,7 +648,7 @@ object DFUInt extends DFAny.Companion {
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
 
-                  val opInst = new DFiant.basiclib.DFUIntOps.`Comp*`(left.width, right.width, wcWidth)
+                  val opInst = new DFiant.BasicLib.DFUIntOps.`Comp*`(left.width, right.width, wcWidth)
                   opInst.setAutoName(s"${ctx.getName}Comp")
                   opInst.inLeft <> left
                   opInst.inRight <> right
@@ -709,12 +709,12 @@ object DFUInt extends DFAny.Companion {
         import ctx.basicLib.DFUIntOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-          case DiSoOp.Kind.== => new DFiant.basiclib.DFUIntOps.`Comp==`(left.width, right.width)
-          case DiSoOp.Kind.!= => new DFiant.basiclib.DFUIntOps.`Comp!=`(left.width, right.width)
-          case DiSoOp.Kind.<  => new DFiant.basiclib.DFUIntOps.`Comp<`(left.width, right.width)
-          case DiSoOp.Kind.>  => new DFiant.basiclib.DFUIntOps.`Comp>`(left.width, right.width)
-          case DiSoOp.Kind.<= => new DFiant.basiclib.DFUIntOps.`Comp<=`(left.width, right.width)
-          case DiSoOp.Kind.>= => new DFiant.basiclib.DFUIntOps.`Comp>=`(left.width, right.width)
+          case DiSoOp.Kind.== => new DFiant.BasicLib.DFUIntOps.`Comp==`(left.width, right.width)
+          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFUIntOps.`Comp!=`(left.width, right.width)
+          case DiSoOp.Kind.<  => new DFiant.BasicLib.DFUIntOps.`Comp<`(left.width, right.width)
+          case DiSoOp.Kind.>  => new DFiant.BasicLib.DFUIntOps.`Comp>`(left.width, right.width)
+          case DiSoOp.Kind.<= => new DFiant.BasicLib.DFUIntOps.`Comp<=`(left.width, right.width)
+          case DiSoOp.Kind.>= => new DFiant.BasicLib.DFUIntOps.`Comp>=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
         opInst.setAutoName(s"${ctx.getName}Comp")

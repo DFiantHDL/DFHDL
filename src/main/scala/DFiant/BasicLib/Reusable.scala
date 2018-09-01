@@ -1,4 +1,4 @@
-package DFiant.basiclib
+package DFiant.BasicLib
 
 import DFiant._
 

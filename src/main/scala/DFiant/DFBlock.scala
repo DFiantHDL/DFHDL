@@ -1,6 +1,6 @@
 package DFiant
 
-import DFiant.basiclib.DFBasicLib
+import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
