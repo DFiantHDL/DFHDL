@@ -1,8 +1,5 @@
 package DFiant.BasicLib
 
-import DFiant._
-import singleton.twoface._
-
 trait DFBasicLib {
 
   val DFUIntOps : DFBasicLib.DFUIntOps
