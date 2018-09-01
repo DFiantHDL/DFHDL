@@ -105,6 +105,23 @@ class ConnectTest extends Properties("ConnectTest") {
     }
   }
 
+  trait IODesignMatch extends DFDesign {
+    val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+    val i2 = DFUInt(8) <> IN init (2, Bubble)
+    val o1 = DFUInt(8) <> OUT
+    val myMatch = matchdf (i2, MatchConfig.AllowOverlappingCases)
+      .casedf(1 to 5, 10 to 20) {o1 := i1}
+      .casedf(7){o1 := i2}
+      .casedf(11){o1 := i2}
+
+    val i3 = DFEnum(Foo) <> IN init (Foo.Baz0, Foo.Baz3)
+    val o2 = DFUInt(8) <> OUT
+    val myEnumMatch = matchdf (i3)
+      .casedf(Foo.Baz0) {o2 := 1}
+      .casedf(Foo.Baz1) {o2 := 0}
+  }
+
+
 
   property("DFDesign.codeString") = {
     val topIO = new DFDesign {
@@ -150,7 +167,7 @@ class ConnectTest extends Properties("ConnectTest") {
     top_containerConn3.codeString =@= compare
   }
 
-  property("IODesignIf.codeString") = {
+  property("IODesignIf.codeString detailed") = {
     implicit val config = DFAnyConfiguration.detailed
     val top_ioDesignIf = new IODesignIf {}
     val compare =
@@ -184,6 +201,48 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val retǂif = ifdf(b) {
         |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)                     //init = (1, 1, Φ, 1)
         |    val ǂanonComp = new Relational {}
+        |    ǂanonComp.inLeft <> i1
+        |    ǂanonComp.inRight <> 8
+        |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
+        |      ǂanon := i1
+        |    }.elsedf {
+        |      ǂanon := i1
+        |    }
+        |    ret := ǂanon
+        |  }.elsedf {
+        |    ret := i2
+        |  }
+        |  o2 <> ret
+        |}
+        |
+        |val top_ioDesignIf = new IODesignIf {}
+      """.stripMargin
+    top_ioDesignIf.codeString =@= compare
+  }
+
+  property("IODesignIf.codeString default") = {
+    val top_ioDesignIf = new IODesignIf {}
+    val compare =
+      """
+        |trait IODesignIf extends DFDesign {
+        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)
+        |  val i2 = DFUInt(8) <> IN init(2, Φ)
+        |  val o1 = DFUInt(8) <> OUT
+        |  val o2 = DFUInt(8) <> OUT
+        |  val b = DFBool() <> IN init(false, true, true, true)
+        |  val myIf = ifdf(b) {
+        |    val myIf2 = ifdf(b) {
+        |      o1 := i1
+        |    }.elseifdf(b) {
+        |      o1 := i1
+        |    }
+        |  }.elsedf {
+        |    o1 := i1
+        |  }
+        |  val ret = DFUInt(8) init(2, 1, Φ, 1)
+        |  val retǂif = ifdf(b) {
+        |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)
+        |    val ǂanonComp = new DFiant.BasicLib.DFUIntOps.Relational[DFiant.BasicLib.DiSoOp.Kind.<](8, 4) {}
         |    ǂanonComp.inLeft <> i1
         |    ǂanonComp.inRight <> 8
         |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
@@ -348,6 +407,38 @@ class ConnectTest extends Properties("ConnectTest") {
         |val top_ioDesignConn4 = new IODesignConn4 {}
       """.stripMargin
     top_ioDesignConn4.codeString =@= compare
+  }
+
+  property("IODesignMatch.codeString") = {
+    implicit val config = DFAnyConfiguration.detailed
+    val top_ioDesignMatch = new IODesignMatch {}
+    val compare =
+      """
+        |trait IODesignMatch extends DFDesign {
+        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
+        |  val i2 = DFUInt(8) <> IN init(2, Φ)                        //init = (2, Φ)
+        |  val o1 = DFUInt(8) <> OUT                                  //init = ()
+        |  val myMatch = matchdf(i2, MatchConfig.AllowOverlappingCases)
+        |  .casedf(1 to 5, 10 to 20) {
+        |    o1 := i1
+        |  }.casedf(7) {
+        |    o1 := i2
+        |  }.casedf(11) {
+        |    o1 := i2
+        |  }
+        |  val i3 = DFEnum(Foo) <> IN init(Foo.Baz0, Foo.Baz3)        //init = (Foo.Baz0, Foo.Baz3)
+        |  val o2 = DFUInt(8) <> OUT                                  //init = ()
+        |  val myEnumMatch = matchdf(i3)
+        |  .casedf(Foo.Baz0) {
+        |    o2 := 1
+        |  }.casedf(Foo.Baz1) {
+        |    o2 := 0
+        |  }
+        |}
+        |
+        |val top_ioDesignMatch = new IODesignMatch {}
+      """.stripMargin
+    top_ioDesignMatch.codeString =@= compare
   }
 
 }

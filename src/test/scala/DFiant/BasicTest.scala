@@ -53,7 +53,6 @@ trait IODesignMatch extends DFDesign {
   val myEnumMatch = matchdf (i3)
     .casedf(Foo.Baz0) {o2 := 1}
     .casedf(Foo.Baz1) {o2 := 0}
-
 }
 
 class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
