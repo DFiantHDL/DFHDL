@@ -215,7 +215,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token private[DFiant] (width : Int, val valueBits : BitVector, val bubbleMask : BitVector) extends DFAny.Token.Of[BitVector](width, valueBits) {
+  class Token private[DFiant] (width : Int, val valueBits : BitVector, val bubbleMask : BitVector) extends DFAny.Token.Of[BitVector, Pattern](width, valueBits) {
     def toBubbleToken : Token = Token(width, Bubble)
     final def | (that : Token) : Token = {
       val outWidth = scala.math.max(this.width, that.width)

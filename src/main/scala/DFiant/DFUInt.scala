@@ -128,7 +128,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token private[DFiant] (width : Int, value : BigInt, val bubble : Boolean) extends DFAny.Token.Of[BigInt](width, value) {
+  class Token private[DFiant] (width : Int, value : BigInt, val bubble : Boolean) extends DFAny.Token.Of[BigInt, Pattern](width, value) {
     lazy val valueBits : BitVector = value.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
     def toBubbleToken : Token = Token(width, Bubble)

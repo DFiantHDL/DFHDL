@@ -76,17 +76,17 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token[E <: Enum] private[DFiant](width : Int, value : Option[E#Entry]) extends DFAny.Token.Of[Option[E#Entry]](width, value) {
-    val (valueBits, bubbleMask) : (BitVector, BitVector) = value match {
-      case Some(e) => (e.value.toBitVector(width), false.toBitVector(width))
-      case None => (0.toBitVector(width), true.toBitVector(width))
-    }
+  class Token[E <: Enum] private[DFiant](width : Int, value : E#Entry) extends DFAny.Token.Of[E#Entry, Pattern[E]](width, value) {
+    val (valueBits, bubbleMask) : (BitVector, BitVector) =
+      if (value != null) (value.value.toBitVector(width), false.toBitVector(width))
+      else (0.toBitVector(width), true.toBitVector(width))
+
     def toBubbleToken : Token[E] = Token(width, Bubble)
 
-    final def == (that : Token[E]) : DFBool.Token = (this.value, that.value) match {
-      case (Some(left), Some(right)) => DFBool.Token(left == right)
-      case _ => DFBool.Token(Bubble)
-    }
+    final def == (that : Token[E]) : DFBool.Token =
+      if (this.value != null && that.value != null) DFBool.Token(this.value == that.value)
+      else DFBool.Token(Bubble)
+
     final def != (that : Token[E]) : DFBool.Token = !(this == that)
   }
 
@@ -95,8 +95,8 @@ object DFEnum extends DFAny.Companion {
     def == [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != [E <: Enum](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
 
-    def apply[E <: Enum](width : Int, value : Bubble) : Token[E] = new Token[E](width, None)
-    def apply[E <: Enum](width : Int, value : E#Entry) : Token[E] = new Token[E](width, Some(value))
+    def apply[E <: Enum](width : Int, value : Bubble) : Token[E] = new Token[E](width, null.asInstanceOf[E#Entry])
+    def apply[E <: Enum](width : Int, value : E#Entry) : Token[E] = new Token[E](width, value)
     implicit def fromBits[E <: Enum](implicit e : E) : DFBits.Token => Token[E] =
       t => Token[E](e.width, e.entries(t.valueBits.toBigInt).asInstanceOf[E#Entry])
   }

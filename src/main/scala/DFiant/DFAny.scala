@@ -534,6 +534,10 @@ object DFAny {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Token extends HasCodeString {
+    Self =>
+    type TValue
+    type TPattern <: DFAny.Pattern[TPattern]{type TValue = Self.TValue}
+    val value : TValue
     //maximum token value width
     val width : Int
     final lazy val widthOfValue : Int = scala.math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
@@ -565,12 +569,15 @@ object DFAny {
       if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
       else DFBool.Token(this.valueBits != that.valueBits)
     }
+    final def patternMatch(that : TPattern) : DFBool.Token = DFBool.Token(that.matches(this.value), this.isBubble)
 
     final override def toString: String = codeString
   }
 
   object Token {
-    abstract class Of[T](val width: Int, val value : T)(implicit codeStringOf : CodeStringOf[T]) extends Token {
+    abstract class Of[V, P <: DFAny.Pattern[P]{type TValue = V}](val width: Int, val value : V)(implicit codeStringOf : CodeStringOf[V]) extends Token {
+      type TValue = V
+      type TPattern = P
       final def codeString : String = if (isBubble) "Φ" else value.codeString
     }
     implicit class TokenSeqInit[T <: DFAny.Token](tokenSeq : Seq[T]) {
@@ -588,6 +595,7 @@ object DFAny {
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
+      def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
     }
   }
 
@@ -603,6 +611,8 @@ object DFAny {
     def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
       if (leftSeq.isEmpty || rightSeq.isEmpty) Seq() else
       leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))
+    def apply[O <: Token, L <: Token, R](leftSeq : Seq[L], rightConst : R)(op : (L, R) => O) : Seq[O] =
+      leftSeq.map(t => op(t, rightConst))
     def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
       seq.map(t => op(t))
   }
@@ -613,16 +623,22 @@ object DFAny {
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   sealed trait Pattern[P <: Pattern[P]] extends HasCodeString {
+    type TValue
+    def matches(value : TValue) : Boolean
     def overlapsWith(pattern: P) : Boolean
     def codeString : String
     override def toString: String = codeString
   }
   object Pattern {
-    class OfIntervalSet[T, P <: OfIntervalSet[T, P]](val patternSet : IntervalSet[T])(implicit codeStringOf: CodeStringOf[Interval[T]]) extends Pattern[P] {
+    abstract class OfIntervalSet[T, P <: OfIntervalSet[T, P]](val patternSet : IntervalSet[T])(implicit codeStringOf: CodeStringOf[Interval[T]]) extends Pattern[P] {
+      type TValue = T
+      def matches(value : TValue) : Boolean = patternSet.containsPoint(value)
       def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
       def codeString : String = patternSet.map(t => t.codeString).mkString(", ")
     }
-    class OfSet[T, P <: OfSet[T, P]](val patternSet : Set[T])(implicit codeStringOf: CodeStringOf[T]) extends Pattern[P] {
+    abstract class OfSet[T, P <: OfSet[T, P]](val patternSet : Set[T])(implicit codeStringOf: CodeStringOf[T]) extends Pattern[P] {
+      type TValue = T
+      def matches(value : TValue) : Boolean = patternSet.contains(value)
       def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
       def codeString : String = patternSet.map(t => t.codeString).mkString(", ")
     }
