@@ -58,6 +58,12 @@ object DFSInt extends DFAny.Companion {
       new DFSInt.Alias[EW](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
+    def << [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = ???
+    def >> [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = ???
+
+    def << [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFSInt[LW] = ???
+    def >> [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFSInt[LW] = ???
+
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
     def isPositive(implicit ctx : DFAny.Op.Context) = left > 0
     def isNegative(implicit ctx : DFAny.Op.Context) = sign

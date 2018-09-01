@@ -506,7 +506,7 @@ object DFAny {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
           if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
         }
-        else throwConnectionError(s"Unsupported connection between a non-port and a port")
+        //else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
         connect(dfVal, port)
       }
     }

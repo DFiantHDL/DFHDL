@@ -120,26 +120,27 @@ object DFBits extends DFAny.Companion {
     def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
     def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
     def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
-    def << [N](right: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
-      val shift = right.unsafeCheck().getValue
+    def << [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
+      val shift = numOfBits.unsafeCheck().getValue
       if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protLSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits"))
+        new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString << $numOfBits")
       }
     }
-    def >> [N](right: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
-      val shift = right.unsafeCheck().getValue
+    def >> [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
+      val shift = numOfBits.unsafeCheck().getValue
       if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protMSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits"))
+        new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString >> $numOfBits")
       }
     }
 
-//    def << [RW](right: DFBits[RW])(implicit op: `Op<<`.Builder[TVal, DFBits[RW]]) = op(left, right)
+    def << [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFBits[LW] = ???
+    def >> [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFBits[LW] = ???
 
     def unary_~(implicit ctx : DFAny.Alias.Context) : DFBits[LW] =
       new DFBits.Alias[LW](List(this), AliasReference.Invert(".invert")) //TODO: change refCodeString to accept prefix
