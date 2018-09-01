@@ -40,6 +40,8 @@ class ConnectTest extends Properties("ConnectTest") {
     val ret = DFUInt(8).ifdf (b) {
       DFUInt(8).ifdf (i1 < 8) {
         i1
+      }.elseifdf(b) {
+        i2
       }.elsedf {
         i1
       }
@@ -205,6 +207,8 @@ class ConnectTest extends Properties("ConnectTest") {
         |    ǂanonComp.inRight <> 8
         |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
         |      ǂanon := i1
+        |    }.elseifdf(b) {
+        |      ǂanon := i2
         |    }.elsedf {
         |      ǂanon := i1
         |    }
@@ -247,6 +251,8 @@ class ConnectTest extends Properties("ConnectTest") {
         |    ǂanonComp.inRight <> 8
         |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
         |      ǂanon := i1
+        |    }.elseifdf(b) {
+        |      ǂanon := i2
         |    }.elsedf {
         |      ǂanon := i1
         |    }
