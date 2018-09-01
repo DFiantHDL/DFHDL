@@ -274,13 +274,11 @@ object DFAny {
     final def reInit(cond : DFBool) : Unit = ???
     final private var _initFunc : () => Seq[TToken] = () => Seq()
     final protected[DFiant] def setInitFunc(value : => Seq[TToken]) : Unit = {
-      println(s"setInitFunc $fullName")
-//      if (fullName == "top_ioDesignIf.retǂif.opInst.outResult")
-//        throw new IllegalArgumentException("shit")
+//      println(s"setInitFunc $fullName")
       _initFunc = () => value
     }
     final private val initLB = LazyBox({
-      println(s"initLB $fullName")
+//      println(s"initLB $fullName")
       _initFunc()
     })
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCircular initialization detected"))

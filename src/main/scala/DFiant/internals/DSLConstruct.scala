@@ -72,13 +72,13 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     temp = true
     mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
     mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners
-    println(s"memberList $fullName")
+//    println(s"memberList $fullName")
     mutableMemberList.toList
   }
   final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
     mutableMemberList += item
     idCnt += 1
-    println(s"newItemGetID ${item.fullName}")
+//    println(s"newItemGetID ${item.fullName}")
     idCnt
   }
   //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
@@ -120,7 +120,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
   protected def foldedRun : Unit = unfoldedRun
   private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = {
-    println(s"foldOrUnFoldRunOnce $fullName")
+//    println(s"foldOrUnFoldRunOnce $fullName")
     if (config.foldComponents) foldedRun else unfoldedRun
   }
 
