@@ -5,7 +5,7 @@ trait Discoverable {
   final protected[internals] def isNotDiscovered : Boolean = !discovered
   protected def discoveryDepenencies : List[Discoverable]
   protected def postDiscoveryRun : Unit = {}
-  final def discover : Unit = {
+  final protected def discover : Unit = {
     if (!discovered) {
       discovered = true
 //      println(s"discovered ${this.asInstanceOf[DSLMemberConstruct].fullName}")

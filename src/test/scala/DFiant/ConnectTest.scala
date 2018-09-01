@@ -23,20 +23,30 @@ class ConnectTest extends Properties("ConnectTest") {
   }
 
   trait IODesignIf extends DFDesign {
-    val i = DFUInt(8) <> IN
-    val o = DFUInt(8) <> OUT
-    val b = DFBool() <> IN
+    val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+    val i2 = DFUInt(8) <> IN init (2, Bubble)
+    val o1 = DFUInt(8) <> OUT
+    val o2 = DFUInt(8) <> OUT
+    val b = DFBool() <> IN init (false, true, true, true)
     val myIf = ifdf (b) {
       val myIf2 = ifdf (b) {
-        o := i
+        o1 := i1
       }.elseifdf(b) {
-        o := i
+        o1 := i1
       }
     }.elsedf {
-      o := i
+      o1 := i1
     }
-    val bb = DFBool()
-    bb.keep
+    val ret = DFUInt(8).ifdf (b) {
+      DFUInt(8).ifdf (i1 < 8) {
+        i1
+      }.elsedf {
+        i1
+      }
+    }.elsedf {
+      i2
+    }
+    o2 <> ret
   }
 
   class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
@@ -141,26 +151,52 @@ class ConnectTest extends Properties("ConnectTest") {
   }
 
   property("IODesignIf.codeString") = {
+    implicit val config = DFAnyConfiguration.detailed
     val top_ioDesignIf = new IODesignIf {}
     val compare =
       """
-        |trait IODesignIf extends DFDesign {
-        |  val i = DFUInt(8) <> IN
-        |  val o = DFUInt(8) <> OUT
-        |  val b = DFBool() <> IN
-        |  val myIf = ifdf(b) {
-        |    val myIf2 = ifdf(b) {
-        |      o := i
-        |    }.elseifdf(b) {
-        |      o := i
-        |    }
-        |  }.elsedf {
-        |    o := i
-        |  }
-        |  val bb = DFBool()
+        |trait Relational extends DFDesign {
+        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
+        |  val inRight = DFUInt(4) <> IN                              //init = (8)
+        |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
+        |  val rtInst = new Xilinx.Series$basicLib$DFUIntOps$RTInfixRelationalOp(<)(8, 4) {}
+        |  rtInst.A <> inLeft
+        |  rtInst.B <> inRight
+        |  outResult <> rtInst.S
         |}
         |
-        |val top_ioDesignIf = new IODesignIf {}
+        |trait IODesignIf extends DFDesign {
+        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
+        |  val i2 = DFUInt(8) <> IN init(2, Φ)                        //init = (2, Φ)
+        |  val o1 = DFUInt(8) <> OUT                                  //init = ()
+        |  val o2 = DFUInt(8) <> OUT                                  //init = (2, 1, Φ, 1)
+        |  val b = DFBool() <> IN init(false, true, true, true)       //init = (false, true, true, true)
+        |  val myIf = ifdf(b) {
+        |    val myIf2 = ifdf(b) {
+        |      o1 := i1
+        |    }.elseifdf(b) {
+        |      o1 := i1
+        |    }
+        |  }.elsedf {
+        |    o1 := i1
+        |  }
+        |  val ret = DFUInt(8) init(2, 1, Φ, 1)                       //init = (2, 1, Φ, 1)
+        |  val retǂif = ifdf(b) {
+        |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)                     //init = (1, 1, Φ, 1)
+        |    val ǂanonComp = new Relational {}
+        |    ǂanonComp.inLeft <> i1
+        |    ǂanonComp.inRight <> 8
+        |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
+        |      ǂanon := i1
+        |    }.elsedf {
+        |      ǂanon := i1
+        |    }
+        |    ret := ǂanon
+        |  }.elsedf {
+        |    ret := i2
+        |  }
+        |  o2 <> ret
+        |}
       """.stripMargin
     top_ioDesignIf.codeString =@= compare
   }

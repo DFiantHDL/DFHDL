@@ -18,15 +18,15 @@ trait IODesignIf extends DFDesign {
   val o1 = DFUInt(8) <> OUT
   val o2 = DFUInt(8) <> OUT
   val b = DFBool() <> IN init (false, true, true, true)
-//  val myIf = ifdf (b) {
-//    val myIf2 = ifdf (b) {
-//      o1 := i1
-//    }.elseifdf(b) {
-//      o1 := i1
-//    }
-//  }.elsedf {
-//    o1 := i1
-//  }
+  val myIf = ifdf (b) {
+    val myIf2 = ifdf (b) {
+      o1 := i1
+    }.elseifdf(b) {
+      o1 := i1
+    }
+  }.elsedf {
+    o1 := i1
+  }
   val ret = DFUInt(8).ifdf (b) {
     DFUInt(8).ifdf (i1 < 8) {
       i1
@@ -215,8 +215,6 @@ object BasicTest extends App {
 //  val top_containerConn3 = new ContainerConn3 {}
 //  val top_containerConn4 = new ContainerConn4 {}
   val top_ioDesignIf = new IODesignIf {}
-  top_ioDesignIf.discover
-  top_ioDesignIf.memberList
   println(top_ioDesignIf.codeString)
 
 //  val top_ioDesignMatch = new IODesignMatch {}
