@@ -3,29 +3,17 @@ package Proc
 import DFiant._
 
 trait ALU extends DFDesign {
-  val op1 = DFBits(32) <> IN
-  val op2 = DFBits(32) <> IN
-  val aluSel = DFEnum(ALUSel) <> IN
-  val out = DFBits(32) <> OUT
+  val op1     = DFBits(32)      <> IN
+  val op2     = DFBits(32)      <> IN
+  val shamt   = DFUInt(5)       <> IN
+  val aluSel  = DFEnum(ALUSel)  <> IN
+  val out     = DFBits(32)      <> OUT
 
-  val cond = DFBool()
-  val a = DFBits(32).select(cond)(op1, op2)
-  val sel = DFUInt(2)
-  val b = DFBits(32).select(sel, op1)(op1, op2, op1, op2)
-  implicit class Bla(a : DFAny) {
-    def matchdf[T](body : => T) : T = ???
-//    def casedf[T](sel : DF)
-  }
+
   val op1u = op1.uint
   val op2u = op2.uint
-//  val aaa = new DFAny.NewVar(0,"")(???,???) {
-//    override type TVal = DFAny
-//    override type TVar = DFAny.Var
-//  }
-//  new aluSel.matchdf(DFBits(32)) {
-////    casedf(ALUSel.ADD){b"11111111111111111111111111111111"}
-//    casedf(ALUSel.SUB){(op1u - op2u).bits}
-//  }
+  val op1s = op1.sint
+  val op2s = op2.sint
 
 //  exe_alu_out := MuxCase(0.U, Array(
 //    (io.ctl.alu_fun === ALU_ADD)  -> (exe_alu_op1 + exe_alu_op2).toUInt,
@@ -41,4 +29,15 @@ trait ALU extends DFDesign {
 //    (io.ctl.alu_fun === ALU_COPY1)-> exe_alu_op1
 //  ))
 
+  val outCalc = DFBits(32).matchdf(aluSel)
+    .casedf(ALUSel.ADD){(op1u + op2u).bits}
+    .casedf(ALUSel.SUB){(op1u - op2u).bits}
+    .casedf(ALUSel.AND){op1 & op2}
+    .casedf(ALUSel.OR){op1 | op2}
+    .casedf(ALUSel.XOR){op1 ^ op2}
+    .casedf(ALUSel.SLT){(op1s < op2s).bits.extendLeftTo(32)}
+    .casedf(ALUSel.SLTU){(op1u < op2u).bits.extendLeftTo(32)}
+    .casedf_{h"00000000"}
+
+  out <> outCalc
 }
