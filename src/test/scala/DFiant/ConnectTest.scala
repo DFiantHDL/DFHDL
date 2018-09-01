@@ -197,6 +197,8 @@ class ConnectTest extends Properties("ConnectTest") {
         |  }
         |  o2 <> ret
         |}
+        |
+        |val top_ioDesignIf = new IODesignIf {}
       """.stripMargin
     top_ioDesignIf.codeString =@= compare
   }
