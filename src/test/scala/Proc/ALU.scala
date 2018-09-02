@@ -20,9 +20,9 @@ trait ALU extends DFDesign {
     .casedf(ALUSel.SUB){(op1u - op2u).bits}
     .casedf(ALUSel.AND){op1 & op2}
     .casedf(ALUSel.OR){op1 | op2}
-//    .casedf(ALUSel.XOR){op1 ^ op2}
-//    .casedf(ALUSel.SLT){(op1s < op2s).bits.extendLeftTo(32)}
-//    .casedf(ALUSel.SLTU){(op1u < op2u).bits.extendLeftTo(32)}
+    .casedf(ALUSel.XOR){op1 ^ op2}
+    .casedf(ALUSel.SLT){(op1s < op2s).bits.extendLeftTo(32)}
+    .casedf(ALUSel.SLTU){(op1u < op2u).bits.extendLeftTo(32)}
 //    .casedf(ALUSel.SLL){op1 << shamt}
 //    .casedf(ALUSel.SRL){op1 >> shamt}
 //    .casedf(ALUSel.SRA){(op1s >> shamt).bits}
