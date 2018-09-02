@@ -25,10 +25,12 @@ object ConditionalBlock {
       def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[RV, R])
       : RV = {
         val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-        returnVar.initialize(dfIfElseBlock.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
+        returnVar.initialize(firstIf.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
-      def initFunc : Seq[RV#TToken] = returnValue.getInit
+      def initFunc : Seq[RV#TToken] = DFBool.Token.select(cond.getInit, returnValue.getInit, nextIf.get.initFunc)
+      private[DFiant] val firstIf : DFIfBlock = this
+      private[DFiant] var nextIf : Option[DFIfBlock] = None
 
       override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
@@ -50,7 +52,8 @@ object ConditionalBlock {
         new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
-      override def initFunc : Seq[RV#TToken] = DFBool.Token.select(prevIfBlock.cond.getInit, prevIfBlock.initFunc, returnValue.getInit)
+      override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
+      prevIfBlock.nextIf = Some(this)
     }
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(implicit ctx : Context, mutableOwner : MutableOwner)
@@ -60,7 +63,9 @@ object ConditionalBlock {
         new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
-      override def initFunc : Seq[RV#TToken] = DFBool.Token.select(prevIfBlock.cond.getInit, prevIfBlock.initFunc, returnValue.getInit)
+      override def initFunc : Seq[RV#TToken] = returnValue.getInit
+      override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
+      prevIfBlock.nextIf = Some(this)
     }
 
     def apply[R](cond: DFBool)(block: => Able[R])(
