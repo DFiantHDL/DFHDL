@@ -224,8 +224,7 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)
 
-  val top_ioDesignMatch = new IODesignMatch {}
-  println(top_ioDesignMatch.codeString)
+  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
 
 //  import GlobalDesign._
 //  val aa = DFUInt(8)
