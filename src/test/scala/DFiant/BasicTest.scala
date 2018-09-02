@@ -41,7 +41,7 @@ trait IODesignIf extends DFDesign {
 
 trait IODesignMatch extends DFDesign {
   val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
-  val i2 = DFUInt(8) <> IN init (2, Bubble)
+  val i2 = DFUInt(8) <> IN init (2, 8, 7, 11, 21)
   val o1 = DFUInt(8) <> OUT
   val myMatch = matchdf (i2, MatchConfig.AllowOverlappingCases)
     .casedf(1 to 5, 10 to 20) {o1 := i1}
@@ -50,10 +50,10 @@ trait IODesignMatch extends DFDesign {
     .casedf_{o1 := i2}
 
   val o2 = DFUInt(8) <> OUT
-  val ret = DFUInt(8).matchdf(i2, MatchConfig.AllowOverlappingCases)
+  val ret = DFUInt(8).matchdf(i2)
     .casedf(1 to 5, 10 to 20) {i1}
-    .casedf(7){i2}
-    .casedf_{i2}
+    .casedf(7){75}
+    .casedf_{88}
   o2 <> ret
 
   val i3 = DFEnum(Foo) <> IN init (Foo.Baz0, Foo.Baz3)

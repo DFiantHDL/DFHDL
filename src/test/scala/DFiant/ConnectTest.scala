@@ -109,18 +109,26 @@ class ConnectTest extends Properties("ConnectTest") {
 
   trait IODesignMatch extends DFDesign {
     val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
-    val i2 = DFUInt(8) <> IN init (2, Bubble)
+    val i2 = DFUInt(8) <> IN init (2, 8, 7, 11, 21)
     val o1 = DFUInt(8) <> OUT
     val myMatch = matchdf (i2, MatchConfig.AllowOverlappingCases)
       .casedf(1 to 5, 10 to 20) {o1 := i1}
       .casedf(7){o1 := i2}
       .casedf(11){o1 := i2}
+      .casedf_{o1 := i2}
+
+    val o2 = DFUInt(8) <> OUT
+    val ret = DFUInt(8).matchdf(i2)
+      .casedf(1 to 5, 10 to 20) {i1}
+      .casedf(7){75}
+      .casedf_{88}
+    o2 <> ret
 
     val i3 = DFEnum(Foo) <> IN init (Foo.Baz0, Foo.Baz3)
-    val o2 = DFUInt(8) <> OUT
+    val o3 = DFUInt(8) <> OUT
     val myEnumMatch = matchdf (i3)
-      .casedf(Foo.Baz0) {o2 := 1}
-      .casedf(Foo.Baz1) {o2 := 0}
+      .casedf(Foo.Baz0) {o3 := 1}
+      .casedf(Foo.Baz1) {o3 := 0}
   }
 
 
@@ -422,7 +430,7 @@ class ConnectTest extends Properties("ConnectTest") {
       """
         |trait IODesignMatch extends DFDesign {
         |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
-        |  val i2 = DFUInt(8) <> IN init(2, Φ)                        //init = (2, Φ)
+        |  val i2 = DFUInt(8) <> IN init(2, 8, 7, 11, 21)             //init = (2, 8, 7, 11, 21)
         |  val o1 = DFUInt(8) <> OUT                                  //init = ()
         |  val myMatch = matchdf(i2, MatchConfig.AllowOverlappingCases)
         |  .casedf(1 to 5, 10 to 20) {
@@ -431,14 +439,27 @@ class ConnectTest extends Properties("ConnectTest") {
         |    o1 := i2
         |  }.casedf(11) {
         |    o1 := i2
+        |  }.casedf_ {
+        |    o1 := i2
         |  }
+        |  val o2 = DFUInt(8) <> OUT                                  //init = (1, 88, 75, 1, 88)
+        |  val ret = DFUInt(8) init(1, 88, 75, 1, 88)                 //init = (1, 88, 75, 1, 88)
+        |  val retǂmatch = matchdf(i2)
+        |  .casedf(1 to 5, 10 to 20) {
+        |    ret := i1
+        |  }.casedf(7) {
+        |    ret := 75
+        |  }.casedf_ {
+        |    ret := 88
+        |  }
+        |  o2 <> ret
         |  val i3 = DFEnum(Foo) <> IN init(Foo.Baz0, Foo.Baz3)        //init = (Foo.Baz0, Foo.Baz3)
-        |  val o2 = DFUInt(8) <> OUT                                  //init = ()
+        |  val o3 = DFUInt(8) <> OUT                                  //init = ()
         |  val myEnumMatch = matchdf(i3)
         |  .casedf(Foo.Baz0) {
-        |    o2 := 1
+        |    o3 := 1
         |  }.casedf(Foo.Baz1) {
-        |    o2 := 0
+        |    o3 := 0
         |  }
         |}
         |
