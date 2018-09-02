@@ -67,7 +67,7 @@ object DFBits extends DFAny.Companion {
       protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
-    def extendLeftBy[N](numOfBits : Positive.Checked[N])(
+    final def extendLeftBy[N](numOfBits : Positive.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
@@ -75,13 +75,13 @@ object DFBits extends DFAny.Companion {
       new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftBy($numOfBits)")
     }
 
-    def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    final def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
       val zeros = new DFBits.Const[LW](DFBits.Token(width - numOfBits, 0))
       new DFBits.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftTo($numOfBits)")
     }
 
-    def extendRightBy[N](numOfBits : Positive.Checked[N])(
+    final def extendRightBy[N](numOfBits : Positive.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
@@ -89,7 +89,7 @@ object DFBits extends DFAny.Companion {
       new DFBits.Alias[tfs.Out](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightBy($numOfBits)")
     }
 
-    def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    final def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
       val zeros = new DFBits.Const[LW](DFBits.Token(width - numOfBits, 0))
       new DFBits.Alias[EW](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightTo($numOfBits)")
@@ -108,41 +108,39 @@ object DFBits extends DFAny.Companion {
       mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVal]
     }
 
-    def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
+    final def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
       new DFUInt.Alias[LW](List(this), AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
 
-    def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Alias.Context) : TSInt[Width] = {
+    final def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Alias.Context) : TSInt[Width] = {
       widthCheck.unsafeCheck(width)
       new DFSInt.Alias[Width](List(this), AliasReference.AsIs(s".sint")).asInstanceOf[TSInt[Width]]
     }
 
-    def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
-    def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
-    def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
-    def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
-    def << [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
-      val shift = numOfBits.unsafeCheck().getValue
+    final def |  [R](right: Op.Able[R])(implicit op: `Op|`.Builder[TVal, R]) = op(left, right)
+    final def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
+    final def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
+    final def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
+    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
       if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protLSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString << $numOfBits")
+        new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString << $shift")
       }
     }
-    def >> [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
-      val shift = numOfBits.unsafeCheck().getValue
+    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
       if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protMSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString >> $numOfBits")
+        new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString >> $shift")
       }
     }
 
-    def << [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFBits[LW] = ???
-    def >> [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFBits[LW] = ???
+    final def << [R](right: OpsShift.Able[R])(implicit op: `Op<<`.Builder[TVal, R]) = op(left, right)
+    final def >> [R](right: OpsShift.Able[R])(implicit op: `Op>>`.Builder[TVal, R]) = op(left, right)
 
-    def unary_~(implicit ctx : DFAny.Alias.Context) : DFBits[LW] =
+    final def unary_~(implicit ctx : DFAny.Alias.Context) : DFBits[LW] =
       new DFBits.Alias[LW](List(this), AliasReference.Invert(".invert")) //TODO: change refCodeString to accept prefix
 //    def isZero: DFBool = this == 0
 //    def isNonZero: DFBool = this != 0
@@ -243,6 +241,20 @@ object DFBits extends DFAny.Companion {
       val outBubbleMask = this.bubbleMask ++ that.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
+    final def << (that : DFUInt.Token) : Token = {
+      val shift = that.value.toInt
+      val outWidth = this.width
+      val outBitsValue = this.valueBits << shift
+      val outBubbleMask = this.bubbleMask << shift
+      new Token(outWidth, outBitsValue, outBubbleMask)
+    }
+    final def >> (that : DFUInt.Token) : Token = {
+      val shift = that.value.toInt
+      val outWidth = this.width
+      val outBitsValue = this.valueBits >>> shift
+      val outBubbleMask = this.bubbleMask >>> shift
+      new Token(outWidth, outBitsValue, outBubbleMask)
+    }
     final def unary_~ : Token = {
       val outWidth = this.width
       val outBitsValue = ~this.valueBits
@@ -277,6 +289,8 @@ object DFBits extends DFAny.Companion {
     def & (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l & r)
     def ^ (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l ^ r)
     def ## (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l ## r)
+    def << (left : Seq[Token], right : Seq[DFUInt.Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l << r)
+    def >> (left : Seq[Token], right : Seq[DFUInt.Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l >> r)
     def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
     def unary_~ (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => ~t)
@@ -565,6 +579,73 @@ object DFBits extends DFAny.Companion {
   object `Op|` extends OpsLogic(DiSoOp.Kind.|)
   object `Op&` extends OpsLogic(DiSoOp.Kind.&)
   object `Op^` extends OpsLogic(DiSoOp.Kind.^)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Shift operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class OpsShift(opKind : DiSoOp.Kind) {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
+    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
+      type Comp = L
+    }
+
+    object Builder {
+      object SmallShift extends Checked1Param.Int {
+        type Cond[LW, RW] = BitsWidthOf.CalcInt[LW] >= RW
+        type Msg[LW, RW] = "The shift vector is too large. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      implicit def evDFBits_op_DFUInt[LW, RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[DFBits[LW], DFUInt[RW]] = new Builder[DFBits[LW], DFUInt[RW]]{
+        def apply(left : DFBits[LW], right : DFUInt[RW]) : DFBits[LW] = {
+          import ctx.basicLib.DFBitsOps._
+          // Completing runtime checks
+          checkLWvRW.unsafeCheck(left.width, right.width)
+          // Constructing op
+          val opInst = opKind match {
+            case DiSoOp.Kind.<< => new DFiant.BasicLib.DFBitsOps.`Comp<<`(left.width, right.width)
+            case DiSoOp.Kind.>> => new DFiant.BasicLib.DFBitsOps.`Comp>>`(left.width, right.width)
+            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+          }
+          opInst.setAutoName(s"${ctx.getName}Comp")
+          opInst.inLeft <> left
+          opInst.inRight <> right
+          val out = new DFBits.Alias[LW](List(opInst.outResult), AliasReference.AsIs(""))
+          out
+        }
+      }
+      implicit def evDFBits_op_XInt[LW, R <: Int](
+        implicit
+        ctx : DFAny.Alias.Context,
+        check : Natural.Int.CheckedShellSym[Builder[_,_], R]
+      ) : Builder[DFBits[LW], R] = new Builder[DFBits[LW], R]{
+        def apply(left : DFBits[LW], right : R) : DFBits[LW] = {
+          check.unsafeCheck(right)
+          opKind match {
+            case DiSoOp.Kind.<< => left << right
+            case DiSoOp.Kind.>> => left >> right
+            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+          }
+        }
+      }
+    }
+  }
+  object OpsShift {
+    class Able[R](val value : R) extends DFAny.Op.Able[R]
+    object Able {
+      implicit class FromXInt[R <: XInt](right : R) extends Able[R](right)
+      implicit class FromInt[R <: Int](right : R) extends Able[R](right)
+      implicit class FromDFUInt[RW](right : DFUInt[RW]) extends Able[DFUInt[RW]](right)
+    }
+  }
+  object `Op<<` extends OpsShift(DiSoOp.Kind.<<)
+  object `Op>>` extends OpsShift(DiSoOp.Kind.>>)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

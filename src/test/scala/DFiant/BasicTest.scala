@@ -185,6 +185,13 @@ trait IODesignConn8 extends DFDesign {
   val o = DFEnum(Foo) <> OUT
   o := i
 }
+
+trait IODesignConn9 extends DFDesign {
+  val i = DFBits(8) <> IN init (h"01", h"08")
+  val is = DFUInt(3) <> IN init(1, 4)
+  val o = DFBits(8) <> OUT
+  o <> (i << is)
+}
 //
 //trait IODesign1 extends DFDesign {
 //  val i = DFUInt(8) <> IN
@@ -209,7 +216,7 @@ trait IODesignConn8 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-  implicit val a = DFAnyConfiguration.detailed
+//  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1b = new IODesignConn1b {}
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
@@ -224,10 +231,10 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)
 
-  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
+//  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
 
+  val top_ioDesignConn9 = new IODesignConn9 {}.printCodeString
 //  import GlobalDesign._
-//  val aa = DFUInt(8)
 //  println(aa.pattern(1, 2 to 20, 21 to 40))
 
   //  trait MyDesign extends DFDesign{
