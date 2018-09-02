@@ -50,7 +50,7 @@ object DFBits extends DFAny.Companion {
       checkHiLow: BitsHiLo.Checked[H, L], relWidth: RelWidth.TF[H, L], ctx : DFAny.Alias.Context, di: DummyImplicit
     ) = protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
 
-    final protected def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context): TBits[PW] =
+    final protected[DFiant] def protMSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context): TBits[PW] =
       new DFBits.Alias[PW](List(this), AliasReference.BitsWL(partWidth, width - partWidth, s".msbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protMSBits(partWidth.unsafeCheck(width))
@@ -58,7 +58,7 @@ object DFBits extends DFAny.Companion {
     final def msbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], ctx : DFAny.Alias.Context, di: DummyImplicit) =
       protMSBits(partWidth.unsafeCheck(width))
 
-    final protected def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context) : TBits[PW] =
+    final protected[DFiant] def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context) : TBits[PW] =
       new DFBits.Alias[PW](List(this), AliasReference.BitsWL(partWidth, 0, s".lsbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protLSBits(partWidth.unsafeCheck(width))

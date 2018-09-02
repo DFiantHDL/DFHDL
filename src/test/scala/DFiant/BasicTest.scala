@@ -187,10 +187,13 @@ trait IODesignConn8 extends DFDesign {
 }
 
 trait IODesignConn9 extends DFDesign {
-  val i = DFBits(8) <> IN init (h"01", h"08")
-  val is = DFUInt(3) <> IN init(1, 4)
-  val o = DFBits(8) <> OUT
-  o <> (i << is)
+  val b = DFBits(8) <> IN init (h"01", h"08")
+  val s = DFSInt(8) <> IN init (-1, -4)
+  val ishift = DFUInt(3) <> IN init(1, 4)
+  val ob = DFBits(8) <> OUT
+  ob <> (b << ishift)
+  val os = DFSInt(8) <> OUT
+  os <> (s << ishift)
 }
 //
 //trait IODesign1 extends DFDesign {

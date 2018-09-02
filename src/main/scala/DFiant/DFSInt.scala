@@ -23,28 +23,28 @@ object DFSInt extends DFAny.Companion {
     type TPatternAble[+R] = DFSInt.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFSInt.Pattern.Builder[L]
 
-    lazy val sign = bits.setAnonymous().msbit.setAnonymous().setAutoConstructCodeString(s"$refCodeString.sign")
+    final lazy val sign = bits.setAnonymous().msbit.setAnonymous().setAutoConstructCodeString(s"$refCodeString.sign")
 
-    def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
-    def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
-    def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, R]) = op(left, right)
-    def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, R]) = op(left, right)
+    final def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
+    final def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
+    final def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, R]) = op(left, right)
+    final def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, R]) = op(left, right)
     //  def /  (right : DFSInt)         : DFSInt = ???
 
-    def <  [R](right: Op.Able[R])(implicit op: `Op<`.Builder[TVal, R]) = op(left, right)
-    def >  [R](right: Op.Able[R])(implicit op: `Op>`.Builder[TVal, R]) = op(left, right)
-    def <= [R](right: Op.Able[R])(implicit op: `Op<=`.Builder[TVal, R]) = op(left, right)
-    def >= [R](right: Op.Able[R])(implicit op: `Op>=`.Builder[TVal, R]) = op(left, right)
+    final def <  [R](right: Op.Able[R])(implicit op: `Op<`.Builder[TVal, R]) = op(left, right)
+    final def >  [R](right: Op.Able[R])(implicit op: `Op>`.Builder[TVal, R]) = op(left, right)
+    final def <= [R](right: Op.Able[R])(implicit op: `Op<=`.Builder[TVal, R]) = op(left, right)
+    final def >= [R](right: Op.Able[R])(implicit op: `Op>=`.Builder[TVal, R]) = op(left, right)
 
-    def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
-    def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
-    def == (that : BigInt)(implicit op: `Op==`.Builder[TVal, BigInt]) = op(left, that)
-    def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
-    def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
-    def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
+    final def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
+    final def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
+    final def == (that : BigInt)(implicit op: `Op==`.Builder[TVal, BigInt]) = op(left, that)
+    final def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
+    final def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
+    final def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
 
-    def extendBy[N](numOfBits : Positive.Checked[N])(
+    final def extendBy[N](numOfBits : Positive.Checked[N])(
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFSInt[tfs.Out] = {
@@ -52,22 +52,36 @@ object DFSInt extends DFAny.Companion {
       new DFSInt.Alias[tfs.Out](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    def extendTo[EW](numOfBits : ExtWidth.Checked[EW,LW])(implicit ctx : DFAny.Alias.Context)
+    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,LW])(implicit ctx : DFAny.Alias.Context)
     : DFSInt[EW] = {
       val extension = List.fill(width - numOfBits)(sign)
       new DFSInt.Alias[EW](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
-    def << [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = ???
-    def >> [N](numOfBits: Natural.Int.Checked[N])(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = ???
+    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = {
+      if (shift >= width) new DFSInt.Const[LW](DFBits.Token(width, 0))
+      else {
+        val remainingBits = this.bits.protLSBits(width - shift)
+        val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
+        new DFSInt.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".sint")).setAutoConstructCodeString(s"$refCodeString << $shift")
+      }
+    }
+    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = {
+      if (shift >= width) new DFSInt.Const[LW](DFBits.Token(width, 0))
+      else {
+        val remainingBits = this.bits.protMSBits(width - shift)
+        val extension = List.fill(shift)(sign)
+        new DFSInt.Alias[LW](extension :+ remainingBits, AliasReference.AsIs(".sint")).setAutoConstructCodeString(s"$refCodeString >> $shift")
+      }
+    }
 
-    def << [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFSInt[LW] = ???
-    def >> [RW](right: DFUInt[RW])(implicit ctx : DFAny.Op.Context) : DFSInt[LW] = ???
+    final def << [R](right: OpsShift.Able[R])(implicit op: `Op<<`.Builder[TVal, R]) = op(left, right)
+    final def >> [R](right: OpsShift.Able[R])(implicit op: `Op>>`.Builder[TVal, R]) = op(left, right)
 
-    def isZero(implicit ctx : DFAny.Op.Context) = left == 0
-    def isPositive(implicit ctx : DFAny.Op.Context) = left > 0
-    def isNegative(implicit ctx : DFAny.Op.Context) = sign
-    def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
+    final def isZero(implicit ctx : DFAny.Op.Context) = left == 0
+    final def isPositive(implicit ctx : DFAny.Op.Context) = left > 0
+    final def isNegative(implicit ctx : DFAny.Op.Context) = sign
+    final def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
 
     override lazy val typeName: String = s"DFSInt[$width]"
   }
@@ -133,7 +147,7 @@ object DFSInt extends DFAny.Companion {
     lazy val valueBits : BitVector = value.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
     def toBubbleToken : Token = Token(width, Bubble)
-    def mkTokenS(that : Token, result : BigInt, resultWidth : Int) : Token = {
+    def mkTokenS[T <: DFAny.Token](that : T, result : BigInt, resultWidth : Int) : Token = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result)
     }
@@ -149,6 +163,8 @@ object DFSInt extends DFAny.Companion {
     final def >= (that : Token) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
     final def == (that : Token) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     final def != (that : Token) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    final def << (that : DFUInt.Token) : Token = mkTokenS(that, this.value << that.value.toInt, this.width)
+    final def >> (that : DFUInt.Token) : Token = mkTokenS(that, this.value >> that.value.toInt, this.width)
   }
 
   object Token extends TokenCO {
@@ -164,6 +180,8 @@ object DFSInt extends DFAny.Companion {
     def >= (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l >= r)
     def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
+    def << (left : Seq[Token], right : Seq[DFUInt.Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l << r)
+    def >> (left : Seq[Token], right : Seq[DFUInt.Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l >> r)
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
@@ -596,6 +614,73 @@ object DFSInt extends DFAny.Companion {
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
     }
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Shift operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class OpsShift(opKind : DiSoOp.Kind) {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
+    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
+      type Comp = L
+    }
+
+    object Builder {
+      object SmallShift extends Checked1Param.Int {
+        type Cond[LW, RW] = BitsWidthOf.CalcInt[LW] >= RW
+        type Msg[LW, RW] = "The shift vector is too large. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      implicit def evDFSInt_op_DFUInt[LW, RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[DFSInt[LW], DFUInt[RW]] = new Builder[DFSInt[LW], DFUInt[RW]]{
+        def apply(left : DFSInt[LW], right : DFUInt[RW]) : DFSInt[LW] = {
+          import ctx.basicLib.DFSIntOps._
+          // Completing runtime checks
+          checkLWvRW.unsafeCheck(left.width, right.width)
+          // Constructing op
+          val opInst = opKind match {
+            case DiSoOp.Kind.<< => new DFiant.BasicLib.DFSIntOps.`Comp<<`(left.width, right.width)
+            case DiSoOp.Kind.>> => new DFiant.BasicLib.DFSIntOps.`Comp>>`(left.width, right.width)
+            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+          }
+          opInst.setAutoName(s"${ctx.getName}Comp")
+          opInst.inLeft <> left
+          opInst.inRight <> right
+          val out = new DFSInt.Alias[LW](List(opInst.outResult), AliasReference.AsIs(""))
+          out
+        }
+      }
+      implicit def evDFSInt_op_XInt[LW, R <: Int](
+        implicit
+        ctx : DFAny.Alias.Context,
+        check : Natural.Int.CheckedShellSym[Builder[_,_], R]
+      ) : Builder[DFSInt[LW], R] = new Builder[DFSInt[LW], R]{
+        def apply(left : DFSInt[LW], right : R) : DFSInt[LW] = {
+          check.unsafeCheck(right)
+          opKind match {
+            case DiSoOp.Kind.<< => left << right
+            case DiSoOp.Kind.>> => left >> right
+            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+          }
+        }
+      }
+    }
+  }
+  object OpsShift {
+    class Able[R](val value : R) extends DFAny.Op.Able[R]
+    object Able {
+      implicit class FromXInt[R <: XInt](right : R) extends Able[R](right)
+      implicit class FromInt[R <: Int](right : R) extends Able[R](right)
+      implicit class FromDFUInt[RW](right : DFUInt[RW]) extends Able[DFUInt[RW]](right)
+    }
+  }
+  object `Op<<` extends OpsShift(DiSoOp.Kind.<<)
+  object `Op>>` extends OpsShift(DiSoOp.Kind.>>)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

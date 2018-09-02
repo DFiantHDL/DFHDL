@@ -45,6 +45,9 @@ object DFBasicLib {
     implicit val `Comp>`  : `Comp>` => Unit
     implicit val `Comp<=` : `Comp<=` => Unit
     implicit val `Comp>=` : `Comp>=` => Unit
+
+    implicit val `Comp<<` : `Comp<<` => Unit
+    implicit val `Comp>>` : `Comp>>` => Unit
   }
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

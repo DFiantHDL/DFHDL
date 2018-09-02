@@ -224,6 +224,28 @@ trait Series {
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
+      class RTInfixShiftOp(opString : String)(aWidth : Int, bWidth : Int)
+        (initFunc : (Seq[DFSInt.Token], Seq[DFUInt.Token]) => Seq[DFSInt.Token])
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFSInt(aWidth) <> IN
+        final val B = DFUInt(bWidth) <> IN
+        final val S = DFSInt(aWidth) <> OUT
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+      }
+      implicit val `Comp<<` : `Comp<<` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixShiftOp("<<")(leftWidth, rightWidth)(DFSInt.Token.<<)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
+      implicit val `Comp>>` : `Comp>>` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixShiftOp(">>")(leftWidth, rightWidth)(DFSInt.Token.>>)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -247,14 +269,6 @@ trait Series {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
-      }
-      class RTInfixShiftOp(opString : String)(aWidth : Int, bWidth : Int)
-        (initFunc : (Seq[DFBits.Token], Seq[DFUInt.Token]) => Seq[DFBits.Token])
-        (implicit ctx : RTComponent.Context) extends RTComponent {
-        final val A = DFBits(aWidth) <> IN
-        final val B = DFUInt(bWidth) <> IN
-        final val S = DFBits(aWidth) <> OUT
         setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
       implicit val `Comp|` : `Comp|` => Unit = comp => {
@@ -291,6 +305,14 @@ trait Series {
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
+      }
+      class RTInfixShiftOp(opString : String)(aWidth : Int, bWidth : Int)
+        (initFunc : (Seq[DFBits.Token], Seq[DFUInt.Token]) => Seq[DFBits.Token])
+        (implicit ctx : RTComponent.Context) extends RTComponent {
+        final val A = DFBits(aWidth) <> IN
+        final val B = DFUInt(bWidth) <> IN
+        final val S = DFBits(aWidth) <> OUT
+        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
       }
       implicit val `Comp<<` : `Comp<<` => Unit = comp => {
         import comp._
