@@ -210,9 +210,12 @@ object ConditionalBlock {
       def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[RV, R])
       : RV = {
         val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-        returnVar.initialize(dfCase_Block.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
+        returnVar.initialize(firstCase.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
+      private var nextCase : Option[DFCasePatternBlock[MV]] = None
+      private val firstCase : DFCasePatternBlock[MV] = if (prevCase.isDefined) prevCase.get.firstCase else this
+      if (prevCase.isDefined) prevCase.get.nextCase = Some(this)
 
       final lazy val prevAlamanc = if (prevCase.isDefined) Some(prevCase.get.protAlmanac.asInstanceOf[AlmanacCasePattern]) else None
       override private[DFiant] def createAlmanac : Almanac =
@@ -230,7 +233,7 @@ object ConditionalBlock {
       returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
       mutableOwner.value = originalOwner
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
-      def initFunc : Seq[RV#TToken] = if (prevCase.isDefined) DFBool.Token.select(matchHeader.matchVal.getInit.patternMatch(prevCase.get.pattern.asInstanceOf[matchHeader.matchVal.TToken#TPattern]), prevCase.get.initFunc, returnValue.getInit) else returnValue.getInit
+      def initFunc : Seq[RV#TToken] = DFBool.Token.select(matchVal.getInit.patternMatch(pattern.asInstanceOf[matchVal.TToken#TPattern]), returnValue.getInit, nextCase.get.initFunc)
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
@@ -239,6 +242,7 @@ object ConditionalBlock {
       override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase_"
       override def codeString: String = s".casedf_ {$bodyCodeString\n}"
+      override def initFunc : Seq[RV#TToken] = returnValue.getInit
     }
 
     def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(implicit ctx : Context): DFMatchHeader[MV#TVal] =
