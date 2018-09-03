@@ -23,6 +23,13 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     owner.mutableKeepList += this
     this
   }
+  def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
+    implicit callOwner : DSLOwnerConstruct
+  ) : Boolean = (member != null) && (callOwner eq member.owner)
+  def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
+    implicit callOwner : DSLOwnerConstruct
+  ) : Boolean = isConnectedAtOwnerOf(left.owner) || isConnectedAtOwnerOf(right.owner)
+
   protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
   final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
   val id : Int

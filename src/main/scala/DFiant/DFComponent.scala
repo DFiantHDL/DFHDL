@@ -2,6 +2,7 @@ package DFiant
 
 import DFiant.BasicLib.DFBasicLib
 import internals._
+import singleton.twoface._
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct {
@@ -67,3 +68,15 @@ object DFComponent {
     }
   }
 }
+
+
+//abstract class DiSoComp[Kind, LW, RW, OW](left : DFUInt[LW], right : DFUInt[RW], width : TwoFace.Int[OW])
+//  (func : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token])(
+//  implicit ctx : DFComponent.Context[DiSoComp[Kind, LW, RW, OW]]
+//) extends DFComponent[DiSoComp[Kind, LW, RW, OW]] with DFUInt[OW] {
+//  final val inLeft = new DFUInt.NewVar[LW](left.width) <> IN
+//  final val inRight = new DFUInt.NewVar[RW](right.width) <> IN
+//  final val outResult = new DFUInt.NewVar[OW](width) <> OUT
+//  inLeft.connectVal2Port(left)(ctx.updateOwner(ctx.owner))
+//  inRight.connectVal2Port(right)(ctx.updateOwner(ctx.owner))
+//}

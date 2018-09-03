@@ -16,7 +16,7 @@ object DFBits extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBits.type] {
-    type LW = Width
+    private type LW = Width
     type TVal = DFBits[LW]
     type TVar = DFBits.Var[LW]
     type TToken = DFBits.Token

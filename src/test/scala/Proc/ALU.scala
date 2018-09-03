@@ -3,10 +3,10 @@ package Proc
 import DFiant._
 
 trait ALU extends DFDesign {
-  val op1     = DFBits(32)      <> IN init(h"00000000", h"00000001", h"00000002")
-  val op2     = DFBits(32)      <> IN init(h"00000010", h"00000011", h"00000012")
-  val shamt   = DFUInt(5)       <> IN init(1, 2)
-  val aluSel  = DFEnum(ALUSel)  <> IN init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
+  val op1     = DFBits(32)      <> IN  //init(h"00000000", h"00000001", h"00000002")
+  val op2     = DFBits(32)      <> IN  //init(h"00000010", h"00000011", h"00000012")
+  val shamt   = DFUInt(5)       <> IN  //init(1, 2)
+  val aluSel  = DFEnum(ALUSel)  <> IN  //init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
   val out     = DFBits(32)      <> OUT
 
   //helper casted values

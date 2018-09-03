@@ -137,6 +137,7 @@ sealed trait DFAny extends DSLMemberConstruct with HasWidth {
   //  final def tokensCounter(supremLimit : Int) : DFUInt = TokensCounter(this, supremLimit)
   //  def newEmptyDFVar : TVar
   //  def newCopyDFVar : TVar = newEmptyDFVar := this.asInstanceOf[TVal]
+//  def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context) : TVal <> Dir = ???
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -438,9 +439,8 @@ object DFAny {
     private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
 
     private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
+      implicit val callOwner : DSLOwnerConstruct = ctx.owner
       val left = this
-      def isConnectedAtOwnerOf(member : DSLMemberConstruct) : Boolean = (member != null) && (ctx.owner eq member.owner)
-      def isConnectedAtEitherSide : Boolean = isConnectedAtOwnerOf(left.owner) || isConnectedAtOwnerOf(right.owner)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
       val (fromPort, toPort) =
         //Ports in the same design, connected at the same design
@@ -461,7 +461,7 @@ object DFAny {
           case _ => throwConnectionError("Unexpected connection error")
         }
         //Connecting owner and child design ports, while owner port is left and child port is right.
-        else if (right.isDownstreamMemberOf(left.owner) && isConnectedAtEitherSide) (left.dir, right.dir) match {
+        else if (right.isDownstreamMemberOf(left.owner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
           case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : IN,  rd : IN)  => (left, right)
@@ -469,7 +469,7 @@ object DFAny {
           case _ => throwConnectionError("Unexpected connection error")
         }
         //Connecting owner and child design ports, while owner port is right and child port is left.
-        else if (left.isDownstreamMemberOf(right.owner) && isConnectedAtEitherSide) (left.dir, right.dir) match {
+        else if (left.isDownstreamMemberOf(right.owner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
           case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : IN,  rd : IN)  => (right, left)
@@ -486,7 +486,7 @@ object DFAny {
         }
         else if (!left.isDownstreamMemberOf(right.owner) || !right.isDownstreamMemberOf(left.owner))
           throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
-        else if (!isConnectedAtEitherSide)
+        else if (!isConnectedAtEitherSide(left, right))
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
         else throwConnectionError("Unexpected connection error")
 
@@ -494,19 +494,22 @@ object DFAny {
     }
     final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : Connector.Context) : Unit = connectPort2Port(right)
     final protected[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      implicit val callOwner : DSLOwnerConstruct = ctx.owner
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]])
       else {
-        if (port.owner.owner!=null && (port.owner.owner eq dfVal.owner)) {
+        //Connecting external value and input port
+        if (port.owner.isDownstreamMemberOf(dfVal.owner)) {
           if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
-          if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+          if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
         }
-        else if (port.owner eq dfVal.owner) {
+        //Connecting internal value and output port
+        else if (port hasSameOwnerAs dfVal) {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
           if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
         }
-        //else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
+        else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
         connect(dfVal, port)
       }
     }

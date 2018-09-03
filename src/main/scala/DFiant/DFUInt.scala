@@ -15,7 +15,7 @@ object DFUInt extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFUInt.type] {
-    type LW = Width
+    private type LW = Width
     type TVal = DFUInt[LW]
     type TVar = DFUInt.Var[LW]
     type TToken = DFUInt.Token
@@ -61,6 +61,8 @@ object DFUInt extends DFAny.Companion {
     def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt.Extendable[LW] = new DFUInt.Extendable[LW](left)
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
+//    override def copyAsNewPort[Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+//    : TVal <> Dir = new Port(new NewVar[LW](width), dir)
     override lazy val typeName: String = s"DFUInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
