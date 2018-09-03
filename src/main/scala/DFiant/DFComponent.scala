@@ -71,7 +71,7 @@ object DFComponent {
 
 
 //abstract class DiSoComp[Kind, LW, RW, OW](left : DFUInt[LW], right : DFUInt[RW], width : TwoFace.Int[OW])
-//  (func : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFUInt.Token])(
+//  (func : (DFUInt.Token, DFUInt.Token) => DFUInt.Token)(
 //  implicit ctx : DFComponent.Context[DiSoComp[Kind, LW, RW, OW]]
 //) extends DFComponent[DiSoComp[Kind, LW, RW, OW]] with DFUInt[OW] {
 //  final val inLeft = new DFUInt.NewVar[LW](left.width) <> IN

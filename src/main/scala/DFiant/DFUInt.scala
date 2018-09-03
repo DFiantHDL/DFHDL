@@ -15,9 +15,8 @@ object DFUInt extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFUInt.type] {
-    private type LW = Width
-    type TVal = DFUInt[LW]
-    type TVar = DFUInt.Var[LW]
+    type TVal = DFUInt[Width]
+    type TVar = DFUInt.Var[Width]
     type TToken = DFUInt.Token
     type TPattern = DFUInt.Pattern
     type TPatternAble[+R] = DFUInt.Pattern.Able[R]
@@ -44,13 +43,13 @@ object DFUInt extends DFAny.Companion {
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFUInt[tfs.Out] = {
-      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
       new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    def extendTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFUInt[EW] = {
-      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
       new DFUInt.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
@@ -58,11 +57,11 @@ object DFUInt extends DFAny.Companion {
 
     def isZero(implicit ctx : DFAny.Op.Context) = left == 0
     def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
-    def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt.Extendable[LW] = new DFUInt.Extendable[LW](left)
+    def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt.Extendable[Width] = new DFUInt.Extendable[Width](left)
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
 //    override def copyAsNewPort[Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-//    : TVal <> Dir = new Port(new NewVar[LW](width), dir)
+//    : TVal <> Dir = new Port(new NewVar[Width](width), dir)
     override lazy val typeName: String = s"DFUInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

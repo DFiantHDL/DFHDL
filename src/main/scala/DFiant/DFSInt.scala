@@ -15,9 +15,8 @@ object DFSInt extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFSInt.type] {
-    type LW = Width
-    type TVal = DFSInt[LW]
-    type TVar = DFSInt.Var[LW]
+    type TVal = DFSInt[Width]
+    type TVar = DFSInt.Var[Width]
     type TToken = DFSInt.Token
     type TPattern = DFSInt.Pattern
     type TPatternAble[+R] = DFSInt.Pattern.Able[R]
@@ -52,26 +51,26 @@ object DFSInt extends DFAny.Companion {
       new DFSInt.Alias[tfs.Out](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,LW])(implicit ctx : DFAny.Alias.Context)
+    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
     : DFSInt[EW] = {
       val extension = List.fill(width - numOfBits)(sign)
       new DFSInt.Alias[EW](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
-    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = {
-      if (shift >= width) new DFSInt.Const[LW](DFBits.Token(width, 0))
+    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
+      if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
       else {
         val remainingBits = this.bits.protLSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFSInt.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".sint")).setAutoConstructCodeString(s"$refCodeString << $shift")
+        new DFSInt.Alias[Width](List(remainingBits, zeros), AliasReference.AsIs(".sint")).setAutoConstructCodeString(s"$refCodeString << $shift")
       }
     }
-    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[LW] = {
-      if (shift >= width) new DFSInt.Const[LW](DFBits.Token(width, 0))
+    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
+      if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
       else {
         val remainingBits = this.bits.protMSBits(width - shift)
         val extension = List.fill(shift)(sign)
-        new DFSInt.Alias[LW](extension :+ remainingBits, AliasReference.AsIs(".sint")).setAutoConstructCodeString(s"$refCodeString >> $shift")
+        new DFSInt.Alias[Width](extension :+ remainingBits, AliasReference.AsIs(".sint")).setAutoConstructCodeString(s"$refCodeString >> $shift")
       }
     }
 

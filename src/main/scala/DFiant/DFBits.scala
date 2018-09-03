@@ -16,9 +16,8 @@ object DFBits extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBits.type] {
-    private type LW = Width
-    type TVal = DFBits[LW]
-    type TVar = DFBits.Var[LW]
+    type TVal = DFBits[Width]
+    type TVar = DFBits.Var[Width]
     type TToken = DFBits.Token
     type TPattern = DFBits.Pattern
     type TPatternAble[+R] = DFBits.Pattern.Able[R]
@@ -71,13 +70,13 @@ object DFBits extends DFAny.Companion {
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
-      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
       new DFBits.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftBy($numOfBits)")
     }
 
-    final def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    final def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
-      val zeros = new DFBits.Const[LW](DFBits.Token(width - numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(width - numOfBits, 0))
       new DFBits.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftTo($numOfBits)")
     }
 
@@ -85,13 +84,13 @@ object DFBits extends DFAny.Companion {
       implicit
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFBits[tfs.Out] = {
-      val zeros = new DFBits.Const[LW](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
       new DFBits.Alias[tfs.Out](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightBy($numOfBits)")
     }
 
-    final def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, LW])(implicit ctx : DFAny.Alias.Context)
+    final def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
-      val zeros = new DFBits.Const[LW](DFBits.Token(width - numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(width - numOfBits, 0))
       new DFBits.Alias[EW](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightTo($numOfBits)")
     }
 
@@ -108,8 +107,8 @@ object DFBits extends DFAny.Companion {
       mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVal]
     }
 
-    final def uint(implicit ctx : DFAny.Alias.Context) : TUInt[LW] =
-      new DFUInt.Alias[LW](List(this), AliasReference.AsIs(".uint")).asInstanceOf[TUInt[LW]]
+    final def uint(implicit ctx : DFAny.Alias.Context) : TUInt[Width] =
+      new DFUInt.Alias[Width](List(this), AliasReference.AsIs(".uint")).asInstanceOf[TUInt[Width]]
 
     final def sint(implicit widthCheck : SIntWidth.CheckedShell[Width], ctx : DFAny.Alias.Context) : TSInt[Width] = {
       widthCheck.unsafeCheck(width)
@@ -120,35 +119,35 @@ object DFBits extends DFAny.Companion {
     final def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
     final def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
     final def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
-    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
-      if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
+    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[Width] = {
+      if (shift >= width) new DFBits.Const[Width](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protLSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFBits.Alias[LW](List(remainingBits, zeros), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString << $shift")
+        new DFBits.Alias[Width](List(remainingBits, zeros), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString << $shift")
       }
     }
-    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[LW] = {
-      if (shift >= width) new DFBits.Const[LW](DFBits.Token(width, 0))
+    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[Width] = {
+      if (shift >= width) new DFBits.Const[Width](DFBits.Token(width, 0))
       else {
         val remainingBits = this.protMSBits(width - shift)
         val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFBits.Alias[LW](List(zeros, remainingBits), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString >> $shift")
+        new DFBits.Alias[Width](List(zeros, remainingBits), AliasReference.AsIs(".bits")).setAutoConstructCodeString(s"$refCodeString >> $shift")
       }
     }
 
     final def << [R](right: OpsShift.Able[R])(implicit op: `Op<<`.Builder[TVal, R]) = op(left, right)
     final def >> [R](right: OpsShift.Able[R])(implicit op: `Op>>`.Builder[TVal, R]) = op(left, right)
 
-    final def unary_~(implicit ctx : DFAny.Alias.Context) : DFBits[LW] =
-      new DFBits.Alias[LW](List(this), AliasReference.Invert(".invert")) //TODO: change refCodeString to accept prefix
+    final def unary_~(implicit ctx : DFAny.Alias.Context) : DFBits[Width] =
+      new DFBits.Alias[Width](List(this), AliasReference.Invert(".invert")) //TODO: change refCodeString to accept prefix
 //    def isZero: DFBool = this == 0
 //    def isNonZero: DFBool = this != 0
 
 //    def isAllOnes: DFBool = ??? //this == bitsWidthToMaxBigIntBits(width)
 //    def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
-    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = new DFBits.NewVar[LW](width)
+    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = new DFBits.NewVar[Width](width)
 
     override lazy val typeName : String = s"DFBits[$width]"
   }
