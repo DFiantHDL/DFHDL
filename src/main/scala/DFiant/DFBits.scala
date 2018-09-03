@@ -76,7 +76,7 @@ object DFBits extends DFAny.Companion {
 
     final def extendLeftTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
-      val zeros = new DFBits.Const[Width](DFBits.Token(width - numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
       new DFBits.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendLeftTo($numOfBits)")
     }
 
@@ -90,7 +90,7 @@ object DFBits extends DFAny.Companion {
 
     final def extendRightTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFBits[EW] = {
-      val zeros = new DFBits.Const[Width](DFBits.Token(width - numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
       new DFBits.Alias[EW](List(this, zeros), AliasReference.AsIs(s".bits")).setAutoConstructCodeString(s"$refCodeString.extendRightTo($numOfBits)")
     }
 

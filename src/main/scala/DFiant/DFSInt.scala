@@ -53,7 +53,7 @@ object DFSInt extends DFAny.Companion {
 
     final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
     : DFSInt[EW] = {
-      val extension = List.fill(width - numOfBits)(sign)
+      val extension = List.fill(numOfBits - width)(sign)
       new DFSInt.Alias[EW](extension :+ this, AliasReference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 

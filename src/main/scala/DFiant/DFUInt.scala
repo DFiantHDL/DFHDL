@@ -49,7 +49,7 @@ object DFUInt extends DFAny.Companion {
 
     def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFUInt[EW] = {
-      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
       new DFUInt.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 

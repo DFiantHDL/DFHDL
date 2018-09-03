@@ -43,6 +43,11 @@ object DFAnyConfiguration {
     val foldComponents : Boolean = false
     val commentInitValues: Boolean = true
   }
+  object foldedInit extends DFAnyConfiguration {
+    val showAnonymousEntries : Boolean = false
+    val foldComponents : Boolean = true
+    val commentInitValues: Boolean = true
+  }
 }
 
 object DFAnyOwner {

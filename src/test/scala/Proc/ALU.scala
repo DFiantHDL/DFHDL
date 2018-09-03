@@ -3,19 +3,19 @@ package Proc
 import DFiant._
 
 trait ALU extends DFDesign {
-  val op1     = DFBits(32)      <> IN  //init(h"00000000", h"00000001", h"00000002")
-  val op2     = DFBits(32)      <> IN  //init(h"00000010", h"00000011", h"00000012")
-  val shamt   = DFUInt(5)       <> IN  //init(1, 2)
-  val aluSel  = DFEnum(ALUSel)  <> IN  //init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
+  val op1     = DFBits(32)      <> IN
+  val op2     = DFBits(32)      <> IN
+  val shamt   = DFUInt(5)       <> IN
+  val aluSel  = DFEnum(ALUSel)  <> IN
   val out     = DFBits(32)      <> OUT
 
   //helper casted values
-  val op1u = op1.uint
-  val op2u = op2.uint
-  val op1s = op1.sint
-  val op2s = op2.sint
+  private val op1u = op1.uint
+  private val op2u = op2.uint
+  private val op1s = op1.sint
+  private val op2s = op2.sint
 
-  val outCalc = DFBits(32).matchdf(aluSel)
+  private val outCalc = DFBits(32).matchdf(aluSel)
     .casedf(ALUSel.ADD){(op1u + op2u).bits}
     .casedf(ALUSel.SUB){(op1u - op2u).bits}
     .casedf(ALUSel.AND){op1 & op2}
@@ -32,7 +32,26 @@ trait ALU extends DFDesign {
   out <> outCalc
 }
 
-object ALUTest extends App {
+trait ALUTest extends DFDesign {
+  val op1     = DFBits(32)     <> IN init(h"00000000", h"00000001", h"00000002")
+  val op2     = DFBits(32)     <> IN init(h"00000010", h"00000011", h"00000012")
+  val shamt   = DFUInt(5)      <> IN init(1, 2)
+  val aluSel  = DFEnum(ALUSel) <> IN init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
+  val out     = DFBits(32)     <> OUT
+
+  val alu = new ALU {}
+  op1 <> alu.op1
+  op2 <> alu.op2
+  shamt <> alu.shamt
+  aluSel <> alu.aluSel
+  alu.out <> out
+}
+
+
+object ALUTestApp extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-  val alu = new ALU {}.printCodeString
+  implicit val a = DFAnyConfiguration.foldedInit
+
+//  val alu = new ALU {}.printCodeString
+  val aluTest = new ALUTest {}.printCodeString
 }
