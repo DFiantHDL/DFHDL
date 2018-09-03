@@ -70,13 +70,17 @@ object DFComponent {
 }
 
 
-//abstract class DiSoComp[Kind, LW, RW, OW](left : DFUInt[LW], right : DFUInt[RW], width : TwoFace.Int[OW])
-//  (func : (DFUInt.Token, DFUInt.Token) => DFUInt.Token)(
-//  implicit ctx : DFComponent.Context[DiSoComp[Kind, LW, RW, OW]]
-//) extends DFComponent[DiSoComp[Kind, LW, RW, OW]] with DFUInt[OW] {
-//  final val inLeft = new DFUInt.NewVar[LW](left.width) <> IN
-//  final val inRight = new DFUInt.NewVar[RW](right.width) <> IN
-//  final val outResult = new DFUInt.NewVar[OW](width) <> OUT
-//  inLeft.connectVal2Port(left)(ctx.updateOwner(ctx.owner))
-//  inRight.connectVal2Port(right)(ctx.updateOwner(ctx.owner))
-//}
+abstract class DiSoComp[Kind, LW, RW, OW](left : DFUInt[LW], right : DFUInt[RW], width : TwoFace.Int[OW])
+  (tokenFunc : (DFUInt.Token, DFUInt.Token) => DFUInt.Token)(
+  implicit ctx : DFComponent.Context[DiSoComp[Kind, LW, RW, OW]]
+) extends DFComponent[DiSoComp[Kind, LW, RW, OW]] { //with DFUInt[OW]
+  final val inLeft = new DFUInt.NewVar[LW](left.width) <> IN
+  final val inRight = new DFUInt.NewVar[RW](right.width) <> IN
+  final val outResult = new DFUInt.NewVar[OW](width) <> OUT
+  inLeft.connectVal2Port(left)(ctx.updateOwner(ctx.owner))
+  inRight.connectVal2Port(right)(ctx.updateOwner(ctx.owner))
+  override protected def foldedRun: Unit = {
+    setInitFunc(outResult)(DFAny.TokenSeq(inLeft.getInit, inRight.getInit)(tokenFunc))
+  }
+  final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
+}
