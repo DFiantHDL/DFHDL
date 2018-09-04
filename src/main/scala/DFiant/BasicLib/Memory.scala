@@ -1,12 +1,32 @@
 package DFiant.BasicLib
 
 import DFiant._
+import singleton.ops._
+import singleton.twoface._
 
-//class Memory private (width : Int, depth : Int)(implicit ctx : DFComponent.Context[Memory]) extends DFComponent[Memory] {
-//  trait MemoryPort {
-//    val AddrToMem = DFBits(width) <> IN
-//    val
-//  }
-//
-//
-//}
+//Memory
+abstract class Memory[W, D] private (width : TwoFace.Int[W], depth : TwoFace.Int[D])(initContents : Array[BitVector])(
+  implicit ctx : DFComponent.Context[Memory[W, D]]
+) extends DFComponent[Memory[W, D]] {
+  final val sizeBits = width * depth
+  trait Port {
+    type AW
+    val addrWidth : TwoFace.Int[AW] = ???
+    final val addrToMem = new DFBits.NewVar[AW](addrWidth) <> IN
+  }
+  class ReadPort[RW](readWidth : TwoFace.Int[RW]) extends Port {
+    final val dataFromMem = new DFBits.NewVar[RW](readWidth) <> OUT
+  }
+  class WritePort[WW](writeWidth : TwoFace.Int[WW]) extends Port {
+    final val dataToMem = new DFBits.NewVar[WW](writeWidth) <> IN
+    final val wrEnToMem = DFBool() <> IN
+  }
+  class ReadWritePort(readWidth : Int, writeWidth : Int) extends ReadPort(readWidth) {
+    final val dataToMem = DFBits(writeWidth) <> IN
+    final val wrEnToMem = DFBool() <> IN
+  }
+}
+
+object Memory {
+
+}
