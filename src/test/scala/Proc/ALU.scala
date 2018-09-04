@@ -44,7 +44,7 @@ trait ALUTest extends DFDesign {
   op2 <> alu.op2
   shamt <> alu.shamt
   aluSel <> alu.aluSel
-  alu.out <> out
+  out <> alu.out
 }
 
 

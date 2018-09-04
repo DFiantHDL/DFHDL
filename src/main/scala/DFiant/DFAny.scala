@@ -255,7 +255,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-  trait Uninitialized extends DFAny {
+  trait Uninitialized extends DFAny.Var {
     type TPostInit <: TVal
     final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
@@ -284,6 +284,31 @@ object DFAny {
     })
     final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCircular initialization detected"))
     final def initCodeString : String = if (initialized) s" init${updatedInit().codeString}" else ""
+
+    //////////////////////////////////////////////////////////////////////////
+    // Connectivity
+    //////////////////////////////////////////////////////////////////////////
+    final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
+    final private[DFiant] var connectedSource : Option[DFAny] = None
+    final private[DFiant] def connected : Boolean = connectedSource.isDefined
+    final private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      val toVar = this
+      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${fromVal.fullName} <> ${toVar.fullName}")
+      if (toVar.width < fromVal.width) throwConnectionError(s"Target port width (${toVar.width}) is smaller than source port width (${fromVal.width}).")
+      if (toVar.connected) throwConnectionError(s"Target port ${toVar.fullName} already has a connection: ${toVar.connectedSource.get.fullName}")
+      if (toVar.assigned) throwConnectionError(s"Target port ${toVar.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
+      //All is well. We can now connect fromVal->toPort
+      toVar.setInitFunc(fromVal.getInit.asInstanceOf[Seq[toVar.TToken]])
+      toVar.connectedSource = Some(fromVal)
+      toVar.protAssignDependencies += Connector(toVar, fromVal)
+      toVar.protAssignDependencies += fromVal
+    }
+    final override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
+      if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment dataflow variable ${this.fullName} was already connected to. Cannot apply both := and <> operators on a dataflow variable.")
+      super.assign(that)
+    }
+    //////////////////////////////////////////////////////////////////////////
   }
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
@@ -312,12 +337,16 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int, newVarCodeString : String)(
     implicit val ctx : NewVar.Context, cmp : Companion
-  ) extends DFAny.Var with DFAny.Uninitialized {
+  ) extends DFAny.Uninitialized {
     type TPostInit = TVar
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
-    final protected[DFiant] lazy val almanacEntry = AlmanacEntryNewDFVar(width, protInit, name, codeString)
+    private val almanacEntryLB = LazyBox {
+      val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
+      AlmanacEntryNewDFVar(width, protInit, name, codeString)
+    }
+    final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("\nCircular dependency detected"))
     //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     //Port Construction
@@ -402,15 +431,14 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
     implicit val ctx : Port.Context, cmp : Companion
-  ) extends DFAny.Var with DFAny.Uninitialized {
+  ) extends DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
     final override lazy val owner : DFInterface = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
-
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    private[DFiant] var connectedSource : Option[DFAny] = None
+
     private val almanacEntryLB = LazyBox {
       val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
       AlmanacEntryPort(width, protInit, sourceEntry, dir, name, codeString)
@@ -419,26 +447,9 @@ object DFAny {
     //final protected[DFiant] def discovery : Unit = almanacEntry
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
-    protected def connected : Boolean = connectedSource.isDefined
-    final override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
-      if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment port ${this.fullName} was already connected to. Cannot apply both := and <> operators on a port.")
-      super.assign(that)
-    }
-    private def connect(fromVal : DFAny, toPort : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
-      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${fromVal.fullName} <> ${toPort.fullName}")
-      if (toPort.width < fromVal.width) throwConnectionError(s"Target port width (${toPort.width}) is smaller than source port width (${fromVal.width}).")
-      if (toPort.connected) throwConnectionError(s"Target port ${toPort.fullName} already has a connection: ${toPort.connectedSource.get.fullName}")
-      if (toPort.assigned) throwConnectionError(s"Target port ${toPort.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
-      //All is well. We can now connect fromVal->toPort
-      toPort.setInitFunc(fromVal.getInit.asInstanceOf[Seq[toPort.TToken]])
-      toPort.connectedSource = Some(fromVal)
-      toPort.protAssignDependencies += Connector(toPort, fromVal)
-      toPort.protAssignDependencies += fromVal
-    }
-    private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
 
-    private def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
+    private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
+    private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
       implicit val callOwner : DSLOwnerConstruct = ctx.owner
       val left = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
@@ -490,27 +501,32 @@ object DFAny {
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
         else throwConnectionError("Unexpected connection error")
 
-      connect(fromPort, toPort)
+      toPort.connectFrom(fromPort)
     }
-    final def <> [RDIR <: DFDir](right: DF <> RDIR)(implicit ctx : Connector.Context) : Unit = connectPort2Port(right)
-    final protected[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+    final private[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       implicit val callOwner : DSLOwnerConstruct = ctx.owner
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-      if (dfVal.isPort) connectPort2Port(dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]])
+      if (dfVal.isInstanceOf[Port[_ <: DFAny, _ <: DFDir]]) dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]].connectPort2Port(port)
       else {
-        //Connecting external value and input port
+        //Connecting external value from/to a output/input port
         if (port.owner.isDownstreamMemberOf(dfVal.owner)) {
-          if (port.dir.isOut) throwConnectionError(s"Cannot connect an external non-port value to an output port.")
           if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+          //Connecting from output port to external value
+          if (port.dir.isOut) dfVal match {
+            case u : Uninitialized => u.connectFrom(port)
+            case _ => throwConnectionError(s"Cannot connect an external this value to an output port.")
+          }
+          //Connecting from external value to input port
+          else port.connectFrom(dfVal)
         }
         //Connecting internal value and output port
         else if (port hasSameOwnerAs dfVal) {
           if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
           if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+          port.connectFrom(dfVal)
         }
         else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
-        connect(dfVal, port)
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(
