@@ -30,6 +30,8 @@ object DFBool extends DFAny.Companion {
 
     def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = DFBool()
 
+    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+    : TVal <> Dir = new Port(left, dir)
     override lazy val typeName : String = s"DFBool"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

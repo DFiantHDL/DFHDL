@@ -9,7 +9,7 @@ trait AlmanacGuard {
 
 
 
-sealed abstract class AlmanacEntry(implicit val almanac : Almanac) {
+protected sealed abstract class AlmanacEntry(implicit val almanac : Almanac) {
   val id : AlmanacID
   val address : AlmanacAddress
   val width : Int

@@ -32,7 +32,7 @@ object ConditionalBlock {
       private[DFiant] val firstIf : DFIfBlock = this
       private[DFiant] var nextIf : Option[DFIfBlock] = None
 
-      override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
+//      override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂif"
@@ -48,8 +48,8 @@ object ConditionalBlock {
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(cond, block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
-      override private[DFiant] def createAlmanac : Almanac =
-        new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
+//      override private[DFiant] def createAlmanac : Almanac =
+//        new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
       override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
@@ -59,8 +59,8 @@ object ConditionalBlock {
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(null, block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelse"
-      override private[DFiant] def createAlmanac : AlmanacElse =
-        new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
+//      override private[DFiant] def createAlmanac : AlmanacElse =
+//        new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
       override def initFunc : Seq[RV#TToken] = returnValue.getInit
@@ -80,7 +80,7 @@ object ConditionalBlock {
       def elsedf(elseBlock: => Unit)(implicit ctx : Context)
       : Unit = new DFElseBlock(this, elseBlock)
 
-      override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
+//      override private[DFiant] def createAlmanac : Almanac = new AlmanacIf(name, owner.protAlmanac, cond.almanacEntry)
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = ctx.getName
@@ -95,8 +95,8 @@ object ConditionalBlock {
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(cond, block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
-      override private[DFiant] def createAlmanac : Almanac =
-        new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
+//      override private[DFiant] def createAlmanac : Almanac =
+//        new AlmanacElseIf(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf], cond.almanacEntry)
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
     }
@@ -104,8 +104,8 @@ object ConditionalBlock {
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
       extends DFIfBlock(null, block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelse"
-      override private[DFiant] def createAlmanac : AlmanacElse =
-        new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
+//      override private[DFiant] def createAlmanac : AlmanacElse =
+//        new AlmanacElse(name, owner.protAlmanac, prevIfBlock.protAlmanac.asInstanceOf[AlmanacIf])
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
     }
@@ -148,9 +148,9 @@ object ConditionalBlock {
       def casedf_(block : => Unit)(implicit ctx : Context)
       : Unit = new DFCase_Block[MV](matchHeader)(Some(this), block)
 
-      final lazy val prevAlamanc = if (prevCase.isDefined) Some(prevCase.get.protAlmanac.asInstanceOf[AlmanacCasePattern]) else None
-      override private[DFiant] def createAlmanac : Almanac =
-        new AlmanacCasePattern(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry, pattern)
+//      final lazy val prevAlamanc = if (prevCase.isDefined) Some(prevCase.get.protAlmanac.asInstanceOf[AlmanacCasePattern]) else None
+//      override private[DFiant] def createAlmanac : Almanac =
+//        new AlmanacCasePattern(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry, pattern)
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
         if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
@@ -168,7 +168,7 @@ object ConditionalBlock {
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) {
-      override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
+//      override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase_"
       override def codeString: String = s".casedf_ {$bodyCodeString\n}"
     }
@@ -222,9 +222,9 @@ object ConditionalBlock {
       private val firstCase : DFCasePatternBlock[MV] = if (prevCase.isDefined) prevCase.get.firstCase else this
       if (prevCase.isDefined) prevCase.get.nextCase = Some(this)
 
-      final lazy val prevAlamanc = if (prevCase.isDefined) Some(prevCase.get.protAlmanac.asInstanceOf[AlmanacCasePattern]) else None
-      override private[DFiant] def createAlmanac : Almanac =
-        new AlmanacCasePattern(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry, pattern)
+//      final lazy val prevAlamanc = if (prevCase.isDefined) Some(prevCase.get.protAlmanac.asInstanceOf[AlmanacCasePattern]) else None
+//      override private[DFiant] def createAlmanac : Almanac =
+//        new AlmanacCasePattern(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry, pattern)
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
       //each case is independent unless there are overlapping cases (which must be enabled by the designer)
         if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
@@ -244,7 +244,7 @@ object ConditionalBlock {
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) {
-      override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
+//      override private[DFiant] def createAlmanac : Almanac = new AlmanacCase_(name, owner.protAlmanac, prevAlamanc, matchVal.almanacEntry)
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase_"
       override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       override def initFunc : Seq[RV#TToken] = returnValue.getInit

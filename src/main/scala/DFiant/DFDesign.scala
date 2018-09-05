@@ -19,7 +19,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   private[DFiant] def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
 
   private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
-  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
+//  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
   override protected def discoveryDepenencies : List[Discoverable] =
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies

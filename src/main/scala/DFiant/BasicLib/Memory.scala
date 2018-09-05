@@ -5,7 +5,7 @@ import singleton.ops._
 import singleton.twoface._
 
 //Memory
-abstract class Memory[W, D] private (width : TwoFace.Int[W], depth : TwoFace.Int[D])(initContents : Array[BitVector])(
+abstract class Memory[W, D] private (width : TwoFace.Int[W], depth : TwoFace.Int[D])(initContents : Array[BitVector] = Array())(
   implicit ctx : DFComponent.Context[Memory[W, D]]
 ) extends DFComponent[Memory[W, D]] {
   final val sizeBits = width * depth
@@ -28,5 +28,7 @@ abstract class Memory[W, D] private (width : TwoFace.Int[W], depth : TwoFace.Int
 }
 
 object Memory {
+  def rom[W, D](width : Int, depth : Int)(fillFunc : BitVector => BitVector) : Memory[W, D] = ???
+//  def ro2[W, D](width : Int, depth : Int)
 
 }

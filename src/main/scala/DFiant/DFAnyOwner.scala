@@ -5,13 +5,13 @@ import DFiant.internals._
 trait DFAnyOwner extends DSLOwnerConstruct {
   val owner : DFAnyOwner
   val config : DFAnyConfiguration
-  final private[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
-  //create alamanac and add to owner
-  final protected def fetchOrCreateAlmanac : Almanac =
-    if (owner != null) owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(createAlmanac))
-    else createTopAlmanac
-  private final def createTopAlmanac = new Almanac(name, None)
-  private[DFiant] def createAlmanac = new Almanac(name, Some(owner.protAlmanac))
+//  final private[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
+//  //create alamanac and add to owner
+//  final protected def fetchOrCreateAlmanac : Almanac =
+//    if (owner != null) owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(createAlmanac))
+//    else createTopAlmanac
+//  private final def createTopAlmanac = new Almanac(name, None)
+//  private[DFiant] def createAlmanac = new Almanac(name, Some(owner.protAlmanac))
 
   private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
     if (this eq dfVal.owner) true

@@ -28,6 +28,8 @@ object DFEnum extends DFAny.Companion {
     implicit val enum : TEnum
     def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
+    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+    : TVal <> Dir = new Port(left, dir)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

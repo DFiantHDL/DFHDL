@@ -60,8 +60,8 @@ object DFUInt extends DFAny.Companion {
     def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt.Extendable[Width] = new DFUInt.Extendable[Width](left)
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
-//    override def copyAsNewPort[Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-//    : TVal <> Dir = new Port(new NewVar[Width](width), dir)
+    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+    : TVal <> Dir = new Port(left, dir)
     override lazy val typeName: String = s"DFUInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

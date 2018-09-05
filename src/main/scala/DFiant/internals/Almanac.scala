@@ -3,7 +3,7 @@ package DFiant.internals
 import DFiant.DFAny.Pattern
 
 import scala.collection.mutable._
-class Almanac(val name : String, val owner : Option[Almanac]) {
+protected class Almanac(val name : String, val owner : Option[Almanac]) {
   currentAlmanac =>
   val printEntreesFlag : Boolean = true
   private var currentAddress : AlmanacAddressSpecific = AlmanacAddress.init()
@@ -162,30 +162,30 @@ class Almanac(val name : String, val owner : Option[Almanac]) {
 }
 
 
-class AlmanacIf(name : String, owner : Almanac, cond_ : => AlmanacEntryNamed)
-  extends Almanac(name, Some(owner)) {
-  final lazy val cond = cond_
-  override def codeString : String = s"???"
-}
-
-class AlmanacElseIf(name : String, owner : Almanac, val prevIf : AlmanacIf, cond_ : => AlmanacEntryNamed)
-  extends AlmanacIf(name, owner, cond_) {
-  override def codeString : String = s"???"
-}
-
-class AlmanacElse(name : String, owner : Almanac, val previf : AlmanacIf)
-  extends Almanac(name, Some(owner)) {
-  override def codeString : String = s"???"
-}
-
-class AlmanacCasePattern(name : String, owner : Almanac, val prevCase : Option[AlmanacCasePattern], matchVal_ : => AlmanacEntryNamed, val pattern : Pattern[_])
-  extends Almanac(name, Some(owner)) {
-  final lazy val matchVal = matchVal_
-  override def codeString : String = s"???"
-}
-
-class AlmanacCase_(name : String, owner : Almanac, val prevCase : Option[AlmanacCasePattern], matchVal_ : => AlmanacEntryNamed)
-  extends Almanac(name, Some(owner)) {
-  final lazy val matchVal = matchVal_
-  override def codeString : String = s"???"
-}
+//class AlmanacIf(name : String, owner : Almanac, cond_ : => AlmanacEntryNamed)
+//  extends Almanac(name, Some(owner)) {
+//  final lazy val cond = cond_
+//  override def codeString : String = s"???"
+//}
+//
+//class AlmanacElseIf(name : String, owner : Almanac, val prevIf : AlmanacIf, cond_ : => AlmanacEntryNamed)
+//  extends AlmanacIf(name, owner, cond_) {
+//  override def codeString : String = s"???"
+//}
+//
+//class AlmanacElse(name : String, owner : Almanac, val previf : AlmanacIf)
+//  extends Almanac(name, Some(owner)) {
+//  override def codeString : String = s"???"
+//}
+//
+//class AlmanacCasePattern(name : String, owner : Almanac, val prevCase : Option[AlmanacCasePattern], matchVal_ : => AlmanacEntryNamed, val pattern : Pattern[_])
+//  extends Almanac(name, Some(owner)) {
+//  final lazy val matchVal = matchVal_
+//  override def codeString : String = s"???"
+//}
+//
+//class AlmanacCase_(name : String, owner : Almanac, val prevCase : Option[AlmanacCasePattern], matchVal_ : => AlmanacEntryNamed)
+//  extends Almanac(name, Some(owner)) {
+//  final lazy val matchVal = matchVal_
+//  override def codeString : String = s"???"
+//}

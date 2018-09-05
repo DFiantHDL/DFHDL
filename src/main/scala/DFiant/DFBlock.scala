@@ -6,9 +6,9 @@ import internals._
 abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
-  final val owner = ctx.owner
-  final implicit val basicLib = ctx.basicLib
-  final implicit val config = ctx.config
+  lazy val owner = ctx.owner
+  implicit lazy val basicLib = ctx.basicLib
+  implicit lazy val config = ctx.config
   private[DFiant] lazy val nameIt = ctx.n
   final val topDsn : DFDesign =
     if (owner != null) owner.topDsn
