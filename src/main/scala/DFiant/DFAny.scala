@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.BasicLib.DFBasicLib
 import DFiant.DFAny.Op.Context
 import DFiant.internals._
 import singleton.ops._
@@ -8,7 +9,7 @@ import singleton.twoface._
 import scala.collection.{GenSet, SetLike}
 import scala.collection.mutable.ListBuffer
 
-trait DFAny extends DSLMemberConstruct with HasWidth {
+trait DFAny extends DFAnyMember with HasWidth {
   type TVal <: DFAny.Unbounded[TCompanion]
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
@@ -172,10 +173,7 @@ trait DFAny extends DSLMemberConstruct with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
-  implicit lazy val owner : DFAnyOwner = ctx.owner
-  private[DFiant] lazy val nameIt = ctx.n
-  lazy implicit val config : DFAnyConfiguration = ctx.config
+//  override implicit def theOwnerToBe : DFBlock = ctx.owner.asInstanceOf[DFBlock]
 //  final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
 //  protected[DFiant] val almanacEntry : AlmanacEntryNamed
 //  final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
@@ -311,9 +309,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx : Connector.Context) extends DSLMemberConstruct {
-    final implicit val owner : DFAnyOwner = ctx.owner
-    private[DFiant] lazy val nameIt = ctx.n
+  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
+    val ctx = ctx0
     override private[DFiant] def nameDefault = "ǂconnect"
     def codeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     final val id = getID
@@ -322,9 +319,8 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFBlock]
   }
 
-  case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) extends DSLMemberConstruct {
-    final implicit val owner : DFAnyOwner = ctx.owner
-    private[DFiant] lazy val nameIt = ctx.n
+  case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
+    val ctx = ctx0
     override private[DFiant] def nameDefault = "ǂassign"
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
@@ -336,9 +332,10 @@ object DFAny {
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar(_width : Int, newVarCodeString : String)(
-    implicit val ctx : NewVar.Context, cmp : Companion
+    implicit ctx0 : NewVar.Context, cmp : Companion
   ) extends DFAny.Uninitialized {
     type TPostInit = TVar
+    val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
@@ -368,8 +365,9 @@ object DFAny {
   }
 
   abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : AliasReference)(
-    implicit val ctx : Alias.Context, cmp : Companion, protTokenBitsToTToken : DFBits.Token => DF#TToken
+    implicit ctx0 : Alias.Context, cmp : Companion, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny.Var {
+    val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({
       val widthSeq : List[Int] = aliasedVars.map(aliasedVar => reference match {
         case AliasReference.BitsWL(relWidth, _, _) => relWidth
@@ -408,8 +406,9 @@ object DFAny {
   }
 
   abstract class Const(token : Token)(
-    implicit val ctx : Const.Context, cmp : Companion
+    implicit ctx0 : Const.Context, cmp : Companion
   ) extends DFAny {
+    val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
@@ -430,12 +429,13 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit val ctx : Port.Context, cmp : Companion
+    implicit ctx0 : Port.Context, cmp : Companion
   ) extends DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
-    final override lazy val owner : DFInterface = ctx.owner
+    val ctx = ctx0
+//    final override lazy val owner : DFInterface = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
@@ -450,9 +450,9 @@ object DFAny {
 
     private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
     private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
-      implicit val callOwner : DSLOwnerConstruct = ctx.owner
+      implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
       val left = this
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}\nConnected at ${ctx.owner.fullName}")
       val (fromPort, toPort) =
         //Ports in the same design, connected at the same design
         if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left)) (left.dir, right.dir) match {
@@ -504,7 +504,7 @@ object DFAny {
       toPort.connectFrom(fromPort)
     }
     final private[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-      implicit val callOwner : DSLOwnerConstruct = ctx.owner
+      implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
       if (dfVal.isInstanceOf[Port[_ <: DFAny, _ <: DFDir]]) dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]].connectPort2Port(port)

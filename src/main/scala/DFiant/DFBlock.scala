@@ -3,13 +3,12 @@ package DFiant
 import DFiant.BasicLib.DFBasicLib
 import internals._
 
-abstract class DFBlock(implicit ctx : DFBlock.Context) extends DFAnyOwner with Implicits {
+abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
+  val ctx = ctx0
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
-  lazy val owner = ctx.owner
-  implicit lazy val basicLib = ctx.basicLib
-  implicit lazy val config = ctx.config
-  private[DFiant] lazy val nameIt = ctx.n
+  implicit val basicLib = ctx.basicLib
+  override lazy val owner = ctx.owner
   final val topDsn : DFDesign =
     if (owner != null) owner.topDsn
     else this.asInstanceOf[DFDesign] //The top will always be a DFDesign

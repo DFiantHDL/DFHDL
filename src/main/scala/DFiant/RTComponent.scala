@@ -4,12 +4,10 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class RTComponent(implicit ctx : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
+abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
+  val ctx = ctx0
   override implicit def theOwnerToBe : RTComponent = this
   protected def newGeneric() : Unit = {}
-  final val owner : DFBlock = ctx.owner
-  final implicit val config = ctx.config
-
   final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn
   //final protected def discovery : Unit = {}
 
@@ -17,7 +15,6 @@ abstract class RTComponent(implicit ctx : RTComponent.Context, args : sourcecode
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final override private[DFiant] def nameDefault: String = ctx.getName
-  private[DFiant] lazy val nameIt = ctx.n
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : => Seq[dfVal.TToken])

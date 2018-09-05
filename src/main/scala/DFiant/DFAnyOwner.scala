@@ -2,9 +2,16 @@ package DFiant
 import DFiant.BasicLib.DFBasicLib
 import DFiant.internals._
 
-trait DFAnyOwner extends DSLOwnerConstruct {
-  val owner : DFAnyOwner
-  val config : DFAnyConfiguration
+trait DFAnyMember extends DSLMemberConstruct {
+  protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
+  implicit def theOwnerToBe : DFAnyOwner = ctx.owner
+  lazy val owner : DFAnyOwner = ctx.owner
+  final implicit lazy val config : DFAnyConfiguration = ctx.config
+  final private[DFiant] lazy val nameIt = ctx.n
+}
+
+trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
+  override implicit def theOwnerToBe : DFAnyOwner = this
 //  final private[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
 //  //create alamanac and add to owner
 //  final protected def fetchOrCreateAlmanac : Almanac =
