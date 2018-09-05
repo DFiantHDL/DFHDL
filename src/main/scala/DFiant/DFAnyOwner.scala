@@ -12,13 +12,6 @@ trait DFAnyMember extends DSLMemberConstruct {
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   override implicit def theOwnerToBe : DFAnyOwner = this
-//  final private[DFiant] lazy val protAlmanac = fetchOrCreateAlmanac
-//  //create alamanac and add to owner
-//  final protected def fetchOrCreateAlmanac : Almanac =
-//    if (owner != null) owner.protAlmanac.fetchComponent(owner.protAlmanac.addComponent(createAlmanac))
-//    else createTopAlmanac
-//  private final def createTopAlmanac = new Almanac(name, None)
-//  private[DFiant] def createAlmanac = new Almanac(name, Some(owner.protAlmanac))
 
   private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
     if (this eq dfVal.owner) true

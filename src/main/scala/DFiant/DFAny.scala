@@ -173,10 +173,6 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-//  override implicit def theOwnerToBe : DFBlock = ctx.owner.asInstanceOf[DFBlock]
-//  final implicit protected lazy val protAlmanac : Almanac = owner.protAlmanac
-//  protected[DFiant] val almanacEntry : AlmanacEntryNamed
-//  final protected[DFiant] def getCurrentEntry : AlmanacEntryGetDFVar = AlmanacEntryGetDFVar(almanacEntry)
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 
@@ -184,7 +180,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Simulation
   //////////////////////////////////////////////////////////////////////////
-//  def simInject(that : BigInt) : Boolean = almanacEntry.simInject(that)
+  def simInject(that : BigInt) : Boolean = ???
   def simWatch : BigInt = ???
   //////////////////////////////////////////////////////////////////////////
 }
@@ -247,7 +243,6 @@ object DFAny {
         throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
-//      AlmanacEntryAssign(this.almanacEntry, that.getCurrentEntry)
       this.asInstanceOf[TVar]
     }
     //////////////////////////////////////////////////////////////////////////
@@ -339,12 +334,6 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
-//    private val almanacEntryLB = LazyBox {
-//      val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
-//      AlmanacEntryNewDFVar(width, protInit, name, codeString)
-//    }
-//    final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("\nCircular dependency detected"))
-    //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -393,9 +382,6 @@ object DFAny {
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
-//    final protected[DFiant] lazy val almanacEntry =
-//      AlmanacEntryAliasDFVar(aliasedVars.map(a => a.almanacEntry), reference, protInit, name, codeString)
-    //final protected[DFiant] def discovery : Unit = almanacEntry
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ aliasedVars
     final val isPort = false
     final val id = getID
@@ -414,8 +400,6 @@ object DFAny {
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
-//    final protected[DFiant] lazy val almanacEntry = AlmanacEntryConst(token, name, codeString)
-    //final protected[DFiant] def discovery : Unit = almanacEntry
     final val isPort = false
     final val id = getID
   }
@@ -435,16 +419,9 @@ object DFAny {
     type TPostInit = TVal <> Dir
     type TDir = Dir
     val ctx = ctx0
-//    final override lazy val owner : DFInterface = ctx.owner
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
-//    private val almanacEntryLB = LazyBox {
-//      val sourceEntry = if (connectedSource.isDefined) Some(connectedSource.get.almanacEntry) else None
-//      AlmanacEntryPort(width, protInit, sourceEntry, dir, name, codeString)
-//    }
-//    final protected[DFiant] lazy val almanacEntry = almanacEntryLB.getOrElse(throw new IllegalArgumentException("\nCircular dependency detected"))
-    //final protected[DFiant] def discovery : Unit = almanacEntry
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
 
