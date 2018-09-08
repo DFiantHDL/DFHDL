@@ -311,7 +311,7 @@ object DFAny {
     val ctx = ctx0
     override private[DFiant] def nameDefault = "ǂconnect"
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
-    def codeString : String = if (toPort.owner.isInstanceOf[DiSoComp[_,_,_]]) "" else connectCodeString
+    def codeString : String = if (toPort.owner.isInstanceOf[DiSoComp[_,_,_]] && toPort.owner.asInstanceOf[DiSoComp[_,_,_]].isFolded) "" else connectCodeString
     final val id = getID
   }
   object Connector {

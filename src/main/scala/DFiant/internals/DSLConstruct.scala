@@ -122,8 +122,8 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
 //  private[DFiant] var foldRequest : Boolean = true
 //  val fold : this.type = {foldRequest = true; this}
 //  val unfold : this.type = {foldRequest = false; this}
-  private[DFiant] var folded : Boolean = true
-  private[DFiant] def unfoldedRun : Unit = folded = false
+  private[DFiant] var isFolded : Boolean = true
+  private[DFiant] def unfoldedRun : Unit = isFolded = false
   //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
   protected def foldedRun : Unit = unfoldedRun
   private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = {

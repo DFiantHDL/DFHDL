@@ -14,7 +14,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   final override private[DFiant] def unfoldedRun = {
     ctx.impl(this.asInstanceOf[Comp])
     portsOut.foreach(p => p.rediscoverDependencies)
-    folded = false
+    isFolded = false
   }
 
   final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : => Seq[dfVal.TToken])
@@ -101,7 +101,9 @@ abstract class DiSoComp[Comp <: DiSoComp[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   final val isPort = false
-  override def constructCodeStringDefault: String = "???"
-  private[DFiant] override def constructCodeString : String = s"(${leftArg.refCodeString} $opString ${rightArg.refCodeString})"
+//  override lazy val typeName: String = "jjhjhj"
+  override def constructCodeStringDefault: String = "???ccsd???"
+
+  override def foldedConstructCodeString: String = s"(${leftArg.refCodeString} $opString ${rightArg.refCodeString})"
   override def codeString: String = s"\nval $name = $constructCodeString"
 }
