@@ -16,7 +16,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     ifBlock
   }
 
-  private[DFiant] def constructCodeString : String = designDB.addDesignCodeString(typeName, bodyCodeString, this)
+  private[DFiant] def designType : String = typeName
+  private[DFiant] def constructCodeString : String = designDB.addDesignCodeString(designType, bodyCodeString, this)
 
   private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
 //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString

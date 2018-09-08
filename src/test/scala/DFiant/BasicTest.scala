@@ -9,8 +9,7 @@ trait IODesignConn1 extends DFDesign {
 trait IODesignConn1b extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFBool() <> OUT
-  val b = (i < 1)
-  o <> b
+  o <> (i < 1)
 }
 
 trait IODesignIf extends DFDesign {

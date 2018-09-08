@@ -101,9 +101,12 @@ abstract class DiSoComp[Comp <: DiSoComp[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   final val isPort = false
-//  override lazy val typeName: String = "jjhjhj"
+
+  override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =
+    if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
   override def constructCodeStringDefault: String = foldedConstructCodeString
 
+  private[DFiant] override def designType : String = s"`Comp$opString`"
   override def foldedConstructCodeString: String = s"(${leftArg.refCodeString} $opString ${rightArg.refCodeString})"
-  override def codeString: String = valCodeString
+  override def codeString: String = if (isFolded) super.codeString else valCodeString
 }
