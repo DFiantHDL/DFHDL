@@ -124,9 +124,9 @@ object DFUInt extends DFAny.Companion {
     implicit ctx : DFAny.Port.Context
   ) extends DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W]
 
-//  protected[DFiant] class Op2Comp[Kind, L <: DFAny, R <: DFAny, OW](leftArg : L, rightArg : R)(
-//    implicit ctx : DFComponent.Context[Op2Comp[Kind, L, R, OW]], kind : Kind
-//  ) extends DiSoComp[Op2Comp[Kind, L, R, OW], L, R](leftArg, kind.toString, rightArg) with DFUInt[OW]
+//  protected[DFiant] class Func2Comp[Kind, L <: DFAny, R <: DFAny, OW](leftArg : L, rightArg : R)(
+//    implicit ctx : DFComponent.Context[Func2Comp[Kind, L, R, OW]], kind : Kind
+//  ) extends DiSoComp[Func2Comp[Kind, L, R, OW], L, R](leftArg, kind.toString, rightArg) with DFUInt[OW]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -692,7 +692,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFUInt.Token], Seq[DFUInt.Token]) => Seq[DFBool.Token]) {
+  protected abstract class OpsCompare(opKind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
 
@@ -711,21 +711,18 @@ object DFUInt extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import ctx.basicLib.DFUIntOps._
+        import FunctionalLib.DFUIntOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-//          case DiSoOp.Kind.== => new DFiant.BasicLib.DFUIntOps.`Comp==`(left.width, right.width)
-//          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFUIntOps.`Comp!=`(left.width, right.width)
-          case DiSoOp.Kind.<  => DFiant.FunctionalLib.DFUIntOps.`Comp<`(left, right)
-//          case DiSoOp.Kind.>  => new DFiant.BasicLib.DFUIntOps.`Comp>`(left.width, right.width)
-//          case DiSoOp.Kind.<= => new DFiant.BasicLib.DFUIntOps.`Comp<=`(left.width, right.width)
-//          case DiSoOp.Kind.>= => new DFiant.BasicLib.DFUIntOps.`Comp>=`(left.width, right.width)
+          case DiSoOp.Kind.== => `Func2Comp==`(left, right)
+          case DiSoOp.Kind.!= => `Func2Comp!=`(left, right)
+          case DiSoOp.Kind.<  => `Func2Comp<`(left, right)
+          case DiSoOp.Kind.>  => `Func2Comp>`(left, right)
+          case DiSoOp.Kind.<= => `Func2Comp<=`(left, right)
+          case DiSoOp.Kind.>= => `Func2Comp>=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
         opInst.setAutoName(s"${ctx.getName}")
-//        opInst.inLeft <> left
-//        opInst.inRight <> right
-//        opInst.outResult
         opInst
       }
 
@@ -761,11 +758,11 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends OpsCompare(DiSoOp.Kind.==)(DFUInt.Token.==) with `Op==`
-  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=)(DFUInt.Token.!=) with `Op!=`
-  object `Op<`  extends OpsCompare(DiSoOp.Kind.< )(DFUInt.Token.< )
-  object `Op>`  extends OpsCompare(DiSoOp.Kind.> )(DFUInt.Token.> )
-  object `Op<=` extends OpsCompare(DiSoOp.Kind.<=)(DFUInt.Token.<=)
-  object `Op>=` extends OpsCompare(DiSoOp.Kind.>=)(DFUInt.Token.>=)
+  object `Op==` extends OpsCompare(DiSoOp.Kind.==) with `Op==`
+  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=) with `Op!=`
+  object `Op<`  extends OpsCompare(DiSoOp.Kind.< )
+  object `Op>`  extends OpsCompare(DiSoOp.Kind.> )
+  object `Op<=` extends OpsCompare(DiSoOp.Kind.<=)
+  object `Op>=` extends OpsCompare(DiSoOp.Kind.>=)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

@@ -21,7 +21,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 
-  private[DFiant] override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
+  private[DFiant] override def constructCodeString : String = if (isFolded) foldedConstructCodeString else super.constructCodeString
   override def codeString : String = valCodeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
@@ -70,7 +70,7 @@ object DFComponent {
 }
 
 
-abstract class DiSoComp[Comp <: DiSoComp[Comp, L, R], L <: DFAny, R <: DFAny]
+abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   (val leftArg: L, opString : String, val rightArg: R)(_width : Int) (
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
 ) extends DFComponent[Comp] with DFAny {
@@ -106,7 +106,7 @@ abstract class DiSoComp[Comp <: DiSoComp[Comp, L, R], L <: DFAny, R <: DFAny]
     if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
   override def constructCodeStringDefault: String = foldedConstructCodeString
 
-  private[DFiant] override def designType : String = s"`Comp$opString`"
+  private[DFiant] override def designType : String = s"`Func2Comp$opString`"
   override def foldedConstructCodeString: String = s"(${leftArg.refCodeString} $opString ${rightArg.refCodeString})"
   override def codeString: String = if (isFolded) super.codeString else valCodeString
 }

@@ -79,10 +79,10 @@ object DFBool extends DFAny.Companion {
     implicit ctx : DFAny.Port.Context
   ) extends DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool
 
-//  protected[DFiant] class Op2Comp[OpKind, L <: DFAny, R <: DFAny](leftArg : L, rightArg : R)
+//  protected[DFiant] class Func2Comp[OpKind, L <: DFAny, R <: DFAny](leftArg : L, rightArg : R)
 //    (val tokenFunc : (L#TToken, R#TToken) => Token)(
-//    implicit ctx : DFComponent.Context[Op2Comp[OpKind, L, R]], opKind : OpKind
-//  ) extends DiSoComp[Op2Comp[OpKind, L, R], OpKind, L, R](leftArg, rightArg)(1) with DFBool
+//    implicit ctx : DFComponent.Context[Func2Comp[OpKind, L, R]], opKind : OpKind
+//  ) extends DiSoComp[Func2Comp[OpKind, L, R], OpKind, L, R](leftArg, rightArg)(1) with DFBool
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
