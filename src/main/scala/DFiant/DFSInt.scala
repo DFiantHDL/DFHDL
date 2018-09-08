@@ -83,7 +83,7 @@ object DFSInt extends DFAny.Companion {
     final def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
 
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(left, dir)
+    : TVal <> Dir = new Port(new NewVar[Width](width), dir)
     override lazy val typeName: String = s"DFSInt[$width]"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

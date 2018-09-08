@@ -220,7 +220,7 @@ trait IODesignConn9 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.detailed
   val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
