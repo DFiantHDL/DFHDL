@@ -21,7 +21,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   : Unit = dfVal.setInitFunc(value)
   final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
 
-  final private[DFiant] override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
+  private[DFiant] override def constructCodeString : String = if (config.foldComponents) foldedConstructCodeString else super.constructCodeString
   override def codeString : String = valCodeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
@@ -69,29 +69,39 @@ object DFComponent {
   }
 }
 
-//
-//abstract class DiSoComp[Kind, L <: DFAny, R <: DFAny, OW](val leftArg : L, val rightArg : R, width : TwoFace.Int[OW])
-//  (tokenFunc : (L#TToken, R#TToken) => DFUInt.Token)(
-//  implicit ctx : DFComponent.Context[DiSoComp[Kind, L, R, OW]]
-//) extends DFComponent[DiSoComp[Kind, L, R, OW]] with DFAny { //with DFUInt[OW]
-//  final val inLeft = leftArg.copyAsNewPort(IN)
-//  final val inRight = rightArg.copyAsNewPort(IN)
-//  final val outResult = new DFUInt.NewVar[OW](width) <> OUT
-//  inLeft.connectVal2Port(leftArg)(ctx.updateOwner(ctx.owner))
-//  inRight.connectVal2Port(rightArg)(ctx.updateOwner(ctx.owner))
-//  override protected def foldedRun: Unit = {
-//    def leftInit = inLeft.getInit.asInstanceOf[Seq[L#TToken]]
-//    def rightInit = inRight.getInit.asInstanceOf[Seq[R#TToken]]
-//    setInitFunc(outResult)(DFAny.TokenSeq(leftInit, rightInit)(tokenFunc))
-//  }
-//  final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
-//  override private[DFiant] lazy val nameIt = ctx.n
-//  override lazy val owner = ctx.owner
-//  override lazy implicit val basicLib = ctx.basicLib
-//  override lazy implicit val config = ctx.config
-//  override def codeString: String = ???
-//}
-//
-//abstract class AAAA[Kind, LW, RW, OW](left : DFUInt[LW], right : DFUInt[RW], width : TwoFace.Int[OW])(
-//  implicit ctx : DFComponent.Context[DiSoComp[Kind, DFUInt[LW], DFUInt[RW], OW]]
-//) extends DiSoComp(left, right, width)(???)
+
+abstract class DiSoComp[Comp <: DiSoComp[Comp, L, R], L <: DFAny, R <: DFAny]
+  (val leftArg: L, opString : String, val rightArg: R)(_width : Int) (
+  implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
+) extends DFComponent[Comp] with DFAny {
+  final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
+  final protected[DFiant] val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
+  protected val tokenFunc : (L#TToken, R#TToken) => TToken
+
+  final val inLeft = leftArg.copyAsNewPort(IN)
+  final val inRight = rightArg.copyAsNewPort(IN)
+  final val outResult = this.copyAsNewPort(OUT)
+
+  private def initFunc: Seq[TToken] = {
+    def leftInit = inLeft.getInit.asInstanceOf[Seq[leftArg.TToken]]
+    def rightInit = inRight.getInit.asInstanceOf[Seq[rightArg.TToken]]
+    DFAny.TokenSeq(leftInit, rightInit)(tokenFunc)
+  }
+
+  lazy val protInit: Seq[TToken] = initFunc
+
+  inLeft.connectVal2Port(leftArg)
+  inRight.connectVal2Port(rightArg)
+
+  //  outResult.connectVal2Port(this)
+  override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
+  override protected def foldedRun: Unit = {
+    outResult.setInitFunc.forced(initFunc)
+  }
+
+  final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
+  final val isPort = false
+  override def constructCodeStringDefault: String = "???"
+  private[DFiant] override def constructCodeString : String = s"(${leftArg.refCodeString} $opString ${rightArg.refCodeString})"
+  override def codeString: String = s"\nval $name = $constructCodeString"
+}

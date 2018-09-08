@@ -271,6 +271,9 @@ object DFAny {
 //      println(s"setInitFunc $fullName")
       _initFunc = () => value
     }
+    private[DFiant] object setInitFunc {
+      def forced(value : => Seq[Token]) : Unit = setInitFunc(value.asInstanceOf[Seq[TToken]])
+    }
     final private val initLB = LazyBox({
 //      println(s"initLB $fullName")
       _initFunc()
@@ -307,7 +310,8 @@ object DFAny {
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
     val ctx = ctx0
     override private[DFiant] def nameDefault = "ǂconnect"
-    def codeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
+    private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
+    def codeString : String = if (toPort.owner.isInstanceOf[DiSoComp[_,_,_]]) "" else connectCodeString
     final val id = getID
   }
   object Connector {
@@ -492,7 +496,7 @@ object DFAny {
           //Connecting from output port to external value
           if (port.dir.isOut) dfVal match {
             case u : Uninitialized => u.connectFrom(port)
-            case _ => throwConnectionError(s"Cannot connect an external this value to an output port.")
+            case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
           }
           //Connecting from external value to input port
           else port.connectFrom(dfVal)

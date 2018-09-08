@@ -123,8 +123,11 @@ object DFUInt extends DFAny.Companion {
   protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFUInt[W], dir : Dir)(
     implicit ctx : DFAny.Port.Context
   ) extends DFAny.Port[DFUInt[W], Dir](dfVar, dir) with DFUInt[W]
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//  protected[DFiant] class Op2Comp[Kind, L <: DFAny, R <: DFAny, OW](leftArg : L, rightArg : R)(
+//    implicit ctx : DFComponent.Context[Op2Comp[Kind, L, R, OW]], kind : Kind
+//  ) extends DiSoComp[Op2Comp[Kind, L, R, OW], L, R](leftArg, kind.toString, rightArg) with DFUInt[OW]
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
@@ -711,18 +714,19 @@ object DFUInt extends DFAny.Companion {
         import ctx.basicLib.DFUIntOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-          case DiSoOp.Kind.== => new DFiant.BasicLib.DFUIntOps.`Comp==`(left.width, right.width)
-          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFUIntOps.`Comp!=`(left.width, right.width)
-          case DiSoOp.Kind.<  => new DFiant.BasicLib.DFUIntOps.`Comp<`(left.width, right.width)
-          case DiSoOp.Kind.>  => new DFiant.BasicLib.DFUIntOps.`Comp>`(left.width, right.width)
-          case DiSoOp.Kind.<= => new DFiant.BasicLib.DFUIntOps.`Comp<=`(left.width, right.width)
-          case DiSoOp.Kind.>= => new DFiant.BasicLib.DFUIntOps.`Comp>=`(left.width, right.width)
+//          case DiSoOp.Kind.== => new DFiant.BasicLib.DFUIntOps.`Comp==`(left.width, right.width)
+//          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFUIntOps.`Comp!=`(left.width, right.width)
+          case DiSoOp.Kind.<  => DFiant.FunctionalLib.DFUIntOps.`Comp<`(left, right)
+//          case DiSoOp.Kind.>  => new DFiant.BasicLib.DFUIntOps.`Comp>`(left.width, right.width)
+//          case DiSoOp.Kind.<= => new DFiant.BasicLib.DFUIntOps.`Comp<=`(left.width, right.width)
+//          case DiSoOp.Kind.>= => new DFiant.BasicLib.DFUIntOps.`Comp>=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"${ctx.getName}Comp")
-        opInst.inLeft <> left
-        opInst.inRight <> right
-        opInst.outResult
+        opInst.setAutoName(s"${ctx.getName}")
+//        opInst.inLeft <> left
+//        opInst.inRight <> right
+//        opInst.outResult
+        opInst
       }
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](

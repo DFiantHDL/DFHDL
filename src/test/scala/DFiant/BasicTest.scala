@@ -9,7 +9,8 @@ trait IODesignConn1 extends DFDesign {
 trait IODesignConn1b extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFBool() <> OUT
-  o <> (i < 1)
+  val b = (i < 1)
+  o <> b
 }
 
 trait IODesignIf extends DFDesign {
@@ -219,8 +220,8 @@ trait IODesignConn9 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-  implicit val a = DFAnyConfiguration.detailed
-//  val top_ioDesignConn1b = new IODesignConn1b {}
+//  implicit val a = DFAnyConfiguration.detailed
+  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}
 //  val top_ioDesignConn4 = new IODesignConn4 {}
@@ -236,7 +237,7 @@ object BasicTest extends App {
 
 //  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
 
-  val top_ioDesignConn9 = new IODesignConn9 {}.printCodeString
+//  val top_ioDesignConn9 = new IODesignConn9 {}.printCodeString
 //  import GlobalDesign._
 //  println(aa.pattern(1, 2 to 20, 21 to 40))
 
