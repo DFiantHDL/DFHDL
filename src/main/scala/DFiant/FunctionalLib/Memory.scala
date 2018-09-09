@@ -1,7 +1,6 @@
-package DFiant.BasicLib
+package DFiant.FunctionalLib
 
 import DFiant._
-import singleton.ops._
 import singleton.twoface._
 
 //Memory
