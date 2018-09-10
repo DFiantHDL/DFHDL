@@ -535,23 +535,19 @@ object DFBits extends DFAny.Companion {
               new Builder[L, R] {
                 type Comp = DFBits[OW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx.basicLib.DFBitsOps._
+                  import FunctionalLib.DFBitsOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
-                  val oWidth = oW(left.width, right.width)
                   val opInst = opKind match {
-                    case DiSoOp.Kind.| => new DFiant.BasicLib.DFBitsOps.`Comp|`(left.width, right.width, oWidth)
-                    case DiSoOp.Kind.& => new DFiant.BasicLib.DFBitsOps.`Comp&`(left.width, right.width, oWidth)
-                    case DiSoOp.Kind.^ => new DFiant.BasicLib.DFBitsOps.`Comp^`(left.width, right.width, oWidth)
+                    case DiSoOp.Kind.| => `Func2Comp|`[LW, RW, OW](left, right)
+                    case DiSoOp.Kind.& => `Func2Comp&`[LW, RW, OW](left, right)
+                    case DiSoOp.Kind.^ => `Func2Comp^`[LW, RW, OW](left, right)
                     case _ => throw new IllegalArgumentException("Unexpected logic operation")
                   }
-                  opInst.setAutoName(s"${ctx.getName}Comp")
-                  opInst.inLeft <> left
-                  opInst.inRight <> right
-                  val out = new DFBits.Alias[OW](List(opInst.outResult), AliasReference.AsIs(""))
-                  out
+                  opInst.setAutoName(s"${ctx.getName}")
+                  opInst
                 }
               }
           }
@@ -605,20 +601,17 @@ object DFBits extends DFAny.Companion {
         checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Builder[DFBits[LW], DFUInt[RW]] = new Builder[DFBits[LW], DFUInt[RW]]{
         def apply(left : DFBits[LW], right : DFUInt[RW]) : DFBits[LW] = {
-          import ctx.basicLib.DFBitsOps._
+          import FunctionalLib.DFBitsOps._
           // Completing runtime checks
           checkLWvRW.unsafeCheck(left.width, right.width)
           // Constructing op
           val opInst = opKind match {
-            case DiSoOp.Kind.<< => new DFiant.BasicLib.DFBitsOps.`Comp<<`(left.width, right.width)
-            case DiSoOp.Kind.>> => new DFiant.BasicLib.DFBitsOps.`Comp>>`(left.width, right.width)
+            case DiSoOp.Kind.<< => `Func2Comp<<`(left, right)
+            case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
             case _ => throw new IllegalArgumentException("Unexpected logic operation")
           }
-          opInst.setAutoName(s"${ctx.getName}Comp")
-          opInst.inLeft <> left
-          opInst.inRight <> right
-          val out = new DFBits.Alias[LW](List(opInst.outResult), AliasReference.AsIs(""))
-          out
+          opInst.setAutoName(s"${ctx.getName}")
+          opInst
         }
       }
       implicit def evDFBits_op_XInt[LW, R <: Int](
