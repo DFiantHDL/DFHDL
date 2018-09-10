@@ -363,7 +363,7 @@ object DFAny {
     val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({
       val widthSeq : List[Int] = aliasedVars.map(aliasedVar => reference match {
-        case AliasReference.BitsWL(relWidth, _, _) => relWidth
+        case AliasReference.BitsWL(relWidth, _) => relWidth
         case _ => aliasedVar.width.getValue
       })
       widthSeq.sum
@@ -373,11 +373,11 @@ object DFAny {
       val initList : List[Seq[DFBits.Token]] = aliasedVars.map(aliasedVar => {
         val currentInit: Seq[DFBits.Token] = aliasedVar.getInit.bits
         val updatedInit: Seq[DFBits.Token] = reference match {
-          case AliasReference.BitsWL(relWidth, relBitLow, _) => currentInit.bitsWL(relWidth, relBitLow)
+          case AliasReference.BitsWL(relWidth, relBitLow) => currentInit.bitsWL(relWidth, relBitLow)
           case AliasReference.Prev(step) => currentInit.prevInit(step)
-          case AliasReference.AsIs(_) => currentInit
-          case AliasReference.BitReverse(_) => DFBits.Token.reverse(currentInit)
-          case AliasReference.Invert(_) => DFBits.Token.unary_~(currentInit)
+          case AliasReference.AsIs() => currentInit
+          case AliasReference.BitReverse() => DFBits.Token.reverse(currentInit)
+          case AliasReference.Invert() => DFBits.Token.unary_~(currentInit)
         }
         updatedInit
       })

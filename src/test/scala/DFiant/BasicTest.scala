@@ -99,8 +99,8 @@ trait IODesignConn3 extends DFDesign {
   val i = DFUInt(8) <> IN init 5
   val o = DFUInt(8) <> OUT
   val plusOne = i + 1
-  val plusTwo = plusOne + 1
-  o <> plusTwo
+  val timesFive = plusOne * 5
+  o <> timesFive
 }
 
 class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
@@ -221,9 +221,9 @@ trait IODesignConn9 extends DFDesign {
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
 //  implicit val a = DFAnyConfiguration.detailed
-  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
+//  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
-//  val top_ioDesignConn3 = new IODesignConn3 {}
+  val top_ioDesignConn3 = new IODesignConn3 {}.printCodeString
 //  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}

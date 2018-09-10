@@ -480,8 +480,8 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    class Component[NCW, WCW](val wc : DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(wc.width-1, 0, s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
+    class Component[NCW, WCW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+      DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
       lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
@@ -527,22 +527,19 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx.basicLib.DFUIntOps._
+                  import FunctionalLib.DFUIntOps._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = wcW(left.width, right.width)
                   val opInst = creationKind match {
-                    case `Ops+Or-`.+ => new DFiant.BasicLib.DFUIntOps.`Comp+`(left.width, right.width, opWidth)
-                    case `Ops+Or-`.- => new DFiant.BasicLib.DFUIntOps.`Comp-`(left.width, right.width, opWidth)
+                    case `Ops+Or-`.+ => `Func2Comp+`[LW, RW, WCW](left, right)
+                    case `Ops+Or-`.- => `Func2Comp-`[LW, RW, WCW](left, right)
                   }
-                  opInst.setAutoName(s"${ctx.getName}Comp")
-                  opInst.inLeft <> left
-                  opInst.inRight <> right
-                  val wc = new DFUInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.getName}WC")
+                  opInst.setAutoName(s"ǂ${ctx.getName}WC")
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW](wc)
+                  new Component[NCW, WCW](opInst)
                 }
               }
           }
@@ -593,9 +590,9 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     //CW = Carry width
-    class Component[NCW, WCW, CW](val wc : DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
+    class Component[NCW, WCW, CW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(ncW, 0, s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
+    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
       lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
@@ -644,23 +641,19 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import ctx.basicLib.DFUIntOps._
+                  import FunctionalLib.DFUIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
-                  val wcWidth = wcW(left.width, right.width)
                   val ncWidth = ncW(left.width, right.width)
                   val cWidth = cW(left.width, right.width)
 
-                  val opInst = new DFiant.BasicLib.DFUIntOps.`Comp*`(left.width, right.width, wcWidth)
-                  opInst.setAutoName(s"${ctx.getName}Comp")
-                  opInst.inLeft <> left
-                  opInst.inRight <> right
-                  val wc = new DFUInt.Alias[WCW](List(opInst.outResult), AliasReference.AsIs("")).setAutoName(s"${ctx.getName}WC")
+                  val opInst = `Func2Comp*`[LW, RW, WCW](left, right)
+                  opInst.setAutoName(s"ǂ${ctx.getName}WC")
 
                   // Creating extended component aliasing the op
-                  new Component[NCW, WCW, CW](wc, ncWidth, cWidth)
+                  new Component[NCW, WCW, CW](opInst, ncWidth, cWidth)
                 }
               }
           }
