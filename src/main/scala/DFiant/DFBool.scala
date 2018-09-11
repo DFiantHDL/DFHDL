@@ -59,7 +59,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar()(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar(1, "DFBool()") with Var {
+  ) extends DFAny.NewVar[DFBool](1, "DFBool()") with Var {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If

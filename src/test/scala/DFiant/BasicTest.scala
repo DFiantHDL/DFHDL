@@ -98,7 +98,7 @@ trait IODesignConn2 extends DFDesign{
 trait IODesignConn3 extends DFDesign {
   val i = DFUInt(8) <> IN init 5
   val o = DFUInt(8) <> OUT
-  val plusOne = i + 1
+  val plusOne = i + 0
   val timesFive = plusOne * 5
   o <> timesFive
 }
@@ -220,7 +220,7 @@ trait IODesignConn9 extends DFDesign {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
   val top_ioDesignConn3 = new IODesignConn3 {}.printCodeString

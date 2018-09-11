@@ -17,7 +17,7 @@ object MatchConfig {
 
 object ConditionalBlock {
   type Context = DFDesign.Context
-  class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar) {
+  class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[RV, R])
@@ -163,7 +163,7 @@ object ConditionalBlock {
       new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
   }
 
-  class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar){
+  class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar[RV]){
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       type TPattern = matchVal.TPattern
       type TToken = matchVal.TToken

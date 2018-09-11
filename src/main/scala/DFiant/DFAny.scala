@@ -99,7 +99,8 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected val protInit : Seq[TToken]
   //Only call within lazy val calculation of `protInit` when dependent on other init values
   final protected[DFiant] def getInit : Seq[TToken] = protInit
-//  protected val constVal : TToken
+  protected[DFiant] val constVal : TToken
+  final def isConstant : Boolean = !constVal.isBubble
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -151,7 +152,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   private var autoConstructCodeString : String = ""
   final private[DFiant] def setAutoConstructCodeString(cs : String) : this.type = {autoConstructCodeString = cs; this}
   private[DFiant] def constructCodeStringDefault : String
-  private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar]
+  private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
   private def constructCodeString : String =
     if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
   override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
@@ -331,8 +332,8 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  abstract class NewVar(_width : Int, newVarCodeString : String)(
-    implicit ctx0 : NewVar.Context, cmp : Companion
+  abstract class NewVar[DF <: DFAny](_width : Int, newVarCodeString : String)(
+    implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken
   ) extends DFAny.Uninitialized {
     type TPostInit = TVar
     val ctx = ctx0
@@ -340,6 +341,7 @@ object DFAny {
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
+    final protected[DFiant] lazy val constVal : TToken = bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken] //TODO: set dependency on assignment
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -384,6 +386,20 @@ object DFAny {
       })
       initList.reduce(DFBits.Token.##).map(protTokenBitsToTToken.asInstanceOf[DFBits.Token => TToken])
     }
+    final protected[DFiant] lazy val constVal : TToken = {
+      val constList : List[DFBits.Token] = aliasedVars.map(aliasedVar => {
+        val currentConst: DFBits.Token = aliasedVar.constVal.bits
+        val updatedConst: DFBits.Token = reference match {
+          case AliasReference.BitsWL(relWidth, relBitLow) => currentConst.bitsWL(relWidth, relBitLow)
+          case AliasReference.Prev(step) => currentConst //TODO: Fix when referencing a previous of a constant
+          case AliasReference.AsIs() => currentConst
+          case AliasReference.BitReverse() => currentConst.reverse
+          case AliasReference.Invert() => ~currentConst
+        }
+        updatedConst
+      })
+      protTokenBitsToTToken(constList.reduce((a, b) => a ## b)).asInstanceOf[TToken]
+    }
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
@@ -405,6 +421,7 @@ object DFAny {
     final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
+    final protected[DFiant] val constVal = token.asInstanceOf[TToken]
     final val isPort = false
     final val id = getID
   }
@@ -418,13 +435,17 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit ctx0 : Port.Context, cmp : Companion
+    implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken
   ) extends DFAny.Uninitialized {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
     val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
+    final protected[DFiant] lazy val constVal = connectedSource match {
+      case Some(v) => v.constVal.asInstanceOf[TToken]
+      case _ => bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]
+    }
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies

@@ -100,7 +100,7 @@ object DFBits extends DFAny.Companion {
       type ParamFace = Int
     }
 
-    def as[T <: DFAny.NewVar](mold : T)(
+    def as[T <: DFAny.NewVar[_]](mold : T)(
       implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
     ) : mold.TVal = {
       sameWidth.unsafeCheck(mold.width, width)
@@ -159,7 +159,7 @@ object DFBits extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var {
-    final override def as[T <: DFAny.NewVar](mold : T)(
+    final override def as[T <: DFAny.NewVar[_]](mold : T)(
       implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
     ) : mold.TVar = {
       sameWidth.unsafeCheck(mold.width, width)
@@ -191,7 +191,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar(width, s"DFBits($width)") with Var[W] {
+  ) extends DFAny.NewVar[DFBits[W]](width, s"DFBits($width)") with Var[W] {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If

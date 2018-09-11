@@ -88,7 +88,8 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
     DFAny.TokenSeq(leftInit, rightInit)(tokenFunc)
   }
 
-  lazy val protInit: Seq[TToken] = initFunc
+  final lazy val protInit: Seq[TToken] = initFunc
+  final lazy val constVal : TToken = tokenFunc(inLeft.constVal.asInstanceOf[leftArg.TToken], inRight.constVal.asInstanceOf[rightArg.TToken])
 
   inLeft.connectVal2Port(leftArg)
   inRight.connectVal2Port(rightArg)

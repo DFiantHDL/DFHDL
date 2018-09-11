@@ -119,7 +119,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar(width, s"DFSInt($width)") with Var[W] {
+  ) extends DFAny.NewVar[DFSInt[W]](width, s"DFSInt($width)") with Var[W] {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If

@@ -54,7 +54,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar[E <: Enum](val enum : E)(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar(enum.width, s"DFEnum(${enum.name})") with Var[E]  {
+  ) extends DFAny.NewVar[DFEnum[E]](enum.width, s"DFEnum(${enum.name})") with Var[E]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
