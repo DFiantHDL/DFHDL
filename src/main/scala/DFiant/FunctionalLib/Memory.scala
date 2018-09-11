@@ -1,7 +1,9 @@
 package DFiant.FunctionalLib
 
 import DFiant._
+import singleton.ops._
 import singleton.twoface._
+import internals._
 
 //Memory
 abstract class Memory[W, D] private (width : TwoFace.Int[W], depth : TwoFace.Int[D])(initContents : Array[BitVector] = Array())(
@@ -10,17 +12,26 @@ abstract class Memory[W, D] private (width : TwoFace.Int[W], depth : TwoFace.Int
   final val sizeBits = width * depth
   trait Port {
     type AW
-    val addrWidth : TwoFace.Int[AW] = ???
+    val addrWidth : TwoFace.Int[AW]
     final val addrToMem = new DFBits.NewVar[AW](addrWidth) <> IN
   }
-  class ReadPort[RW](readWidth : TwoFace.Int[RW]) extends Port {
+  abstract class ReadPort[RW](readWidth : TwoFace.Int[RW]) extends Port {
     final val dataFromMem = new DFBits.NewVar[RW](readWidth) <> OUT
   }
-  class WritePort[WW](writeWidth : TwoFace.Int[WW]) extends Port {
+  object ReadPort {
+    type Aux[RW, AW0] = ReadPort[RW] {type AW = AW0}
+    type Inference[RW] = BitsWidthOf.Int[(W * D) / RW]
+    def apply[RW](readWidth: BitsWidth.Checked[RW])(implicit calcAddrWidth: Inference[RW])
+    : Aux[RW, calcAddrWidth.Out] = new ReadPort[RW](readWidth) {
+      type AW = calcAddrWidth.Out
+      val addrWidth: TwoFace.Int[AW] = calcAddrWidth((width * depth) / readWidth)
+    }
+  }
+  abstract class WritePort[WW](writeWidth : TwoFace.Int[WW]) extends Port {
     final val dataToMem = new DFBits.NewVar[WW](writeWidth) <> IN
     final val wrEnToMem = DFBool() <> IN
   }
-  class ReadWritePort(readWidth : Int, writeWidth : Int) extends ReadPort(readWidth) {
+  abstract class ReadWritePort(readWidth : Int, writeWidth : Int) extends ReadPort(readWidth) {
     final val dataToMem = DFBits(writeWidth) <> IN
     final val wrEnToMem = DFBool() <> IN
   }

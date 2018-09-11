@@ -99,6 +99,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected val protInit : Seq[TToken]
   //Only call within lazy val calculation of `protInit` when dependent on other init values
   final protected[DFiant] def getInit : Seq[TToken] = protInit
+//  protected val constVal : TToken
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////

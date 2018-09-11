@@ -179,6 +179,7 @@ object DFUInt extends DFAny.Companion {
       //TODO: Boundary checks
       new Token(width, token.value, token.bubble)
     }
+    implicit def bubbleOf[W] : DFUInt[W] => Token = t => Token(t.width, Bubble)
     implicit val fromBits : DFBits.Token => Token = t => t.toUInt
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

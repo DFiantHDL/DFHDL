@@ -100,6 +100,7 @@ object DFEnum extends DFAny.Companion {
 
     def apply[E <: Enum](width : Int, value : Bubble) : Token[E] = new Token[E](width, null.asInstanceOf[E#Entry])
     def apply[E <: Enum](width : Int, value : E#Entry) : Token[E] = new Token[E](width, value)
+    implicit def bubbleOf[E <: Enum] : DFEnum[E] => Token[E] = t => Token(t.width, Bubble)
     implicit def fromBits[E <: Enum](implicit e : E) : DFBits.Token => Token[E] =
       t => Token[E](e.width, e.entries(t.valueBits.toBigInt).asInstanceOf[E#Entry])
   }

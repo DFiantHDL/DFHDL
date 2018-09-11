@@ -130,6 +130,7 @@ object DFBool extends DFAny.Companion {
     def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
+    implicit val bubbleOf : DFBool => Token = t => Token(Bubble)
     implicit val fromBits : DFBits.Token => Token = t => Token(t.valueBits(0))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

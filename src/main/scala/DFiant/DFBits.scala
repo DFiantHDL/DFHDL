@@ -309,6 +309,7 @@ object DFBits extends DFAny.Companion {
       //TODO: Boundary checks
       value.bits(width-1, 0)
     }
+    implicit def bubbleOf[W] : DFBits[W] => Token = t => Token(t.width, Bubble)
     implicit val fromBits : DFBits.Token => Token = t => t
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
