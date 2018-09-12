@@ -62,7 +62,7 @@ object DFEnum extends DFAny.Companion {
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
   }
 
-  protected[DFiant] final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : AliasReference)(
+  protected[DFiant] final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit val enum : E, ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E]
 
@@ -125,7 +125,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.TEnum](List(left), AliasReference.AsIs(s".as(DFEnum(${mold.enum}))"))(mold.enum, ctx)
+      new Alias[mold.TEnum](List(left), DFAny.Alias.Reference.AsIs(s".as(DFEnum(${mold.enum}))"))(mold.enum, ctx)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -187,7 +187,7 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
-          new Alias(List(left), AliasReference.Prev(right))(left.enum, ctx)
+          new Alias(List(left), DFAny.Alias.Reference.Prev(right))(left.enum, ctx)
       }
     }
   }

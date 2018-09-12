@@ -44,13 +44,13 @@ object DFUInt extends DFAny.Companion {
       tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
     ) : DFUInt[tfs.Out] = {
       val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
-      new DFUInt.Alias[tfs.Out](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
+      new DFUInt.Alias[tfs.Out](List(zeros, this), DFAny.Alias.Reference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
     def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
     : DFUInt[EW] = {
       val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
-      new DFUInt.Alias[EW](List(zeros, this), AliasReference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
+      new DFUInt.Alias[EW](List(zeros, this), DFAny.Alias.Reference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     }
 
     def pattern[R](right : Pattern.Able[R]*)(implicit bld : Pattern.Builder[TVal]) = bld(left, right)
@@ -105,13 +105,13 @@ object DFUInt extends DFAny.Companion {
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
   }
 
-  protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference : AliasReference)(
+  protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFUInt[W]](aliasedVars, reference) with Var[W]
 
   protected[DFiant] final class Extendable[W](extendedVar : DFUInt[W])(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFUInt[W]](List(extendedVar), AliasReference.AsIs(".extendable")) with Var[W] {
+  ) extends DFAny.Alias[DFUInt[W]](List(extendedVar), DFAny.Alias.Reference.AsIs(".extendable")) with Var[W] {
     type TExtendable = true
     override def toString : String = s"DFUInt[$width] & Extendable"
   }
@@ -203,7 +203,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.Width](List(left), AliasReference.AsIs(s".as(DFUInt(${mold.width}))"))
+      new Alias[mold.Width](List(left), DFAny.Alias.Reference.AsIs(s".as(DFUInt(${mold.width}))"))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -300,7 +300,7 @@ object DFUInt extends DFAny.Companion {
     object Builder {
       implicit def ev[LW](implicit ctx : DFAny.Alias.Context) : Builder[DFUInt[LW]] = new Builder[DFUInt[LW]] {
         def apply[P](left : DFUInt[LW], right : Natural.Int.Checked[P]) : DFUInt[LW] =
-          new Alias(List(left), AliasReference.Prev(right))
+          new Alias(List(left), DFAny.Alias.Reference.Prev(right))
       }
     }
   }
@@ -482,8 +482,8 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
-      lazy val c = new DFBool.Alias(List(wc), AliasReference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
+      DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
+      lazy val c = new DFBool.Alias(List(wc), DFAny.Alias.Reference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 
@@ -593,8 +593,8 @@ object DFUInt extends DFAny.Companion {
     //CW = Carry width
     class Component[NCW, WCW, CW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), AliasReference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
-      lazy val c = new DFBits.Alias[CW](List(wc), AliasReference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
+    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
+      lazy val c = new DFBits.Alias[CW](List(wc), DFAny.Alias.Reference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
     }
 

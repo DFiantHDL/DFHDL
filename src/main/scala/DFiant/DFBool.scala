@@ -21,7 +21,7 @@ object DFBool extends DFAny.Companion {
     type Width = 1
     def select[T <: DFAny, L >: T, R >: T](t : Tuple2[L, R]) : T = ???
     def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
-      new DFBool.Alias(List(this), AliasReference.Invert(".invert"))
+      new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 
     def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
     def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
@@ -67,7 +67,7 @@ object DFBool extends DFAny.Companion {
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
   }
 
-  protected[DFiant] final class Alias(aliasedVars : List[DFAny], reference : AliasReference)(
+  protected[DFiant] final class Alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
   ) extends DFAny.Alias[DFBool](aliasedVars, reference) with Var
 
@@ -154,7 +154,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias(List(left), AliasReference.AsIs(s".as(DFBool())"))
+      new Alias(List(left), DFAny.Alias.Reference.AsIs(s".as(DFBool())"))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -205,7 +205,7 @@ object DFBool extends DFAny.Companion {
     object Builder {
       implicit def ev(implicit ctx : DFAny.Alias.Context) : Builder[DFBool] = new Builder[DFBool] {
         def apply[P](left : DFBool, right : Natural.Int.Checked[P]) : DFBool =
-          new Alias(List(left), AliasReference.Prev(right))
+          new Alias(List(left), DFAny.Alias.Reference.Prev(right))
       }
     }
   }

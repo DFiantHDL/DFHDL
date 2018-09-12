@@ -67,7 +67,7 @@
 //    almanac.fetchEntry(new AlmanacEntryNewDFVar(width, init, name, codeString))
 //}
 //
-//final class AlmanacEntryAliasDFVar private (val aliasedEntries : List[AlmanacEntryNamed], val aliasReference : AliasReference, val init : Seq[Token], val name : String, _codeString : => String)(implicit almanac : Almanac) extends AlmanacEntryNamed {
+//final class AlmanacEntryAliasDFVar private (val aliasedEntries : List[AlmanacEntryNamed], val aliasReference : DFAny.Alias.Reference, val init : Seq[Token], val name : String, _codeString : => String)(implicit almanac : Almanac) extends AlmanacEntryNamed {
 //  val id : AlmanacID = AlmanacID()
 //  val address : AlmanacAddress = AlmanacAddressLatest
 //  val width : Int = aliasedEntries.map(a => a.width).sum
@@ -76,7 +76,7 @@
 //}
 //
 //object AlmanacEntryAliasDFVar {
-//  def apply(aliasedEntries : List[AlmanacEntryNamed], aliasReference : AliasReference, init : Seq[Token], name : String, codeString : => String)(implicit almanac : Almanac) : AlmanacEntryAliasDFVar =
+//  def apply(aliasedEntries : List[AlmanacEntryNamed], aliasReference : DFAny.Alias.Reference, init : Seq[Token], name : String, codeString : => String)(implicit almanac : Almanac) : AlmanacEntryAliasDFVar =
 //    almanac.fetchEntry(new AlmanacEntryAliasDFVar(aliasedEntries, aliasReference, init, name, codeString))
 //}
 //

@@ -35,7 +35,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBit[I](relBit : TwoFace.Int[I])(implicit ctx : DFAny.Alias.Context) : TBool =
-    new DFBool.Alias(List(this), AliasReference.BitsWL(1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
+    new DFBool.Alias(List(this), DFAny.Alias.Reference.BitsWL(1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
 
   final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Alias.Context) : TBool =
     protBit(relBit.unsafeCheck(width))
@@ -47,12 +47,12 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
   final def bits(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
-    new DFBits.Alias[Width](List(this), AliasReference.BitsWL(width, 0, ".bits")).asInstanceOf[TBits[Width]]
+    new DFBits.Alias[Width](List(this), DFAny.Alias.Reference.BitsWL(width, 0, ".bits")).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
   ) : TBits[relWidth.Out] =
-    new DFBits.Alias[relWidth.Out](List(this), AliasReference.BitsWL(relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
+    new DFBits.Alias[relWidth.Out](List(this), DFAny.Alias.Reference.BitsWL(relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
     implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
@@ -75,7 +75,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit ctx : DFAny.Alias.Context)
-  : TBits[W] = new DFBits.Alias[W](List(this), AliasReference.BitsWL(relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
+  : TBits[W] = new DFBits.Alias[W](List(this), DFAny.Alias.Reference.BitsWL(relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
@@ -360,13 +360,13 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : AliasReference)(
+  abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny.Var {
     val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({
       val widthSeq : List[Int] = aliasedVars.map(aliasedVar => reference match {
-        case AliasReference.BitsWL(relWidth, _) => relWidth
+        case DFAny.Alias.Reference.BitsWL(relWidth, _) => relWidth
         case _ => aliasedVar.width.getValue
       })
       widthSeq.sum
@@ -376,11 +376,11 @@ object DFAny {
       val initList : List[Seq[DFBits.Token]] = aliasedVars.map(aliasedVar => {
         val currentInit: Seq[DFBits.Token] = aliasedVar.getInit.bits
         val updatedInit: Seq[DFBits.Token] = reference match {
-          case AliasReference.BitsWL(relWidth, relBitLow) => currentInit.bitsWL(relWidth, relBitLow)
-          case AliasReference.Prev(step) => currentInit.prevInit(step)
-          case AliasReference.AsIs() => currentInit
-          case AliasReference.BitReverse() => DFBits.Token.reverse(currentInit)
-          case AliasReference.Invert() => DFBits.Token.unary_~(currentInit)
+          case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentInit.bitsWL(relWidth, relBitLow)
+          case DFAny.Alias.Reference.Prev(step) => currentInit.prevInit(step)
+          case DFAny.Alias.Reference.AsIs() => currentInit
+          case DFAny.Alias.Reference.BitReverse() => DFBits.Token.reverse(currentInit)
+          case DFAny.Alias.Reference.Invert() => DFBits.Token.unary_~(currentInit)
         }
         updatedInit
       })
@@ -390,11 +390,11 @@ object DFAny {
       val constList : List[DFBits.Token] = aliasedVars.map(aliasedVar => {
         val currentConst: DFBits.Token = aliasedVar.constVal.bits
         val updatedConst: DFBits.Token = reference match {
-          case AliasReference.BitsWL(relWidth, relBitLow) => currentConst.bitsWL(relWidth, relBitLow)
-          case AliasReference.Prev(step) => currentConst //TODO: Fix when referencing a previous of a constant
-          case AliasReference.AsIs() => currentConst
-          case AliasReference.BitReverse() => currentConst.reverse
-          case AliasReference.Invert() => ~currentConst
+          case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentConst.bitsWL(relWidth, relBitLow)
+          case DFAny.Alias.Reference.Prev(step) => currentConst //TODO: Fix when referencing a previous of a constant
+          case DFAny.Alias.Reference.AsIs() => currentConst
+          case DFAny.Alias.Reference.BitReverse() => currentConst.reverse
+          case DFAny.Alias.Reference.Invert() => ~currentConst
         }
         updatedConst
       })
@@ -410,6 +410,42 @@ object DFAny {
   object Alias {
     trait Tag
     type Context = DFAnyOwner.Context[DFAnyOwner]
+
+    sealed abstract class Reference(aliasCodeString_ : => String) {
+      lazy val aliasCodeString : String = aliasCodeString_
+    }
+    object Reference {
+      class AsIs(aliasCodeString : => String) extends Reference(aliasCodeString)
+      object AsIs {
+        def apply(aliasCodeString : => String) = new AsIs(aliasCodeString)
+        def unapply(arg: AsIs): Boolean = true
+      }
+      class BitsWL(val relWidth : Int, val relBitLow : Int, aliasCodeString : => String) extends Reference(aliasCodeString)
+      object BitsWL {
+        def apply(relWidth: Int, relBitLow : Int, aliasCodeString : => String) = new BitsWL(relWidth, relBitLow, aliasCodeString)
+        def unapply(arg : BitsWL): Option[(Int, Int)] = Some((arg.relWidth, arg.relBitLow))
+      }
+      class Prev(val step : Int) extends Reference(if (step == 1) ".prev" else s".prev($step)")
+      object Prev {
+        def apply(step : Int) = new Prev(step)
+        def unapply(arg: Prev): Option[Int] = Some(arg.step)
+      }
+      class BitReverse(aliasCodeString : => String) extends Reference(aliasCodeString)
+      object BitReverse {
+        def apply(aliasCodeString : => String) = new BitReverse(aliasCodeString)
+        def unapply(arg: BitReverse): Boolean = true
+      }
+      class Invert(aliasCodeString : => String) extends Reference(aliasCodeString)
+      object Invert {
+        def apply(aliasCodeString : => String) = new Invert(aliasCodeString)
+        def unapply(arg: Invert): Boolean = true
+      }
+//      class Selection(val selector : DFAny, val default : DFAny, aliasCodeString : => String) extends Reference(aliasCodeString)
+//      object Selection {
+//        def apply(selector: DFAny, default : DFAny, aliasCodeString : => String) = new Selection(selector, default, aliasCodeString)
+//        def unapply(arg : Selection): Option[(DFAny, DFAny)] = Some((arg.selector, arg.default))
+//      }
+    }
   }
 
   abstract class Const(token : Token)(
@@ -837,7 +873,7 @@ object DFAny {
     type WSum
     protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
     def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits.Var[w.Out] =
-      new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], AliasReference.AsIs(".bits"))
+      new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], DFAny.Alias.Reference.AsIs(".bits"))
   }
 
   abstract class ValProductExtender(e : Product) {
@@ -851,7 +887,7 @@ object DFAny {
         case dfAny : DFAny => dfAny
         case bv : BitVector => new DFBits.Const[Int](DFBits.Token(bv))
       }
-      new DFBits.Alias[w.Out](list, AliasReference.AsIs(".bits"))
+      new DFBits.Alias[w.Out](list, DFAny.Alias.Reference.AsIs(".bits"))
     }
   }
 
