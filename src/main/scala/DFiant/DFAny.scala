@@ -352,9 +352,8 @@ object DFAny {
     //Also see https://github.com/scala/bug/issues/11026
     //final object ifdf extends ConditionalBlock.WithRetVal[TVal, protComp.Op.Able, protComp.`Op:=`.Builder](NewVar.this)
 
-    def select[T <: TVal](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
-//    def select[SW, T <: TVal](sel : DFUInt[SW], default : T)(args : T*) : T = ???
-    def select[SW, T <: TVal](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
+    def select[T, E](cond : DFBool)(thenSel : protComp.Op.Able[E], elseSel : protComp.Op.Able[T]) : TVal = ???
+    def select[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
     final val id = getID
   }
   object NewVar {

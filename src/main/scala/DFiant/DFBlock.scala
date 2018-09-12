@@ -17,6 +17,8 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
 
   final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
   final object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
+  def select[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
+  def select[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
 
   def compileToVHDL(fileName : String) = ???
 
