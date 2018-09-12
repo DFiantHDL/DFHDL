@@ -1,4 +1,4 @@
 package object Proc {
-  val XLEN = 32
+  final val XLEN = 32
 
 }

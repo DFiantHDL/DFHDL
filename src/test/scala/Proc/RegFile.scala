@@ -12,7 +12,7 @@ trait RegFile extends DFDesign {
   final val rd_wren   = DFBool()       <> IN
 
   private val regsNum = 32
-  private val regs = Array.fill(regsNum)(DFBits(XLEN).init(h"00000000"))
+  private val regs = List.fill(regsNum)(DFBits(XLEN).init(h"00000000"))
   private val rs1_addr_u = rs1_addr.uint
   private val rs2_addr_u = rs2_addr.uint
   private val rd_addr_u = rd_addr.uint
@@ -32,16 +32,14 @@ trait RegFile extends DFDesign {
     }
   })
 
-//  private val rs1_sel = regs.selectWith(rs1_addr_u)
-//  private val rs2_sel = regs.selectWith(rs2_addr_u)
-//  private val rd_sel  = regs.selectWith(rd_addr_u)
+//  private val rs1_sel = DFBits(XLEN).select(rs1_addr_u)(regs)
+//  private val rs2_sel = DFBits(XLEN).select(rs2_addr_u)(regs)
+//  private val rd_sel  = DFBits(XLEN).select(rd_addr_u)(regs)
 //  rs1_data <> rs1_sel.prev
 //  rs2_data <> rs2_sel.prev
 //  ifdf (rd_wren) {
 //    rd_sel := rd_data
 //  }
-
-
 
 }
 
