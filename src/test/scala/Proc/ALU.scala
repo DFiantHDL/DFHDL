@@ -32,6 +32,10 @@ trait ALU extends DFDesign {
   out <> outCalc
 }
 
+
+
+
+
 trait ALUTest extends DFDesign {
   val op1     = DFBits(32)     <> IN init(h"00000000", h"00000001", h"00000002")
   val op2     = DFBits(32)     <> IN init(h"00000010", h"00000011", h"00000012")
@@ -46,6 +50,8 @@ trait ALUTest extends DFDesign {
   aluSel <> alu.aluSel
   out <> alu.out
 }
+
+
 
 
 object ALUTestApp extends App {
