@@ -355,9 +355,6 @@ object DFAny {
     def select[T <: TVal](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
 //    def select[SW, T <: TVal](sel : DFUInt[SW], default : T)(args : T*) : T = ???
     def select[SW, T <: TVal](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
-//    def select(cond : DFBool)(thenSel : TVar, elseSel : TVar) : TVar = ???
-//    def select[SW](sel : DFUInt[SW], default : TVar)(args : TVar*) : TVar = ???
-//    def select[SW](sel : DFUInt[SW], default : TVar)(args : List[TVar]) : TVar = ???
     final val id = getID
   }
   object NewVar {
