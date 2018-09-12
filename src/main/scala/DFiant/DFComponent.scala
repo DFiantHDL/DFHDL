@@ -108,6 +108,13 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   override def constructCodeStringDefault: String = foldedConstructCodeString
 
   private[DFiant] override def designType : String = s"`Func2Comp$opString`"
-  override def foldedConstructCodeString: String = s"(${leftArg.refCodeString} $opString ${rightArg.refCodeString})"
+  override def foldedConstructCodeString: String = {
+    val leftCodeString = leftArg.refCodeString
+    val rightCodeString = rightArg.refCodeString
+    //TODO: fix this space hack
+    val bracketLeft = if (leftCodeString.contains(" ")) s"($leftCodeString)" else leftCodeString
+    val bracketRight = if (rightCodeString.contains(" ")) s"($rightCodeString)" else rightCodeString
+    s"$bracketLeft $opString $bracketRight"
+  }
   override def codeString: String = if (isFolded) super.codeString else valCodeString
 }

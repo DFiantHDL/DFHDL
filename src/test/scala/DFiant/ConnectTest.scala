@@ -182,6 +182,16 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignIf = new IODesignIf {}
     val compare =
       """
+        |trait `Func2Comp<` extends DFDesign {
+        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
+        |  val inRight = DFUInt(4) <> IN                              //init = (8)
+        |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
+        |  val ǂanon = new Relational {}
+        |  ǂanon.inLeft <> inLeft
+        |  ǂanon.inRight <> inRight
+        |  outResult <> ǂanon.outResult
+        |}
+        |
         |trait Relational extends DFDesign {
         |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
         |  val inRight = DFUInt(4) <> IN                              //init = (8)
@@ -210,10 +220,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val ret = DFUInt(8) init(2, 1, Φ, 1)                       //init = (2, 1, Φ, 1)
         |  val retǂif = ifdf(b) {
         |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)                     //init = (1, 1, Φ, 1)
-        |    val ǂanonComp = new Relational {}
-        |    ǂanonComp.inLeft <> i1
-        |    ǂanonComp.inRight <> 8
-        |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
+        |    val ǂanonǂ1 = new `Func2Comp<` {}
+        |    ǂanonǂ1.inLeft <> i1
+        |    ǂanonǂ1.inRight <> 8
+        |    val ǂanonǂif = ifdf(ǂanonǂ1.outResult) {
         |      ǂanon := i1
         |    }.elseifdf(b) {
         |      ǂanon := i2
@@ -254,10 +264,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val ret = DFUInt(8) init(2, 1, Φ, 1)
         |  val retǂif = ifdf(b) {
         |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)
-        |    val ǂanonComp = new DFiant.BasicLib.DFUIntOps.Relational[DFiant.BasicLib.DiSoOp.Kind.<](8, 4) {}
-        |    ǂanonComp.inLeft <> i1
-        |    ǂanonComp.inRight <> 8
-        |    val ǂanonǂif = ifdf(ǂanonComp.outResult) {
+        |    val ǂanonǂif = ifdf(i1 < 8) {
         |      ǂanon := i1
         |    }.elseifdf(b) {
         |      ǂanon := i2
@@ -372,19 +379,28 @@ class ConnectTest extends Properties("ConnectTest") {
         |  outResult <> rtInst.S
         |}
         |
+        |trait `Func2Comp+` extends DFDesign {
+        |  val inLeft = DFUInt(8) <> IN                               //init = (5)
+        |  val inRight = DFUInt(1) <> IN                              //init = (1)
+        |  val outResult = DFUInt(9) <> OUT                           //init = (6)
+        |  val ǂanon = new Arithmetic {}
+        |  ǂanon.inLeft <> inLeft
+        |  ǂanon.inRight <> inRight
+        |  outResult <> ǂanon.outResult
+        |}
+        |
         |trait IODesignConn3 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(5)                            //init = (5)
         |  val o = DFUInt(8) <> OUT                                   //init = (6)
         |  val o_wc = DFUInt(9) <> OUT                                //init = (6)
         |  val o_c = DFBool() <> OUT                                  //init = (false)
-        |  val plusOneComp = new Arithmetic {}
-        |  plusOneComp.inLeft <> i
-        |  plusOneComp.inRight <> 1
-        |  val plusOneWC = plusOneComp.outResult                      //init = (6)
-        |  val plusOne = plusOneWC.bits(7, 0).uint                    //init = (6)
+        |  val ǂplusOneWC = new `Func2Comp+` {}
+        |  ǂplusOneWC.inLeft <> i
+        |  ǂplusOneWC.inRight <> 1
+        |  val plusOne = ǂplusOneWC.outResult.bits(7, 0).uint         //init = (6)
         |  o <> plusOne
-        |  o_wc <> plusOneWC
-        |  val plusOneC = plusOneWC.bit(8)                            //init = (false)
+        |  o_wc <> ǂplusOneWC.outResult
+        |  val plusOneC = ǂplusOneWC.outResult.bit(8)                 //init = (false)
         |  o_c <> plusOneC
         |}
         |
@@ -398,6 +414,16 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn4 = new IODesignConn4 {}
     val compare =
       """
+        |trait `Func2Comp<` extends DFDesign {
+        |  val inLeft = DFUInt(8) <> IN                               //init = (1)
+        |  val inRight = DFUInt(8) <> IN                              //init = (8)
+        |  val outResult = DFBool() <> OUT                            //init = (true)
+        |  val ǂanon = new Relational {}
+        |  ǂanon.inLeft <> inLeft
+        |  ǂanon.inRight <> inRight
+        |  outResult <> ǂanon.outResult
+        |}
+        |
         |trait Relational extends DFDesign {
         |  val inLeft = DFUInt(8) <> IN                               //init = (1)
         |  val inRight = DFUInt(8) <> IN                              //init = (8)
@@ -412,10 +438,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val i1 = DFUInt(8) <> IN init(8)                           //init = (8)
         |  val i2 = DFUInt(8) <> IN init(1)                           //init = (1)
         |  val o = DFBool() <> OUT                                    //init = (true)
-        |  val checkComp = new Relational {}
-        |  checkComp.inLeft <> i2
-        |  checkComp.inRight <> i1
-        |  o <> checkComp.outResult
+        |  val check = new `Func2Comp<` {}
+        |  check.inLeft <> i2
+        |  check.inRight <> i1
+        |  o <> check.outResult
         |}
         |
         |val top_ioDesignConn4 = new IODesignConn4 {}
