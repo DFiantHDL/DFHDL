@@ -33,9 +33,9 @@ trait RegFile extends DFDesign {
     }
   })
 
-  private val rs1_sel = select(rs1_addr_u)(regs)
-  private val rs2_sel = select(rs2_addr_u)(regs)
-  private val rd_sel  = select(rd_addr_u)(regs)
+  private val rs1_sel = selectdf(rs1_addr_u)(regs)
+  private val rs2_sel = selectdf(rs2_addr_u)(regs)
+  private val rd_sel  = selectdf(rd_addr_u)(regs)
   rs1_data <> rs1_sel.prev
   rs2_data <> rs2_sel.prev
   ifdf (rd_wren) {
