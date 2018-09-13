@@ -132,3 +132,5 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   }
 
 }
+
+trait DSLSelfConnectedFoldableOwnerConstruct extends DSLFoldableOwnerConstruct

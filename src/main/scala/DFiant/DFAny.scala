@@ -316,7 +316,7 @@ object DFAny {
     override private[DFiant] def nameDefault = "ǂconnect"
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     def codeString : String = toPort.owner match {
-      case f : DSLFoldableOwnerConstruct if f.isFolded => ""
+      case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
       case _ => connectCodeString
     }
     final val id = getID
