@@ -203,6 +203,24 @@ package object internals {
   implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
     def codeString : String = codeStringOf(t)
   }
+
+  implicit class StringExtras(value : String) {
+    private def hasBrackets : Boolean = value.startsWith("(") && value.endsWith(")")
+    private def requiresBrackets : Boolean = {
+      var count : Int = 0
+      for (i <- 0 until value.length) {
+        value.charAt(i) match {
+          case '(' => count += 1
+          case ')' => count -= 1
+          case ' ' => if (count == 0) return true
+          case _ =>
+        }
+      }
+      false
+    }
+    def applyBrackets(onlyIfRequired : Boolean = true) : String =
+      if (requiresBrackets || (!onlyIfRequired && !hasBrackets)) s"($value)" else value
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
   implicit class ReflectionClassExtras(extended : Any) {

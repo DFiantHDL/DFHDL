@@ -155,8 +155,10 @@ trait DFAny extends DFAnyMember with HasWidth {
   private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
   private def constructCodeString : String =
     if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
-  override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
-    if (isAnonymous && !showAnonymous) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
+  override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = {
+    val ref = if (isAnonymous && !showAnonymous) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
+    ref.applyBrackets() //TODO: consider other way instead of this hack
+  }
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${getInit.codeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"

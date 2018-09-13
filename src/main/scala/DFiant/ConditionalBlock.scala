@@ -35,7 +35,7 @@ object ConditionalBlock {
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂif"
-      override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+      override def codeString: String = s"\nval $name = ifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -48,7 +48,7 @@ object ConditionalBlock {
       extends DFIfBlock(cond, block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
-      override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+      override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
       override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
       prevIfBlock.nextIf = Some(this)
     }
@@ -78,7 +78,7 @@ object ConditionalBlock {
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = ctx.getName
-      override def codeString: String = s"\nval $name = ifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+      override def codeString: String = s"\nval $name = ifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -90,7 +90,7 @@ object ConditionalBlock {
       extends DFIfBlock(cond, block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
-      override def codeString: String = s".elseifdf(${cond.refCodeString}) {$bodyCodeString\n}"
+      override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
     }
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
