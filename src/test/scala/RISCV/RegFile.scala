@@ -1,4 +1,4 @@
-package Proc
+package RISCV
 
 import DFiant._
 

@@ -1,4 +1,4 @@
-package Proc
+package RISCV
 import DFiant._
 
 trait Proc extends DFDesign {
