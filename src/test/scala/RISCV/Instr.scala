@@ -26,13 +26,13 @@ object BranchSel extends Enum.Manual(4) {
 }
 
 object RS1OpSel extends Enum.Manual(2) {
-  val RegSource1, ImmediateUType, ZeroExtendedCSRI  = EntryDelta()
-  val DontCare = RegSource1 //Giving another name to an entry as a Don't Care value
+  val RegSource, Immediate  = EntryDelta()
+  val DontCare = RegSource //Giving another name to an entry as a Don't Care value
 }
 
 object RS2OpSel extends Enum.Manual(2) {
-  val RegSource2, ImmediateIType, ImmediateSType, PC  = EntryDelta()
-  val DontCare = RegSource2
+  val RegSource, Immediate, PC  = EntryDelta()
+  val DontCare = RegSource
 }
 
 object ControlSel extends Enum.Manual(1) {
