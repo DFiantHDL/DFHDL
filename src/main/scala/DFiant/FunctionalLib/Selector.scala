@@ -4,13 +4,13 @@ import DFiant._
 import DFiant.internals._
 import singleton.twoface._
 
-abstract class Selector[Comp <: Selector[Comp, SW, A], SW, A <: DFAny]
-(val sel : DFUInt[SW])(val args: List[A]) (
-  implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
-) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with DFAny { this : A =>
+abstract class Selector[SW, W]
+(val sel : DFUInt[SW])(val args: List[DFBits[W]]) (
+  implicit ctx: DFComponent.Context[Selector[SW, W]], cmp: DFAny.Companion
+) extends DFComponent[Selector[SW, W]] with DSLSelfConnectedFoldableOwnerConstruct with DFBits[W] {
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](args.map(a => a.width.getValue).max)
   final protected[DFiant] val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
-  protected val tokenFunc : (DFUInt.Token, A#TToken) => TToken
+  protected val tokenFunc : (DFUInt.Token, DFBits.Token) => DFBits.Token
 
   final val inSel = sel.copyAsNewPort(IN)
   final val inArgs = args.map(a => a.copyAsNewPort(IN))
