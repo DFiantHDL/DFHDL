@@ -445,10 +445,10 @@ object DFAny {
         def apply(aliasCodeString : => String) = new Invert(aliasCodeString)
         def unapply(arg: Invert): Boolean = true
       }
-//      class Selection(val selector : DFAny, val default : DFAny, aliasCodeString : => String) extends Reference(aliasCodeString)
-//      object Selection {
-//        def apply(selector: DFAny, default : DFAny, aliasCodeString : => String) = new Selection(selector, default, aliasCodeString)
-//        def unapply(arg : Selection): Option[(DFAny, DFAny)] = Some((arg.selector, arg.default))
+//      class Pipe(val depth : Int) extends Reference(if (depth == 1) ".pipe" else s".pipe($depth)")
+//      object Pipe {
+//        def apply(step : Int) = new Pipe(step)
+//        def unapply(arg: Pipe): Option[Int] = Some(arg.depth)
 //      }
     }
   }
