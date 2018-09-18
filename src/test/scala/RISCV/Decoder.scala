@@ -16,13 +16,12 @@ trait Decoder extends DFDesign {
   final val shamt     = DFUInt(5)             <> OUT
 
   //Control Signals
-  final val pcSel     = DFEnum(PCSel)         <> OUT
   final val branchSel = DFEnum(BranchSel)     <> OUT
   final val rs1OpSel  = DFEnum(RS1OpSel)      <> OUT
   final val rs2OpSel  = DFEnum(RS2OpSel)      <> OUT
   final val aluSel    = DFEnum(ALUSel)        <> OUT
   final val wbSel     = DFEnum(WriteBackSel)  <> OUT
-  final val memFuncSel= DFEnum(MemFuncSel)    <> OUT
+  final val mem_wren  = DFBool()              <> OUT
 
 
 }

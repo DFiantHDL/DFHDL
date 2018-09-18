@@ -5,16 +5,17 @@ trait Proc extends DFDesign {
   ////////////////////////////////////////////////////////////////////////
   // Fetch
   ////////////////////////////////////////////////////////////////////////
+  final val imem_addrToMem    = DFBits(32) <> OUT
+  final val imem_dataFromMem  = DFBits(32) <> IN
   private val pcGen = new PCGen {}
-  private val imem = new IMem {}
-  imem.addr <> pcGen.pcCurrent
+  imem_addrToMem <> pcGen.pcCurrent
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Decode
   ////////////////////////////////////////////////////////////////////////
   private val decoder = new Decoder {}
-  decoder.inst <> imem.inst
+  decoder.inst <> imem_dataFromMem
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
@@ -49,9 +50,13 @@ trait Proc extends DFDesign {
   ////////////////////////////////////////////////////////////////////////
   // Memory
   ////////////////////////////////////////////////////////////////////////
-  private val dmem = new DMem {}
-  dmem.addr <> alu.out
-  dmem.dataToMem <> regFile.rs2_data
+  final val dmem_addrToMem    = DFBits(32) <> OUT
+  final val dmem_dataToMem    = DFBits(32) <> OUT
+  final val dmem_wrenToMem    = DFBool()   <> OUT
+  final val dmem_dataFromMem  = DFBits(32) <> IN
+  dmem_addrToMem <> alu.out
+  dmem_dataToMem <> regFile.rs2_data
+  dmem_wrenToMem <> decoder.mem_wren
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
@@ -60,7 +65,7 @@ trait Proc extends DFDesign {
   private val wbData = DFBits(32).matchdf(decoder.wbSel)
     .casedf(WriteBackSel.ALU)     {alu.out}
     .casedf(WriteBackSel.PCPlus4) {pcGen.pcPlus4}
-    .casedf_                      {dmem.dataFromMem}
+    .casedf_                      {dmem_dataFromMem}
   regFile.rd_data <> wbData
   regFile.rd_wren <> decoder.rd_wren
   regFile.rd_addr <> decoder.rd_addr
