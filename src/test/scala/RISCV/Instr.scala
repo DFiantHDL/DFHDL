@@ -35,11 +35,6 @@ object RS2OpSel extends Enum.Manual(2) {
   val DontCare = RegSource
 }
 
-object ControlSel extends Enum.Manual(1) {
-  val Disable, Enable = EntryDelta()
-  val DontCare = Disable
-}
-
 object ALUSel extends Enum.Manual(4) {
   val DontCare, ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
 }
