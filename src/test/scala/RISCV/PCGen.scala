@@ -10,7 +10,7 @@ trait PCGen extends DFDesign {
   final val rs2_data  = DFBits(XLEN)      <> IN
   final val imm       = DFBits(32)        <> IN
 
-  private val pc = DFUInt(32) init(0)
+  private val pc = DFUInt(32) init(StartAddress)
   private val pcp4 = pc + 4
   pcCurrent := pc.bits
   pcPlus4 := pcp4.bits
