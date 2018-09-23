@@ -40,6 +40,10 @@ abstract class MutableLazyBox[T] private (path : String) {
     valueOrError = Error(path,"Uninitialized")
     locked = false
   }
+  def get : T = valueOrError match {
+    case Value(v) => v
+    case Error(p, m) => throw new IllegalArgumentException(s"\n$m at $p")
+  }
 //  @inline def getOrElse[B >: T](default: => B): B
 //  {
 //    valueOption.getOrElse(default)
