@@ -22,32 +22,32 @@ abstract class MutableLazyBox[T] private (path : String) {
   import MutableLazyBox.ValueOrError._
   def valueFunc : ValueOrError[T]
   private var visited : Boolean = false
-  private var locked : Boolean = false
+  private var initialized : Boolean = false
   private var valueOrError : ValueOrError[T] = Error(path, "Uninitialized")
   def getValueOrError : ValueOrError[T] = {
     if (visited) Error(path, "Circular dependency detected")
     else {
-      if (!locked) {
+      if (!initialized) {
         visited = true
         valueOrError = valueFunc
         visited = false
-        locked = true
+        initialized = true
       }
       valueOrError
     }
   }
   private def clearValue() : Unit = {
     valueOrError = Error(path,"Uninitialized")
-    locked = false
+    initialized = false
   }
   def get : T = valueOrError match {
     case Value(v) => v
     case Error(p, m) => throw new IllegalArgumentException(s"\n$m at $p")
   }
-//  @inline def getOrElse[B >: T](default: => B): B
-//  {
-//    valueOption.getOrElse(default)
-//  }
+  def set(value : T) : Unit = {
+    valueOrError = Value(value)
+    initialized = true
+  }
 }
 
 
