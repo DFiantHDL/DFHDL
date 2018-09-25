@@ -53,15 +53,18 @@ object LazyBox {
     case class Value[+T](value : T) extends ValueOrError[T]
     case class Error(path : String, msg : String) extends ValueOrError[Nothing]
   }
-  case class Mutable[T](path : String) extends LazyBox[T](path){
+  case class Mutable[T](path : String)(initialization : Option[T] = None) extends LazyBox[T](path){
     import LazyBox.ValueOrError._
-    private var mutableValueFunc : () => ValueOrError[T] = () => Error(path, "Uninitialized")
+    private var mutableValueFunc : () => ValueOrError[T] = () => initialization match {
+      case Some(t) => Value(t)
+      case _ => Error(path, "Uninitialized")
+    }
     final def valueFunc : ValueOrError[T] = mutableValueFunc()
-    private var initialized = false
-    final def isInitialized : Boolean = initialized
+    private var isset = false
+    final def isSet : Boolean = isset
     def set(value : LazyBox[T]) : Unit = {
       mutableValueFunc = () => value.getValueOrError
-      initialized = true
+      isset = true
     }
   }
   case class Const[+T](path : String)(value : T) extends LazyBox[T](path){

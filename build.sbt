@@ -103,7 +103,7 @@ libraryDependencies ++= Seq(
 
 resolvers += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
 
-libraryDependencies += "oscar" %% "oscar-cp" % "4.1.0-SNAPSHOT"
+//libraryDependencies += "oscar" %% "oscar-cp" % "4.1.0-SNAPSHOT"
 
 //libraryDependencies += "oscar" %% "oscar-linprog" % "3.0.0"
 //

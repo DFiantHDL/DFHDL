@@ -222,7 +222,7 @@ object ConditionalBlock {
       returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
       mutableOwner.value = originalOwner
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
-      private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = ??? //LazyBox.Args1C(fullName)(DFAny.Token.patternMatch, matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
+      private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = LazyBox.Args1C(fullName)(DFAny.Token.patternMatch[matchVal.TToken, matchVal.TToken#TPattern], matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
       protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](fullName)(DFBool.Token.select, patternLB, returnValue.initLB, nextCase.get.initLB)
     }
 

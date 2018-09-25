@@ -224,7 +224,7 @@ object BasicTest extends App {
   implicit val a = DFAnyConfiguration.detailed
 //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
-  val top_ioDesignConn3 = new IODesignConn3 {}.printCodeString
+//  val top_ioDesignConn3 = new IODesignConn3 {}.printCodeString
 //  val top_ioDesignConn4 = new IODesignConn4 {}
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
@@ -236,7 +236,7 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)
 
-//  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
+  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
 
 //  val top_ioDesignConn9 = new IODesignConn9 {}.printCodeString
 //  import GlobalDesign._

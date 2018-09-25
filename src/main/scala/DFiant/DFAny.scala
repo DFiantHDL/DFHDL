@@ -258,10 +258,10 @@ object DFAny {
       initialize(LazyBox.Const(fullName)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    final protected[DFiant] lazy val initLB = LazyBox.Mutable[Seq[TToken]](fullName)
+    final protected[DFiant] lazy val initLB = LazyBox.Mutable[Seq[TToken]](fullName)(Some(Seq()))
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
-      if (initLB.isInitialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
+      if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       updatedInit = () => updatedInitLB.get
       initLB.set(updatedInitLB)
@@ -270,7 +270,10 @@ object DFAny {
     private[DFiant] object setInitFunc {
       def forced(value : LazyBox[Seq[Token]]) : Unit = initLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
     }
-    final def initCodeString : String = if (initLB.isInitialized) s" init${updatedInit().codeString}" else ""
+    final def initCodeString : String = {
+      val init = updatedInit()
+      if (initLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
+    }
 
     //////////////////////////////////////////////////////////////////////////
     // Connectivity
@@ -645,7 +648,7 @@ object DFAny {
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
       def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
     }
-    def patternMatch[T <: Token, P <: Pattern[P]](tokenSeq : Seq[T], pattern : P) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
+    def patternMatch[T <: Token, P <: Pattern[_]](tokenSeq : Seq[T], pattern : P) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
   }
 
   object TokenSeq {
