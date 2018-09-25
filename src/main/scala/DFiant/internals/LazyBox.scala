@@ -2,22 +2,6 @@ package DFiant.internals
 
 import DFiant.internals.LazyBox.ValueOrError
 
-//final class LazyBox[+T](value : => T) {
-//  private var visited : Boolean = false
-//  lazy val valueOption : Option[T] = {
-//    if (visited) None
-//    else {
-//      visited = true
-//      Some(value)
-//    }
-//  }
-//  @inline def getOrElse[B >: T](default: => B): B = valueOption.getOrElse(default)
-//}
-//object LazyBox {
-//  def apply[T](value : => T) : LazyBox[T] = new LazyBox[T](value)
-//}
-
-//(args : List[MutableLazyBox[_]], func : List[MutableLazyBox[_]] => T)
 abstract class LazyBox[+T] private (path : String) {
   import LazyBox.ValueOrError._
   def valueFunc : ValueOrError[T]
