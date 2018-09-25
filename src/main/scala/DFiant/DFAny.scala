@@ -97,8 +97,8 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
   protected[DFiant] val initLB : LazyBox[Seq[TToken]]
-  protected[DFiant] val constVal : TToken
-  final def isConstant : Boolean = !constVal.isBubble
+  protected[DFiant] val constLB : LazyBox[TToken]
+  final def isConstant : Boolean = !constLB.get.isBubble
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -259,6 +259,7 @@ object DFAny {
       this.asInstanceOf[TPostInit]
     }
     final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
+    protected[DFiant] val constLB : LazyBox.Mutable[TToken]
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -290,6 +291,7 @@ object DFAny {
       if (toVar.assigned) throwConnectionError(s"Target port ${toVar.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toVar
       toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
+      toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
       toVar.connectedSource = Some(fromVal)
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
@@ -336,7 +338,8 @@ object DFAny {
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
-    final protected[DFiant] lazy val constVal : TToken = bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken] //TODO: set dependency on assignment
+    final protected[DFiant] lazy val constLB =
+      LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -379,20 +382,18 @@ object DFAny {
       updatedInit
     }).reduce(DFBits.Token.concat).map(protTokenBitsToTToken.asInstanceOf[DFBits.Token => TToken])
     final protected[DFiant] val initLB : LazyBox[Seq[TToken]] = LazyBox.ArgList[Seq[TToken], Seq[Token]](this)(initFunc, aliasedVars.map(v => v.initLB))
-    final protected[DFiant] lazy val constVal : TToken = {
-      val constList : List[DFBits.Token] = aliasedVars.map(aliasedVar => {
-        val currentConst: DFBits.Token = aliasedVar.constVal.bits
-        val updatedConst: DFBits.Token = reference match {
-          case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentConst.bitsWL(relWidth, relBitLow)
-          case DFAny.Alias.Reference.Prev(step) => currentConst //TODO: Fix when referencing a previous of a constant
-          case DFAny.Alias.Reference.AsIs() => currentConst
-          case DFAny.Alias.Reference.BitReverse() => currentConst.reverse
-          case DFAny.Alias.Reference.Invert() => ~currentConst
-        }
-        updatedConst
-      })
-      protTokenBitsToTToken(constList.reduce((a, b) => a ## b)).asInstanceOf[TToken]
-    }
+    private val constFunc : List[DFAny.Token] => TToken = constList => constList.map(c => {
+      val currentConst: DFBits.Token = c.bits
+      val updatedConst: DFBits.Token = reference match {
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentConst.bitsWL(relWidth, relBitLow)
+        case DFAny.Alias.Reference.Prev(step) => currentConst //TODO: Fix when referencing a previous of a constant
+        case DFAny.Alias.Reference.AsIs() => currentConst
+        case DFAny.Alias.Reference.BitReverse() => currentConst.reverse
+        case DFAny.Alias.Reference.Invert() => ~currentConst
+      }
+      updatedConst
+    }).reduce((a, b) => a ## b).asInstanceOf[TToken]
+    final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.ArgList[TToken, DFAny.Token](this)(constFunc, aliasedVars.map(v => v.constLB))
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
@@ -450,7 +451,7 @@ object DFAny {
     final protected[DFiant] val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
-    final protected[DFiant] val constVal = token.asInstanceOf[TToken]
+    final protected[DFiant] val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
     final val isPort = false
     final val id = getID
   }
@@ -471,10 +472,8 @@ object DFAny {
     type TDir = Dir
     val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
-    final protected[DFiant] lazy val constVal = connectedSource match {
-      case Some(v) => v.constVal.asInstanceOf[TToken]
-      case _ => bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]
-    }
+    final protected[DFiant] lazy val constLB =
+      LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies

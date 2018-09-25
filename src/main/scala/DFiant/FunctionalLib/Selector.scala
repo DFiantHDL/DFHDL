@@ -23,7 +23,7 @@ abstract class Selector[SW, W]
 //  }
 
   final lazy val protInit: Seq[TToken] = initFunc.get
-  final lazy val constVal : TToken = ??? // tokenFunc(inLeft.constVal.asInstanceOf[leftArg.TToken], inRight.constVal.asInstanceOf[rightArg.TToken])
+  final lazy val constLB : LazyBox[TToken] = ??? // tokenFunc(inLeft.constVal.asInstanceOf[leftArg.TToken], inRight.constVal.asInstanceOf[rightArg.TToken])
 
   inSel.connectVal2Port(sel)
   inArgs.zip(args).foreach{case (inArg, arg) => inArg.connectVal2Port(arg)}
