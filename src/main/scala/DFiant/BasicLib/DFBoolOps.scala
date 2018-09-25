@@ -17,7 +17,7 @@ object DFBoolOps {
         case _: DiSoOp.Kind.!= => DFBool.Token.!=
         case _ => throw new IllegalArgumentException("Unexptected operation")
       }
-      setInitFunc(outResult)(LazyBox.Args2(fullName)(func, getInit(inLeft), getInit(inRight)))
+      setInitFunc(outResult)(LazyBox.Args2(this)(func, getInit(inLeft), getInit(inRight)))
     }
     final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }

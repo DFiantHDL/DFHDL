@@ -255,10 +255,10 @@ object DFAny {
     final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
-      initialize(LazyBox.Const(fullName)(op(left, that)), ctx.owner)
+      initialize(LazyBox.Const(this)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    final protected[DFiant] lazy val initLB = LazyBox.Mutable[Seq[TToken]](fullName)(Some(Seq()))
+    final protected[DFiant] lazy val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -378,7 +378,7 @@ object DFAny {
       }
       updatedInit
     }).reduce(DFBits.Token.concat).map(protTokenBitsToTToken.asInstanceOf[DFBits.Token => TToken])
-    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.ArgList[Seq[TToken], Seq[Token]](fullName)(initFunc, aliasedVars.map(v => v.initLB))
+    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.ArgList[Seq[TToken], Seq[Token]](this)(initFunc, aliasedVars.map(v => v.initLB))
     final protected[DFiant] lazy val constVal : TToken = {
       val constList : List[DFBits.Token] = aliasedVars.map(aliasedVar => {
         val currentConst: DFBits.Token = aliasedVar.constVal.bits
@@ -447,7 +447,7 @@ object DFAny {
     val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(fullName)(Seq(token).asInstanceOf[Seq[TToken]])
+    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] val constVal = token.asInstanceOf[TToken]
