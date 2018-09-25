@@ -1,5 +1,5 @@
 import DFiant._
-
+import DFiant.internals.LazyBox
 import org.scalacheck._
 import shapeless.test.illTyped
 import TestUtils._
@@ -54,7 +54,7 @@ class ConnectTest extends Properties("ConnectTest") {
   class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
     final val I = DFUInt(width) <> IN
     final val O = DFUInt(width) <> OUT
-    setInitFunc(O)(DFUInt.Token.+(getInit(I), getInit(I)))
+    setInitFunc(O)(LazyBox.Args2(fullName)(DFUInt.Token.+, getInit(I), getInit(I)))
   }
 
   trait Comp extends DFComponent[Comp] {

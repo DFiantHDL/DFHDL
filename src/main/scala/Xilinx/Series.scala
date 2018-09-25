@@ -1,6 +1,7 @@
 package Xilinx
 import DFiant._
 import DFiant.BasicLib.DFBasicLib
+import internals._
 
 trait Series {
   implicit object basicLib extends DFiant.BasicLib.DFBasicLib {
@@ -14,7 +15,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(DFUInt.Token.+(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.+, getInit(A), getInit(B)))
       }
 
       class RTSub(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -22,7 +23,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(DFUInt.Token.-(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.-, getInit(A), getInit(B)))
       }
 
       class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -30,7 +31,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(DFUInt.Token.*(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.*, getInit(A), getInit(B)))
       }
 
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
@@ -39,12 +40,12 @@ trait Series {
         final val B = DFUInt(bWidth) <> IN
         final val S = DFBool() <> OUT
         opString match {
-          case "==" => setInitFunc(S)(DFUInt.Token.==(getInit(A), getInit(B)))
-          case "!=" => setInitFunc(S)(DFUInt.Token.!=(getInit(A), getInit(B)))
-          case "<"  => setInitFunc(S)(DFUInt.Token.<(getInit(A), getInit(B)))
-          case ">"  => setInitFunc(S)(DFUInt.Token.>(getInit(A), getInit(B)))
-          case "<=" => setInitFunc(S)(DFUInt.Token.<=(getInit(A), getInit(B)))
-          case ">=" => setInitFunc(S)(DFUInt.Token.>=(getInit(A), getInit(B)))
+          case "==" => setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.==, getInit(A), getInit(B)))
+          case "!=" => setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.!=, getInit(A), getInit(B)))
+          case "<"  => setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.<, getInit(A), getInit(B)))
+          case ">"  => setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.>, getInit(A), getInit(B)))
+          case "<=" => setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.<=, getInit(A), getInit(B)))
+          case ">=" => setInitFunc(S)(LazyBox.Args2(fullName)(DFUInt.Token.>=, getInit(A), getInit(B)))
         }
       }
 
@@ -126,7 +127,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFSInt(sWidth) <> OUT
-        setInitFunc(S)(DFSInt.Token.+(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.+, getInit(A), getInit(B)))      
       }
 
       class RTSub(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -134,7 +135,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFSInt(sWidth) <> OUT
-        setInitFunc(S)(DFSInt.Token.-(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.-, getInit(A), getInit(B)))      
       }
 
       class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -142,7 +143,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFSInt(sWidth) <> OUT
-        setInitFunc(S)(DFSInt.Token.*(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.*, getInit(A), getInit(B)))
       }
 
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
@@ -151,12 +152,12 @@ trait Series {
         final val B = DFSInt(bWidth) <> IN
         final val S = DFBool() <> OUT
         opString match {
-          case "==" => setInitFunc(S)(DFSInt.Token.==(getInit(A), getInit(B)))
-          case "!=" => setInitFunc(S)(DFSInt.Token.!=(getInit(A), getInit(B)))
-          case "<"  => setInitFunc(S)(DFSInt.Token.<(getInit(A), getInit(B)))
-          case ">"  => setInitFunc(S)(DFSInt.Token.>(getInit(A), getInit(B)))
-          case "<=" => setInitFunc(S)(DFSInt.Token.<=(getInit(A), getInit(B)))
-          case ">=" => setInitFunc(S)(DFSInt.Token.>=(getInit(A), getInit(B)))
+          case "==" => setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.==, getInit(A), getInit(B)))
+          case "!=" => setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.!=, getInit(A), getInit(B)))
+          case "<"  => setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.<, getInit(A), getInit(B)))
+          case ">"  => setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.>, getInit(A), getInit(B)))
+          case "<=" => setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.<=, getInit(A), getInit(B)))
+          case ">=" => setInitFunc(S)(LazyBox.Args2(fullName)(DFSInt.Token.>=, getInit(A), getInit(B)))
         }
       }
 
@@ -230,7 +231,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFSInt(aWidth) <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(initFunc, getInit(A), getInit(B)))
       }
       implicit val `Comp<<` : `Comp<<` => Unit = comp => {
         import comp._
@@ -261,7 +262,7 @@ trait Series {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBits(sWidth) <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(initFunc, getInit(A), getInit(B)))
       }
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
         (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token])
@@ -269,7 +270,7 @@ trait Series {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(initFunc, getInit(A), getInit(B)))
       }
       implicit val `Comp|` : `Comp|` => Unit = comp => {
         import comp._
@@ -312,7 +313,7 @@ trait Series {
         final val A = DFBits(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFBits(aWidth) <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(initFunc, getInit(A), getInit(B)))
       }
       implicit val `Comp<<` : `Comp<<` => Unit = comp => {
         import comp._
@@ -343,7 +344,7 @@ trait Series {
         final val A = DFBool() <> IN
         final val B = DFBool() <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(initFunc(getInit(A), getInit(B)))
+        setInitFunc(S)(LazyBox.Args2(fullName)(initFunc, getInit(A), getInit(B)))
       }
       implicit val `Comp||` : `Comp||` => Unit = comp => {
         import comp._

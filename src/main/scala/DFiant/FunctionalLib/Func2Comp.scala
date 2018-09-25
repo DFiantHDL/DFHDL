@@ -16,13 +16,12 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final val inRight = rightArg.copyAsNewPort(IN)
   final val outResult = this.copyAsNewPort(OUT)
 
-  private def initFunc: Seq[TToken] = {
-    def leftInit = inLeft.getInit.asInstanceOf[Seq[leftArg.TToken]]
-    def rightInit = inRight.getInit.asInstanceOf[Seq[rightArg.TToken]]
-    DFAny.TokenSeq(leftInit, rightInit)(tokenFunc)
+  final protected[DFiant] lazy val initLB: LazyBox[Seq[TToken]] = {
+    def leftInit = inLeft.initLB.asInstanceOf[LazyBox[Seq[leftArg.TToken]]]
+    def rightInit = inRight.initLB.asInstanceOf[LazyBox[Seq[rightArg.TToken]]]
+    LazyBox.Args2[Seq[TToken],Seq[leftArg.TToken],Seq[rightArg.TToken]](fullName)((l, r) => DFAny.TokenSeq(l, r)(tokenFunc), leftInit, rightInit)
   }
 
-  final lazy val protInit: Seq[TToken] = initFunc
   final lazy val constVal : TToken = tokenFunc(inLeft.constVal.asInstanceOf[leftArg.TToken], inRight.constVal.asInstanceOf[rightArg.TToken])
 
   inLeft.connectVal2Port(leftArg)
@@ -31,7 +30,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   //  outResult.connectVal2Port(this)
   override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
   override protected def foldedRun: Unit = {
-    outResult.setInitFunc.forced(initFunc)
+    outResult.setInitFunc.forced(initLB)
   }
 
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil

@@ -1,6 +1,7 @@
 package DFiant.BasicLib
 
 import DFiant._
+import internals._
 
 object DFSIntOps {
   class Arithmetic[Kind <: DiSoOp.Kind](
@@ -11,12 +12,13 @@ object DFSIntOps {
     final val inRight = DFSInt(rightWidth) <> IN
     final val outResult = DFSInt(resultWidth) <> OUT
     override protected def foldedRun: Unit = {
-      kind match {
-        case _: DiSoOp.Kind.+ => setInitFunc(outResult)(DFSInt.Token.+(getInit(inLeft), getInit(inRight)))
-        case _: DiSoOp.Kind.- => setInitFunc(outResult)(DFSInt.Token.-(getInit(inLeft), getInit(inRight)))
-        case _: DiSoOp.Kind.* => setInitFunc(outResult)(DFSInt.Token.*(getInit(inLeft), getInit(inRight)))
-        case _ =>
+      val func = kind match {
+        case _: DiSoOp.Kind.+ => DFSInt.Token.+
+        case _: DiSoOp.Kind.- => DFSInt.Token.-
+        case _: DiSoOp.Kind.* => DFSInt.Token.*
+        case _ => throw new IllegalArgumentException("Unexptected operation")
       }
+      setInitFunc(outResult)(LazyBox.Args2(fullName)(func, getInit(inLeft), getInit(inRight)))
     }
     final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }
@@ -50,11 +52,12 @@ object DFSIntOps {
     final val inRight = DFUInt(rightWidth) <> IN
     final val outResult = DFSInt(leftWidth) <> OUT
     override protected def foldedRun: Unit = {
-      kind match {
-        case _: DiSoOp.Kind.<< => setInitFunc(outResult)(DFSInt.Token.<<(getInit(inLeft), getInit(inRight)))
-        case _: DiSoOp.Kind.>> => setInitFunc(outResult)(DFSInt.Token.>>(getInit(inLeft), getInit(inRight)))
-        case _ =>
+      val func = kind match {
+        case _: DiSoOp.Kind.<< => DFSInt.Token.<<
+        case _: DiSoOp.Kind.>> => DFSInt.Token.>>
+        case _ => throw new IllegalArgumentException("Unexptected operation")
       }
+      setInitFunc(outResult)(LazyBox.Args2(fullName)(func, getInit(inLeft), getInit(inRight)))
     }
     final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   }

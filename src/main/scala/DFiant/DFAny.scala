@@ -96,9 +96,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Init (for use with Prev)
   //////////////////////////////////////////////////////////////////////////
-  protected val protInit : Seq[TToken]
-  //Only call within lazy val calculation of `protInit` when dependent on other init values
-  final protected[DFiant] def getInit : Seq[TToken] = protInit
+  protected[DFiant] val initLB : LazyBox[Seq[TToken]]
   protected[DFiant] val constVal : TToken
   final def isConstant : Boolean = !constVal.isBubble
   //////////////////////////////////////////////////////////////////////////
@@ -160,7 +158,7 @@ trait DFAny extends DFAnyMember with HasWidth {
     ref.applyBrackets() //TODO: consider other way instead of this hack
   }
   private def initCommentString : String =
-    if (config.commentInitValues) s"//init = ${getInit.codeString}" else ""
+    if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
   def codeString : String = f"$valCodeString%-60s$initCommentString"
   //////////////////////////////////////////////////////////////////////////
@@ -257,33 +255,22 @@ object DFAny {
     final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
-      initialize(op(left, that), ctx.owner)
+      initialize(LazyBox.Const(fullName)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    final private var initialized : Boolean = false
+    final protected[DFiant] lazy val initLB = LazyBox.Mutable[Seq[TToken]](fullName)
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
-    final protected[DFiant] def initialize(updatedInit0 : => Seq[TToken], owner : DFAnyOwner) : Unit = {
-      if (initialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
+    final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
+      if (initLB.isInitialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
-      updatedInit = () => updatedInit0
-      initialized = true
-      setInitFunc(updatedInit0)
+      updatedInit = () => updatedInitLB.get
+      initLB.set(updatedInitLB)
     }
     final def reInit(cond : DFBool) : Unit = ???
-    final private var _initFunc : () => Seq[TToken] = () => Seq()
-    final protected[DFiant] def setInitFunc(value : => Seq[TToken]) : Unit = {
-//      println(s"setInitFunc $fullName")
-      _initFunc = () => value
-    }
     private[DFiant] object setInitFunc {
-      def forced(value : => Seq[Token]) : Unit = setInitFunc(value.asInstanceOf[Seq[TToken]])
+      def forced(value : LazyBox[Seq[Token]]) : Unit = initLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
     }
-    final private val initLB = LazyBox({
-//      println(s"initLB $fullName")
-      _initFunc()
-    })
-    final protected lazy val protInit : Seq[TToken] = initLB getOrElse(throw new IllegalArgumentException("\nCircular initialization detected"))
-    final def initCodeString : String = if (initialized) s" init${updatedInit().codeString}" else ""
+    final def initCodeString : String = if (initLB.isInitialized) s" init${updatedInit().codeString}" else ""
 
     //////////////////////////////////////////////////////////////////////////
     // Connectivity
@@ -299,7 +286,7 @@ object DFAny {
       if (toVar.connected) throwConnectionError(s"Target port ${toVar.fullName} already has a connection: ${toVar.connectedSource.get.fullName}")
       if (toVar.assigned) throwConnectionError(s"Target port ${toVar.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toVar
-      toVar.setInitFunc(fromVal.getInit.asInstanceOf[Seq[toVar.TToken]])
+      toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
       toVar.connectedSource = Some(fromVal)
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
@@ -377,20 +364,18 @@ object DFAny {
       widthSeq.sum
     })
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected lazy val protInit : Seq[TToken] = {
-      val initList : List[Seq[DFBits.Token]] = aliasedVars.map(aliasedVar => {
-        val currentInit: Seq[DFBits.Token] = aliasedVar.getInit.bits
-        val updatedInit: Seq[DFBits.Token] = reference match {
-          case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentInit.bitsWL(relWidth, relBitLow)
-          case DFAny.Alias.Reference.Prev(step) => currentInit.prevInit(step)
-          case DFAny.Alias.Reference.AsIs() => currentInit
-          case DFAny.Alias.Reference.BitReverse() => DFBits.Token.reverse(currentInit)
-          case DFAny.Alias.Reference.Invert() => DFBits.Token.unary_~(currentInit)
-        }
-        updatedInit
-      })
-      initList.reduce(DFBits.Token.##).map(protTokenBitsToTToken.asInstanceOf[DFBits.Token => TToken])
-    }
+    private val initFunc : List[Seq[DFAny.Token]] => Seq[TToken] = initList => initList.map(i => {
+      val currentInit: Seq[DFBits.Token] = i.bits
+      val updatedInit: Seq[DFBits.Token] = reference match {
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentInit.bitsWL(relWidth, relBitLow)
+        case DFAny.Alias.Reference.Prev(step) => currentInit.prevInit(step)
+        case DFAny.Alias.Reference.AsIs() => currentInit
+        case DFAny.Alias.Reference.BitReverse() => DFBits.Token.reverse(currentInit)
+        case DFAny.Alias.Reference.Invert() => DFBits.Token.unary_~(currentInit)
+      }
+      updatedInit
+    }).reduce(DFBits.Token.concat).map(protTokenBitsToTToken.asInstanceOf[DFBits.Token => TToken])
+    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.ArgList[Seq[TToken], Seq[Token]](fullName)(initFunc, aliasedVars.map(v => v.initLB))
     final protected[DFiant] lazy val constVal : TToken = {
       val constList : List[DFBits.Token] = aliasedVars.map(aliasedVar => {
         val currentConst: DFBits.Token = aliasedVar.constVal.bits
@@ -459,7 +444,7 @@ object DFAny {
     val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
-    final protected lazy val protInit : Seq[TToken] = Seq(token).asInstanceOf[Seq[TToken]]
+    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(fullName)(Seq(token).asInstanceOf[Seq[TToken]])
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] val constVal = token.asInstanceOf[TToken]
@@ -660,6 +645,7 @@ object DFAny {
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
       def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
     }
+    def patternMatch[T <: Token, P <: Pattern[P]](tokenSeq : Seq[T], pattern : P) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
   }
 
   object TokenSeq {

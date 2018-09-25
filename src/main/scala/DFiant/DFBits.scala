@@ -286,14 +286,14 @@ object DFBits extends DFAny.Companion {
 
   object Token extends TokenCO {
     import DFAny.TokenSeq
-    def | (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l | r)
-    def & (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l & r)
-    def ^ (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l ^ r)
-    def ## (left : Seq[Token], right : Seq[Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l ## r)
-    def << (left : Seq[Token], right : Seq[DFUInt.Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l << r)
-    def >> (left : Seq[Token], right : Seq[DFUInt.Token]) : Seq[Token] = TokenSeq(left, right)((l, r) => l >> r)
-    def == (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
-    def != (left : Seq[Token], right : Seq[Token]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
+    val | : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l | r)
+    val & : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l & r)
+    val ^ : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ^ r)
+    val concat : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ## r)
+    val << : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l << r)
+    val >> : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
+    val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
+    val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
     def unary_~ (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => ~t)
     def reverse (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => t.reverse)
     def toUInt(left : Seq[Token]) : Seq[DFUInt.Token] = TokenSeq(left)(t => t.toUInt)

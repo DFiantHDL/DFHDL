@@ -17,9 +17,9 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   final override private[DFiant] def nameDefault: String = ctx.getName
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : => Seq[dfVal.TToken])
-  : Unit = dfVal.setInitFunc(value)
-  final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : Seq[dfVal.TToken] = dfVal.getInit
+  final protected def setInitFunc[DFVal <: DFAny.Uninitialized](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
+  : Unit = dfVal.setInitFunc.forced(value)
+  final protected def getInit[DFVal <: DFAny.Uninitialized](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
 
   final protected[DFiant] lazy val init : Unit = {}
   final val id = getID

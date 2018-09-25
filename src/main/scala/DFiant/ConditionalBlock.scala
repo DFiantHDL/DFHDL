@@ -25,10 +25,9 @@ object ConditionalBlock {
       def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[RV, R])
       : RV = {
         val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-        returnVar.initialize(firstIf.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
+        returnVar.initialize(firstIf.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
-      def initFunc : Seq[RV#TToken] = DFBool.Token.select(cond.getInit, returnValue.getInit, nextIf.get.initFunc)
       private[DFiant] val firstIf : DFIfBlock = this
       private[DFiant] var nextIf : Option[DFIfBlock] = None
 
@@ -42,6 +41,8 @@ object ConditionalBlock {
       final val returnValue : RV = block
       returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
       mutableOwner.value = originalOwner
+
+      protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken], Seq[DFBool.Token], Seq[RV#TToken], Seq[RV#TToken]](fullName)(DFBool.Token.select, cond.initLB, returnValue.initLB, nextIf.get.initLB)
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner : MutableOwner)
@@ -58,7 +59,7 @@ object ConditionalBlock {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelse"
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
-      override def initFunc : Seq[RV#TToken] = returnValue.getInit
+      override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
       override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
       prevIfBlock.nextIf = Some(this)
     }
@@ -201,7 +202,7 @@ object ConditionalBlock {
       def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[RV, R])
       : RV = {
         val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-        returnVar.initialize(firstCase.initFunc.asInstanceOf[Seq[returnVar.TToken]], ctx.owner)
+        returnVar.initialize(firstCase.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
       private var nextCase : Option[DFCasePatternBlock[MV]] = None
@@ -221,7 +222,8 @@ object ConditionalBlock {
       returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
       mutableOwner.value = originalOwner
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
-      def initFunc : Seq[RV#TToken] = DFBool.Token.select(matchVal.getInit.patternMatch(pattern.asInstanceOf[matchVal.TToken#TPattern]), returnValue.getInit, nextCase.get.initFunc)
+      private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = ??? //LazyBox.Args1C(fullName)(DFAny.Token.patternMatch, matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
+      protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](fullName)(DFBool.Token.select, patternLB, returnValue.initLB, nextCase.get.initLB)
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
@@ -229,7 +231,7 @@ object ConditionalBlock {
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂcase_"
       override def codeString: String = s".casedf_ {$bodyCodeString\n}"
-      override def initFunc : Seq[RV#TToken] = returnValue.getInit
+      override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
     }
 
     def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(implicit ctx : Context): DFMatchHeader[MV#TVal] =

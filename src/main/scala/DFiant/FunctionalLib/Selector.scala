@@ -16,13 +16,13 @@ abstract class Selector[SW, W]
   final val inArgs = args.map(a => a.copyAsNewPort(IN))
   final val outResult = this.copyAsNewPort(OUT)
 
-  private def initFunc: Seq[TToken] = ??? // {
+  private def initFunc: LazyBox[Seq[TToken]] = ??? // {
 //    def leftInit = inLeft.getInit.asInstanceOf[Seq[leftArg.TToken]]
 //    def rightInit = inRight.getInit.asInstanceOf[Seq[rightArg.TToken]]
 //    DFAny.TokenSeq(leftInit, rightInit)(tokenFunc)
 //  }
 
-  final lazy val protInit: Seq[TToken] = initFunc
+  final lazy val protInit: Seq[TToken] = initFunc.get
   final lazy val constVal : TToken = ??? // tokenFunc(inLeft.constVal.asInstanceOf[leftArg.TToken], inRight.constVal.asInstanceOf[rightArg.TToken])
 
   inSel.connectVal2Port(sel)
