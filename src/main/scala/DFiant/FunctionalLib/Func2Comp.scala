@@ -16,7 +16,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final val inRight = rightArg.copyAsNewPort(IN)
   final val outResult = this.copyAsNewPort(OUT)
 
-  final protected[DFiant] lazy val initLB: LazyBox[Seq[TToken]] = {
+  final protected[DFiant] val initLB: LazyBox[Seq[TToken]] = {
     def leftInit = inLeft.initLB.asInstanceOf[LazyBox[Seq[leftArg.TToken]]]
     def rightInit = inRight.initLB.asInstanceOf[LazyBox[Seq[rightArg.TToken]]]
     LazyBox.Args2[Seq[TToken],Seq[leftArg.TToken],Seq[rightArg.TToken]](this)((l, r) => DFAny.TokenSeq(l, r)(tokenFunc), leftInit, rightInit)
