@@ -29,6 +29,16 @@ object TestUtils {
       assert(false, "Expected assertion did not occur")
     true
   }
+  def illRunCompare(msg : String)(body: => Unit) : Boolean = {
+    val illMsg = try {
+      body
+      "Expected exception not raised"
+    } catch {
+      case e  : Throwable =>
+        e.getMessage
+    }
+    illMsg =@= msg
+  }
 
   def trimWhites(s : String) : String = s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "").trim.filter(_ >= ' ')
 

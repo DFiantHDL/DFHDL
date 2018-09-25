@@ -494,4 +494,24 @@ class ConnectTest extends Properties("ConnectTest") {
     top_ioDesignMatch.codeString =@= compare
   }
 
+  trait ContainerConnLoop extends DFDesign {
+    val i = DFUInt(8) <> IN
+    val o = DFUInt(8) <> OUT
+    val io = new IODesignConn1 {}
+    io.i <> io.o
+    o <> io.o
+  }
+
+  property("ContainerConnLoop exception") = {
+    implicit val config = DFAnyConfiguration.detailed
+    val topLoop = new ContainerConnLoop {}
+    val expectedError =
+      """
+        |Circular dependency detected at topLoop.o <- topLoop.io.o <- topLoop.io.i <- topLoop.io.o
+      """.stripMargin
+    illRunCompare(expectedError) {
+      topLoop.codeString
+    }
+  }
+
 }
