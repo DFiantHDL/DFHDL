@@ -5,7 +5,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFInterface extends DFAnyOwner {
-  final protected lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
+  final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
     mutableMemberList.toList.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
 
   final lazy val portsIn : List[DFAny.Port[DFAny, IN]] =

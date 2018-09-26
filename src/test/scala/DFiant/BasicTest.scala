@@ -222,7 +222,9 @@ trait IODesignConn9 extends DFDesign {
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.detailed
-//  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
+  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
+
+  //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
 //  val top_ioDesignConn3 = new IODesignConn3 {}.printCodeString
 //  val top_ioDesignConn4 = new IODesignConn4 {}
@@ -236,7 +238,8 @@ object BasicTest extends App {
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)
 
-  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
+
+//  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
 //  val topLoop = new ContainerConnLoop {}.codeString
 
 //  val top_ioDesignConn9 = new IODesignConn9 {}.printCodeString

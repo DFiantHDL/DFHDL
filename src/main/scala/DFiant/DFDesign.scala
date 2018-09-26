@@ -30,6 +30,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     if (isTop) s"${designDB.codeString}\n$valCode" else valCode
   }
   final def printCodeString : this.type = {println(codeString); this}
+  final def printVHDLString : this.type = {println(compiler.Backend.VHDL(this)); this}
 }
 
 object DFDesign {
