@@ -6,7 +6,7 @@ import singleton.twoface._
 
 abstract class Selector[SW, W]
 (val sel : DFUInt[SW])(val args: List[DFBits[W]]) (
-  implicit ctx: DFComponent.Context[Selector[SW, W]], cmp: DFAny.Companion
+  implicit ctx: DFComponent.Context[Selector[SW, W]], cmp: DFAny.Companion = DFBits
 ) extends DFComponent[Selector[SW, W]] with DSLSelfConnectedFoldableOwnerConstruct with DFBits[W] {
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](args.map(a => a.width.getValue).max)
   final protected[DFiant] val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
@@ -39,4 +39,25 @@ abstract class Selector[SW, W]
   private[DFiant] override def designType : String = s"Selector"
   override def foldedConstructCodeString: String = ??? // s"${leftArg.refCodeString} $opString ${rightArg.refCodeString}"
   override def codeString: String = if (isFolded) super.codeString else valCodeString
+}
+object Selector {
+  def apply[SW, W](sel : DFUInt[SW], default : => Option[DFBits[W]] = None)(args : List[DFBits[W]])(
+    implicit
+    ctx: DFComponent.Context[Selector[SW, W]]
+  ) : Selector[SW, W] = {
+    val maxLen = (2 << sel.width) - 1
+    val updatedArgs : List[DFBits[W]] =
+      if (maxLen < args.length) throw new IllegalArgumentException(s"\nSelector width is too small (${sel.width}) for the given list with ${args.length} elements")
+      else if (maxLen > args.length) { //Need to complete missing elements with the default parameter
+        val completeWith = default.getOrElse(throw new IllegalArgumentException(s"\nToo few elements in the list and no default argument provided"))
+        val completeCnt = maxLen - args.length
+        args ++ List.fill(completeCnt)(completeWith)
+      }
+      else args
+    new Selector[SW, W](sel)(updatedArgs) {}
+  }
+
+  implicit def ev[SW, W] : Selector[SW, W] => Unit = ifc => {
+    import ifc._
+  }
 }
