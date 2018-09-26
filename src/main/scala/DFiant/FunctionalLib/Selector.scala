@@ -10,31 +10,26 @@ abstract class Selector[SW, W]
 ) extends DFComponent[Selector[SW, W]] with DSLSelfConnectedFoldableOwnerConstruct with DFBits[W] {
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](args.map(a => a.width.getValue).max)
   final protected[DFiant] val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
-  protected val tokenFunc : (DFUInt.Token, DFBits.Token) => DFBits.Token
 
-  final val inSel = sel.copyAsNewPort(IN)
-  final val inArgs = args.map(a => a.copyAsNewPort(IN))
-  final val outResult = this.copyAsNewPort(OUT)
+  final val inSel = new DFUInt.NewVar[SW](sel.width) <> IN
+  final val inArgs = List.fill(args.length)(new DFBits.NewVar[Width](width) <> IN)
+  final val outResult = new DFBits.NewVar[Width](width) <> OUT
 
-  private def initFunc: LazyBox[Seq[TToken]] = ??? // {
-//    def leftInit = inLeft.getInit.asInstanceOf[Seq[leftArg.TToken]]
-//    def rightInit = inRight.getInit.asInstanceOf[Seq[rightArg.TToken]]
-//    DFAny.TokenSeq(leftInit, rightInit)(tokenFunc)
-//  }
+  final protected[DFiant] val initLB : LazyBox[Seq[TToken]] =
+    LazyBox.Args1List(this)(DFUInt.Token.select[DFBits.Token], inSel.initLB, inArgs.map(a => a.initLB))
 
-  final lazy val protInit: Seq[TToken] = initFunc.get
-  final lazy val constLB : LazyBox[TToken] = ??? // tokenFunc(inLeft.constVal.asInstanceOf[leftArg.TToken], inRight.constVal.asInstanceOf[rightArg.TToken])
+  final protected[DFiant] lazy val constLB : LazyBox[TToken] =
+    LazyBox.Args1List[DFBits.Token, DFUInt.Token, DFBits.Token](this)((a, l) => a.select(l), inSel.constLB, inArgs.map(a => a.constLB))
 
   inSel.connectVal2Port(sel)
   inArgs.zip(args).foreach{case (inArg, arg) => inArg.connectVal2Port(arg)}
 
-  //  outResult.connectVal2Port(this)
   override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
   override protected def foldedRun: Unit = {
-    outResult.setInitFunc.forced(initFunc)
+    outResult.setInitFunc.forced(initLB)
   }
 
-  final protected val foldedDiscoveryDependencyList = ??? //(outResult -> (inArgs :+ inSel)) :: Nil
+  final protected val foldedDiscoveryDependencyList = (outResult -> (inArgs :+ inSel)) :: Nil
   final val isPort = false
 
   override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =

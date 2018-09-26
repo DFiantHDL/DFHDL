@@ -152,6 +152,10 @@ object DFUInt extends DFAny.Companion {
     final def >= (that : Token) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
     final def == (that : Token) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     final def != (that : Token) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def select[ST <: DFAny.Token](list : List[ST]) : ST = {
+      if (this.isBubble) list.head.toBubbleToken.asInstanceOf[ST]
+      else list(this.value.toInt)
+    }
   }
 
   object Token extends TokenCO {
@@ -167,6 +171,7 @@ object DFUInt extends DFAny.Companion {
     val >= : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l >= r)
     val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
     val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
+    def select[ST <: DFAny.Token](sel : Seq[Token], list : List[Seq[ST]]) : Seq[ST] = TokenSeq(sel, list)((s, l) => s.select(l))
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))

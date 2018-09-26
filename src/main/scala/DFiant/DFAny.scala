@@ -666,6 +666,7 @@ object DFAny {
       leftSeq.map(t => op(t, rightConst))
     def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
       seq.map(t => op(t))
+    def apply[O <: Token, T <: Token, L <: Token](seq : Seq[T], list : List[Seq[L]])(op : (T, List[L]) => O) : Seq[O] = ???
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

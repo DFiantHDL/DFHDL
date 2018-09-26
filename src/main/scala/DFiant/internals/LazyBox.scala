@@ -85,6 +85,15 @@ object LazyBox {
       case (Value(a1), Value(a2), Value(a3)) => Value(func(a1, a2, a3))
     }
   }
+  case class Args1List[+T, +A, +L](owner : DSLMemberConstruct)(func : (A, List[L]) => T, arg : LazyBox[A], argList : List[LazyBox[L]]) extends LazyBox[T](owner){
+    import LazyBox.ValueOrError._
+    final def valueFunc : ValueOrError[T] = arg.getValueOrError match {
+      case Error(p, m) => Error(owner :: p, m)
+      case Value(argVal) =>
+        val xs = argList.map(a => a.getValueOrError)
+        xs collectFirst {case x : Error => x} getOrElse Value(func(argVal, xs.collect {case Value(x) => x}))
+    }
+  }
   case class ArgList[+T, +L](owner : DSLMemberConstruct)(func : List[L] => T, argList : List[LazyBox[L]]) extends LazyBox[T](owner){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = {
