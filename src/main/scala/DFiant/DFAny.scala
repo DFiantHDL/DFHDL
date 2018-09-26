@@ -99,6 +99,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val initLB : LazyBox[Seq[TToken]]
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
+//  protected[DFiant] val pipeLB : LazyBox[Option[Int]]
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -260,6 +261,7 @@ object DFAny {
     }
     final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
     protected[DFiant] val constLB : LazyBox.Mutable[TToken]
+//    final protected[DFiant] val pipeLB = LazyBox.Mutable[Option[Int]](this)(Some(None))
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -304,7 +306,7 @@ object DFAny {
   }
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
-    val ctx = ctx0
+    final val ctx = ctx0
     override private[DFiant] def nameDefault = "ǂconnect"
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     def codeString : String = toPort.owner match {
@@ -318,7 +320,7 @@ object DFAny {
   }
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
-    val ctx = ctx0
+    final val ctx = ctx0
     override private[DFiant] def nameDefault = "ǂassign"
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
@@ -333,7 +335,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken
   ) extends DFAny.Uninitialized {
     type TPostInit = TVar
-    val ctx = ctx0
+    final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
@@ -361,7 +363,7 @@ object DFAny {
   abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny.Var {
-    val ctx = ctx0
+    final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width] ({
       val widthSeq : List[Int] = aliasedVars.map(aliasedVar => reference match {
         case DFAny.Alias.Reference.BitsWL(relWidth, _) => relWidth
@@ -394,6 +396,7 @@ object DFAny {
       updatedConst
     }).reduce((a, b) => a ## b).asInstanceOf[TToken]
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.ArgList[TToken, DFAny.Token](this)(constFunc, aliasedVars.map(v => v.constLB))
+//    final protected[DFiant] val pipeLB = LazyBox.ArgList[Option[Int], Option[Int]](this)(l => l.col)
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
@@ -445,7 +448,7 @@ object DFAny {
   abstract class Const(token : Token)(
     implicit ctx0 : Const.Context, cmp : Companion
   ) extends DFAny {
-    val ctx = ctx0
+    final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
     final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected[DFiant] val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
@@ -470,7 +473,7 @@ object DFAny {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
-    val ctx = ctx0
+    final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
