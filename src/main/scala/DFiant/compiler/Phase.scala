@@ -1,13 +1,13 @@
 package DFiant.compiler
-import DFiant.internals._
+import DFiant._
 
 trait Phase {
-//  def apply(almanac: Almanac): Almanac
+  def apply(design : DFDesign) : DFDesign
 }
 
-//case class PhaseSeq(seq : Seq[Phase]) extends Phase {
-//  def apply(almanac: Almanac): Almanac = seq.foldLeft(almanac)((alm, phase) => phase(alm))
-//}
+case class PhaseSeq(seq : Seq[Phase]) extends Phase {
+  def apply(design : DFDesign): DFDesign = seq.foldLeft(design)((dsn, phase) => phase(dsn))
+}
 
 
 object Phase {
