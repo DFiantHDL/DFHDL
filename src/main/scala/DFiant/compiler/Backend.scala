@@ -111,9 +111,9 @@ object Backend {
     private object architecture {
       val name : Name = Name(s"${entity.name}_arch")
       object declarations {
-        case class signal(name : Name, typeS : String) {
+        case class signal(name : Name, typeS : Type) {
           signals.list += this
-          override def toString: String = s"\nsignal $name : $typeS"
+          override def toString: String = s"\n${delim}signal $name : $typeS;"
         }
         object signals {
           val list : ListBuffer[signal] = ListBuffer.empty[signal]
@@ -123,9 +123,9 @@ object Backend {
       }
       object statements {
         class process {
-          case class variable(name : Name, typeS : String) {
+          case class variable(name : Name, typeS : Type) {
             variables.list += this
-            override def toString: String = s"\n${delim}variable $name : $typeS"
+            override def toString: String = s"\n${delim}variable $name : $typeS;"
           }
           object variables {
             val list : ListBuffer[variable] = ListBuffer.empty[variable]
@@ -176,9 +176,15 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    def pass : Unit = design.discoveredList.foreach {
+    def pass : Unit = design.discoveredList.reverse.foreach {
       case x : DFAny.Port[_,_] if x.dir.isIn =>
       case x : DFAny.Port[_,_] if x.dir.isOut => architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
+      case x : DFAny.NewVar[_] =>
+        architecture.declarations.signal(Name(x), Type(x))
+        architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
+//      case x : Func2Comp[_,_,_] =>
+//        architecture.declarations.signal(Name(x), Type(x))
+//        architecture.statements.async_process.sigport_assignment(Name(x), Value(x))
       case x : DFAny.Connector =>
       case x =>
         println(x.fullName)
