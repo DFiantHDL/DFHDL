@@ -542,26 +542,31 @@ object DFAny {
       implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
       val port = this
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-      if (dfVal.isInstanceOf[Port[_ <: DFAny, _ <: DFDir]]) dfVal.asInstanceOf[Port[_ <: DFAny, _ <: DFDir]].connectPort2Port(port)
-      else {
-        //Connecting external value from/to a output/input port
-        if (port.owner.isDownstreamMemberOf(dfVal.owner)) {
-          if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
-          //Connecting from output port to external value
-          if (port.dir.isOut) dfVal match {
-            case u : Uninitialized => u.connectFrom(port)
-            case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
+      dfVal match {
+        case p : Port[_,_] => p.connectPort2Port(port)
+        case _ =>
+          //Connecting external value from/to a output/input port
+          if (port.owner.isDownstreamMemberOf(dfVal.owner)) {
+            if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+            //Connecting from output port to external value
+            if (port.dir.isOut) dfVal match {
+              case u : Uninitialized => u.connectFrom(port)
+              case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
+            }
+            //Connecting from external value to input port
+            else port.connectFrom(dfVal)
           }
-          //Connecting from external value to input port
-          else port.connectFrom(dfVal)
-        }
-        //Connecting internal value and output port
-        else if (port hasSameOwnerAs dfVal) {
-          if (port.dir.isIn) throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
-          if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
-          port.connectFrom(dfVal)
-        }
-        else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
+          //Connecting internal value and output port
+          else if (port hasSameOwnerAs dfVal) {
+            if (port.dir.isIn) dfVal match {
+              case u : Uninitialized => u.connectFrom(port)
+              case _ => throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
+            } else {
+              if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+              port.connectFrom(dfVal)
+            }
+          }
+          else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
       }
     }
     final def <> [R](right: protComp.Op.Able[R])(

@@ -1,4 +1,5 @@
 package DFiant.compiler
+import DFiant.FunctionalLib.Func2Comp
 import DFiant._
 import internals._
 
@@ -10,11 +11,62 @@ abstract class Backend(design : DFDesign) {
 object Backend {
   case class VHDL(design : DFDesign) extends Backend(design) {
     private val delim = "  "
-    private def legalVHDLName(member : DFAnyMember) : String = member match { //TODO: fix name
-      case _ : DFAny.Port[_,_] => member.name.capitalize
-      case _ => member.name
-    }
 
+    //////////////////////////////////////////////////////////////////////////////////
+    // Name
+    //////////////////////////////////////////////////////////////////////////////////
+    case class Name(value : String) {
+      override def toString: String = value
+    }
+    object Name {
+      def apply(member : DFAnyMember) : Name = member match { //TODO: fix name
+        case _ : DFAny.Port[_,_] => Name(member.name.capitalize)
+        case _ => Name(member.name)
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Value
+    //////////////////////////////////////////////////////////////////////////////////
+    case class Value private (value : String) {
+      override def toString: String = value
+    }
+    object Value {
+      def apply(dfVal : DFAny) : Value = if (!dfVal.isConstant) Value(Name(dfVal).toString) else dfVal match {
+        case x: DFBits[_] => Value(dfVal.constLB.get.codeString)
+        case x: DFUInt[_] => Value(dfVal.constLB.get.codeString)
+        case x: DFSInt[_] => Value(dfVal.constLB.get.codeString)
+        case x: DFBool => Value(dfVal.constLB.get.codeString)
+        case x: Func2Comp[_,_,_] => Value(s"${Value(x.inLeft)} ${x.opString} ${Value(x.inRight)})")
+        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Type
+    //////////////////////////////////////////////////////////////////////////////////
+    case class Type (value : String) {
+      override def toString: String = value
+    }
+    object Type {
+      def apply(dfVal : DFAny) : Type = dfVal match {
+        case x : DFBits[_] => Type(s"std_logic_vector(${x.width-1} downto 0)")
+        case x : DFUInt[_] => Type(s"unsigned(${x.width-1} downto 0)")
+        case x : DFSInt[_] => Type(s"signed(${x.width-1} downto 0)")
+        case x : DFBool => Type(s"std_logic")
+        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Library
+    //////////////////////////////////////////////////////////////////////////////////
     private object library {
       override def toString : String =
         s"""
@@ -23,49 +75,43 @@ object Backend {
            |use ieee.numeric_std.all;
            |""".stripMargin
     }
+    //////////////////////////////////////////////////////////////////////////////////
 
-    private def typeCodeString(dfVal : DFAny) : String = dfVal match {
-      case x : DFBits[_] => s"std_logic_vector(${x.width-1} downto 0)"
-      case x : DFUInt[_] => s"unsigned(${x.width-1} downto 0)"
-      case x : DFSInt[_] => s"signed(${x.width-1} downto 0)"
-      case x : DFBool => s"std_logic"
-      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
-    }
-    private def valueCodeString(dfVal : DFAny) : String = if (!dfVal.isConstant) legalVHDLName(dfVal) else dfVal match {
-      case x : DFBits[_] => dfVal.constLB.get.codeString
-      case x : DFUInt[_] => dfVal.constLB.get.codeString
-      case x : DFSInt[_] => dfVal.constLB.get.codeString
-      case x : DFBool => dfVal.constLB.get.codeString
-      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
-    }
 
+    //////////////////////////////////////////////////////////////////////////////////
+    // Entity
+    //////////////////////////////////////////////////////////////////////////////////
     private object entity {
-      val name : String = legalVHDLName(design)
+      val name : Name = Name(design)
       object ports {
         object portList {
-          case class port(name : String, dir : String, typeS : String) {
+          case class port(name : Name, dir : String, typeS : Type) {
             override def toString : String = f"\n$delim$name%-20s : $dir%-3s $typeS"
           }
           object port {
             def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
-              val name : String = legalVHDLName(dfPort).capitalize
               val dir : String = dfPort.dir.toString.toLowerCase()
-              port(name, dir, typeCodeString(dfPort))
+              port(Name(dfPort), dir, Type(dfPort))
             }
           }
-          object clkPort extends port("CLK", "in", "std_logic")
-          object rstPort extends port("RSTn", "in", "std_logic")
+          object clkPort extends port(Name("CLK"), "in", Type("std_logic"))
+          object rstPort extends port(Name("RSTn"), "in", Type("std_logic"))
           override def toString : String = (clkPort :: rstPort :: design.ports.map(p => port(p))).mkString(";")
         }
         override def toString : String = s"\nport($portList\n);"
       }
       override def toString : String = s"\nentity $name is$ports\nend $name;"
     }
+    //////////////////////////////////////////////////////////////////////////////////
 
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Architecture
+    //////////////////////////////////////////////////////////////////////////////////
     private object architecture {
-      val name : String = s"${entity.name}_arch"
+      val name : Name = Name(s"${entity.name}_arch")
       object declarations {
-        case class signal(name : String, typeS : String) {
+        case class signal(name : Name, typeS : String) {
           signals.list += this
           override def toString: String = s"\nsignal $name : $typeS"
         }
@@ -77,7 +123,7 @@ object Backend {
       }
       object statements {
         class process {
-          case class variable(name : String, typeS : String) {
+          case class variable(name : Name, typeS : String) {
             variables.list += this
             override def toString: String = s"\n${delim}variable $name : $typeS"
           }
@@ -88,12 +134,12 @@ object Backend {
           class statement {
             steadyStateStatements.list += this
           }
-          case class sigport_assignment(dst : String, src : String) extends statement {
+          case class sigport_assignment(dst : Name, src : Value) extends statement {
             override def toString: String = s"\n$delim$dst <= $src;"
           }
           object sigport_assignment {
             def apply(dstVal : DFAny, srcVal : DFAny) : sigport_assignment =
-              sigport_assignment(legalVHDLName(dstVal), valueCodeString(srcVal))
+              sigport_assignment(Name(dstVal), Value(srcVal))
           }
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
@@ -128,6 +174,8 @@ object Backend {
       }
       override def toString : String = s"\narchitecture $name of ${entity.name} is$declarations\nbegin\n$statements\nend $name;"
     }
+    //////////////////////////////////////////////////////////////////////////////////
+
     def pass : Unit = design.discoveredList.foreach {
       case x : DFAny.Port[_,_] if x.dir.isIn =>
       case x : DFAny.Port[_,_] if x.dir.isOut => architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
