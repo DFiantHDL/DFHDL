@@ -282,6 +282,7 @@ object DFAny {
     // Connectivity
     //////////////////////////////////////////////////////////////////////////
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
+    final private[DFiant] lazy val getDFValue : DFAny = connectedSource.get //TODO: must be fixed and generalized
     final private[DFiant] var connectedSource : Option[DFAny] = None
     final private[DFiant] def connected : Boolean = connectedSource.isDefined
     final private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {

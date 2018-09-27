@@ -10,7 +10,10 @@ abstract class Backend(design : DFDesign) {
 object Backend {
   case class VHDL(design : DFDesign) extends Backend(design) {
     private val delim = "  "
-    private def legalVHDLName(name : String) : String = name //TODO: fix name
+    private def legalVHDLName(member : DFAnyMember) : String = member match { //TODO: fix name
+      case _ : DFAny.Port[_,_] => member.name.capitalize
+      case _ => member.name
+    }
 
     private object library {
       override def toString : String =
@@ -28,9 +31,16 @@ object Backend {
       case x : DFBool => s"std_logic"
       case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
     }
+    private def valueCodeString(dfVal : DFAny) : String = if (!dfVal.isConstant) legalVHDLName(dfVal) else dfVal match {
+      case x : DFBits[_] => dfVal.constLB.get.codeString
+      case x : DFUInt[_] => dfVal.constLB.get.codeString
+      case x : DFSInt[_] => dfVal.constLB.get.codeString
+      case x : DFBool => dfVal.constLB.get.codeString
+      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
+    }
 
     private object entity {
-      val name : String = legalVHDLName(design.name)
+      val name : String = legalVHDLName(design)
       object ports {
         object portList {
           case class port(name : String, dir : String, typeS : String) {
@@ -38,7 +48,7 @@ object Backend {
           }
           object port {
             def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
-              val name : String = legalVHDLName(dfPort.name).capitalize
+              val name : String = legalVHDLName(dfPort).capitalize
               val dir : String = dfPort.dir.toString.toLowerCase()
               port(name, dir, typeCodeString(dfPort))
             }
@@ -78,6 +88,13 @@ object Backend {
           class statement {
             steadyStateStatements.list += this
           }
+          case class sigport_assignment(dst : String, src : String) extends statement {
+            override def toString: String = s"\n$delim$dst <= $src;"
+          }
+          object sigport_assignment {
+            def apply(dstVal : DFAny, srcVal : DFAny) : sigport_assignment =
+              sigport_assignment(legalVHDLName(dstVal), valueCodeString(srcVal))
+          }
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
             override def toString: String = list.mkString
@@ -111,8 +128,17 @@ object Backend {
       }
       override def toString : String = s"\narchitecture $name of ${entity.name} is$declarations\nbegin\n$statements\nend $name;"
     }
+    def pass : Unit = design.discoveredList.foreach {
+      case x : DFAny.Port[_,_] if x.dir.isIn =>
+      case x : DFAny.Port[_,_] if x.dir.isOut => architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
+      case x : DFAny.Connector =>
+      case x =>
+        println(x.fullName)
+
+    }
 
     override def toString : String = s"$library$entity\n$architecture"
+    pass
   }
 
 }
