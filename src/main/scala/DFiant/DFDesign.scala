@@ -17,7 +17,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   }
 
   private[DFiant] def designType : String = typeName
-  private[DFiant] def constructCodeString : String = designDB.addDesignCodeString(designType, bodyCodeString, this)
+  private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, this)
 
   private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
 //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
@@ -27,7 +27,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
   override def codeString: String = {
     val valCode = valCodeString
-    if (isTop) s"${designDB.codeString}\n$valCode" else valCode
+    if (isTop) s"$designDB\n$valCode" else valCode
   }
   final def printCodeString : this.type = {println(codeString); this}
   final def printVHDLString : this.type = {println(compiler.Backend.VHDL(this)); this}
@@ -36,26 +36,9 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
   type ContextOf[+T] = DFBlock.ContextOf[T, DFDesign]
-  private[DFiant] class DB {
-    case class Info(id : Int, designs : ListBuffer[DFDesign])
-    private val db = HashMap.empty[String, HashMap[String, Info]]
-    def actualTypeName(designTypeName : String, info : Info) : String =
-      if (info.id == 0) designTypeName else designTypeName + "$" + info.id
-    def addDesignCodeString(designTypeName : String, designBodyString : String, design : DFDesign) : String = {
-      val csHM = db.getOrElseUpdate(designTypeName, HashMap.empty[String, Info])
-      val info = csHM.getOrElseUpdate(designBodyString, Info(csHM.size, ListBuffer.empty))
-      info.designs += design
-      actualTypeName(designTypeName, info)
-    }
-    def designTraitCodeString(designTypeName : String, designBodyString : String, info : Info) : String =
-      s"\ntrait ${actualTypeName(designTypeName, info)} extends DFDesign {$designBodyString\n}"
-    def codeString : String = {
-      val ret = db.flatMap(e => {
-        val designTypeName = e._1
-        e._2.map(e => designTraitCodeString(designTypeName, e._1, e._2))
-      }).mkString("\n")
-      ret
-    }
+  private[DFiant] class DB extends DSLOwnerConstruct.DB[DFDesign, String] {
+    def ownerToString(designTypeName : String, designBodyString : String) : String =
+      s"\ntrait $designTypeName extends DFDesign {$designBodyString\n}"
   }
 }
 

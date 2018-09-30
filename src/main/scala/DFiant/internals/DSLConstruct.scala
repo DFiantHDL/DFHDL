@@ -116,6 +116,26 @@ object DSLOwnerConstruct {
     val n : NameIt
     def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) "ǂanon" else n.value
   }
+  trait DB[Owner <: DSLOwnerConstruct, Body <: Any] {
+    private case class Info(id : Int, owners : ListBuffer[Owner])
+    private val db = HashMap.empty[String, HashMap[Body, Info]]
+    private def actualTypeName(ownerTypeName : String, info : Info) : String =
+      if (info.id == 0) ownerTypeName else ownerTypeName + "ǂ" + info.id
+    def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
+      val csHM = db.getOrElseUpdate(ownerTypeName, HashMap.empty[Body, Info])
+      val info = csHM.getOrElseUpdate(ownerBody, Info(csHM.size, ListBuffer.empty))
+      info.owners += owner
+      actualTypeName(ownerTypeName, info)
+    }
+    def ownerToString(ownerTypeName : String, ownerBody : Body) : String
+    final override def toString : String = {
+      val ret = db.flatMap(e => {
+        val ownerTypeName = e._1
+        e._2.map(e => ownerToString(actualTypeName(ownerTypeName, e._2), e._1))
+      }).mkString("\n")
+      ret
+    }
+  }
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
