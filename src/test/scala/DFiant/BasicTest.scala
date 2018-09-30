@@ -4,9 +4,9 @@ import internals.LazyBox
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
-  val temp = i + 1
-  temp <> o
-//  o <> i
+//  val temp =/ i + 1
+//  temp <> o
+  o <> i
 }
 
 trait IODesignConn1b extends DFDesign {
@@ -224,7 +224,7 @@ trait IODesignConn9 extends DFDesign {
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
 //  implicit val a = DFAnyConfiguration.detailed
-  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
+//  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
 
   //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
@@ -235,7 +235,7 @@ object BasicTest extends App {
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}
 //  val top_containerConn1 = new ContainerConn1 {}
-//  val top_containerConn3 = new ContainerConn3 {}
+  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)

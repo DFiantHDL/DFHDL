@@ -3,6 +3,7 @@ import DFiant.FunctionalLib.Func2Comp
 import DFiant._
 import internals._
 
+import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
 
 abstract class Backend(design : DFDesign) {
@@ -20,7 +21,7 @@ object Backend {
     }
     object Name {
       def apply(member : DFAnyMember) : Name = member match { //TODO: fix name
-        case _ : DFAny.Port[_,_] => Name(member.name.capitalize)
+        case p : DFAny.Port[_,_] => Name(member.name.capitalize)
         case _ => Name(member.name)
       }
     }
@@ -63,6 +64,15 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
+    class Reference(member : DFAnyMember, val name : Name) {
+      References.add(member, this)
+    }
+    object References {
+      private val hashMap : HashMap[DFAnyMember, Reference] = HashMap.empty[DFAnyMember, Reference]
+      def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
+      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, throw new IllegalArgumentException(s"No reference for ${dfVal.fullName}"))
+      def add(member : DFAnyMember, reference : Reference) : Unit = hashMap.update(member, reference)
+    }
 
     //////////////////////////////////////////////////////////////////////////////////
     // Library
@@ -82,22 +92,24 @@ object Backend {
     // Entity
     //////////////////////////////////////////////////////////////////////////////////
     private object entity {
-      val name : Name = Name(design)
-      object ports {
-        object portList {
-          case class port(name : Name, dir : String, typeS : Type) {
-            override def toString : String = f"\n$delim$name%-20s : $dir%-3s $typeS"
-          }
-          object port {
-            def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
-              val dir : String = dfPort.dir.toString.toLowerCase()
-              port(Name(dfPort), dir, Type(dfPort))
-            }
-          }
-          object clkPort extends port(Name("CLK"), "in", Type("std_logic"))
-          object rstPort extends port(Name("RSTn"), "in", Type("std_logic"))
-          override def toString : String = (clkPort :: rstPort :: design.ports.map(p => port(p))).mkString(";")
+      val name : Name = Name(s"${design.typeName}")
+      private def emitPort(name : String, dir : String, typeS : String) : String =
+        f"\n$delim$name%-20s : $dir%-3s $typeS"
+      case class port(member : DFAny, override val name : Name, dir : String, typeS : Type) extends Reference(member, name) {
+        ports.list += this
+        override def toString : String = emitPort(name.toString, dir, typeS.toString)
+      }
+      object port {
+        def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
+          val dir : String = dfPort.dir.toString.toLowerCase()
+          port(dfPort, Name(dfPort), dir, Type(dfPort))
         }
+      }
+      object ports {
+        val list : ListBuffer[port] = ListBuffer.empty[port]
+        private val clkPort : String = emitPort("CLK", "in", "std_logic")
+        private val rstPort : String = emitPort("RSTn", "in", "std_logic")
+        def portList : String = (clkPort +: rstPort +: list.map(p => p.toString)).mkString(";")
         override def toString : String = s"\nport($portList\n);"
       }
       override def toString : String = s"\nentity $name is$ports\nend $name;"
@@ -109,11 +121,15 @@ object Backend {
     // Architecture
     //////////////////////////////////////////////////////////////////////////////////
     private object architecture {
-      val name : Name = Name(s"${entity.name}_arch")
+      val name : Name = Name(s"${design.typeName}_arch")
       object declarations {
-        case class signal(name : Name, typeS : Type) {
+        case class signal(member : DFAny, override val name : Name, typeS : Type) extends Reference(member, name) {
           signals.list += this
           override def toString: String = s"\n${delim}signal $name : $typeS;"
+        }
+        object signal {
+          def apply(dfVal : DFAny) : signal = signal(dfVal, Name(dfVal), Type(dfVal))
+          def apply(port : DFAny.Port[_,_]) : signal = signal(port, Name(s"${port.owner.name}_${Name(port)}"), Type(port))
         }
         object signals {
           val list : ListBuffer[signal] = ListBuffer.empty[signal]
@@ -122,6 +138,33 @@ object Backend {
         override def toString : String = s"$signals"
       }
       object statements {
+        case class component_instance(member : DFDesign) extends Reference(member, Name(member)) {
+          private def emitConnection(portName : String, signalName : String) : String =
+            f"\n$delim$portName%-20s => $signalName"
+          case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
+            References.add(port, signal)
+            override def toString: String = emitConnection(port.name, signal.name.toString)
+          }
+          object ports_map {
+            lazy val list : List[connection] = member.ports.map(p => {
+              connection(p, architecture.declarations.signal(p))
+            })
+            private val clkConn = emitConnection("CLK", "CLK")
+            private val rstConn = emitConnection("RSTn", "RSTn")
+            override def toString: String = (clkConn :: rstConn :: list.map(e => e.toString)).mkString(",")
+          }
+
+          components.list += this
+          ports_map.list
+          val entityName = member.typeName //Name(db.addDesignCodeString(member.typeName, VHDL(member, db).toString, member))
+          val archName = Name(s"${entityName}_arch")
+          override def toString: String = s"\n$name : entity $entityName($archName) port map ($ports_map\n);"
+        }
+        object components {
+          val list : ListBuffer[component_instance] = ListBuffer.empty[component_instance]
+          override def toString: String = list.mkString("","\n","\n")
+        }
+
         class process {
           case class variable(name : Name, typeS : Type) {
             variables.list += this
@@ -134,13 +177,10 @@ object Backend {
           class statement {
             steadyStateStatements.list += this
           }
-          case class sigport_assignment(dst : Name, src : Value) extends statement {
-            override def toString: String = s"\n$delim$dst <= $src;"
+          case class sigport_assignment(dst : Reference, src : Reference) extends statement {
+            override def toString: String = s"\n$delim${dst.name} <= ${src.name};"
           }
-          object sigport_assignment {
-            def apply(dstVal : DFAny, srcVal : DFAny) : sigport_assignment =
-              sigport_assignment(Name(dstVal), Value(srcVal))
-          }
+          object sigport_assignment {}
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
             override def toString: String = list.mkString
@@ -170,25 +210,32 @@ object Backend {
                |""".stripMargin
 
         }
-        override def toString : String = s"$sync_process$async_process"
+        override def toString : String = s"$components$sync_process$async_process"
       }
-      override def toString : String = s"\narchitecture $name of ${entity.name} is$declarations\nbegin\n$statements\nend $name;"
+      override def toString : String = {
+        val statementsStr = statements.toString //Must load all statements first because they generate declarations
+        val declarationsStr = declarations.toString
+        s"\narchitecture $name of ${entity.name} is$declarationsStr\nbegin\n$statementsStr\nend $name;"
+      }
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    def pass : Unit = design.discoveredList.reverse.foreach {
-      case x : DFAny.Port[_,_] if x.dir.isIn =>
-      case x : DFAny.Port[_,_] if x.dir.isOut => architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
+    def pass : Unit = design.discoveredList.foreach {
+      case x : DFAny.Port[_,_] => entity.port(x)
       case x : DFAny.NewVar[_] =>
-        architecture.declarations.signal(Name(x), Type(x))
-        architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
+        architecture.declarations.signal(x)
+//        architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
+      case x : DFDesign =>
+        architecture.statements.component_instance(x)
 //      case x : Func2Comp[_,_,_] =>
 //        architecture.declarations.signal(Name(x), Type(x))
 //        architecture.statements.async_process.sigport_assignment(Name(x), Value(x))
       case x : DFAny.Connector =>
+        val dstSig = References(x.toPort)
+        val srcSig = References(x.fromVal)
+        architecture.statements.async_process.sigport_assignment(dstSig, srcSig)
       case x =>
         println(x.fullName)
-
     }
 
     override def toString : String = s"$library$entity\n$architecture"
