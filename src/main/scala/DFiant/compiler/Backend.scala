@@ -10,7 +10,10 @@ abstract class Backend(design : DFDesign) {
 }
 
 object Backend {
-  case class VHDL(design : DFDesign) extends Backend(design) {
+
+  class VHDL(design : DFDesign, owner : VHDL = null) extends Backend(design) { self =>
+    private val top : VHDL = if (owner == null) this else owner
+    private val db : VHDL.DB = if (owner == null) VHDL.DB() else top.db
     private val delim = "  "
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -75,20 +78,6 @@ object Backend {
     }
 
     //////////////////////////////////////////////////////////////////////////////////
-    // Library
-    //////////////////////////////////////////////////////////////////////////////////
-    private object library {
-      override def toString : String =
-        s"""
-           |library ieee;
-           |use ieee_std_logic_1164.all;
-           |use ieee.numeric_std.all;
-           |""".stripMargin
-    }
-    //////////////////////////////////////////////////////////////////////////////////
-
-
-    //////////////////////////////////////////////////////////////////////////////////
     // Entity
     //////////////////////////////////////////////////////////////////////////////////
     private object entity {
@@ -112,7 +101,7 @@ object Backend {
         def portList : String = (clkPort +: rstPort +: list.map(p => p.toString)).mkString(";")
         override def toString : String = s"\nport($portList\n);"
       }
-      override def toString : String = s"\nentity $name is$ports\nend $name;"
+      def body : String = ports.toString
     }
     //////////////////////////////////////////////////////////////////////////////////
 
@@ -138,11 +127,11 @@ object Backend {
         override def toString : String = s"$signals"
       }
       object statements {
-        case class component_instance(member : DFDesign) extends Reference(member, Name(member)) {
+        class component_instance(member : DFDesign) extends VHDL(member, self) {
           private def emitConnection(portName : String, signalName : String) : String =
             f"\n$delim$portName%-20s => $signalName"
           case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
-            References.add(port, signal)
+            self.References.add(port, signal)
             override def toString: String = emitConnection(port.name, signal.name.toString)
           }
           object ports_map {
@@ -156,9 +145,7 @@ object Backend {
 
           components.list += this
           ports_map.list
-          val entityName = member.typeName //Name(db.addDesignCodeString(member.typeName, VHDL(member, db).toString, member))
-          val archName = Name(s"${entityName}_arch")
-          override def toString: String = s"\n$name : entity $entityName($archName) port map ($ports_map\n);"
+          override def toString: String = s"\n${member.name} : entity $entityName($archName) port map ($ports_map\n);"
         }
         object components {
           val list : ListBuffer[component_instance] = ListBuffer.empty[component_instance]
@@ -212,10 +199,10 @@ object Backend {
         }
         override def toString : String = s"$components$sync_process$async_process"
       }
-      override def toString : String = {
+      def body : String = {
         val statementsStr = statements.toString //Must load all statements first because they generate declarations
         val declarationsStr = declarations.toString
-        s"\narchitecture $name of ${entity.name} is$declarationsStr\nbegin\n$statementsStr\nend $name;"
+        s"$declarationsStr\nbegin\n$statementsStr"
       }
     }
     //////////////////////////////////////////////////////////////////////////////////
@@ -226,7 +213,7 @@ object Backend {
         architecture.declarations.signal(x)
 //        architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
       case x : DFDesign =>
-        architecture.statements.component_instance(x)
+        new architecture.statements.component_instance(x)
 //      case x : Func2Comp[_,_,_] =>
 //        architecture.declarations.signal(Name(x), Type(x))
 //        architecture.statements.async_process.sigport_assignment(Name(x), Value(x))
@@ -238,8 +225,37 @@ object Backend {
         println(x.fullName)
     }
 
-    override def toString : String = s"$library$entity\n$architecture"
-    pass
+    def body : Tuple2[String, String] = (entity.body, architecture.body)
+    override def toString: String = db.toString
+
+    val entityName : Name = {
+      pass
+      Name(db.addOwnerBody(design.typeName, body, this))
+    }
+    val archName : Name = Name(s"${entityName}_arch")
   }
 
+  object VHDL {
+    private case class DB() extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
+      //////////////////////////////////////////////////////////////////////////////////
+      // Library
+      //////////////////////////////////////////////////////////////////////////////////
+      private object library {
+        override def toString : String =
+          s"""
+             |library ieee;
+             |use ieee_std_logic_1164.all;
+             |use ieee.numeric_std.all;
+             |""".stripMargin
+      }
+      //////////////////////////////////////////////////////////////////////////////////
+
+
+      def ownerToString(ownerTypeName: String, ownerBody: (String, String)): String = {
+        def entity : String = s"\nentity $ownerTypeName is${ownerBody._1}\nend $ownerTypeName;"
+        def architecture : String = s"\narchitecture ${ownerTypeName}_arch of $ownerTypeName is${ownerBody._2}\nend ${ownerTypeName}_arch;"
+        s"$library$entity\n$architecture"
+      }
+    }
+  }
 }

@@ -116,7 +116,7 @@ object DSLOwnerConstruct {
     val n : NameIt
     def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) "ǂanon" else n.value
   }
-  trait DB[Owner <: DSLOwnerConstruct, Body <: Any] {
+  trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, owners : ListBuffer[Owner])
     private val db = HashMap.empty[String, HashMap[Body, Info]]
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
