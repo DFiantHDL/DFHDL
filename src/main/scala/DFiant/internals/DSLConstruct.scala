@@ -128,7 +128,7 @@ object DSLOwnerConstruct {
       actualTypeName(ownerTypeName, info)
     }
     def ownerToString(ownerTypeName : String, ownerBody : Body) : String
-    final override def toString : String = {
+    override def toString : String = {
       val ret = db.flatMap(e => {
         val ownerTypeName = e._1
         e._2.map(e => ownerToString(actualTypeName(ownerTypeName, e._2), e._1))

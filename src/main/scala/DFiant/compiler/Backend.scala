@@ -11,24 +11,24 @@ abstract class Backend(design : DFDesign) {
 
 object Backend {
 
+  //////////////////////////////////////////////////////////////////////////////////
+  // Name
+  //////////////////////////////////////////////////////////////////////////////////
+  case class Name(value : String) {
+    override def toString: String = value
+  }
+  object Name {
+    def apply(member : DFAnyMember) : Name = member match { //TODO: fix name
+      case p : DFAny.Port[_,_] => Name(member.name.toUpperCase)
+      case _ => Name(member.name)
+    }
+  }
+  //////////////////////////////////////////////////////////////////////////////////
+
   class VHDL(design : DFDesign, owner : VHDL = null) extends Backend(design) { self =>
     private val top : VHDL = if (owner == null) this else owner
-    private val db : VHDL.DB = if (owner == null) VHDL.DB() else top.db
+    private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name) else top.db
     private val delim = "  "
-
-    //////////////////////////////////////////////////////////////////////////////////
-    // Name
-    //////////////////////////////////////////////////////////////////////////////////
-    case class Name(value : String) {
-      override def toString: String = value
-    }
-    object Name {
-      def apply(member : DFAnyMember) : Name = member match { //TODO: fix name
-        case p : DFAny.Port[_,_] => Name(member.name.capitalize)
-        case _ => Name(member.name)
-      }
-    }
-    //////////////////////////////////////////////////////////////////////////////////
 
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,6 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-
     //////////////////////////////////////////////////////////////////////////////////
     // Type
     //////////////////////////////////////////////////////////////////////////////////
@@ -62,20 +61,42 @@ object Backend {
         case x : DFUInt[_] => Type(s"unsigned(${x.width-1} downto 0)")
         case x : DFSInt[_] => Type(s"signed(${x.width-1} downto 0)")
         case x : DFBool => Type(s"std_logic")
+        case x : DFEnum[_] => Type(db.Package.declarations.enums(x.enum).name.toString)
         case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
       }
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    class Reference(member : DFAnyMember, val name : Name) {
+    class Reference(val member : DFAny, val name : Name) {
       References.add(member, this)
     }
     object References {
-      private val hashMap : HashMap[DFAnyMember, Reference] = HashMap.empty[DFAnyMember, Reference]
+      private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
       def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, throw new IllegalArgumentException(s"No reference for ${dfVal.fullName}"))
-      def add(member : DFAnyMember, reference : Reference) : Unit = hashMap.update(member, reference)
+      def add(member : DFAny, reference : Reference) : Unit = hashMap.update(member, reference)
     }
+
+    class const private (member : DFAny.Const, override val name : Name, typeS : Type) extends Reference(member, name) {
+    }
+    object const {
+      def apply(member : DFAny.Const) : const = {
+        val valueStr : String = member.constLB.get match {
+          case x : DFBits.Token => s"std_logic_vector(to_unsigned(${member.width}, ${x.value}))"
+          case x : DFUInt.Token => s"to_unsigned(${member.width}, ${x.value})"
+          case x : DFSInt.Token => s"to_signed(${member.width}, ${x.value})"
+          case x : DFBool.Token => {
+            val s : String = if (x.value) "'1'" else "'0'"
+            s
+          }
+          case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
+          case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+        }
+        new const(member, Name(valueStr), Type(member))
+      }
+
+    }
+
 
     //////////////////////////////////////////////////////////////////////////////////
     // Entity
@@ -84,14 +105,14 @@ object Backend {
       val name : Name = Name(s"${design.typeName}")
       private def emitPort(name : String, dir : String, typeS : String) : String =
         f"\n$delim$name%-20s : $dir%-3s $typeS"
-      case class port(member : DFAny, override val name : Name, dir : String, typeS : Type) extends Reference(member, name) {
+      class port(member : DFAny, name : Name, dir : String, typeS : Type) extends Reference(member, name) {
         ports.list += this
         override def toString : String = emitPort(name.toString, dir, typeS.toString)
       }
       object port {
         def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
           val dir : String = dfPort.dir.toString.toLowerCase()
-          port(dfPort, Name(dfPort), dir, Type(dfPort))
+          new port(dfPort, Name(dfPort), dir, Type(dfPort))
         }
       }
       object ports {
@@ -112,13 +133,13 @@ object Backend {
     private object architecture {
       val name : Name = Name(s"${design.typeName}_arch")
       object declarations {
-        case class signal(member : DFAny, override val name : Name, typeS : Type) extends Reference(member, name) {
+        class signal(member : DFAny, name : Name, typeS : Type) extends Reference(member, name) {
           signals.list += this
           override def toString: String = s"\n${delim}signal $name : $typeS;"
         }
         object signal {
-          def apply(dfVal : DFAny) : signal = signal(dfVal, Name(dfVal), Type(dfVal))
-          def apply(port : DFAny.Port[_,_]) : signal = signal(port, Name(s"${port.owner.name}_${Name(port)}"), Type(port))
+          def apply(dfVal : DFAny) : signal = new signal(dfVal, Name(dfVal), Type(dfVal))
+          def apply(port : DFAny.Port[_,_]) : signal = new signal(port, Name(s"${port.owner.name}_${Name(port)}"), Type(port))
         }
         object signals {
           val list : ListBuffer[signal] = ListBuffer.empty[signal]
@@ -127,7 +148,7 @@ object Backend {
         override def toString : String = s"$signals"
       }
       object statements {
-        class component_instance(member : DFDesign) extends VHDL(member, self) {
+        case class component_instance(member : DFDesign) extends VHDL(member, self) {
           private def emitConnection(portName : String, signalName : String) : String =
             f"\n$delim$portName%-20s => $signalName"
           case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
@@ -165,7 +186,10 @@ object Backend {
             steadyStateStatements.list += this
           }
           case class sigport_assignment(dst : Reference, src : Reference) extends statement {
-            override def toString: String = s"\n$delim${dst.name} <= ${src.name};"
+            def emitAssignment(dstStr : String, srcStr : String) : String = s"\n$delim$dstStr <= $srcStr;"
+            override def toString: String =
+              if (dst.member.width == src.member.width) emitAssignment(dst.name.toString, src.name.toString)
+              else emitAssignment(dst.name.toString, s""""${"0" * (dst.member.width - src.member.width)}" & ${src.name}""")
           }
           object sigport_assignment {}
           object steadyStateStatements {
@@ -209,11 +233,9 @@ object Backend {
 
     def pass : Unit = design.discoveredList.foreach {
       case x : DFAny.Port[_,_] => entity.port(x)
-      case x : DFAny.NewVar[_] =>
-        architecture.declarations.signal(x)
-//        architecture.statements.async_process.sigport_assignment(x, x.getDFValue)
-      case x : DFDesign =>
-        new architecture.statements.component_instance(x)
+      case x : DFAny.NewVar[_] => architecture.declarations.signal(x)
+      case x : DFAny.Const => const(x)
+      case x : DFDesign => architecture.statements.component_instance(x)
 //      case x : Func2Comp[_,_,_] =>
 //        architecture.declarations.signal(Name(x), Type(x))
 //        architecture.statements.async_process.sigport_assignment(Name(x), Value(x))
@@ -236,26 +258,63 @@ object Backend {
   }
 
   object VHDL {
-    private case class DB() extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
+    private case class DB(topName : String) extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
       //////////////////////////////////////////////////////////////////////////////////
       // Library
       //////////////////////////////////////////////////////////////////////////////////
-      private object library {
+      private object Library {
         override def toString : String =
           s"""
              |library ieee;
              |use ieee_std_logic_1164.all;
              |use ieee.numeric_std.all;
+             |use work.${topName}_pkg.all;
              |""".stripMargin
       }
       //////////////////////////////////////////////////////////////////////////////////
 
+      //////////////////////////////////////////////////////////////////////////////////
+      // Package
+      //////////////////////////////////////////////////////////////////////////////////
+      object Package {
+        val name = Name(topName.toString + "_pkg")
+        object declarations {
+          case class enum_entry(entry : Enum.Entry, name : Name) {
+            enums.entries.hashMap.update(entry, this)
+            override def toString: String = s"$name"
+          }
+          case class enum_type(enumType : Enum, name : Name, entries : List[enum_entry]) {
+            enums.hashMap.update(enumType, this)
+            def typeList : String = entries.mkString(", ")
+            override def toString: String = s"\ntype $name is ($typeList);"
+          }
+          object enums {
+            val hashMap : HashMap[Enum, enum_type] = HashMap.empty[Enum, enum_type]
+            def apply(enumType : Enum) : enum_type = hashMap.getOrElse(enumType, {
+              val typeName : Name = Name(enumType.name + "_type")
+              val entries : List[enum_entry] =
+                enumType.entries.toList.map(e => enum_entry(e._2, Name(s"E_${enumType.name}_${e._2.name}".toUpperCase)))
+              enum_type(enumType, typeName, entries)
+            })
+            object entries {
+              val hashMap : HashMap[Enum.Entry, enum_entry] = HashMap.empty[Enum.Entry, enum_entry]
+              def apply(entry : Enum.Entry) : enum_entry = hashMap(entry)
+            }
+            override def toString: String = hashMap.values.mkString("\n")
+          }
+          override def toString: String = s"$enums"
+        }
+        override def toString: String = s"\npackage $name is$declarations\nend package $name;"
+      }
+      //////////////////////////////////////////////////////////////////////////////////
 
       def ownerToString(ownerTypeName: String, ownerBody: (String, String)): String = {
         def entity : String = s"\nentity $ownerTypeName is${ownerBody._1}\nend $ownerTypeName;"
         def architecture : String = s"\narchitecture ${ownerTypeName}_arch of $ownerTypeName is${ownerBody._2}\nend ${ownerTypeName}_arch;"
-        s"$library$entity\n$architecture"
+        s"$Library$entity\n$architecture"
       }
+
+      override def toString : String = s"$Package\n${super.toString}"
     }
   }
 }
