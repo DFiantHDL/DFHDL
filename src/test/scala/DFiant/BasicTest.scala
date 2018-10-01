@@ -4,8 +4,9 @@ import internals.LazyBox
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(7) <> OUT
-  val temp = i.bits(6, 0).uint
-  o <> temp
+  val conv = i.bits(6, 0)
+  val orV = conv | conv
+  o <> orV.uint
 //  o <> i
 }
 
