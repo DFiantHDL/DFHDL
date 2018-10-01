@@ -361,7 +361,7 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+  abstract class Alias[DF <: DFAny](aliasedVars : List[DFAny], val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny.Var {
     final val ctx = ctx0

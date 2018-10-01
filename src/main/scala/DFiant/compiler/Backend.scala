@@ -77,7 +77,7 @@ object Backend {
       def add(member : DFAny, reference : Reference) : Unit = hashMap.update(member, reference)
     }
 
-    class const private (member : DFAny.Const, override val name : Name, typeS : Type) extends Reference(member, name) {
+    class const private (member : DFAny.Const, name : Name, typeS : Type) extends Reference(member, name) {
     }
     object const {
       def apply(member : DFAny.Const) : const = {
@@ -94,9 +94,9 @@ object Backend {
         }
         new const(member, Name(valueStr), Type(member))
       }
-
     }
 
+    class alias(member : DFAny.Alias[_], name : Name, typeS : Type) extends Reference(member, name)
 
     //////////////////////////////////////////////////////////////////////////////////
     // Entity
@@ -235,10 +235,15 @@ object Backend {
       case x : DFAny.Port[_,_] => entity.port(x)
       case x : DFAny.NewVar[_] => architecture.declarations.signal(x)
       case x : DFAny.Const => const(x)
+      case x : DFAny.Alias[_] => architecture.declarations.signal(x)
+      case x : Func2Comp[_,_,_] =>
+        val left = architecture.declarations.signal(x.inLeft)
+        val right = architecture.declarations.signal(x.inRight)
+//        val result = architecture.declarations.signal(x)
+
+      //        architecture.declarations.signal(Name(x), Type(x))
+      //        architecture.statements.async_process.sigport_assignment(Name(x), Value(x))
       case x : DFDesign => architecture.statements.component_instance(x)
-//      case x : Func2Comp[_,_,_] =>
-//        architecture.declarations.signal(Name(x), Type(x))
-//        architecture.statements.async_process.sigport_assignment(Name(x), Value(x))
       case x : DFAny.Connector =>
         val dstSig = References(x.toPort)
         val srcSig = References(x.fromVal)
