@@ -74,8 +74,8 @@ object Backend {
     object References {
       private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
-//      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, throw new IllegalArgumentException(s"No reference for ${dfVal.fullName}"))
-      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
+      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, throw new IllegalArgumentException(s"No reference for ${dfVal.fullName}"))
+//      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
       def add(member : DFAny, reference : Reference) : Unit = hashMap.update(member, reference)
     }
 
@@ -84,7 +84,7 @@ object Backend {
     object const {
       def apply(member : DFAny.Const) : const = {
         val valueStr : String = member.constLB.get match {
-          case x : DFBits.Token => s"std_logic_vector(to_unsigned(${member.width}, ${x.value}))"
+          case x : DFBits.Token => s""""${x.value.toBin}""""
           case x : DFUInt.Token => s"to_unsigned(${member.width}, ${x.value})"
           case x : DFSInt.Token => s"to_signed(${member.width}, ${x.value})"
           case x : DFBool.Token => {
@@ -135,7 +135,7 @@ object Backend {
       object declarations {
         class signal(member : DFAny, name : Name) extends Reference(member, name) {
           signals.list += this
-          override def toString: String = s"\n${delim}signal $name : $typeS;"
+          override def toString: String = f"\n${delim}signal $name%-13s : $typeS;"
         }
         object signal {
           def apply(dfVal : DFAny) : signal = new signal(dfVal, Name(dfVal))
@@ -175,7 +175,7 @@ object Backend {
               case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
             }
             val dst = new alias(member, Name(member.name))
-            architecture.statements.async_process.sigport_assignment(dst, cast)
+            architecture.statements.async_process.assignment(dst, cast)
             dst
           }
         }
@@ -184,18 +184,22 @@ object Backend {
       }
       object statements {
         def func2(member : Func2Comp[_,_,_]) : Unit = {
-          val left = References(member.leftArg.asInstanceOf[DFAny])
+          val leftStr = {
+            val left = References(member.leftArg.asInstanceOf[DFAny])
+            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize(${left.name}, ${member.width})"
+            else s"${left.name}"
+          }
           val right = References(member.rightArg.asInstanceOf[DFAny])
           val result = architecture.declarations.signal(member)
           val op = member.opString match {
             case "&" => "and"
             case "|" => "or"
             case "^" => "xor"
-            case "<<" => if (left.isInstanceOf[DFSInt[_]]) "sla" else "sll"
-            case ">>" => if (left.isInstanceOf[DFSInt[_]]) "sra" else "srl"
+            case "<<" => if (member.leftArg.isInstanceOf[DFSInt[_]]) "sla" else "sll"
+            case ">>" => if (member.leftArg.isInstanceOf[DFSInt[_]]) "sra" else "srl"
             case others => others
           }
-          architecture.statements.async_process.sigport_assignment(result, s"${left.name} $op ${right.name}")
+          architecture.statements.async_process.assignment(result, s"$leftStr $op ${right.name}")
         }
 
         case class component_instance(member : DFDesign) extends VHDL(member, self) {
@@ -203,7 +207,7 @@ object Backend {
             f"\n$delim$portName%-20s => $signalName"
           case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
             self.References.add(port, signal)
-            override def toString: String = emitConnection(port.name, signal.name.toString)
+            override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
             lazy val list : List[connection] = member.ports.map(p => {
@@ -224,24 +228,33 @@ object Backend {
         }
 
         class process {
-          case class variable(name : Name, typeS : Type) {
+          class variable(member : DFAny, name : Name, val sigport : Reference) extends Reference(member, name) {
             variables.list += this
-            override def toString: String = s"\n${delim}variable $name : $typeS;"
+            override def toString: String = f"\n${delim}variable $name%-11s : $typeS;"
+          }
+          object variable {
+            def apply(member : DFAny, name : Name, sigport : Reference) : variable = new variable(member, name, sigport)
           }
           object variables {
             val list : ListBuffer[variable] = ListBuffer.empty[variable]
+//            def fromSigPorts : String = list.map(v => assignment(v.sigport))
+            def toSigPorts : Unit = list.foreach(v => assignment(v.sigport, v))
             override def toString: String = list.mkString
           }
           class statement {
             steadyStateStatements.list += this
           }
-          case class sigport_assignment(dst : Reference, src : String) extends statement {
-            override def toString: String = s"\n$delim${dst.name} <= $src;"
+          case class assignment(dst : Reference, src : String) extends statement {
+            final val op = dst match {
+              case x : variable => ":="
+              case _ => "<="
+            }
+            override def toString: String = f"\n$delim${dst.name}%-20s $op $src;"
           }
-          object sigport_assignment {
-            def apply(dst : Reference, src : Reference) : sigport_assignment =
-              if (dst.member.width == src.member.width) sigport_assignment(dst, src.name.toString)
-              else sigport_assignment(dst, s""""${"0" * (dst.member.width - src.member.width)}" & ${src.name}""")
+          object assignment {
+            def apply(dst : Reference, src : Reference) : assignment =
+              if (dst.member.width == src.member.width) assignment(dst, src.name.toString)
+              else assignment(dst, s""""${"0" * (dst.member.width - src.member.width)}" & ${src.name}""")
           }
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
@@ -266,7 +279,7 @@ object Backend {
         object  async_process extends process {
           override def toString: String = if (steadyStateStatements.list.isEmpty) "" else
             s"""
-               |process (all)
+               |process (all)$variables
                |begin$steadyStateStatements
                |end process;
                |""".stripMargin
@@ -293,8 +306,16 @@ object Backend {
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
         val srcSig = References(x.fromVal)
-        architecture.statements.async_process.sigport_assignment(dstSig, srcSig)
+        architecture.statements.async_process.assignment(dstSig, srcSig)
       }
+      case x : DFAny.Assignment =>
+        val dstSig = References(x.toVar)
+        val srcSig = References(x.fromVal)
+        val dstVar = dstSig match {
+          case d : architecture.statements.async_process.variable => d
+          case _ => architecture.statements.async_process.variable(x.toVar, Name(s"v_${dstSig.name}"), dstSig)
+        }
+        architecture.statements.async_process.assignment(dstVar, srcSig)
       case x =>
         println(x.fullName)
     }
@@ -304,6 +325,7 @@ object Backend {
 
     val entityName : Name = {
       pass
+      architecture.statements.async_process.variables.toSigPorts
       Name(db.addOwnerBody(design.typeName, body, this))
     }
     val archName : Name = Name(s"${entityName}_arch")

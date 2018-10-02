@@ -239,7 +239,7 @@ object DFAny {
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
     ) = assign(op(left, right))
-    final protected var assigned : Boolean = false
+    final protected[DFiant] var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       assigned = true
       if (!ctx.owner.callSiteSameAsOwnerOf(that))
