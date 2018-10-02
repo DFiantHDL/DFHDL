@@ -242,7 +242,7 @@ object DFAny {
     final protected[DFiant] var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       assigned = true
-      if (!ctx.owner.callSiteSameAsOwnerOf(that))
+      if (!ctx.owner.callSiteSameAsOwnerOf(this))
         throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that

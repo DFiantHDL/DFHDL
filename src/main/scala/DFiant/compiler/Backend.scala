@@ -82,18 +82,19 @@ object Backend {
     class const private (member : DFAny.Const, name : Name) extends Reference(member, name) {
     }
     object const {
-      def apply(member : DFAny.Const) : const = {
-        val valueStr : String = member.constLB.get match {
-          case x : DFBits.Token => s""""${x.value.toBin}""""
-          case x : DFUInt.Token => s"to_unsigned(${member.width}, ${x.value})"
-          case x : DFSInt.Token => s"to_signed(${member.width}, ${x.value})"
-          case x : DFBool.Token => {
-            val s : String = if (x.value) "'1'" else "'0'"
-            s
-          }
-          case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
-          case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+      def apply(token : DFAny.Token, member : DFAny) : String = token match {
+        case x : DFBits.Token => s""""${x.value.toBin}""""
+        case x : DFUInt.Token => s"to_unsigned(${member.width}, ${x.value})"
+        case x : DFSInt.Token => s"to_signed(${member.width}, ${x.value})"
+        case x : DFBool.Token => {
+          val s : String = if (x.value) "'1'" else "'0'"
+          s
         }
+        case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
+        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+      }
+      def apply(member : DFAny.Const) : const = {
+        val valueStr : String = const(member.constLB.get, member)
         new const(member, Name(valueStr))
       }
     }
@@ -227,7 +228,7 @@ object Backend {
           override def toString: String = list.mkString("","\n","\n")
         }
 
-        class process {
+        class process(val delimCnt : Int) {
           class variable(member : DFAny, name : Name, val sigport : Reference) extends Reference(member, name) {
             variables.list += this
             override def toString: String = f"\n${delim}variable $name%-11s : $typeS;"
@@ -249,7 +250,7 @@ object Backend {
               case x : variable => ":="
               case _ => "<="
             }
-            override def toString: String = f"\n$delim${dst.name}%-20s $op $src;"
+            override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s $op $src;"
           }
           object assignment {
             def apply(dst : Reference, src : Reference) : assignment =
@@ -261,9 +262,14 @@ object Backend {
             override def toString: String = list.mkString
           }
         }
-        object sync_process extends process {
+        object sync_process extends process(2) {
+          case class resetStatement(dst : Reference, value : String){
+            resetStatements.list += this
+            override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s <= $value;"
+          }
           object resetStatements {
-            override def toString: String = s"\n"
+            val list : ListBuffer[resetStatement] = ListBuffer.empty[resetStatement]
+            override def toString: String = list.mkString
           }
           override def toString: String = if (steadyStateStatements.list.isEmpty) "" else
             s"""
@@ -276,7 +282,7 @@ object Backend {
                |""".stripMargin
 
         }
-        object  async_process extends process {
+        object async_process extends process(1) {
           override def toString: String = if (steadyStateStatements.list.isEmpty) "" else
             s"""
                |process (all)$variables
@@ -297,7 +303,17 @@ object Backend {
 
     def pass : Unit = design.discoveredList.foreach {
       case x : DFAny.Port[_,_] => entity.port(x)
-      case x : DFAny.NewVar[_] => architecture.declarations.signal(x)
+      case x : DFAny.NewVar[_] =>
+        if (x.assigned) {
+          val dstSig = architecture.declarations.signal(x)
+          val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev"))
+          val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
+          architecture.statements.async_process.assignment(dstVar, dstSigP1)
+          if (x.initLB.get.nonEmpty)
+            architecture.statements.sync_process.resetStatement(dstSigP1, const(x.initLB.get.head, x))
+          architecture.statements.sync_process.assignment(dstSigP1, dstSig)
+        }
+        else architecture.declarations.signal(x)
       case x : DFAny.Const => const(x)
       case x : DFAny.Alias[_] => architecture.declarations.alias(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
@@ -309,12 +325,8 @@ object Backend {
         architecture.statements.async_process.assignment(dstSig, srcSig)
       }
       case x : DFAny.Assignment =>
-        val dstSig = References(x.toVar)
+        val dstVar = References(x.toVar)
         val srcSig = References(x.fromVal)
-        val dstVar = dstSig match {
-          case d : architecture.statements.async_process.variable => d
-          case _ => architecture.statements.async_process.variable(x.toVar, Name(s"v_${dstSig.name}"), dstSig)
-        }
         architecture.statements.async_process.assignment(dstVar, srcSig)
       case x =>
         println(x.fullName)

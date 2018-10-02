@@ -4,15 +4,16 @@ import internals.LazyBox
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
-  val temp = DFUInt(8)
+//  val temp = DFUInt(8)
 //  val o2 = DFBits(8) <> OUT
 //  val conv = i.bits(6, 0).uint
 //  val orV = conv + 1
 //  o <> orV.wc
 //  o2 := b"11110000"
-  temp := i
-  temp := temp + 1
-  o := temp
+//  temp := i
+//  temp := temp + 1
+//  o := temp
+  o <> i
 }
 
 trait IODesignConn1b extends DFDesign {
@@ -171,8 +172,10 @@ trait ContainerConn3 extends DFDesign {
   val o = DFUInt(8) <> OUT
   val io1 = new IODesignConn1 {}
   val io2 = new IODesignConn1 {}
+  val temp = DFUInt(8) init 7
   i     <> io1.i //Connecting between owner input and child input
-  io1.o <> io2.i //Connecting between siblings (output <> input)
+  temp := io1.o
+  temp <> io2.i //Connecting between siblings (output <> input)
   io2.o <> o     //Connecting between child output and owner output
 }
 
