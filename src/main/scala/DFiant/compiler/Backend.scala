@@ -30,25 +30,6 @@ object Backend {
     private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name) else top.db
     private val delim = "  "
 
-
-    //////////////////////////////////////////////////////////////////////////////////
-    // Value
-    //////////////////////////////////////////////////////////////////////////////////
-    case class Value private (value : String) {
-      override def toString: String = value
-    }
-    object Value {
-      def apply(dfVal : DFAny) : Value = if (!dfVal.isConstant) Value(Name(dfVal).toString) else dfVal match {
-        case x: DFBits[_] => Value(dfVal.constLB.get.codeString)
-        case x: DFUInt[_] => Value(dfVal.constLB.get.codeString)
-        case x: DFSInt[_] => Value(dfVal.constLB.get.codeString)
-        case x: DFBool => Value(dfVal.constLB.get.codeString)
-        case x: Func2Comp[_,_,_] => Value(s"${Value(x.inLeft)} ${x.opString} ${Value(x.inRight)})")
-        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
-      }
-    }
-    //////////////////////////////////////////////////////////////////////////////////
-
     //////////////////////////////////////////////////////////////////////////////////
     // Type
     //////////////////////////////////////////////////////////////////////////////////
@@ -149,34 +130,40 @@ object Backend {
 
         class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name)
         object alias {
+          private def toBits(member : DFAny) : String = member match {
+            case a : DFBits[_] => s"${References(a).name}" //already a bits vector
+            case a : DFUInt[_] => s"std_logic_vector(${References(a).name})"
+            case a : DFSInt[_] => s"std_logic_vector(${References(a).name})"
+            case a : DFBool => s"std_logic_vector(${References(a).name})"
+            case a : DFEnum[_] => s"${db.Package.declarations.enums(a.enum)}'POS(${References(a).name})"
+            case a => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${a.fullName} has type ${a.typeName}")
+          }
           def apply(member : DFAny.Alias[_]) : alias = {
-            val concat : String = member.aliasedVars.collect{
-              case a : DFBits[_] => s"${References(a).name}" //already a bits vector
-              case a : DFUInt[_] => s"std_logic_vector(${References(a).name})"
-              case a : DFSInt[_] => s"std_logic_vector(${References(a).name})"
-              case a : DFBool => s"std_logic_vector(${References(a).name})"
-              case a : DFEnum[_] => s"${db.Package.declarations.enums(a.enum)}'POS(${References(a).name})"
-              case a => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${a.fullName} has type ${a.typeName}")
-            }.mkString(" & ")
-
-            val aliased : String = member.reference match {
-              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => s"$concat(${relWidth-1} downto $relBitLow)"
-              case DFAny.Alias.Reference.Prev(step) => ???
-              case DFAny.Alias.Reference.AsIs() => concat
-              case DFAny.Alias.Reference.BitReverse() => ???
-              case DFAny.Alias.Reference.Invert() => s"not $concat"
+            if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
+            val aliasStr : String = member.reference match {
+              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+                s"${toBits(member.aliasedVars.head)}(${relWidth-1} downto $relBitLow)"
+              case DFAny.Alias.Reference.BitReverse() =>
+                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+                s"bit_reverse(${member.aliasedVars.head.name})"
+              case DFAny.Alias.Reference.Invert() =>
+                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+                s"not ${member.aliasedVars.head.name}"
+              case DFAny.Alias.Reference.Prev(step) => ??? //new architecture.declarations.signal(member, Name(s"${member.name}"))
+              case DFAny.Alias.Reference.AsIs() =>
+                val concat : String = member.aliasedVars.map(a => toBits(a)).mkString(" & ")
+                member match {
+                  case m : DFBits[_] => concat
+                  case m : DFUInt[_] => s"unsigned($concat)"
+                  case m : DFSInt[_] => s"signed($concat)"
+                  case m : DFBool => s"$concat(0)"
+                  case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($concat)"
+                  case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+                }
             }
 
-            val cast : String = member match {
-              case m : DFBits[_] => aliased
-              case m : DFUInt[_] => s"unsigned($aliased)"
-              case m : DFSInt[_] => s"signed($aliased)"
-              case m : DFBool => s"$aliased(0)"
-              case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($aliased)"
-              case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
-            }
             val dst = new alias(member, Name(member.name))
-            architecture.statements.async_process.assignment(dst, cast)
+            architecture.statements.async_process.assignment(dst, aliasStr)
             dst
           }
         }
@@ -359,6 +346,22 @@ object Backend {
       }
       //////////////////////////////////////////////////////////////////////////////////
 
+      object HelperFunctions{
+        val bitReverseFunc : String =
+          s"""
+             |--Taken from http://www.vlsiip.com/intel/vhdlf.html
+             |function bit_reverse(s1:std_logic_vector) return std_logic_vector is
+             |   variable rr : std_logic_vector(s1'high downto s1'low);
+             |begin
+             |  for ii in s1'high downto s1'low loop
+             |    rr(ii) := s1(s1'high-ii);
+             |  end loop;
+             |  return rr;
+             |end bit_reverse;
+         """.stripMargin
+
+        override def toString: String = bitReverseFunc
+      }
       //////////////////////////////////////////////////////////////////////////////////
       // Package
       //////////////////////////////////////////////////////////////////////////////////
@@ -390,7 +393,16 @@ object Backend {
           }
           override def toString: String = s"$enums"
         }
-        override def toString: String = s"\npackage $name is$declarations\nend package $name;"
+        override def toString: String =
+          s"""
+             |library ieee;
+             |use ieee_std_logic_1164.all;
+             |
+             |package $name is
+             |$HelperFunctions
+             |$declarations
+             |end package $name;
+           """.stripMargin
       }
       //////////////////////////////////////////////////////////////////////////////////
 
