@@ -298,6 +298,7 @@ object Backend {
           architecture.statements.async_process.assignment(dstVar, dstSigP1)
           if (x.initLB.get.nonEmpty)
             architecture.statements.sync_process.resetStatement(dstSigP1, const(x.initLB.get.head, x))
+          else throw new IllegalArgumentException(s"\nUninitialized state variable ${x.fullName} may lead to deadlocks")
           architecture.statements.sync_process.assignment(dstSigP1, dstSig)
         }
         else architecture.declarations.signal(x)
