@@ -121,11 +121,7 @@ object Backend {
         assert(rightWidth >= 0 && midWidth >= 0 && leftWidth >= 0)
         val valueStr : String =
           if (rightWidth == 0 && leftWidth == 0) that.value
-          else if (rightWidth == 0 && leftWidth > 0) {
-            val a = s"${bits(leftWidth, leftLSB)} & $that"
-            println(a)
-            a
-          } //null-width right part
+          else if (rightWidth == 0 && leftWidth > 0) s"${bits(leftWidth, leftLSB)} & $that" //null-width right part
           else if (rightWidth > 0 && leftWidth == 0) s"$that & ${bits(rightWidth, rightLSB)}" //null-width left part
           else s"${bits(leftWidth, leftLSB)} & $that & ${bits(rightWidth, rightLSB)}"
         ValueBits(valueStr, this.width)
