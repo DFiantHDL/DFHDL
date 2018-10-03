@@ -227,7 +227,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Administration
     //////////////////////////////////////////////////////////////////////////
-    protected val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+    private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
     override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
     //////////////////////////////////////////////////////////////////////////
 
@@ -299,7 +299,7 @@ object DFAny {
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
     }
-    final override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
+    override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment dataflow variable ${this.fullName} was already connected to. Cannot apply both := and <> operators on a dataflow variable.")
       super.assign(that)
     }
@@ -404,6 +404,11 @@ object DFAny {
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ aliasedVars
     final val isPort = false
     final val id = getID
+
+    final override protected[DFiant] def assign(that: DFAny)(implicit ctx: Context): TVar = {
+      aliasedVars.foreach{case a : DFAny.Var => a.protAssignDependencies ++= List(this, that)} //TODO: consider diving down through aliases
+      super.assign(that)
+    }
   }
   object Alias {
     trait Tag
