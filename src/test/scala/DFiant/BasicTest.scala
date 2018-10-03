@@ -10,7 +10,7 @@ trait IODesignConn1 extends DFDesign {
 //  val orV = conv + 1
 //  o <> orV.wc
 //  o2 := b"11110000"
-  temp := i
+//  temp := i
   temp := temp + 1
   o := temp
 //  o <> i
