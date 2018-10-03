@@ -68,15 +68,64 @@ object Backend {
     // Value
     //////////////////////////////////////////////////////////////////////////////////
     class Value(val value : String, val typeS : Type) {
-      def bits : String = typeS match {
-        case a : Type.std_logic_vector => s"$value" //already a bits vector
-        case a : Type.unsigned => s"std_logic_vector($value)"
-        case a : Type.signed => s"std_logic_vector($value)"
-        case a : Type.std_logic => s"std_logic_vector($value)"
-        case Type.enumeration(enum) => s"${db.Package.declarations.enums(enum)}'POS($value)"
+      def bits : ValueBits = typeS match {
+        case t : Type.std_logic_vector => ValueBits(value, t.width)
+        case t : Type.unsigned => ValueBits(s"std_logic_vector($value)", t.width)
+        case t : Type.signed => ValueBits(s"std_logic_vector($value)", t.width)
+        case t : Type.std_logic => ValueBits(s"std_logic_vector($value)", 1)
+        case Type.enumeration(enum) =>
+          ValueBits(s"std_logic_vector(to_unsigned(${db.Package.declarations.enums(enum)}'POS($value), ${enum.width}))", enum.width)
       }
-      def bits(width : Int, lsbit : Int) : String = s"$bits(${width-1} downto $lsbit)"
+      def bits(width : Int, lsbit : Int) : ValueBits = ValueBits(s"$bits(${width-1} downto $lsbit)", width)
+      def to(that : Type) : Value = (this.typeS, that) match {
+        case (dst : Type.std_logic_vector, src : Type.std_logic_vector) => 
+          if (dst.width == src.width) this
+          else new Value(s""""${"0" * (dst.width - src.width)}" & $src""", dst)
+        case (dst : Type.unsigned, src : Type.unsigned) =>
+          if (dst.width == src.width) this
+          else new Value(s"resize($src, ${dst.width})", dst)
+        case (dst : Type.signed, src : Type.signed) =>
+          if (dst.width == src.width) this
+          else new Value(s"resize($src, ${dst.width})", dst)
+        case (dst : Type.std_logic, src : Type.std_logic) => this
+        case (dst : Type.enumeration, src : Type.enumeration) if dst.enum == src.enum => this
+        case _ => this.bits.to(that)
+      }
       final override def toString: String = value
+    }
+    case class ValueBits(override val value : String, width : Int) extends Value(value, Type.std_logic_vector(width)) {
+      override def to(that: Type) : Value = that match {
+        case t : Type.std_logic_vector =>
+          if (t.width == width) this
+          else new Value(s""""${"0" * (t.width - width)}" & $this""", that)
+        case t : Type.unsigned =>
+          if (t.width == width) new Value(s"unsigned($this)", that)
+          else new Value(s"resize(unsigned($this), ${t.width}))", that)
+        case t : Type.signed =>
+          if (t.width == width) new Value(s"signed($this)", that)
+          else new Value(s"resize(signed($this), ${t.width}))", that)
+        case t : Type.std_logic => new Value(s"$this(0)", that)
+        case Type.enumeration(enum) =>
+          new Value(s"${db.Package.declarations.enums(enum)}'VAL($this)", that)
+      }
+      def replace(relWidth : Int, relBitLow : Int, that : ValueBits) : ValueBits = {
+        val rightLSB = 0
+        val rightMSB = relBitLow - 1
+        val rightWidth = rightMSB - rightLSB + 1
+        val midLSB = relBitLow
+        val midMSB = relBitLow + relWidth - 1
+        val midWidth = relWidth
+        val leftLSB = midMSB + 1
+        val leftMSB = width - 1
+        val leftWidth = rightMSB - rightLSB + 1
+        assert(rightWidth >= 0 && midWidth >= 0 && leftWidth >= 0)
+        val valueStr : String =
+          if (rightWidth == 0 && leftWidth == 0) that.value
+          else if (rightWidth == 0 && leftWidth > 0) s"${bits(leftWidth, leftLSB)} & $that" //null-width right part
+          else if (rightWidth > 0 && leftWidth == 0) s"$that & ${bits(rightWidth, rightLSB)}" //null-width left part
+          else s"${bits(leftWidth, leftLSB)} & $that & ${bits(rightWidth, rightLSB)}"
+        ValueBits(valueStr, that.width)
+      }
     }
     object Value {
       def apply(member : DFAny, token : DFAny.Token) : Value = {
@@ -168,29 +217,28 @@ object Backend {
 
         class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name) {
           override def assign(src : Value) : Unit = {
-//            member.reference match {
-//              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => ???
-////                s"${References(member.aliasedVars.head).toBits}(${relWidth-1} downto $relBitLow)"
-////                References(member.aliasedVars.head).assign(s"bit_reverse($src)")
-//              case DFAny.Alias.Reference.BitReverse() =>
-//                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-//                References(member.aliasedVars.head).assign(s"bit_reverse($src)")
-//              case DFAny.Alias.Reference.Invert() =>
-//                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-//                References(member.aliasedVars.head).assign(s"not $src")
-//              case DFAny.Alias.Reference.Prev(step) =>
-//                throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
-//              case DFAny.Alias.Reference.AsIs() =>
-//                if (member.aliasedVars.length == 1) {
-//                  References(member.aliasedVars.head).assign(src)
-//                } else {
-//                  var pos : Int = member.width-1
-//                  member.aliasedVars.foreach(a => {
-//                    References(a).assign(s"$src($pos, ${pos - a.width+1})")
-//                    pos = pos - a.width
-//                  })
-//                }
-//            }
+            member.reference match {
+              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+                References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
+              case DFAny.Alias.Reference.BitReverse() =>
+                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+                References(member.aliasedVars.head).assign(new Value(s"bit_reverse($src)", src.typeS))
+              case DFAny.Alias.Reference.Invert() =>
+                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+                References(member.aliasedVars.head).assign(new Value(s"not $src", src.typeS))
+              case DFAny.Alias.Reference.Prev(step) =>
+                throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
+              case DFAny.Alias.Reference.AsIs() =>
+                if (member.aliasedVars.length == 1) {
+                  References(member.aliasedVars.head).assign(src)
+                } else {
+                  var pos : Int = member.width-1
+                  member.aliasedVars.foreach(a => {
+                    References(a).assign(src.bits(a.width, pos - a.width+1))
+                    pos = pos - a.width
+                  })
+                }
+            }
           }
         }
         object alias {
@@ -290,18 +338,16 @@ object Backend {
           class statement {
             steadyStateStatements.list += this
           }
-          case class assignment(dst : Reference, src : Value) extends statement {
+          class assignment private (dst : Reference, src : Value) extends statement {
             final val op = dst match {
               case x : variable => ":="
               case _ => "<="
             }
             override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s $op $src;"
           }
-//          object assignment {
-//            def apply(dst : Reference, src : Reference) : assignment =
-//              if (dst.member.width == src.member.width) assignment(dst, src.name.toString)
-//              else assignment(dst, s""""${"0" * (dst.member.width - src.member.width)}" & ${src.name}""")
-//          }
+          object assignment {
+            def apply(dst : Reference, src : Value) : assignment = new assignment(dst, src.to(dst.typeS))
+          }
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
             override def toString: String = list.mkString
@@ -406,6 +452,15 @@ object Backend {
         val bitReverseFunc : String =
           s"""
              |--Taken from http://www.vlsiip.com/intel/vhdlf.html
+             |function bit_reverse(s1:std_logic_vector) return std_logic_vector;
+         """.stripMargin
+
+        override def toString: String = bitReverseFunc
+      }
+      object HelperFunctionsBody{
+        val bitReverseFunc : String =
+          s"""
+             |--Taken from http://www.vlsiip.com/intel/vhdlf.html
              |function bit_reverse(s1:std_logic_vector) return std_logic_vector is
              |   variable rr : std_logic_vector(s1'high downto s1'low);
              |begin
@@ -458,6 +513,10 @@ object Backend {
              |$HelperFunctions
              |$declarations
              |end package $name;
+             |
+             |package body $name is
+             |$HelperFunctionsBody
+             |end package body $name;
            """.stripMargin
       }
       //////////////////////////////////////////////////////////////////////////////////
