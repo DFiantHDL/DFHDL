@@ -76,7 +76,7 @@ object Backend {
         case Type.enumeration(enum) =>
           ValueBits(s"std_logic_vector(to_unsigned(${db.Package.declarations.enums(enum)}'POS($value), ${enum.width}))", enum.width)
       }
-      def bits(width : Int, lsbit : Int) : ValueBits = ValueBits(s"$bits(${width-1} downto $lsbit)", width)
+      def bits(width : Int, lsbit : Int) : ValueBits = ValueBits(s"$bits(${width+lsbit-1} downto $lsbit)", width)
       def to(that : Type) : Value = (this.typeS, that) match {
         case (dst : Type.std_logic_vector, src : Type.std_logic_vector) => 
           if (dst.width == src.width) this
@@ -100,10 +100,10 @@ object Backend {
           else new Value(s""""${"0" * (t.width - width)}" & $this""", that)
         case t : Type.unsigned =>
           if (t.width == width) new Value(s"unsigned($this)", that)
-          else new Value(s"resize(unsigned($this), ${t.width}))", that)
+          else new Value(s"resize(unsigned($this), ${t.width})", that)
         case t : Type.signed =>
           if (t.width == width) new Value(s"signed($this)", that)
-          else new Value(s"resize(signed($this), ${t.width}))", that)
+          else new Value(s"resize(signed($this), ${t.width})", that)
         case t : Type.std_logic => new Value(s"$this(0)", that)
         case Type.enumeration(enum) =>
           new Value(s"${db.Package.declarations.enums(enum)}'VAL($this)", that)
@@ -117,14 +117,18 @@ object Backend {
         val midWidth = relWidth
         val leftLSB = midMSB + 1
         val leftMSB = width - 1
-        val leftWidth = rightMSB - rightLSB + 1
+        val leftWidth = leftMSB - leftLSB + 1
         assert(rightWidth >= 0 && midWidth >= 0 && leftWidth >= 0)
         val valueStr : String =
           if (rightWidth == 0 && leftWidth == 0) that.value
-          else if (rightWidth == 0 && leftWidth > 0) s"${bits(leftWidth, leftLSB)} & $that" //null-width right part
+          else if (rightWidth == 0 && leftWidth > 0) {
+            val a = s"${bits(leftWidth, leftLSB)} & $that"
+            println(a)
+            a
+          } //null-width right part
           else if (rightWidth > 0 && leftWidth == 0) s"$that & ${bits(rightWidth, rightLSB)}" //null-width left part
           else s"${bits(leftWidth, leftLSB)} & $that & ${bits(rightWidth, rightLSB)}"
-        ValueBits(valueStr, that.width)
+        ValueBits(valueStr, this.width)
       }
     }
     object Value {
