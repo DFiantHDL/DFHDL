@@ -33,53 +33,87 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Type
     //////////////////////////////////////////////////////////////////////////////////
-    case class Type (value : String) {
-      override def toString: String = value
-    }
+    sealed trait Type
     object Type {
-      def apply(dfVal : DFAny) : Type = dfVal match {
-        case x : DFBits[_] => Type(s"std_logic_vector(${x.width-1} downto 0)")
-        case x : DFUInt[_] => Type(s"unsigned(${x.width-1} downto 0)")
-        case x : DFSInt[_] => Type(s"signed(${x.width-1} downto 0)")
-        case x : DFBool => Type(s"std_logic")
-        case x : DFEnum[_] => Type(db.Package.declarations.enums(x.enum).name.toString)
-        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${dfVal.fullName} has type ${dfVal.typeName}")
+      case class std_logic_vector(width : Int) extends Type {
+        override def toString: String = s"std_logic_vector(${width-1} downto 0)"
+      }
+      case class unsigned(width : Int) extends Type {
+        override def toString: String = s"unsigned(${width-1} downto 0)"
+      }
+      case class signed(width : Int) extends Type {
+        override def toString: String = s"signed(${width-1} downto 0)"
+      }
+      case class std_logic() extends Type {
+        override def toString: String = s"std_logic"
+      }
+      case class enumeration(enum : Enum) extends Type {
+        override def toString: String = db.Package.declarations.enums(enum).name.toString
+      }
+
+      def apply(member : DFAny) : Type = member match {
+        case x : DFBits[_] => std_logic_vector(x.width)
+        case x : DFUInt[_] => unsigned(x.width)
+        case x : DFSInt[_] => signed(x.width)
+        case x : DFBool => std_logic()
+        case x : DFEnum[_] => enumeration(x.enum)
+        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+      }
+      def apply(value : Value) : Type = value.typeS
+    }
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Value
+    //////////////////////////////////////////////////////////////////////////////////
+    class Value(val value : String, val typeS : Type) {
+      def bits : String = typeS match {
+        case a : Type.std_logic_vector => s"$value" //already a bits vector
+        case a : Type.unsigned => s"std_logic_vector($value)"
+        case a : Type.signed => s"std_logic_vector($value)"
+        case a : Type.std_logic => s"std_logic_vector($value)"
+        case Type.enumeration(enum) => s"${db.Package.declarations.enums(enum)}'POS($value)"
+      }
+      def bits(width : Int, lsbit : Int) : String = s"$bits(${width-1} downto $lsbit)"
+      final override def toString: String = value
+    }
+    object Value {
+      def apply(member : DFAny, token : DFAny.Token) : Value = {
+        val value = token match {
+          case x : DFBits.Token => s""""${x.value.toBin}""""
+          case x : DFUInt.Token => s"to_unsigned(${member.width}, ${x.value})"
+          case x : DFSInt.Token => s"to_signed(${member.width}, ${x.value})"
+          case x : DFBool.Token => if (x.value) "'1'" else "'0'"
+          case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
+          case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+        }
+        new Value(value, Type(member))
+      }
+      def apply(member : DFAny) : Value = member match {
+        case x : DFAny.Const => Value(member, member.constLB.get)
+        case _ => References(member)
       }
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    class Reference(val member : DFAny, val name : Name) {
-      val typeS : Type = Type(member)
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Reference
+    //////////////////////////////////////////////////////////////////////////////////
+    abstract class Reference(val member : DFAny, val name : Name) extends Value(name.value, Type(member)) {
       References.add(member, this)
-      def assign(src : Reference) : Unit = throw new IllegalArgumentException(s"\nAttempted assignment to an immutable value ${member.fullName}")
+      def declare : String
+      def assign(src : Value) : Unit = throw new IllegalArgumentException(s"\nAttempted assignment to an immutable value ${member.fullName}")
     }
     object References {
       private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
-      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, throw new IllegalArgumentException(s"No reference for ${dfVal.fullName}"))
+      def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName}"))
 //      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
       def add(member : DFAny, reference : Reference) : Unit = hashMap.update(member, reference)
     }
-
-    class const private (member : DFAny.Const, name : Name) extends Reference(member, name) {
-    }
-    object const {
-      def apply(token : DFAny.Token, member : DFAny) : String = token match {
-        case x : DFBits.Token => s""""${x.value.toBin}""""
-        case x : DFUInt.Token => s"to_unsigned(${member.width}, ${x.value})"
-        case x : DFSInt.Token => s"to_signed(${member.width}, ${x.value})"
-        case x : DFBool.Token => {
-          val s : String = if (x.value) "'1'" else "'0'"
-          s
-        }
-        case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
-        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
-      }
-      def apply(member : DFAny.Const) : const = {
-        val valueStr : String = const(member.constLB.get, member)
-        new const(member, Name(valueStr))
-      }
-    }
+    //////////////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////////////
     // Entity
@@ -91,10 +125,10 @@ object Backend {
       class port(member : DFAny.Port[_ <: DFAny,_ <: DFDir], name : Name) extends Reference(member, name) {
         ports.list += this
         val dir : String = member.dir.toString.toLowerCase()
-        override def assign(src: Reference): Unit =
+        override def assign(src : Value): Unit =
           if (member.dir.isIn) throw new IllegalArgumentException(s"\nUnexpected assignment to an input port ${member.fullName}")
           else architecture.statements.async_process.assignment(this, src)
-        override def toString : String = emitPort(name.toString, dir, typeS.toString)
+        override def declare : String = emitPort(name.toString, dir, typeS.toString)
       }
       object port {
         def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
@@ -105,7 +139,7 @@ object Backend {
         val list : ListBuffer[port] = ListBuffer.empty[port]
         private val clkPort : String = emitPort("CLK", "in", "std_logic")
         private val rstPort : String = emitPort("RSTn", "in", "std_logic")
-        def portList : String = (clkPort +: rstPort +: list.map(p => p.toString)).mkString(";")
+        def portList : String = (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
         override def toString : String = s"\nport($portList\n);"
       }
       def body : String = ports.toString
@@ -121,7 +155,7 @@ object Backend {
       object declarations {
         class signal(member : DFAny, name : Name) extends Reference(member, name) {
           signals.list += this
-          override def toString: String = f"\n${delim}signal $name%-13s : $typeS;"
+          override def declare: String = f"\n${delim}signal $name%-13s : $typeS;"
         }
         object signal {
           def apply(dfVal : DFAny) : signal = new signal(dfVal, Name(dfVal))
@@ -129,37 +163,51 @@ object Backend {
         }
         object signals {
           val list : ListBuffer[signal] = ListBuffer.empty[signal]
-          override def toString: String = list.mkString
+          override def toString: String = list.map(s => s.declare).mkString
         }
 
         class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name) {
-          override def assign(src : Reference) : Unit = {
-
+          override def assign(src : Value) : Unit = {
+//            member.reference match {
+//              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => ???
+////                s"${References(member.aliasedVars.head).toBits}(${relWidth-1} downto $relBitLow)"
+////                References(member.aliasedVars.head).assign(s"bit_reverse($src)")
+//              case DFAny.Alias.Reference.BitReverse() =>
+//                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+//                References(member.aliasedVars.head).assign(s"bit_reverse($src)")
+//              case DFAny.Alias.Reference.Invert() =>
+//                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+//                References(member.aliasedVars.head).assign(s"not $src")
+//              case DFAny.Alias.Reference.Prev(step) =>
+//                throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
+//              case DFAny.Alias.Reference.AsIs() =>
+//                if (member.aliasedVars.length == 1) {
+//                  References(member.aliasedVars.head).assign(src)
+//                } else {
+//                  var pos : Int = member.width-1
+//                  member.aliasedVars.foreach(a => {
+//                    References(a).assign(s"$src($pos, ${pos - a.width+1})")
+//                    pos = pos - a.width
+//                  })
+//                }
+//            }
           }
         }
         object alias {
-          private def toBits(member : DFAny) : String = member match {
-            case a : DFBits[_] => s"${References(a).name}" //already a bits vector
-            case a : DFUInt[_] => s"std_logic_vector(${References(a).name})"
-            case a : DFSInt[_] => s"std_logic_vector(${References(a).name})"
-            case a : DFBool => s"std_logic_vector(${References(a).name})"
-            case a : DFEnum[_] => s"${db.Package.declarations.enums(a.enum)}'POS(${References(a).name})"
-            case a => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${a.fullName} has type ${a.typeName}")
-          }
           def apply(member : DFAny.Alias[_]) : alias = {
             if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
             val aliasStr : String = member.reference match {
               case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                s"${toBits(member.aliasedVars.head)}(${relWidth-1} downto $relBitLow)"
+                s"${Value(member.aliasedVars.head).bits}(${relWidth-1} downto $relBitLow)"
               case DFAny.Alias.Reference.BitReverse() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                s"bit_reverse(${member.aliasedVars.head.name})"
+                s"bit_reverse(${Value(member.aliasedVars.head)})"
               case DFAny.Alias.Reference.Invert() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                s"not ${member.aliasedVars.head.name}"
+                s"not ${Value(member.aliasedVars.head)}"
               case DFAny.Alias.Reference.Prev(step) => ??? //new architecture.declarations.signal(member, Name(s"${member.name}"))
               case DFAny.Alias.Reference.AsIs() =>
-                val concat : String = member.aliasedVars.map(a => toBits(a)).mkString(" & ")
+                val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
                 member match {
                   case m : DFBits[_] => concat
                   case m : DFUInt[_] => s"unsigned($concat)"
@@ -171,7 +219,7 @@ object Backend {
             }
 
             val dst = new alias(member, Name(member.name))
-            architecture.statements.async_process.assignment(dst, aliasStr)
+            architecture.statements.async_process.assignment(dst, new Value(aliasStr, Type(member)))
             dst
           }
         }
@@ -181,11 +229,11 @@ object Backend {
       object statements {
         def func2(member : Func2Comp[_,_,_]) : Unit = {
           val leftStr = {
-            val left = References(member.leftArg.asInstanceOf[DFAny])
-            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize(${left.name}, ${member.width})"
-            else s"${left.name}"
+            val left = Value(member.leftArg.asInstanceOf[DFAny])
+            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize($left, ${member.width})"
+            else s"$left"
           }
-          val right = References(member.rightArg.asInstanceOf[DFAny])
+          val right = Value(member.rightArg.asInstanceOf[DFAny])
           val result = architecture.declarations.signal(member)
           val op = member.opString match {
             case "&" => "and"
@@ -195,7 +243,7 @@ object Backend {
             case ">>" => if (member.leftArg.isInstanceOf[DFSInt[_]]) "sra" else "srl"
             case others => others
           }
-          architecture.statements.async_process.assignment(result, s"$leftStr $op ${right.name}")
+          architecture.statements.async_process.assignment(result, new Value(s"$leftStr $op $right", Type(member)))
         }
 
         case class component_instance(member : DFDesign) extends VHDL(member, self) {
@@ -226,9 +274,9 @@ object Backend {
         class process(val delimCnt : Int) {
           class variable(member : DFAny, name : Name, val sigport : Reference) extends Reference(member, name) {
             variables.list += this
-            override def assign(src: Reference): Unit =
+            override def assign(src : Value): Unit =
               architecture.statements.async_process.assignment(this, src)
-            override def toString: String = f"\n${delim}variable $name%-11s : $typeS;"
+            override def declare : String = f"\n${delim}variable $name%-11s : $typeS;"
           }
           object variable {
             def apply(member : DFAny, name : Name, sigport : Reference) : variable = new variable(member, name, sigport)
@@ -237,30 +285,30 @@ object Backend {
             val list : ListBuffer[variable] = ListBuffer.empty[variable]
 //            def fromSigPorts : String = list.map(v => assignment(v.sigport))
             def toSigPorts : Unit = list.foreach(v => assignment(v.sigport, v))
-            override def toString: String = list.mkString
+            override def toString: String = list.map(v => v.declare).mkString
           }
           class statement {
             steadyStateStatements.list += this
           }
-          case class assignment(dst : Reference, src : String) extends statement {
+          case class assignment(dst : Reference, src : Value) extends statement {
             final val op = dst match {
               case x : variable => ":="
               case _ => "<="
             }
             override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s $op $src;"
           }
-          object assignment {
-            def apply(dst : Reference, src : Reference) : assignment =
-              if (dst.member.width == src.member.width) assignment(dst, src.name.toString)
-              else assignment(dst, s""""${"0" * (dst.member.width - src.member.width)}" & ${src.name}""")
-          }
+//          object assignment {
+//            def apply(dst : Reference, src : Reference) : assignment =
+//              if (dst.member.width == src.member.width) assignment(dst, src.name.toString)
+//              else assignment(dst, s""""${"0" * (dst.member.width - src.member.width)}" & ${src.name}""")
+//          }
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
             override def toString: String = list.mkString
           }
         }
         object sync_process extends process(2) {
-          case class resetStatement(dst : Reference, value : String){
+          case class resetStatement(dst : Reference, value : Value){
             resetStatements.list += this
             override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s <= $value;"
           }
@@ -301,28 +349,28 @@ object Backend {
     def pass : Unit = design.discoveredList.foreach {
       case x : DFAny.Port[_,_] => entity.port(x)
       case x : DFAny.NewVar[_] =>
-        if (x.assigned) {
+//        if (x.assigned) {
           val dstSig = architecture.declarations.signal(x)
           val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev"))
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
           architecture.statements.async_process.assignment(dstVar, dstSigP1)
           if (x.initLB.get.nonEmpty)
-            architecture.statements.sync_process.resetStatement(dstSigP1, const(x.initLB.get.head, x))
-          else throw new IllegalArgumentException(s"\nUninitialized state variable ${x.fullName} may lead to deadlocks")
+            architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
+//          else throw new IllegalArgumentException(s"\nUninitialized state variable ${x.fullName} may lead to deadlocks")
           architecture.statements.sync_process.assignment(dstSigP1, dstSig)
-        }
-        else architecture.declarations.signal(x)
-      case x : DFAny.Const => const(x)
+//        }
+//        else architecture.declarations.signal(x)
+      case x : DFAny.Const => //Do nothing
       case x : DFAny.Alias[_] => architecture.declarations.alias(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
 
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
-        val srcSig = References(x.fromVal)
+        val srcSig = Value(x.fromVal)
         architecture.statements.async_process.assignment(dstSig, srcSig)
       }
-      case x : DFAny.Assignment => References(x.toVar).assign(References(x.fromVal))
+      case x : DFAny.Assignment => References(x.toVar).assign(Value(x.fromVal))
       case x =>
         println(x.fullName)
     }

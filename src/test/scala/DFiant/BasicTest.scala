@@ -4,15 +4,16 @@ import internals.LazyBox
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
-  val temp = DFUInt(8) init 0
 //  val o2 = DFBits(8) <> OUT
-//  val conv = i.bits(6, 0).uint
-//  val orV = conv + 1
-//  o <> orV.wc
-//  o2 := b"11110000"
-//  temp := i
-  temp := temp + 1
-  o := temp
+  val temp = i + 1
+//  val temp2 = DFUInt(8)
+
+//  val temp_u = temp.uint
+//  temp_u := 0
+//  val temp2_b = temp2.bits
+//  temp2_b := b"11110000"
+  o <> temp
+//  o2 <> temp2_b
 //  o <> i
 }
 
@@ -172,10 +173,11 @@ trait ContainerConn3 extends DFDesign {
   val o = DFUInt(8) <> OUT
   val io1 = new IODesignConn1 {}
   val io2 = new IODesignConn1 {}
-  val temp = DFUInt(8)
+//  val temp = DFUInt(8)
   i     <> io1.i //Connecting between owner input and child input
-  temp := io1.o
-  temp <> io2.i //Connecting between siblings (output <> input)
+//  temp := io1.o
+//  temp <> io2.i //Connecting between siblings (output <> input)
+  io1.o <> io2.i
   io2.o <> o     //Connecting between child output and owner output
 }
 
@@ -233,7 +235,7 @@ trait IODesignConn9 extends DFDesign {
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
 //  implicit val a = DFAnyConfiguration.detailed
-//  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
+  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
 
   //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
@@ -244,7 +246,7 @@ object BasicTest extends App {
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
 //  val top_containerConn1 = new ContainerConn1 {}
-  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
+//  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)
