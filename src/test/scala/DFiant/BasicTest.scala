@@ -3,14 +3,13 @@ import internals.LazyBox
 
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
-  val i2 = DFBits(8) <> IN
   val o = DFUInt(8) <> OUT
 //  val o2 = DFBits(8) <> OUT
   val temp = DFUInt(8) init 0
-  val temp_b = temp.bits
+  val temp_b = temp.bits(3,0)
   temp := i + 1
 
-  temp_b := i2
+  temp_b := b"1001"
 //  val temp2 = DFUInt(8)
 
 //  val temp_u = temp.uint
