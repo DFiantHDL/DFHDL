@@ -51,6 +51,7 @@ object Backend {
     class Reference(val member : DFAny, val name : Name) {
       val typeS : Type = Type(member)
       References.add(member, this)
+      def assign(src : Reference) : Unit = throw new IllegalArgumentException(s"\nAttempted assignment to an immutable value ${member.fullName}")
     }
     object References {
       private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
@@ -87,14 +88,17 @@ object Backend {
       val name : Name = Name(s"${design.typeName}")
       private def emitPort(name : String, dir : String, typeS : String) : String =
         f"\n$delim$name%-20s : $dir%-3s $typeS"
-      class port(member : DFAny, name : Name, dir : String) extends Reference(member, name) {
+      class port(member : DFAny.Port[_ <: DFAny,_ <: DFDir], name : Name) extends Reference(member, name) {
         ports.list += this
+        val dir : String = member.dir.toString.toLowerCase()
+        override def assign(src: Reference): Unit =
+          if (member.dir.isIn) throw new IllegalArgumentException(s"\nUnexpected assignment to an input port ${member.fullName}")
+          else architecture.statements.async_process.assignment(this, src)
         override def toString : String = emitPort(name.toString, dir, typeS.toString)
       }
       object port {
         def apply(dfPort : DFAny.Port[_ <: DFAny,_ <: DFDir]) : port = {
-          val dir : String = dfPort.dir.toString.toLowerCase()
-          new port(dfPort, Name(dfPort), dir)
+          new port(dfPort, Name(dfPort))
         }
       }
       object ports {
@@ -128,7 +132,11 @@ object Backend {
           override def toString: String = list.mkString
         }
 
-        class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name)
+        class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name) {
+          override def assign(src : Reference) : Unit = {
+
+          }
+        }
         object alias {
           private def toBits(member : DFAny) : String = member match {
             case a : DFBits[_] => s"${References(a).name}" //already a bits vector
@@ -218,6 +226,8 @@ object Backend {
         class process(val delimCnt : Int) {
           class variable(member : DFAny, name : Name, val sigport : Reference) extends Reference(member, name) {
             variables.list += this
+            override def assign(src: Reference): Unit =
+              architecture.statements.async_process.assignment(this, src)
             override def toString: String = f"\n${delim}variable $name%-11s : $typeS;"
           }
           object variable {
@@ -312,10 +322,7 @@ object Backend {
         val srcSig = References(x.fromVal)
         architecture.statements.async_process.assignment(dstSig, srcSig)
       }
-      case x : DFAny.Assignment =>
-        val dstVar = References(x.toVar)
-        val srcSig = References(x.fromVal)
-        architecture.statements.async_process.assignment(dstVar, srcSig)
+      case x : DFAny.Assignment => References(x.toVar).assign(References(x.fromVal))
       case x =>
         println(x.fullName)
     }
