@@ -253,7 +253,12 @@ object Backend {
               case DFAny.Alias.Reference.Invert() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
                 s"not ${Value(member.aliasedVars.head)}"
-              case DFAny.Alias.Reference.Prev(step) => ??? //new architecture.declarations.signal(member, Name(s"${member.name}"))
+              case DFAny.Alias.Reference.Prev(step) =>
+                for (i <- step to 1 by -1) {
+                  val sig = new architecture.declarations.signal(member, Name(s"${member.name}_prev$i"))
+                  architecture.statements.sync_process.assignment(sig, new Value(if (i==1) s"${member.name}" else s"${member.name}_prev${i-1}", Type(member)))
+                }
+                Value(member.aliasedVars.head).value
               case DFAny.Alias.Reference.AsIs() =>
                 val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
                 member match {
@@ -267,7 +272,8 @@ object Backend {
             }
 
             val dst = new alias(member, Name(member.name))
-            architecture.statements.async_process.assignment(dst, new Value(aliasStr, Type(member)))
+//            if (!member.reference.isInstanceOf[DFAny.Alias.Reference.Prev])
+              architecture.statements.async_process.assignment(dst, new Value(aliasStr, Type(member)))
             dst
           }
         }
@@ -397,7 +403,7 @@ object Backend {
       case x : DFAny.NewVar[_] =>
 //        if (x.assigned) {
           val dstSig = architecture.declarations.signal(x)
-          val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev"))
+          val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
           architecture.statements.async_process.assignment(dstVar, dstSigP1)
           if (x.initLB.get.nonEmpty)

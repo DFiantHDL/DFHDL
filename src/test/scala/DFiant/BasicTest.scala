@@ -5,17 +5,18 @@ trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
 //  val o2 = DFBits(8) <> OUT
-  val temp = DFUInt(8) init 0
-  val temp_b = temp.bits(3,0)
-  temp := i + 1
+//  val temp = DFUInt(8) init 0
+//  val temp_b = temp.bits(3,0)
+//  temp := i + 1
 
-  temp_b := b"1001"
+//  temp_b := b"1001"
 //  val temp2 = DFUInt(8)
 
 //  val temp_u = temp.uint
 //  temp_u := 0
 //  val temp2_b = temp2.bits
 //  temp2_b := b"11110000"
+  val temp = i.prev(3)
   o <> temp
 //  o2 <> temp2_b
 //  o <> i
