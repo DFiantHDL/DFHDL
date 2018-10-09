@@ -1,7 +1,7 @@
 package DFiant.compiler
 import DFiant.FunctionalLib.Func2Comp
 import DFiant._
-import internals._
+import DFiant.internals.DSLOwnerConstruct
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
@@ -154,6 +154,7 @@ object Backend {
       References.add(member, this)
       def declare : String
       def assign(src : Value) : Unit = throw new IllegalArgumentException(s"\nAttempted assignment to an immutable value ${member.fullName}")
+      var maxPrevUse : Int = 0
     }
     object References {
       private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
@@ -225,7 +226,7 @@ object Backend {
                 References(member.aliasedVars.head).assign(new Value(s"bit_reverse($src)", src.typeS))
               case DFAny.Alias.Reference.Invert() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                References(member.aliasedVars.head).assign(new Value(s"not $src", src.typeS))
+                References(member.aliasedVars.head).assign(new Value(s"(not $src)", src.typeS))
               case DFAny.Alias.Reference.Prev(step) =>
                 throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
               case DFAny.Alias.Reference.AsIs() =>
@@ -252,11 +253,17 @@ object Backend {
                 s"bit_reverse(${Value(member.aliasedVars.head)})"
               case DFAny.Alias.Reference.Invert() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                s"not ${Value(member.aliasedVars.head)}"
+                s"(not ${Value(member.aliasedVars.head)})"
               case DFAny.Alias.Reference.Prev(step) =>
-                for (i <- step to 1 by -1) {
-                  val sig = new architecture.declarations.signal(member, Name(s"${member.name}_prev$i"))
-                  architecture.statements.sync_process.assignment(sig, new Value(if (i==1) s"${member.name}" else s"${member.name}_prev${i-1}", Type(member)))
+                val ref = References(member.aliasedVars.head)
+                val refName = ref.member.name
+                if (step > ref.maxPrevUse) {
+                  for (i <- 1 to step) {
+                    val sig = new architecture.declarations.signal(ref.member, Name(s"${refName}_prev$i"))
+                    architecture.statements.sync_process.assignment(sig, new Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
+                  }
+//                  println(s"${ref.name} jhjfdhgfjdhg $step ${ref.maxPrevUse}")
+                  ref.maxPrevUse = step
                 }
                 Value(member.aliasedVars.head).value
               case DFAny.Alias.Reference.AsIs() =>
