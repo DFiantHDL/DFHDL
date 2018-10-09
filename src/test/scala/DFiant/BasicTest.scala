@@ -16,8 +16,10 @@ trait IODesignConn1 extends DFDesign {
 //  temp_u := 0
 //  val temp2_b = temp2.bits
 //  temp2_b := b"11110000"
-  val temp = i.prev(3)
+  val temp = DFUInt(8) init 5
+  temp := temp + 1
   o <> temp
+
 //  o2 <> temp2_b
 //  o <> i
 }
@@ -240,7 +242,7 @@ trait IODesignConn9 extends DFDesign {
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
 //  implicit val a = DFAnyConfiguration.detailed
-  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
+//  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
 
   //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
 //  val top_ioDesignConn2 = new IODesignConn2 {}
@@ -251,7 +253,7 @@ object BasicTest extends App {
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
 //  val top_containerConn1 = new ContainerConn1 {}
-//  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
+  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
 //  val top_containerConn4 = new ContainerConn4 {}
 //  val top_ioDesignIf = new IODesignIf {}
 //  println(top_ioDesignIf.codeString)
