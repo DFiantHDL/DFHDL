@@ -80,6 +80,9 @@ object ConditionalBlock {
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = ctx.getName
       override def codeString: String = s"\nval $name = ifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
+      private[DFiant] var _nextIfBlockOption : Option[DFIfBlock] = None
+      final lazy val nextIfBlockOption = _nextIfBlockOption
+      final def isFinalBlock : Boolean = nextIfBlockOption.isEmpty
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -92,6 +95,7 @@ object ConditionalBlock {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelseif"
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
+      prevIfBlock._nextIfBlockOption = Some(this)
     }
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
@@ -99,6 +103,7 @@ object ConditionalBlock {
       override private[DFiant] def nameDefault: String = ctx.getName + "ǂelse"
       final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       override def codeString: String = s".elsedf {$bodyCodeString\n}"
+      prevIfBlock._nextIfBlockOption = Some(this)
     }
 
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =

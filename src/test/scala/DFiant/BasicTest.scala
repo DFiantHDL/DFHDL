@@ -21,6 +21,8 @@ trait IODesignConn1 extends DFDesign {
   val b = DFBool()
   ifdf (b) {
     temp2 := 1
+  }.elseifdf(b) {
+    temp2 := 1
   }
 
   o2 <> temp2

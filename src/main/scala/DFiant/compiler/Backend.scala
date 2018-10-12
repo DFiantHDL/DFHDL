@@ -192,7 +192,7 @@ object Backend {
         private val clkPort : String = emitPort("CLK", "in", "std_logic")
         private val rstPort : String = emitPort("RSTn", "in", "std_logic")
         def portList : String = (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
-        override def toString : String = s"\nport($portList\n);"
+        override def toString : String = s"\nport ($portList\n);"
       }
       def body : String = ports.toString
     }
@@ -382,8 +382,12 @@ object Backend {
             case class ifBegin(condMember : DFAny) extends statement {
               override def toString: String = s"\n${currentDelim}if ${References(condMember).name} = '1' then"
             }
-            case class elseIfBegin(condMember : DFAny) extends statement
-            case class elseBegin() extends statement
+            case class elseIfBegin(condMember : DFAny) extends statement {
+              override def toString: String = s"\n${currentDelim}elsif ${References(condMember).name} = '1' then"
+            }
+            case class elseBegin() extends statement {
+              override def toString: String = s"\n${currentDelim}else"
+            }
             case class ifEnd() extends statement {
               override def toString: String = s"\n${currentDelim}end if;"
             }
@@ -448,11 +452,18 @@ object Backend {
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
 
       case x : ConditionalBlock.IfNoRetVal#DFIfBlock =>
-        architecture.statements.async_process.ifStatement.ifBegin(x.cond)
+        x match {
+          case ifBlock : ConditionalBlock.IfNoRetVal#DFElseIfBlock =>
+            architecture.statements.async_process.ifStatement.elseIfBegin(x.cond)
+          case ifBlock : ConditionalBlock.IfNoRetVal#DFElseBlock =>
+            architecture.statements.async_process.ifStatement.elseBegin()
+          case ifBlock =>
+            architecture.statements.async_process.ifStatement.ifBegin(x.cond)
+        }
         architecture.statements.async_process.statementIndent += 1
         pass(x)
         architecture.statements.async_process.statementIndent -= 1
-        architecture.statements.async_process.ifStatement.ifEnd()
+        if (x.isFinalBlock) architecture.statements.async_process.ifStatement.ifEnd()
 
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
