@@ -135,7 +135,7 @@ object ConditionalBlock {
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
     }
-    protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], pattern : DFAny.Pattern[_], block : => Unit)(
+    protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       final val matchVal = matchHeader.matchVal

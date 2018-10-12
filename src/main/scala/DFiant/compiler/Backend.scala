@@ -1,7 +1,7 @@
 package DFiant.compiler
 import DFiant.FunctionalLib.Func2Comp
 import DFiant._
-import DFiant.internals.DSLOwnerConstruct
+import DFiant.internals.{DSLOwnerConstruct, csoIntervalBigInt}
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
@@ -146,6 +146,17 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
+
+    object Pattern {
+      def apply(pattern : DFAny.Pattern[_]) : String = pattern match {
+        case x : DFBits.Pattern => x.patternSet.map(p => s""""${p.toBin}"""").mkString("|")
+        case x : DFUInt.Pattern => x.patternSet.map(p => csoIntervalBigInt(p)).mkString("|")
+        case x : DFSInt.Pattern => x.patternSet.map(p => csoIntervalBigInt(p)).mkString("|")
+        case x : DFBool.Pattern => x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")
+        case x : DFEnum.Pattern[_] => x.patternSet.map(p => db.Package.declarations.enums.entries(p).name.toString).mkString("|")
+        case _ => throw new IllegalArgumentException(s"\nUnsupported pattern type for VHDL compilation: $pattern")
+      }
+    }
 
     //////////////////////////////////////////////////////////////////////////////////
     // Reference
@@ -392,6 +403,33 @@ object Backend {
               override def toString: String = s"\n${currentDelim}end if;"
             }
           }
+          object caseStatement {
+            case class caseBegin(expressionMember : DFAny) extends statement {
+              val expression : String = {
+                val ref = References(expressionMember)
+                ref.typeS match {
+                  case x : Type.std_logic_vector => s"$ref"
+                  case x : Type.unsigned => s"to_integer($ref)"
+                  case x : Type.signed => s"to_integer($ref)"
+                  case x : Type.std_logic => s"$ref"
+                  case x : Type.enumeration => s"$ref"
+                }
+              }
+              override def toString: String = s"\n${currentDelim}case $expression is"
+            }
+            class when(pattern : DFAny.Pattern[_]) extends statement {
+              override def toString: String = s"\n${currentDelim}when ${Pattern(pattern)} =>"
+            }
+            object when {
+              def apply(pattern : DFAny.Pattern[_]) : when = new when(pattern)
+            }
+            case class whenOthers() extends statement {
+              override def toString: String = s"\n${currentDelim}when others =>"
+            }
+            case class caseEnd() extends statement {
+              override def toString: String = s"\n${currentDelim}end case;"
+            }
+          }
         }
         object sync_process extends process(2) {
           case class resetStatement(dst : Reference, value : Value){
@@ -482,7 +520,21 @@ object Backend {
             architecture.statements.async_process.ifStatement.ifEnd()
           case _ =>
         }
-
+      case x : ConditionalBlock.MatchNoRetVal#DFMatchHeader[_] =>
+        architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
+        architecture.statements.async_process.statementIndent += 1
+      case x : ConditionalBlock.MatchNoRetVal#DFCase_Block[_] =>
+        architecture.statements.async_process.caseStatement.whenOthers()
+        architecture.statements.async_process.statementIndent += 1
+        pass(x)
+        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.caseStatement.caseEnd()
+      case x : ConditionalBlock.MatchNoRetVal#DFCasePatternBlock[_] =>
+        architecture.statements.async_process.caseStatement.when(x.pattern)
+        architecture.statements.async_process.statementIndent += 1
+        pass(x)
+        architecture.statements.async_process.statementIndent -= 1
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
