@@ -140,10 +140,7 @@ object Backend {
         new Value(value, Type(member))
       }
       def apply(member : DFAny) : Value = member match {
-        case x : DFAny.Const =>
-          val aa = Value(member, member.constLB.get)
-          println(aa)
-          aa
+        case x : DFAny.Const => Value(member, member.constLB.get)
         case _ => References(member)
       }
     }
