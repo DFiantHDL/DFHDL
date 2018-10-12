@@ -161,7 +161,7 @@ object Backend {
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
       def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName}"))
 //      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
-      def add(member : DFAny, reference : Reference) : Unit = hashMap.update(member, reference)
+      def add(member : DFAny, reference : Reference) : Unit = hashMap.getOrElseUpdate(member, reference)
     }
     //////////////////////////////////////////////////////////////////////////////////
 
@@ -256,16 +256,22 @@ object Backend {
                 s"(not ${Value(member.aliasedVars.head)})"
               case DFAny.Alias.Reference.Prev(step) =>
                 val ref = References(member.aliasedVars.head)
-                val refName = ref.member.name
+                val refName = ref.name
+                val initSeq = ref.member.initLB.get
                 if (step > ref.maxPrevUse) {
                   for (i <- 1 to step) {
                     val sig = new architecture.declarations.signal(ref.member, Name(s"${refName}_prev$i"))
+                    initSeq.prevInit(i-1).headOption match {
+                      case Some(t) if !t.isBubble =>
+                        architecture.statements.sync_process.resetStatement(sig, Value(ref.member, t))
+                      case _ =>
+                    }
                     architecture.statements.sync_process.assignment(sig, new Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
                   }
 //                  println(s"${ref.name} jhjfdhgfjdhg $step ${ref.maxPrevUse}")
                   ref.maxPrevUse = step
                 }
-                Value(member.aliasedVars.head).value
+                s"${refName}_prev$step"
               case DFAny.Alias.Reference.AsIs() =>
                 val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
                 member match {
