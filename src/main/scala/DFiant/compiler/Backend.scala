@@ -77,18 +77,18 @@ object Backend {
           ValueBits(s"std_logic_vector(to_unsigned(${db.Package.declarations.enums(enum)}'POS($value), ${enum.width}))", enum.width)
       }
       def bits(width : Int, lsbit : Int) : ValueBits = ValueBits(s"$bits(${width+lsbit-1} downto $lsbit)", width)
-      def to(that : Type) : Value = (this.typeS, that) match {
-        case (dst : Type.std_logic_vector, src : Type.std_logic_vector) => 
-          if (dst.width == src.width) this
-          else new Value(s""""${"0" * (dst.width - src.width)}" & $src""", dst)
-        case (dst : Type.unsigned, src : Type.unsigned) =>
-          if (dst.width == src.width) this
-          else new Value(s"resize($src, ${dst.width})", dst)
-        case (dst : Type.signed, src : Type.signed) =>
-          if (dst.width == src.width) this
-          else new Value(s"resize($src, ${dst.width})", dst)
-        case (dst : Type.std_logic, src : Type.std_logic) => this
-        case (dst : Type.enumeration, src : Type.enumeration) if dst.enum == src.enum => this
+      def to(that : Type) : Value = (that, this.typeS) match {
+        case (dstTpe : Type.std_logic_vector, srcTpe : Type.std_logic_vector) => 
+          if (dstTpe.width == srcTpe.width) this
+          else new Value(s""""${"0" * (dstTpe.width - srcTpe.width)}" & $value""", dstTpe)
+        case (dstTpe : Type.unsigned, srcTpe : Type.unsigned) =>
+          if (dstTpe.width == srcTpe.width) this
+          else new Value(s"resize($value, ${dstTpe.width})", dstTpe)
+        case (dstTpe : Type.signed, srcTpe : Type.signed) =>
+          if (dstTpe.width == srcTpe.width) this
+          else new Value(s"resize($value, ${dstTpe.width})", dstTpe)
+        case (dstTpe : Type.std_logic, srcTpe : Type.std_logic) => this
+        case (dstTpe : Type.enumeration, srcTpe : Type.enumeration) if dstTpe.enum == srcTpe.enum => this
         case _ => this.bits.to(that)
       }
       final override def toString: String = value
@@ -140,7 +140,10 @@ object Backend {
         new Value(value, Type(member))
       }
       def apply(member : DFAny) : Value = member match {
-        case x : DFAny.Const => Value(member, member.constLB.get)
+        case x : DFAny.Const =>
+          val aa = Value(member, member.constLB.get)
+          println(aa)
+          aa
         case _ => References(member)
       }
     }
@@ -340,7 +343,8 @@ object Backend {
           override def toString: String = list.mkString("","\n","\n")
         }
 
-        class process(val delimCnt : Int) {
+        class process(val indent : Int) {
+          var statementIndent : Int = indent
           class variable(member : DFAny, name : Name, val sigport : Reference) extends Reference(member, name) {
             variables.list += this
             override def assign(src : Value): Unit =
@@ -360,6 +364,7 @@ object Backend {
             override def toString: String = list.map(v => v.declare).mkString
           }
           class statement {
+            val currentDelim : String = delim * statementIndent
             steadyStateStatements.list += this
           }
           class assignment private (dst : Reference, src : Value) extends statement {
@@ -367,7 +372,7 @@ object Backend {
               case x : variable => ":="
               case _ => "<="
             }
-            override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s $op $src;"
+            override def toString: String = f"\n${currentDelim + dst.name}%-22s $op $src;"
           }
           object assignment {
             def apply(dst : Reference, src : Value) : assignment = new assignment(dst, src.to(dst.typeS))
@@ -376,11 +381,21 @@ object Backend {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]
             override def toString: String = list.mkString
           }
+          object ifStatement {
+            case class ifBegin(condMember : DFAny) extends statement {
+              override def toString: String = s"\n${currentDelim}if ${References(condMember).name} = '1' then"
+            }
+            case class elseIfBegin(condMember : DFAny) extends statement
+            case class elseBegin() extends statement
+            case class ifEnd() extends statement {
+              override def toString: String = s"\n${currentDelim}end if;"
+            }
+          }
         }
         object sync_process extends process(2) {
           case class resetStatement(dst : Reference, value : Value){
             resetStatements.list += this
-            override def toString: String = f"\n${delim * delimCnt + dst.name}%-22s <= $value;"
+            override def toString: String = f"\n${delim * indent + dst.name}%-22s <= $value;"
           }
           object resetStatements {
             val list : ListBuffer[resetStatement] = ListBuffer.empty[resetStatement]
@@ -416,7 +431,7 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    def pass : Unit = design.discoveredList.foreach {
+    def pass(dsn : DFDesign) : Unit = dsn.discoveredList.foreach {
       case x : DFAny.Port[_,_] => entity.port(x)
       case x : DFAny.NewVar[_] =>
 //        if (x.assigned) {
@@ -435,13 +450,21 @@ object Backend {
       case x : DFAny.Alias[_] => architecture.declarations.alias(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
 
+      case x : ConditionalBlock.IfNoRetVal#DFIfBlock =>
+        architecture.statements.async_process.ifStatement.ifBegin(x.cond)
+        architecture.statements.async_process.statementIndent += 1
+        pass(x)
+        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.ifStatement.ifEnd()
+
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
         val srcSig = Value(x.fromVal)
         architecture.statements.async_process.assignment(dstSig, srcSig)
       }
-      case x : DFAny.Assignment => References(x.toVar).assign(Value(x.fromVal))
+      case x : DFAny.Assignment =>
+        References(x.toVar).assign(Value(x.fromVal))
       case x =>
         println(x.fullName)
     }
@@ -450,7 +473,7 @@ object Backend {
     override def toString: String = db.toString
 
     val entityName : Name = {
-      pass
+      pass(design)
       architecture.statements.async_process.variables.toSigPorts
       Name(db.addOwnerBody(design.typeName, body, this))
     }

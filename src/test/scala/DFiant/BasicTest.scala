@@ -17,9 +17,12 @@ trait IODesignConn1 extends DFDesign {
 //  temp_u := 0
 //  val temp2_b = temp2.bits
 //  temp2_b := b"11110000"
-  val temp = i.prev(3)
-  o <> temp
-  temp2 := temp2 + 1
+
+  val b = DFBool()
+  ifdf (b) {
+    temp2 := 1
+  }
+
   o2 <> temp2
 
 //  o2 <> temp2_b
