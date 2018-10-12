@@ -535,6 +535,21 @@ object Backend {
         architecture.statements.async_process.statementIndent += 1
         pass(x)
         architecture.statements.async_process.statementIndent -= 1
+      case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFMatchHeader[_] =>
+        architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
+        architecture.statements.async_process.statementIndent += 1
+      case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFCase_Block[_] =>
+        architecture.statements.async_process.caseStatement.whenOthers()
+        architecture.statements.async_process.statementIndent += 1
+        pass(x)
+        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.caseStatement.caseEnd()
+      case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFCasePatternBlock[_] =>
+        architecture.statements.async_process.caseStatement.when(x.pattern)
+        architecture.statements.async_process.statementIndent += 1
+        pass(x)
+        architecture.statements.async_process.statementIndent -= 1
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
