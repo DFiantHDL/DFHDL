@@ -11,18 +11,18 @@ trait IODesignConn1 extends DFDesign {
 //  temp := i + 1
 
 //  temp_b := b"1001"
-  val temp2 = DFUInt(8) init 5
+//  val temp2 = DFUInt(8) init 5
 
 //  val temp_u = temp.uint
 //  temp_u := 0
 //  val temp2_b = temp2.bits
 //  temp2_b := b"11110000"
 
-  val b = DFBool()
-  ifdf (b) {
-    temp2 := 1
-  }.elseifdf(b) {
-    temp2 := 1
+  val b = DFBool() init true
+  val temp2 = DFUInt(8).ifdf (b) {
+    1
+  }.elsedf {
+    5
   }
 
   o2 <> temp2

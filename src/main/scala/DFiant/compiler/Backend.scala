@@ -465,6 +465,24 @@ object Backend {
         architecture.statements.async_process.statementIndent -= 1
         if (x.isFinalBlock) architecture.statements.async_process.ifStatement.ifEnd()
 
+      case x : ConditionalBlock.IfWithRetVal[_,_,_]#DFIfBlock =>
+        x match {
+          case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseIfBlock =>
+            architecture.statements.async_process.ifStatement.elseIfBegin(x.cond)
+          case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseBlock =>
+            architecture.statements.async_process.ifStatement.elseBegin()
+          case ifBlock =>
+            architecture.statements.async_process.ifStatement.ifBegin(x.cond)
+        }
+        architecture.statements.async_process.statementIndent += 1
+        pass(x)
+        architecture.statements.async_process.statementIndent -= 1
+        x match {
+          case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseBlock =>
+            architecture.statements.async_process.ifStatement.ifEnd()
+          case _ =>
+        }
+
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
