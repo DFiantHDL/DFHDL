@@ -151,17 +151,19 @@ object Backend {
     // Reference
     //////////////////////////////////////////////////////////////////////////////////
     abstract class Reference(val member : DFAny, val name : Name) extends Value(name.value, Type(member)) {
-      References.add(member, this)
       def declare : String
       def assign(src : Value) : Unit = throw new IllegalArgumentException(s"\nAttempted assignment to an immutable value ${member.fullName}")
       var maxPrevUse : Int = 0
+      val addRef : Unit = References.add(member, this, false)
     }
     object References {
       private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
       def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName}"))
 //      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
-      def add(member : DFAny, reference : Reference) : Unit = hashMap.getOrElseUpdate(member, reference)
+      def add(member : DFAny, reference : Reference, forceUpdate : Boolean) : Unit =
+        if (forceUpdate) hashMap.update(member, reference)
+        else hashMap.getOrElseUpdate(member, reference)
     }
     //////////////////////////////////////////////////////////////////////////////////
 
@@ -317,7 +319,7 @@ object Backend {
           private def emitConnection(portName : String, signalName : String) : String =
             f"\n$delim$portName%-20s => $signalName"
           case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
-            self.References.add(port, signal)
+            self.References.add(port, signal, false)
             override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
@@ -344,6 +346,9 @@ object Backend {
             override def assign(src : Value): Unit =
               architecture.statements.async_process.assignment(this, src)
             override def declare : String = f"\n${delim}variable $name%-11s : $typeS;"
+
+            override val addRef: Unit = References.add(member, this, true)
+
           }
           object variable {
             def apply(member : DFAny, name : Name, sigport : Reference) : variable = new variable(member, name, sigport)
@@ -417,6 +422,7 @@ object Backend {
 //        if (x.assigned) {
           val dstSig = architecture.declarations.signal(x)
           val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
+          dstSig.maxPrevUse = 1
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
           architecture.statements.async_process.assignment(dstVar, dstSigP1)
           if (x.initLB.get.nonEmpty)

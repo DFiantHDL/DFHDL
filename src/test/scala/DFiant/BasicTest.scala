@@ -11,7 +11,7 @@ trait IODesignConn1 extends DFDesign {
 //  temp := i + 1
 
 //  temp_b := b"1001"
-//  val temp2 = DFUInt(8)
+  val temp2 = DFUInt(8) init 5
 
 //  val temp_u = temp.uint
 //  temp_u := 0
@@ -19,7 +19,7 @@ trait IODesignConn1 extends DFDesign {
 //  temp2_b := b"11110000"
   val temp = i.prev(3)
   o <> temp
-  val temp2 = i.prev(3)
+  temp2 := temp2 + 1
   o2 <> temp2
 
 //  o2 <> temp2_b
