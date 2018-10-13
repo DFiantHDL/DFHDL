@@ -95,7 +95,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     nameTable.get(suggestedName) match {
       case Some(v) =>
         nameTable.update(suggestedName, v + 1)
-        suggestedName + "ǂ" + v
+        suggestedName + Name.Separator + v
       case _ =>
         nameTable.update(suggestedName, 1)
         suggestedName
@@ -114,13 +114,14 @@ object DSLOwnerConstruct {
     implicit val owner : Owner
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) "ǂanon" else n.value
+    def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) s"${Name.AnonStart}anon" else n.value
+    override def toString: String = getName
   }
   trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, owners : ListBuffer[Owner])
     private val db = HashMap.empty[String, HashMap[Body, Info]]
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
-      if (info.id == 0) ownerTypeName else ownerTypeName + "ǂ" + info.id
+      if (info.id == 0) ownerTypeName else ownerTypeName + Name.Separator + info.id
     def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
       val csHM = db.getOrElseUpdate(ownerTypeName, HashMap.empty[Body, Info])
       val info = csHM.getOrElseUpdate(ownerBody, Info(csHM.size, ListBuffer.empty))

@@ -146,7 +146,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Naming
   //////////////////////////////////////////////////////////////////////////
-  final def isAnonymous : Boolean = name.startsWith("ǂ") || isInstanceOf[DSLFoldableOwnerConstruct]
+  final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) || isInstanceOf[DSLFoldableOwnerConstruct]
   final override private[DFiant] def nameDefault: String = ctx.getName
   private var autoConstructCodeString : String = ""
   final private[DFiant] def setAutoConstructCodeString(cs : String) : this.type = {autoConstructCodeString = cs; this}
@@ -308,7 +308,7 @@ object DFAny {
 
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
     final val ctx = ctx0
-    override private[DFiant] def nameDefault = "ǂconnect"
+    override private[DFiant] def nameDefault = s"${Name.Separator}connect"
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     def codeString : String = toPort.owner match {
       case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
@@ -322,7 +322,7 @@ object DFAny {
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
     final val ctx = ctx0
-    override private[DFiant] def nameDefault = "ǂassign"
+    override private[DFiant] def nameDefault = s"${Name.Separator}assign"
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
   }

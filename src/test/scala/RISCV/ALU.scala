@@ -58,6 +58,6 @@ object ALUTestApp extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.foldedInit
 
-//  val alu = new ALU {}.printCodeString
-  val aluTest = new ALUTest {}.printCodeString
+  val alu = new ALU {}.printVHDLString
+//  val aluTest = new ALUTest {}.printCodeString
 }

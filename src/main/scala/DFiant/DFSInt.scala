@@ -22,7 +22,7 @@ object DFSInt extends DFAny.Companion {
     type TPatternAble[+R] = DFSInt.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFSInt.Pattern.Builder[L]
 
-    final lazy val sign = bits.setAnonymous().msbit.setAnonymous().setAutoConstructCodeString(s"$refCodeString.sign")
+    final lazy val sign = bits.msbit.setAutoConstructCodeString(s"$refCodeString.sign")
 
     final def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
     final def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
@@ -444,7 +444,7 @@ object DFSInt extends DFAny.Companion {
     //WCW = With-carry width
     class Component[NCW, WCW](val wc : DSLFoldableOwnerConstruct with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
       DFAny.Alias[DFSInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(wc.width-1, 0, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint")) with DFSInt[NCW] {
-      lazy val c = new DFBool.Alias(List(wc), DFAny.Alias.Reference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx.getName}C")
+      lazy val c = new DFBool.Alias(List(wc), DFAny.Alias.Reference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
     }
 
@@ -489,7 +489,7 @@ object DFSInt extends DFAny.Companion {
                     case DiSoOp.Kind.- => `Func2Comp-`[LW, RW, WCW](left, right)
                     case _ => throw new IllegalArgumentException("Unexpected operation")
                   }
-                  opInst.setAutoName(s"ǂ${ctx.getName}WC")
+                  opInst.setAutoName(s"${ctx}WC")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](opInst)
                 }
@@ -532,7 +532,7 @@ object DFSInt extends DFAny.Companion {
     class Component[NCW, WCW, CW](val wc : DSLFoldableOwnerConstruct with DFSInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
     ) extends DFAny.Alias[DFSInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(ncW, 0, if (wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).sint")) with DFSInt[NCW] {
-      lazy val c = new DFBits.Alias[CW](List(wc), DFAny.Alias.Reference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx.getName}C")
+      lazy val c = new DFBits.Alias[CW](List(wc), DFAny.Alias.Reference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
     }
 
@@ -579,7 +579,7 @@ object DFSInt extends DFAny.Companion {
                   val cWidth = cW(left.width, right.width)
 
                   val opInst = `Func2Comp*`[LW, RW, WCW](left, right)
-                  opInst.setAutoName(s"ǂ${ctx.getName}WC")
+                  opInst.setAutoName(s"${ctx}WC")
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](opInst, ncWidth, cWidth)
@@ -642,7 +642,7 @@ object DFSInt extends DFAny.Companion {
             case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
             case _ => throw new IllegalArgumentException("Unexpected logic operation")
           }
-          opInst.setAutoName(s"${ctx.getName}")
+          opInst.setAutoName(s"${ctx}")
           opInst
         }
       }
@@ -702,7 +702,7 @@ object DFSInt extends DFAny.Companion {
           case DiSoOp.Kind.>= => `Func2Comp>=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"${ctx.getName}")
+        opInst.setAutoName(s"${ctx}")
       }
 
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](

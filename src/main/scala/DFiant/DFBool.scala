@@ -308,7 +308,7 @@ object DFBool extends DFAny.Companion {
           case DiSoOp.Kind.!= => `Func2Comp!=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected boolean operation")
         }
-        opInst.setAutoName(s"${ctx.getName}")
+        opInst.setAutoName(s"${ctx}")
       }
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](

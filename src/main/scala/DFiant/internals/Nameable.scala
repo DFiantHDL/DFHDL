@@ -14,7 +14,6 @@ trait Nameable {
   private[internals] def getUniqueName(suggestedName : String) : String
   final def setName(name : String) : this.type = {nameManual = name; this}
   final protected[DFiant] def setAutoName(name : String) : this.type = {nameAuto = name; this}
-  final protected[DFiant] def setAnonymous() : this.type = setAutoName("ǂanon")
   override def toString : String = name
 }
 
@@ -32,8 +31,13 @@ object NameIt {
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName) : NameIt = new NameIt {
     val value: String =
       if (name.value == "$anon") ownerName.value
-      else if (name.value == "$anonfun") "ǂanon" //loops
+      else if (name.value == "$anonfun") s"${Name.AnonStart}anon" //loops
       else name.value
 //    println(s"${name.value}, ${ownerName.value}, $value")
   }
+}
+
+object Name {
+  final val AnonStart : String = "ǂ" //"dFt_"
+  final val Separator : String = "ǂ" //"__"
 }

@@ -547,7 +547,7 @@ object DFBits extends DFAny.Companion {
                     case DiSoOp.Kind.^ => `Func2Comp^`[LW, RW, OW](left, right)
                     case _ => throw new IllegalArgumentException("Unexpected logic operation")
                   }
-                  opInst.setAutoName(s"${ctx.getName}")
+                  opInst.setAutoName(s"${ctx}")
                   opInst
                 }
               }
@@ -611,7 +611,7 @@ object DFBits extends DFAny.Companion {
             case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
             case _ => throw new IllegalArgumentException("Unexpected logic operation")
           }
-          opInst.setAutoName(s"${ctx.getName}")
+          opInst.setAutoName(s"${ctx}")
           opInst
         }
       }
@@ -735,7 +735,7 @@ object DFBits extends DFAny.Companion {
           case DiSoOp.Kind.!= => new DFiant.BasicLib.DFBitsOps.`Comp!=`(left.width, right.width)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"${ctx.getName}Comp")
+        opInst.setAutoName(s"${ctx}Comp")
         opInst.inLeft <> left
         opInst.inRight <> right
         opInst.outResult
