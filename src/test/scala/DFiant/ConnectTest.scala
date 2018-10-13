@@ -394,13 +394,13 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val o = DFUInt(8) <> OUT                                   //init = (6)
         |  val o_wc = DFUInt(9) <> OUT                                //init = (6)
         |  val o_c = DFBool() <> OUT                                  //init = (false)
-        |  val ǂplusOneWC = new `Func2Comp+` {}
-        |  ǂplusOneWC.inLeft <> i
-        |  ǂplusOneWC.inRight <> 1
-        |  val plusOne = ǂplusOneWC.outResult.bits(7, 0).uint         //init = (6)
+        |  val plusOneWC = new `Func2Comp+` {}
+        |  plusOneWC.inLeft <> i
+        |  plusOneWC.inRight <> 1
+        |  val plusOne = plusOneWC.outResult.bits(7, 0).uint          //init = (6)
         |  o <> plusOne
-        |  o_wc <> ǂplusOneWC.outResult
-        |  val plusOneC = ǂplusOneWC.outResult.bit(8)                 //init = (false)
+        |  o_wc <> plusOneWC.outResult
+        |  val plusOneC = plusOneWC.outResult.bit(8)                  //init = (false)
         |  o_c <> plusOneC
         |}
         |
