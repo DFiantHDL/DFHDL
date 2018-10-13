@@ -186,10 +186,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
         |  val inRight = DFUInt(4) <> IN                              //init = (8)
         |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
-        |  val ǂanon = new Relational {}
-        |  ǂanon.inLeft <> inLeft
-        |  ǂanon.inRight <> inRight
-        |  outResult <> ǂanon.outResult
+        |  val dFt_anon = new Relational {}
+        |  dFt_anon.inLeft <> inLeft
+        |  dFt_anon.inRight <> inRight
+        |  outResult <> dFt_anon.outResult
         |}
         |
         |trait Relational extends DFDesign {
@@ -218,19 +218,19 @@ class ConnectTest extends Properties("ConnectTest") {
         |    o1 := i1
         |  }
         |  val ret = DFUInt(8) init(2, 1, Φ, 1)                       //init = (2, 1, Φ, 1)
-        |  val retǂif = ifdf(b) {
-        |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)                     //init = (1, 1, Φ, 1)
-        |    val ǂanonǂ1 = new `Func2Comp<` {}
-        |    ǂanonǂ1.inLeft <> i1
-        |    ǂanonǂ1.inRight <> 8
-        |    val ǂanonǂif = ifdf(ǂanonǂ1.outResult) {
-        |      ǂanon := i1
+        |  val ret__if = ifdf(b) {
+        |    val dFt_anon = DFUInt(8) init(1, 1, Φ, 1)                //init = (1, 1, Φ, 1)
+        |    val dFt_anon__1 = new `Func2Comp<` {}
+        |    dFt_anon__1.inLeft <> i1
+        |    dFt_anon__1.inRight <> 8
+        |    val dFt_anon__if = ifdf(dFt_anon__1.outResult) {
+        |      dFt_anon := i1
         |    }.elseifdf(b) {
-        |      ǂanon := i2
+        |      dFt_anon := i2
         |    }.elsedf {
-        |      ǂanon := i1
+        |      dFt_anon := i1
         |    }
-        |    ret := ǂanon
+        |    ret := dFt_anon
         |  }.elsedf {
         |    ret := i2
         |  }
@@ -262,16 +262,16 @@ class ConnectTest extends Properties("ConnectTest") {
         |    o1 := i1
         |  }
         |  val ret = DFUInt(8) init(2, 1, Φ, 1)
-        |  val retǂif = ifdf(b) {
-        |    val ǂanon = DFUInt(8) init(1, 1, Φ, 1)
-        |    val ǂanonǂif = ifdf(i1 < 8) {
-        |      ǂanon := i1
+        |  val ret__if = ifdf(b) {
+        |    val dFt_anon = DFUInt(8) init(1, 1, Φ, 1)
+        |    val dFt_anon__if = ifdf(i1 < 8) {
+        |      dFt_anon := i1
         |    }.elseifdf(b) {
-        |      ǂanon := i2
+        |      dFt_anon := i2
         |    }.elsedf {
-        |      ǂanon := i1
+        |      dFt_anon := i1
         |    }
-        |    ret := ǂanon
+        |    ret := dFt_anon
         |  }.elsedf {
         |    ret := i2
         |  }
@@ -317,25 +317,25 @@ class ConnectTest extends Properties("ConnectTest") {
         |trait IODesignConn5 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)                //init = (1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT                                   //init = (Φ)
-        |  val ǂanon = i.prev                                         //init = (2, 3, 4, Φ)
-        |  val ǂanonǂ1 = ǂanon.prev                                   //init = (3, 4, Φ)
-        |  val ǂanonǂ2 = ǂanonǂ1.prev                                 //init = (4, Φ)
-        |  val ǂanonǂ3 = ǂanonǂ2.prev                                 //init = (Φ)
-        |  o <> ǂanonǂ3
-        |  val iǂ1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-        |  val oǂ1 = DFUInt(8) <> OUT                                 //init = (Φ)
-        |  val ǂanonǂ4 = iǂ1.prev                                     //init = (2, 3, 4, Φ)
-        |  val ǂanonǂ5 = ǂanonǂ4.prev                                 //init = (3, 4, Φ)
-        |  val ǂanonǂ6 = ǂanonǂ5.prev                                 //init = (4, Φ)
-        |  val ǂanonǂ7 = ǂanonǂ6.prev                                 //init = (Φ)
-        |  oǂ1 <> ǂanonǂ7
-        |  val iǂ2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-        |  val oǂ2 = DFUInt(8) <> OUT                                 //init = (Φ)
-        |  val ǂanonǂ8 = iǂ2.prev                                     //init = (2, 3, 4, Φ)
-        |  val ǂanonǂ9 = ǂanonǂ8.prev                                 //init = (3, 4, Φ)
-        |  val ǂanonǂ10 = ǂanonǂ9.prev                                //init = (4, Φ)
-        |  val ǂanonǂ11 = ǂanonǂ10.prev                               //init = (Φ)
-        |  oǂ2 <> ǂanonǂ11
+        |  val dFt_anon = i.prev                                      //init = (2, 3, 4, Φ)
+        |  val dFt_anon__1 = dFt_anon.prev                            //init = (3, 4, Φ)
+        |  val dFt_anon__2 = dFt_anon__1.prev                         //init = (4, Φ)
+        |  val dFt_anon__3 = dFt_anon__2.prev                         //init = (Φ)
+        |  o <> dFt_anon__3
+        |  val i__1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)             //init = (1, 2, 3, 4, Φ)
+        |  val o__1 = DFUInt(8) <> OUT                                //init = (Φ)
+        |  val dFt_anon__4 = i__1.prev                                //init = (2, 3, 4, Φ)
+        |  val dFt_anon__5 = dFt_anon__4.prev                         //init = (3, 4, Φ)
+        |  val dFt_anon__6 = dFt_anon__5.prev                         //init = (4, Φ)
+        |  val dFt_anon__7 = dFt_anon__6.prev                         //init = (Φ)
+        |  o__1 <> dFt_anon__7
+        |  val i__2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)             //init = (1, 2, 3, 4, Φ)
+        |  val o__2 = DFUInt(8) <> OUT                                //init = (Φ)
+        |  val dFt_anon__8 = i__2.prev                                //init = (2, 3, 4, Φ)
+        |  val dFt_anon__9 = dFt_anon__8.prev                         //init = (3, 4, Φ)
+        |  val dFt_anon__10 = dFt_anon__9.prev                        //init = (4, Φ)
+        |  val dFt_anon__11 = dFt_anon__10.prev                       //init = (Φ)
+        |  o__2 <> dFt_anon__11
         |}
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}
@@ -351,12 +351,12 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT
         |  o <> i.prev.prev.prev.prev
-        |  val iǂ1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val oǂ1 = DFUInt(8) <> OUT
-        |  oǂ1 <> iǂ1.prev.prev.prev.prev
-        |  val iǂ2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val oǂ2 = DFUInt(8) <> OUT
-        |  oǂ2 <> iǂ2.prev.prev.prev.prev
+        |  val i__1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+        |  val o__1 = DFUInt(8) <> OUT
+        |  o__1 <> i__1.prev.prev.prev.prev
+        |  val i__2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+        |  val o__2 = DFUInt(8) <> OUT
+        |  o__2 <> i__2.prev.prev.prev.prev
         |}
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}
@@ -383,10 +383,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val inLeft = DFUInt(8) <> IN                               //init = (5)
         |  val inRight = DFUInt(1) <> IN                              //init = (1)
         |  val outResult = DFUInt(9) <> OUT                           //init = (6)
-        |  val ǂanon = new Arithmetic {}
-        |  ǂanon.inLeft <> inLeft
-        |  ǂanon.inRight <> inRight
-        |  outResult <> ǂanon.outResult
+        |  val dFt_anon = new Arithmetic {}
+        |  dFt_anon.inLeft <> inLeft
+        |  dFt_anon.inRight <> inRight
+        |  outResult <> dFt_anon.outResult
         |}
         |
         |trait IODesignConn3 extends DFDesign {
@@ -418,10 +418,10 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val inLeft = DFUInt(8) <> IN                               //init = (1)
         |  val inRight = DFUInt(8) <> IN                              //init = (8)
         |  val outResult = DFBool() <> OUT                            //init = (true)
-        |  val ǂanon = new Relational {}
-        |  ǂanon.inLeft <> inLeft
-        |  ǂanon.inRight <> inRight
-        |  outResult <> ǂanon.outResult
+        |  val dFt_anon = new Relational {}
+        |  dFt_anon.inLeft <> inLeft
+        |  dFt_anon.inRight <> inRight
+        |  outResult <> dFt_anon.outResult
         |}
         |
         |trait Relational extends DFDesign {
@@ -470,7 +470,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  }
         |  val o2 = DFUInt(8) <> OUT                                  //init = (1, 88, 75, 1, 88)
         |  val ret = DFUInt(8) init(1, 88, 75, 1, 88)                 //init = (1, 88, 75, 1, 88)
-        |  val retǂmatch = matchdf(i2)
+        |  val ret__match = matchdf(i2)
         |  .casedf(1 to 5, 10 to 20) {
         |    ret := i1
         |  }.casedf(7) {

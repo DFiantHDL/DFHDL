@@ -3,6 +3,7 @@ import DFiant.FunctionalLib.Func2Comp
 import DFiant._
 import DFiant.internals.{DSLOwnerConstruct, csoIntervalBigInt}
 
+import scala.collection.immutable.HashSet
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
 
@@ -14,19 +15,49 @@ object Backend {
   //////////////////////////////////////////////////////////////////////////////////
   // Name
   //////////////////////////////////////////////////////////////////////////////////
-  case class Name(value : String) {
+  class Name private (val value : String) {
     override def toString: String = value
   }
+  final class NameDB {
+    val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
+    def getUniqueName(suggestedName : String) : String =
+      nameTable.get(suggestedName) match {
+        case Some(v) =>
+          nameTable.update(suggestedName, v + 1)
+          suggestedName + "__" + v
+        case _ =>
+          nameTable.update(suggestedName, 1)
+          suggestedName
+      }
+  }
   object Name {
-    def apply(member : DFAnyMember) : Name = member match { //TODO: fix name
+    def apply(value : String)(implicit db : NameDB) : Name = {
+      val lcValue = value.toLowerCase
+      val nonReserved = if (reservedKeywords.contains(lcValue)) s"${value}0"
+      else value
+      new Name(db.getUniqueName(nonReserved))
+    }
+    def apply(member : DFAnyMember)(implicit db : NameDB) : Name = member match { //TODO: fix name
       case p : DFAny.Port[_,_] => Name(member.name.toUpperCase)
       case _ => Name(member.name)
     }
+    val reservedKeywords : HashSet[String] = HashSet (
+      "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin",
+      "block", "body", "buffer", "bus", "case", "component", "configuration", "constant", "disconnect", "downto",
+      "else", "elsif", "end", "entity", "exit", "file", "for", "function", "generate", "generic", "group",
+      "guarded", "if", "impure", "in", "inertial", "inout", "is", "label", "library", "linkage", "literal", "loop",
+      "map", "mod", "nand", "new", "next", "nor", "not", "null", "of", "on", "open", "or", "others", "out",
+      "package", "port", "postponed", "procedure", "process", "pure", "range", "record", "register", "reject",
+      "rem", "report", "return", "rol", "ror", "select", "severity", "signal", "shared", "sla", "sll", "sra",
+      "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable",
+      "wait", "when", "while", "with", "xnor", "xor",
+    )
   }
   //////////////////////////////////////////////////////////////////////////////////
 
   class VHDL(design : DFDesign, owner : VHDL = null) extends Backend(design) { self =>
     private val top : VHDL = if (owner == null) this else owner
+    private implicit val nameDB : NameDB = new NameDB
     private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name) else top.db
     private val delim = "  "
 
@@ -574,7 +605,7 @@ object Backend {
   }
 
   object VHDL {
-    private case class DB(topName : String) extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
+    private case class DB(topName : String)(implicit nameDB : NameDB) extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
       //////////////////////////////////////////////////////////////////////////////////
       // Library
       //////////////////////////////////////////////////////////////////////////////////

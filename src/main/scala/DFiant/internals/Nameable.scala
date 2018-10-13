@@ -38,6 +38,6 @@ object NameIt {
 }
 
 object Name {
-  final val AnonStart : String = "ǂ" //"dFt_"
-  final val Separator : String = "ǂ" //"__"
+  final val AnonStart : String = "dFt_"
+  final val Separator : String = "__" //"ǂ"
 }
