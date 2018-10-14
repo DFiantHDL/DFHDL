@@ -18,11 +18,12 @@ trait IODesignConn1 extends DFDesign {
 //  val temp2_b = temp2.bits
 //  temp2_b := b"11110000"
 
-  matchdf (i)
-    .casedf(1 to 5, 20 to 25) {temp2 := 1}
-    .casedf_(temp2 := 5)
+//  matchdf (i)
+//    .casedf(1 to 5, 20 to 25) {temp2 := 1}
+//    .casedf_(temp2 := 5)
 
-  o2 <> temp2
+  val temp3 = temp2 + 1
+  o2 <> temp3
 
 //  o2 <> temp2_b
 //  o <> i

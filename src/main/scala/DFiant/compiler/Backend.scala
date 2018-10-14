@@ -20,15 +20,17 @@ object Backend {
   }
   final class NameDB {
     val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
-    def getUniqueName(suggestedName : String) : String =
-      nameTable.get(suggestedName) match {
+    def getUniqueName(suggestedName : String) : String = {
+      val lcSuggestedName = suggestedName.toLowerCase()
+      nameTable.get(lcSuggestedName) match {
         case Some(v) =>
-          nameTable.update(suggestedName, v + 1)
-          suggestedName + "__" + v
+          nameTable.update(lcSuggestedName, v + 1)
+          suggestedName + "_h_" + v
         case _ =>
-          nameTable.update(suggestedName, 1)
+          nameTable.update(lcSuggestedName, 1)
           suggestedName
       }
+    }
   }
   object Name {
     def apply(value : String)(implicit db : NameDB) : Name = {
@@ -64,7 +66,9 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Type
     //////////////////////////////////////////////////////////////////////////////////
-    sealed trait Type
+    sealed trait Type {
+      val width : Int
+    }
     object Type {
       case class std_logic_vector(width : Int) extends Type {
         override def toString: String = s"std_logic_vector(${width-1} downto 0)"
@@ -76,9 +80,11 @@ object Backend {
         override def toString: String = s"signed(${width-1} downto 0)"
       }
       case class std_logic() extends Type {
+        val width = 1
         override def toString: String = s"std_logic"
       }
       case class enumeration(enum : Enum) extends Type {
+        val width = enum.width
         override def toString: String = db.Package.declarations.enums(enum).name.toString
       }
 
@@ -101,15 +107,17 @@ object Backend {
     class Value(val value : String, val typeS : Type) {
       def bits : ValueBits = typeS match {
         case t : Type.std_logic_vector => ValueBits(value, t.width)
-        case t : Type.unsigned => ValueBits(s"std_logic_vector($value)", t.width)
-        case t : Type.signed => ValueBits(s"std_logic_vector($value)", t.width)
-        case t : Type.std_logic => ValueBits(s"std_logic_vector($value)", 1)
+        case t : Type.unsigned => ValueBits(s"to_slv($value)", t.width)
+        case t : Type.signed => ValueBits(s"to_slv($value)", t.width)
+        case t : Type.std_logic => ValueBits(s"to_slv($value)", 1)
         case Type.enumeration(enum) =>
-          ValueBits(s"std_logic_vector(to_unsigned(${db.Package.declarations.enums(enum)}'POS($value), ${enum.width}))", enum.width)
+          ValueBits(s"to_slv(to_unsigned(${db.Package.declarations.enums(enum)}'POS($value), ${enum.width}))", enum.width)
       }
-      def bits(width : Int, lsbit : Int) : ValueBits = ValueBits(s"$bits(${width+lsbit-1} downto $lsbit)", width)
+      def bits(width : Int, lsbit : Int) : ValueBits =
+        if (width == typeS.width) bits
+        else ValueBits(s"$bits(${width+lsbit-1} downto $lsbit)", width)
       def to(that : Type) : Value = (that, this.typeS) match {
-        case (dstTpe : Type.std_logic_vector, srcTpe : Type.std_logic_vector) => 
+        case (dstTpe : Type.std_logic_vector, srcTpe : Type.std_logic_vector) =>
           if (dstTpe.width == srcTpe.width) this
           else new Value(s""""${"0" * (dstTpe.width - srcTpe.width)}" & $value""", dstTpe)
         case (dstTpe : Type.unsigned, srcTpe : Type.unsigned) =>
@@ -291,7 +299,7 @@ object Backend {
             if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
             val aliasStr : String = member.reference match {
               case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                s"${Value(member.aliasedVars.head).bits}(${relWidth-1} downto $relBitLow)"
+                s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
               case DFAny.Alias.Reference.BitReverse() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
                 s"bit_reverse(${Value(member.aliasedVars.head)})"
@@ -350,11 +358,17 @@ object Backend {
             case "&" => "and"
             case "|" => "or"
             case "^" => "xor"
+            case "==" => "="
+            case "!=" => "/="
             case "<<" => if (member.leftArg.isInstanceOf[DFSInt[_]]) "sla" else "sll"
             case ">>" => if (member.leftArg.isInstanceOf[DFSInt[_]]) "sra" else "srl"
             case others => others
           }
-          architecture.statements.async_process.assignment(result, new Value(s"$leftStr $op $right", Type(member)))
+          val infixOpStr = op match {
+            case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStr $op $right)"
+            case _ => s"$leftStr $op $right"
+          }
+          architecture.statements.async_process.assignment(result, new Value(infixOpStr, Type(member)))
         }
 
         case class component_instance(member : DFDesign) extends VHDL(member, self) {
@@ -613,7 +627,7 @@ object Backend {
         override def toString : String =
           s"""
              |library ieee;
-             |use ieee_std_logic_1164.all;
+             |use ieee.std_logic_1164.all;
              |use ieee.numeric_std.all;
              |use work.${topName}_pkg.all;
              |""".stripMargin
@@ -626,8 +640,24 @@ object Backend {
              |--Taken from http://www.vlsiip.com/intel/vhdlf.html
              |function bit_reverse(s1:std_logic_vector) return std_logic_vector;
          """.stripMargin
+        val to_slFunc : String =
+          s"""
+             |function to_sl(b:boolean) return std_logic;
+         """.stripMargin
+        val to_slvFunc1 : String =
+          s"""
+             |function to_slv(arg:std_logic) return std_logic_vector;
+         """.stripMargin
+        val to_slvFunc2 : String =
+          s"""
+             |function to_slv(arg:unsigned) return std_logic_vector;
+         """.stripMargin
+        val to_slvFunc3 : String =
+          s"""
+             |function to_slv(arg:signed) return std_logic_vector;
+         """.stripMargin
 
-        override def toString: String = bitReverseFunc
+        override def toString: String = bitReverseFunc + to_slFunc + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
       }
       object HelperFunctionsBody{
         val bitReverseFunc : String =
@@ -642,8 +672,44 @@ object Backend {
              |  return rr;
              |end bit_reverse;
          """.stripMargin
+        val to_slFunc : String =
+          s"""
+             |function to_sl(b:boolean) return std_logic is
+             |begin
+             |  if (b) then
+             |    return '1';
+             |  else
+             |    return '0';
+             |  end if;
+             |end to_sl;
+         """.stripMargin
+        val to_slvFunc1 : String =
+          s"""
+             |function to_slv(arg:std_logic) return std_logic_vector is
+             |begin
+             |  if (arg='1') then
+             |    return "1";
+             |  else
+             |    return "0";
+             |  end if;
+             |end to_slv;
+         """.stripMargin
+        val to_slvFunc2 : String =
+          s"""
+             |function to_slv(arg:unsigned) return std_logic_vector is
+             |begin
+             |  return std_logic_vector(arg);
+             |end to_slv;
+         """.stripMargin
+        val to_slvFunc3 : String =
+          s"""
+             |function to_slv(arg:signed) return std_logic_vector is
+             |begin
+             |  return std_logic_vector(arg);
+             |end to_slv;
+         """.stripMargin
 
-        override def toString: String = bitReverseFunc
+        override def toString: String = bitReverseFunc + to_slFunc + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
       }
       //////////////////////////////////////////////////////////////////////////////////
       // Package
@@ -679,7 +745,8 @@ object Backend {
         override def toString: String =
           s"""
              |library ieee;
-             |use ieee_std_logic_1164.all;
+             |use ieee.std_logic_1164.all;
+             |use ieee.numeric_std.all;
              |
              |package $name is
              |$HelperFunctions
