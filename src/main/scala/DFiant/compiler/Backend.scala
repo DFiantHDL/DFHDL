@@ -366,6 +366,7 @@ object Backend {
           }
           val infixOpStr = op match {
             case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStr $op $right)"
+            case "sla" | "sll" | "sra" | "srl" => s"$leftStr $op to_integer($right)"
             case _ => s"$leftStr $op $right"
           }
           architecture.statements.async_process.assignment(result, new Value(infixOpStr, Type(member)))
