@@ -218,12 +218,12 @@ class ConnectTest extends Properties("ConnectTest") {
         |    o1 := i1
         |  }
         |  val ret = DFUInt(8) init(2, 1, Φ, 1)                       //init = (2, 1, Φ, 1)
-        |  val ret__if = ifdf(b) {
-        |    val dFt_anon = DFUInt(8) init(1, 1, Φ, 1)                //init = (1, 1, Φ, 1)
-        |    val dFt_anon__1 = new `Func2Comp<` {}
-        |    dFt_anon__1.inLeft <> i1
-        |    dFt_anon__1.inRight <> 8
-        |    val dFt_anon__if = ifdf(dFt_anon__1.outResult) {
+        |  val ret_d_if = ifdf(b) {
+        |    val dFt_anon = DFUInt(8) init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
+        |    val dFt_anon_d_1 = new `Func2Comp<` {}
+        |    dFt_anon_d_1.inLeft <> i1
+        |    dFt_anon_d_1.inRight <> 8
+        |    val dFt_anon_d_if = ifdf(dFt_anon_d_1.outResult) {
         |      dFt_anon := i1
         |    }.elseifdf(b) {
         |      dFt_anon := i2
@@ -262,9 +262,9 @@ class ConnectTest extends Properties("ConnectTest") {
         |    o1 := i1
         |  }
         |  val ret = DFUInt(8) init(2, 1, Φ, 1)
-        |  val ret__if = ifdf(b) {
+        |  val ret_d_if = ifdf(b) {
         |    val dFt_anon = DFUInt(8) init(1, 1, Φ, 1)
-        |    val dFt_anon__if = ifdf(i1 < 8) {
+        |    val dFt_anon_d_if = ifdf(i1 < 8) {
         |      dFt_anon := i1
         |    }.elseifdf(b) {
         |      dFt_anon := i2
@@ -318,24 +318,24 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)                //init = (1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT                                   //init = (Φ)
         |  val dFt_anon = i.prev                                      //init = (2, 3, 4, Φ)
-        |  val dFt_anon__1 = dFt_anon.prev                            //init = (3, 4, Φ)
-        |  val dFt_anon__2 = dFt_anon__1.prev                         //init = (4, Φ)
-        |  val dFt_anon__3 = dFt_anon__2.prev                         //init = (Φ)
-        |  o <> dFt_anon__3
-        |  val i__1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)             //init = (1, 2, 3, 4, Φ)
-        |  val o__1 = DFUInt(8) <> OUT                                //init = (Φ)
-        |  val dFt_anon__4 = i__1.prev                                //init = (2, 3, 4, Φ)
-        |  val dFt_anon__5 = dFt_anon__4.prev                         //init = (3, 4, Φ)
-        |  val dFt_anon__6 = dFt_anon__5.prev                         //init = (4, Φ)
-        |  val dFt_anon__7 = dFt_anon__6.prev                         //init = (Φ)
-        |  o__1 <> dFt_anon__7
-        |  val i__2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)             //init = (1, 2, 3, 4, Φ)
-        |  val o__2 = DFUInt(8) <> OUT                                //init = (Φ)
-        |  val dFt_anon__8 = i__2.prev                                //init = (2, 3, 4, Φ)
-        |  val dFt_anon__9 = dFt_anon__8.prev                         //init = (3, 4, Φ)
-        |  val dFt_anon__10 = dFt_anon__9.prev                        //init = (4, Φ)
-        |  val dFt_anon__11 = dFt_anon__10.prev                       //init = (Φ)
-        |  o__2 <> dFt_anon__11
+        |  val dFt_anon_d_1 = dFt_anon.prev                           //init = (3, 4, Φ)
+        |  val dFt_anon_d_2 = dFt_anon_d_1.prev                       //init = (4, Φ)
+        |  val dFt_anon_d_3 = dFt_anon_d_2.prev                       //init = (Φ)
+        |  o <> dFt_anon_d_3
+        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)            //init = (1, 2, 3, 4, Φ)
+        |  val o_d_1 = DFUInt(8) <> OUT                               //init = (Φ)
+        |  val dFt_anon_d_4 = i_d_1.prev                              //init = (2, 3, 4, Φ)
+        |  val dFt_anon_d_5 = dFt_anon_d_4.prev                       //init = (3, 4, Φ)
+        |  val dFt_anon_d_6 = dFt_anon_d_5.prev                       //init = (4, Φ)
+        |  val dFt_anon_d_7 = dFt_anon_d_6.prev                       //init = (Φ)
+        |  o_d_1 <> dFt_anon_d_7
+        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)            //init = (1, 2, 3, 4, Φ)
+        |  val o_d_2 = DFUInt(8) <> OUT                               //init = (Φ)
+        |  val dFt_anon_d_8 = i_d_2.prev                              //init = (2, 3, 4, Φ)
+        |  val dFt_anon_d_9 = dFt_anon_d_8.prev                       //init = (3, 4, Φ)
+        |  val dFt_anon_d_10 = dFt_anon_d_9.prev                      //init = (4, Φ)
+        |  val dFt_anon_d_11 = dFt_anon_d_10.prev                     //init = (Φ)
+        |  o_d_2 <> dFt_anon_d_11
         |}
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}
@@ -351,12 +351,12 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT
         |  o <> i.prev.prev.prev.prev
-        |  val i__1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o__1 = DFUInt(8) <> OUT
-        |  o__1 <> i__1.prev.prev.prev.prev
-        |  val i__2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o__2 = DFUInt(8) <> OUT
-        |  o__2 <> i__2.prev.prev.prev.prev
+        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+        |  val o_d_1 = DFUInt(8) <> OUT
+        |  o_d_1 <> i_d_1.prev.prev.prev.prev
+        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+        |  val o_d_2 = DFUInt(8) <> OUT
+        |  o_d_2 <> i_d_2.prev.prev.prev.prev
         |}
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}
@@ -470,7 +470,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |  }
         |  val o2 = DFUInt(8) <> OUT                                  //init = (1, 88, 75, 1, 88)
         |  val ret = DFUInt(8) init(1, 88, 75, 1, 88)                 //init = (1, 88, 75, 1, 88)
-        |  val ret__match = matchdf(i2)
+        |  val ret_d_match = matchdf(i2)
         |  .casedf(1 to 5, 10 to 20) {
         |    ret := i1
         |  }.casedf(7) {
