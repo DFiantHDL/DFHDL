@@ -1,5 +1,0 @@
-package DFiant
-
-trait DFSimulator {
-
-}

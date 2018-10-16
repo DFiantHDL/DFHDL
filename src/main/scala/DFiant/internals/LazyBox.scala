@@ -72,6 +72,7 @@ object LazyBox {
       mutableValueFunc = () => value.getValueOrError
       isset = true
     }
+    def set(value : T) : Unit = set(Const(owner)(value))
   }
   case class Const[+T](owner : DSLMemberConstruct)(value : T) extends LazyBox[T](owner)(List()){
     import LazyBox.ValueOrError._
