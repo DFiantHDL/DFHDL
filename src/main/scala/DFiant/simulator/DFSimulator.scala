@@ -2,6 +2,6 @@ package DFiant.simulator
 
 import DFiant._
 
-trait DFSimulator {
+case class DFSimulator(design : DFDesign) {
 
 }
