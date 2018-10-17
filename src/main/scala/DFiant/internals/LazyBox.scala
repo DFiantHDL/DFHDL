@@ -11,12 +11,12 @@ abstract class LazyBox[+T] private (owner : DSLMemberConstruct)(args : List[Lazy
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(owner), "Uninitialized")
   private val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
-  protected def unlockValueDependencies() : Unit = if (locked) {
+  final protected def unlockValueDependencies() : Unit = if (locked) {
     locked = false
     valueDependencies.foreach(vd => vd.unlockValueDependencies())
   }
-  protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
-  def getValueOrError : ValueOrError[T] = {
+  final protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
+  final def getValueOrError : ValueOrError[T] = {
     if (visited) Error(List(owner), "Circular dependency detected")
     else {
       if (!locked) {
@@ -37,7 +37,7 @@ abstract class LazyBox[+T] private (owner : DSLMemberConstruct)(args : List[Lazy
     valueOrError = Error(List(owner),"Uninitialized")
     locked = false
   }
-  def get : T = getValueOrError match {
+  final def get : T = getValueOrError match {
     case Value(v) => v
     case Error(p, m) => {
       val pStr = p.map(o => o.fullName).mkString(" <- ")
