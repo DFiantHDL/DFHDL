@@ -27,7 +27,7 @@ trait ALU extends DFDesign {
     .casedf(ALUSel.SRL){op1 >> shamt}
     .casedf(ALUSel.SRA){(op1s >> shamt).bits}
     .casedf(ALUSel.COPY1){op1}
-    .casedf_{h"00000000"}
+    .casedf_{b0s}
 
   out <> outCalc
 }

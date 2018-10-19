@@ -5,6 +5,8 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.BasicLib._
 
+object Zeros extends DFBits.SameBitsVector(false)
+object Ones extends DFBits.SameBitsVector(true)
 
 trait DFBits[W] extends DFBits.Unbounded {
   type Width = W
@@ -119,6 +121,7 @@ object DFBits extends DFAny.Companion {
     final def &  [R](right: Op.Able[R])(implicit op: `Op&`.Builder[TVal, R]) = op(left, right)
     final def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
     final def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
+    final def == (right : SameBitsVector)(implicit op: `Op==`.Builder[TVal, SameBitsVector]) : DFBool = op(left, right)
     final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[Width] = {
       if (shift >= width) new DFBits.Const[Width](DFBits.Token(width, 0))
       else {
@@ -171,6 +174,20 @@ object DFBits extends DFAny.Companion {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // SameBitsVector for repeated zeros or ones
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected[DFiant] sealed class SameBitsVector(val value : Boolean)
+  object SameBitsVector {
+    trait Builder[W] {
+      def apply(bits : DFBits[W], sbv : SameBitsVector) : DFBits[W]
+    }
+    object Builder {
+      implicit def ev[W](implicit ctx : DFAny.Const.Context)
+      : Builder[W] = (bits, sbv) => new Const[W](Token(BitVector.fill(bits.width.toLong)(sbv.value)))
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
@@ -181,8 +198,6 @@ object DFBits extends DFAny.Companion {
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit ctx : DFAny.NewVar.Context
   ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
-//  def zeros[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
-//  def ones[W](checkedWidth : BitsWidth.Checked[W]) : Var[W] = ???
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -345,17 +360,19 @@ object DFBits extends DFAny.Companion {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
+      implicit class DFBitsSameBitsVector[LW](val right : SameBitsVector) extends Able[DFBits[LW]]
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
       implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
-        right.toSeqAny.map(e => e match {
-          case (t : Bubble) => Token(width, t)
-          case (t : Token) => Token(width, t)
-          case (t : BitVector) => Token(width, t)
-        })
+        right.toSeqAny.collect{
+          case t : Bubble => Token(width, t)
+          case t : Token => Token(width, t)
+          case t : BitVector => Token(width, t)
+          case t : SameBitsVector => Token(width, BitVector.fill(width)(t.value))
+        }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
@@ -394,12 +411,12 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
-      val left = value
-      def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
-      def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
-      def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
-      def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-      def <> [RW, RDIR <: DFDir](port : DFBits[RW] <> RDIR)(
+      final val left = value
+      final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def <> [RW, RDIR <: DFDir](port : DFBits[RW] <> RDIR)(
         implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
     }
@@ -408,6 +425,8 @@ object DFBits extends DFAny.Companion {
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
       sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able[XBitVector[W]](left)
       final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
+      sealed class DFBitsFromZeros(left : SameBitsVector) extends Able[SameBitsVector](left)
+      final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
       final implicit def ofDFBits[R <: DFBits.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
@@ -468,7 +487,7 @@ object DFBits extends DFAny.Companion {
           def apply(leftL : L, rightR : R) : Comp =  properR(leftL, rightR)
         }
 
-      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+      implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : Ctx,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
@@ -478,7 +497,15 @@ object DFBits extends DFAny.Companion {
           right
         })
 
-      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+      implicit def evDFBits_op_SBV[LW](
+        implicit
+        rSBV : SameBitsVector.Builder[LW]
+      ) : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] =
+        create[DFBits[LW], SameBitsVector, LW]((left, right) => {
+          rSBV(left, right)
+        })
+
+      implicit def evDFBits_op_Const[LW, R, RW](
         implicit
         ctx : Ctx,
         rConst : Const.Builder.Aux[R, RW],
@@ -572,6 +599,14 @@ object DFBits extends DFAny.Companion {
         lConst : Const.Builder.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
+
+      type UnconstrainedLiteralError =
+        RequireMsgSym[false, "An unconstrained-width literal cannot be used in a logic operation", Builder[_,_]]
+
+      implicit def evDFBits_op_SBV[LW](implicit error : UnconstrainedLiteralError)
+      : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] = ???
+      implicit def evSBV_op_DFBits[RW](implicit error : UnconstrainedLiteralError)
+      : Aux[SameBitsVector, DFBits[RW], DFBits[RW]] = ???
     }
   }
   object `Op|` extends OpsLogic(DiSoOp.Kind.|)
@@ -705,6 +740,14 @@ object DFBits extends DFAny.Companion {
         lConst : Const.Builder.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
+
+      type UnconstrainedLiteralError =
+        RequireMsgSym[false, "An unconstrained-width literal cannot be used in a concatenation operation", Builder[_,_]]
+
+      implicit def evDFBits_op_SBV[LW](implicit error : UnconstrainedLiteralError)
+      : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] = ???
+      implicit def evSBV_op_DFBits[RW](implicit error : UnconstrainedLiteralError)
+      : Aux[SameBitsVector, DFBits[RW], DFBits[RW]] = ???
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -741,7 +784,7 @@ object DFBits extends DFAny.Companion {
         opInst.outResult
       }
 
-      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+      implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Op.Context,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
@@ -750,7 +793,7 @@ object DFBits extends DFAny.Companion {
         (left, right)
       })
 
-      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+      implicit def evDFBits_op_Const[LW, R, RW](
         implicit
         ctx : DFAny.Op.Context,
         rConst : Const.Builder.Aux[R, RW],
@@ -759,12 +802,30 @@ object DFBits extends DFAny.Companion {
         (left, right)
       })
 
-      implicit def evConst_op_DFBits[L, LW, R <: DFBits[RW], RW](
+      implicit def evConst_op_DFBits[L, LW, RW](
         implicit
         ctx : DFAny.Op.Context,
         lConst : Const.Builder.Aux[L, LW],
       ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
+        (left, right)
+      })
+
+      implicit def evDFBits_op_SBV[LW](
+        implicit
+        ctx : DFAny.Op.Context,
+        rSBV : SameBitsVector.Builder[LW]
+      ) : Builder[DFBits[LW], SameBitsVector] = create[DFBits[LW], LW, SameBitsVector, LW]((left, rightSBV) => {
+        val right = rSBV(left, rightSBV)
+        (left, right)
+      })
+
+      implicit def evSBV_op_DFBits[RW](
+        implicit
+        ctx : DFAny.Op.Context,
+        lSBV : SameBitsVector.Builder[RW]
+      ) : Builder[SameBitsVector, DFBits[RW]] = create[SameBitsVector, RW, DFBits[RW], RW]((leftSBV, right) => {
+        val left = lSBV(right, leftSBV)
         (left, right)
       })
     }

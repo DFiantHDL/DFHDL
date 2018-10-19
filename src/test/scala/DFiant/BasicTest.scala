@@ -4,6 +4,8 @@ trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
   val o2 = DFUInt(8) <> OUT
+  val o3 = DFBits(8) <> OUT
+  o3 == b0s
 //  val o2 = DFBits(8) <> OUT
 //  val temp = DFUInt(8) init 0
 //  val temp_b = temp.bits(3,0)
