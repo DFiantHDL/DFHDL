@@ -7,7 +7,6 @@ import scala.collection.mutable.ListBuffer
 
 protected sealed trait TokenState
 object TokenState {
-  type TokenOrError = Either[DFAny.Token, String]
   sealed class NotReady extends TokenState
   case class NoToken() extends NotReady
   case class Consumed(tokenOrError : TokenOrError) extends NotReady
@@ -18,6 +17,37 @@ object TokenState {
   case class ReadyUnchanged(tokenOrError : TokenOrError) extends Ready
 }
 
+abstract class TokenFIFO(slots : Int) {
+  private val queue : mutable.Queue[TokenOrError] = mutable.Queue.empty[TokenOrError]
+  def isEmpty : Boolean = queue.isEmpty
+  def isFull : Boolean = queue.length == slots
+  object enqueue {
+    def apply(token : DFAny.Token) : Unit = {
+
+    }
+    var ready : () => Boolean = () => true
+    def valid : Boolean = ???
+    def data : TokenOrError = ???
+    object sampled {
+      var valid : Boolean = false
+      var data : TokenOrError = Right("Uninitialized")
+    }
+    def update() : Unit = {
+      if (ready() && valid && !sampled.valid) sampled.data = data
+      sampled.valid = valid
+
+    }
+  }
+  object dequeue {
+    def ready : Boolean = ???
+    var valid : Boolean = false
+    var data : TokenOrError = Right("Uninitialized")
+    object sampled {
+      var ready : Boolean = false
+    }
+  }
+}
+
 abstract class TokenStream(dfVal : DFAny)(producers : List[DFAny], postJoinFunc : List[DFAny.Token] => DFAny.Token)(implicit sim : DFSimulator) {
   object events {
     private[TokenStream] var onAProducerReady : Option[DFAny => Unit] = None
@@ -26,8 +56,9 @@ abstract class TokenStream(dfVal : DFAny)(producers : List[DFAny], postJoinFunc 
     def hookOnAllProducersReady(func : => Unit) : Unit = onAllProducersReady = Some(() => func)
   }
   private object history {
-    val tokens : ListBuffer[DFAny.Token] = ListBuffer.empty[DFAny.Token]
+    private val queue : mutable.Queue[TokenOrError] = mutable.Queue.empty[TokenOrError]
   }
+  private val queue : mutable.Queue[TokenOrError] = mutable.Queue.empty[TokenOrError]
   private val consumers : mutable.Set[DFAny] = mutable.Set.empty[DFAny]
   final protected def addConsumer(consumer : DFAny) : Unit = consumers += consumer
   final val producerStreams : List[TokenStream] = producers.map(p => sim.getTokenStream(p))
