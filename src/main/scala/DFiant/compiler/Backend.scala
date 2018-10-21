@@ -25,7 +25,7 @@ object Backend {
       nameTable.get(lcSuggestedName) match {
         case Some(v) =>
           nameTable.update(lcSuggestedName, v + 1)
-          suggestedName + "_h_" + v
+          suggestedName + "_r_" + v //_r_ for RTL indication
         case _ =>
           nameTable.update(lcSuggestedName, 1)
           suggestedName
