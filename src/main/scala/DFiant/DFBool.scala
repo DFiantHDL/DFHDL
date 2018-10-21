@@ -25,6 +25,7 @@ object DFBool extends DFAny.Companion {
 
     def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
     def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
+    def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) : DFBool = op(left, right)
     def rising (implicit ctx : DFAny.Op.Context) : DFBool = left && !left.prev(1)
     def falling (implicit ctx : DFAny.Op.Context) : DFBool = !left && left.prev(1)
 
@@ -102,6 +103,10 @@ object DFBool extends DFAny.Companion {
       if (this.isBubble || that.isBubble) Token(Bubble)
       else Token(this.value || that.value)
     }
+    final def ^ (that : Token) : Token = {
+      if (this.isBubble || that.isBubble) Token(Bubble)
+      else Token(this.value ^ that.value)
+    }
     final def unary_! : Token = {
       if (this.isBubble) Token(Bubble)
       else Token(!this.value)
@@ -118,6 +123,7 @@ object DFBool extends DFAny.Companion {
     import DFAny.TokenSeq
     val || : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l || r)
     val && : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l && r)
+    val ^  : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ^ r)
     val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
     val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
     def unary_! (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => !t)
@@ -217,10 +223,11 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
-      val left = value
-      def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
-      def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
-      def <> [RDIR <: DFDir](port : DFBool <> RDIR)(
+      final val left = value
+      final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
+      final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
+      final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
+      final def <> [RDIR <: DFDir](port : DFBool <> RDIR)(
         implicit op: `Op<>`.Builder[DFBool, L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
     }
@@ -304,6 +311,7 @@ object DFBool extends DFAny.Companion {
         val opInst = kind match {
           case DiSoOp.Kind.|| => `Func2Comp||`(left, right)
           case DiSoOp.Kind.&& => `Func2Comp&&`(left, right)
+          case DiSoOp.Kind.^  => `Func2Comp^`(left, right)
           case DiSoOp.Kind.== => `Func2Comp==`(left, right)
           case DiSoOp.Kind.!= => `Func2Comp!=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected boolean operation")
@@ -333,5 +341,6 @@ object DFBool extends DFAny.Companion {
   object `Op!=` extends BoolOps(DiSoOp.Kind.!=) with `Op!=`
   object `Op||` extends BoolOps(DiSoOp.Kind.||)
   object `Op&&` extends BoolOps(DiSoOp.Kind.&&)
+  object `Op^` extends BoolOps(DiSoOp.Kind.^)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

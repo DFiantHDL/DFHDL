@@ -360,6 +360,13 @@ trait Series {
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
+      implicit val `Comp^`  : `Comp^` => Unit = comp => {
+        import comp._
+        val rtInst = new RTInfixBoolOp("^")(DFBool.Token.^)
+        rtInst.A <> inLeft
+        rtInst.B <> inRight
+        rtInst.S <> outResult
+      }
       implicit val `Comp==` : `Comp==` => Unit = comp => {
         import comp._
         val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)

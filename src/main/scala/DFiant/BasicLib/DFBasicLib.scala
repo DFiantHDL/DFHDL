@@ -11,6 +11,7 @@ trait DFBasicLib {
 
 
 object DFBasicLib {
+  implicit val default : DFBasicLib = Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.basicLib
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFUInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,6 +78,7 @@ object DFBasicLib {
     import DFiant.BasicLib.DFBoolOps._
     implicit val `Comp||` : `Comp||` => Unit
     implicit val `Comp&&` : `Comp&&` => Unit
+    implicit val `Comp^`  : `Comp^` => Unit
     implicit val `Comp==` : `Comp==` => Unit
     implicit val `Comp!=` : `Comp!=` => Unit
   }

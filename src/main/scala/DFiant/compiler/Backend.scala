@@ -355,8 +355,8 @@ object Backend {
           val right = Value(member.rightArg.asInstanceOf[DFAny])
           val result = architecture.declarations.signal(member)
           val op = member.opString match {
-            case "&" => "and"
-            case "|" => "or"
+            case "&" | "&&" => "and"
+            case "|" | "||" => "or"
             case "^" => "xor"
             case "==" => "="
             case "!=" => "/="

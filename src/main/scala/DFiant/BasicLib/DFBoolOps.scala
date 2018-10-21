@@ -13,6 +13,7 @@ object DFBoolOps {
       val func = kind match {
         case _: DiSoOp.Kind.|| => DFBool.Token.||
         case _: DiSoOp.Kind.&& => DFBool.Token.&&
+        case _: DiSoOp.Kind.^  => DFBool.Token.^
         case _: DiSoOp.Kind.== => DFBool.Token.==
         case _: DiSoOp.Kind.!= => DFBool.Token.!=
         case _ => throw new IllegalArgumentException("Unexptected operation")
@@ -24,6 +25,7 @@ object DFBoolOps {
 
   type `Comp||` = BoolopBool[DiSoOp.Kind.||]
   type `Comp&&` = BoolopBool[DiSoOp.Kind.&&]
+  type `Comp^`  = BoolopBool[DiSoOp.Kind.^]
   type `Comp==` = BoolopBool[DiSoOp.Kind.==]
   type `Comp!=` = BoolopBool[DiSoOp.Kind.!=]
 }
