@@ -21,8 +21,8 @@ trait Add2 extends DFDesign {
   final val s     = DFBits(2) <> OUT
   final val c_out = DFBool()  <> OUT
 
-  val fa0 = new FA {}
-  val fa1 = new FA {}
+  private val fa0 = new FA {}
+  private val fa1 = new FA {}
 
   fa0.a <> a(0)
   fa0.b <> b(0)
@@ -42,11 +42,11 @@ class AddN(n : XInt)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
   final val s     = DFBits(n) <> OUT
   final val c_out = DFBool()  <> OUT
 
-  val fa = List.fill(n)(new FA {})
+  private val fa = List.fill(n)(new FA {})
 
   fa.head.c_in <> c_in
   for (i <- 0 until n) {
-    val faCur = fa(i)
+    val faCur = fa(i).setName(s"fa$i")
     faCur.a <> a(i)
     faCur.b <> b(i)
     if (i < n - 1)
@@ -63,5 +63,6 @@ object TestFA extends App {
 //  val add2 = new Add2 {}.printCodeString
 //  val add2 = new Add2 {}.printVHDLString
 
-  val addN = new AddN(8) {}.printVHDLString
+//  val addN = new AddN(8) {}.printCodeString
+//  val addN = new AddN(8) {}.printVHDLString
 }
