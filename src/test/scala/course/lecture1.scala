@@ -42,7 +42,7 @@ class AddN(n : XInt)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
   final val s     = DFBits(n) <> OUT
   final val c_out = DFBool()  <> OUT
 
-  private val fa = List.fill(n)(new FA {})
+  private val fa = Array.fill(n)(new FA {})
 
   fa.head.c_in <> c_in
   for (i <- 0 until n) {
