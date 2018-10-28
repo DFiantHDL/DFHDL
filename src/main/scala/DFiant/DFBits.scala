@@ -387,6 +387,28 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Pattern(set : Set[BitVector]) extends DFAny.Pattern.OfSet[BitVector, Pattern](set)
   object Pattern extends PatternCO {
+    trait Able[+R] extends DFAny.Pattern.Able[R] {
+      val bitVector : BitVector
+    }
+    object Able {
+      implicit class DFUIntPatternBitVector[R <: BitVector](val right : R) extends Able[R] {
+        val bitVector : BitVector = right
+      }
+    }
+    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    object Builder {
+      implicit def ev[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+        def apply[R](left: DFBits[LW], right: Seq[Able[R]]): Pattern = {
+          val patternSet = right.map(e => e.bitVector).foldLeft(Set.empty[BitVector])((set, bitVector) => {
+            if (set.contains(bitVector)) throw new IllegalArgumentException(s"\nThe bitvector $bitVector already intersects with $set")
+            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.name}")
+            set + bitVector
+          })
+
+          new Pattern(patternSet)
+        }
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
