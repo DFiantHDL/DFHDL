@@ -1,6 +1,56 @@
 package course
 import DFiant._
 
+
+object TestFA extends App {
+  //  val fa = new FA {}.printCodeString
+  //  val fa = new FA {}.printVHDLString
+
+  //  val add2 = new Add2 {}.printCodeString
+  //  val add2 = new Add2 {}.printVHDLString
+
+  //  val addN = new AddN(8) {}.printCodeString
+  //  val addN = new AddN(8) {}.printVHDLString
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 trait FA extends DFDesign {
   final val a     = DFBool() <> IN
   final val b     = DFBool() <> IN
@@ -56,13 +106,18 @@ class AddN(n : XInt)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
 }
 
 
-object TestFA extends App {
-  //  val fa = new FA {}.printCodeString
-  //  val fa = new FA {}.printVHDLString
-
-//  val add2 = new Add2 {}.printCodeString
-//  val add2 = new Add2 {}.printVHDLString
-
-//  val addN = new AddN(8) {}.printCodeString
-//  val addN = new AddN(8) {}.printVHDLString
+class MyCounter(w : Int) extends DFDesign {
+  final val en  = DFBool() <> IN
+  final val out = DFUInt(w) <> OUT init(0)
+  final val isZero = DFBool() <> OUT
+  ifdf (en) {out := out + 1}
+  isZero := out.isZero
 }
+object Top extends DFDesign {
+  val out = DFUInt(8) <> OUT
+  val c8 = new MyCounter(8) {}
+  c8.en <> true
+  c8.out <> out
+}
+
+

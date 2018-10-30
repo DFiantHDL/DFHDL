@@ -23,9 +23,6 @@ trait IODesignConn1 extends DFDesign {
 //    .casedf(1 to 5, 20 to 25) {temp2 := 1}
 //    .casedf_(temp2 := 5)
 
-  val temp3 = temp2 + 1
-  o2 <> temp3
-
 //  o2 <> temp2_b
 //  o <> i
 }
@@ -243,7 +240,21 @@ trait IODesignConn9 extends DFDesign {
 //
 //
 
-
+trait Mul32 extends DFDesign {
+  final val a     = DFBits(32) <> IN
+  final val b     = DFBits(32) <> IN
+  final val tp    = DFBits(32) <> OUT
+  final val prod  = DFBits(32)
+  tp := b0s
+  for (i <- 0 until 32) {
+    val m = DFBits(32).selectdf(a(i))(b, b0s)
+    val sum = (m.uint + tp.uint).wc
+    val lsbit = sum.bits.lsbit
+    val p = prod(i)
+    p := lsbit
+    tp := sum.bits.msbits(32)
+  }
+}
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._

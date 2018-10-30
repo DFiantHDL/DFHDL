@@ -46,20 +46,10 @@ class SafeBitsSelectionFromSafeVarSpec extends Properties("SafeBitsSelectionFrom
     implicitly[b.Width =:= 2]
     b.width.getValue == 2
   }
-  property("DFBits[4].msbits[4]") = {
-    val a = DFBits[4]; val b = a.msbits[4]
-    implicitly[b.Width =:= 4]
-    b.width.getValue == 4
-  }
   property("DFBits[4].lsbits(2)") = {
     val a = DFBits[4]; val b = a.lsbits(2)
     implicitly[b.Width =:= 2]
     b.width.getValue == 2
-  }
-  property("DFBits[4].lsbits[4]") = {
-    val a = DFBits[4]; val b = a.lsbits[4]
-    implicitly[b.Width =:= 4]
-    b.width.getValue == 4
   }
   property("DFBits[4] out of range bits range selections compile error") = {
     var three = 3

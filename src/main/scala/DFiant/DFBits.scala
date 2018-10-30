@@ -56,16 +56,16 @@ object DFBits extends DFAny.Companion {
 
     final def msbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protMSBits(partWidth.unsafeCheck(width))
 
-    final def msbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], ctx : DFAny.Alias.Context, di: DummyImplicit) =
-      protMSBits(partWidth.unsafeCheck(width))
+//    final def msbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], ctx : DFAny.Alias.Context, di: DummyImplicit) =
+//      protMSBits(partWidth.unsafeCheck(width))
 
     final protected[DFiant] def protLSBits[PW](partWidth: TwoFace.Int[PW])(implicit ctx : DFAny.Alias.Context) : TBits[PW] =
       new DFBits.Alias[PW](List(this), DFAny.Alias.Reference.BitsWL(partWidth, 0, s".lsbits($partWidth)")).asInstanceOf[TBits[PW]]
 
     final def lsbits[PW](partWidth: PartWidth.Checked[PW, Width])(implicit ctx : DFAny.Alias.Context) = protLSBits(partWidth.unsafeCheck(width))
 
-    final def lsbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], ctx : DFAny.Alias.Context, di: DummyImplicit) =
-      protLSBits(partWidth.unsafeCheck(width))
+//    final def lsbits[PW](implicit partWidth: PartWidth.Checked[PW, Width], ctx : DFAny.Alias.Context, di: DummyImplicit) =
+//      protLSBits(partWidth.unsafeCheck(width))
     //////////////////////////////////////////////////////////////////////////
 
     final def extendLeftBy[N](numOfBits : Positive.Checked[N])(
@@ -212,6 +212,7 @@ object DFBits extends DFAny.Companion {
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
+    def selectdf[T, E](cond : DFBool)(thenSel : Op.Able[T], elseSel : Op.Able[E]) : TVal = ???
   }
 
   protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference: DFAny.Alias.Reference)(

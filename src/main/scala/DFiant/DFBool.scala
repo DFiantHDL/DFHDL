@@ -19,7 +19,6 @@ object DFBool extends DFAny.Companion {
     type TPatternAble[+R] = DFBool.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
     type Width = 1
-    def select[T <: DFAny, L >: T, R >: T](t : Tuple2[L, R]) : T = ???
     def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 
@@ -66,6 +65,7 @@ object DFBool extends DFAny.Companion {
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
+    def selectdf[T, E](cond : DFBool)(thenSel : Op.Able[T], elseSel : Op.Able[E]) : TVal = ???
   }
 
   protected[DFiant] final class Alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
