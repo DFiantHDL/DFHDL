@@ -227,10 +227,10 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Assignment (Mutation)
     //////////////////////////////////////////////////////////////////////////
-    private type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
-    final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
+    private[DFiant] type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
+//    final def := [R](right: protComp.Op.Able[R])(
+//      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
+//    ) = assign(op(left, right))
     final protected[DFiant] var assigned : Boolean = false
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       assigned = true
@@ -397,6 +397,7 @@ object DFAny {
     final val isPort = false
     final val id = getID
 
+    final lazy val isAliasOfPort : Boolean = ???
     final override protected[DFiant] def assign(that: DFAny)(implicit ctx: Context): TVar = {
       aliasedVars.foreach{case a : DFAny.Var => a.protAssignDependencies ++= List(this, that)} //TODO: consider diving down through aliases
       super.assign(that)
@@ -548,6 +549,7 @@ object DFAny {
             //Connecting from output port to external value
             if (port.dir.isOut) dfVal match {
               case u : Uninitialized => u.connectFrom(port)
+//              case a : Alias[_] if a.isAliasOfPort => a.connect
               case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
             }
             //Connecting from external value to input port
@@ -569,6 +571,9 @@ object DFAny {
     final def <> [R](right: protComp.Op.Able[R])(
       implicit op: protComp.`Op<>`.Builder[TVal, R], ctx : DFAny.Connector.Context
     ) : Unit = connectVal2Port(op(left, right))
+    final def := [R](right: protComp.Op.Able[R])(
+      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
+    ) = assign(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP

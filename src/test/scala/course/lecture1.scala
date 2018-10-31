@@ -3,14 +3,15 @@ import DFiant._
 
 
 object TestFA extends App {
-  //  val fa = new FA {}.printCodeString
-  //  val fa = new FA {}.printVHDLString
+//    implicit val a = DFAnyConfiguration.detailed
+//    val fa = new FA {}.printCodeString
+//    val fa = new FA {}.printVHDLString
 
-  //  val add2 = new Add2 {}.printCodeString
-  //  val add2 = new Add2 {}.printVHDLString
+//    val add2 = new Add2 {}.printCodeString
+    val add2 = new Add2 {}.printVHDLString
 
-  //  val addN = new AddN(8) {}.printCodeString
-  //  val addN = new AddN(8) {}.printVHDLString
+//    val addN = new AddN(8) {}.printCodeString
+//    val addN = new AddN(8) {}.printVHDLString
 }
 
 
@@ -76,12 +77,14 @@ trait Add2 extends DFDesign {
 
   fa0.a <> a(0)
   fa0.b <> b(0)
+  s(0) := fa0.s
   fa0.c_in <> c_in
 
   fa0.c_out <> fa1.c_in
 
   fa1.a <> a(1)
   fa1.b <> b(1)
+  s(1) := fa1.s
   fa1.c_out <> c_out
 }
 
@@ -99,6 +102,7 @@ class AddN(n : XInt)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
     val faCur = fa(i).setName(s"fa$i")
     faCur.a <> a(i)
     faCur.b <> b(i)
+    faCur.s <> s(i)
     if (i < n - 1)
       faCur.c_out <> fa(i+1).c_in
   }

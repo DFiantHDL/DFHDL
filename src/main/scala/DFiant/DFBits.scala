@@ -168,6 +168,9 @@ object DFBits extends DFAny.Companion {
       sameWidth.unsafeCheck(mold.width, width)
       mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVar]
     }
+    final def := [R](right: Op.Able[R])(
+      implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
+    ) = assign(op(left, right))
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}

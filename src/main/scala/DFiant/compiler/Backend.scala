@@ -21,14 +21,15 @@ object Backend {
   final class NameDB {
     val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
     def getUniqueName(suggestedName : String) : String = {
-      val lcSuggestedName = suggestedName.toLowerCase()
+      val fixedName = suggestedName.replace('.', '_')
+      val lcSuggestedName = fixedName.toLowerCase()
       nameTable.get(lcSuggestedName) match {
         case Some(v) =>
           nameTable.update(lcSuggestedName, v + 1)
-          suggestedName + "_r_" + v //_r_ for RTL indication
+          fixedName + "_r_" + v //_r_ for RTL indication
         case _ =>
           nameTable.update(lcSuggestedName, 1)
-          suggestedName
+          fixedName
       }
     }
   }
@@ -221,7 +222,6 @@ object Backend {
     // Entity
     //////////////////////////////////////////////////////////////////////////////////
     private object entity {
-      val name : Name = Name(s"${design.typeName}")
       private def emitPort(name : String, dir : String, typeS : String) : String =
         f"\n$delim$name%-20s : $dir%-3s $typeS"
       class port(member : DFAny.Port[_ <: DFAny,_ <: DFDir], name : Name) extends Reference(member, name) {
@@ -241,7 +241,9 @@ object Backend {
         val list : ListBuffer[port] = ListBuffer.empty[port]
         private val clkPort : String = emitPort("CLK", "in", "std_logic")
         private val rstPort : String = emitPort("RSTn", "in", "std_logic")
-        def portList : String = (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
+        def portList : String =
+          if (hasSyncProcess) (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
+          else list.map(p => p.declare).mkString(";")
         override def toString : String = s"\nport ($portList\n);"
       }
       def body : String = ports.toString
@@ -253,7 +255,6 @@ object Backend {
     // Architecture
     //////////////////////////////////////////////////////////////////////////////////
     private object architecture {
-      val name : Name = Name(s"${design.typeName}_arch")
       object declarations {
         class signal(member : DFAny, name : Name) extends Reference(member, name) {
           signals.list += this
@@ -261,7 +262,7 @@ object Backend {
         }
         object signal {
           def apply(dfVal : DFAny) : signal = new signal(dfVal, Name(dfVal))
-          def apply(port : DFAny.Port[_,_]) : signal = new signal(port, Name(s"${port.owner.name}_${Name(port)}"))
+          def apply(port : DFAny.Port[_,_]) : signal = new signal(port, Name(s"${port.owner.name}_${port.name.toUpperCase()}"))
         }
         object signals {
           val list : ListBuffer[signal] = ListBuffer.empty[signal]
@@ -272,7 +273,7 @@ object Backend {
           override def assign(src : Value) : Unit = {
             member.reference match {
               case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
+                  References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
               case DFAny.Alias.Reference.BitReverse() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
                 References(member.aliasedVars.head).assign(new Value(s"bit_reverse($src)", src.typeS))
@@ -299,7 +300,10 @@ object Backend {
             if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
             val aliasStr : String = member.reference match {
               case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
+                if ((relWidth == 1) && member.isInstanceOf[DFBool])
+                  s"${Value(member.aliasedVars.head)}($relBitLow)"
+                else
+                  s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
               case DFAny.Alias.Reference.BitReverse() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
                 s"bit_reverse(${Value(member.aliasedVars.head)})"
@@ -385,7 +389,9 @@ object Backend {
             })
             private val clkConn = emitConnection("CLK", "CLK")
             private val rstConn = emitConnection("RSTn", "RSTn")
-            override def toString: String = (clkConn :: rstConn :: list.map(e => e.toString)).mkString(",")
+            override def toString: String =
+              if (hasSyncProcess) (clkConn :: rstConn :: list.map(e => e.toString)).mkString(",")
+              else list.map(e => e.toString).mkString(",")
           }
 
           components.list += this
@@ -486,7 +492,8 @@ object Backend {
             val list : ListBuffer[resetStatement] = ListBuffer.empty[resetStatement]
             override def toString: String = list.mkString
           }
-          override def toString: String = if (steadyStateStatements.list.isEmpty) "" else
+          lazy val exists : Boolean = steadyStateStatements.list.nonEmpty
+          override def toString: String = if (!exists) "" else
             s"""
                |process (CLK, RSTn)
                |begin
@@ -611,10 +618,11 @@ object Backend {
     def body : Tuple2[String, String] = (entity.body, architecture.body)
     override def toString: String = db.toString
 
+    final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
     val entityName : Name = {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
-      Name(db.addOwnerBody(design.typeName, body, this))
+      Name(db.addOwnerBody(design.typeName.toLowerCase, body, this))
     }
     val archName : Name = Name(s"${entityName}_arch")
   }
