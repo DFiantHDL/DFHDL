@@ -524,7 +524,17 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
 
     def pass(dsn : DFDesign) : Unit = dsn.discoveredList.foreach {
-      case x : DFAny.Port[_,_] => entity.port(x)
+      case x : DFAny.Port[_,_] =>
+        val dstSig = entity.port(x)
+//        if (x.assigned) {
+//          val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
+//          dstSig.maxPrevUse = 1
+//          val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
+//          architecture.statements.async_process.assignment(dstVar, dstSigP1)
+//          if (x.initLB.get.nonEmpty)
+//            architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
+//          architecture.statements.sync_process.assignment(dstSigP1, dstSig)
+//        }
       case x : DFAny.NewVar[_] =>
 //        if (x.assigned) {
           val dstSig = architecture.declarations.signal(x)
