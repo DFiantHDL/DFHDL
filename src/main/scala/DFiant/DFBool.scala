@@ -235,10 +235,14 @@ object DFBool extends DFAny.Companion {
       ) = port.connectVal2Port(op(port, left))
     }
     trait Implicits {
-      sealed class DFBoolFromXInt[L <: XInt](left : L) extends Able[L](left)
-      final implicit def DFBoolFromXInt[L <: XInt](left: L): DFBoolFromXInt[L] = new DFBoolFromXInt[L](left)
+      sealed class DFBoolFrom0(left : 0) extends Able[0](left)
+      final implicit def DFBoolFrom0(left: 0): DFBoolFrom0 = new DFBoolFrom0(left)
+      sealed class DFBoolFrom1(left : 1) extends Able[1](left)
+      final implicit def DFBoolFrom1(left: 1): DFBoolFrom1 = new DFBoolFrom1(left)
       sealed class DFBoolFromBoolean[L <: Boolean](left : L) extends Able[L](left)
       final implicit def DFBoolFromBoolean[L <: Boolean](left: L): DFBoolFromBoolean[L] = new DFBoolFromBoolean[L](left)
+      sealed class DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Alias.Context, r : Require[LW == 1]) extends Able[DFBool](new Alias(List(left), DFAny.Alias.Reference.AsIs("")))
+      final implicit def DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Alias.Context, r : Require[LW == 1]) : DFBoolFromDFBitsW1[LW] = new DFBoolFromDFBitsW1[LW](left)
       final implicit def ofDFBool[R <: DFBool.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
