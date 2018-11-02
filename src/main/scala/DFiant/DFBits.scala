@@ -453,6 +453,8 @@ object DFBits extends DFAny.Companion {
       final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
       sealed class DFBitsFromZeros(left : SameBitsVector) extends Able[SameBitsVector](left)
       final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
+      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Alias.Context) extends Able[DFBits[1]](new Alias[1](List(left),DFAny.Alias.Reference.AsIs("")))
+      final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Alias.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
       final implicit def ofDFBits[R <: DFBits.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
     object Able extends Implicits
