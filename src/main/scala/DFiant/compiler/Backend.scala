@@ -240,9 +240,6 @@ object Backend {
       class port(member : DFAny.Port[_ <: DFAny,_ <: DFDir], name : Name) extends Reference(member, name) {
         ports.list += this
         val dir : String = member.dir.toString.toLowerCase()
-        override def assign(src : Value): Unit =
-          if (member.dir.isIn) throw new IllegalArgumentException(s"\nUnexpected assignment to an input port ${member.fullName}")
-          else architecture.statements.async_process.assignment(this, src)
         override def declare : String = emitPort(name.toString, dir, typeS.toString)
       }
       object port {
@@ -306,55 +303,59 @@ object Backend {
                   })
                 }
             }
+//            super.assign(src)
           }
+          val aliasStr : String = member.reference match {
+            case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+              if ((relWidth == 1) && member.isInstanceOf[DFBool])
+                s"${Value(member.aliasedVars.head)}($relBitLow)"
+              else
+                s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
+            case DFAny.Alias.Reference.BitReverse() =>
+              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+              s"bit_reverse(${Value(member.aliasedVars.head)})"
+            case DFAny.Alias.Reference.Invert() =>
+              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+              s"(not ${Value(member.aliasedVars.head)})"
+            case DFAny.Alias.Reference.Prev(step) =>
+              val ref = References(member.aliasedVars.head)
+              val refName = ref.name
+              val initSeq = ref.member.initLB.get
+              if (step > ref.maxPrevUse) {
+                for (i <- 1 to step) {
+                  val sig = new architecture.declarations.signal(ref.member, Name(s"${refName}_prev$i"))
+                  initSeq.prevInit(i-1).headOption match {
+                    case Some(t) if !t.isBubble =>
+                      architecture.statements.sync_process.resetStatement(sig, Value(ref.member, t))
+                    case _ =>
+                  }
+                  architecture.statements.sync_process.assignment(sig, Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
+                }
+                //                  println(s"${ref.name} jhjfdhgfjdhg $step ${ref.maxPrevUse}")
+                ref.maxPrevUse = step
+              }
+              s"${refName}_prev$step"
+            case DFAny.Alias.Reference.AsIs() =>
+              val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
+              member match {
+                case m : DFBits[_] => concat
+                case m : DFUInt[_] => s"unsigned($concat)"
+                case m : DFSInt[_] => s"signed($concat)"
+                case m : DFBool => s"$concat(0)"
+                case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($concat)"
+                case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+              }
+          }
+          override lazy val value : String = if (member.isAnonymous) aliasStr else name.value
+          if (!member.isAnonymous) architecture.statements.async_process.assignment(this, Value(aliasStr, Type(member)))
         }
         object alias {
           def apply(member : DFAny.Alias[_]) : alias = {
             if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
-            val aliasStr : String = member.reference match {
-              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                if ((relWidth == 1) && member.isInstanceOf[DFBool])
-                  s"${Value(member.aliasedVars.head)}($relBitLow)"
-                else
-                  s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
-              case DFAny.Alias.Reference.BitReverse() =>
-                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                s"bit_reverse(${Value(member.aliasedVars.head)})"
-              case DFAny.Alias.Reference.Invert() =>
-                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                s"(not ${Value(member.aliasedVars.head)})"
-              case DFAny.Alias.Reference.Prev(step) =>
-                val ref = References(member.aliasedVars.head)
-                val refName = ref.name
-                val initSeq = ref.member.initLB.get
-                if (step > ref.maxPrevUse) {
-                  for (i <- 1 to step) {
-                    val sig = new architecture.declarations.signal(ref.member, Name(s"${refName}_prev$i"))
-                    initSeq.prevInit(i-1).headOption match {
-                      case Some(t) if !t.isBubble =>
-                        architecture.statements.sync_process.resetStatement(sig, Value(ref.member, t))
-                      case _ =>
-                    }
-                    architecture.statements.sync_process.assignment(sig, Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
-                  }
-//                  println(s"${ref.name} jhjfdhgfjdhg $step ${ref.maxPrevUse}")
-                  ref.maxPrevUse = step
-                }
-                s"${refName}_prev$step"
-              case DFAny.Alias.Reference.AsIs() =>
-                val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
-                member match {
-                  case m : DFBits[_] => concat
-                  case m : DFUInt[_] => s"unsigned($concat)"
-                  case m : DFSInt[_] => s"signed($concat)"
-                  case m : DFBool => s"$concat(0)"
-                  case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($concat)"
-                  case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
-                }
-            }
             val dst = new alias(member, Name(member.name))
 //            if (!member.reference.isInstanceOf[DFAny.Alias.Reference.Prev])
-              architecture.statements.async_process.assignment(dst, Value(aliasStr, Type(member)))
+//            dst.assign(Value(aliasStr, Type(member)))
+//
             dst
           }
         }
@@ -629,7 +630,7 @@ object Backend {
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)
         val srcSig = Value(x.fromVal)
-        architecture.statements.async_process.assignment(dstSig, srcSig)
+        dstSig.assign(srcSig)
       }
       case x : DFAny.Assignment =>
         References(x.toVar).assign(Value(x.fromVal))
@@ -669,23 +670,23 @@ object Backend {
         val bitReverseFunc : String =
           s"""
              |--Taken from http://www.vlsiip.com/intel/vhdlf.html
-             |function bit_reverse(s1:std_logic_vector) return std_logic_vector;
+             |function bit_reverse(s1 : std_logic_vector) return std_logic_vector;
          """.stripMargin
         val to_slFunc : String =
           s"""
-             |function to_sl(b:boolean) return std_logic;
+             |function to_sl(b : boolean) return std_logic;
          """.stripMargin
         val to_slvFunc1 : String =
           s"""
-             |function to_slv(arg:std_logic) return std_logic_vector;
+             |function to_slv(arg : std_logic) return std_logic_vector;
          """.stripMargin
         val to_slvFunc2 : String =
           s"""
-             |function to_slv(arg:unsigned) return std_logic_vector;
+             |function to_slv(arg : unsigned) return std_logic_vector;
          """.stripMargin
         val to_slvFunc3 : String =
           s"""
-             |function to_slv(arg:signed) return std_logic_vector;
+             |function to_slv(arg : signed) return std_logic_vector;
          """.stripMargin
 
         override def toString: String = bitReverseFunc + to_slFunc + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
@@ -694,7 +695,7 @@ object Backend {
         val bitReverseFunc : String =
           s"""
              |--Taken from http://www.vlsiip.com/intel/vhdlf.html
-             |function bit_reverse(s1:std_logic_vector) return std_logic_vector is
+             |function bit_reverse(s1 : std_logic_vector) return std_logic_vector is
              |   variable rr : std_logic_vector(s1'high downto s1'low);
              |begin
              |  for ii in s1'high downto s1'low loop
@@ -705,7 +706,7 @@ object Backend {
          """.stripMargin
         val to_slFunc : String =
           s"""
-             |function to_sl(b:boolean) return std_logic is
+             |function to_sl(b : boolean) return std_logic is
              |begin
              |  if (b) then
              |    return '1';
@@ -716,9 +717,9 @@ object Backend {
          """.stripMargin
         val to_slvFunc1 : String =
           s"""
-             |function to_slv(arg:std_logic) return std_logic_vector is
+             |function to_slv(arg : std_logic) return std_logic_vector is
              |begin
-             |  if (arg='1') then
+             |  if (arg = '1') then
              |    return "1";
              |  else
              |    return "0";
@@ -727,14 +728,14 @@ object Backend {
          """.stripMargin
         val to_slvFunc2 : String =
           s"""
-             |function to_slv(arg:unsigned) return std_logic_vector is
+             |function to_slv(arg : unsigned) return std_logic_vector is
              |begin
              |  return std_logic_vector(arg);
              |end to_slv;
          """.stripMargin
         val to_slvFunc3 : String =
           s"""
-             |function to_slv(arg:signed) return std_logic_vector is
+             |function to_slv(arg : signed) return std_logic_vector is
              |begin
              |  return std_logic_vector(arg);
              |end to_slv;
