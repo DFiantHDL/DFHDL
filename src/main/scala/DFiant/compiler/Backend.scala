@@ -306,7 +306,6 @@ object Backend {
                   })
                 }
             }
-//            super.assign(src)
           }
           val aliasStr : String = member.reference match {
             case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
@@ -334,7 +333,6 @@ object Backend {
                   }
                   architecture.statements.sync_process.assignment(sig, Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
                 }
-                //                  println(s"${ref.name} jhjfdhgfjdhg $step ${ref.maxPrevUse}")
                 ref.maxPrevUse = step
               }
               s"${refName}_prev$step"
@@ -356,9 +354,6 @@ object Backend {
           def apply(member : DFAny.Alias[_]) : alias = {
             if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
             val dst = new alias(member, Name(member.name))
-//            if (!member.reference.isInstanceOf[DFAny.Alias.Reference.Prev])
-//            dst.assign(Value(aliasStr, Type(member)))
-//
             dst
           }
         }
@@ -657,7 +652,8 @@ object Backend {
     val entityName : Name = {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
-      Name(db.addOwnerBody(design.typeName.toLowerCase, body, this))
+      val topOrElseName = if (design.isTop) design.name else design.typeName
+      Name(db.addOwnerBody(topOrElseName.toLowerCase, body, this))
     }
     val archName : Name = Name(s"${entityName}_arch")
   }
