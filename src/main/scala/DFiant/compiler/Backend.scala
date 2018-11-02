@@ -283,7 +283,10 @@ object Backend {
           override def assign(src : Value) : Unit = {
             member.reference match {
               case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
+                if (member.aliasedVars.head.isInstanceOf[DFBits[_]])
+                  architecture.statements.async_process.assignment(References(member.aliasedVars.head), src, relWidth, relBitLow)
+                else
+                  References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
               case DFAny.Alias.Reference.BitReverse() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
                 References(member.aliasedVars.head).assign(Value(s"bit_reverse($src)", src.typeS))
@@ -440,15 +443,24 @@ object Backend {
             val currentDelim : String = delim * statementIndent
             steadyStateStatements.list += this
           }
-          class assignment private (dst : Reference, src : Value) extends statement {
+          class assignment (dst : Reference, src : Value) extends statement {
             final val op = dst match {
               case x : variable => ":="
               case _ => "<="
             }
-            override def toString: String = f"\n${currentDelim + dst.name}%-22s $op $src;"
+            val dstStr : String = dst.name.value
+            override def toString: String = f"\n${currentDelim + dstStr}%-22s $op $src;"
+          }
+          class assignment_partial (dst : Reference, src : Value, relWidth : Int, relBitLow : Int)
+            extends assignment(dst, src) {
+            override val dstStr: String =
+              if (relWidth == 1) s"${dst.name}($relBitLow)"
+              else s"${dst.name}(${relWidth-1} downto $relBitLow)"
           }
           object assignment {
             def apply(dst : Reference, src : Value) : assignment = new assignment(dst, src.to(dst.typeS))
+            def apply(dst : Reference, src : Value, relWidth : Int, relBitLow : Int)
+            : assignment_partial = new assignment_partial(dst, src, relWidth, relBitLow)
           }
           object steadyStateStatements {
             val list : ListBuffer[statement] = ListBuffer.empty[statement]

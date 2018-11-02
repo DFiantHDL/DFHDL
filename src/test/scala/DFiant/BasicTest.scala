@@ -224,7 +224,8 @@ trait IODesignConn9 extends DFDesign {
 trait IODesignConn10 extends DFDesign {
   val i = DFBits(2) <> IN
   val o = DFBits(2) <> OUT
-  o(0) := i(0)
+  o(1) := 1
+  o(0) := false
 //  o := oo
 }
 //
