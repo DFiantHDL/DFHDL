@@ -1,7 +1,7 @@
 package DFiant.compiler
 import DFiant.FunctionalLib.Func2Comp
 import DFiant._
-import DFiant.internals.{DSLOwnerConstruct, csoIntervalBigInt}
+import DFiant.internals.{DSLOwnerConstruct, csoIntervalBigInt, StringExtras}
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.HashMap
@@ -105,7 +105,9 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Value
     //////////////////////////////////////////////////////////////////////////////////
-    class Value(val value : String, val typeS : Type) {
+    trait Value {
+      val value : String
+      val typeS : Type
       def bits : ValueBits = typeS match {
         case t : Type.std_logic_vector => ValueBits(value, t.width)
         case t : Type.unsigned => ValueBits(s"to_slv($value)", t.width)
@@ -120,33 +122,34 @@ object Backend {
       def to(that : Type) : Value = (that, this.typeS) match {
         case (dstTpe : Type.std_logic_vector, srcTpe : Type.std_logic_vector) =>
           if (dstTpe.width == srcTpe.width) this
-          else new Value(s""""${"0" * (dstTpe.width - srcTpe.width)}" & $value""", dstTpe)
+          else Value(s""""${"0" * (dstTpe.width - srcTpe.width)}" & $value""", dstTpe)
         case (dstTpe : Type.unsigned, srcTpe : Type.unsigned) =>
           if (dstTpe.width == srcTpe.width) this
-          else new Value(s"resize($value, ${dstTpe.width})", dstTpe)
+          else Value(s"resize($value, ${dstTpe.width})", dstTpe)
         case (dstTpe : Type.signed, srcTpe : Type.signed) =>
           if (dstTpe.width == srcTpe.width) this
-          else new Value(s"resize($value, ${dstTpe.width})", dstTpe)
+          else Value(s"resize($value, ${dstTpe.width})", dstTpe)
         case (dstTpe : Type.std_logic, srcTpe : Type.std_logic) => this
         case (dstTpe : Type.enumeration, srcTpe : Type.enumeration) if dstTpe.enum == srcTpe.enum => this
         case _ => this.bits.to(that)
       }
       final override def toString: String = value
     }
-    case class ValueBits(override val value : String, width : Int) extends Value(value, Type.std_logic_vector(width)) {
+    case class ValueBits(value : String, width : Int) extends Value {
+      val typeS = Type.std_logic_vector(width)
       override def to(that: Type) : Value = that match {
         case t : Type.std_logic_vector =>
           if (t.width == width) this
-          else new Value(s""""${"0" * (t.width - width)}" & $this""", that)
+          else Value(s""""${"0" * (t.width - width)}" & $this""", that)
         case t : Type.unsigned =>
-          if (t.width == width) new Value(s"unsigned($this)", that)
-          else new Value(s"resize(unsigned($this), ${t.width})", that)
+          if (t.width == width) Value(s"unsigned($this)", that)
+          else Value(s"resize(unsigned($this), ${t.width})", that)
         case t : Type.signed =>
-          if (t.width == width) new Value(s"signed($this)", that)
-          else new Value(s"resize(signed($this), ${t.width})", that)
-        case t : Type.std_logic => new Value(s"$this(0)", that)
+          if (t.width == width) Value(s"signed($this)", that)
+          else Value(s"resize(signed($this), ${t.width})", that)
+        case t : Type.std_logic => Value(s"$this(0)", that)
         case Type.enumeration(enum) =>
-          new Value(s"${db.Package.declarations.enums(enum)}'VAL($this)", that)
+          Value(s"${db.Package.declarations.enums(enum)}'VAL($this)", that)
       }
       def replace(relWidth : Int, relBitLow : Int, that : ValueBits) : ValueBits = {
         val rightLSB = 0
@@ -168,6 +171,10 @@ object Backend {
       }
     }
     object Value {
+      def apply(value_ : String, typeS_ : Type) : Value = new Value {
+        override val value: String = value_
+        override val typeS: VHDL.this.Type = typeS_
+      }
       def apply(member : DFAny, token : DFAny.Token) : Value = {
         val value = token match {
           case x : DFBits.Token => s""""${x.value.toBin}""""
@@ -177,7 +184,7 @@ object Backend {
           case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
           case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
         }
-        new Value(value, Type(member))
+        Value(value, Type(member))
       }
       def apply(member : DFAny) : Value = member match {
         case x : DFAny.Const => Value(member, member.constLB.get)
@@ -201,10 +208,16 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Reference
     //////////////////////////////////////////////////////////////////////////////////
-    abstract class Reference(val member : DFAny, val name : Name) extends Value(name.value, Type(member)) {
+    abstract class Reference(val member : DFAny, val name : Name) extends Value {
+      val typeS : Type = Type(member)
       def declare : String
-      def assign(src : Value) : Unit = throw new IllegalArgumentException(s"\nAttempted assignment to an immutable value ${member.fullName}")
+      def assign(src : Value) : Unit = {
+        if (!member.isAnonymous) architecture.statements.async_process.assignment(this, src)
+        assignedValue = src.value
+      }
       var maxPrevUse : Int = 0
+      var assignedValue : String = ""
+      lazy val value : String = if (member.isAnonymous) assignedValue else name.value
       val addRef : Unit = References.add(member, this, false)
     }
     object References {
@@ -258,7 +271,7 @@ object Backend {
       object declarations {
         class signal(member : DFAny, name : Name) extends Reference(member, name) {
           signals.list += this
-          override def declare: String = f"\n${delim}signal $name%-13s : $typeS;"
+          override def declare: String = if (member.isAnonymous) "" else f"\n${delim}signal $name%-13s : $typeS;"
         }
         object signal {
           def apply(dfVal : DFAny) : signal = new signal(dfVal, Name(dfVal))
@@ -273,13 +286,13 @@ object Backend {
           override def assign(src : Value) : Unit = {
             member.reference match {
               case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                  References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
+                References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
               case DFAny.Alias.Reference.BitReverse() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                References(member.aliasedVars.head).assign(new Value(s"bit_reverse($src)", src.typeS))
+                References(member.aliasedVars.head).assign(Value(s"bit_reverse($src)", src.typeS))
               case DFAny.Alias.Reference.Invert() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                References(member.aliasedVars.head).assign(new Value(s"(not $src)", src.typeS))
+                References(member.aliasedVars.head).assign(Value(s"(not $src)", src.typeS))
               case DFAny.Alias.Reference.Prev(step) =>
                 throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
               case DFAny.Alias.Reference.AsIs() =>
@@ -322,7 +335,7 @@ object Backend {
                         architecture.statements.sync_process.resetStatement(sig, Value(ref.member, t))
                       case _ =>
                     }
-                    architecture.statements.sync_process.assignment(sig, new Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
+                    architecture.statements.sync_process.assignment(sig, Value(if (i==1) s"${refName}" else s"${refName}_prev${i-1}", Type(ref)))
                   }
 //                  println(s"${ref.name} jhjfdhgfjdhg $step ${ref.maxPrevUse}")
                   ref.maxPrevUse = step
@@ -339,10 +352,9 @@ object Backend {
                   case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
                 }
             }
-
             val dst = new alias(member, Name(member.name))
 //            if (!member.reference.isInstanceOf[DFAny.Alias.Reference.Prev])
-              architecture.statements.async_process.assignment(dst, new Value(aliasStr, Type(member)))
+              architecture.statements.async_process.assignment(dst, Value(aliasStr, Type(member)))
             dst
           }
         }
@@ -355,9 +367,8 @@ object Backend {
             val left = Value(member.leftArg.asInstanceOf[DFAny])
             if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize($left, ${member.width})"
             else s"$left"
-          }
-          val right = Value(member.rightArg.asInstanceOf[DFAny])
-          val result = architecture.declarations.signal(member)
+          }.applyBrackets()
+          val rightStr = Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
           val op = member.opString match {
             case "&" | "&&" => "and"
             case "|" | "||" => "or"
@@ -369,11 +380,12 @@ object Backend {
             case others => others
           }
           val infixOpStr = op match {
-            case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStr $op $right)"
-            case "sla" | "sll" | "sra" | "srl" => s"$leftStr $op to_integer($right)"
-            case _ => s"$leftStr $op $right"
+            case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStr $op $rightStr)"
+            case "sla" | "sll" | "sra" | "srl" => s"$leftStr $op to_integer($rightStr)"
+            case _ => s"$leftStr $op $rightStr"
           }
-          architecture.statements.async_process.assignment(result, new Value(infixOpStr, Type(member)))
+          val result = architecture.declarations.signal(member)
+          result.assign(Value(infixOpStr, Type(member)))
         }
 
         case class component_instance(member : DFDesign) extends VHDL(member, self) {

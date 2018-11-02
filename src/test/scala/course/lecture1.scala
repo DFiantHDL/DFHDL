@@ -5,10 +5,10 @@ import DFiant._
 object TestFA extends App {
 //    implicit val a = DFAnyConfiguration.detailed
 //    val fa = new FA {}.printCodeString
-//    val fa = new FA {}.printVHDLString
+    val fa = new FA {}.printVHDLString
 
 //    val add2 = new Add2 {}.printCodeString
-    val add2 = new Add2 {}.printVHDLString
+//    val add2 = new Add2 {}.printVHDLString
 
 //    val addN = new AddN(8) {}.printCodeString
 //    val addN = new AddN(8) {}.printVHDLString
