@@ -68,6 +68,17 @@ object ConditionalBlock {
       implicit ctx : Context, op : Builder[RV, R]
     ) : DFIfBlock = new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
+
+  class SelectWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar[RV]) {
+    def apply[T, E](cond : DFBool)(thenSel : Able[T], elseSel : Able[E])(
+      implicit ctx : Context, opT : Builder[RV, T], opE : Builder[RV, E]
+    ) : RV = {
+      object ifdf extends ConditionalBlock.IfWithRetVal[RV, Able, Builder](returnVar)
+      ifdf(cond){thenSel}.elsedf(elseSel)
+    }
+      //new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
+  }
+
   class IfNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {

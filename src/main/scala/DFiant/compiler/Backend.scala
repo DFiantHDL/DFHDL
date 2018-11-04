@@ -463,10 +463,10 @@ object Backend {
           }
           object ifStatement {
             case class ifBegin(condMember : DFAny) extends statement {
-              override def toString: String = s"\n${currentDelim}if ${References(condMember).name} = '1' then"
+              override def toString: String = s"\n${currentDelim}if ${Value(condMember).value} = '1' then"
             }
             case class elseIfBegin(condMember : DFAny) extends statement {
-              override def toString: String = s"\n${currentDelim}elsif ${References(condMember).name} = '1' then"
+              override def toString: String = s"\n${currentDelim}elsif ${Value(condMember).value} = '1' then"
             }
             case class elseBegin() extends statement {
               override def toString: String = s"\n${currentDelim}else"
@@ -656,7 +656,7 @@ object Backend {
       this
     }
 
-    private final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
+    protected final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
     val entityName : Name = {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts

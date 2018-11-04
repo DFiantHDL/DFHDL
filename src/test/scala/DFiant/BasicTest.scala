@@ -222,9 +222,10 @@ trait IODesignConn9 extends DFDesign {
 }
 
 trait IODesignConn10 extends DFDesign {
-  val i = DFBool() <> IN
-  val o = DFBits(1) <> OUT
-  o <> i
+  val i = DFBits(2) <> IN
+  val o = DFBits(2) <> OUT
+  val res = DFBits(2).selectdf(i(1))(i, b0s)
+  o <> res
 //  o := oo
 }
 //
@@ -261,7 +262,7 @@ object BasicTest extends App {
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-//  val top_ioDesignConn10 = new IODesignConn10 {}.printVHDLString
+  val top_ioDesignConn10 = new IODesignConn10 {}.printVHDLString
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString

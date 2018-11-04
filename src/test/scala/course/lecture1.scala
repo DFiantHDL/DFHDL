@@ -126,3 +126,19 @@ object Top extends DFDesign {
 }
 
 
+trait Mul32 extends DFDesign {
+  final val a     = DFBits(32) <> IN
+  final val b     = DFBits(32) <> IN
+  final val tp    = DFBits(32) <> OUT
+  final val prod  = DFBits(32) <> OUT
+
+  tp := b0s
+  for (i <- 0 until 32) {
+    val m = DFBits(32).selectdf(a(i))(b, b0s)
+    val sum = (m.uint + tp.uint).wc
+    prod(i) := sum.bits.lsbit
+    tp := sum.bits.msbits(32)
+  }
+}
+
+
