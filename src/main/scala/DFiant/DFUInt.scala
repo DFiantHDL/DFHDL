@@ -107,6 +107,7 @@ object DFUInt extends DFAny.Companion {
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
+    final object selectdf extends ConditionalBlock.SelectWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
   }
 
   protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
