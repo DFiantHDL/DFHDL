@@ -67,10 +67,10 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Type
     //////////////////////////////////////////////////////////////////////////////////
-    sealed trait Type {
+    protected sealed trait Type {
       val width : Int
     }
-    object Type {
+    protected object Type {
       case class std_logic_vector(width : Int) extends Type {
         override def toString: String = s"std_logic_vector(${width-1} downto 0)"
       }
@@ -105,7 +105,7 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Value
     //////////////////////////////////////////////////////////////////////////////////
-    trait Value {
+    protected trait Value {
       val value : String
       val typeS : Type
       def bits : ValueBits = typeS match {
@@ -135,7 +135,7 @@ object Backend {
       }
       final override def toString: String = value
     }
-    case class ValueBits(value : String, width : Int) extends Value {
+    protected case class ValueBits(value : String, width : Int) extends Value {
       val typeS = Type.std_logic_vector(width)
       override def to(that: Type) : Value = that match {
         case t : Type.std_logic_vector =>
@@ -170,7 +170,7 @@ object Backend {
         ValueBits(valueStr, this.width)
       }
     }
-    object Value {
+    protected object Value {
       def apply(value_ : String, typeS_ : Type) : Value = new Value {
         override val value: String = value_
         override val typeS: VHDL.this.Type = typeS_
@@ -194,7 +194,7 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
 
 
-    object Pattern {
+    protected object Pattern {
       def apply(pattern : DFAny.Pattern[_]) : String = pattern match {
         case x : DFBits.Pattern => x.patternSet.map(p => s""""${p.toBin}"""").mkString("|")
         case x : DFUInt.Pattern => x.patternSet.map(p => csoIntervalBigInt(p)).mkString("|")
@@ -208,7 +208,7 @@ object Backend {
     //////////////////////////////////////////////////////////////////////////////////
     // Reference
     //////////////////////////////////////////////////////////////////////////////////
-    abstract class Reference(val member : DFAny, val name : Name) extends Value {
+    protected abstract class Reference(val member : DFAny, val name : Name) extends Value {
       val typeS : Type = Type(member)
       def declare : String
       def assign(src : Value) : Unit = {
@@ -220,7 +220,7 @@ object Backend {
       lazy val value : String = if (member.isAnonymous) assignedValue else name.value
       val addRef : Unit = References.add(member, this, false)
     }
-    object References {
+    protected object References {
       private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
       def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName}"))
@@ -407,7 +407,7 @@ object Backend {
 
           components.list += this
           ports_map.list
-          override def toString: String = s"\n${member.name} : entity $entityName($archName) port map ($ports_map\n);"
+          override def toString: String = s"\n${member.name} : entity work.$entityName($archName) port map ($ports_map\n);"
         }
         object components {
           val list : ListBuffer[component_instance] = ListBuffer.empty[component_instance]
@@ -543,7 +543,7 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    def pass(dsn : DFDesign) : Unit = dsn.discoveredList.foreach {
+    protected def pass(dsn : DFDesign) : Unit = dsn.discoveredList.foreach {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
 //        if (x.assigned) {
@@ -645,8 +645,16 @@ object Backend {
         println(x.fullName)
     }
 
-    def body : Tuple2[String, String] = (entity.body, architecture.body)
+    private def body : Tuple2[String, String] = (entity.body, architecture.body)
     override def toString: String = db.toString
+    final def print() : this.type = {println(toString); this}
+    final def toFile(fileName : String) : this.type = {
+      import java.io._
+      val pw = new FileWriter(new File(fileName))
+      pw.write(toString)
+      pw.close()
+      this
+    }
 
     final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
     val entityName : Name = {

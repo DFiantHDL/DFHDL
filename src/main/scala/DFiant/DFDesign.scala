@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.compiler.Backend
 import DFiant.internals._
 
 import scala.collection.mutable.{HashMap, ListBuffer}
@@ -30,7 +31,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     if (isTop) s"$designDB\n$valCode" else valCode
   }
   final def printCodeString : this.type = {println(codeString); this}
-  final def printVHDLString : this.type = {println(new compiler.Backend.VHDL(this)); this}
+  final def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
+  final def printVHDLString : this.type = {compileToVHDL.print(); this}
 }
 
 object DFDesign {

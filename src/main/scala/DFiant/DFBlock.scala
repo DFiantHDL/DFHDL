@@ -20,8 +20,6 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
   def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
 
-  def compileToVHDL(fileName : String) = ???
-
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////

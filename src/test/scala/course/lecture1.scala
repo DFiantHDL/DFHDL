@@ -11,7 +11,8 @@ object TestFA extends App {
 //    val add2 = new Add2 {}.printVHDLString
 
 //    val addN = new AddN(8) {}.printCodeString
-    val addN = new AddN(8) {}.printVHDLString
+    val addN = new AddN(8) {}
+    val vhdAddN = addN.compileToVHDL.print().toFile("test.vhd")
 }
 
 
