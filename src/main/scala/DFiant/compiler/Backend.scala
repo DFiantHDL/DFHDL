@@ -61,7 +61,7 @@ object Backend {
   class VHDL(design : DFDesign, owner : VHDL = null) extends Backend(design) { self =>
     private val top : VHDL = if (owner == null) this else owner
     private implicit val nameDB : NameDB = new NameDB
-    private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name) else top.db
+    private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name.toLowerCase()) else top.db
     private val delim = "  "
 
     //////////////////////////////////////////////////////////////////////////////////
