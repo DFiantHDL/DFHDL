@@ -8,10 +8,10 @@ object TestFA extends App {
 //    val fa = new FA {}.printVHDLString
 
 //    val add2 = new Add2 {}.printCodeString
-    val add2 = new Add2 {}.printVHDLString
+//    val add2 = new Add2 {}.printVHDLString
 
 //    val addN = new AddN(8) {}.printCodeString
-//    val addN = new AddN(8) {}.printVHDLString
+    val addN = new AddN(8) {}.printVHDLString
 }
 
 
@@ -88,7 +88,7 @@ trait Add2 extends DFDesign {
   fa1.c_out <> c_out
 }
 
-class AddN(n : XInt)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
+class AddN(n : Int)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
   final val a     = DFBits(n) <> IN
   final val b     = DFBits(n) <> IN
   final val c_in  = DFBool()  <> IN
@@ -102,7 +102,7 @@ class AddN(n : XInt)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
     val faCur = fa(i).setName(s"fa$i")
     faCur.a <> a(i)
     faCur.b <> b(i)
-    faCur.s <> s(i)
+    s(i) := faCur.s
     if (i < n - 1)
       faCur.c_out <> fa(i+1).c_in
   }
