@@ -656,7 +656,7 @@ object Backend {
       this
     }
 
-    final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
+    private final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
     val entityName : Name = {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
