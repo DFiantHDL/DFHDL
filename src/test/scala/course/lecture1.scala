@@ -11,8 +11,11 @@ object TestFA extends App {
 //    val add2 = new Add2 {}.printVHDLString
 
 //    val addN = new AddN(8) {}.printCodeString
-    val addN = new AddN(8) {}
-    val vhdAddN = addN.compileToVHDL.print().toFile("test.vhd")
+//    val addN = new AddN(8) {}
+//    val vhdAddN = addN.compileToVHDL.print().toFile("test.vhd")
+
+  val mul32 = new Mul32 {}
+  val vhdMul32 = mul32.compileToVHDL.print().toFile("test.vhd")
 }
 
 
@@ -127,6 +130,7 @@ object Top extends DFDesign {
 
 
 trait Mul32 extends DFDesign {
+
   final val a     = DFBits(32) <> IN
   final val b     = DFBits(32) <> IN
   final val tp    = DFBits(32) <> OUT
@@ -134,7 +138,8 @@ trait Mul32 extends DFDesign {
 
   tp := b0s
   for (i <- 0 until 32) {
-    val m = DFBits(32).selectdf(a(i))(b, b0s)
+    val sel = a(i).setName(s"sel$i")
+    val m = DFBits(32).selectdf(sel)(b, b0s).setName(s"m$i")
     val sum = (m.uint + tp.uint).wc
     prod(i) := sum.bits.lsbit
     tp := sum.bits.msbits(32)

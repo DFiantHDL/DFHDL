@@ -99,6 +99,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val initLB : LazyBox[Seq[TToken]]
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
+  final lazy val refCount : Int = initLB.valueDependencies.size
 //  protected[DFiant] val pipeLB : LazyBox[Option[Int]]
   //////////////////////////////////////////////////////////////////////////
 
@@ -571,7 +572,7 @@ object DFAny {
     ) : Unit = connectVal2Port(op(left, right))
     final def := [R](right: protComp.Op.Able[R])(
       implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
+    ) : Unit = assign(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP

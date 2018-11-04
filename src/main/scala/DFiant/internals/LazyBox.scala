@@ -10,7 +10,7 @@ abstract class LazyBox[+T] private (owner : DSLMemberConstruct)(args : List[Lazy
   private var visited : Boolean = false
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(owner), "Uninitialized")
-  private val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
+  private[DFiant] val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
   final protected def unlockValueDependencies() : Unit = if (locked) {
     locked = false
     valueDependencies.foreach(vd => vd.unlockValueDependencies())

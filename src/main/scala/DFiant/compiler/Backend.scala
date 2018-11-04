@@ -211,13 +211,14 @@ object Backend {
     protected abstract class Reference(val member : DFAny, val name : Name) extends Value {
       val typeS : Type = Type(member)
       def declare : String
+      lazy val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2
       def assign(src : Value) : Unit = {
-        if (!member.isAnonymous) architecture.statements.async_process.assignment(this, src)
+        if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, src)
         assignedValue = src.value
       }
       var maxPrevUse : Int = 0
       var assignedValue : String = ""
-      lazy val value : String = if (member.isAnonymous) assignedValue else name.value
+      lazy val value : String = if (showValueInsteadOfName) assignedValue else name.value
       val addRef : Unit = References.add(member, this, false)
     }
     protected object References {
@@ -268,7 +269,7 @@ object Backend {
       object declarations {
         class signal(member : DFAny, name : Name) extends Reference(member, name) {
           signals.list += this
-          override def declare: String = if (member.isAnonymous) "" else f"\n${delim}signal $name%-13s : $typeS;"
+          override def declare: String = if (showValueInsteadOfName) "" else f"\n${delim}signal $name%-13s : $typeS;"
         }
         object signal {
           def apply(dfVal : DFAny) : signal = new signal(dfVal, Name(dfVal))
@@ -347,8 +348,8 @@ object Backend {
                 case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
           }
-          override lazy val value : String = if (member.isAnonymous) aliasStr else name.value
-          if (!member.isAnonymous) architecture.statements.async_process.assignment(this, Value(aliasStr, Type(member)))
+          override lazy val value : String = if (showValueInsteadOfName) aliasStr else name.value
+          if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, Value(aliasStr, Type(member)))
         }
         object alias {
           def apply(member : DFAny.Alias[_]) : alias = {
