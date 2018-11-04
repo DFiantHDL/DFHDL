@@ -399,7 +399,10 @@ object DFAny {
 
     final lazy val isAliasOfPort : Boolean = ???
     final override protected[DFiant] def assign(that: DFAny)(implicit ctx: Context): TVar = {
-      aliasedVars.foreach{case a : DFAny.Var => a.protAssignDependencies ++= List(this, that)} //TODO: consider diving down through aliases
+      aliasedVars.foreach{case a : DFAny.Var =>
+        a.assigned = true
+        a.protAssignDependencies ++= List(this, that)
+      } //TODO: consider diving down through aliases
       super.assign(that)
     }
   }
@@ -436,11 +439,6 @@ object DFAny {
         def apply(aliasCodeString : => String) = new Invert(aliasCodeString)
         def unapply(arg: Invert): Boolean = true
       }
-//      class Pipe(val depth : Int) extends Reference(if (depth == 1) ".pipe" else s".pipe($depth)")
-//      object Pipe {
-//        def apply(step : Int) = new Pipe(step)
-//        def unapply(arg: Pipe): Option[Int] = Some(arg.depth)
-//      }
     }
   }
 
