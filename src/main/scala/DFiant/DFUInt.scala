@@ -87,12 +87,24 @@ object DFUInt extends DFAny.Companion {
   def apply[W](checkedWidth : BitsWidth.Checked[W])(
     implicit ctx : DFAny.NewVar.Context
   ) : NewVar[W] = new NewVar[W](checkedWidth.unsafeCheck())
+
+  //Returns new unsigned dataflow variable with a supremum bound of supLimit (max value is supLimit-1)
+  //Does not apply auto-rolling at maximum value!!
+  def rangeUntil[U](supLimit : Positive.Checked[U])(
+    implicit ctx : DFAny.NewVar.Context, widthOf: BitsWidthOf.Int[U - 1]
+  ) : NewVar[widthOf.Out] =  new NewVar[widthOf.Out](widthOf(supLimit-1))
+
+  //Returns new unsigned dataflow variable with a maximum bound of maxLimit
+  //Does not apply auto-rolling at maximum value!!
+  def rangeTo[U](maxLimit : Positive.Checked[U])(
+    implicit ctx : DFAny.NewVar.Context, widthOf: BitsWidthOf.Int[U]
+  ) : NewVar[widthOf.Out] =  new NewVar[widthOf.Out](widthOf(maxLimit))
+
   //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
-  //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
-  //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
-  //  def rangeTo(maxLimit : Int)       : Var = rangeTo(intToBigIntBits(maxLimit))
-  //  def rangeTo(maxLimit : Long)      : Var = rangeTo(longToBigIntBits(maxLimit))
-  //  def rangeTo(maxLimit : BigInt)    : Var = apply(bigIntRepWidth(maxLimit))
+//  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
+//  def rangeTo(maxLimit : Int)       : Var = rangeTo(intToBigIntBits(maxLimit))
+//  def rangeTo(maxLimit : Long)      : Var = rangeTo(longToBigIntBits(maxLimit))
+//  def rangeTo(maxLimit : BigInt)    : Var = apply(bigIntRepWidth(maxLimit))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

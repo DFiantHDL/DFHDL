@@ -14,8 +14,11 @@ object TestFA extends App {
 //    val addN = new AddN(8) {}
 //    val vhdAddN = addN.compileToVHDL.print().toFile("test.vhd")
 
-  val mul32 = new Mul32 {}
-  val vhdMul32 = mul32.compileToVHDL.print().toFile("test.vhd")
+//  val mul32 = new Mul32 {}
+//  val vhdMul32 = mul32.compileToVHDL.print().toFile("test.vhd")
+
+  val mul32Seq = new Mul32Seq {}
+  val vhdMul32Seq = mul32Seq.compileToVHDL.print().toFile("test.vhd")
 }
 
 
@@ -130,20 +133,45 @@ object Top extends DFDesign {
 
 
 trait Mul32 extends DFDesign {
-
-  final val a     = DFBits(32) <> IN
-  final val b     = DFBits(32) <> IN
-  final val tp    = DFBits(32) <> OUT
-  final val prod  = DFBits(32) <> OUT
+  final val width  = 32
+  final val a      = DFBits(width) <> IN
+  final val b      = DFBits(width) <> IN
+  final val tp     = DFBits(width) <> OUT
+  final val prod   = DFBits(width) <> OUT
 
   tp := b0s
-  for (i <- 0 until 32) {
-    val sel = a(i).setName(s"sel$i")
-    val m = DFBits(32).selectdf(sel)(b, b0s).setName(s"m$i")
+  for (i <- 0 until width) {
+    val m = DFBits(width).selectdf(a(i))(b, b0s)
     val sum = (m.uint + tp.uint).wc
     prod(i) := sum.bits.lsbit
-    tp := sum.bits.msbits(32)
+    tp := sum.bits.msbits(width)
   }
 }
+
+trait Mul32Seq extends DFDesign {
+  final val width   = 32
+  final val a       = DFBits(width) <> IN
+  final val b       = DFBits(width) <> IN
+  final val tp      = DFBits(width) <> OUT
+  final val prod    = DFBits(width) <> OUT
+
+  private val as    = DFBits(width)
+  private val stage = DFUInt.rangeUntil(width) init 0
+
+  ifdf (stage == 0) {
+    as := a
+    prod := b0s
+    tp := b0s
+    stage := width - 1
+  }.elsedf {
+    stage := stage - 1
+  }
+  private val m = DFBits(width).selectdf(as(0))(b, b0s)
+  private val sum = (m.uint + tp.uint).wc
+  prod := sum.bits(0,0) ## prod.msbits(width - 1)
+  tp := sum.bits.msbits(width)
+  as := as >> 1
+}
+
 
 
