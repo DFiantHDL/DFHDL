@@ -148,6 +148,7 @@ trait Mul32 extends DFDesign {
   }
 }
 
+
 trait Mul32Seq extends DFDesign {
   final val width   = 32
   final val a       = DFBits(width) <> IN
@@ -155,22 +156,24 @@ trait Mul32Seq extends DFDesign {
   final val tp      = DFBits(width) <> OUT
   final val prod    = DFBits(width) <> OUT
 
-  private val as    = DFBits(width)
-  private val stage = DFUInt.rangeUntil(width) init 0
+  private val ai    = DFBits(width)
+  private val bi    = DFBits(width)
+  private val stage = DFUInt.rangeTo(width) init width
 
-  ifdf (stage == 0) {
-    as := a
+  ifdf (stage == width) {
+    ai := a
+    bi := b
     prod := b0s
     tp := b0s
-    stage := width - 1
+    stage := 0
   }.elsedf {
-    stage := stage - 1
+    stage := stage + 1
   }
-  private val m = DFBits(width).selectdf(as(0))(b, b0s)
+  private val m = DFBits(width).selectdf(ai(0))(bi, b0s)
   private val sum = (m.uint + tp.uint).wc
   prod := sum.bits(0,0) ## prod.msbits(width - 1)
   tp := sum.bits.msbits(width)
-  as := as >> 1
+  ai := ai >> 1
 }
 
 
