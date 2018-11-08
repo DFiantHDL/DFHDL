@@ -1,6 +1,8 @@
 name := "DFiant"
 
-version := "1.0"
+organization := "DFiantHDL"
+
+version := "0.0.1"
 
 scalaVersion := "2.12.4-bin-typelevel-4"
 
@@ -101,7 +103,7 @@ libraryDependencies ++= Seq(
 // Oscar (constraints)
 ////////////////////////////////////////////////////////////////////
 
-resolvers += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
+//resolvers += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
 
 //libraryDependencies += "oscar" %% "oscar-cp" % "4.1.0-SNAPSHOT"
 
@@ -151,10 +153,10 @@ libraryDependencies += "com.typesafe.akka" %% "akka-stream" % "2.5.17"
 ////////////////////////////////////////////////////////////////////
 // SpinalHDL
 ////////////////////////////////////////////////////////////////////
-libraryDependencies ++= Seq(
-  "com.github.spinalhdl" % "spinalhdl-core_2.12" % "latest.release",
-  "com.github.spinalhdl" % "spinalhdl-lib_2.12" % "latest.release"
-)
+//libraryDependencies ++= Seq(
+//  "com.github.spinalhdl" % "spinalhdl-core_2.12" % "latest.release",
+//  "com.github.spinalhdl" % "spinalhdl-lib_2.12" % "latest.release"
+//)
 ////////////////////////////////////////////////////////////////////
 
 
