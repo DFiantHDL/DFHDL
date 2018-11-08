@@ -1,6 +1,6 @@
-name := "DFiant"
+name := "dfiant"
 
-organization := "DFiantHDL"
+organization := "hdl.dfiant"
 
 version := "0.0.1"
 
