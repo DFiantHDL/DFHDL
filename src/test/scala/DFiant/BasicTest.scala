@@ -249,12 +249,21 @@ trait IODesignConn10 extends DFDesign {
 //
 
 trait IO extends DFDesign {
-  val i = DFUInt(8) <> IN
+  val i = DFUInt(8) <> IN init 0
   val o = DFUInt(8) <> OUT
 
-  val u7 = DFUInt(7)
 
-  u7 <> o //OK! u7 is automatically extended to connect to
+  i <> o
+}
+
+trait IOTest extends DFSimulator {
+  val io = new IO {}
+  val i = DFUInt(8) init 0
+  io.i <> i
+  ifdf (i == 10) {
+    sim.report("i reached 10", sim.Error)
+  }
+  i := i + 1
 }
 
 object BasicTest extends App {
@@ -270,7 +279,7 @@ object BasicTest extends App {
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-  val top_ioDesignConn10 = new IO {}.printVHDLString
+  val top_ioDesignConn10 = new IOTest {}.simulateInVHDL(100000).print().toFile("test.vhd")
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString

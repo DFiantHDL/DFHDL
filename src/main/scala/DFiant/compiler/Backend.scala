@@ -58,11 +58,14 @@ object Backend {
   }
   //////////////////////////////////////////////////////////////////////////////////
 
-  class VHDL(design : DFDesign, owner : VHDL = null) extends Backend(design) { self =>
+  class VHDL(design : DFDesign, owner : VHDL = null, simClkPeriodKHz : Option[Int] = None) extends Backend(design) { self =>
     private val top : VHDL = if (owner == null) this else owner
     private implicit val nameDB : NameDB = new NameDB
     private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name.toLowerCase()) else top.db
     private val delim = "  "
+
+    private val clkName = Name("CLK")
+    private val rstName = Name("RSTn")
 
     //////////////////////////////////////////////////////////////////////////////////
     // Type
@@ -250,12 +253,12 @@ object Backend {
       }
       object ports {
         val list : ListBuffer[port] = ListBuffer.empty[port]
-        private val clkPort : String = emitPort("CLK", "in", "std_logic")
-        private val rstPort : String = emitPort("RSTn", "in", "std_logic")
+        private val clkPort : String = emitPort(clkName.value, "in", "std_logic")
+        private val rstPort : String = emitPort(rstName.value, "in", "std_logic")
         def portList : String =
-          if (hasSyncProcess) (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
+          if (hasSyncProcess && simClkPeriodKHz.isEmpty) (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
           else list.map(p => p.declare).mkString(";")
-        override def toString : String = s"\nport ($portList\n);"
+        override def toString : String = if (portList.isEmpty) "" else s"\nport ($portList\n);"
       }
       def body : String = ports.toString
     }
@@ -277,7 +280,9 @@ object Backend {
         }
         object signals {
           val list : ListBuffer[signal] = ListBuffer.empty[signal]
-          override def toString: String = list.map(s => s.declare).mkString
+          val simClkSig : String = if (simClkPeriodKHz.isDefined) f"\n${delim}signal $clkName%-13s : std_logic := '0';" else ""
+          val simRstSig : String = if (simClkPeriodKHz.isDefined) f"\n${delim}signal $rstName%-13s : std_logic := '0';" else ""
+          override def toString: String = simClkSig + simRstSig + list.map(s => s.declare).mkString
         }
 
         class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name) {
@@ -399,8 +404,8 @@ object Backend {
             lazy val list : List[connection] = member.ports.map(p => {
               connection(p, architecture.declarations.signal(p))
             })
-            private val clkConn = emitConnection("CLK", "CLK")
-            private val rstConn = emitConnection("RSTn", "RSTn")
+            private val clkConn = emitConnection(clkName.value, clkName.value)
+            private val rstConn = emitConnection(rstName.value, rstName.value)
             override def toString: String =
               if (hasSyncProcess) (clkConn :: rstConn :: list.map(e => e.toString)).mkString(",")
               else list.map(e => e.toString).mkString(",")
@@ -503,6 +508,21 @@ object Backend {
               override def toString: String = s"\n${currentDelim}end case;"
             }
           }
+          case class assert(condMember : Option[DFAny], msg : String, severity : Severity) extends statement {
+            val severityStr = severity match {
+              case Severity.Note => "note"
+              case Severity.Warning => "warning"
+              case Severity.Error => "error"
+            }
+            override def toString: String = condMember match {
+              case Some(c) =>
+                s"""
+                   |${currentDelim}assert ${Value(c)} = '1' report "$msg" severity $severityStr;""".stripMargin
+              case None =>
+                s"""
+                   |${currentDelim}report "$msg" severity $severityStr;""".stripMargin
+            }
+          }
         }
         object sync_process extends process(2) {
           case class resetStatement(dst : Reference, value : Value){
@@ -516,10 +536,10 @@ object Backend {
           lazy val exists : Boolean = steadyStateStatements.list.nonEmpty
           override def toString: String = if (!exists) "" else
             s"""
-               |process (CLK, RSTn)
+               |process ($clkName, $rstName)
                |begin
-               |  if RSTn = '0' then$resetStatements
-               |  elsif rising_edge(CLK) then$steadyStateStatements
+               |  if $rstName = '0' then$resetStatements
+               |  elsif rising_edge($clkName) then$steadyStateStatements
                |  end if;
                |end process;
                |""".stripMargin
@@ -534,7 +554,19 @@ object Backend {
                |""".stripMargin
 
         }
-        override def toString : String = s"$components$sync_process$async_process"
+        object clkgen {
+          override def toString: String = simClkPeriodKHz match {
+            case Some(p) => s"\n$clkName <= not $clkName after ${(1000000000L / 2 ) / p} ps;"
+            case _ => ""
+          }
+        }
+        object rstgen {
+          override def toString: String = simClkPeriodKHz match {
+            case Some(p) => s"\n$rstName <= '1' after 1 ps;"
+            case _ => ""
+          }
+        }
+        override def toString : String = s"$components$clkgen$rstgen$sync_process$async_process"
       }
       def body : String = {
         val statementsStr = statements.toString //Must load all statements first because they generate declarations
@@ -572,6 +604,7 @@ object Backend {
       case x : DFAny.Const => //Do nothing
       case x : DFAny.Alias[_] => architecture.declarations.alias(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
+      case x : Assert => architecture.statements.async_process.assert(x.cond, x.msg, x.severity)
 
       case x : ConditionalBlock.IfNoRetVal#DFIfBlock =>
         x match {
