@@ -3,8 +3,6 @@ package DFiant
 import DFiant.compiler.Backend
 import DFiant.internals._
 
-import scala.collection.mutable.{HashMap, ListBuffer}
-
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
   //The block by value object is created within the context of the current DFDesign,
