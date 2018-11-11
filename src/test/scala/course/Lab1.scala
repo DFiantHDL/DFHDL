@@ -10,20 +10,6 @@ trait Mux1 extends DFDesign {
   res := ((sel && a) || (!sel && b))
 }
 
-trait Mux8 extends DFDesign {
-  final val sel = DFBool() <> IN
-  final val a   = DFBits(8) <> IN
-  final val b   = DFBits(8) <> IN
-  final val res = DFBits(8) <> OUT
-  for (i <- 0 until 8) {
-    val mux = new Mux1 {}
-    mux.sel <> sel
-    mux.a <> a(i)
-    mux.b <> b(i)
-    res(i) := mux.res
-  }
-}
-
 trait MuxN extends DFDesign {
   val n = 32
   final val sel = DFBool() <> IN
@@ -55,7 +41,7 @@ trait RightShifter extends DFDesign {
   res := temp
 }
 
-trait RightShifterTest extends DFSimulator {
+trait RightShifter_TB extends DFSimulator {
   private val rightShifter = new RightShifter{}
 
   private val testCases = Seq(         //This is a sequence of Tuple3
@@ -77,11 +63,11 @@ trait RightShifterTest extends DFSimulator {
 
   rightShifter.vec <> vec
   rightShifter.shift <> shift
-  sim.assert(rightShifter.res == expected, "Bad result")
+  sim.assert(rightShifter.res == expected, msg"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
 }
 
 
 object Lab1 extends App {
   println("Hello world! I'm Lab #1")
-  val rightShifterTest = new RightShifterTest {}.compileToVHDL.print().toFile("lab1.vhd")
+  val rightShifter_tb = new RightShifter_TB {}.compileToVHDL.print().toFile("lab1.vhd")
 }

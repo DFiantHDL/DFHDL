@@ -3,17 +3,18 @@ package DFiant
 import internals._
 import DFiant.compiler.Backend
 
+class Message(val value : List[Any])
 
-protected case class Assert(cond : Option[DFAny], msg : String, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
+protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
   final val ctx = ctx0
   override private[DFiant] def nameDefault = s"${Name.Separator}assert"
   def codeString : String = cond match {
     case Some(c) =>
       s"""
-         |sim.assert(${c.refCodeString}, "$msg", $severity)""".stripMargin
+         |sim.assert(${c.refCodeString}, "???", $severity)""".stripMargin
     case None =>
       s"""
-         |sim.report("$msg", $severity)""".stripMargin
+         |sim.report("???", $severity)""".stripMargin
   }
   final val id = getID
   keep
@@ -44,10 +45,10 @@ trait DFSimulator extends DFDesign {
     final val Note = Severity.Note
     final val Warning = Severity.Warning
     final val Error = Severity.Error
-    def assert(cond : DFBool, msg : String, severity : Severity = Warning)(implicit ctx : DFAny.Op.Context) : Unit = {
+    def assert(cond : DFBool, msg : Message, severity : Severity = Warning)(implicit ctx : DFAny.Op.Context) : Unit = {
       Assert(Some(cond), msg, severity)
     }
-    def report(msg : String, severity : Severity = Note)(implicit ctx : DFAny.Op.Context) : Unit = {
+    def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Op.Context) : Unit = {
       Assert(None, msg, severity)
     }
   }

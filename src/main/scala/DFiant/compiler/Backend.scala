@@ -509,22 +509,26 @@ object Backend {
               override def toString: String = s"\n${currentDelim}end case;"
             }
           }
-          case class assert(condMember : Option[DFAny], msg : String, severity : Severity) extends statement {
+          case class assert(condMember : Option[DFAny], msg : Message, severity : Severity) extends statement {
             val severityStr = severity match {
               case Severity.Note => "note"
               case Severity.Warning => "warning"
               case Severity.Error => "error"
             }
+            val msgString = msg.value.collect {
+              case x : DFAny => s"to_string(${Value(x)})"
+              case x => s""""$x""""
+            }.mkString(" & ")
             override def toString: String = condMember match {
               case Some(c) =>
                 s"""
                    |${currentDelim}if rising_edge($clkName) then
-                   |$delim${currentDelim}assert (${Value(c)} = '1') report "$msg" severity $severityStr;
+                   |$delim${currentDelim}assert (${Value(c)} = '1') report $msgString severity $severityStr;
                    |${currentDelim}end if;""".stripMargin
               case None =>
                 s"""
                    |${currentDelim}if rising_edge($clkName) then
-                   |$delim${currentDelim}report "$msg" severity $severityStr;
+                   |$delim${currentDelim}report $msgString severity $severityStr;
                    |${currentDelim}end if;""".stripMargin
             }
           }
