@@ -58,27 +58,26 @@ trait RightShifter extends DFDesign {
 trait RightShifterTest extends DFSimulator {
   private val rightShifter = new RightShifter{}
 
-//  private val testCases = Seq(         //This is a sequence of Tuple3
-//    //(vec        , shift, expected   )
-//    (h"80000000", 4    , h"08000000"),
-//    (h"80000000", 1    , h"40000000")
-//  ).reverse //initialization of init will be bottom to top
-//  private val testNum = testCases.length
-//  private val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
-//  private val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
-//  private val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
-//
-  private val vec = DFBits(32) init b0s
-  vec.keep
-//  vec := vec.prev(testNum)
-//  private val shift = DFUInt(5) init shiftSeq
-//  shift := shift.prev(testNum)
-//  private val expected = DFBits(32) init expectedSeq
-//
-  vec := vec.prev(6) << 1
-  vec := vec.prev(6) << 1
-//  rightShifter.shift <> shift
-//  sim.assert(rightShifter.res == expected, "Bad result")
+  private val testCases = Seq(         //This is a sequence of Tuple3
+    //(vec        , shift, expected   )
+    (h"80000000", 4    , h"08000000"),
+    (h"80000000", 1    , h"40000000")
+  ).reverse //initialization of init will be bottom to top
+  private val testNum = testCases.length
+  private val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
+  private val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
+  private val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
+
+  private val vec = DFBits(32) init vecSeq
+  vec := vec.prev(testNum)
+  private val shift = DFUInt(5) init shiftSeq
+  shift := shift.prev(testNum)
+  private val expected = DFBits(32) init expectedSeq
+  expected := expected.prev(testNum)
+
+  rightShifter.vec <> vec
+  rightShifter.shift <> shift
+  sim.assert(rightShifter.res == expected, "Bad result")
 
 }
 

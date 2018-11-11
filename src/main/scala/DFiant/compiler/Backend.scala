@@ -518,10 +518,14 @@ object Backend {
             override def toString: String = condMember match {
               case Some(c) =>
                 s"""
-                   |${currentDelim}assert ${Value(c)} = '1' report "$msg" severity $severityStr;""".stripMargin
+                   |${currentDelim}if rising_edge($clkName) then
+                   |$delim${currentDelim}assert (${Value(c)} = '1') report "$msg" severity $severityStr;
+                   |${currentDelim}end if;""".stripMargin
               case None =>
                 s"""
-                   |${currentDelim}report "$msg" severity $severityStr;""".stripMargin
+                   |${currentDelim}if rising_edge($clkName) then
+                   |$delim${currentDelim}report "$msg" severity $severityStr;
+                   |${currentDelim}end if;""".stripMargin
             }
           }
         }
