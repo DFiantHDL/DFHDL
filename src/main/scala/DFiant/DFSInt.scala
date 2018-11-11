@@ -191,10 +191,13 @@ object DFSInt extends DFAny.Companion {
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
-    def apply(width : Int, value : BigInt) : Token = new Token(width, value, false)
+    def apply(width : Int, value : BigInt) : Token = {
+      assert(value.bitsWidth <= width, s"\nThe init value $value width must smaller or equal to $width")
+      new Token(width, value, false)
+    }
     def apply(width : Int, value : Bubble) : Token = new Token(width, 0, true)
     def apply(width : Int, token : Token) : Token = {
-      //TODO: Boundary checks
+      assert(token.width <= width, s"\nThe init value $token width must smaller or equal to $width")
       new Token(width, token.value, token.bubble)
     }
     implicit def bubbleOf[W] : DFSInt[W] => Token = t => Token(t.width, Bubble)
@@ -240,6 +243,9 @@ object DFSInt extends DFAny.Companion {
       implicit class DFSIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFSInt[LW]]
       implicit class DFSIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFSInt[LW]]
       implicit class DFSIntBigInt[LW](val right : BigInt) extends Able[DFSInt[LW]]
+      implicit class DFSIntSeqOfInt[LW](val right : Seq[Int]) extends Able[DFSInt[LW]]
+      implicit class DFSIntSeqOfLong[LW](val right : Seq[Long]) extends Able[DFSInt[LW]]
+      implicit class DFSIntSeqOfBigInt[LW](val right : Seq[BigInt]) extends Able[DFSInt[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFSInt[LW]]]) : Seq[Token] =
         right.toSeqAny.map(e => e match {

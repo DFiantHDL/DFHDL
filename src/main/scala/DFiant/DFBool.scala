@@ -178,6 +178,7 @@ object DFBool extends DFAny.Companion {
       implicit class DFBoolBubble(val right : Bubble) extends Able[DFBool]
       implicit class DFBoolToken(val right : DFBool.Token) extends Able[DFBool]
       implicit class DFBoolTokenSeq(val right : Seq[DFBool.Token]) extends Able[DFBool]
+      implicit class DFBoolSeqOfBoolean(val right : Seq[Boolean]) extends Able[DFBool]
       implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends Able[DFBool]
       implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 

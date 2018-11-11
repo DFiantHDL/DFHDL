@@ -316,14 +316,14 @@ object Backend {
           val aliasStr : String = member.reference match {
             case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
               if ((relWidth == 1) && member.isInstanceOf[DFBool])
-                s"${Value(member.aliasedVars.head)}($relBitLow)"
+                s"${Value(member.aliasedVars.head).bits}($relBitLow)"
               else
                 s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
             case DFAny.Alias.Reference.BitReverse() =>
               assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
               s"bit_reverse(${Value(member.aliasedVars.head)})"
             case DFAny.Alias.Reference.Invert() =>
-              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
+//              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
               s"(not ${Value(member.aliasedVars.head)})"
             case DFAny.Alias.Reference.Prev(step) =>
               val ref = References(member.aliasedVars.head)
@@ -676,7 +676,7 @@ object Backend {
       case x : DFAny.Assignment =>
         References(x.toVar).assign(Value(x.fromVal))
       case x =>
-        println(x.fullName)
+        throw new IllegalArgumentException(s"\nunsupported construct: $x")
     }
 
     private def body : Tuple2[String, String] = (entity.body, architecture.body)

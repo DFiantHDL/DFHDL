@@ -319,13 +319,13 @@ object DFBits extends DFAny.Companion {
 
     def apply(width : Int, value : Int) : Token = Token(width, BitVector.fromInt(value, width))
     def apply(width : Int, value : BitVector) : Token = {
-      //TODO: Boundary checks
+      assert(value.length == width, s"\nThe init vector $value must have a width of $width")
       new Token(width, value.toLength(width), BitVector.low(width))
     }
     def apply(value : BitVector) : Token = Token(value.length.toInt, value)
     def apply(width : Int, value : Bubble) : Token = new Token(width, BitVector.low(width), BitVector.high(width))
     def apply(width : Int, value : Token) : Token = {
-      //TODO: Boundary checks
+      assert(value.width == width, s"\nThe init vector $value must have a width of $width")
       value.bits(width-1, 0)
     }
     implicit def bubbleOf[W] : DFBits[W] => Token = t => Token(t.width, Bubble)
@@ -368,6 +368,7 @@ object DFBits extends DFAny.Companion {
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
+      implicit class DFBitsSeqOfBitVector[LW](val right : Seq[BitVector]) extends Able[DFBits[LW]]
       implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
@@ -799,17 +800,14 @@ object DFBits extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import ctx.basicLib.DFBitsOps._
+        import FunctionalLib.DFBitsOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
-          case DiSoOp.Kind.== => new DFiant.BasicLib.DFBitsOps.`Comp==`(left.width, right.width)
-          case DiSoOp.Kind.!= => new DFiant.BasicLib.DFBitsOps.`Comp!=`(left.width, right.width)
+          case DiSoOp.Kind.== => new `Func2Comp==`(left, right)
+          case DiSoOp.Kind.!= => new `Func2Comp!=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"${ctx}Comp")
-        opInst.inLeft <> left
-        opInst.inRight <> right
-        opInst.outResult
+        opInst.setAutoName(s"$ctx")
       }
 
       implicit def evDFBits_op_DFBits[LW, RW](

@@ -120,22 +120,20 @@ object DSLOwnerConstruct {
   trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, owners : ListBuffer[Owner])
     private val db = HashMap.empty[String, HashMap[Body, Info]]
+    private var dbString = ""
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
       if (info.id == 0) ownerTypeName else ownerTypeName + Name.Separator + info.id
     def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
-      val csHM = db.getOrElseUpdate(ownerTypeName, HashMap.empty[Body, Info])
-      val info = csHM.getOrElseUpdate(ownerBody, Info(csHM.size, ListBuffer.empty))
+      var newBody : Boolean = false
+      val csHM = db.getOrElseUpdate(ownerTypeName, {newBody = true; HashMap.empty[Body, Info]})
+      val info = csHM.getOrElseUpdate(ownerBody, {newBody = true; Info(csHM.size, ListBuffer.empty)})
       info.owners += owner
-      actualTypeName(ownerTypeName, info)
+      val atn = actualTypeName(ownerTypeName, info)
+      if (newBody) dbString += ownerToString(atn, ownerBody) + "\n"
+      atn
     }
     def ownerToString(ownerTypeName : String, ownerBody : Body) : String
-    override def toString : String = {
-      val ret = db.flatMap(e => {
-        val ownerTypeName = e._1
-        e._2.map(e => ownerToString(actualTypeName(ownerTypeName, e._2), e._1))
-      }).mkString("\n")
-      ret
-    }
+    override def toString : String = dbString
   }
 }
 
