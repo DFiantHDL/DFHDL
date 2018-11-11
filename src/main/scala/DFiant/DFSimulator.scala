@@ -3,7 +3,12 @@ package DFiant
 import internals._
 import DFiant.compiler.Backend
 
-class Message(val value : List[Any])
+protected[DFiant] class Message(val value : List[Any])(implicit callOwner : DSLOwnerConstruct) extends HasCodeString {
+  def codeString: String = "msg\"" + value.collect {
+    case x : DFAny => s"$${${x.refCodeString}}"
+    case x => x.toString
+  }.mkString + "\""
+}
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
   final val ctx = ctx0
@@ -11,25 +16,25 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
   def codeString : String = cond match {
     case Some(c) =>
       s"""
-         |sim.assert(${c.refCodeString}, "???", $severity)""".stripMargin
+         |sim.assert(${c.refCodeString}, ${msg.codeString}, ${severity.codeString})""".stripMargin
     case None =>
       s"""
-         |sim.report("???", $severity)""".stripMargin
+         |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
   }
   final val id = getID
   keep
 }
 
-protected sealed trait Severity
+protected sealed trait Severity extends HasCodeString
 object Severity {
   case object Note extends Severity {
-    override def toString: String = "sim.Note"
+    def codeString: String = "sim.Note"
   }
   case object Warning extends Severity {
-    override def toString: String = "sim.Warning"
+    def codeString: String = "sim.Warning"
   }
   case object Error extends Severity {
-    override def toString: String = "sim.Error"
+    def codeString: String = "sim.Error"
   }
 }
 

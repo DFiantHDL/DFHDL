@@ -98,7 +98,7 @@ package object DFiant extends {
       */
     def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
 
-    def msg(args : Any*) : Message = new Message(List(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
+    def msg(args : Any*)(implicit callOwner : DSLOwnerConstruct) : Message = new Message(List(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
       case x: String => x.nonEmpty
       case x => true
     }))
