@@ -78,14 +78,10 @@ trait RightShifterTest extends DFSimulator {
   rightShifter.vec <> vec
   rightShifter.shift <> shift
   sim.assert(rightShifter.res == expected, "Bad result")
-
 }
 
 
 object Lab1 extends App {
   println("Hello world! I'm Lab #1")
-
-  val rightShifterTest = new RightShifterTest {}.compileToVHDL.print().toFile("test.vhd")
-
-  //  leftShifter.printVHDLString
+  val rightShifterTest = new RightShifterTest {}.compileToVHDL.print().toFile("lab1.vhd")
 }
