@@ -214,6 +214,7 @@ object Backend {
     protected abstract class Reference(val member : DFAny, val name : Name) extends Value {
       val typeS : Type = Type(member)
       def declare : String
+      val sigport : Reference = this
       lazy val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2
       def assign(src : Value) : Unit = {
         if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, src)
@@ -326,11 +327,11 @@ object Backend {
 //              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
               s"(not ${Value(member.aliasedVars.head)})"
             case DFAny.Alias.Reference.Prev(step) =>
-              val ref = References(member.aliasedVars.head)
+              val ref = References(member.aliasedVars.head).sigport
               val refName = ref.name
               val initSeq = ref.member.initLB.get
               if (step > ref.maxPrevUse) {
-                for (i <- 1 to step) {
+                for (i <- ref.maxPrevUse+1 to step) {
                   val sig = new architecture.declarations.signal(ref.member, Name(s"${refName}_prev$i"))
                   initSeq.prevInit(i-1).headOption match {
                     case Some(t) if !t.isBubble =>
@@ -422,7 +423,7 @@ object Backend {
 
         class process(val indent : Int) {
           var statementIndent : Int = indent
-          class variable(member : DFAny, name : Name, val sigport : Reference) extends Reference(member, name) {
+          class variable(member : DFAny, name : Name, override val sigport : Reference) extends Reference(member, name) {
             variables.list += this
             override def assign(src : Value): Unit =
               architecture.statements.async_process.assignment(this, src)

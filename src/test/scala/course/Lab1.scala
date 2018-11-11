@@ -75,7 +75,8 @@ trait RightShifterTest extends DFSimulator {
 //  shift := shift.prev(testNum)
 //  private val expected = DFBits(32) init expectedSeq
 //
-  vec := vec.prev << 1
+  vec := vec.prev(6) << 1
+  vec := vec.prev(6) << 1
 //  rightShifter.shift <> shift
 //  sim.assert(rightShifter.res == expected, "Bad result")
 
