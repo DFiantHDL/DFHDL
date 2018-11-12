@@ -1,6 +1,43 @@
 //package DFiant
 //
-//import DFiant.internals._
+//import internals._
+//
+//trait DFStruct[S <: DFStruct[S]] extends DFStruct.Unbounded {
+//  type TStruct = S
+//}
+//
+//object DFStruct extends DFAny.Companion {
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  // Unbounded Val
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  trait Unbounded extends DFAny.Unbounded[DFStruct.type] {
+//    type TStruct <: DFStruct[TStruct]
+//    type Width = Int
+//    type TVal = TStruct
+//    type TVar = TStruct with Var[TStruct]
+////    type TToken = DFEnum.Token[TEnum]
+////    type TPattern = DFEnum.Pattern[TEnum]
+////    type TPatternAble[+R] = DFEnum.Pattern.Able[R]
+////    type TPatternBuilder[L <: DFAny] = DFEnum.Pattern.Builder[L]
+////    def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
+////    def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
+////    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+////    : TVal <> Dir = new Port(new NewVar[TEnum](enum), dir)
+//  }
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  // Var
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  trait Var[S <: DFStruct[S]] extends DFStruct[S] with DFAny.Var {
+//    final def := [R](right: Op.Able[R])(
+//      implicit op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
+//    ) = assign(op(left, right))
+//  }
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//}
 //trait DFStruct[Val <: DFAny] extends DFAny.Val[WUnsafe, Val, Val with DFStruct.Var[Val]] {
 //  this : Val =>
 //  type TField1 <: DFAny
