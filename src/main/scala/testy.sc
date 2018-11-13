@@ -1,8 +1,15 @@
 import DFiant._
 
-val a = Seq(1,2,3)
-val b = Seq(5, 6, 7)
+trait DFFields {
+  final implicit protected val emptyDesign = new DFDesign() {}
+}
+object Some extends DFFields {
+  val a = DFBits(32)
+  val b = DFUInt(8)
+}
 
-val lists = Seq(a, b)
+trait DFStruct[S <: DFFields] {
+  val fields : S
+}
 
-lists.flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)
+//new Struct(new Some{})
