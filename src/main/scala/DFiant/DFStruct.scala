@@ -54,7 +54,7 @@ object DFStruct extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar[F <: DFFields](val fields : F)(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar[DFStruct[F]](fields.width, s"DFStruct(${fields.name})") with Var[F]  {
+  ) extends DFAny.NewVar[DFStruct[F]](fields.members.map(f => f.width.getValue).sum, s"DFStruct(${fields.name})") with Var[F]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
@@ -80,7 +80,7 @@ object DFStruct extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token[F <: DFFields] private[DFiant](width : Int, value : Product) extends DFAny.Token.Of[Product, Pattern[F]](width, value) {
+  class Token[F <: DFFields] private[DFiant](width : Int, value : List[DFAny.Token]) extends DFAny.Token.Of[List[DFAny.Token], Pattern[F]](width, value) {
     val (valueBits, bubbleMask) : (BitVector, BitVector) = ???
 //      if (value != null) (value.value.toBitVector(width), false.toBitVector(width))
 //      else (0.toBitVector(width), true.toBitVector(width))
@@ -99,8 +99,8 @@ object DFStruct extends DFAny.Companion {
     def == [F <: DFFields](left : Seq[Token[F]], right : Seq[Token[F]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != [F <: DFFields](left : Seq[Token[F]], right : Seq[Token[F]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
 
-    def apply[F <: DFFields](width : Int, value : Bubble) : Token[F] = new Token[F](width, null.asInstanceOf[Product])
-    def apply[F <: DFFields](width : Int, value : Product) : Token[F] = new Token[F](width, value)
+    def apply[F <: DFFields](width : Int, value : Bubble) : Token[F] = new Token[F](width, List())
+    def apply[F <: DFFields](width : Int, value : List[DFAny]) : Token[F] = new Token[F](width, value)
     implicit def bubbleOf[F <: DFFields] : DFStruct[F] => Token[F] = t => Token(t.width, Bubble)
     implicit def fromBits[F <: DFFields](implicit e : F) : DFBits.Token => Token[F] = ???
 //      t => Token[F](e.width, e.entries(t.valueBits.toBigInt).asInstanceOf[Product])
@@ -145,7 +145,7 @@ object DFStruct extends DFAny.Companion {
       def toTokenSeq[F <: DFFields](width : Int, right : Seq[Able[DFStruct[F]]]) : Seq[Token[F]] =
         right.toSeqAny.map(e => e match {
           case (t : Bubble) => Token[F](width, t)
-          case (t : Product) => Token[F](width, t.asInstanceOf[Product])
+          case (t : Product) => Token[F](width, t.productIterator.toList.asInstanceOf[List[DFAny]])
           case (t : Token[_]) => t.asInstanceOf[Token[F]]
         })
     }
@@ -291,8 +291,10 @@ object DFStruct extends DFAny.Companion {
 
 abstract class DFFields(implicit n : NameIt) extends HasCodeString {
   final protected implicit val emptyDesign : DFDesign = new DFDesign() {}
+  final lazy val members : List[DFAny] = emptyDesign.memberList.collect{case x : DFAny => x}
   final val name : String = n.value
   override def toString: String = name
   private val fieldsCodeString : String = emptyDesign.bodyCodeString
   final def codeString : String = s"\nobject $name extends DFFields {$fieldsCodeString\n}"
 }
+
