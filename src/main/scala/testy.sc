@@ -18,4 +18,5 @@ trait DFStruct[S <: DFFields] {
   val fields : S
 }
 
+trait Bla extends DFFields
 //new Struct(new Some{})
