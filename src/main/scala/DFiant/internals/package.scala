@@ -220,6 +220,9 @@ package object internals {
     }
     def applyBrackets(onlyIfRequired : Boolean = true) : String =
       if (requiresBrackets || (!onlyIfRequired && !hasBrackets)) s"($value)" else value
+    def delimRowsBy(delim : String) : String = {
+      delim + value.replaceAll("\n","\n" + delim)
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
 

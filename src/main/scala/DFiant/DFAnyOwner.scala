@@ -23,7 +23,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
     val delim = "  "
     val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
     val noAnonymous = noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous && !e.asInstanceOf[DFAny].showAnonymous)
-    delim + noAnonymous.codeString.replaceAll("\n","\n" + delim)
+    noAnonymous.codeString.delimRowsBy(delim)
   }
 
 }
