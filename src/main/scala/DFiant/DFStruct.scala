@@ -35,8 +35,8 @@ object DFStruct extends DFAny.Companion {
       type TFields = F
       type TMemberHList = List[DFAny]
       val fields : TFields = dfFields
-      val width: TwoFace.Int[Width] = TwoFace.Int.create[Width](dfFields.members.map(m => m.width.getValue).sum)
-      val members: TMemberHList = dfFields.members
+      val width: TwoFace.Int[Width] = ??? //TwoFace.Int.create[Width](dfFields.members.map(m => m.width.getValue).sum)
+      val members: TMemberHList = ??? //dfFields.members
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

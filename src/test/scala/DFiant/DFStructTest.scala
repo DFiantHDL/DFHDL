@@ -6,16 +6,17 @@ import shapeless.test.illTyped
 import singleton.ops._
 
 class DFStructAutoTest extends Properties("DFStructAutoTest") {
-  object Foo extends DFFields {
+  trait Foo extends DFFields {
     val u = DFUInt(8)
     val b = DFBits(8)
   }
 
 
   trait MyDesign extends DFDesign {
-    val p1 = DFStruct(Foo) <> IN
-    val p1dup = DFStruct(Foo) <> OUT
-    p1dup := p1
+//    val p1 = DFStruct(new Foo{}) <> IN
+//    val p1dup = DFStruct(Foo) <> OUT
+//    p1dup := p1
+
 //    val p2 = DFStruct(Foo) <> IN init Foo.Baz2
 //    val p3 = DFStruct(Foo) <> OUT
 //    p3 := DFStructFromEntry(Foo.Baz1)
