@@ -25,54 +25,20 @@ trait MuxN extends DFDesign {
   }
 }
 
-//trait RightShifter extends DFDesign {
-//  final val vec   = DFBits(32) <> IN
-//  final val shift = DFUInt(5)  <> IN
-//  final val res   = DFBits(32) <> OUT
-//  private val temp = DFBits(32)
-//  temp := vec
-//  for (i <- 4 to 0 by -1) {
-//    val mux = new MuxN{}.setName(s"m$i")
-//    mux.a <> (temp >> (1 << i))
-//    mux.b <> temp
-//    mux.sel <> shift.bit(i)
-//    temp := mux.res
-//  }
-//  res := temp
-//}
-
 trait RightShifter extends DFDesign {
-  val logN=5
   final val vec   = DFBits(32) <> IN
   final val shift = DFUInt(5)  <> IN
   final val res   = DFBits(32) <> OUT
-
-
-  //private val shifter = new MuxN {}
-  //shifter.a <> (vec >> 1)
-  //shifter.b <> vec
-  //shifter.sel <> shift.bits.bit(0)
-  //res := shifter.res
-
-  private val shifter = Array.fill(1)(new MuxN{})
-
-//  shifter.head.setName(s"muxN0")
-  shifter.head.a <> (vec >> 1)
-//  shifter.head.b <> vec
-//  shifter.head.sel <> shift.bits.bit(0)
-//  res := shifter.head.res
-
-  //for(i<-1 until logN){
-  ////val muxNCur = shifter(i).setName(s"muxN$i")
-  ////muxNCur.sel <> shift.bits.bit(i)
-  ////muxNCur.a <> (shifter(i-1).res >> i)
-  ////muxNCur.b <> shifter(i-1).res
-
-  //shifter(i).sel <> 0
-  //shifter(i).a <> vec
-  //shifter(i).b <> vec
-  //}
-  res <> shifter.last.res
+  private val temp = DFBits(32)
+  temp := vec
+  for (i <- 4 to 0 by -1) {
+    val mux = new MuxN{}.setName(s"m$i")
+    mux.a <> (temp >> (1 << i))
+    mux.b <> temp
+    mux.sel <> shift.bit(i)
+    temp := mux.res
+  }
+  res := temp
 }
 
 trait RightShifter_TB extends DFSimulator {
