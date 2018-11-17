@@ -21,6 +21,9 @@ object DFSInt extends DFAny.Companion {
     type TPattern = DFSInt.Pattern
     type TPatternAble[+R] = DFSInt.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFSInt.Pattern.Builder[L]
+    type OpAble[R] = Op.Able[R]
+    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
 
     final lazy val sign = bits.msbit.setAutoConstructCodeString(s"$refCodeString.sign")
 

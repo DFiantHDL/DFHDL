@@ -55,6 +55,9 @@ object DFStruct extends DFAny.Companion {
     type TPattern = DFStruct.Pattern[TSFields]
     type TPatternAble[+R] = DFStruct.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFStruct.Pattern.Builder[L]
+    type OpAble[R] = Op.Able[R]
+    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
     implicit val structFields : TSFields
     final lazy val fields : TFields = structFields.fields
     def == [SF <: Product](right : SF)(implicit op: `Op==`.Builder[TVal, SF]) = op(left, right)

@@ -21,6 +21,9 @@ object DFUInt extends DFAny.Companion {
     type TPattern = DFUInt.Pattern
     type TPatternAble[+R] = DFUInt.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFUInt.Pattern.Builder[L]
+    type OpAble[R] = Op.Able[R]
+    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
     type TExtendable
     def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, TExtendable, R]) = op(left, right)
     def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, TExtendable, R]) = op(left, right)

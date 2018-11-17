@@ -24,6 +24,9 @@ object DFBits extends DFAny.Companion {
     type TPattern = DFBits.Pattern
     type TPatternAble[+R] = DFBits.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFBits.Pattern.Builder[L]
+    type OpAble[R] = Op.Able[R]
+    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////

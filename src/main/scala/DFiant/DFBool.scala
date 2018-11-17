@@ -19,6 +19,9 @@ object DFBool extends DFAny.Companion {
     type TPatternAble[+R] = DFBool.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
     type Width = 1
+    type OpAble[R] = Op.Able[R]
+    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
     def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 

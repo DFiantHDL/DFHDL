@@ -564,11 +564,14 @@ object DFAny {
           else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
       }
     }
-    final def <> [R](right: protComp.Op.Able[R])(
-      implicit op: protComp.`Op<>`.Builder[TVal, R], ctx : DFAny.Connector.Context
+    type OpAble[R] <: protComp.Op.Able[R]
+    type `Op<>Builder`[R] <: protComp.`Op<>`.Builder[TVal, R]
+    type `Op:=Builder`[R] <: protComp.`Op:=`.Builder[TVal, R]
+    final def <> [R](right: OpAble[R])(
+      implicit op: `Op<>Builder`[R], ctx : DFAny.Connector.Context
     ) : Unit = connectVal2Port(op(left, right))
-    final def := [R](right: protComp.Op.Able[R])(
-      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
+    final def := [R](right: OpAble[R])(
+      implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFAny.Op.Context
     ) : Unit = assign(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
