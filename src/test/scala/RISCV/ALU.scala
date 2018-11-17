@@ -32,6 +32,18 @@ trait ALU extends DFDesign {
   out <> outCalc
 }
 
+object ALU {
+  def apply(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel.type])(
+    implicit ctx : DFAny.Op.Context
+  ) : DFBits[32] = {
+    val alu = new ALU {}
+    alu.op1 <> op1
+    alu.op2 <> op2
+    alu.shamt <> shamt
+    alu.aluSel <> aluSel
+    alu.out
+  }
+}
 
 
 
@@ -43,12 +55,8 @@ trait ALUTest extends DFDesign {
   val aluSel  = DFEnum(ALUSel) <> IN init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
   val out     = DFBits(32)     <> OUT
 
-  val alu = new ALU {}
-  op1 <> alu.op1
-  op2 <> alu.op2
-  shamt <> alu.shamt
-  aluSel <> alu.aluSel
-  out <> alu.out
+  out <> ALU(op1, op2, shamt, aluSel)
+
 }
 
 
@@ -58,7 +66,7 @@ object ALUTestApp extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.foldedInit
 
-  val alu = new ALU {}
-  val vhdALU = alu.compileToVHDL.print().toFile("test.vhd")
-//  val aluTest = new ALUTest {}.printCodeString
+//  val alu = new ALU {}
+//  val vhdALU = alu.compileToVHDL.print().toFile("test.vhd")
+  val aluTest = new ALUTest {}.printCodeString
 }
