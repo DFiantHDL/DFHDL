@@ -1,11 +1,9 @@
 package DFiant
 
-import DFiant.DFAny.Op.Context
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 
-import scala.collection.{GenSet, SetLike}
 import scala.collection.mutable.ListBuffer
 
 trait DFAny extends DFAnyMember with HasWidth {
@@ -330,7 +328,7 @@ object DFAny {
     type TPostInit = TVar
     final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
     final protected[DFiant] lazy val constLB =
@@ -364,7 +362,7 @@ object DFAny {
       })
       widthSeq.sum
     })
-    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     private val initFunc : List[Seq[DFAny.Token]] => Seq[TToken] = initList => initList.map(i => {
       val currentInit: Seq[DFBits.Token] = i.bits
       val updatedInit: Seq[DFBits.Token] = reference match {
@@ -398,7 +396,7 @@ object DFAny {
     final val id = getID
 
     final lazy val isAliasOfPort : Boolean = ???
-    final override protected[DFiant] def assign(that: DFAny)(implicit ctx: Context): TVar = {
+    final override protected[DFiant] def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): TVar = {
       aliasedVars.foreach{case a : DFAny.Var =>
         a.assigned = true
         a.protAssignDependencies ++= List(this, that)
@@ -447,7 +445,7 @@ object DFAny {
   ) extends DFAny {
     final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](token.width)
-    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final protected[DFiant] val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
@@ -474,7 +472,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-    final protected[DFiant] val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
