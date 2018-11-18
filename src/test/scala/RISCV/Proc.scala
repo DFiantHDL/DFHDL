@@ -5,17 +5,18 @@ trait Proc extends DFDesign {
   ////////////////////////////////////////////////////////////////////////
   // Fetch
   ////////////////////////////////////////////////////////////////////////
-  final val imem_addrToMem    = DFBits[32] <> OUT
-  final val imem_dataFromMem  = DFBits[32] <> IN
   private val pcGen = new PCGen {}
-  imem_addrToMem <> pcGen.pcCurrent
+  private val pc = pcGen.getPCConn()
+
+  private val imem = new IMem {}
+  private val instr = imem.readConn(pc)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Decode
   ////////////////////////////////////////////////////////////////////////
   private val decoder = new Decoder {}
-  private val decodedInst = decoder.decodeConn(imem_dataFromMem)
+  private val decodedInst = decoder.decodeConn(instr)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
@@ -41,10 +42,7 @@ trait Proc extends DFDesign {
     .casedf(RS2OpSel.PC)        {pcGen.pcCurrent}
     .casedf_                    {decoder.imm}
   private val alu = new ALU {}
-  alu.op1 <> aluOp1
-  alu.op2 <> aluOp2
-  alu.shamt <> decoder.shamt
-  alu.aluSel <> decoder.aluSel
+  private val aluOut = alu.calcConn(aluOp1, aluOp2, decoder.shamt, decoder.aluSel)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
@@ -66,9 +64,8 @@ trait Proc extends DFDesign {
     .casedf(WriteBackSel.ALU)     {alu.out}
     .casedf(WriteBackSel.PCPlus4) {pcGen.pcPlus4}
     .casedf_                      {dmem_dataFromMem}
-  regFile.rd_data <> wbData
-  regFile.rd_wren <> decoder.rd_wren
-  regFile.rd_addr <> decoder.rd_addr
+
+  regFile.writeConn(decoder.rd_addr, wbData, decoder.rd_wren)
   ////////////////////////////////////////////////////////////////////////
 
 

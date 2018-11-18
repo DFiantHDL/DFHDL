@@ -36,6 +36,11 @@ trait RegFile extends DFDesign {
     this.rs2_addr <> rs2_addr
     this.rs2_data
   }
+  def writeConn(rd_addr : DFBits[5], rd_data : DFBits[XLEN], rd_wren : DFBool)(implicit ctx : DFDesign.Context) : Unit = {
+    this.rd_addr <> rd_addr
+    this.rd_data <> rd_data
+    this.rd_wren <> rd_wren
+  }
 }
 
 

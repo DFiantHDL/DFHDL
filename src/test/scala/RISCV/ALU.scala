@@ -3,11 +3,11 @@ package RISCV
 import DFiant._
 
 trait ALU extends DFDesign {
-  final val op1     = DFBits(32)      <> IN
-  final val op2     = DFBits(32)      <> IN
-  final val shamt   = DFUInt(5)       <> IN
+  final val op1     = DFBits[32]      <> IN
+  final val op2     = DFBits[32]      <> IN
+  final val shamt   = DFUInt[5]       <> IN
   final val aluSel  = DFEnum(ALUSel)  <> IN
-  final val out     = DFBits(32)      <> OUT
+  final val out     = DFBits[32]      <> OUT
 
   //helper casted values
   private val op1u = op1.uint
@@ -15,7 +15,7 @@ trait ALU extends DFDesign {
   private val op1s = op1.sint
   private val op2s = op2.sint
 
-  private val outCalc = DFBits(32).matchdf(aluSel)
+  private val outCalc = DFBits[32].matchdf(aluSel)
     .casedf(ALUSel.ADD){(op1u + op2u).bits}
     .casedf(ALUSel.SUB){(op1u - op2u).bits}
     .casedf(ALUSel.AND){op1 & op2}
@@ -30,32 +30,28 @@ trait ALU extends DFDesign {
     .casedf_{b0s}
 
   out <> outCalc
-}
 
-object ALU {
-  def apply(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel.type])(
+  def calcConn(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel.type])(
     implicit ctx : DFAny.Op.Context
   ) : DFBits[32] = {
-    val alu = new ALU {}
-    alu.op1 <> op1
-    alu.op2 <> op2
-    alu.shamt <> shamt
-    alu.aluSel <> aluSel
-    alu.out
+    this.op1 <> op1
+    this.op2 <> op2
+    this.shamt <> shamt
+    this.aluSel <> aluSel
+    this.out
   }
 }
 
 
-
-
 trait ALUTest extends DFDesign {
-  val op1     = DFBits(32)     <> IN init(h"00000000", h"00000001", h"00000002")
-  val op2     = DFBits(32)     <> IN init(h"00000010", h"00000011", h"00000012")
-  val shamt   = DFUInt(5)      <> IN init(1, 2)
+  val op1     = DFBits[32]     <> IN init(h"00000000", h"00000001", h"00000002")
+  val op2     = DFBits[32]     <> IN init(h"00000010", h"00000011", h"00000012")
+  val shamt   = DFUInt[5]      <> IN init(1, 2)
   val aluSel  = DFEnum(ALUSel) <> IN init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
-  val out     = DFBits(32)     <> OUT
+  val out     = DFBits[32]     <> OUT
 
-  out <> ALU(op1, op2, shamt, aluSel)
+  val alu = new ALU {}
+  out <> alu.calcConn(op1, op2, shamt, aluSel)
 
 }
 
