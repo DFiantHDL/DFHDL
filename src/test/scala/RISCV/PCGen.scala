@@ -3,21 +3,21 @@ package RISCV
 import DFiant._
 
 trait PCGen extends DFDesign {
-  private val pcCurrent = DFBits[32]        <> OUT
-  private val pcPlus4   = DFBits[32]        <> OUT
+  private val pc        = DFBits[32]        <> IN
   private val branchSel = DFEnum(BranchSel) <> IN
   private val rs1_data  = DFBits[XLEN]      <> IN
   private val rs2_data  = DFBits[XLEN]      <> IN
   private val imm       = DFBits[32]        <> IN
+  private val pcNext    = DFBits[32]        <> OUT
+  private val pcPlus4   = DFBits[32]        <> OUT
 
-  private val pc = DFUInt[32] init StartAddress
-  private val pcp4 = pc + 4
-  pcCurrent := pc.bits
-  pcPlus4 := pcp4.bits
+  private val pcu = pc.uint
+  private val pcPlus4U = pcu + 4
+  pcPlus4 := pcPlus4U.bits
 
   private val pcOrReg1 = DFUInt[32].matchdf(branchSel)
     .casedf(BranchSel.JumpReg)  {rs1_data.uint}
-    .casedf_                    {pc}
+    .casedf_                    {pcu}
   private val pcBrJmp = pcOrReg1 + imm.uint
 
   private val r1s = rs1_data.sint
@@ -41,18 +41,23 @@ trait PCGen extends DFDesign {
     .casedf(BranchSel.LessThanUnsigned)         {r1_LTU_r2}
     .casedf_                                    {false}
 
-  private val pcNext = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcp4}
+  private val pcNextU = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
 
-  pc := pcNext
+  pcNext := pcNextU.bits
   
-  def getPCConn()(implicit ctx : DFDesign.Context) : DFBits[32] = pcCurrent
-  def getPCPlus4Conn()(implicit ctx : DFDesign.Context) : DFBits[32] = pcPlus4
-  def updatePCConn(branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
+  def genPCConn(pc : DFBits[32], branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
     implicit ctx : DFDesign.Context
-  ) : Unit = {
+  ) : PCCalc = {
+    this.pc <> pc
     this.branchSel <> branchSel
     this.rs1_data <> rs1_data
     this.rs2_data <> rs2_data
     this.imm <> imm
+    new PCCalc(this.pcNext, this.pcPlus4)
   }
 }
+
+class PCCalc (
+  val pcNext    : DFBits[32],
+  val pcPlus4   : DFBits[32]
+)

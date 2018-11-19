@@ -27,7 +27,7 @@ trait Decoder extends DFDesign {
     this.inst <> inst
     new DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, mem_wren = mem_wren)
+      aluSel = aluSel, wbSel = wbSel, dmem_wren = mem_wren)
   }
 }
 
@@ -48,5 +48,5 @@ class DecodedInst(
   val rs2OpSel  : DFEnum[RS2OpSel],
   val aluSel    : DFEnum[ALUSel],
   val wbSel     : DFEnum[WriteBackSel],
-  val mem_wren  : DFBool
+  val dmem_wren  : DFBool
 )

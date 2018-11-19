@@ -2,13 +2,11 @@ package RISCV
 import DFiant._
 
 trait Proc extends DFDesign {
+  private val pc = DFBits[32] init StartAddress
+
   ////////////////////////////////////////////////////////////////////////
   // Fetch
   ////////////////////////////////////////////////////////////////////////
-  private val pcGen = new PCGen {}
-  private val pc = pcGen.getPCConn()
-  private val pcPlus4 = pcGen.getPCPlus4Conn()
-
   private val imem = new IMem {}
   private val inst = imem.readConn(pc)
   ////////////////////////////////////////////////////////////////////////
@@ -31,33 +29,27 @@ trait Proc extends DFDesign {
   ////////////////////////////////////////////////////////////////////////
   // ALU (Execute)
   ////////////////////////////////////////////////////////////////////////
-  private val aluOp1 = DFBits[32].matchdf(decodedInst.rs1OpSel)
-    .casedf(RS1OpSel.RegSource) {rs1_data}
-    .casedf_                    {decodedInst.imm}
-  private val aluOp2 = DFBits[32].matchdf(decodedInst.rs2OpSel)
-    .casedf(RS2OpSel.RegSource) {rs2_data}
-    .casedf(RS2OpSel.PC)        {pc}
-    .casedf_                    {decodedInst.imm}
-  private val alu = new ALU {}
-  private val aluOut = alu.calcConn(aluOp1, aluOp2, decodedInst.shamt, decodedInst.aluSel)
-  pcGen.updatePCConn(decodedInst.branchSel, rs1_data, rs2_data, decodedInst.imm)
+  private val execute = new Execute {}
+  val (pcCalc, executeInst) = execute.exConn(pc, decodedInst, rs1_data, rs2_data)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Memory
   ////////////////////////////////////////////////////////////////////////
   private val dmem = new DMem {}
-  private val dmem_dataFromMem = dmem.readWriteConn(aluOut, rs2_data, decodedInst.mem_wren)
+  private val dmem_dataFromMem = dmem.readWriteConn(executeInst.dmem_addr, executeInst.dataToMem, executeInst.dmem_wren)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Write Back
   ////////////////////////////////////////////////////////////////////////
-  private val wbData = DFBits[32].matchdf(decodedInst.wbSel)
-    .casedf(WriteBackSel.ALU)     {aluOut}
-    .casedf(WriteBackSel.PCPlus4) {pcPlus4}
+  private val wbData = DFBits[32].matchdf(executeInst.wbSel)
+    .casedf(WriteBackSel.ALU)     {executeInst.aluOut}
+    .casedf(WriteBackSel.PCPlus4) {pcCalc.pcPlus4}
     .casedf_                      {dmem_dataFromMem}
 
   regFile.writeConn(decodedInst.rd_addr, wbData, decodedInst.rd_wren)
   ////////////////////////////////////////////////////////////////////////
+
+  pc := pcCalc.pcNext
 }
