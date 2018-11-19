@@ -3,11 +3,11 @@ package RISCV
 import DFiant._
 
 trait ALU extends DFDesign {
-  final val op1     = DFBits[32]      <> IN
-  final val op2     = DFBits[32]      <> IN
-  final val shamt   = DFUInt[5]       <> IN
-  final val aluSel  = DFEnum(ALUSel)  <> IN
-  final val out     = DFBits[32]      <> OUT
+  private val op1     = DFBits[32]      <> IN
+  private val op2     = DFBits[32]      <> IN
+  private val shamt   = DFUInt[5]       <> IN
+  private val aluSel  = DFEnum(ALUSel)  <> IN
+  private val out     = DFBits[32]      <> OUT
 
   //helper casted values
   private val op1u = op1.uint

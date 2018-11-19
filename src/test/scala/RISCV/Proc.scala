@@ -40,7 +40,7 @@ trait Proc extends DFDesign {
     .casedf_                    {decodedInst.imm}
   private val alu = new ALU {}
   private val aluOut = alu.calcConn(aluOp1, aluOp2, decodedInst.shamt, decodedInst.aluSel)
-  pcGen.updatePC(decodedInst.branchSel, rs1_data, rs2_data, decodedInst.imm)
+  pcGen.updatePCConn(decodedInst.branchSel, rs1_data, rs2_data, decodedInst.imm)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////

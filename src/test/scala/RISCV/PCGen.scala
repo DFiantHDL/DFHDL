@@ -3,12 +3,12 @@ package RISCV
 import DFiant._
 
 trait PCGen extends DFDesign {
-  final val pcCurrent = DFBits[32]        <> OUT
-  final val pcPlus4   = DFBits[32]        <> OUT
-  final val branchSel = DFEnum(BranchSel) <> IN
-  final val rs1_data  = DFBits[XLEN]      <> IN
-  final val rs2_data  = DFBits[XLEN]      <> IN
-  final val imm       = DFBits[32]        <> IN
+  private val pcCurrent = DFBits[32]        <> OUT
+  private val pcPlus4   = DFBits[32]        <> OUT
+  private val branchSel = DFEnum(BranchSel) <> IN
+  private val rs1_data  = DFBits[XLEN]      <> IN
+  private val rs2_data  = DFBits[XLEN]      <> IN
+  private val imm       = DFBits[32]        <> IN
 
   private val pc = DFUInt[32] init StartAddress
   private val pcp4 = pc + 4
@@ -47,7 +47,7 @@ trait PCGen extends DFDesign {
   
   def getPCConn()(implicit ctx : DFDesign.Context) : DFBits[32] = pcCurrent
   def getPCPlus4Conn()(implicit ctx : DFDesign.Context) : DFBits[32] = pcPlus4
-  def updatePC(branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
+  def updatePCConn(branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
     implicit ctx : DFDesign.Context
   ) : Unit = {
     this.branchSel <> branchSel

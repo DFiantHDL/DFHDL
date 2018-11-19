@@ -3,13 +3,13 @@ package RISCV
 import DFiant._
 
 trait RegFile extends DFDesign {
-  final val rs1_addr  = DFBits[5]      <> IN
-  final val rs1_data  = DFBits[XLEN]   <> OUT
-  final val rs2_addr  = DFBits[5]      <> IN
-  final val rs2_data  = DFBits[XLEN]   <> OUT
-  final val rd_addr   = DFBits[5]      <> IN
-  final val rd_data   = DFBits[XLEN]   <> IN
-  final val rd_wren   = DFBool()       <> IN
+  private val rs1_addr  = DFBits[5]      <> IN
+  private val rs1_data  = DFBits[XLEN]   <> OUT
+  private val rs2_addr  = DFBits[5]      <> IN
+  private val rs2_data  = DFBits[XLEN]   <> OUT
+  private val rd_addr   = DFBits[5]      <> IN
+  private val rd_data   = DFBits[XLEN]   <> IN
+  private val rd_wren   = DFBool()       <> IN
 
   private val regsNum = 32
   private val regs = List.fill(regsNum)(DFBits[XLEN].init(b0s))
