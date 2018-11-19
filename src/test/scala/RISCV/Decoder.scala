@@ -50,12 +50,3 @@ class DecodedInst(
   val wbSel     : DFEnum[WriteBackSel],
   val mem_wren  : DFBool
 )
-
-
-trait Foo[T]
-object Bug {
-  def foo() : Foo[32] = ???
-  val f = foo()
-  def bar(f : Foo[32]) : Unit = {}
-  bar(f)
-}
