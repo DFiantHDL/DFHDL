@@ -16,38 +16,6 @@ object Opcode extends Enum.Manual(7) {
   val BGEU    = Entry(b"0110111")
 }
 
-object PCSel extends Enum.Manual(3) {
-  val Plus4, Branch, Jump, JumpReg, Exception = EntryDelta()
-}
-
-object BranchSel extends Enum.Manual(4) {
-  val Next, NotEqual, Equal, GreaterEqual,
-      GreaterEqualUnsigned, LessThan, LessThanUnsigned, Jump, JumpReg = EntryDelta()
-}
-
-object RS1OpSel extends Enum.Manual(2) {
-  val RegSource, Immediate  = EntryDelta()
-  val DontCare = RegSource //Giving another name to an entry as a Don't Care value
-}
-
-object RS2OpSel extends Enum.Manual(2) {
-  val RegSource, Immediate, PC  = EntryDelta()
-  val DontCare = RegSource
-}
-
-object ALUSel extends Enum.Manual(4) {
-  val DontCare, ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
-}
-
-object WriteBackSel extends Enum.Manual(2) {
-  val ALU, Mem, PCPlus4, CSR = EntryDelta()
-  val DontCare = ALU
-}
-
-object MemFuncSel extends Enum.Manual(2) {
-  val Read, Write, Fence = EntryDelta()
-  val DontCare = Read
-}
 
 object Test {
   type BV[W] = BitVector//[W]

@@ -43,10 +43,19 @@ class DecodedInst(
   val shamt     : DFUInt[5],
 
 //Control Signals
-  val branchSel : DFEnum[BranchSel.type],
-  val rs1OpSel  : DFEnum[RS1OpSel.type],
-  val rs2OpSel  : DFEnum[RS2OpSel.type],
-  val aluSel    : DFEnum[ALUSel.type],
-  val wbSel     : DFEnum[WriteBackSel.type],
+  val branchSel : DFEnum[BranchSel],
+  val rs1OpSel  : DFEnum[RS1OpSel],
+  val rs2OpSel  : DFEnum[RS2OpSel],
+  val aluSel    : DFEnum[ALUSel],
+  val wbSel     : DFEnum[WriteBackSel],
   val mem_wren  : DFBool
 )
+
+
+trait Foo[T]
+object Bug {
+  def foo() : Foo[32] = ???
+  val f = foo()
+  def bar(f : Foo[32]) : Unit = {}
+  bar(f)
+}

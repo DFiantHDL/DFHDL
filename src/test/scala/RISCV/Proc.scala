@@ -7,16 +7,17 @@ trait Proc extends DFDesign {
   ////////////////////////////////////////////////////////////////////////
   private val pcGen = new PCGen {}
   private val pc = pcGen.getPCConn()
+  private val pcPlus4 = pcGen.getPCPlus4Conn()
 
   private val imem = new IMem {}
-  private val instr = imem.readConn(pc)
+  private val inst = imem.readConn(pc)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Decode
   ////////////////////////////////////////////////////////////////////////
   private val decoder = new Decoder {}
-  private val decodedInst = decoder.decodeConn(instr)
+  private val decodedInst = decoder.decodeConn(inst)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
@@ -25,48 +26,38 @@ trait Proc extends DFDesign {
   private val regFile = new RegFile {}
   private val rs1_data = regFile.readConn1(decodedInst.rs1_addr)
   private val rs2_data = regFile.readConn2(decodedInst.rs2_addr)
-  pcGen.rs1_data <> rs1_data
-  pcGen.rs2_data <> rs2_data
-  pcGen.branchSel <> decoder.branchSel
-  pcGen.imm <> decoder.imm
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // ALU (Execute)
   ////////////////////////////////////////////////////////////////////////
-  private val aluOp1 = DFBits[32].matchdf(decoder.rs1OpSel)
-    .casedf(RS1OpSel.RegSource) {regFile.rs1_data}
-    .casedf_                    {decoder.imm}
-  private val aluOp2 = DFBits[32].matchdf(decoder.rs2OpSel)
-    .casedf(RS2OpSel.RegSource) {regFile.rs2_data}
-    .casedf(RS2OpSel.PC)        {pcGen.pcCurrent}
-    .casedf_                    {decoder.imm}
+  private val aluOp1 = DFBits[32].matchdf(decodedInst.rs1OpSel)
+    .casedf(RS1OpSel.RegSource) {rs1_data}
+    .casedf_                    {decodedInst.imm}
+  private val aluOp2 = DFBits[32].matchdf(decodedInst.rs2OpSel)
+    .casedf(RS2OpSel.RegSource) {rs2_data}
+    .casedf(RS2OpSel.PC)        {pc}
+    .casedf_                    {decodedInst.imm}
   private val alu = new ALU {}
-  private val aluOut = alu.calcConn(aluOp1, aluOp2, decoder.shamt, decoder.aluSel)
+  private val aluOut = alu.calcConn(aluOp1, aluOp2, decodedInst.shamt, decodedInst.aluSel)
+  pcGen.updatePC(decodedInst.branchSel, rs1_data, rs2_data, decodedInst.imm)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Memory
   ////////////////////////////////////////////////////////////////////////
-  final val dmem_addrToMem    = DFBits[32] <> OUT
-  final val dmem_dataToMem    = DFBits[32] <> OUT
-  final val dmem_wrenToMem    = DFBool()   <> OUT
-  final val dmem_dataFromMem  = DFBits[32] <> IN
-  dmem_addrToMem <> alu.out
-  dmem_dataToMem <> regFile.rs2_data
-  dmem_wrenToMem <> decoder.mem_wren
+  private val dmem = new DMem {}
+  private val dmem_dataFromMem = dmem.readWriteConn(aluOut, rs2_data, decodedInst.mem_wren)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Write Back
   ////////////////////////////////////////////////////////////////////////
-  private val wbData = DFBits[32].matchdf(decoder.wbSel)
-    .casedf(WriteBackSel.ALU)     {alu.out}
-    .casedf(WriteBackSel.PCPlus4) {pcGen.pcPlus4}
+  private val wbData = DFBits[32].matchdf(decodedInst.wbSel)
+    .casedf(WriteBackSel.ALU)     {aluOut}
+    .casedf(WriteBackSel.PCPlus4) {pcPlus4}
     .casedf_                      {dmem_dataFromMem}
 
-  regFile.writeConn(decoder.rd_addr, wbData, decoder.rd_wren)
+  regFile.writeConn(decodedInst.rd_addr, wbData, decodedInst.rd_wren)
   ////////////////////////////////////////////////////////////////////////
-
-
 }

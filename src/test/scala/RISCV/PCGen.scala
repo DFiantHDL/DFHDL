@@ -47,4 +47,12 @@ trait PCGen extends DFDesign {
   
   def getPCConn()(implicit ctx : DFDesign.Context) : DFBits[32] = pcCurrent
   def getPCPlus4Conn()(implicit ctx : DFDesign.Context) : DFBits[32] = pcPlus4
+  def updatePC(branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
+    implicit ctx : DFDesign.Context
+  ) : Unit = {
+    this.branchSel <> branchSel
+    this.rs1_data <> rs1_data
+    this.rs2_data <> rs2_data
+    this.imm <> imm
+  }
 }

@@ -31,7 +31,7 @@ trait ALU extends DFDesign {
 
   out <> outCalc
 
-  def calcConn(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel.type])(
+  def calcConn(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel])(
     implicit ctx : DFAny.Op.Context
   ) : DFBits[32] = {
     this.op1 <> op1
