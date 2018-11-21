@@ -223,7 +223,12 @@ object DFBits extends DFAny.Companion {
 
   protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference: DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFBits[W]](aliasedVars, reference) with Var[W]
+  ) extends DFAny.Alias[DFBits[W]](aliasedVars, reference) with Var[W] {
+    //TODO:
+    //Every bit in DFBits can have a different path, at least until a top-level output is reached,
+    //so no need to balance too early, thus potentially saving resources.
+//    override protected def aliasPipeBalance(pipe : Pipe) : Pipe = pipe
+  }
 
   protected[DFiant] final class Const[W](token : DFBits.Token)(
     implicit ctx : DFAny.Const.Context

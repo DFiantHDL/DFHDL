@@ -10,6 +10,12 @@ abstract class LazyBox[+T] private (owner : DSLMemberConstruct)(args : List[Lazy
   private var visited : Boolean = false
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(owner), "Uninitialized")
+  private def getUpdateValueOrError : ValueOrError[T] = try {
+    valueFunc
+  } catch  {
+    case e : Exception =>
+      Error(List(owner), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
+  }
   private[DFiant] val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
   final protected def unlockValueDependencies() : Unit = if (locked) {
     locked = false
@@ -21,21 +27,16 @@ abstract class LazyBox[+T] private (owner : DSLMemberConstruct)(args : List[Lazy
     else {
       if (!locked) {
         visited = true
-        valueOrError = try {
-          valueFunc
-        } catch  {
-          case e : Exception =>
-            Error(List(owner), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
-        }
+        valueOrError = getUpdateValueOrError
         visited = false
         locked = true
       }
       valueOrError
     }
   }
-  private def clearValue() : Unit = {
+  def clearValue() : Unit = {
     valueOrError = Error(List(owner),"Uninitialized")
-    locked = false
+    unlockValueDependencies()
   }
   final def get : T = getValueOrError match {
     case Value(v) => v

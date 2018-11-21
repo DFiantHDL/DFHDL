@@ -97,7 +97,11 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
   final lazy val refCount : Int = initLB.valueDependencies.size
-//  protected[DFiant] val pipeLB : LazyBox[Pipe]
+  protected[DFiant] val pipeInletLB : LazyBox[Pipe]
+  private val pipeLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
+  def pipe(p : Int) : this.type = {if (pipeLB.get != p) pipeLB.set(p); this}
+  final protected[DFiant] lazy val pipeOutletLB : LazyBox[Pipe] =
+    LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeLB)
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -251,7 +255,7 @@ object DFAny {
     }
     final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
     protected[DFiant] val constLB : LazyBox.Mutable[TToken]
-    final protected[DFiant] val pipeLB = LazyBox.Mutable[Option[Int]](this)(Some(None))
+    protected[DFiant] val pipeInletLB : LazyBox.Mutable[Pipe]
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -285,13 +289,14 @@ object DFAny {
       //All is well. We can now connect fromVal->toVar
       toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
       toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
-//      toVar.pipeLB.set(fromVal.pipeLB.asInstanceOf[LazyBox[Option[Int]]])
+      toVar.pipeInletLB.set(fromVal.pipeOutletLB)
       toVar.connectedSource = Some(fromVal)
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
     }
     override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment dataflow variable ${this.fullName} was already connected to. Cannot apply both := and <> operators on a dataflow variable.")
+      pipeInletLB.set(that.pipeOutletLB)
       super.assign(that)
     }
     //////////////////////////////////////////////////////////////////////////
@@ -334,6 +339,7 @@ object DFAny {
     final val isPort = false
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
+    final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.none(width)))
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -388,7 +394,20 @@ object DFAny {
       updatedConst
     }).reduce((a, b) => a ## b).asInstanceOf[TToken]
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.ArgList[TToken, DFAny.Token](this)(constFunc, aliasedVars.map(v => v.constLB))
-//    final protected[DFiant] val pipeLB = LazyBox.ArgList[Option[Int], Option[Int]](this)(l => l.col)
+    //The default is that all bits must be balanced when aliasing and concatenating several variables together
+    //Unique values that hold different paths should override this
+    protected def aliasPipeBalance(pipe : Pipe) : Pipe = pipe.balanced
+    private val pipeFunc : List[Pipe] => Pipe = pipeList => {
+      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
+      reference match {
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => currentPipe.bitsWL(relWidth, relBitLow)
+        case DFAny.Alias.Reference.Prev(step) => currentPipe
+        case DFAny.Alias.Reference.AsIs() => currentPipe
+        case DFAny.Alias.Reference.BitReverse() => currentPipe.reverse
+        case DFAny.Alias.Reference.Invert() => currentPipe
+      }
+    }
+    final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] = LazyBox.ArgList[Pipe, Pipe](this)(pipeFunc, aliasedVars.map(v => v.pipeOutletLB))
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
@@ -451,7 +470,7 @@ object DFAny {
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
-    final protected[DFiant] val pipeLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.const(width))
+    final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.none(width))
     final val isPort = false
     final val id = getID
   }
@@ -474,6 +493,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
+    final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)))
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies

@@ -5,10 +5,25 @@ case class PipeValue(width : Int, value : Option[Int]) {
     case Some(v) => PipeValue(width, Some(v + that))
     case None => this
   }
+  def - (that : PipeValue) : PipeValue = {
+    assert(this.width == that.width)
+    (this.value, that.value) match {
+      case (Some(vL), Some(vR)) => PipeValue(width, Some(vL - vR))
+      case (Some(vL), None) => this
+      case (None, Some(vR)) => throw new IllegalArgumentException("\nUnexpected delta pipe from None")
+      case (None, None) => this
+    }
+  }
+
+  override def toString: String = s"($width, ${if (value.isDefined) value.get.toString else "None"})"
 }
 
 case class Pipe(valueList : List[PipeValue]){
   val width : Int = valueList.map(v => v.width).sum
+  private def getMaxPipe : Option[Int] = {
+    val vl = valueList.flatMap(v => v.value)
+    if (vl.isEmpty) None else Some(vl.max)
+  }
   def coalesce : Pipe = Pipe(valueList.foldLeft(List[PipeValue]()) {
     case (ls, e) if ls.isEmpty || ls.last.value != e.value=> ls :+ e
     case (ls, e) => ls.dropRight(1) :+ PipeValue(ls.last.width + e.width, e.value)
@@ -16,15 +31,50 @@ case class Pipe(valueList : List[PipeValue]){
   def separate : Pipe = Pipe(valueList.foldLeft(List[PipeValue]()) {
     case (ls, e) => ls ++ List.fill(e.width)(PipeValue(1, e.value))
   })
-  def bits(relWidth : Int, relBitLow : Int) : Pipe = {
+  def bitsWL(relWidth : Int, relBitLow : Int) : Pipe = {
     assert(relWidth + relBitLow <= width)
     assert(relBitLow < width)
-    Pipe(separate.valueList.reverse.slice(relBitLow, relWidth - relBitLow)).coalesce
+    Pipe(separate.valueList.reverse.slice(relBitLow, relBitLow + relWidth)).coalesce
   }
   def reverse : Pipe = Pipe(valueList.reverse)
-  def balanced : Pipe = Pipe(List(PipeValue(width, Some(valueList.flatMap(v => v.value).max))))
+  def ## (that : Pipe) = Pipe(this.valueList ++ that.valueList)
+  def balanced : Pipe = Pipe(width, getMaxPipe)
+  def + (that : Int) : Pipe = Pipe(valueList.map(v => v + that))
+  def - (that : Pipe) : Pipe = {
+    assert(this.width == that.width)
+    val z = (this.valueList, that.valueList).zipped
+    val sameSplit = z.map((pL, pR) => pL.width == pR.width).reduce((l, r) => l && r)
+    if (sameSplit) Pipe(z.map((pL, pR) => pL - pR))
+    else Pipe((this.separate.valueList, that.separate.valueList).zipped.map((l, r) => l - r)).coalesce
+  }
+
+  override def toString : String = valueList.mkString("|")
 }
 
 object Pipe {
-  def const(width : Int) : Pipe = Pipe(List(PipeValue(width, None)))
+  implicit class PipeList(list : List[Pipe]) {
+    def concat : Pipe = list.reduce((l, r) => l ## r)
+    def getMaxPipe : Option[Int] = {
+      val fl = list.flatMap(p => p.getMaxPipe)
+      if (fl.isEmpty) None else Some(fl.max)
+    }
+    def balance : List[Pipe] = {
+      val max = getMaxPipe
+      list.map(p => Pipe(p.width, max))
+    }
+  }
+  def apply(width : Int, value : Option[Int]) : Pipe = Pipe(List(PipeValue(width, value)))
+  def apply(width : Int, value : Int) : Pipe = Pipe(width, Some(value))
+  def none(width : Int) : Pipe = Pipe(List(PipeValue(width, None)))
+  def zero(width : Int) : Pipe = Pipe(width, 0)
+}
+
+
+object PipeTest extends App {
+  val p8 = Pipe(8, 1)
+  val p4 = p8.bitsWL(4,0) + 1
+  val p8b = p8.bitsWL(4,4) ## p4
+  val p8n = p8b.balanced - p8b
+  println(p8n)
+
 }

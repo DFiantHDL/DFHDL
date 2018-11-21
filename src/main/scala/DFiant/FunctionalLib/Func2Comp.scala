@@ -23,6 +23,8 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   }
 
   final lazy val constLB : LazyBox[TToken] = LazyBox.Args2(this)(tokenFunc, inLeft.constLB.asInstanceOf[LazyBox[leftArg.TToken]], inRight.constLB.asInstanceOf[LazyBox[rightArg.TToken]])
+  final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
+    LazyBox.Args2[Pipe, Pipe, Pipe](this)((l, r) => Pipe(width, List(l, r).getMaxPipe),leftArg.pipeOutletLB, rightArg.pipeOutletLB)
 
   inLeft.connectVal2Port(leftArg)
   inRight.connectVal2Port(rightArg)
