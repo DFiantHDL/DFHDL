@@ -150,7 +150,7 @@ object Backend {
         case t : Type.signed =>
           if (t.width == width) Value(s"signed($this)", that)
           else Value(s"resize(signed($this), ${t.width})", that)
-        case t : Type.std_logic => Value(s"$this(0)", that)
+        case t : Type.std_logic => Value(s"to_sl($this)", that)
         case Type.enumeration(enum) =>
           Value(s"${db.Package.declarations.enums(enum)}'VAL($this)", that)
       }
@@ -349,7 +349,7 @@ object Backend {
                 case m : DFBits[_] => concat
                 case m : DFUInt[_] => s"unsigned($concat)"
                 case m : DFSInt[_] => s"signed($concat)"
-                case m : DFBool => s"$concat(0)"
+                case m : DFBool => s"to_sl($concat)"
                 case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($concat)"
                 case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
@@ -731,9 +731,13 @@ object Backend {
              |--Taken from http://www.vlsiip.com/intel/vhdlf.html
              |function bit_reverse(s1 : std_logic_vector) return std_logic_vector;
          """.stripMargin
-        val to_slFunc : String =
+        val to_slFunc1 : String =
           s"""
              |function to_sl(b : boolean) return std_logic;
+         """.stripMargin
+        val to_slFunc2 : String =
+          s"""
+             |function to_sl(arg : std_logic_vector) return std_logic;
          """.stripMargin
         val to_slvFunc1 : String =
           s"""
@@ -748,7 +752,7 @@ object Backend {
              |function to_slv(arg : signed) return std_logic_vector;
          """.stripMargin
 
-        override def toString: String = bitReverseFunc + to_slFunc + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
+        override def toString: String = bitReverseFunc + to_slFunc1 + to_slFunc2 + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
       }
       object HelperFunctionsBody{
         val bitReverseFunc : String =
@@ -763,7 +767,7 @@ object Backend {
              |  return rr;
              |end bit_reverse;
          """.stripMargin
-        val to_slFunc : String =
+        val to_slFunc1 : String =
           s"""
              |function to_sl(b : boolean) return std_logic is
              |begin
@@ -772,6 +776,13 @@ object Backend {
              |  else
              |    return '0';
              |  end if;
+             |end to_sl;
+         """.stripMargin
+        val to_slFunc2 : String =
+          s"""
+             |function to_sl(arg : std_logic_vector) return std_logic is
+             |begin
+             |  return arg(arg'LOW);
              |end to_sl;
          """.stripMargin
         val to_slvFunc1 : String =
@@ -800,7 +811,7 @@ object Backend {
              |end to_slv;
          """.stripMargin
 
-        override def toString: String = bitReverseFunc + to_slFunc + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
+        override def toString: String = bitReverseFunc + to_slFunc1 + to_slFunc2 + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
       }
       //////////////////////////////////////////////////////////////////////////////////
       // Package
