@@ -97,7 +97,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
   final lazy val refCount : Int = initLB.valueDependencies.size
-//  protected[DFiant] val pipeLB : LazyBox[Option[Int]]
+//  protected[DFiant] val pipeLB : LazyBox[Pipe]
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -251,7 +251,7 @@ object DFAny {
     }
     final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
     protected[DFiant] val constLB : LazyBox.Mutable[TToken]
-//    final protected[DFiant] val pipeLB = LazyBox.Mutable[Option[Int]](this)(Some(None))
+    final protected[DFiant] val pipeLB = LazyBox.Mutable[Option[Int]](this)(Some(None))
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -285,6 +285,7 @@ object DFAny {
       //All is well. We can now connect fromVal->toVar
       toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
       toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
+//      toVar.pipeLB.set(fromVal.pipeLB.asInstanceOf[LazyBox[Option[Int]]])
       toVar.connectedSource = Some(fromVal)
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
@@ -450,6 +451,7 @@ object DFAny {
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
+    final protected[DFiant] val pipeLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.const(width))
     final val isPort = false
     final val id = getID
   }
