@@ -12,6 +12,7 @@ trait DFAnyMember extends DSLMemberConstruct {
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   override implicit def theOwnerToBe : DFAnyOwner = this
+  lazy val isTop : Boolean = owner == null
 
   private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
     if (this eq dfVal.owner) true

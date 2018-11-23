@@ -16,14 +16,17 @@ abstract class LazyBox[+T] private (owner : DSLMemberConstruct)(args : List[Lazy
     case e : Exception =>
       Error(List(owner), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
   }
-  private[DFiant] val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
+  private val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
+  final def getDependencyNum : Int = valueDependencies.size
   final protected def unlockValueDependencies() : Unit = if (locked) {
     locked = false
     valueDependencies.foreach(vd => vd.unlockValueDependencies())
   }
   final protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
+  final protected def clearValueDependencies() : Unit = valueDependencies.clear()
+  protected def visitedValueOrError : ValueOrError[T] = Error(List(owner), "Circular dependency detected")
   final def getValueOrError : ValueOrError[T] = {
-    if (visited) Error(List(owner), "Circular dependency detected")
+    if (visited) visitedValueOrError
     else {
       if (!locked) {
         visited = true
@@ -55,12 +58,16 @@ object LazyBox {
     case class Value[+T](value : T) extends ValueOrError[T]
     case class Error(path : List[DSLMemberConstruct], msg : String) extends ValueOrError[Nothing]
   }
-  case class Mutable[T](owner : DSLMemberConstruct)(initialization : Option[T] = None) extends LazyBox[T](owner)(List()){
+  //cdFallBack - in case of circular dependency, fallback to the initialization value
+  case class Mutable[T](owner : DSLMemberConstruct)(initialization : Option[T] = None, cdFallBack : Boolean = false) extends LazyBox[T](owner)(List()){
     import LazyBox.ValueOrError._
     private var mutableValueFunc : () => ValueOrError[T] = () => initialization match {
       case Some(t) => Value(t)
       case _ => Error(List(owner), "Uninitialized")
     }
+    override protected def visitedValueOrError : ValueOrError[T] =
+      if (cdFallBack && initialization.isDefined) Value(initialization.get)
+      else super.visitedValueOrError
     final def valueFunc : ValueOrError[T] = mutableValueFunc() match {
       case Error(p, m) => Error(owner :: p, m)
       case Value(v) => Value(v)
@@ -68,6 +75,7 @@ object LazyBox {
     private var isset = false
     final def isSet : Boolean = isset
     def set(value : LazyBox[T]) : Unit = {
+      clearValueDependencies()
       addValueDependency(value)
       unlockValueDependencies()
       mutableValueFunc = () => value.getValueOrError
