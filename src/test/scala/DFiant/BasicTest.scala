@@ -252,8 +252,13 @@ trait IO extends DFDesign {
   val i = DFUInt(8) <> IN init 0
   val o = DFUInt(8) <> OUT
 
+  val c = i + 1
+  c.pipe
+  val d = c + 2
+  d.pipe
 
-  i <> o
+  val e = c + d
+  o <> e
 }
 
 trait IOTest extends DFSimulator {
@@ -268,7 +273,7 @@ trait IOTest extends DFSimulator {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-//  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.foldedLatency
 //  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
 
   //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
@@ -279,7 +284,7 @@ object BasicTest extends App {
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-  val top_ioDesignConn10 = new IOTest {}.compileToVHDL.print().toFile("test.vhd")
+  val top_ioDesignConn10 = new IO {}.printCodeString//.compileToVHDL.print().toFile("test.vhd")
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString

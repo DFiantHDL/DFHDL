@@ -99,6 +99,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   final lazy val refCount : Int = initLB.getDependencyNum
   protected[DFiant] val pipeInletLB : LazyBox[Pipe]
   private[DFiant] val pipeLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
+  def pipe : this.type = pipe(1)
   def pipe(p : Int) : this.type = {if (pipeLB.get != p) pipeLB.set(p); this}
   final protected[DFiant] lazy val pipeOutletLB : LazyBox[Pipe] =
     LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeLB)
@@ -162,8 +163,10 @@ trait DFAny extends DFAnyMember with HasWidth {
   }
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
+  private def latencyCommentString : String =
+    if (config.commentLatencyValues) s"//latency = ${pipeOutletLB.get}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
-  def codeString : String = f"$valCodeString%-60s$initCommentString"
+  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString"
   //////////////////////////////////////////////////////////////////////////
 
 

@@ -32,22 +32,32 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
 trait DFAnyConfiguration extends DSLConfiguration {
   val showAnonymousEntries : Boolean
   val commentInitValues : Boolean
+  val commentLatencyValues : Boolean
 }
 object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = false
     val foldComponents : Boolean = true
     val commentInitValues: Boolean = false
+    val commentLatencyValues: Boolean = false
   }
   object detailed extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = true
     val foldComponents : Boolean = false
     val commentInitValues: Boolean = true
+    val commentLatencyValues: Boolean = false
   }
   object foldedInit extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = false
     val foldComponents : Boolean = true
     val commentInitValues: Boolean = true
+    val commentLatencyValues: Boolean = false
+  }
+  object foldedLatency extends DFAnyConfiguration {
+    val showAnonymousEntries : Boolean = false
+    val foldComponents : Boolean = true
+    val commentInitValues: Boolean = false
+    val commentLatencyValues: Boolean = true
   }
 }
 
