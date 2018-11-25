@@ -342,7 +342,7 @@ object DFAny {
     final val isPort = false
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
-    final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.none(width)), cdFallBack = true)
+    final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -496,10 +496,8 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-    final protected[DFiant] lazy val pipeInletLB ={
-      val initPipe = if (ctx.owner.isTop && dir.isIn) Some(Pipe.zero(width)) else Some(Pipe.none(width))
-      LazyBox.Mutable[Pipe](this)(initPipe, cdFallBack = true)
-    }
+    final protected[DFiant] lazy val pipeInletLB =
+      LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies

@@ -392,13 +392,13 @@ object Backend {
             else leftRef
           }.applyBrackets()
           val rightStr = {
-//            val right = Value(member.rightArg.asInstanceOf[DFAny])
-//            val rightPipe = member.rightBalanceLB.get.valueList.head + member.rightArg.asInstanceOf[DFAny].pipeLB.get
-//            rightPipe match {
-//              case PipeValue(w, Some(p)) if p > 0 => References(member.rightArg.asInstanceOf[DFAny]).ref(p)
-//              case _ => Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
-//            }
-            Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
+            val right = Value(member.rightArg.asInstanceOf[DFAny])
+            val rightPipe = member.rightBalanceLB.get.valueList.head + member.rightArg.asInstanceOf[DFAny].pipeLB.get
+            rightPipe match {
+              case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const] =>
+                References(member.rightArg.asInstanceOf[DFAny]).ref(p)
+              case _ => Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
+            }
           }
           val op = member.opString match {
             case "&" | "&&" => "and"
