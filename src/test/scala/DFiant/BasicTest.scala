@@ -258,7 +258,9 @@ trait IO extends DFDesign {
   d.pipe
 
   val e = c + d
-  o <> e
+  e.pipe
+  val f = e + c
+  o <> f
 }
 
 trait IOTest extends DFSimulator {
@@ -284,7 +286,7 @@ object BasicTest extends App {
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-  val top_ioDesignConn10 = new IO {}.printCodeString//.compileToVHDL.print().toFile("test.vhd")
+  val top_ioDesignConn10 = new IO {}.compileToVHDL.print().toFile("test.vhd")
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString

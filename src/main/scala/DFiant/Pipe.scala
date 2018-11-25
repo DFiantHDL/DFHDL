@@ -6,9 +6,10 @@ case class PipeValue(width : Int, value : Option[Int]) {
     case None => this
   }
   def - (that : PipeValue) : PipeValue = {
-    assert(this.width == that.width)
+    //TODO: consider fixing
+//    assert(this.width == that.width)
     (this.value, that.value) match {
-      case (Some(vL), Some(vR)) => PipeValue(width, Some(vL - vR))
+      case (Some(vL), Some(vR)) => PipeValue(that.width, Some(vL - vR))
       case (Some(vL), None) => this
       case (None, Some(vR)) => throw new IllegalArgumentException("\nUnexpected delta pipe from None")
       case (None, None) => this
@@ -41,11 +42,16 @@ case class Pipe(valueList : List[PipeValue]){
   def balanced : Pipe = Pipe(width, getMaxPipe)
   def + (that : Int) : Pipe = Pipe(valueList.map(v => v + that))
   def - (that : Pipe) : Pipe = {
-    assert(this.width == that.width)
-    val z = (this.valueList, that.valueList).zipped
-    val sameSplit = z.map((pL, pR) => pL.width == pR.width).reduce((l, r) => l && r)
-    if (sameSplit) Pipe(z.map((pL, pR) => pL - pR))
-    else Pipe((this.separate.valueList, that.separate.valueList).zipped.map((l, r) => l - r)).coalesce
+    if (this.valueList.length == 1) {
+      val refPipe = this.valueList.head
+      Pipe(that.valueList.map{v => refPipe - v})
+    } else {
+      assert(this.width == that.width)
+      val z = (this.valueList, that.valueList).zipped
+      val sameSplit = z.map((pL, pR) => pL.width == pR.width).reduce((l, r) => l && r)
+      if (sameSplit) Pipe(z.map((pL, pR) => pL - pR))
+      else Pipe((this.separate.valueList, that.separate.valueList).zipped.map((l, r) => l - r)).coalesce
+    }
   }
 
   override def toString : String = valueList.mkString("|")

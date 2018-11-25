@@ -215,14 +215,26 @@ object Backend {
       val typeS : Type = Type(member)
       def declare : String
       val sigport : Reference = this
-      lazy val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2
       def assign(src : Value) : Unit = {
         if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, src)
         assignedValue = src.value
       }
+      val refPipe : Int = member.pipeLB.get
       var maxPrevUse : Int = 0
+      var maxPipeUse : Int = 0
       var assignedValue : String = ""
-      lazy val value : String = if (showValueInsteadOfName) assignedValue else name.value
+      lazy val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 && maxPipeUse == 0
+      final def ref(pipe : Int) : String = {
+        if (pipe > maxPipeUse) {
+          for (i <- maxPipeUse+1 to pipe) {
+            val sig = new architecture.declarations.signal(member, Name(s"${name}_pipe$i"))
+            architecture.statements.sync_process.assignment(sig, Value(if (i==1) s"${name}" else s"${name}_prev${i-1}", typeS))
+          }
+          maxPipeUse = pipe
+        }
+        if (pipe > 0) s"${name}_pipe$pipe" else name.value
+      }
+      lazy val value : String = if (showValueInsteadOfName) assignedValue else ref(refPipe)
       val addRef : Unit = References.add(member, this, false)
     }
     protected object References {
@@ -354,7 +366,7 @@ object Backend {
                 case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
           }
-          override lazy val value : String = if (showValueInsteadOfName) aliasStr else name.value
+          override lazy val value : String = if (showValueInsteadOfName) aliasStr else ref(refPipe)
           if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, Value(aliasStr, Type(member)))
         }
         object alias {
@@ -371,10 +383,23 @@ object Backend {
         def func2(member : Func2Comp[_,_,_]) : Unit = {
           val leftStr = {
             val left = Value(member.leftArg.asInstanceOf[DFAny])
-            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize($left, ${member.width})"
-            else s"$left"
+            val leftPipe = member.leftBalanceLB.get.valueList.head + member.leftArg.asInstanceOf[DFAny].pipeLB.get
+            val leftRef = leftPipe match {
+              case PipeValue(w, Some(p)) if p > 0 => References(member.leftArg.asInstanceOf[DFAny]).ref(p)
+              case _ => left.value
+            }
+            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize($leftRef, ${member.width})"
+            else leftRef
           }.applyBrackets()
-          val rightStr = Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
+          val rightStr = {
+//            val right = Value(member.rightArg.asInstanceOf[DFAny])
+//            val rightPipe = member.rightBalanceLB.get.valueList.head + member.rightArg.asInstanceOf[DFAny].pipeLB.get
+//            rightPipe match {
+//              case PipeValue(w, Some(p)) if p > 0 => References(member.rightArg.asInstanceOf[DFAny]).ref(p)
+//              case _ => Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
+//            }
+            Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
+          }
           val op = member.opString match {
             case "&" | "&&" => "and"
             case "|" | "||" => "or"
@@ -510,12 +535,12 @@ object Backend {
             }
           }
           case class assert(condMember : Option[DFAny], msg : Message, severity : Severity) extends statement {
-            val severityStr = severity match {
+            val severityStr : String = severity match {
               case Severity.Note => "note"
               case Severity.Warning => "warning"
               case Severity.Error => "error"
             }
-            val msgString = msg.value.collect {
+            val msgString : String = msg.value.collect {
               case x : DFAny => s"to_string(${Value(x)})"
               case x => s""""$x""""
             }.mkString(" & ")
@@ -699,7 +724,10 @@ object Backend {
       this
     }
 
-    protected final lazy val hasSyncProcess : Boolean = architecture.statements.sync_process.exists
+    protected final lazy val hasSyncProcess : Boolean =
+      architecture.statements.components.list.map(e => e.hasSyncProcess)
+        .fold(architecture.statements.sync_process.exists)((l, r) => l || r)
+
     val entityName : Name = {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
