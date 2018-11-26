@@ -10,7 +10,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   val owner : DSLMemberConstruct
   final val name : String = n.value
   lazy val typeName: String = s"LazyBox.${getClass.getSimpleName}"
-  private var visited : Boolean = false
+  private var visitedCnt : Int = 0
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(this), "Uninitialized")
   private def getUpdateValueOrError : ValueOrError[T] = try {
@@ -27,23 +27,20 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   }
   final protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
   final protected def clearValueDependencies() : Unit = valueDependencies.clear()
-  protected def visitedValueOrError : ValueOrError[T] = Error(List(this), "Circular dependency detected")
+  private def circularError : ValueOrError[T] = Error(List(this), "Circular dependency detected")
+  protected def fallBackValue : ValueOrError[T] = getUpdateValueOrError
   final def getValueOrError : ValueOrError[T] = {
-    if (visited && !locked) {
-      visited = false
-      valueOrError = visitedValueOrError
-      locked = true
-      valueOrError
-    }
-    else {
-      if (!locked) {
-        visited = true
-        valueOrError = getUpdateValueOrError
-        visited = false
-        locked = true
+    if (!locked) {
+      visitedCnt += 1
+      valueOrError = visitedCnt match {
+        case 1 => getUpdateValueOrError
+        case 2 => fallBackValue
+        case _ => circularError
       }
-      valueOrError
+      visitedCnt -= 1
+      locked = true
     }
+    valueOrError
   }
   def clearValue() : Unit = {
     valueOrError = Error(List(this),"Uninitialized")
@@ -51,10 +48,9 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   }
   final def get : T = getValueOrError match {
     case Value(v) => v
-    case Error(p, m) => {
+    case Error(p, m) =>
       val pStr = p.map(lb => s"${lb.owner.fullName}.${lb.name} : ${lb.typeName}").mkString(" <- ")
       throw new IllegalArgumentException(s"\n$m at $pStr")
-    }
   }
   args.foreach(a => a.addValueDependency(this))
 }
@@ -73,9 +69,9 @@ object LazyBox {
       case Some(t) => Value(t)
       case _ => Error(List(this), "Uninitialized")
     }
-    override protected def visitedValueOrError : ValueOrError[T] =
-      if (cdFallBack && initialization.isDefined) Value(initialization.get)
-      else super.visitedValueOrError
+    override protected def fallBackValue : ValueOrError[T] =
+      if (cdFallBack && initialization.isDefined)  Value(initialization.get)
+      else super.fallBackValue
     final def valueFunc : ValueOrError[T] = mutableValueFunc() match {
       case Error(p, m) => Error(this :: p, m)
       case Value(v) => Value(v)
