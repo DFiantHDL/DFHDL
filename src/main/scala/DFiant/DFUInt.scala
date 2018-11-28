@@ -623,13 +623,13 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     //CW = Carry width
-    class Component[NCW, WCW, CW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW] with CanBePiped, ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
+    final class Component[NCW, WCW, CW](val wc : Func2Comp[_,_,_] with DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] with CanBePiped {
+    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] with CompAlias {
       lazy val c = new DFBits.Alias[CW](List(wc), DFAny.Alias.Reference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-      def pipe() : this.type = pipe(1)
-      def pipe(p : Int) : this.type = {wc.pipe(p); this}
+      lazy val comp = wc
+      lazy val bypassAlias = c.isNotDiscovered
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")
