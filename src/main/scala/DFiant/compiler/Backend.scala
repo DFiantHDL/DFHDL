@@ -1,5 +1,5 @@
 package DFiant.compiler
-import DFiant.FunctionalLib.Func2Comp
+import DFiant.FunctionalLib.{Func2Comp, CompAlias}
 import DFiant._
 import DFiant.internals.{DSLOwnerConstruct, csoIntervalBigInt, StringExtras}
 
@@ -219,20 +219,21 @@ object Backend {
         if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, src)
         assignedValue = src.value
       }
-      val refPipe : Int = member.pipeLB.get
+      val refPipe : Int = member.extraPipe
       var maxPrevUse : Int = 0
       var maxPipeUse : Int = 0
       var assignedValue : String = ""
       lazy val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 && maxPipeUse == 0
+      def refName : String = name.value
       final def ref(pipe : Int) : String = {
         if (pipe > maxPipeUse) {
           for (i <- maxPipeUse+1 to pipe) {
-            val sig = new architecture.declarations.signal(member, Name(s"${name}_pipe$i"))
-            architecture.statements.sync_process.assignment(sig, Value(if (i==1) s"${name}" else s"${name}_prev${i-1}", typeS))
+            val sig = new architecture.declarations.signal(member, Name(s"${refName}_pipe$i"))
+            architecture.statements.sync_process.assignment(sig, Value(if (i==1) refName else s"${refName}_pipe${i-1}", typeS))
           }
           maxPipeUse = pipe
         }
-        if (pipe > 0) s"${name}_pipe$pipe" else name.value
+        if (pipe > 0) s"${refName}_pipe$pipe" else refName
       }
       lazy val value : String = if (showValueInsteadOfName) assignedValue else ref(refPipe)
       val addRef : Unit = References.add(member, this, false)
@@ -380,10 +381,10 @@ object Backend {
         override def toString : String = s"$signals"
       }
       object statements {
-        def func2(member : Func2Comp[_,_,_]) : Unit = {
+        def func2(member : Func2Comp[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
           val leftStr = {
-            val left = Value(member.leftArg.asInstanceOf[DFAny])
-            val leftPipe = member.leftBalanceLB.get.valueList.head + member.leftArg.asInstanceOf[DFAny].pipeLB.get
+            val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
+            val leftPipe = member.leftBalanceLB.get.valueList.head + member.leftArg.asInstanceOf[DFAny].extraPipe
             val leftRef = leftPipe match {
               case PipeValue(w, Some(p)) if p > 0 => References(member.leftArg.asInstanceOf[DFAny]).ref(p)
               case _ => left.value
@@ -393,7 +394,7 @@ object Backend {
           }.applyBrackets()
           val rightStr = {
             val right = Value(member.rightArg.asInstanceOf[DFAny])
-            val rightPipe = member.rightBalanceLB.get.valueList.head + member.rightArg.asInstanceOf[DFAny].pipeLB.get
+            val rightPipe = member.rightBalanceLB.get.valueList.head + member.rightArg.asInstanceOf[DFAny].extraPipe
             rightPipe match {
               case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const] =>
                 References(member.rightArg.asInstanceOf[DFAny]).ref(p)
@@ -417,6 +418,7 @@ object Backend {
           }
           val result = architecture.declarations.signal(member)
           result.assign(Value(infixOpStr, Type(member)))
+          result
         }
 
         case class component_instance(member : DFDesign) extends VHDL(member, self) {
@@ -454,8 +456,11 @@ object Backend {
               architecture.statements.async_process.assignment(this, src)
             override def declare : String = f"\n${delim}variable $name%-11s : $typeS;"
 
+            override val refName: String = sigport.refName
+
             override val addRef: Unit = References.add(member, this, true)
 
+            override lazy val value : String = name.value
           }
           object variable {
             def apply(member : DFAny, name : Name, sigport : Reference) : variable = new variable(member, name, sigport)
@@ -636,6 +641,11 @@ object Backend {
 //        }
 //        else architecture.declarations.signal(x)
       case x : DFAny.Const => //Do nothing
+      case x : CompAlias =>
+//        if (x.bypassAlias)
+//          References.add(x, architecture.statements.func2(x.comp, Some(x.unextendedLeft)), forceUpdate = true)
+//        else
+          architecture.declarations.alias(x.alias)
       case x : DFAny.Alias[_] => architecture.declarations.alias(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
       case x : Assert => architecture.statements.async_process.assert(x.cond, x.msg, x.severity)

@@ -252,8 +252,12 @@ trait IO extends DFDesign {
   val i = DFUInt(8) <> IN init 0
   val o = DFUInt(8) <> OUT
 
-  val c = i + 1
-  c.pipe
+  val c = DFUInt(8) init 0
+  val c2 = c + i
+//  c.pipe
+//  c2.pipe
+  c := c2
+//  c.pipe
   val d = c + 2
   d.pipe
 

@@ -97,12 +97,8 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
   final lazy val refCount : Int = initLB.getDependencyNum
-  protected[DFiant] val pipeInletLB : LazyBox[Pipe]
-  private[DFiant] val pipeLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
-  def pipe : this.type = pipe(1)
-  def pipe(p : Int) : this.type = {if (pipeLB.get != p) pipeLB.set(p); this}
-  final protected[DFiant] lazy val pipeOutletLB : LazyBox[Pipe] =
-    LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeLB)
+  protected[DFiant] val pipeLB : LazyBox[Pipe]
+  private[DFiant] lazy val extraPipe : Int = 0
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -164,7 +160,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues) s"//latency = ${pipeOutletLB.get}" else ""
+    if (config.commentLatencyValues) s"//latency = ${pipeLB.get}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
   def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString"
   //////////////////////////////////////////////////////////////////////////
@@ -258,7 +254,7 @@ object DFAny {
     }
     final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
     protected[DFiant] val constLB : LazyBox.Mutable[TToken]
-    protected[DFiant] val pipeInletLB : LazyBox.Mutable[Pipe]
+    protected[DFiant] val pipeLB : LazyBox.Mutable[Pipe]
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -292,14 +288,14 @@ object DFAny {
       //All is well. We can now connect fromVal->toVar
       toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
       toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
-      toVar.pipeInletLB.set(fromVal.pipeOutletLB)
+      toVar.pipeLB.set(fromVal.pipeLB)
       toVar.connectedSource = Some(fromVal)
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
     }
     override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment dataflow variable ${this.fullName} was already connected to. Cannot apply both := and <> operators on a dataflow variable.")
-      pipeInletLB.set(that.pipeOutletLB)
+      pipeLB.set(that.pipeLB)
       super.assign(that)
     }
     //////////////////////////////////////////////////////////////////////////
@@ -342,7 +338,7 @@ object DFAny {
     final val isPort = false
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
-    final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
+    final protected[DFiant] lazy val pipeLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -410,7 +406,7 @@ object DFAny {
         case DFAny.Alias.Reference.Invert() => currentPipe
       }
     }
-    final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] = LazyBox.ArgList[Pipe, Pipe](this)(pipeFunc, aliasedVars.map(v => v.pipeOutletLB))
+    final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] = LazyBox.ArgList[Pipe, Pipe](this)(pipeFunc, aliasedVars.map(v => v.pipeLB))
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
       else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
@@ -473,7 +469,7 @@ object DFAny {
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
-    final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.none(width))
+    final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.none(width))
     final val isPort = false
     final val id = getID
   }
@@ -496,7 +492,7 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-    final protected[DFiant] lazy val pipeInletLB =
+    final protected[DFiant] lazy val pipeLB =
       LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
 

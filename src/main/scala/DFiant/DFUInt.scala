@@ -1,6 +1,7 @@
 package DFiant
 
 import DFiant.BasicLib._
+import DFiant.FunctionalLib.{CompAlias, Func2Comp}
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -510,10 +511,12 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    class Component[NCW, WCW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] {
+    final class Component[NCW, WCW](val wc : Func2Comp[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+      DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] with CompAlias {
       lazy val c = new DFBool.Alias(List(wc), DFAny.Alias.Reference.BitsWL(1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
+      lazy val comp = wc
+      lazy val bypassAlias = c.isNotDiscovered
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
@@ -620,11 +623,13 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     //CW = Carry width
-    class Component[NCW, WCW, CW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
+    class Component[NCW, WCW, CW](val wc : DSLFoldableOwnerConstruct with DFUInt[WCW] with CanBePiped, ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] {
+    ) extends DFAny.Alias[DFUInt[NCW]](List(wc), DFAny.Alias.Reference.BitsWL(ncW, 0, if(wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).uint")) with DFUInt[NCW] with CanBePiped {
       lazy val c = new DFBits.Alias[CW](List(wc), DFAny.Alias.Reference.BitsWL(cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
+      def pipe() : this.type = pipe(1)
+      def pipe(p : Int) : this.type = {wc.pipe(p); this}
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")

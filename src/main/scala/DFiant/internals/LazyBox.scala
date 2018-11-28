@@ -13,7 +13,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   private var visitedCnt : Int = 0
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(this), "Uninitialized")
-  private def getUpdateValueOrError : ValueOrError[T] = try {
+  private def getUpdatedValueOrError : ValueOrError[T] = try {
     valueFunc
   } catch  {
     case e : Exception =>
@@ -27,16 +27,28 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   }
   final protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
   final protected def clearValueDependencies() : Unit = valueDependencies.clear()
-  private def circularError : ValueOrError[T] = Error(List(this), "Circular dependency detected")
-  protected def fallBackValue : ValueOrError[T] = getUpdateValueOrError
+  private def getCircularError : ValueOrError[T] = Error(List(this), "Circular dependency detected")
+  protected def getFallBackValue : ValueOrError[T] = getUpdatedValueOrError
+  var checkFallBack : Boolean = false
   final def getValueOrError : ValueOrError[T] = {
     if (!locked) {
       visitedCnt += 1
       valueOrError = visitedCnt match {
-        case 1 => getUpdateValueOrError
-        case 2 => fallBackValue
-        case _ => circularError
+        case 1 =>
+          val updatedValueOrError = getUpdatedValueOrError
+          (updatedValueOrError, valueOrError) match {
+            case (Value(vNew), Value(vOld)) if vNew != vOld && checkFallBack =>
+              checkFallBack = false
+              Error(List(this), "Contradiction in circular dependency")
+            case _ => updatedValueOrError
+          }
+        case 2 =>
+          checkFallBack = true
+          getFallBackValue
+        case _ => getCircularError
       }
+//      println(s"${owner.fullName}.$name @ $visitedCnt = $valueOrError")
+
       visitedCnt -= 1
       locked = true
     }
@@ -69,9 +81,9 @@ object LazyBox {
       case Some(t) => Value(t)
       case _ => Error(List(this), "Uninitialized")
     }
-    override protected def fallBackValue : ValueOrError[T] =
+    override protected def getFallBackValue : ValueOrError[T] =
       if (cdFallBack && initialization.isDefined)  Value(initialization.get)
-      else super.fallBackValue
+      else super.getFallBackValue
     final def valueFunc : ValueOrError[T] = mutableValueFunc() match {
       case Error(p, m) => Error(this :: p, m)
       case Value(v) => Value(v)

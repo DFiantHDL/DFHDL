@@ -1,13 +1,24 @@
 package DFiant
+import internals._
 
 case class PipeValue(width : Int, value : Option[Int]) {
   def + (that : Int) : PipeValue = value match {
     case Some(v) => PipeValue(width, Some(v + that))
     case None => this
   }
-  def - (that : PipeValue) : PipeValue = {
+  def + (that : PipeValue) : PipeValue = {
     //TODO: consider fixing
 //    assert(this.width == that.width)
+    (this.value, that.value) match {
+      case (Some(vL), Some(vR)) => PipeValue(that.width, Some(vL + vR))
+      case (Some(vL), None) => this
+      case (None, Some(vR)) => throw new IllegalArgumentException("\nUnexpected delta pipe from None")
+      case (None, None) => this
+    }
+  }
+  def - (that : PipeValue) : PipeValue = {
+    //TODO: consider fixing
+    //    assert(this.width == that.width)
     (this.value, that.value) match {
       case (Some(vL), Some(vR)) => PipeValue(that.width, Some(vL - vR))
       case (Some(vL), None) => this
@@ -83,4 +94,10 @@ object PipeTest extends App {
   val p8n = p8b.balanced - p8b
   println(p8n)
 
+}
+
+
+trait CanBePiped extends DFAny {
+  def pipe() : this.type
+  def pipe(p : Int) : this.type
 }
