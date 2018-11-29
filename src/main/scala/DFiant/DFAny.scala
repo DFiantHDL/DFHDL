@@ -254,7 +254,10 @@ object DFAny {
     }
     final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
     protected[DFiant] val constLB : LazyBox.Mutable[TToken]
-    protected[DFiant] val pipeLB : LazyBox.Mutable[Pipe]
+    final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
+    protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
+    final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] =
+      LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
@@ -288,14 +291,14 @@ object DFAny {
       //All is well. We can now connect fromVal->toVar
       toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
       toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
-      toVar.pipeLB.set(fromVal.pipeLB)
+      toVar.pipeInletLB.set(fromVal.pipeLB)
       toVar.connectedSource = Some(fromVal)
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
     }
     override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
       if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment dataflow variable ${this.fullName} was already connected to. Cannot apply both := and <> operators on a dataflow variable.")
-      pipeLB.set(that.pipeLB)
+      pipeInletLB.set(that.pipeLB)
       super.assign(that)
     }
     //////////////////////////////////////////////////////////////////////////
@@ -338,7 +341,6 @@ object DFAny {
     final val isPort = false
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
-    final protected[DFiant] lazy val pipeLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -484,7 +486,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
     implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken
-  ) extends DFAny.Uninitialized {
+  ) extends DFAny.Uninitialized with CanBePiped {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
@@ -492,9 +494,9 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-    final protected[DFiant] lazy val pipeLB =
-      LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    def pipe() : this.type = pipe(1)
+    final def pipe(p : Int) : this.type = {if (pipeModLB.get != p) pipeModLB.set(p); this}
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies

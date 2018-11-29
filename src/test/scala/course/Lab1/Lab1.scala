@@ -1,4 +1,4 @@
-package course
+package course.Lab1
 
 import DFiant._
 

@@ -49,7 +49,14 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =
     if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
   override def constructCodeStringDefault: String = foldedConstructCodeString
-
+  private def leftBalanceCodeString : String = leftBalanceLB.get.valueList.head.value match {
+    case Some(p) if p > 0 => s".pipe($p)"
+    case _ => ""
+  }
+  private def rightBalanceCodeString : String = rightBalanceLB.get.valueList.head.value match {
+    case Some(p) if p > 0 => s".pipe($p)"
+    case _ => ""
+  }
   private[DFiant] override def designType : String = s"`Func2Comp$opString`"
   override def foldedConstructCodeString: String = s"${leftArg.refCodeString} $opString ${rightArg.refCodeString}"
   override def codeString: String = if (isFolded) super.codeString else valCodeString
