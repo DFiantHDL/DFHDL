@@ -259,7 +259,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare(kind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
 
     object Builder {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Op.Context)
@@ -268,7 +268,7 @@ object DFEnum extends DFAny.Companion {
         val leftBits = left.bits
         val rightBits = right.bits
 
-        val result : DFBool = kind match {
+        val result : DFBool with CanBePiped = kind match {
           case DiSoOp.Kind.== => leftBits == rightBits
           case DiSoOp.Kind.!= => leftBits != rightBits
           case _ => throw new IllegalArgumentException("Unexpected compare operation")

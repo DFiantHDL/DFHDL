@@ -635,9 +635,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsShift(opKind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
-    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
-      type Comp = L
-    }
+    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
       object SmallShift extends Checked1Param.Int {
@@ -650,26 +648,29 @@ object DFSInt extends DFAny.Companion {
         implicit
         ctx : DFAny.Op.Context,
         checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFSInt[LW], DFUInt[RW]] = new Builder[DFSInt[LW], DFUInt[RW]]{
-        def apply(left : DFSInt[LW], right : DFUInt[RW]) : DFSInt[LW] = {
-          import FunctionalLib.DFSIntOps._
-          // Completing runtime checks
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          // Constructing op
-          val opInst = opKind match {
-            case DiSoOp.Kind.<< => `Func2Comp<<`(left, right)
-            case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
-            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+      ) : Builder[DFSInt[LW], DFUInt[RW]]{type Comp = DFSInt[LW] with CanBePiped} =
+        new Builder[DFSInt[LW], DFUInt[RW]]{
+          type Comp = DFSInt[LW] with CanBePiped
+          def apply(left : DFSInt[LW], right : DFUInt[RW]) : DFSInt[LW] with CanBePiped = {
+            import FunctionalLib.DFSIntOps._
+            // Completing runtime checks
+            checkLWvRW.unsafeCheck(left.width, right.width)
+            // Constructing op
+            val opInst = opKind match {
+              case DiSoOp.Kind.<< => `Func2Comp<<`(left, right)
+              case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
+              case _ => throw new IllegalArgumentException("Unexpected logic operation")
+            }
+            opInst.setAutoName(s"${ctx}")
+            opInst
           }
-          opInst.setAutoName(s"${ctx}")
-          opInst
         }
-      }
       implicit def evDFSInt_op_XInt[LW, R <: Int](
         implicit
         ctx : DFAny.Alias.Context,
         check : Natural.Int.CheckedShellSym[Builder[_,_], R]
-      ) : Builder[DFSInt[LW], R] = new Builder[DFSInt[LW], R]{
+      ) : Builder[DFSInt[LW], R]{type Comp = DFSInt[LW]} = new Builder[DFSInt[LW], R]{
+        type Comp = DFSInt[LW]
         def apply(left : DFSInt[LW], right : R) : DFSInt[LW] = {
           check.unsafeCheck(right)
           opKind match {
@@ -699,7 +700,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFSInt.Token], Seq[DFSInt.Token]) => Seq[DFBool.Token]) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
 
     object Builder {
       object `LW == RW` extends Checked1Param.Int {

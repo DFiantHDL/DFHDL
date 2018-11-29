@@ -169,8 +169,8 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
-  def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
-  def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) : DFBool = op(left, right.tVal)
+  final def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) = op(left, right.tVal)
+  final def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) = op(left, right.tVal)
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -877,11 +877,11 @@ object DFAny {
     }
     val `Op<>` : `Op<>`
     trait `Op==` {
-      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool}
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
     }
     val `Op==` : `Op==`
     trait `Op!=` {
-      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool}
+      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
     }
     val `Op!=` : `Op!=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -22,20 +22,20 @@ object DFBool extends DFAny.Companion {
     type OpAble[R] = Op.Able[R]
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
-    def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
+    final def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 
-    def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) : DFBool = op(left, right)
-    def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) : DFBool = op(left, right)
-    def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) : DFBool = op(left, right)
-    def rising (implicit ctx : DFAny.Op.Context) : DFBool = left && !left.prev(1)
-    def falling (implicit ctx : DFAny.Op.Context) : DFBool = !left && left.prev(1)
+    final def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) = op(left, right)
+    final def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) = op(left, right)
+    final def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
+    final def rising (implicit ctx : DFAny.Op.Context) : DFBool = left && !left.prev(1)
+    final def falling (implicit ctx : DFAny.Op.Context) : DFBool = !left && left.prev(1)
 
-    def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = DFBool()
+    final def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = DFBool()
 
-    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+    final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar(), dir)
-    override lazy val typeName : String = s"DFBool"
+    final override lazy val typeName : String = s"DFBool"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -312,7 +312,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class BoolOps(kind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
 
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit ctx : DFAny.Op.Context)

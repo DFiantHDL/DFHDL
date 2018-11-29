@@ -593,12 +593,12 @@ object DFBits extends DFAny.Companion {
           ctx : DFAny.Op.Context,
           oW : Inference.OW[LW, RW, OW],
           checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-        ) : DetailedBuilder[L, LW, R, RW]{type Comp = DFBits[OW]} =
+        ) : DetailedBuilder[L, LW, R, RW]{type Comp = DFBits[OW] with CanBePiped} =
           new DetailedBuilder[L, LW, R, RW]{
-            type Comp = DFBits[OW]
+            type Comp = DFBits[OW] with CanBePiped
             def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Comp] =
               new Builder[L, R] {
-                type Comp = DFBits[OW]
+                type Comp = DFBits[OW] with CanBePiped
                 def apply(leftL : L, rightR : R) : Comp = {
                   import FunctionalLib.DFBitsOps._
                   val (left, right) = properLR(leftL, rightR)
@@ -657,10 +657,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsShift(opKind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
-    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
-      type Comp = L
-    }
-
+    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R]
     object Builder {
       object SmallShift extends Checked1Param.Int {
         type Cond[LW, RW] = BitsWidthOf.CalcInt[LW] >= RW
@@ -672,26 +669,29 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Op.Context,
         checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFBits[LW], DFUInt[RW]] = new Builder[DFBits[LW], DFUInt[RW]]{
-        def apply(left : DFBits[LW], right : DFUInt[RW]) : DFBits[LW] = {
-          import FunctionalLib.DFBitsOps._
-          // Completing runtime checks
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          // Constructing op
-          val opInst = opKind match {
-            case DiSoOp.Kind.<< => `Func2Comp<<`(left, right)
-            case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
-            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+      ) : Builder[DFBits[LW], DFUInt[RW]] {type Comp = DFBits[LW] with CanBePiped} =
+        new Builder[DFBits[LW], DFUInt[RW]]{
+          type Comp = DFBits[LW] with CanBePiped
+          def apply(left : DFBits[LW], right : DFUInt[RW]) : DFBits[LW] with CanBePiped = {
+            import FunctionalLib.DFBitsOps._
+            // Completing runtime checks
+            checkLWvRW.unsafeCheck(left.width, right.width)
+            // Constructing op
+            val opInst = opKind match {
+              case DiSoOp.Kind.<< => `Func2Comp<<`(left, right)
+              case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
+              case _ => throw new IllegalArgumentException("Unexpected logic operation")
+            }
+            opInst.setAutoName(s"${ctx}")
+            opInst
           }
-          opInst.setAutoName(s"${ctx}")
-          opInst
         }
-      }
       implicit def evDFBits_op_XInt[LW, R <: Int](
         implicit
         ctx : DFAny.Alias.Context,
         check : Natural.Int.CheckedShellSym[Builder[_,_], R]
-      ) : Builder[DFBits[LW], R] = new Builder[DFBits[LW], R]{
+      ) : Builder[DFBits[LW], R]{type Comp = DFBits[LW]} = new Builder[DFBits[LW], R]{
+        type Comp = DFBits[LW]
         def apply(left : DFBits[LW], right : R) : DFBits[LW] = {
           check.unsafeCheck(right)
           opKind match {
@@ -797,7 +797,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token]) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
 
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
