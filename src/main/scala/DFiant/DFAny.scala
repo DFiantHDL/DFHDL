@@ -244,6 +244,25 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
+  protected case class Source(width : Int, value : DFAny)
+  protected case class SourceList(valueList : List[Source]) {
+    val width : Int = valueList.map(v => v.width).sum
+    def coalesce : SourceList = SourceList(valueList.foldLeft(List[Source]()) {
+      case (ls, e) if ls.isEmpty || !(ls.last.value eq e.value)=> ls :+ e
+      case (ls, e) => ls.dropRight(1) :+ Source(ls.last.width + e.width, e.value)
+    })
+    def separate : SourceList = SourceList(valueList.foldLeft(List[Source]()) {
+      case (ls, e) => ls ++ List.fill(e.width)(Source(1, e.value))
+    })
+    def bitsWL(relWidth : Int, relBitLow : Int) : SourceList = {
+      assert(relWidth + relBitLow <= width)
+      assert(relBitLow < width)
+      SourceList(separate.valueList.reverse.slice(relBitLow, relBitLow + relWidth)).coalesce
+    }
+    def reverse : SourceList = SourceList(valueList.reverse)
+    def ## (that : SourceList) = SourceList(this.valueList ++ that.valueList)
+  }
+  
   trait Uninitialized extends DFAny.Var {
     type TPostInit <: TVal
     final def init(that : protComp.Init.Able[TVal]*)(
