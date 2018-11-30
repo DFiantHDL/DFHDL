@@ -29,10 +29,13 @@ object DFEnum extends DFAny.Companion {
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
     implicit val enum : TEnum
-    def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
-    def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
-    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
+    final def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
+    final def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
+    final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar[TEnum](enum), dir)
+    final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+      implicit ctx : DFAny.Alias.Context
+    ) : TAlias = new Alias(aliasedVars, reference)(ctx, enum).asInstanceOf[TAlias]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -71,7 +74,7 @@ object DFEnum extends DFAny.Companion {
   }
 
   protected[DFiant] final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
-    implicit val enum : E, ctx : DFAny.Alias.Context
+    implicit ctx : DFAny.Alias.Context, val enum : E
   ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E]
 
   protected[DFiant] final class Const[E <: Enum](enum_ : E, token : Token[E])(
@@ -133,7 +136,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.TEnum](List(left), DFAny.Alias.Reference.AsIs(s".as(DFEnum(${mold.enum}))"))(mold.enum, ctx)
+      new Alias[mold.TEnum](List(left), DFAny.Alias.Reference.AsIs(s".as(DFEnum(${mold.enum}))"))(ctx, mold.enum)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -195,7 +198,7 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       implicit def ev[E <: Enum](implicit ctx : DFAny.Alias.Context) : Builder[DFEnum[E]] = new Builder[DFEnum[E]] {
         def apply[P](left : DFEnum[E], right : Natural.Int.Checked[P]) : DFEnum[E] =
-          new Alias(List(left), DFAny.Alias.Reference.Prev(right))(left.enum, ctx)
+          new Alias(List(left), DFAny.Alias.Reference.Prev(right))(ctx, left.enum)
       }
     }
   }

@@ -139,6 +139,9 @@ trait DFAny extends DFAnyMember with HasWidth {
   //  def newEmptyDFVar : TVar
 //  protected[DFiant] def copyAsNewVar : DFAny.NewVar with TVar = ???
   protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context) : TVal <> Dir
+  protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+    implicit ctx : DFAny.Alias.Context
+  ) : TAlias
   //////////////////////////////////////////////////////////////////////////
 
 

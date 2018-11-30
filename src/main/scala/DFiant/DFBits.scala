@@ -154,6 +154,9 @@ object DFBits extends DFAny.Companion {
 //    def isNotAllOnes: DFBool = ??? //this != bitsWidthToMaxBigIntBits(width)
 
     def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = new DFBits.NewVar[Width](width)
+    final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+      implicit ctx : DFAny.Alias.Context
+    ) : TAlias = new Alias(aliasedVars, reference)(ctx).asInstanceOf[TAlias]
 
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar[Width](width), dir)

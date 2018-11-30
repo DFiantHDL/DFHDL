@@ -64,6 +64,9 @@ object DFStruct extends DFAny.Companion {
     def != [SF <: Product](right : SF)(implicit op: `Op!=`.Builder[TVal, SF]) = op(left, right)
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar[TSFields](structFields), dir)
+    final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+      implicit ctx : DFAny.Alias.Context
+    ) : TAlias = new Alias(aliasedVars, reference)(ctx, structFields).asInstanceOf[TAlias]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -102,7 +105,7 @@ object DFStruct extends DFAny.Companion {
   }
 
   protected[DFiant] final class Alias[SF <: Fields](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
-    implicit val structFields : SF, ctx : DFAny.Alias.Context
+    implicit ctx : DFAny.Alias.Context, val structFields : SF
   ) extends DFAny.Alias[DFStruct[SF]](aliasedVars, reference) with Var[SF]
 
   protected[DFiant] final class Const[SF <: Fields](structFields_ : SF, token : Token[SF])(
@@ -171,7 +174,7 @@ object DFStruct extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.TSFields](List(left), DFAny.Alias.Reference.AsIs(s".as(DFStruct(${mold.structFields}))"))(mold.structFields, ctx)
+      new Alias[mold.TSFields](List(left), DFAny.Alias.Reference.AsIs(s".as(DFStruct(${mold.structFields}))"))(ctx, mold.structFields)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -233,7 +236,7 @@ object DFStruct extends DFAny.Companion {
     object Builder {
       implicit def ev[SF <: Fields](implicit ctx : DFAny.Alias.Context) : Builder[DFStruct[SF]] = new Builder[DFStruct[SF]] {
         def apply[P](left : DFStruct[SF], right : Natural.Int.Checked[P]) : DFStruct[SF] =
-          new Alias(List(left), DFAny.Alias.Reference.Prev(right))(left.structFields, ctx)
+          new Alias(List(left), DFAny.Alias.Reference.Prev(right))(ctx, left.structFields)
       }
     }
   }
