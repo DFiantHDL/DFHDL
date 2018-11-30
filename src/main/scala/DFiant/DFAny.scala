@@ -177,6 +177,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
+  private[DFiant] lazy val source : DFAny.Source = DFAny.Source(this)
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 }
@@ -244,23 +245,47 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-  protected case class Source(width : Int, value : DFAny)
-  protected case class SourceList(valueList : List[Source]) {
-    val width : Int = valueList.map(v => v.width).sum
-    def coalesce : SourceList = SourceList(valueList.foldLeft(List[Source]()) {
-      case (ls, e) if ls.isEmpty || !(ls.last.value eq e.value)=> ls :+ e
-      case (ls, e) => ls.dropRight(1) :+ Source(ls.last.width + e.width, e.value)
-    })
-    def separate : SourceList = SourceList(valueList.foldLeft(List[Source]()) {
-      case (ls, e) => ls ++ List.fill(e.width)(Source(1, e.value))
-    })
-    def bitsWL(relWidth : Int, relBitLow : Int) : SourceList = {
-      assert(relWidth + relBitLow <= width)
-      assert(relBitLow < width)
-      SourceList(separate.valueList.reverse.slice(relBitLow, relBitLow + relWidth)).coalesce
+  case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, value : Option[DFAny]) {
+    val width : Int = relBitHigh - relBitLow + 1
+    def range : Range = if (reverseBits) relBitLow to relBitHigh else relBitHigh to relBitLow by -1
+
+    override def toString: String = value match {
+      case Some(v) => s"${v.fullName}($relBitHigh, $relBitLow)${if (reverseBits) ".reverse" else ""}"
+      case None => "None"
     }
-    def reverse : SourceList = SourceList(valueList.reverse)
-    def ## (that : SourceList) = SourceList(this.valueList ++ that.valueList)
+  }
+  case class Source(elements : List[SourceElement]) {
+    val width : Int = elements.map(v => v.width).sum
+    def coalesce : Source = Source(elements.foldLeft(List[SourceElement]()) {
+      case (ls, e) if ls.isEmpty || !(ls.last.value eq e.value)=> ls :+ e
+      case (ls, right) =>
+        val left = ls.last
+        val coupled : List[SourceElement] =
+          if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.width == 1))
+            List(SourceElement(left.relBitHigh, right.relBitLow, left.reverseBits, left.value))
+          else if (left.relBitHigh == right.relBitLow - 1 && ((left.reverseBits && right.reverseBits) || right.width == 1))
+            List(SourceElement(right.relBitHigh, left.relBitLow, left.reverseBits, left.value))
+          else List(left, right)
+        ls.dropRight(1) ++ coupled
+    })
+    def separate : Source = Source(elements.foldLeft(List[SourceElement]()) {
+      case (ls, e) => ls ++ e.range.toList.map(i => SourceElement(i, i, e.reverseBits, e.value))
+    })
+    def bitsWL(relWidth : Int, relBitLow : Int) : Source =
+      Source(separate.elements.reverse.slice(relBitLow, relBitLow + relWidth)).coalesce
+
+    def reverse : Source = Source(elements.reverse.map(e => SourceElement(e.relBitHigh, e.relBitLow, !e.reverseBits, e.value)))
+    def ## (that : Source) : Source = Source(this.elements ++ that.elements).coalesce
+    def | (that : Source) : Source =
+      Source(this.separate.elements.zip(that.separate.elements).collect {
+        case (left, right) => if (left.value.isDefined) left else right
+      }).coalesce
+
+    override def toString: String = elements.mkString(" ## ")
+  }
+  object Source {
+    def apply(value : DFAny) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(value))))
+    def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))
   }
   
   trait Uninitialized extends DFAny.Var {
@@ -297,7 +322,9 @@ object DFAny {
     // Connectivity
     //////////////////////////////////////////////////////////////////////////
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
-    final private[DFiant] lazy val getDFValue : DFAny = connectedSource.get //TODO: must be fixed and generalized
+    private[DFiant] var connectedSource2 : Source
+    private[DFiant] var assignedSource2 : Source
+    final override private[DFiant] lazy val source : Source = connectedSource2 | assignedSource2
     final private[DFiant] var connectedSource : Option[DFAny] = None
     final private[DFiant] def connected : Boolean = connectedSource.isDefined
     final private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
@@ -360,6 +387,8 @@ object DFAny {
     final val isPort = false
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
+    final private[DFiant] var connectedSource2 : Source = Source.none(width)
+    final private[DFiant] var assignedSource2 : Source = Source.none(width)
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -514,6 +543,9 @@ object DFAny {
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
+    final private[DFiant] var connectedSource2 : Source = Source.none(width)
+    final private[DFiant] var assignedSource2 : Source = Source.none(width)
+
     def pipe() : this.type = pipe(1)
     final def pipe(p : Int) : this.type = {if (pipeModLB.get != p) pipeModLB.set(p); this}
 
