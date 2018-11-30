@@ -27,7 +27,7 @@ case class PipeValue(width : Int, value : Option[Int]) {
     }
   }
 
-  override def toString: String = s"($width, ${if (value.isDefined) value.get.toString else "None"})"
+  override def toString: String = if (value.isDefined) value.get.toString else "None"
 }
 
 case class Pipe(valueList : List[PipeValue]){
@@ -65,7 +65,9 @@ case class Pipe(valueList : List[PipeValue]){
     }
   }
 
-  override def toString : String = valueList.mkString("|")
+  override def toString : String =
+    if (valueList.length == 1) valueList.head.toString
+    else valueList.map(v => s"(${v.width},$v)").mkString("|")
 }
 
 object Pipe {
