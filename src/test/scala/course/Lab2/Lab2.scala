@@ -31,11 +31,13 @@ trait RightShifter extends DFDesign {
   private val temp = DFBits(32)
   temp := vec
   for (i <- 4 to 0 by -1) {
-    val mux = new MuxN{}.setName(s"m$i")
-    mux.a <> (temp >> (1 << i))
-    mux.b <> temp
-    mux.sel <> shift.bit(i)
-    temp := mux.res.pipe()
+    val mux = vec ^ temp
+//    val mux = new MuxN{}.setName(s"m$i")
+//    mux.a <> (temp >> (1 << i))
+//    mux.b <> temp
+//    mux.sel <> shift.bit(i)
+    temp := mux.pipe()
+
   }
   res := temp
 }

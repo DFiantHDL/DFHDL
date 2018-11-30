@@ -258,16 +258,13 @@ trait IO extends DFDesign {
 //  c2.pipe
   c := c2
 //  c.pipe
-  val d = c + 2
-  d.pipe
+  val d = DFUInt(8)
+  d := (c + 2).pipe
 
   val e = c + d
   e.pipe
   val f = e + c
   o <> f
-
-  val a = DFBool()
-  (a || a).pipe
 }
 
 trait IOTest extends DFSimulator {

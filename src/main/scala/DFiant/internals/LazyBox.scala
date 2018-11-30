@@ -47,7 +47,8 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
           getFallBackValue
         case _ => getCircularError
       }
-//      println(s"${owner.fullName}.$name @ $visitedCnt = $valueOrError")
+//      if (visitedCnt == 1 && name == "pipeLB" && !owner.asInstanceOf[DFiant.DFAny].isAnonymous)
+//        println(f"${owner.fullName + s".$name"}%-60s $valueOrError")
 
       visitedCnt -= 1
       locked = true
