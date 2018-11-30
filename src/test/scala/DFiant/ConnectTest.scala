@@ -182,16 +182,6 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignIf = new IODesignIf {}
     val compare =
       """
-        |trait `Func2Comp<` extends DFDesign {
-        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
-        |  val inRight = DFUInt(4) <> IN                              //init = (8)
-        |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
-        |  val dFt_anon = new Relational {}
-        |  dFt_anon.inLeft <> inLeft
-        |  dFt_anon.inRight <> inRight
-        |  outResult <> dFt_anon.outResult
-        |}
-        |
         |trait Relational extends DFDesign {
         |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
         |  val inRight = DFUInt(4) <> IN                              //init = (8)
@@ -200,6 +190,16 @@ class ConnectTest extends Properties("ConnectTest") {
         |  rtInst.A <> inLeft
         |  rtInst.B <> inRight
         |  outResult <> rtInst.S
+        |}
+        |
+        |trait `Func2Comp<` extends DFDesign {
+        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
+        |  val inRight = DFUInt(4) <> IN                              //init = (8)
+        |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
+        |  val dFt_anon = new Relational {}
+        |  dFt_anon.inLeft <> inLeft
+        |  dFt_anon.inRight <> inRight
+        |  outResult <> dFt_anon.outResult
         |}
         |
         |trait IODesignIf extends DFDesign {
@@ -414,16 +414,6 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn4 = new IODesignConn4 {}
     val compare =
       """
-        |trait `Func2Comp<` extends DFDesign {
-        |  val inLeft = DFUInt(8) <> IN                               //init = (1)
-        |  val inRight = DFUInt(8) <> IN                              //init = (8)
-        |  val outResult = DFBool() <> OUT                            //init = (true)
-        |  val dFt_anon = new Relational {}
-        |  dFt_anon.inLeft <> inLeft
-        |  dFt_anon.inRight <> inRight
-        |  outResult <> dFt_anon.outResult
-        |}
-        |
         |trait Relational extends DFDesign {
         |  val inLeft = DFUInt(8) <> IN                               //init = (1)
         |  val inRight = DFUInt(8) <> IN                              //init = (8)
@@ -432,6 +422,16 @@ class ConnectTest extends Properties("ConnectTest") {
         |  rtInst.A <> inLeft
         |  rtInst.B <> inRight
         |  outResult <> rtInst.S
+        |}
+        |
+        |trait `Func2Comp<` extends DFDesign {
+        |  val inLeft = DFUInt(8) <> IN                               //init = (1)
+        |  val inRight = DFUInt(8) <> IN                              //init = (8)
+        |  val outResult = DFBool() <> OUT                            //init = (true)
+        |  val dFt_anon = new Relational {}
+        |  dFt_anon.inLeft <> inLeft
+        |  dFt_anon.inRight <> inRight
+        |  outResult <> dFt_anon.outResult
         |}
         |
         |trait IODesignConn4 extends DFDesign {
@@ -507,7 +507,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val topLoop = new ContainerConnLoop {}
     val expectedError =
       """
-        |Circular dependency detected at topLoop.o <- topLoop.io.o <- topLoop.io.i <- topLoop.io.o
+        |Circular dependency detected at topLoop.o.initLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Mutable <- topLoop.io.i.initLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Mutable <- topLoop.io.i.initLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Mutable
       """.stripMargin
     illRunCompare(expectedError) {
       topLoop.codeString
