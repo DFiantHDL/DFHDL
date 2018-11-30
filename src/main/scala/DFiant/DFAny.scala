@@ -182,7 +182,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  private[DFiant] lazy val source : DFAny.Source = DFAny.Source(this)
+  private[DFiant] def getSource : DFAny.Source = DFAny.Source(this)
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 }
@@ -281,7 +281,7 @@ object DFAny {
 
     def reverse : Source = Source(elements.reverse.map(e => SourceElement(e.relBitHigh, e.relBitLow, !e.reverseBits, e.value)))
     def ## (that : Source) : Source = Source(this.elements ++ that.elements).coalesce
-    def | (that : Source) : Source =
+    def orElse (that : Source) : Source =
       Source(this.separate.elements.zip(that.separate.elements).collect {
         case (left, right) => if (left.value.isDefined) left else right
       }).coalesce
@@ -292,7 +292,7 @@ object DFAny {
     def apply(value : DFAny) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(value))))
     def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))
   }
-  
+
   trait Uninitialized extends DFAny.Var {
     type TPostInit <: TVal
     final def init(that : protComp.Init.Able[TVal]*)(
@@ -327,9 +327,10 @@ object DFAny {
     // Connectivity
     //////////////////////////////////////////////////////////////////////////
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
+    final lazy val prevSource : Source = Source(protPrev(1))
     private[DFiant] var connectedSource2 : Source
-    private[DFiant] var assignedSource2 : Source
-    final override private[DFiant] lazy val source : Source = connectedSource2 | assignedSource2
+    private[DFiant] var assignedSource : Source
+    final override private[DFiant] def getSource : Source = connectedSource2 orElse assignedSource orElse prevSource
     final private[DFiant] var connectedSource : Option[DFAny] = None
     final private[DFiant] def connected : Boolean = connectedSource.isDefined
     final private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
@@ -393,7 +394,7 @@ object DFAny {
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken])) //TODO: set dependency on assignment
     final private[DFiant] var connectedSource2 : Source = Source.none(width)
-    final private[DFiant] var assignedSource2 : Source = Source.none(width)
+    final private[DFiant] var assignedSource : Source = Source.none(width)
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -549,7 +550,7 @@ object DFAny {
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] var connectedSource2 : Source = Source.none(width)
-    final private[DFiant] var assignedSource2 : Source = Source.none(width)
+    final private[DFiant] var assignedSource : Source = Source.none(width)
 
     def pipe() : this.type = pipe(1)
     final def pipe(p : Int) : this.type = {if (pipeModLB.get != p) pipeModLB.set(p); this}
