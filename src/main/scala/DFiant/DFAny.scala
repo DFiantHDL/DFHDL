@@ -202,18 +202,18 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Future Stuff
     //////////////////////////////////////////////////////////////////////////
-    final def dontProduce() : TAlias = {
-      ???
-      this.asInstanceOf[TAlias]
-    }
-    final def isNotFull : DFBool = ???
-
-    final def assignNext(step : Int, that : TVal) : Unit = ???
-    final def assignNext(step : Int, that : BigInt) : Unit = ???
-    final def <-- (that : Iterable[TVal]) : TVar = {
-      that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
-      this.asInstanceOf[TVar]
-    }
+//    final def dontProduce() : TAlias = {
+//      ???
+//      this.asInstanceOf[TAlias]
+//    }
+//    final def isNotFull : DFBool = ???
+//
+//    final def assignNext(step : Int, that : TVal) : Unit = ???
+//    final def assignNext(step : Int, that : BigInt) : Unit = ???
+//    final def <-- (that : Iterable[TVal]) : TVar = {
+//      that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
+//      this.asInstanceOf[TVar]
+//    }
     //////////////////////////////////////////////////////////////////////////
 
 
