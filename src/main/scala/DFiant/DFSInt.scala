@@ -55,11 +55,14 @@ object DFSInt extends DFAny.Companion {
       new DFSInt.Alias[tfs.Out](extension :+ this, DFAny.Alias.Reference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = {
+    protected[DFiant] def protExtendTo[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = if (numOfBits != width) {
       val extension = List.fill(numOfBits - width)(sign)
       new DFSInt.Alias[EW](extension :+ this, DFAny.Alias.Reference.AsIs(s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
-    }
+    } else this.asInstanceOf[DFSInt[EW]]
+
+    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = protExtendTo(numOfBits)
 
     final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
       if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
@@ -391,7 +394,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>`[Ctx, SkipLengthCheck] extends `Op:=` with `Op<>` {
+  trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -414,28 +417,28 @@ object DFSInt extends DFAny.Companion {
 
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
         implicit
-        ctx : Ctx,
+        ctx : DFAny.Alias.Context,
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFSInt[LW], DFSInt[RW], DFSInt[RW]] =
-        create[DFSInt[LW], DFSInt[RW], RW]((left, right) => {
+      ) : Aux[DFSInt[LW], DFSInt[RW], DFSInt[LW]] =
+        create[DFSInt[LW], DFSInt[RW], LW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          right
+          right.protExtendTo[LW](left.width)
         })
 
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
-        ctx : Ctx,
+        ctx : DFAny.Alias.Context,
         rConst : Const.Builder.Aux[R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFSInt[LW], R, DFSInt[RW]] = create[DFSInt[LW], R, RW]((left, rightNum) => {
+      ) : Aux[DFSInt[LW], R, DFSInt[LW]] = create[DFSInt[LW], R, LW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        right
+        new Const[LW](Token(left.width, right.constLB.get))
       })
     }
   }
-  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context, false]
-  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context, true]
+  object `Op:=` extends `Ops:=,<>`[false]
+  object `Op<>` extends `Ops:=,<>`[true]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

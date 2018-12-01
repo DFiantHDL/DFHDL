@@ -448,7 +448,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>`[Ctx, SkipLengthCheck] extends `Op:=` with `Op<>` {
+  trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -491,8 +491,8 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context, false]
-  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context, true]
+  object `Op:=` extends `Ops:=,<>`[false]
+  object `Op<>` extends `Ops:=,<>`[true]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
