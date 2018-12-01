@@ -1,3 +1,1 @@
-import DFiant._
-
-Pipe(8,2) + 1
+List(0,1,2,3).splitAt(2)

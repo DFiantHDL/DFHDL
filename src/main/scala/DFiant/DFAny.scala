@@ -276,8 +276,9 @@ object DFAny {
     def separate : Source = Source(elements.foldLeft(List[SourceElement]()) {
       case (ls, e) => ls ++ e.range.toList.map(i => SourceElement(i, i, e.reverseBits, e.value))
     })
+    private def reverseIndex(idx : Int) : Int = width-1-idx
     def bitsWL(relWidth : Int, relBitLow : Int) : Source =
-      Source(separate.elements.reverse.slice(relBitLow, relBitLow + relWidth)).coalesce
+      Source(separate.elements.slice(reverseIndex(relBitLow + relWidth-1), reverseIndex(relBitLow-1))).coalesce
 
     def reverse : Source = Source(elements.reverse.map(e => SourceElement(e.relBitHigh, e.relBitLow, !e.reverseBits, e.value)))
     def ## (that : Source) : Source = Source(this.elements ++ that.elements).coalesce
@@ -285,7 +286,13 @@ object DFAny {
       Source(this.separate.elements.zip(that.separate.elements).collect {
         case (left, right) => if (left.value.isDefined) left else right
       }).coalesce
-
+    def replaceWL(relWidth : Int, relBitLow : Int, thatSource : Source) : Source = {
+      val elms = separate.elements
+      val left = elms.take(reverseIndex(relBitLow + relWidth-1))
+      val right = elms.takeRight(relBitLow)
+      assert(width - left.length - right.length == thatSource.width, s"$width - ${left.length} - ${right.length} != ${thatSource.width}")
+      Source(left ++ thatSource.elements ++ right).coalesce
+    }
     override def toString: String = elements.mkString(" ## ")
   }
   object Source {
