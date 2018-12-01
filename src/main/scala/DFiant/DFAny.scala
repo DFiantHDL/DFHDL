@@ -279,13 +279,6 @@ object DFAny {
     private def reverseIndex(idx : Int) : Int = width-1-idx
     def bitsWL(relWidth : Int, relBitLow : Int) : Source =
       Source(separate.elements.slice(reverseIndex(relBitLow + relWidth-1), reverseIndex(relBitLow-1))).coalesce
-
-    def reverse : Source = Source(elements.reverse.map(e => SourceElement(e.relBitHigh, e.relBitLow, !e.reverseBits, e.value)))
-    def ## (that : Source) : Source = Source(this.elements ++ that.elements).coalesce
-    def orElse (that : Source) : Source =
-      Source(this.separate.elements.zip(that.separate.elements).collect {
-        case (left, right) => if (left.value.isDefined) left else right
-      }).coalesce
     def replaceWL(relWidth : Int, relBitLow : Int, thatSource : Source) : Source = {
       val elms = separate.elements
       val left = elms.take(reverseIndex(relBitLow + relWidth-1))
@@ -293,6 +286,15 @@ object DFAny {
       assert(width - left.length - right.length == thatSource.width, s"$width - ${left.length} - ${right.length} != ${thatSource.width}")
       Source(left ++ thatSource.elements ++ right).coalesce
     }
+    def reverse : Source = Source(elements.reverse.map(e => SourceElement(e.relBitHigh, e.relBitLow, !e.reverseBits, e.value)))
+    def ## (that : Source) : Source = Source(this.elements ++ that.elements).coalesce
+
+
+    def orElse (that : Source) : Source =
+      Source(this.separate.elements.zip(that.separate.elements).collect {
+        case (left, right) => if (left.value.isDefined) left else right
+      }).coalesce
+    def isEmpty : Boolean = elements.length == 1 && elements.head.value.isEmpty
     override def toString: String = elements.mkString(" ## ")
   }
   object Source {
@@ -340,6 +342,24 @@ object DFAny {
     final override private[DFiant] def getSource : Source = connectedSource2 orElse assignedSource orElse prevSource
     final private[DFiant] var connectedSource : Option[DFAny] = None
     final private[DFiant] def connected : Boolean = connectedSource.isDefined
+    final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : Connector.Context) : Unit = {
+      val toVar = this
+      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
+      val toRelBitHigh = toRelBitLow + toRelWidth-1
+      val toSource = toVar.connectedSource2.bitsWL(toRelBitHigh, toRelWidth)
+      val toAssignedSource = toVar.assignedSource.bitsWL(toRelBitHigh, toRelWidth)
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: $toSource <> $fromSource}")
+      if (toSource.width != fromSource.width) throwConnectionError(s"Target width (${toSource.width}) is different than source width (${fromSource.width}).")
+      if (!toSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: $toSource")
+      if (!toAssignedSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $toAssignedSource.\nCannot apply both := and <> operators for the same target")
+      //All is well. We can now connect fromVal->toVar
+      toVar.connectedSource2 = toVar.connectedSource2.replaceWL(toRelWidth, toRelBitLow, fromSource)
+//      toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
+//      toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
+//      toVar.pipeInletLB.set(fromVal.pipeLB)
+//      toVar.protAssignDependencies += Connector(toVar, fromVal)
+//      toVar.protAssignDependencies += fromVal
+    }
     final private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
