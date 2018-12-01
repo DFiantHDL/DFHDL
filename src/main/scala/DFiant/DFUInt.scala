@@ -51,11 +51,14 @@ object DFUInt extends DFAny.Companion {
       new DFUInt.Alias[tfs.Out](List(zeros, this), DFAny.Alias.Reference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
-    : DFUInt[EW] = {
+    protected[DFiant] def protExtendTo[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = if (numOfBits !=  width) {
       val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
       new DFUInt.Alias[EW](List(zeros, this), DFAny.Alias.Reference.AsIs(s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
-    }
+    } else this.asInstanceOf[DFUInt[EW]]
+
+    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = protExtendTo[EW](numOfBits)
 
     final def pattern[R](right : Pattern.Able[R]*)(implicit bld : Pattern.Builder[TVal]) = bld(left, right)
 
@@ -468,23 +471,23 @@ object DFUInt extends DFAny.Companion {
 
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
-        ctx : Ctx,
+        ctx : DFAny.Alias.Context,
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[RW]] =
-        create[DFUInt[LW], DFUInt[RW], RW]((left, right) => {
+      ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[LW]] =
+        create[DFUInt[LW], DFUInt[RW], LW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          right
+          right.protExtendTo[LW](left.width)
         })
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
-        ctx : Ctx,
+        ctx :  DFAny.Alias.Context,
         rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFUInt[LW], R, DFUInt[RW]] = create[DFUInt[LW], R, RW]((left, rightNum) => {
+      ) : Aux[DFUInt[LW], R, DFUInt[LW]] = create[DFUInt[LW], R, LW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        right
+        new Const[LW](Token(left.width, right.constLB.get))
       })
     }
   }
