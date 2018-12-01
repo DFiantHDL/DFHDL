@@ -100,6 +100,7 @@ object DFBool extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Token private[DFiant] (value : Boolean, val bubble : Boolean) extends DFAny.Token.Of[Boolean, Pattern](1, value) {
+    type TToken = Token
     lazy val valueBits : BitVector = BitVector.bit(value)
     lazy val bubbleMask: BitVector = BitVector.bit(bubble)
     def toBubbleToken : Token = Token(Bubble)

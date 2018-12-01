@@ -704,6 +704,7 @@ object DFAny {
   trait Token extends HasCodeString {
     Self =>
     type TValue
+    type TToken <: Token
     type TPattern <: DFAny.Pattern[TPattern]{type TValue = Self.TValue}
     val value : TValue
     //maximum token value width
@@ -729,6 +730,17 @@ object DFAny {
       new DFBits.Token(outWidth, outBitsValue, outBubbleMask)
     }
     final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = bits(relWidth + relBitLow - 1, relBitLow)
+    final def replaceWL(relWidth : Int, relBitLow : Int, replacement : DFBits.Token)(
+      implicit fromBits : DFBits.Token => TToken
+    ) : TToken = {
+      val leftWidth = width - (relBitLow + relWidth)
+      val leftBitLow = relBitLow + relWidth
+      val rightWidth = relBitLow
+      val rightBitLow = 0
+      val leftOption : Option[DFBits.Token] = if (leftWidth > 0) Some(bitsWL(leftWidth, leftBitLow)) else None
+      val rightOption : Option[DFBits.Token] = if (rightWidth > 0) Some(bitsWL(rightWidth, rightBitLow)) else None
+      fromBits(List(leftOption, Some(replacement), rightOption).flatten.reduce((l, r) => l ## r))
+    }
     final def == (that : this.type) : DFBool.Token = {
       if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
       else DFBool.Token(this.valueBits == that.valueBits)
@@ -762,6 +774,9 @@ object DFAny {
         tokenSeq.map(t => t.bits)
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
+      def replaceWL(relWidth : Int, relBitLow : Int, replacement : Seq[DFBits.Token])(
+        implicit fromBits : DFBits.Token => T
+      ) : Seq[T] = TokenSeq(tokenSeq, replacement)((t, r) => t.replaceWL(relWidth, relBitLow, r)(fromBits.asInstanceOf[DFBits.Token => t.TToken]).asInstanceOf[T])
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
       def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
     }

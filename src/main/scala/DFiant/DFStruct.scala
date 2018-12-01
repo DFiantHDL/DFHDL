@@ -124,6 +124,7 @@ object DFStruct extends DFAny.Companion {
 //  implicit val codeStringOfListOfToken : CodeStringOf[List[DFAny.Token]] = list => list.mkString("(",", ",")")
   implicit val codeStringOfProduct : CodeStringOf[Product] = p => p.productIterator.mkString("(",", ",")")
   class Token[SF <: Fields] private[DFiant](width : Int, value : Product) extends DFAny.Token.Of[Product, Pattern[SF]](width, value) {
+    type TToken = Token[SF]
     val (valueBits, bubbleMask) : (BitVector, BitVector) = ???
 //    {
 //      if (value.isEmpty) (0.toBitVector(width), true.toBitVector(width))
