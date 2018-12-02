@@ -239,13 +239,12 @@ object DFAny {
 //      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
 //    ) = assign(op(left, right))
     final protected[DFiant] var assigned : Boolean = false
-    protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
+    protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       assigned = true
       if (!ctx.owner.callSiteSameAsOwnerOf(this))
         throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
-      this.asInstanceOf[TVar]
     }
     //////////////////////////////////////////////////////////////////////////
   }
@@ -378,7 +377,18 @@ object DFAny {
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
     }
-    override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : TVar = {
+    protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
+      val toVar = this
+      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
+      val toRelBitHigh = toRelBitLow + toRelWidth-1
+      val toSource = toVar.connectedSource2.bitsWL(toRelBitHigh, toRelWidth)
+      val toAssignedSource = toVar.assignedSource.bitsWL(toRelBitHigh, toRelWidth)
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toSource := $fromSource}")
+      if (toSource.width != fromSource.width) throwConnectionError(s"Target width (${toSource.width}) is different than source width (${fromSource.width}).")
+      if (!toSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: $toSource.\nCannot apply both := and <> operators for the same target")
+      toVar.assignedSource = toVar.assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource)
+    }
+    override protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       if (this.connected) throw new IllegalArgumentException(s"\nTarget assignment dataflow variable ${this.fullName} was already connected to. Cannot apply both := and <> operators on a dataflow variable.")
       pipeInletLB.set(that.pipeLB)
       super.assign(that)
@@ -500,7 +510,7 @@ object DFAny {
     final val id = getID
 
     final lazy val isAliasOfPort : Boolean = ???
-    final override protected[DFiant] def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): TVar = {
+    final override protected[DFiant] def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
       aliasedVars.foreach{case a : DFAny.Var =>
         a.assigned = true
         a.protAssignDependencies ++= List(this, that)

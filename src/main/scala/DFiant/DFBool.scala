@@ -47,8 +47,8 @@ object DFBool extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var extends DFAny.Var with DFBool {
-    final def set(implicit ctx : DFAny.Op.Context) : DFBool = this := true
-    final def clear(implicit ctx : DFAny.Op.Context) : DFBool = this := false
+    final def set(implicit ctx : DFAny.Op.Context) : Unit = this := true
+    final def clear(implicit ctx : DFAny.Op.Context) : Unit = this := false
     final def := [R](right: Op.Able[R])(
       implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
     ) = assign(op(left, right))
