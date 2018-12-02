@@ -100,11 +100,11 @@ object LazyBox {
     }
     def set(value : T) : Unit = set(Const(owner)(value))
   }
-  case class Const[+T](owner : DSLMemberConstruct)(value : T)(implicit n : NameIt) extends LazyBox[T](List()){
+  case class Const[+T](owner : DSLMemberConstruct)(value : => T)(implicit n : NameIt) extends LazyBox[T](List()){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = Value(value)
   }
-  case class Args1C[+T, +A, C](owner : DSLMemberConstruct)(func : (A, C) => T, arg : LazyBox[A], const : C)(implicit n : NameIt) extends LazyBox[T](List(arg)){
+  case class Args1C[+T, +A, C](owner : DSLMemberConstruct)(func : (A, C) => T, arg : LazyBox[A], const : => C)(implicit n : NameIt) extends LazyBox[T](List(arg)){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = arg.getValueOrError match {
       case Error(p, m) => Error(this :: p, m)
