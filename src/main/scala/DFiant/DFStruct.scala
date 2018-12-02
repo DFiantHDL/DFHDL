@@ -63,7 +63,7 @@ object DFStruct extends DFAny.Companion {
     def == [SF <: Product](right : SF)(implicit op: `Op==`.Builder[TVal, SF]) = op(left, right)
     def != [SF <: Product](right : SF)(implicit op: `Op!=`.Builder[TVal, SF]) = op(left, right)
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(new NewVar[TSFields](structFields), dir)
+    : TVal <> Dir = new Port(new NewVar[TSFields], dir)
     final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(aliasedVars, reference)(ctx, structFields).asInstanceOf[TAlias]
@@ -86,15 +86,15 @@ object DFStruct extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def apply[F <: DFFields, W, M](fields : F)(implicit ctx : DFAny.NewVar.Context, structFields : F => Fields.Aux[W, F, M])
-  : NewVar[Fields.Aux[W, F, M]] = new NewVar[Fields.Aux[W, F, M]](structFields(fields))
+  : NewVar[Fields.Aux[W, F, M]] = new NewVar[Fields.Aux[W, F, M]]()(ctx, structFields(fields))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] final class NewVar[SF <: Fields](val structFields : SF)(
-    implicit ctx : DFAny.NewVar.Context
+  protected[DFiant] final class NewVar[SF <: Fields]()(
+    implicit ctx : DFAny.NewVar.Context, val structFields : SF
   ) extends DFAny.NewVar[DFStruct[SF]](structFields.width, s"DFStruct(${structFields.name})") with Var[SF]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
@@ -110,11 +110,11 @@ object DFStruct extends DFAny.Companion {
 
   protected[DFiant] final class Const[SF <: Fields](structFields_ : SF, token : Token[SF])(
     implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const(token) with DFStruct[SF] {val structFields = structFields_}
+  ) extends DFAny.Const(token) with DFStruct[SF] {val structFields : SF = structFields_}
 
   protected[DFiant] final class Port[SF <: Fields, Dir <: DFDir](val dfVar : DFStruct[SF], dir : Dir)(
-    implicit ctx : DFAny.Port.Context
-  ) extends DFAny.Port[DFStruct[SF], Dir](dfVar, dir) with DFStruct[SF] {val structFields = dfVar.structFields}
+    implicit ctx : DFAny.Port.Context, val structFields : SF
+  ) extends DFAny.Port[DFStruct[SF], Dir](dfVar, dir) with DFStruct[SF]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -163,8 +163,8 @@ object DFStruct extends DFAny.Companion {
   object Port extends PortCO {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
-      implicit def conn[SF <: Fields, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFStruct[SF], Dir] = (right, dir) => new Port[SF, Dir](right, dir)
+      implicit def conn[SF <: Fields, Dir <: DFDir](implicit ctx : DFAny.Port.Context, sf : SF)
+      : Builder[DFStruct[SF], Dir] = (right, dir) => new Port[SF, Dir](right, dir)(ctx, right.structFields)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

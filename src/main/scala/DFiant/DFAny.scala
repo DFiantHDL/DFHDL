@@ -302,8 +302,11 @@ object DFAny {
     def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))
   }
 
-  trait Uninitialized extends DFAny.Var {
+  abstract class Uninitialized[DF <: DFAny](
+    implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
+  ) extends DFAny.Var {
     type TPostInit <: TVal
+    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final def init(that : protComp.Init.Able[TVal]*)(
       implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
     ) : TPostInit = {
@@ -410,12 +413,11 @@ object DFAny {
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar[DF <: DFAny](_width : Int, newVarCodeString : String)(
-    implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken
-  ) extends DFAny.Uninitialized {
+    implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
+  ) extends DFAny.Uninitialized[DF] {
     type TPostInit = TVar
     final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
     final protected[DFiant] lazy val constLB =
@@ -566,8 +568,8 @@ object DFAny {
   // Port
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
-    implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken
-  ) extends DFAny.Uninitialized with CanBePiped {
+    implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
+  ) extends DFAny.Uninitialized[DF] with CanBePiped {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
@@ -575,7 +577,6 @@ object DFAny {
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](dfVar.width)
     final protected[DFiant] lazy val constLB =
       LazyBox.Mutable(this)(Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final private[DFiant] var connectedSource2 : Source = Source.none(width)
     final private[DFiant] var assignedSource : Source = Source.none(width)
 
@@ -652,7 +653,7 @@ object DFAny {
             if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
             //Connecting from output port to external value
             if (port.dir.isOut) dfVal match {
-              case u : Uninitialized => u.connectFrom(port)
+              case u : Uninitialized[_] => u.connectFrom(port)
 //              case a : Alias[_] if a.isAliasOfPort => a.connect
               case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
             }
@@ -662,7 +663,7 @@ object DFAny {
           //Connecting internal value and output port
           else if (port hasSameOwnerAs dfVal) {
             if (port.dir.isIn) dfVal match {
-              case u : Uninitialized => u.connectFrom(port)
+              case u : Uninitialized[_] => u.connectFrom(port)
               case _ => throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
             } else {
               if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")

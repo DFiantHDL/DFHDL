@@ -32,7 +32,7 @@ object DFEnum extends DFAny.Companion {
     final def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     final def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(new NewVar[TEnum](enum), dir)
+    : TVal <> Dir = new Port(new NewVar[TEnum], dir)
     final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(aliasedVars, reference)(ctx, enum).asInstanceOf[TAlias]
@@ -54,16 +54,16 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[E <: Enum](implicit ctx : DFAny.NewVar.Context, e : E) : NewVar[E] = new NewVar[E](e)
-  def apply[E <: Enum](e : E)(implicit ctx : DFAny.NewVar.Context) : NewVar[E] = new NewVar[E](e)
+  def apply[E <: Enum](implicit ctx : DFAny.NewVar.Context, e : E) : NewVar[E] = new NewVar[E]()
+  def apply[E <: Enum](e : E)(implicit ctx : DFAny.NewVar.Context) : NewVar[E] = new NewVar[E]()(ctx, e)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Protected Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] final class NewVar[E <: Enum](val enum : E)(
-    implicit ctx : DFAny.NewVar.Context
+  protected[DFiant] final class NewVar[E <: Enum]()(
+    implicit ctx : DFAny.NewVar.Context, val enum : E
   ) extends DFAny.NewVar[DFEnum[E]](enum.width, s"DFEnum(${enum.name})") with Var[E]  {
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
@@ -82,8 +82,8 @@ object DFEnum extends DFAny.Companion {
   ) extends DFAny.Const(token) with DFEnum[E] {val enum = enum_  }
 
   protected[DFiant] final class Port[E <: Enum, Dir <: DFDir](val dfVar : DFEnum[E], dir : Dir)(
-    implicit ctx : DFAny.Port.Context
-  ) extends DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E] {val enum = dfVar.enum}
+    implicit ctx : DFAny.Port.Context, val enum : E
+  ) extends DFAny.Port[DFEnum[E], Dir](dfVar, dir) with DFEnum[E]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -126,7 +126,7 @@ object DFEnum extends DFAny.Companion {
     trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
     object Builder {
       implicit def conn[E <: Enum, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFEnum[E], Dir] = (right, dir) => new Port[E, Dir](right, dir)
+      : Builder[DFEnum[E], Dir] = (right, dir) => new Port[E, Dir](right, dir)(ctx, right.enum)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
