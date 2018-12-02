@@ -301,7 +301,7 @@ object DFAny {
     def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))
   }
 
-  abstract class Uninitialized[DF <: DFAny](
+  abstract class Initializable[DF <: DFAny](
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny.Var {
     type TPostInit <: TVal
@@ -424,7 +424,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar[DF <: DFAny](_width : Int, newVarCodeString : String)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends DFAny.Uninitialized[DF] {
+  ) extends DFAny.Initializable[DF] {
     type TPostInit = TVar
     final val ctx = ctx0
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
@@ -579,7 +579,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
     implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends DFAny.Uninitialized[DF] with CanBePiped {
+  ) extends DFAny.Initializable[DF] with CanBePiped {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
@@ -663,7 +663,7 @@ object DFAny {
             if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
             //Connecting from output port to external value
             if (port.dir.isOut) dfVal match {
-              case u : Uninitialized[_] => u.connectFrom(port)
+              case u : Initializable[_] => u.connectFrom(port)
 //              case a : Alias[_] if a.isAliasOfPort => a.connect
               case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
             }
@@ -673,7 +673,7 @@ object DFAny {
           //Connecting internal value and output port
           else if (port hasSameOwnerAs dfVal) {
             if (port.dir.isIn) dfVal match {
-              case u : Uninitialized[_] => u.connectFrom(port)
+              case u : Initializable[_] => u.connectFrom(port)
               case _ => throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
             } else {
               if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")

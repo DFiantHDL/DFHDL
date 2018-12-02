@@ -16,9 +16,9 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     isFolded = false
   }
 
-  final protected def setInitFunc[DFVal <: DFAny.Uninitialized[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
+  final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
   : Unit = dfVal.setInitFunc.forced(value)
-  final protected def getInit[DFVal <: DFAny.Uninitialized[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
+  final protected def getInit[DFVal <: DFAny.Initializable[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
 
   private[DFiant] override def constructCodeString : String = if (isFolded) foldedConstructCodeString else super.constructCodeString
   override def codeString : String = valCodeString
