@@ -507,7 +507,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val topLoop = new ContainerConnLoop {}
     val expectedError =
       """
-        |Circular dependency detected at topLoop.o.initLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Mutable <- topLoop.io.i.initLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Mutable <- topLoop.io.i.initLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Mutable
+        |Circular dependency detected at topLoop.o.initLB : LazyBox.Args1List <- topLoop.o.initExternalLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Args1List <- topLoop.io.o.initExternalLB : LazyBox.Mutable <- topLoop.io.i.initLB : LazyBox.Args1List <- topLoop.io.i.initExternalLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Args1List <- topLoop.io.o.initExternalLB : LazyBox.Mutable <- topLoop.io.i.initLB : LazyBox.Args1List <- topLoop.io.i.initExternalLB : LazyBox.Mutable <- topLoop.io.o.initLB : LazyBox.Args1List
       """.stripMargin
     illRunCompare(expectedError) {
       topLoop.codeString

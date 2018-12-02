@@ -250,7 +250,7 @@ object DFAny {
   }
 
   case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, value : Option[DFAny]) {
-    val width : Int = relBitHigh - relBitLow + 1
+    val relWidth : Int = relBitHigh - relBitLow + 1
     def range : Range = if (reverseBits) relBitLow to relBitHigh else relBitHigh to relBitLow by -1
 
     override def toString: String = value match {
@@ -258,16 +258,17 @@ object DFAny {
       case None => "None"
     }
   }
+
   case class Source(elements : List[SourceElement]) {
-    val width : Int = elements.map(v => v.width).sum
+    val width : Int = elements.map(v => v.relWidth).sum
     def coalesce : Source = Source(elements.foldLeft(List[SourceElement]()) {
       case (ls, e) if ls.isEmpty || !(ls.last.value eq e.value)=> ls :+ e
       case (ls, right) =>
         val left = ls.last
         val coupled : List[SourceElement] =
-          if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.width == 1))
+          if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.relWidth == 1))
             List(SourceElement(left.relBitHigh, right.relBitLow, left.reverseBits, left.value))
-          else if (left.relBitHigh == right.relBitLow - 1 && ((left.reverseBits && right.reverseBits) || right.width == 1))
+          else if (left.relBitHigh == right.relBitLow - 1 && ((left.reverseBits && right.reverseBits) || right.relWidth == 1))
             List(SourceElement(right.relBitHigh, left.relBitLow, left.reverseBits, left.value))
           else List(left, right)
         ls.dropRight(1) ++ coupled
@@ -312,7 +313,27 @@ object DFAny {
       initialize(LazyBox.Const(this)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    final protected[DFiant] val initLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
+    private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
+    //ignore is only here since we use LazyBox.ArgList to check all connected element inits for circular dependency
+    private def initConnectionOrElseExternal(ignoreArg : Seq[TToken],ignoreList : List[Seq[Token]]) : Seq[TToken] = { //
+      var lsbitPos : Int = width
+      val bitsTokenSeq : Seq[DFBits.Token] = connectedSource2.elements.map(x => {
+        lsbitPos -= x.relWidth
+        x.value match {
+          case Some(v) =>
+            val selBits = v.initLB.get.bitsWL(x.relWidth, x.relBitLow)
+            if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
+          case None =>
+            initExternalLB.get.bitsWL(x.relWidth, lsbitPos)
+        }
+      }).reduce(DFBits.Token.concat)
+      bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
+    }
+
+    final protected[DFiant] lazy val initLB =
+      LazyBox.Args1List[Seq[TToken], Seq[TToken], Seq[Token]](this)(
+        initConnectionOrElseExternal, initExternalLB, connectedSource2.elements.flatMap(e => e.value).map(e => e.initLB)
+      )
     protected[DFiant] val constLB : LazyBox.Mutable[TToken]
     final protected[DFiant] lazy val pipeInletLB = LazyBox.Mutable[Pipe](this)(Some(Pipe.zero(width)), cdFallBack = true)
     protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
@@ -320,18 +341,18 @@ object DFAny {
       LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
-      if (initLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
+      if (initExternalLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
       if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       updatedInit = () => updatedInitLB.get
-      initLB.set(updatedInitLB)
+      initExternalLB.set(updatedInitLB)
     }
     final def reInit(cond : DFBool) : Unit = ???
     private[DFiant] object setInitFunc {
-      def forced(value : LazyBox[Seq[Token]]) : Unit = initLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
+      def forced(value : LazyBox[Seq[Token]]) : Unit = initExternalLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
     }
     final def initCodeString : String = {
       val init = updatedInit()
-      if (initLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
+      if (initExternalLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -348,8 +369,8 @@ object DFAny {
       val toVar = this
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       val toRelBitHigh = toRelBitLow + toRelWidth-1
-      val toSource = toVar.connectedSource2.bitsWL(toRelBitHigh, toRelWidth)
-      val toAssignedSource = toVar.assignedSource.bitsWL(toRelBitHigh, toRelWidth)
+      val toSource = toVar.connectedSource2.bitsWL(toRelWidth, toRelBitLow)
+      val toAssignedSource = toVar.assignedSource.bitsWL(toRelWidth, toRelBitLow)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: $toSource <> $fromSource}")
       if (toSource.width != fromSource.width) throwConnectionError(s"Target width (${toSource.width}) is different than source width (${fromSource.width}).")
       if (!toSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: $toSource")
@@ -364,13 +385,14 @@ object DFAny {
     }
     final private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
+      connectFrom(width, 0, Source(fromVal))
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${fromVal.fullName} <> ${toVar.fullName}")
       if (toVar.width < fromVal.width) throwConnectionError(s"Target port width (${toVar.width}) is smaller than source port width (${fromVal.width}).")
       if (toVar.connected) throwConnectionError(s"Target port ${toVar.fullName} already has a connection: ${toVar.connectedSource.get.fullName}")
       if (toVar.assigned) throwConnectionError(s"Target port ${toVar.fullName} was already assigned to. Cannot apply both := and <> operators on a port.")
       //All is well. We can now connect fromVal->toVar
-      toVar.initLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
+      toVar.initExternalLB.set(fromVal.initLB.asInstanceOf[LazyBox[Seq[toVar.TToken]]])
       toVar.constLB.set(fromVal.constLB.asInstanceOf[LazyBox[toVar.TToken]])
       toVar.pipeInletLB.set(fromVal.pipeLB)
       toVar.connectedSource = Some(fromVal)

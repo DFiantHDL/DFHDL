@@ -14,4 +14,7 @@ object Bla extends App {
   val tku = DFUInt.Token(8, 128)
   println(tku.replaceWL(4,0,tkb.bits(3,0)).bits)
 
+  val tkn = Seq(DFBool.Token(1), DFBool.Token(1), DFBool.Token(Bubble), DFBool.Token(1))
+  println(DFBool.Token.fromBits(DFBool.Token(Bubble).bits))
+
 }
