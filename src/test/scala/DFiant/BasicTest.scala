@@ -258,7 +258,7 @@ trait IO extends DFDesign {
   val c2 = c + i
 //  c.pipe
 //  c2.pipe
-  c := c2
+//  c := c2
 //  c.pipe
   val d = DFUInt(8)
   d := (c + 2).pipe
@@ -292,12 +292,12 @@ object BasicTest extends App {
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-//  val top_ioDesignConn10 = new IO {}.compileToVHDL.print().toFile("test.vhd")
+  val top_ioDesignConn10 = new IO {}.compileToVHDL.print().toFile("test.vhd")
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
 //  val top_containerConn4 = new ContainerConn4 {}
-  val top_ioDesignIf = new IODesignIf {}.printCodeString
+//  val top_ioDesignIf = new IODesignIf {}.printCodeString
 
 
 //  val top_ioDesignMatch = new IODesignMatch {}.printCodeString
