@@ -441,9 +441,11 @@ object DFAny {
     // Pipelining
     //////////////////////////////////////////////////////////////////////////
     private def pipeFunc(source : Source) : Pipe = {
-      source.elements.map(x => {
-        val selBits = x.tag.get.dfVal.pipeLB.get.bitsWL(x.relWidth, x.relBitLow)
-        if (x.reverseBits) selBits.reverse else selBits
+      source.elements.map(x => x.tag match {
+        case Some(t) =>
+          val selBits = x.tag.get.dfVal.pipeLB.get.bitsWL(x.relWidth, x.relBitLow)
+          if (x.reverseBits) selBits.reverse else selBits
+        case None => Pipe.zero(x.relWidth)
       }).reduce((l, r) => l ## r)
     }
     final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
