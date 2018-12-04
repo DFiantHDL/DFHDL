@@ -4,7 +4,7 @@ import DFiant.internals.LazyBox.ValueOrError
 
 import scala.collection.mutable
 
-abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt) {
+abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Option[T] = None)(implicit n : NameIt) {
   import LazyBox.ValueOrError._
   def valueFunc : ValueOrError[T]
   val owner : DSLMemberConstruct
@@ -13,12 +13,13 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   private var visitedCnt : Int = 0
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(this), "Uninitialized")
-  private def getUpdatedValueOrError : ValueOrError[T] = try {
-    valueFunc
-  } catch  {
-    case e : Exception =>
-      Error(List(this), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
-  }
+  private def getUpdatedValueOrError : ValueOrError[T] = valueFunc
+//    try {
+//    valueFunc
+//  } catch  {
+//    case e : Exception =>
+//      Error(List(this), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
+//  }
   private val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
   final def getDependencyNum : Int = valueDependencies.size
   final protected def unlockValueDependencies() : Unit = if (locked) {
@@ -28,7 +29,10 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
   final protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
   final protected def clearValueDependencies() : Unit = valueDependencies.clear()
   private def getCircularError : ValueOrError[T] = Error(List(this), "Circular dependency detected")
-  protected def getFallBackValue : ValueOrError[T] = getUpdatedValueOrError
+  protected def getFallBackValue : ValueOrError[T] = fallBackValue match {
+    case Some(fb) => Value(fb)
+    case None => getUpdatedValueOrError
+  }
   var checkFallBack : Boolean = false
   final def getValueOrError : ValueOrError[T] = {
     if (!locked) {
@@ -39,7 +43,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]])(implicit n : NameIt
           (updatedValueOrError, valueOrError) match {
             case (Value(vNew), Value(vOld)) if vNew != vOld && checkFallBack =>
               checkFallBack = false
-              Error(List(this), "Contradiction in circular dependency")
+              Error(List(this), s"Contradiction in circular dependency $vNew != $vOld")
             case _ => updatedValueOrError
           }
         case 2 =>
@@ -76,15 +80,12 @@ object LazyBox {
     case class Error(path : List[LazyBox[_]], msg : String) extends ValueOrError[Nothing]
   }
   //cdFallBack - in case of circular dependency, fallback to the initialization value
-  case class Mutable[T](owner : DSLMemberConstruct)(initialization : Option[T] = None, cdFallBack : Boolean = false)(implicit n : NameIt) extends LazyBox[T](List()){
+  case class Mutable[T](owner : DSLMemberConstruct)(initialization : Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(), initialization){
     import LazyBox.ValueOrError._
     private var mutableValueFunc : () => ValueOrError[T] = () => initialization match {
       case Some(t) => Value(t)
       case _ => Error(List(this), "Uninitialized")
     }
-    override protected def getFallBackValue : ValueOrError[T] =
-      if (cdFallBack && initialization.isDefined)  Value(initialization.get)
-      else super.getFallBackValue
     final def valueFunc : ValueOrError[T] = mutableValueFunc() match {
       case Error(p, m) => Error(this :: p, m)
       case Value(v) => Value(v)
@@ -104,7 +105,7 @@ object LazyBox {
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = Value(value)
   }
-  case class Args1[+T, +A](owner : DSLMemberConstruct)(func : A => T, arg : LazyBox[A])(implicit n : NameIt) extends LazyBox[T](List(arg)){
+  case class Args1[+T, +A](owner : DSLMemberConstruct)(func : A => T, arg : LazyBox[A], fallBackValue : Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(arg), fallBackValue){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = arg.getValueOrError match {
       case Error(p, m) => Error(this :: p, m)

@@ -246,8 +246,9 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token private[DFiant] (width : Int, val valueBits : BitVector, val bubbleMask : BitVector) extends DFAny.Token.Of[BitVector, Pattern](width, valueBits) {
+  case class Token private[DFiant] (width : Int, valueBits : BitVector, bubbleMask : BitVector) extends DFAny.Token.Of[BitVector, Pattern] {
     type TToken = Token
+    final val value = valueBits
     def toBubbleToken : Token = Token(width, Bubble)
     final def | (that : Token) : Token = {
       val outWidth = scala.math.max(this.width, that.width)
@@ -646,7 +647,9 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsShift(opKind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
-    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R]
+    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
+      type Comp <: DFBits.Unbounded
+    }
     object Builder {
       object SmallShift extends Checked1Param.Int {
         type Cond[LW, RW] = BitsWidthOf.CalcInt[LW] >= RW

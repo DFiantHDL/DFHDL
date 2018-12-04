@@ -123,7 +123,7 @@ object DFStruct extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  implicit val codeStringOfListOfToken : CodeStringOf[List[DFAny.Token]] = list => list.mkString("(",", ",")")
   implicit val codeStringOfProduct : CodeStringOf[Product] = p => p.productIterator.mkString("(",", ",")")
-  class Token[SF <: Fields] private[DFiant](width : Int, value : Product) extends DFAny.Token.Of[Product, Pattern[SF]](width, value) {
+  case class Token[SF <: Fields] private[DFiant](width : Int, value : Product) extends DFAny.Token.Of[Product, Pattern[SF]] {
     type TToken = Token[SF]
     val (valueBits, bubbleMask) : (BitVector, BitVector) = ???
 //    {
@@ -194,8 +194,8 @@ object DFStruct extends DFAny.Companion {
       def toTokenSeq[SF <: Fields](width : Int, right : Seq[Able[DFStruct[SF]]]) : Seq[Token[SF]] =
         right.toSeqAny.map(e => e match {
           case (t : Bubble) => Token[SF](width, t)
-          case (t : Product) => Token[SF](width, t)
           case (t : Token[_]) => t.asInstanceOf[Token[SF]]
+          case (t : Product) => Token[SF](width, t)
         })
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]

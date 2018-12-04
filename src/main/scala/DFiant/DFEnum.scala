@@ -90,7 +90,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Token[E <: Enum] private[DFiant](width : Int, value : E#Entry) extends DFAny.Token.Of[E#Entry, Pattern[E]](width, value) {
+  case class Token[E <: Enum] private[DFiant](width : Int, value : E#Entry) extends DFAny.Token.Of[E#Entry, Pattern[E]] {
     type TToken = Token[E]
     val (valueBits, bubbleMask) : (BitVector, BitVector) =
       if (value != null) (value.value.toBitVector(width), false.toBitVector(width))

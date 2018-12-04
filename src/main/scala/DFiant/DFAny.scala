@@ -242,7 +242,7 @@ object DFAny {
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
     private[DFiant] lazy val prevSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source(protPrev(1)))
     private[DFiant] lazy val assignedSourceLB =
-      LazyBox.Mutable[Source](this)(Some(Source.none(width)), cdFallBack = true)
+      LazyBox.Mutable[Source](this)(Some(Source.none(width)))
     override private[DFiant] lazy val sourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
     protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
@@ -364,7 +364,7 @@ object DFAny {
   ) extends Constructor[DF](width) {
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
     private[DFiant] lazy val connectedSourceLB =
-      LazyBox.Mutable[Source](this)(Some(Source.none(width)), cdFallBack = true)
+      LazyBox.Mutable[Source](this)(Some(Source.none(width)))
     override private[DFiant] lazy val sourceLB : LazyBox[Source] =
       LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB, prevSourceLB)
     final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : Connector.Context) : Unit = {
@@ -423,18 +423,19 @@ object DFAny {
         x.tag match {
         case Some(t) =>
           val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
-  //          if (t.prevStep > 0) t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
-  //          else
-              t.dfVal.constLB.get
-          val selBits = t.dfVal.constLB.get.bitsWL(x.relWidth, x.relBitLow)
+            if (t.prevStep > 0) DFBits.Token(t.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
+            else t.dfVal.constLB.get
+          val selBits = prvBits.bitsWL(x.relWidth, x.relBitLow)
           val revBits = if (x.reverseBits) selBits.reverse else selBits
           if (t.inverted) ~revBits else revBits
         case None => DFBits.Token(x.relWidth, Bubble)
       }).reduce((l, r) => l ## r)
       protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
     }
-    protected[DFiant] lazy val constLB : LazyBox[TToken] =
-      LazyBox.Args1[TToken, Source](this)(constFunc, sourceLB)
+    protected[DFiant] lazy val constSourceLB : LazyBox[TToken] =
+      LazyBox.Args1[TToken, Source](this)(constFunc, sourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
+
+    protected[DFiant] lazy val constLB : LazyBox[TToken] = constSourceLB
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
@@ -449,7 +450,7 @@ object DFAny {
       }).reduce((l, r) => l ## r)
     }
     final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
-      LazyBox.Args1[Pipe, Source](this)(pipeFunc, sourceLB)
+      LazyBox.Args1[Pipe, Source](this)(pipeFunc, sourceLB, Some(Pipe.zero(width)))
     protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
     final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] =
       LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
@@ -472,7 +473,7 @@ object DFAny {
       initialize(LazyBox.Const(this)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()), cdFallBack = true)
+    private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
 
     private def initFunc(connectedSource : Source, initConnected : Seq[TToken], initExternal : Seq[TToken]) : Seq[TToken] = {
       var lsbitPos : Int = width
@@ -848,7 +849,7 @@ object DFAny {
   }
 
   object Token {
-    abstract class Of[V, P <: DFAny.Pattern[P]{type TValue = V}](val width: Int, val value : V)(implicit codeStringOf : CodeStringOf[V]) extends Token {
+    abstract class Of[V, P <: DFAny.Pattern[P]{type TValue = V}](implicit codeStringOf : CodeStringOf[V]) extends Token {
       type TValue = V
       type TPattern = P
       final def codeString : String = if (isBubble) "Φ" else value.codeString

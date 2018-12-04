@@ -254,19 +254,19 @@ trait IO extends DFDesign {
   val i = DFUInt(8) <> IN init 0
   val o = DFUInt(8) <> OUT
 
-//  val c = DFUInt(8) init 0
-  val c2 = i + 1
-////  c.pipe
-////  c2.pipe
-////  c := c2
-////  c.pipe
-//  val d = DFUInt(8)
-//  d := (c + 2).pipe
-//
-//  val e = c + d
-//  e.pipe
-//  val f = e + c
-  o <> c2
+  val c = DFUInt(8) init 0
+  c := c + i
+//  c.pipe
+//  c2.pipe
+//  c := c2
+//  c.pipe
+  val d = DFUInt(8)
+  d := (c + 2).pipe
+
+  val e = c + d
+  e.pipe
+  val f = e + c
+  o <> f
 }
 
 trait IOTest extends DFSimulator {
