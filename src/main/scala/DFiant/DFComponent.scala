@@ -24,7 +24,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   override def codeString : String = valCodeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
-    def isOpen : Boolean = dfVal.connectedSource.isEmpty
+    def isOpen : Boolean = !dfVal.isConnected
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
   override lazy val typeName: String = getClass.getSimpleName

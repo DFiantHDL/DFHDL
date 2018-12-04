@@ -190,7 +190,7 @@ object Backend {
         Value(value, Type(member))
       }
       def apply(member : DFAny) : Value = member match {
-        case x : DFAny.Const => Value(member, member.constLB.get)
+        case x : DFAny.Const[_] => Value(member, member.constLB.get)
         case _ => References(member)
       }
     }
@@ -396,7 +396,7 @@ object Backend {
             val right = Value(member.rightArg.asInstanceOf[DFAny])
             val rightPipe = member.rightBalanceLB.get.valueList.head + member.rightArg.asInstanceOf[DFAny].extraPipe
             rightPipe match {
-              case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const] =>
+              case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const[_]] =>
                 References(member.rightArg.asInstanceOf[DFAny]).ref(p)
               case _ => Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
             }
@@ -618,7 +618,7 @@ object Backend {
     protected def pass(dsn : DFDesign) : Unit = dsn.discoveredList.foreach {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
-        if (x.assigned) {
+        if (x.isAssigned) {
           val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
           dstSig.maxPrevUse = 1
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
@@ -640,7 +640,7 @@ object Backend {
           architecture.statements.sync_process.assignment(dstSigP1, dstSig)
 //        }
 //        else architecture.declarations.signal(x)
-      case x : DFAny.Const => //Do nothing
+      case x : DFAny.Const[_] => //Do nothing
       case x : CompAlias =>
 //        if (x.bypassAlias)
 //          References.add(x, architecture.statements.func2(x.comp, Some(x.unextendedLeft)), forceUpdate = true)

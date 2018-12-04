@@ -83,7 +83,7 @@ object DFBool extends DFAny.Companion {
 
   protected[DFiant] final class Const(token : DFBool.Token)(
     implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const(token) with DFBool
+  ) extends DFAny.Const[DFBool](token) with DFBool
 
   protected[DFiant] final class Port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(
     implicit ctx : DFAny.Port.Context

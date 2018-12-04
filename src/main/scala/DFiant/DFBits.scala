@@ -235,7 +235,7 @@ object DFBits extends DFAny.Companion {
 
   protected[DFiant] final class Const[W](token : DFBits.Token)(
     implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const(token) with DFBits[W]
+  ) extends DFAny.Const[DFBits[W]](token) with DFBits[W]
 
   protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFBits[W], dir : Dir)(
     implicit ctx : DFAny.Port.Context

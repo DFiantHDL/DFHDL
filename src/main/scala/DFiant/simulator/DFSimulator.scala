@@ -13,7 +13,7 @@ case class DFSimulator(design : DFDesign) {
   private[simulator] def getTokenStream(dfVal : DFAny) : TokenStream = db(dfVal)
   def pass(dsn : DFDesign) : Unit = {
     dsn.discoveredList.foreach {
-      case x : DFAny.Const => TokenStream.Const(x)
+      case x : DFAny.Const[_] => TokenStream.Const(x)
       case x : DFAny.Port[_,_] =>
       case _ =>
     }

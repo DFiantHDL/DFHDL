@@ -1,1 +1,1 @@
-List(0,1,2,3).splitAt(2)
+List(0,1,2,3).take(5)

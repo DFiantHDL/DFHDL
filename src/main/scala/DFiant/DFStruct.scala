@@ -108,9 +108,9 @@ object DFStruct extends DFAny.Companion {
     implicit ctx : DFAny.Alias.Context, val structFields : SF
   ) extends DFAny.Alias[DFStruct[SF]](aliasedVars, reference) with Var[SF]
 
-  protected[DFiant] final class Const[SF <: Fields](structFields_ : SF, token : Token[SF])(
-    implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const(token) with DFStruct[SF] {val structFields : SF = structFields_}
+  protected[DFiant] final class Const[SF <: Fields](token : Token[SF])(
+    implicit ctx : DFAny.Const.Context, val structFields : SF
+  ) extends DFAny.Const[DFStruct[SF]](token) with DFStruct[SF]
 
   protected[DFiant] final class Port[SF <: Fields, Dir <: DFDir](val dfVar : DFStruct[SF], dir : Dir)(
     implicit ctx : DFAny.Port.Context, val structFields : SF
@@ -273,7 +273,7 @@ object DFStruct extends DFAny.Companion {
 
       implicit def evDFStruct_op_Product[SF <: Fields, P <: Product](implicit ctx : DFAny.Op.Context)
       : Aux[DFStruct[SF], P, DFStruct[SF]] =
-        create[SF, DFStruct[SF], P]((left, rightProduct) => new Const(left.structFields, Token[SF](left.width, rightProduct)))
+        create[SF, DFStruct[SF], P]((left, rightProduct) => new Const(Token[SF](left.width, rightProduct))(ctx, left.structFields))
     }
   }
   object `Op:=` extends `Ops:=,<>`
@@ -308,10 +308,10 @@ object DFStruct extends DFAny.Companion {
       : Builder[DFStruct[SF], DFStruct[SF]] = create[SF, DFStruct[SF], DFStruct[SF]]((left, right) => (left, right))
 
       implicit def evDFStruct_op_Product[SF <: Fields, R <: Product](implicit ctx : DFAny.Op.Context)
-      : Builder[DFStruct[SF], R] = create[SF, DFStruct[SF], R]((left, rightProduct) => (left, new Const(left.structFields, Token[SF](left.width, rightProduct))))
+      : Builder[DFStruct[SF], R] = create[SF, DFStruct[SF], R]((left, rightProduct) => (left, new Const(Token[SF](left.width, rightProduct))(ctx, left.structFields)))
 
       implicit def evProduct_op_DFStruct[SF <: Fields, L <: Product](implicit ctx : DFAny.Op.Context)
-      : Builder[L, DFStruct[SF]] = create[SF, L, DFStruct[SF]]((leftProduct, right) => (new Const(right.structFields, Token[SF](right.width, leftProduct)), right))
+      : Builder[L, DFStruct[SF]] = create[SF, L, DFStruct[SF]]((leftProduct, right) => (new Const(Token[SF](right.width, leftProduct))(ctx, right.structFields), right))
     }
   }
 

@@ -78,5 +78,5 @@ abstract class TokenStream(dfVal : DFAny)(producers : List[DFAny], postJoinFunc 
   producerStreams.foreach(p => p.addConsumer(dfVal))
 }
 object TokenStream {
-  case class Const(dfVal : DFAny.Const)(implicit sim : DFSimulator) extends TokenStream(dfVal)(List(), tokens => dfVal.constLB.get)
+  case class Const(dfVal : DFAny.Const[_ <: DFAny])(implicit sim : DFSimulator) extends TokenStream(dfVal)(List(), tokens => dfVal.constLB.get)
 }

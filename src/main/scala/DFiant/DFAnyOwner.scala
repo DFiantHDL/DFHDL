@@ -22,7 +22,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
 
   private[DFiant] def bodyCodeString : String = {
     val delim = "  "
-    val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const])
+    val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const[_]])
     val noAnonymous = noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous && !e.asInstanceOf[DFAny].showAnonymous)
     noAnonymous.codeString.delimRowsBy(delim)
   }

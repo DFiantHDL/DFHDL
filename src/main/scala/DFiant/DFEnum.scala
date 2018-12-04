@@ -77,9 +77,9 @@ object DFEnum extends DFAny.Companion {
     implicit ctx : DFAny.Alias.Context, val enum : E
   ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E]
 
-  protected[DFiant] final class Const[E <: Enum](enum_ : E, token : Token[E])(
-    implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const(token) with DFEnum[E] {val enum = enum_  }
+  protected[DFiant] final class Const[E <: Enum](token : Token[E])(
+    implicit ctx : DFAny.Const.Context, val enum : E
+  ) extends DFAny.Const[DFEnum[E]](token) with DFEnum[E]
 
   protected[DFiant] final class Port[E <: Enum, Dir <: DFDir](val dfVar : DFEnum[E], dir : Dir)(
     implicit ctx : DFAny.Port.Context, val enum : E
@@ -235,7 +235,7 @@ object DFEnum extends DFAny.Companion {
 
       implicit def evDFEnum_op_Entry[E <: Enum, Entry <: E#Entry](implicit ctx : DFAny.Op.Context)
       : Aux[DFEnum[E], Entry, DFEnum[E]] =
-        create[E, DFEnum[E], Entry]((left, rightEntry) => new Const(left.enum, Token[E](left.width, rightEntry)))
+        create[E, DFEnum[E], Entry]((left, rightEntry) => new Const(Token[E](left.width, rightEntry))(ctx, left.enum))
     }
   }
   object `Op:=` extends `Ops:=,<>`
@@ -270,10 +270,10 @@ object DFEnum extends DFAny.Companion {
       : Builder[DFEnum[E], DFEnum[E]] = create[E, DFEnum[E], DFEnum[E]]((left, right) => (left, right))
 
       implicit def evDFEnum_op_Entry[E <: Enum, R <: E#Entry](implicit ctx : DFAny.Op.Context)
-      : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, new Const(left.enum, Token[E](left.width, rightEntry))))
+      : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) => (left, new Const(Token[E](left.width, rightEntry))(ctx, left.enum)))
 
       implicit def evEntry_op_DFEnum[E <: Enum, L <: E#Entry](implicit ctx : DFAny.Op.Context)
-      : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (new Const(right.enum, Token[E](right.width, leftEntry)), right))
+      : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) => (new Const(Token[E](right.width, leftEntry))(ctx, right.enum), right))
     }
   }
 

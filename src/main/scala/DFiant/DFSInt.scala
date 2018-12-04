@@ -148,7 +148,7 @@ object DFSInt extends DFAny.Companion {
 
   protected[DFiant] final class Const[W](token : DFSInt.Token)(
     implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const(token) with DFSInt[W]
+  ) extends DFAny.Const[DFSInt[W]](token) with DFSInt[W]
 
   protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFSInt[W], dir : Dir)(
     implicit ctx : DFAny.Port.Context
