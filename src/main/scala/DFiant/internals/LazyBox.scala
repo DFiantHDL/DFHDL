@@ -1,11 +1,10 @@
 package DFiant.internals
-
-import DFiant.internals.LazyBox.ValueOrError
-
+import LazyBox.ValueOrError
 import scala.collection.mutable
 
 abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Option[T] = None)(implicit n : NameIt) {
   import LazyBox.ValueOrError._
+  import LazyBox.CustomException
   def valueFunc : ValueOrError[T]
   val owner : DSLMemberConstruct
   final val name : String = n.value
@@ -13,13 +12,15 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
   private var visitedCnt : Int = 0
   private var locked : Boolean = false
   private[this] var valueOrError : ValueOrError[T] = Error(List(this), "Uninitialized")
-  private def getUpdatedValueOrError : ValueOrError[T] = valueFunc
-//    try {
-//    valueFunc
-//  } catch  {
-//    case e : Exception =>
-//      Error(List(this), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
-//  }
+  private def getUpdatedValueOrError : ValueOrError[T] =
+    try {
+      valueFunc
+    } catch  {
+      case e : CustomException =>
+        Error(this :: e.lbTrace, e.msg)
+      case e : Exception =>
+        Error(List(this), s"Exception occured when calculating LazyBox value: ${e.getMessage}")
+    }
   private val valueDependencies : mutable.Set[LazyBox[_]] = mutable.Set.empty[LazyBox[_]]
   final def getDependencyNum : Int = valueDependencies.size
   final protected def unlockValueDependencies() : Unit = if (locked) {
@@ -65,9 +66,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
   }
   final def get : T = getValueOrError match {
     case Value(v) => v
-    case Error(p, m) =>
-      val pStr = p.map(lb => s"${lb.owner.fullName}.${lb.name} : ${lb.typeName}").mkString(" <- ")
-      throw new IllegalArgumentException(s"\n$m at $pStr")
+    case Error(p, m) => throw new CustomException(p, m)
   }
   args.foreach(a => a.addValueDependency(this))
 }
@@ -77,8 +76,15 @@ object LazyBox {
   sealed trait ValueOrError[+T]
   object ValueOrError {
     case class Value[+T](value : T) extends ValueOrError[T]
-    case class Error(path : List[LazyBox[_]], msg : String) extends ValueOrError[Nothing]
+    case class Error(lbTrace : List[LazyBox[_]], msg : String) extends ValueOrError[Nothing]
   }
+  class CustomException(val lbTrace : List[LazyBox[_]], val msg : String) extends Exception(msg) {
+    override def getMessage: String = {
+      val pStr = lbTrace.map(lb => s"${lb.owner.fullName}.${lb.name}").mkString(" <- ")
+      s"\n$msg at $pStr"
+    }
+  }
+
   //cdFallBack - in case of circular dependency, fallback to the initialization value
   case class Mutable[T](owner : DSLMemberConstruct)(initialization : Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(), initialization){
     import LazyBox.ValueOrError._
