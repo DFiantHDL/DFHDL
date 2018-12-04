@@ -251,22 +251,26 @@ trait IODesignConn10 extends DFDesign {
 //
 
 trait IO extends DFDesign {
-  val i = DFUInt(8) <> IN init 0
+  val i = DFUInt(8) <> IN init 5
   val o = DFUInt(8) <> OUT
-
-  val c = DFUInt(8) init 0
-  c := c + i
-//  c.pipe
-//  c2.pipe
-//  c := c2
-//  c.pipe
-  val d = DFUInt(8)
-  d := (c + 2).pipe
-
-  val e = c + d
-  e.pipe
-  val f = e + c
-  o <> f
+  val ib = i.bits
+  val in = ~ib
+  val iu = in.uint
+  val ip = iu.prev
+//
+//  val c = DFUInt(8) init 0
+//  c := c + i
+////  c.pipe
+////  c2.pipe
+////  c := c2
+////  c.pipe
+//  val d = DFUInt(8)
+//  d := (c + 2).pipe
+//
+//  val e = c + d
+//  e.pipe
+//  val f = e + c
+  o <> ip
 }
 
 trait IOTest extends DFSimulator {
@@ -292,7 +296,7 @@ object BasicTest extends App {
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
 //    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-  val top_ioDesignConn10 = new IO {}.compileToVHDL.print().toFile("test.vhd")
+  val top_ioDesignConn10 = new IO {}.printCodeString//.compileToVHDL.print().toFile("test.vhd")
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
