@@ -30,7 +30,7 @@ trait RightShifter extends DFDesign {
   final val res   = DFBits(32) <> OUT
   private val temp = DFBits(32)
   temp := vec
-  for (i <- 4 to 0 by -1) {
+  for (i <- 1 to 0 by -1) {
     val mux = vec ^ temp
 //    val mux = new MuxN{}.setName(s"m$i")
 //    mux.a <> (temp >> (1 << i))

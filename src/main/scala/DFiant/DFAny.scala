@@ -166,8 +166,10 @@ trait DFAny extends DFAnyMember with HasWidth {
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
     if (config.commentLatencyValues) s"//latency = ${pipeLB.get}" else ""
+  private def connCommentString : String =
+    if (config.commentConnection) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
-  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString"
+  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -282,6 +284,16 @@ object DFAny {
     def invert : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.invert) else None )
     def prev(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.prev(step)) else None )
 
+    def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = tag match {
+      case Some(t) =>
+        val reverseStr = if (reverseBits) ".reverse" else ""
+        val invertStr = if (t.inverted) "~" else ""
+        val prevStr = if (t.prevStep == 1) s".prev" else if (t.prevStep > 0) s".prev(${t.prevStep})" else ""
+        val selStr = if (t.dfVal.width.getValue != relWidth) s"($relBitHigh, $relBitLow)" else ""
+        s"$invertStr${t.dfVal.refCodeString}$selStr$prevStr$reverseStr"
+      case None => "None"
+    }
+
     override def toString: String = tag match {
       case Some(t) =>
         val reverseStr = if (reverseBits) ".reverse" else ""
@@ -337,6 +349,8 @@ object DFAny {
       }).coalesce
     def getCurrentSource : Source = Source(elements.flatMap(e => e.getCurrentSource.elements)).coalesce
     def isEmpty : Boolean = elements.length == 1 && elements.head.tag.isEmpty
+    def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
+      if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
     override def toString: String = elements.mkString(" ## ")
   }
   object Source {

@@ -253,24 +253,19 @@ trait IODesignConn10 extends DFDesign {
 trait IO extends DFDesign {
   val i = DFUInt(8) <> IN init 5
   val o = DFUInt(8) <> OUT
-  val ib = i.bits
-  val in = ~ib
-  val iu = in.uint
-  val ip = iu.prev
-//
-//  val c = DFUInt(8) init 0
-//  c := c + i
-////  c.pipe
-////  c2.pipe
-////  c := c2
-////  c.pipe
-//  val d = DFUInt(8)
-//  d := (c + 2).pipe
-//
-//  val e = c + d
-//  e.pipe
-//  val f = e + c
-  o <> ip
+  val c = DFUInt(8) init 0
+  c := c + i
+//  c.pipe
+//  c2.pipe
+//  c := c2
+//  c.pipe
+  val d = DFUInt(8)
+  d := (c + 2).pipe
+
+  val e = c + d
+  e.pipe
+  val f = e + c
+  o <> f
 }
 
 trait IOTest extends DFSimulator {
@@ -285,7 +280,7 @@ trait IOTest extends DFSimulator {
 
 object BasicTest extends App {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
-  implicit val a = DFAnyConfiguration.detailed
+  implicit val a = DFAnyConfiguration.foldedConn
 //  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
 
   //  val top_ioDesignConn1b = new IODesignConn1b {}.printCodeString
