@@ -30,44 +30,53 @@ case class PipeValue(width : Int, value : Option[Int]) {
   override def toString: String = if (value.isDefined) value.get.toString else "None"
 }
 
-case class Pipe(valueList : List[PipeValue]){
-  val width : Int = valueList.map(v => v.width).sum
+case class Pipe(elements : List[PipeValue]){
+  val width : Int = elements.map(v => v.width).sum
   private def getMaxPipe : Option[Int] = {
-    val vl = valueList.flatMap(v => v.value)
+    val vl = elements.flatMap(v => v.value)
     if (vl.isEmpty) None else Some(vl.max)
   }
-  def coalesce : Pipe = Pipe(valueList.foldLeft(List[PipeValue]()) {
+  def coalesce : Pipe = Pipe(elements.foldLeft(List[PipeValue]()) {
     case (ls, e) if ls.isEmpty || ls.last.value != e.value=> ls :+ e
     case (ls, e) => ls.dropRight(1) :+ PipeValue(ls.last.width + e.width, e.value)
   })
-  def separate : Pipe = Pipe(valueList.foldLeft(List[PipeValue]()) {
+  def separate : Pipe = Pipe(elements.foldLeft(List[PipeValue]()) {
     case (ls, e) => ls ++ List.fill(e.width)(PipeValue(1, e.value))
   })
-  def bitsWL(relWidth : Int, relBitLow : Int) : Pipe = {
-    assert(relWidth + relBitLow <= width)
-    assert(relBitLow < width)
-    Pipe(separate.valueList.reverse.slice(relBitLow, relBitLow + relWidth)).coalesce
+  private def reverseIndex(idx : Int) : Int = width-1-idx
+  def bitsWL(relWidth : Int, relBitLow : Int) : Pipe =
+    Pipe(separate.elements.slice(reverseIndex(relBitLow + relWidth-1), reverseIndex(relBitLow-1))).coalesce
+  def reverse : Pipe = Pipe(elements.reverse)
+  def replaceWL(relWidth : Int, relBitLow : Int, thatSource : Pipe) : Pipe = {
+    val elms = separate.elements
+    val left = elms.take(reverseIndex(relBitLow + relWidth-1))
+    val right = elms.takeRight(relBitLow)
+    assert(width - left.length - right.length == thatSource.width, s"$width - ${left.length} - ${right.length} != ${thatSource.width}")
+    Pipe(left ++ thatSource.elements ++ right).coalesce
   }
-  def reverse : Pipe = Pipe(valueList.reverse)
-  def ## (that : Pipe) = Pipe(this.valueList ++ that.valueList)
+  def ## (that : Pipe) = Pipe(this.elements ++ that.elements)
   def balanced : Pipe = Pipe(width, getMaxPipe)
-  def + (that : Int) : Pipe = Pipe(valueList.map(v => v + that))
+  def orElse (that : Pipe) : Pipe =
+    Pipe(this.separate.elements.zip(that.separate.elements).collect {
+      case (left, right) => if (left.value.isDefined) left else right
+    }).coalesce
+  def + (that : Int) : Pipe = Pipe(elements.map(v => v + that))
   def - (that : Pipe) : Pipe = {
-    if (this.valueList.length == 1) {
-      val refPipe = this.valueList.head
-      Pipe(that.valueList.map{v => refPipe - v})
+    if (this.elements.length == 1) {
+      val refPipe = this.elements.head
+      Pipe(that.elements.map{v => refPipe - v})
     } else {
       assert(this.width == that.width)
-      val z = (this.valueList, that.valueList).zipped
+      val z = (this.elements, that.elements).zipped
       val sameSplit = z.map((pL, pR) => pL.width == pR.width).reduce((l, r) => l && r)
       if (sameSplit) Pipe(z.map((pL, pR) => pL - pR))
-      else Pipe((this.separate.valueList, that.separate.valueList).zipped.map((l, r) => l - r)).coalesce
+      else Pipe((this.separate.elements, that.separate.elements).zipped.map((l, r) => l - r)).coalesce
     }
   }
 
   override def toString : String =
-    if (valueList.length == 1) valueList.head.toString
-    else valueList.map(v => s"(${v.width},$v)").mkString("|")
+    if (elements.length == 1) elements.head.toString
+    else elements.map(v => s"(${v.width},$v)").mkString("|")
 }
 
 object Pipe {

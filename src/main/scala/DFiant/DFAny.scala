@@ -188,7 +188,6 @@ trait DFAny extends DFAnyMember with HasWidth {
     LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
   final private[DFiant] lazy val prevSourceLB : LazyBox[DFAny.Source] =
     LazyBox.Const[DFAny.Source](this)(DFAny.Source(protPrev(1).setAutoName(s"${Name.AnonStart}${name}_prev")))
-//  private[DFiant] lazy val refSourceLB : LazyBox[DFAny.Source] = thisSourceLB
   private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
   final private[DFiant] def getCurrentSource : DFAny.Source = currentSourceLB.get
   val isPort : Boolean
@@ -247,7 +246,8 @@ object DFAny {
 //      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
 //    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
-    private[DFiant] var assignedSourceLB = LazyBox.Mutable[Source](this)(Some(Source.none(width)))
+    private[DFiant] var assignedSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source.none(width))
+    private[DFiant] var assignedPipeLB : LazyBox[Pipe] = LazyBox.Const[Pipe](this)(Pipe.none(width))
     override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
     protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
@@ -256,7 +256,8 @@ object DFAny {
       val toRelBitHigh = toRelBitLow + toRelWidth-1
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromSource}")
       if (toRelWidth != fromSource.width) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromSource.width}).")
-      assignedSourceLB.set(assignedSourceLB.get.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource))
+      assignedSourceLB = LazyBox.Args1[Source, Source](this)(s => s.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource), assignedSourceLB)
+      assignedPipeLB = LazyBox.Args1[Pipe, Pipe](this)(s => s.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource.getPipe), assignedPipeLB)
     }
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       if (!ctx.owner.callSiteSameAsOwnerOf(this))
@@ -351,6 +352,12 @@ object DFAny {
       }).coalesce
     def getCurrentSource : Source = Source(elements.flatMap(e => e.getCurrentSource.elements)).coalesce
     def isEmpty : Boolean = elements.length == 1 && elements.head.tag.isEmpty
+    def getPipe : Pipe = elements.map(x => x.tag match {
+      case Some(t) =>
+        val selBits = t.dfVal.pipeLB.get.bitsWL(x.relWidth, x.relBitLow)
+        if (x.reverseBits) selBits.reverse else selBits
+      case None => Pipe.none(x.relWidth)
+    }).reduce((l, r) => l ## r)
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
       if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
     override def toString: String = elements.mkString(" ## ")
@@ -461,16 +468,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Pipelining
     //////////////////////////////////////////////////////////////////////////
-    private def pipeFunc(currentSource : Source) : Pipe = {
-      currentSource.elements.map(x => x.tag match {
-        case Some(t) =>
-          val selBits = x.tag.get.dfVal.pipeLB.get.bitsWL(x.relWidth, x.relBitLow)
-          if (x.reverseBits) selBits.reverse else selBits
-        case None => Pipe.zero(x.relWidth)
-      }).reduce((l, r) => l ## r)
-    }
     protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
-      LazyBox.Args1[Pipe, Source](this)(pipeFunc, connectedOrAssignedSourceLB, Some(Pipe.zero(width)))
+      LazyBox.Args1[Pipe, Source](this)(s => s.getPipe, connectedOrAssignedSourceLB, Some(Pipe.zero(width)))
     protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
     final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] =
       LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
