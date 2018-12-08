@@ -247,7 +247,7 @@ object DFAny {
 //      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
 //    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
-    private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Some(Source.none(width)))
+    private[DFiant] var assignedSourceLB = LazyBox.Mutable[Source](this)(Some(Source.none(width)))
     override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
     protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
