@@ -150,7 +150,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Naming
   //////////////////////////////////////////////////////////////////////////
-  final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) || isInstanceOf[DSLFoldableOwnerConstruct]
+  final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
   final override private[DFiant] def nameDefault: String = ctx.getName
   private var autoConstructCodeString : String = ""
   final private[DFiant] def setAutoConstructCodeString(cs : String) : this.type = {autoConstructCodeString = cs; this}
@@ -166,10 +166,10 @@ trait DFAny extends DFAnyMember with HasWidth {
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
     if (config.commentLatencyValues) s"//latency = ${pipeLB.get}" else ""
-  private def connCommentString : String =
-    if (config.commentConnection) s"//conn = ${getCurrentSource.refCodeString}" else ""
+//  private def connCommentString : String =
+//    if (config.commentConnection) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
-  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
+  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString"
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -184,8 +184,12 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  private[DFiant] lazy val refSourceLB : LazyBox[DFAny.Source] = LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
-  private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = refSourceLB
+  private[DFiant] lazy val thisSourceLB : LazyBox[DFAny.Source] =
+    LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
+  final private[DFiant] lazy val prevSourceLB : LazyBox[DFAny.Source] =
+    LazyBox.Const[DFAny.Source](this)(DFAny.Source(protPrev(1).setAutoName(s"${Name.AnonStart}${name}_prev")))
+//  private[DFiant] lazy val refSourceLB : LazyBox[DFAny.Source] = thisSourceLB
+  private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
   final private[DFiant] def getCurrentSource : DFAny.Source = currentSourceLB.get
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
@@ -243,9 +247,7 @@ object DFAny {
 //      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
 //    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
-    private[DFiant] lazy val prevSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source(protPrev(1)))
-    private[DFiant] lazy val assignedSourceLB =
-      LazyBox.Mutable[Source](this)(Some(Source.none(width)))
+    private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Some(Source.none(width)))
     override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
     protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
@@ -365,7 +367,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Constructor[DF <: DFAny](_width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends DFAny.Var {
+  ) extends DFAny {
     final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -376,13 +378,14 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Connectable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Constructor[DF](width) {
+  ) extends Constructor[DF](width) with DFAny.Var {
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
-    private[DFiant] lazy val connectedSourceLB =
-      LazyBox.Mutable[Source](this)(Some(Source.none(width)))
-    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
+    private[DFiant] lazy val connectedSourceLB = LazyBox.Mutable[Source](this)(Some(Source.none(width)))
+    private[DFiant] lazy val connectedOrAssignedSourceLB : LazyBox[Source] =
       LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB, prevSourceLB)
-    override private[DFiant] lazy val refSourceLB : LazyBox[Source] = connectedSourceLB
+    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
+
+    //    override private[DFiant] lazy val refSourceLB : LazyBox[Source] = connectedSourceLB
     final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -394,7 +397,7 @@ object DFAny {
       if (!toSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: $toSource")
       if (!toAssignedSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $toAssignedSource.\nCannot apply both := and <> operators for the same target")
       //All is well. We can now connect fromVal->toVar
-      connectedSourceLB.set(connectedSourceLB.get.replaceWL(toRelWidth, toRelBitLow, fromSource))
+      connectedSourceLB.set(connectedSourceLB.get.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource))
     }
     private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
@@ -429,7 +432,7 @@ object DFAny {
     }
 
     private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
-    protected[DFiant] lazy val initConnectedLB : LazyBox[Seq[TToken]] =
+    private[DFiant] lazy val initConnectedLB : LazyBox[Seq[TToken]] =
       LazyBox.Args1[Seq[TToken], Source](this)(initFunc, initSourceLB)
     protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = initConnectedLB
     //////////////////////////////////////////////////////////////////////////
@@ -437,8 +440,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Constant propagation
     //////////////////////////////////////////////////////////////////////////
-    private def constFunc(currentSource : Source) : TToken = {
-      val bitsToken : DFBits.Token = currentSource.elements.map(x =>
+    private def constFunc(source : Source) : TToken = {
+      val bitsToken : DFBits.Token = source.elements.map(x =>
         x.tag match {
         case Some(t) =>
           val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
@@ -451,10 +454,8 @@ object DFAny {
       }).reduce((l, r) => l ## r)
       protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
     }
-    protected[DFiant] lazy val constSourceLB : LazyBox[TToken] =
-      LazyBox.Args1[TToken, Source](this)(constFunc, currentSourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-
-    protected[DFiant] lazy val constLB : LazyBox[TToken] = constSourceLB
+    protected[DFiant] lazy val constLB : LazyBox[TToken] =
+      LazyBox.Args1[TToken, Source](this)(constFunc, connectedOrAssignedSourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
@@ -468,8 +469,8 @@ object DFAny {
         case None => Pipe.zero(x.relWidth)
       }).reduce((l, r) => l ## r)
     }
-    final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
-      LazyBox.Args1[Pipe, Source](this)(pipeFunc, currentSourceLB, Some(Pipe.zero(width)))
+    protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
+      LazyBox.Args1[Pipe, Source](this)(pipeFunc, connectedOrAssignedSourceLB, Some(Pipe.zero(width)))
     protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
     final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] =
       LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
@@ -493,7 +494,6 @@ object DFAny {
       this.asInstanceOf[TPostInit]
     }
     private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
-//    private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
 
     //If there is a connection to the specific bits, then the initialization uses that connection.
     //Otherwise, the initialization uses the initialization set externally (via init or initialize)
@@ -510,7 +510,7 @@ object DFAny {
     }
 
     override protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] =
-      LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](this)(initFunc, connectedSourceLB, initConnectedLB, initExternalLB)
+      LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](this)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
 
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
@@ -568,8 +568,8 @@ object DFAny {
     final val ctx = ctx0
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
+    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
 
-    override private[DFiant] lazy val refSourceLB : LazyBox[DFAny.Source] = LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
@@ -609,12 +609,10 @@ object DFAny {
       }
     }.flatMap(s => s.elements)).coalesce
 
-    override private[DFiant] lazy val refSourceLB : LazyBox[Source] =
-      LazyBox.ArgList[Source, Source](this)(sourceFunc, aliasedVars.map(v => v.refSourceLB))
-
-    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = refSourceLB
-
-    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] = refSourceLB
+    override private[DFiant] lazy val connectedOrAssignedSourceLB : LazyBox[Source] =
+      LazyBox.ArgList[Source, Source](this)(sourceFunc, aliasedVars.map(v => v.thisSourceLB))
+    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
+    override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
 
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
@@ -671,9 +669,9 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {
     final val ctx = ctx0
-    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
+    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
     final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.none(width))
     final val isPort = false
@@ -696,12 +694,7 @@ object DFAny {
     type TDir = Dir
     final val ctx = ctx0
 
-    override private[DFiant] lazy val refSourceLB : LazyBox[DFAny.Source] = LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
-
-    //Top-level input ports don't have a default previous value assignment
-    final override private[DFiant] lazy val prevSourceLB : LazyBox[Source] =
-      if (owner.isTop && dir.isIn) LazyBox.Const[Source](this)(Source.none(width))
-      else LazyBox.Const[Source](this)(Source(protPrev(1)))
+    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
 
     def pipe() : this.type = pipe(1)
     final def pipe(p : Int) : this.type = {if (pipeModLB.get != p) pipeModLB.set(p); this}

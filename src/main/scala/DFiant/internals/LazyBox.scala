@@ -53,7 +53,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
         case _ => getCircularError
       }
 //      if (visitedCnt == 1 && name == "pipeLB" && !owner.asInstanceOf[DFiant.DFAny].isAnonymous)
-//        println(f"${owner.fullName + s".$name"}%-60s $valueOrError")
+//        println(f"$this%-60s $valueOrError")
 
       visitedCnt -= 1
       locked = true
@@ -69,6 +69,8 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
     case Error(p, m) => throw new CustomException(p, m)
   }
   args.foreach(a => a.addValueDependency(this))
+
+  override def toString: String = s"${owner.fullName}.$name"
 }
 
 
@@ -86,7 +88,7 @@ object LazyBox {
   }
 
   //cdFallBack - in case of circular dependency, fallback to the initialization value
-  case class Mutable[T](owner : DSLMemberConstruct)(initialization : Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(), initialization){
+  case class Mutable[T](owner : DSLMemberConstruct)(initialization : => Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(), initialization){
     import LazyBox.ValueOrError._
     private var mutableValueFunc : () => ValueOrError[T] = () => initialization match {
       case Some(t) => Value(t)
