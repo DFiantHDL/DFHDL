@@ -109,6 +109,6 @@ object PipeTest extends App {
 
 
 trait CanBePiped extends DFAny {
-  def pipe() : this.type
-  def pipe(p : Int) : this.type
+//  def pipe() : this.type
+//  def pipe(p : Int) : this.type
 }

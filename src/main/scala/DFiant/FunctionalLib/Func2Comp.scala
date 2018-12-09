@@ -12,33 +12,40 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final protected[DFiant] lazy val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
 
-  final lazy val leftLatency : Option[Int] = leftArg.getCurrentSource.getMaxLatency
-  final lazy val rightLatency : Option[Int] = rightArg.getCurrentSource.getMaxLatency
-  final lazy val maxLatency : Option[Int] = List(leftLatency, rightLatency).max
-  override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] =
-    LazyBox.Const[DFAny.Source](this)(DFAny.Source.withLatency(this, maxLatency).pipe(extraPipe))
+  final lazy val leftLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, leftArg.currentSourceLB)
+  final lazy val rightLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, rightArg.currentSourceLB)
+  final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](this)((l, r) => List(l, r).max, leftLatency, rightLatency)
+  override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = {
+    connect
+    LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
+  }
 
 
   final val inLeft = leftArg.copyAsNewPort(IN)
   final val inRight = rightArg.copyAsNewPort(IN)
   final val outResult = this.copyAsNewPort(OUT)
 
-  final protected[DFiant] val initLB: LazyBox[Seq[TToken]] = {
+  final protected[DFiant] lazy val initLB: LazyBox[Seq[TToken]] = {
+    connect
     def leftInit = inLeft.initLB.asInstanceOf[LazyBox[Seq[leftArg.TToken]]]
     def rightInit = inRight.initLB.asInstanceOf[LazyBox[Seq[rightArg.TToken]]]
     LazyBox.Args2[Seq[TToken],Seq[leftArg.TToken],Seq[rightArg.TToken]](this)((l, r) => DFAny.TokenSeq(l, r)(tokenFunc), leftInit, rightInit)
   }
 
   final lazy val constLB : LazyBox[TToken] = LazyBox.Args2(this)(tokenFunc, inLeft.constLB.asInstanceOf[LazyBox[leftArg.TToken]], inRight.constLB.asInstanceOf[LazyBox[rightArg.TToken]])
-  private var extraPipe : Int = 0
-  def pipe() : this.type = pipe(1)
-  private[DFiant] override def pipeGet : Int = extraPipe
-  final def pipe(p : Int) : this.type = {extraPipe = p; this}
-  final protected[DFiant] lazy val leftBalancedSource = leftArg.getCurrentSource.balanceTo(maxLatency)
-  final protected[DFiant] lazy val rightBalancedSource = rightArg.getCurrentSource.balanceTo(maxLatency)
+//  private var extraPipe : Int = 0
+//  def pipe() : this.type = pipe(1)
+//  private[DFiant] override def pipeGet : Int = extraPipe
+//  final def pipe(p : Int) : this.type = {extraPipe = p; this}
+//  final protected[DFiant] lazy val leftBalancedSource = leftArg.getCurrentSource.balanceTo(maxLatency)
+//  final protected[DFiant] lazy val rightBalancedSource = rightArg.getCurrentSource.balanceTo(maxLatency)
 
-  inLeft.connectVal2Port(leftArg)
-  inRight.connectVal2Port(rightArg)
+  lazy val connect : Unit ={
+//    println(s"$fullName connected")
+    inLeft.connectVal2Port(leftArg)
+    inRight.connectVal2Port(rightArg)
+  }
+//  connect
 
   //  outResult.connectVal2Port(this)
   override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
@@ -53,7 +60,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
     if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
   override def constructCodeStringDefault: String = foldedConstructCodeString
   private[DFiant] override def designType : String = s"`Func2Comp$opString`"
-  override def foldedConstructCodeString: String = s"${leftBalancedSource.refCodeString} $opString ${rightBalancedSource.refCodeString}"
+  override def foldedConstructCodeString: String = s"${leftArg.refCodeString} $opString ${rightArg.refCodeString}"
   override def codeString: String = if (isFolded) super.codeString else valCodeString
 }
 
@@ -62,7 +69,7 @@ trait CompAlias extends CanBePiped {
   lazy val unextendedLeft : DFAny = comp.leftArg.asInstanceOf[DFAny]
   final val alias = this.asInstanceOf[DFAny.Alias[_]]
   val bypassAlias : Boolean
-  def pipe() : this.type = pipe(1)
-  private[DFiant] override def pipeGet : Int = comp.pipeGet
-  def pipe(p : Int) : this.type = {comp.pipe(p); this}
+//  def pipe() : this.type = pipe(1)
+//  private[DFiant] override def pipeGet : Int = comp.pipeGet
+//  def pipe(p : Int) : this.type = {comp.pipe(p); this}
 }

@@ -8,6 +8,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
   def valueFunc : ValueOrError[T]
   val owner : DSLMemberConstruct
   final val name : String = n.value
+  final lazy val fullName = s"${owner.fullName}.$name"
   lazy val typeName: String = s"LazyBox.${getClass.getSimpleName}"
   private var visitedCnt : Int = 0
   private var locked : Boolean = false
@@ -27,7 +28,10 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
     locked = false
     valueDependencies.foreach(vd => vd.unlockValueDependencies())
   }
-  final protected def addValueDependency(lb : LazyBox[_]) : Unit = valueDependencies += lb
+  final protected def addValueDependency(lb : LazyBox[_]) : Unit = {
+//    if (owner != lb.owner) println(f"$fullName%-40s <- ${lb.fullName}")
+    valueDependencies += lb
+  }
   final protected def clearValueDependencies() : Unit = valueDependencies.clear()
   private def getCircularError : ValueOrError[T] = Error(List(this), "Circular dependency detected")
   protected def getFallBackValue : ValueOrError[T] = fallBackValue match {
@@ -53,7 +57,8 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
         case _ => getCircularError
       }
 //      if (visitedCnt == 1 && name == "pipeLB" && !owner.asInstanceOf[DFiant.DFAny].isAnonymous)
-        println(f"$this%-60s $valueOrError")
+//        println(f"$this%-60s $valueOrError")
+//      assert(false)
 
       visitedCnt -= 1
       locked = true
@@ -61,6 +66,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
     valueOrError
   }
   def clearValue() : Unit = {
+//    println(f"$this%-60s CLEAR!")
     valueOrError = Error(List(this),"Uninitialized")
     unlockValueDependencies()
   }
@@ -88,26 +94,22 @@ object LazyBox {
   }
 
   //cdFallBack - in case of circular dependency, fallback to the initialization value
-  case class Mutable[T](owner : DSLMemberConstruct)(initialization : => Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(), initialization){
+  case class Mutable[T](owner : DSLMemberConstruct)(initialization : => T)(implicit n : NameIt) extends LazyBox[T](List(), Some(initialization)){
     import LazyBox.ValueOrError._
-    private var mutableValueFunc : () => ValueOrError[T] = () => initialization match {
-      case Some(t) => Value(t)
-      case _ => Error(List(this), "Uninitialized")
-    }
-    final def valueFunc : ValueOrError[T] = mutableValueFunc() match {
-      case Error(p, m) => Error(this :: p, m)
-      case Value(v) => Value(v)
-    }
+    private var lbox : LazyBox[T] = LazyBox.Const(owner)(initialization)
+    def getBox : LazyBox[T] = lbox
+    final def valueFunc : ValueOrError[T] = lbox.getValueOrError
     private var isset = false
     final def isSet : Boolean = isset
     def set(value : LazyBox[T]) : Unit = {
-      clearValueDependencies()
+//      clearValueDependencies()
+      clearValue()
       addValueDependency(value)
       unlockValueDependencies()
-      mutableValueFunc = () => value.getValueOrError
+      lbox = value
       isset = true
     }
-    def set(value : T) : Unit = set(Const(owner)(value))
+    def set(value : => T) : Unit = set(Const(owner)(value))
   }
   case class Const[+T](owner : DSLMemberConstruct)(value : => T)(implicit n : NameIt) extends LazyBox[T](List()){
     import LazyBox.ValueOrError._

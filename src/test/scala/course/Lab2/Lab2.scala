@@ -18,28 +18,44 @@ trait MuxN extends DFDesign {
   for (i <- 0 until n) {
     val mux = new Mux1 {}.setName(s"m$i")
     mux.sel <> sel
-    mux.a <> a(i)
+    mux.a <> a(i).pipe
     mux.b <> b(i)
     res(i) := mux.res
   }
 }
 
 trait RightShifter extends DFDesign {
-  final val vec   = DFBits(32) <> IN
-  final val shift = DFUInt(5)  <> IN
-  final val res   = DFBits(32) <> OUT
-  private val temp = DFBits(32)
-  temp := vec
-  for (i <- 1 to 0 by -1) {
-    val mux = vec ^ temp
-//    val mux = new MuxN{}.setName(s"m$i")
-//    mux.a <> (temp >> (1 << i))
-//    mux.b <> temp
-//    mux.sel <> shift.bit(i)
-    temp := mux.pipe()
+  val vec = DFBits(32) <> IN                                 //latency = Some(0)
+  val shift = DFUInt(5) <> IN                                //latency = Some(0)
+  val res = DFBits(32) <> OUT                                //latency = Some(100)
+  val temp = vec
+  val m4 = new MuxN {}
+  m4.a <> (temp >> 16)
+  m4.b <> temp
+  m4.sel <> shift.bit(4)
+  val temp1 = m4.res.pipe(1)
+  val m3 = new MuxN {}
+  m3.a <> (temp1 >> 8)
+  m3.b <> temp1
+  m3.sel <> shift.bit(3)
+  val temp2 = m3.res.pipe(1)
+  val m2 = new MuxN {}
+  m2.a <> (temp2 >> 4)
+  m2.b <> temp2
+  m2.sel <> shift.bit(2)
+  val temp3 = m2.res.pipe(1)
+  val m1 = new MuxN {}
+  m1.a <> (temp3 >> 2)
+  m1.b <> temp3
+  m1.sel <> shift.bit(1)
+  val temp4 = m1.res.pipe(1)
+  val m0 = new MuxN {}
+  m0.a <> (temp4 >> 1)
+  m0.b <> temp4
+  m0.sel <> shift.bit(0)
+  val temp5 = m0.res.pipe(1)
+  res := temp5
 
-  }
-  res := temp
 }
 
 

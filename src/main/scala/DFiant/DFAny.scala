@@ -110,6 +110,16 @@ trait DFAny extends DFAnyMember with HasWidth {
     protPrev(step)
   //////////////////////////////////////////////////////////////////////////
 
+  //////////////////////////////////////////////////////////////////////////
+  // Pipe
+  //////////////////////////////////////////////////////////////////////////
+  final protected[DFiant] def protPipe(step : Int)(implicit ctx : DFAny.Alias.Context)
+  : TVal = alias(List(this), DFAny.Alias.Reference.Pipe(step))
+  final def pipe()(implicit ctx : DFAny.Alias.Context) : TVal = protPipe(1)
+  final def pipe[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
+    protPipe(step)
+  //////////////////////////////////////////////////////////////////////////
+
 
   //////////////////////////////////////////////////////////////////////////
   // Future Stuff
@@ -164,7 +174,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues) s"//latency = ${getCurrentSource.getMaxLatency}" else ""
+    if (config.commentLatencyValues) s"//latency = $name ${getCurrentSource.getMaxLatency}" else ""
 //  private def connCommentString : String =
 //    if (config.commentConnection) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
@@ -245,23 +255,23 @@ object DFAny {
 //      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
 //    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
-    private[DFiant] var assignedSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source.none(width))
+    private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
     override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
-    protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
+    protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
       val toVar = this
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       val toRelBitHigh = toRelBitLow + toRelWidth-1
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromSource}")
-      if (toRelWidth != fromSource.width) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromSource.width}).")
-      assignedSourceLB = LazyBox.Args1[Source, Source](this)(s => s.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource), assignedSourceLB)
+//      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromSource}")
+//      if (toRelWidth != fromSource.width) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromSource.width}).")
+      assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
     }
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       if (!ctx.owner.callSiteSameAsOwnerOf(this))
         throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
-      assign(width, 0, Source(that))
+      assign(width, 0, that.currentSourceLB)
     }
     //////////////////////////////////////////////////////////////////////////
   }
@@ -400,38 +410,38 @@ object DFAny {
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](width) with DFAny.Var {
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
-    private[DFiant] lazy val connectedSourceLB = LazyBox.Mutable[Source](this)(Some(Source.none(width)))
+    private[DFiant] lazy val connectedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
     private[DFiant] lazy val connectedOrAssignedSourceLB : LazyBox[Source] =
       LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB, prevSourceLB)
     override private[DFiant] lazy val currentSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
 
     //    override private[DFiant] lazy val refSourceLB : LazyBox[Source] = connectedSourceLB
-    final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : Connector.Context) : Unit = {
+    final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
       val toRelBitHigh = toRelBitLow + toRelWidth-1
-      val toSource = toVar.connectedSourceLB.get.bitsWL(toRelWidth, toRelBitLow)
-      val toAssignedSource = toVar.assignedSourceLB.get.bitsWL(toRelWidth, toRelBitLow)
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: $toSource <> $fromSource}")
-      if (toSource.width != fromSource.width) throwConnectionError(s"Target width (${toSource.width}) is different than source width (${fromSource.width}).")
-      if (!toSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: $toSource")
-      if (!toAssignedSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $toAssignedSource.\nCannot apply both := and <> operators for the same target")
+//      val toSource = toVar.connectedSourceLB.get.bitsWL(toRelWidth, toRelBitLow)
+//      val toAssignedSource = toVar.assignedSourceLB.get.bitsWL(toRelWidth, toRelBitLow)
+//      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: $toSource <> $fromSource}")
+//      if (toSource.width != fromSource.width) throwConnectionError(s"Target width (${toSource.width}) is different than source width (${fromSource.width}).")
+//      if (!toSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: $toSource")
+//      if (!toAssignedSource.isEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $toAssignedSource.\nCannot apply both := and <> operators for the same target")
       //All is well. We can now connect fromVal->toVar
-      connectedSourceLB.set(connectedSourceLB.get.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource))
+      connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), connectedSourceLB.getBox, fromSourceLB))
     }
     private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
-      connectFrom(width, 0, Source(fromVal))
+      connectFrom(width, 0, fromVal.currentSourceLB)
       //All is well. We can now connect fromVal->toVar
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
     }
-    override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
+    override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
       val toVar = this
       val toSource = toVar.connectedSourceLB.get.bitsWL(toRelWidth, toRelBitLow)
-      def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toSource := $fromSource}")
-      if (!toSource.isEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: $toSource.\nCannot apply both := and <> operators for the same target")
-      super.assign(toRelWidth, toRelBitLow, fromSource)
+//      def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toSource := $fromSource}")
+//      if (!toSource.isEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: $toSource.\nCannot apply both := and <> operators for the same target")
+      super.assign(toRelWidth, toRelBitLow, fromSourceLB)
     }
     final private[DFiant] def isConnected : Boolean = !connectedSourceLB.get.isEmpty
 
@@ -495,7 +505,7 @@ object DFAny {
       initialize(LazyBox.Const(this)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Some(Seq()))
+    private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Seq())
 
     //If there is a connection to the specific bits, then the initialization uses that connection.
     //Otherwise, the initialization uses the initialization set externally (via init or initialize)
@@ -570,6 +580,7 @@ object DFAny {
     final val ctx = ctx0
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
+//    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
 
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -604,16 +615,17 @@ object DFAny {
       reference match {
         case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => s.bitsWL(relWidth, relBitLow)
         case DFAny.Alias.Reference.Prev(step) => s.prev(step)
+        case DFAny.Alias.Reference.Pipe(step) => s.pipe(step)
         case DFAny.Alias.Reference.AsIs() => s
         case DFAny.Alias.Reference.BitReverse() => s.reverse
         case DFAny.Alias.Reference.Invert() => s.invert
       }
     }.flatMap(s => s.elements)).coalesce
 
-    override private[DFiant] lazy val connectedOrAssignedSourceLB : LazyBox[Source] =
-      LazyBox.ArgList[Source, Source](this)(sourceFunc, aliasedVars.map(v => v.thisSourceLB))
-    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
-    override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
+    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
+      LazyBox.ArgList[Source, Source](this)(sourceFunc, aliasedVars.map(v => v.currentSourceLB))
+//    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
+//    override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
 
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
@@ -652,6 +664,11 @@ object DFAny {
       object Prev {
         def apply(step : Int) = new Prev(step)
         def unapply(arg: Prev): Option[Int] = Some(arg.step)
+      }
+      class Pipe(val step : Int) extends Reference(if (step == 1) ".pipe" else s".pipe($step)")
+      object Pipe {
+        def apply(step : Int) = new Pipe(step)
+        def unapply(arg: Pipe): Option[Int] = Some(arg.step)
       }
       class BitReverse(aliasCodeString : => String) extends Reference(aliasCodeString)
       object BitReverse {
@@ -697,11 +714,12 @@ object DFAny {
     override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] =
       if (dir.isIn && owner.isTop) LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(this))
       else connectedOrAssignedSourceLB
+//    else LazyBox.Args1[Source, Source](this)(s => s.pipe(extraPipe), connectedOrAssignedSourceLB)
 
-    private var extraPipe : Int = 0
-    def pipe() : this.type = pipe(1)
-    final private[DFiant] override def pipeGet = extraPipe
-    final def pipe(p : Int) : this.type = {extraPipe = p; this}
+//    private var extraPipe : Int = 0
+//    def pipe() : this.type = pipe(1)
+//    final private[DFiant] override def pipeGet = extraPipe
+//    final def pipe(p : Int) : this.type = {extraPipe = p; this}
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
