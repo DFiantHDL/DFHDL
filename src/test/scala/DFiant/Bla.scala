@@ -19,7 +19,7 @@ trait Mux1 extends DFDesign {
   val a = DFBool() <> IN                                     //latency = Some(1)
   val b = DFBool() <> IN                                     //latency = Some(0)
   val res = DFBool() <> OUT                                  //latency = Some(0)
-  res <> ((sel && a) || (!sel && b))
+  res := ((sel && a) || (!sel && b)).pipe
 }
 
 trait Cont extends DFDesign {

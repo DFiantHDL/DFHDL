@@ -197,8 +197,8 @@ trait DFAny extends DFAnyMember with HasWidth {
     LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
   final private[DFiant] lazy val prevSourceLB : LazyBox[DFAny.Source] =
     LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(protPrev(1).setAutoName(s"${Name.AnonStart}${name}_prev")))
-  private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
-  final private[DFiant] def getCurrentSource : DFAny.Source = currentSourceLB.get
+  private[DFiant] def currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
+  final private[DFiant] lazy val getCurrentSource : DFAny.Source = currentSourceLB.get
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 }
@@ -256,8 +256,8 @@ object DFAny {
 //    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
     private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
-    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
-      LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
+    override private[DFiant] def currentSourceLB : LazyBox[Source] =
+      LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB.getBox, prevSourceLB)
     protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
       val toVar = this
       //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -411,9 +411,9 @@ object DFAny {
   ) extends Constructor[DF](width) with DFAny.Var {
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
     private[DFiant] lazy val connectedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
-    private[DFiant] lazy val connectedOrAssignedSourceLB : LazyBox[Source] =
-      LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB, prevSourceLB)
-    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
+    private[DFiant] def connectedOrAssignedSourceLB : LazyBox[Source] =
+      LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB.getBox, prevSourceLB)
+    override private[DFiant] def currentSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
 
     //    override private[DFiant] lazy val refSourceLB : LazyBox[Source] = connectedSourceLB
     final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : Connector.Context) : Unit = {
@@ -622,7 +622,7 @@ object DFAny {
       }
     }.flatMap(s => s.elements)).coalesce
 
-    override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
+    override private[DFiant] def currentSourceLB : LazyBox[Source] =
       LazyBox.ArgList[Source, Source](this)(sourceFunc, aliasedVars.map(v => v.currentSourceLB))
 //    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
 //    override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
@@ -711,7 +711,7 @@ object DFAny {
     type TDir = Dir
     final val ctx = ctx0
 
-    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] =
+    override private[DFiant] def currentSourceLB : LazyBox[DFAny.Source] =
       if (dir.isIn && owner.isTop) LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(this))
       else connectedOrAssignedSourceLB
 //    else LazyBox.Args1[Source, Source](this)(s => s.pipe(extraPipe), connectedOrAssignedSourceLB)
