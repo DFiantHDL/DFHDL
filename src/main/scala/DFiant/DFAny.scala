@@ -97,8 +97,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
   final lazy val refCount : Int = initLB.getDependencyNum
-  protected[DFiant] val pipeLB : LazyBox[Pipe]
-  private[DFiant] lazy val extraPipe : Int = 0
+  private[DFiant] def pipeGet : Int = 0
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -165,7 +164,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues) s"//latency = ${pipeLB.get}" else ""
+    if (config.commentLatencyValues) s"//latency = ${getCurrentSource.getMaxLatency}" else ""
 //  private def connCommentString : String =
 //    if (config.commentConnection) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
@@ -187,7 +186,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   private[DFiant] lazy val thisSourceLB : LazyBox[DFAny.Source] =
     LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
   final private[DFiant] lazy val prevSourceLB : LazyBox[DFAny.Source] =
-    LazyBox.Const[DFAny.Source](this)(DFAny.Source(protPrev(1).setAutoName(s"${Name.AnonStart}${name}_prev")))
+    LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(protPrev(1).setAutoName(s"${Name.AnonStart}${name}_prev")))
   private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
   final private[DFiant] def getCurrentSource : DFAny.Source = currentSourceLB.get
   val isPort : Boolean
@@ -247,7 +246,6 @@ object DFAny {
 //    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = !assignedSourceLB.get.isEmpty
     private[DFiant] var assignedSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source.none(width))
-    private[DFiant] var assignedPipeLB : LazyBox[Pipe] = LazyBox.Const[Pipe](this)(Pipe.none(width))
     override private[DFiant] lazy val currentSourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, assignedSourceLB, prevSourceLB)
     protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(implicit ctx : DFAny.Op.Context) : Unit = {
@@ -257,7 +255,6 @@ object DFAny {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromSource}")
       if (toRelWidth != fromSource.width) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromSource.width}).")
       assignedSourceLB = LazyBox.Args1[Source, Source](this)(s => s.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource), assignedSourceLB)
-      assignedPipeLB = LazyBox.Args1[Pipe, Pipe](this)(s => s.replaceWL(toRelWidth, toRelBitLow, fromSource.getCurrentSource.getPipe), assignedPipeLB)
     }
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       if (!ctx.owner.callSiteSameAsOwnerOf(this))
@@ -273,12 +270,22 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Source Aggregator
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class SourceTag(dfVal : DFAny, prevStep : Int, inverted : Boolean) {
-    def invert : SourceTag = SourceTag(dfVal, prevStep, !inverted)
-    def prev(step : Int) : SourceTag = SourceTag(dfVal, prevStep + step, inverted)
+  case class SourceTag(dfVal : DFAny, prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
+    def invert : SourceTag = SourceTag(dfVal, prevStep, !inverted, latency, pipeStep)
+    def prev(step : Int) : SourceTag = SourceTag(dfVal, prevStep + step, inverted, latency, pipeStep)
+    private def addPipeToLatency(p : Int) : Option[Int] = latency match {
+      case Some(lat) => Some(lat + p)
+      case None => None
+    }
+    def pipe(step : Int) : SourceTag = SourceTag(dfVal, prevStep, inverted, addPipeToLatency(step), pipeStep + step)
+    def balanceTo(maxLatency : Option[Int]) : SourceTag = (maxLatency, latency) match {
+      case (Some(maxLat), Some(lat)) => pipe(maxLat - lat)
+      case _ => this
+    }
   }
   object SourceTag {
-    def apply(dfVal : DFAny) : SourceTag = SourceTag(dfVal, prevStep = 0, inverted = false)
+    def apply(dfVal : DFAny) : SourceTag = SourceTag(dfVal, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
+    def withLatency(dfVal : DFAny, latency : Option[Int]) : SourceTag = SourceTag(dfVal, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
   }
   case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, tag : Option[SourceTag]) {
     val relWidth : Int = relBitHigh - relBitLow + 1
@@ -286,6 +293,8 @@ object DFAny {
     def reverse : SourceElement = SourceElement(relBitHigh, relBitLow, !reverseBits, tag)
     def invert : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.invert) else None )
     def prev(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.prev(step)) else None )
+    def pipe(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.pipe(step)) else None)
+    def balanceTo(maxLatency : Option[Int]) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.balanceTo(maxLatency)) else None)
 
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = tag match {
       case Some(t) =>
@@ -293,7 +302,8 @@ object DFAny {
         val invertStr = if (t.inverted) "~" else ""
         val prevStr = if (t.prevStep == 1) s".prev" else if (t.prevStep > 0) s".prev(${t.prevStep})" else ""
         val selStr = if (t.dfVal.width.getValue != relWidth) s"($relBitHigh, $relBitLow)" else ""
-        s"$invertStr${t.dfVal.refCodeString}$selStr$prevStr$reverseStr"
+        val pipeStr = if (t.pipeStep == 1) s".pipe" else if (t.pipeStep > 0) s".pipe(${t.pipeStep})" else ""
+        s"$invertStr${t.dfVal.refCodeString}$selStr$prevStr$pipeStr$reverseStr"
       case None => "None"
     }
 
@@ -343,6 +353,13 @@ object DFAny {
     def reverse : Source = Source(elements.reverse.map(e => e.reverse))
     def invert : Source = Source(elements.map(e => e.invert))
     def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
+    def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
+    def getMaxLatency : Option[Int] = {
+      val list = elements.flatMap(e => e.tag).flatMap(t => t.latency)
+      if (list.isEmpty) None else Some(list.max)
+    }
+    def balanceTo(maxLatency : Option[Int]) : Source = Source(elements.map(e => e.balanceTo(maxLatency))).coalesce
+    def balance : Source = balanceTo(getMaxLatency)
     def ## (that : Source) : Source = Source(this.elements ++ that.elements).coalesce
 
 
@@ -352,18 +369,14 @@ object DFAny {
       }).coalesce
     def getCurrentSource : Source = Source(elements.flatMap(e => e.getCurrentSource.elements)).coalesce
     def isEmpty : Boolean = elements.length == 1 && elements.head.tag.isEmpty
-    def getPipe : Pipe = elements.map(x => x.tag match {
-      case Some(t) =>
-        val selBits = t.dfVal.pipeLB.get.bitsWL(x.relWidth, x.relBitLow)
-        if (x.reverseBits) selBits.reverse else selBits
-      case None => Pipe.none(x.relWidth)
-    }).reduce((l, r) => l ## r)
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
       if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
     override def toString: String = elements.mkString(" ## ")
   }
   object Source {
     def apply(value : DFAny) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(SourceTag(value)))))
+    def withLatency(value : DFAny, latency : Option[Int]) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(SourceTag.withLatency(value, latency)))))
+    def zeroLatency(value : DFAny) : Source = withLatency(value, Some(0))
     def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -464,16 +477,6 @@ object DFAny {
     protected[DFiant] lazy val constLB : LazyBox[TToken] =
       LazyBox.Args1[TToken, Source](this)(constFunc, connectedOrAssignedSourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
     //////////////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////////////
-    // Pipelining
-    //////////////////////////////////////////////////////////////////////////
-    protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
-      LazyBox.Args1[Pipe, Source](this)(s => s.getPipe, connectedOrAssignedSourceLB, Some(Pipe.zero(width)))
-    protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
-    final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] =
-      LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
-    //////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -567,7 +570,6 @@ object DFAny {
     final val ctx = ctx0
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
-    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
 
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
@@ -672,7 +674,6 @@ object DFAny {
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
-    final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] = LazyBox.Const(this)(Pipe.none(width))
     final val isPort = false
     final val id = getID
   }
@@ -693,10 +694,14 @@ object DFAny {
     type TDir = Dir
     final val ctx = ctx0
 
-    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
+    override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] =
+      if (dir.isIn && owner.isTop) LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(this))
+      else connectedOrAssignedSourceLB
 
+    private var extraPipe : Int = 0
     def pipe() : this.type = pipe(1)
-    final def pipe(p : Int) : this.type = {if (pipeModLB.get != p) pipeModLB.set(p); this}
+    final private[DFiant] override def pipeGet = extraPipe
+    final def pipe(p : Int) : this.type = {extraPipe = p; this}
 
     private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies

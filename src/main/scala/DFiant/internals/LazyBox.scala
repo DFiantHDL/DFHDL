@@ -53,7 +53,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
         case _ => getCircularError
       }
 //      if (visitedCnt == 1 && name == "pipeLB" && !owner.asInstanceOf[DFiant.DFAny].isAnonymous)
-//        println(f"$this%-60s $valueOrError")
+        println(f"$this%-60s $valueOrError")
 
       visitedCnt -= 1
       locked = true

@@ -219,7 +219,7 @@ object Backend {
         if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, src)
         assignedValue = src.value
       }
-      val refPipe : Int = member.extraPipe
+      val refPipe : Int = member.pipeGet
       var maxPrevUse : Int = 0
       var maxPipeUse : Int = 0
       var assignedValue : String = ""
@@ -384,7 +384,7 @@ object Backend {
         def func2(member : Func2Comp[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
           val leftStr = {
             val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
-            val leftPipe = member.leftBalanceLB.get.elements.head + member.leftArg.asInstanceOf[DFAny].extraPipe
+            val leftPipe : PipeValue = ??? //member.leftBalanceLB.get.elements.head + member.leftArg.asInstanceOf[DFAny].extraPipe
             val leftRef = leftPipe match {
               case PipeValue(w, Some(p)) if p > 0 => References(member.leftArg.asInstanceOf[DFAny]).ref(p)
               case _ => left.value
@@ -394,7 +394,7 @@ object Backend {
           }.applyBrackets()
           val rightStr = {
             val right = Value(member.rightArg.asInstanceOf[DFAny])
-            val rightPipe = member.rightBalanceLB.get.elements.head + member.rightArg.asInstanceOf[DFAny].extraPipe
+            val rightPipe : PipeValue = ??? //member.rightBalanceLB.get.elements.head + member.rightArg.asInstanceOf[DFAny].extraPipe
             rightPipe match {
               case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const[_]] =>
                 References(member.rightArg.asInstanceOf[DFAny]).ref(p)

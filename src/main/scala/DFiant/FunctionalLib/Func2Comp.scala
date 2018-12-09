@@ -12,6 +12,13 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final protected[DFiant] lazy val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
 
+  final lazy val leftLatency : Option[Int] = leftArg.getCurrentSource.getMaxLatency
+  final lazy val rightLatency : Option[Int] = rightArg.getCurrentSource.getMaxLatency
+  final lazy val maxLatency : Option[Int] = List(leftLatency, rightLatency).max
+  override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] =
+    LazyBox.Const[DFAny.Source](this)(DFAny.Source.withLatency(this, maxLatency).pipe(extraPipe))
+
+
   final val inLeft = leftArg.copyAsNewPort(IN)
   final val inRight = rightArg.copyAsNewPort(IN)
   final val outResult = this.copyAsNewPort(OUT)
@@ -23,16 +30,12 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   }
 
   final lazy val constLB : LazyBox[TToken] = LazyBox.Args2(this)(tokenFunc, inLeft.constLB.asInstanceOf[LazyBox[leftArg.TToken]], inRight.constLB.asInstanceOf[LazyBox[rightArg.TToken]])
-  final protected[DFiant] lazy val pipeInletLB : LazyBox[Pipe] =
-    LazyBox.Args2[Pipe, Pipe, Pipe](this)((l, r) => Pipe(width, List(l, r).getMaxPipe),leftArg.pipeLB, rightArg.pipeLB)
-  protected val pipeModLB : LazyBox.Mutable[Int] = LazyBox.Mutable[Int](this)(Some(0))
-  override private[DFiant] lazy val extraPipe : Int = pipeModLB.get
+  private var extraPipe : Int = 0
   def pipe() : this.type = pipe(1)
-  final def pipe(p : Int) : this.type = {if (pipeModLB.get != p) pipeModLB.set(p); this}
-  final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] =
-    LazyBox.Args2[Pipe, Pipe, Int](this)((p, c) => p + c, pipeInletLB, pipeModLB)
-  final protected[DFiant] lazy val leftBalanceLB : LazyBox[Pipe] = LazyBox.Args2[Pipe, Pipe, Pipe](this)((l, r) => l - r, pipeLB, leftArg.pipeLB)
-  final protected[DFiant] lazy val rightBalanceLB : LazyBox[Pipe] = LazyBox.Args2[Pipe, Pipe, Pipe](this)((l, r) => l - r, pipeLB, rightArg.pipeLB)
+  private[DFiant] override def pipeGet : Int = extraPipe
+  final def pipe(p : Int) : this.type = {extraPipe = p; this}
+  final protected[DFiant] lazy val leftBalancedSource = leftArg.getCurrentSource.balanceTo(maxLatency)
+  final protected[DFiant] lazy val rightBalancedSource = rightArg.getCurrentSource.balanceTo(maxLatency)
 
   inLeft.connectVal2Port(leftArg)
   inRight.connectVal2Port(rightArg)
@@ -49,16 +52,8 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =
     if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
   override def constructCodeStringDefault: String = foldedConstructCodeString
-  private def leftBalanceCodeString : String = leftBalanceLB.get.elements.head.value match {
-    case Some(p) if p > 0 => s".pipe($p)"
-    case _ => ""
-  }
-  private def rightBalanceCodeString : String = rightBalanceLB.get.elements.head.value match {
-    case Some(p) if p > 0 => s".pipe($p)"
-    case _ => ""
-  }
   private[DFiant] override def designType : String = s"`Func2Comp$opString`"
-  override def foldedConstructCodeString: String = s"${leftArg.refCodeString} $opString ${rightArg.refCodeString}"
+  override def foldedConstructCodeString: String = s"${leftBalancedSource.refCodeString} $opString ${rightBalancedSource.refCodeString}"
   override def codeString: String = if (isFolded) super.codeString else valCodeString
 }
 
@@ -68,5 +63,6 @@ trait CompAlias extends CanBePiped {
   final val alias = this.asInstanceOf[DFAny.Alias[_]]
   val bypassAlias : Boolean
   def pipe() : this.type = pipe(1)
+  private[DFiant] override def pipeGet : Int = comp.pipeGet
   def pipe(p : Int) : this.type = {comp.pipe(p); this}
 }
