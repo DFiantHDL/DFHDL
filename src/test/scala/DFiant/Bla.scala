@@ -37,19 +37,26 @@ trait MuxN extends DFDesign {
   }
 }
 
-trait Cont extends DFDesign {
-  final val n = Cont.n
-  final val sel = DFBool() <> IN
+trait Bug1 extends DFDesign {
+  final val n = 32
   final val a   = DFBits(n) <> IN
-  final val b   = DFBits(n) <> IN
   final val res = DFBits(n) <> OUT
   val tempL = DFBits(16)
   val tempR = DFBits(16)
   tempL := a(31, 16)
   tempR := a(15, 0)
-//  (tempL, tempR).bits.bits(23,16) := h"57"
+  (tempL, tempR).bits.bits(23,16) := h"57"
   res(31, 16) := tempL
   res(15, 0) := tempR
+}
+
+trait Cont extends DFDesign {
+  final val n = Cont.n
+  final val a   = DFUInt(n) <> IN
+  final val res = DFUInt(n) <> OUT
+  val temp = DFUInt(32) init 5
+  temp := temp.prev
+  res := temp
 }
 
 object Cont {
@@ -58,5 +65,5 @@ object Cont {
 
 object Bla extends App {
   implicit val a = DFAnyConfiguration.foldedLatency
-  val bla = new Cont {}.printCodeString
+  val bla = new Cont {}.printVHDLString
 }

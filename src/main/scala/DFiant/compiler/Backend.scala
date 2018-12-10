@@ -313,8 +313,6 @@ object Backend {
               case DFAny.Alias.Reference.Invert() =>
                 assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
                 References(member.aliasedVars.head).assign(Value(s"(not $src)", src.typeS))
-              case DFAny.Alias.Reference.Prev(step) =>
-                throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
               case DFAny.Alias.Reference.AsIs() =>
                 if (member.aliasedVars.length == 1) {
                   References(member.aliasedVars.head).assign(src)
@@ -325,6 +323,8 @@ object Backend {
                     pos = pos - a.width
                   })
                 }
+              case _ =>
+                throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
             }
           }
           val aliasStr : String = member.reference match {
@@ -356,6 +356,8 @@ object Backend {
                 ref.maxPrevUse = step
               }
               s"${refName}_prev$step"
+            case DFAny.Alias.Reference.Pipe(step) =>
+              References(member.aliasedVars.head).ref(step)
             case DFAny.Alias.Reference.AsIs() =>
               val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
               member match {
@@ -384,22 +386,24 @@ object Backend {
         def func2(member : Func2Comp[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
           val leftStr = {
             val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
-            val leftPipe : PipeValue = ??? //member.leftBalanceLB.get.elements.head + member.leftArg.asInstanceOf[DFAny].extraPipe
-            val leftRef = leftPipe match {
-              case PipeValue(w, Some(p)) if p > 0 => References(member.leftArg.asInstanceOf[DFAny]).ref(p)
-              case _ => left.value
-            }
-            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize($leftRef, ${member.width})"
-            else leftRef
+//            val leftPipe : PipeValue = ??? //member.leftBalanceLB.get.elements.head + member.leftArg.asInstanceOf[DFAny].extraPipe
+//            val leftRef = leftPipe match {
+//              case PipeValue(w, Some(p)) if p > 0 => References(member.leftArg.asInstanceOf[DFAny]).ref(p)
+//              case _ => left.value
+//            }
+//            if (member.leftArg.asInstanceOf[DFAny].width < member.width) s"resize($leftRef, ${member.width})"
+//            else leftRef
+            ""
           }.applyBrackets()
           val rightStr = {
             val right = Value(member.rightArg.asInstanceOf[DFAny])
-            val rightPipe : PipeValue = ??? //member.rightBalanceLB.get.elements.head + member.rightArg.asInstanceOf[DFAny].extraPipe
-            rightPipe match {
-              case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const[_]] =>
-                References(member.rightArg.asInstanceOf[DFAny]).ref(p)
-              case _ => Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
-            }
+//            val rightPipe : PipeValue = ??? //member.rightBalanceLB.get.elements.head + member.rightArg.asInstanceOf[DFAny].extraPipe
+//            rightPipe match {
+//              case PipeValue(w, Some(p)) if p > 0 && !member.rightArg.isInstanceOf[DFAny.Const[_]] =>
+//                References(member.rightArg.asInstanceOf[DFAny]).ref(p)
+//              case _ => Value(member.rightArg.asInstanceOf[DFAny]).value.applyBrackets()
+//            }
+            ""
           }
           val op = member.opString match {
             case "&" | "&&" => "and"

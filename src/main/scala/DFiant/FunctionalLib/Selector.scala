@@ -21,8 +21,6 @@ abstract class Selector[SW, W]
   final protected[DFiant] lazy val constLB : LazyBox[TToken] =
     LazyBox.Args1List[DFBits.Token, DFUInt.Token, DFBits.Token](this)((a, l) => a.select(l), inSel.constLB, inArgs.map(a => a.constLB))
 
-  final protected[DFiant] lazy val pipeLB : LazyBox[Pipe] = ???
-
   inSel.connectVal2Port(sel)
   inArgs.zip(args).foreach{case (inArg, arg) => inArg.connectVal2Port(arg)}
 
