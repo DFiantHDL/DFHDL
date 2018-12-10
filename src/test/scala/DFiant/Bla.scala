@@ -43,19 +43,20 @@ trait Cont extends DFDesign {
   final val a   = DFBits(n) <> IN
   final val b   = DFBits(n) <> IN
   final val res = DFBits(n) <> OUT
-//  val temp = DFBool()
-  val mux = new MuxN {}
-  mux.sel <> sel
-  mux.a <> a.pipe
-  mux.b <> b
-  res := mux.res
+  val tempL = DFBits(16)
+  val tempR = DFBits(16)
+  tempL := a(31, 16)
+  tempR := a(15, 0)
+//  (tempL, tempR).bits.bits(23,16) := h"57"
+  res(31, 16) := tempL
+  res(15, 0) := tempR
 }
 
 object Cont {
-  final val n = 2
+  final val n = 32
 }
 
 object Bla extends App {
-  implicit val a = DFAnyConfiguration.foldedLatency
+  implicit val a = DFAnyConfiguration.foldedConn
   val bla = new Cont {}.printCodeString
 }

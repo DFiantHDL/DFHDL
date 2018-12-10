@@ -174,11 +174,11 @@ trait DFAny extends DFAnyMember with HasWidth {
   private def initCommentString : String =
     if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues) s"//latency = ${getCurrentSource.latencyString}" else ""
-//  private def connCommentString : String =
-//    if (config.commentConnection) s"//conn = ${getCurrentSource.refCodeString}" else ""
+    if (config.commentLatencyValues && owner.isTop) s"//latency = ${getCurrentSource.latencyString}" else ""
+  private def connCommentString : String =
+    if (config.commentConnection && owner.isTop) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
-  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString"
+  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -300,6 +300,14 @@ object DFAny {
       case (Some(maxLat), Some(lat)) => pipe(maxLat - lat)
       case _ => this
     }
+
+    override def equals(that: Any): Boolean = that match {
+      case SourceTag(dfVal2, prevStep2, inverted2, latency2, pipeStep2) =>
+        dfVal.fullName == dfVal2.fullName && prevStep == prevStep2 && inverted == inverted2 &&
+          latency == latency2 && pipeStep == pipeStep2
+      case _ =>
+        false
+    }
   }
   object SourceTag {
     def apply(dfVal : DFAny) : SourceTag = SourceTag(dfVal, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
@@ -325,8 +333,8 @@ object DFAny {
       case None => "None"
     }
     def latencyString : String = tag match {
-      case Some(t) => s"${t.latency}"
-      case None => s"None"
+      case Some(SourceTag(_,_,_,Some(lat),_)) => lat.toString
+      case _ => s"NA"
     }
 
 
@@ -349,7 +357,7 @@ object DFAny {
   case class Source(elements : List[SourceElement]) {
     val width : Int = elements.map(v => v.relWidth).sum
     def coalesce : Source = Source(elements.foldLeft(List[SourceElement]()) {
-      case (ls, e) if ls.isEmpty || !(ls.last.tag eq e.tag)=> ls :+ e
+      case (ls, e) if ls.isEmpty || (ls.last.tag != e.tag)=> ls :+ e
       case (ls, right) =>
         val left = ls.last
         val coupled : List[SourceElement] =
@@ -395,15 +403,15 @@ object DFAny {
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
       if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
     def latencyString : String = {
-//      val temp = elements.collectFirst{case SourceElement(_,_,_,Some(SourceTag(d, _,_,_,_))) => d}.get
-//      val coalesedLatency = Source(elements.collect{case SourceElement(high, low, rev, tag) =>
-//        SourceElement(high, low, rev, Some(SourceTag.withLatency(temp, if (tag.isDefined) tag.get.latency else None)))}).coalesce
+      val temp = elements.collectFirst{case SourceElement(_,_,_,Some(SourceTag(d, _,_,_,_))) => d}.get
+      val coalesedLatency = Source(separate.elements.zipWithIndex.collect{case (e, i) =>
+        SourceElement(reverseIndex(i), reverseIndex(i), false, Some(SourceTag.withLatency(temp, if (e.tag.isDefined) e.tag.get.latency else None)))}).coalesce
       var pos = width-1
-      elements.map(e => {
+      coalesedLatency.elements.map(e => {
         val high = pos
         pos -= e.relWidth
         val low = pos+1
-        s"${e.latencyString}@($high, $low)"
+        if (high-low+1 == width) e.latencyString else s"${e.latencyString}@($high, $low)"
       }).mkString(", ")
     }
     override def toString: String = elements.mkString(" ## ")
