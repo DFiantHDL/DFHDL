@@ -57,6 +57,6 @@ object Cont {
 }
 
 object Bla extends App {
-  implicit val a = DFAnyConfiguration.foldedConn
+  implicit val a = DFAnyConfiguration.foldedLatency
   val bla = new Cont {}.printCodeString
 }

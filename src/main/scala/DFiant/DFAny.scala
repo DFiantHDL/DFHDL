@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.DFAny.Op.Context
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -684,6 +685,8 @@ object DFAny {
       val assignableAbsolutes = absolutes.filter(a => toRelBitHigh >= a.low || toRelBitLow <= a.high)
 //      println(f"${s"$fullName($toRelBitHigh, $toRelBitLow)"}%-30s := ") //${fromVal.fullName}@${fromVal.width}
       assignableAbsolutes.foreach {
+        case absolute(alias : DFAny.Port[_,_], high, low) if alias.dir.isIn =>
+          throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
         case absolute(alias : DFAny.Var, high, low) =>
           val partHigh = scala.math.min(high, toRelBitHigh)
           val partLow = scala.math.max(low, toRelBitLow)
@@ -894,6 +897,7 @@ object DFAny {
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
+
     private[DFiant] def constructCodeStringDefault : String = s"${dfVar.constructCodeStringDefault} <> $dir$initCodeString"
     override def toString : String = s"$fullName : $typeName <> $dir"
     final val id = getID
