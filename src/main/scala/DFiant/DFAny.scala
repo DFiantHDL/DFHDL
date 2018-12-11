@@ -799,8 +799,8 @@ object DFAny {
     final val ctx = ctx0
 
     override private[DFiant] def currentSourceLB : LazyBox[DFAny.Source] =
-      if (dir.isIn && owner.isTop) LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(this))
-      else connectedOrAssignedSourceLB
+      if (dir.isIn && owner.isTop) thisSourceLB
+      else super.currentSourceLB
 //    else LazyBox.Args1[Source, Source](this)(s => s.pipe(extraPipe), connectedOrAssignedSourceLB)
 
 //    private var extraPipe : Int = 0
