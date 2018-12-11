@@ -175,9 +175,9 @@ trait DFAny extends DFAnyMember with HasWidth {
   private def initCommentString : String =
     if (config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${getCurrentSource.latencyString}" else ""
+    if (config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${getFlatSource.latencyString}" else ""
   private def connCommentString : String =
-    if (config.commentConnection || owner.privShowConnections) s"//conn = ${getCurrentSource.refCodeString}" else ""
+    if (config.commentConnection || owner.privShowConnections) s"//conn = ${getFlatSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
   def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   //////////////////////////////////////////////////////////////////////////
@@ -199,8 +199,10 @@ trait DFAny extends DFAnyMember with HasWidth {
     LazyBox.Const[Source](this)(Source.zeroLatency(this))
   final private[DFiant] lazy val prevSourceLB : LazyBox[Source] =
     LazyBox.Const[Source](this)(Source.zeroLatency(this).prev(1))
-  private[DFiant] def flatCurrentSourceLB : LazyBox[Source] = thisSourceLB
-  final private[DFiant] lazy val getCurrentSource : Source = flatCurrentSourceLB.get
+  private[DFiant] def flatSourceLB : LazyBox[Source] = thisSourceLB
+  private[DFiant] def foldedSourceLB : LazyBox[Source] = thisSourceLB
+  final private[DFiant] lazy val getFlatSource : Source = flatSourceLB.get
+  final private[DFiant] lazy val getFoldedSource : Source = foldedSourceLB.get
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 }
@@ -259,8 +261,11 @@ object DFAny {
     final private[DFiant] def isAssigned : Boolean = !flatAssignedSourceLB.get.isEmpty
     private[DFiant] lazy val flatAssignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
     private[DFiant] val assignedIndication = collection.mutable.BitSet.empty
-    override private[DFiant] def flatCurrentSourceLB : LazyBox[Source] =
+    override private[DFiant] def flatSourceLB : LazyBox[Source] =
       LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, flatAssignedSourceLB.getBox, prevSourceLB)
+    private[DFiant] lazy val foldedAssignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
+    override private[DFiant] def foldedSourceLB : LazyBox[Source] =
+      LazyBox.Args2[Source, Source, Source](this)((a, p) => a orElse p, foldedAssignedSourceLB.getBox, prevSourceLB)
 
     private[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
       flatAssignedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), flatAssignedSourceLB.getBox, fromSourceLB))
@@ -276,7 +281,8 @@ object DFAny {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
       if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
       assignedIndication ++= toRelBitLow to toRelBitHigh
-      assign(toRelWidth, toRelBitLow, fromVal.flatCurrentSourceLB)
+      foldedAssignedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), flatAssignedSourceLB.getBox, fromVal.thisSourceLB))
+      assign(toRelWidth, toRelBitLow, fromVal.flatSourceLB)
       protAssignDependencies += Assignment(toVar, fromVal)
       protAssignDependencies += fromVal
     }
@@ -348,12 +354,6 @@ object DFAny {
         s"${t.dfVal.fullName}($relBitHigh, $relBitLow)$prevStr$reverseStr$invertStr"
       case None => s"None($relBitHigh, $relBitLow)"
     }
-    def getCurrentSource : Source = tag match {
-      case Some(t) =>
-        val sel = t.dfVal.getCurrentSource.bitsWL(relWidth, relBitLow)
-        if (reverseBits) sel.reverse else sel
-      case None => Source.none(relWidth)
-    }
   }
 
   case class Source(elements : List[SourceElement]) {
@@ -400,7 +400,6 @@ object DFAny {
       Source(this.separate.elements.zip(that.separate.elements).collect {
         case (left, right) => if (left.tag.isDefined) left else right
       }).coalesce
-    def getCurrentSource : Source = Source(elements.flatMap(e => e.getCurrentSource.elements)).coalesce
     def isEmpty : Boolean = elements.length == 1 && elements.head.tag.isEmpty
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
       if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
@@ -450,9 +449,12 @@ object DFAny {
   ) extends Constructor[DF](width) with DFAny.Var {
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
     private[DFiant] lazy val flatConnectedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
-    override private[DFiant] def flatCurrentSourceLB : LazyBox[Source] =
+    override private[DFiant] def flatSourceLB : LazyBox[Source] =
       LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, flatConnectedSourceLB, flatAssignedSourceLB.getBox, prevSourceLB)
     private[DFiant] val connectedIndication = collection.mutable.BitSet.empty
+    private[DFiant] lazy val foldedConnectedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
+    override private[DFiant] def foldedSourceLB : LazyBox[Source] =
+      LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, foldedConnectedSourceLB, foldedAssignedSourceLB.getBox, prevSourceLB)
 
     //    override private[DFiant] lazy val refSourceLB : LazyBox[Source] = connectedSourceLB
     final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
@@ -467,7 +469,8 @@ object DFAny {
       if ((assignedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${flatAssignedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
       //All is well. We can now connect fromVal->toVar
       connectedIndication ++= toRelBitLow to toRelBitHigh
-      flatConnectedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), flatConnectedSourceLB.getBox, fromVal.flatCurrentSourceLB))
+      flatConnectedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), flatConnectedSourceLB.getBox, fromVal.flatSourceLB))
+      foldedConnectedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), foldedConnectedSourceLB.getBox, fromVal.thisSourceLB))
     }
     private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
       val toVar = this
@@ -527,7 +530,7 @@ object DFAny {
       protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
     }
     protected[DFiant] lazy val constLB : LazyBox[TToken] =
-      LazyBox.Args1[TToken, Source](this)(constFunc, flatCurrentSourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
+      LazyBox.Args1[TToken, Source](this)(constFunc, flatSourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
     //////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -677,8 +680,10 @@ object DFAny {
         case DFAny.Alias.Reference.Invert() => s.invert
       }
     }.flatMap(s => s.elements)).coalesce
-    override private[DFiant] def flatCurrentSourceLB =
-      LazyBox.Args1List[Source, Source, Source](this)(currentSourceFunc, thisSourceLB, aliasedVars.map(v => v.flatCurrentSourceLB))
+    override private[DFiant] def flatSourceLB =
+      LazyBox.Args1List[Source, Source, Source](this)(currentSourceFunc, thisSourceLB, aliasedVars.map(v => v.flatSourceLB))
+    override private[DFiant] def foldedSourceLB =
+      LazyBox.Args1List[Source, Source, Source](this)(currentSourceFunc, thisSourceLB, aliasedVars.map(v => v.foldedSourceLB))
 
     override private[DFiant] lazy val initSourceLB : LazyBox[Source] = thisSourceLB
 
@@ -722,8 +727,8 @@ object DFAny {
       } //TODO: fix dependency to bit accurate dependency?
 //      super.assign(that)
       reference match {
-        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => assign(relWidth, relBitLow, that.flatCurrentSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
-        case DFAny.Alias.Reference.AsIs() => assign(width, 0, that.flatCurrentSourceLB)
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => assign(relWidth, relBitLow, that.flatSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
+        case DFAny.Alias.Reference.AsIs() => assign(width, 0, that.flatSourceLB)
         case DFAny.Alias.Reference.BitReverse() => ??? // assign(width, 0, that.reverse)
         case DFAny.Alias.Reference.Invert() => ???
         case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
@@ -801,9 +806,12 @@ object DFAny {
     type TDir = Dir
     final val ctx = ctx0
 
-    override private[DFiant] def flatCurrentSourceLB : LazyBox[Source] =
+    override private[DFiant] def flatSourceLB : LazyBox[Source] =
       if (dir.isIn && owner.isTop) LazyBox.Const[Source](this)(Source.none(width))//thisSourceLB //
-      else super.flatCurrentSourceLB
+      else super.flatSourceLB
+    override private[DFiant] def foldedSourceLB : LazyBox[Source] =
+      if (dir.isIn && owner.isTop) LazyBox.Const[Source](this)(Source.none(width))//thisSourceLB //
+      else super.foldedSourceLB
 //    else LazyBox.Args1[Source, Source](this)(s => s.pipe(extraPipe), connectedOrAssignedSourceLB)
 
 //    private var extraPipe : Int = 0

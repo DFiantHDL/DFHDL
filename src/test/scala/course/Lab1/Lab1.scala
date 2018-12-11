@@ -18,7 +18,6 @@ trait MuxN extends DFDesign {
   final val res = DFBits(n) <> OUT
   for (i <- 0 until n) {
     val mux = new Mux1 {}.setName(s"m$i")
-    if (i < 2) mux.showConnections
     mux.sel <> sel
     mux.a <> a(i)
     mux.b <> b(i)
@@ -71,5 +70,5 @@ trait RightShifter_TB extends DFSimulator {
 
 object Lab1 extends App {
   println("Hello world! I'm Lab #1")
-  val rightShifter_tb = new MuxN {}.showConnections.printCodeString//.compileToVHDL.print().toFile("lab1.vhd")
+  val rightShifter_tb = new RightShifter {}.compileToVHDL.print().toFile("lab1.vhd")
 }

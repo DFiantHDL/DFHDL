@@ -384,7 +384,7 @@ object Backend {
       }
       object statements {
         def func2(member : Func2Comp[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
-          println(s"$member ===> ${member.leftArg} ${member.opString} ${member.rightArg}")
+//          println(s"$member ===> ${member.leftArg} ${member.opString} ${member.rightArg}")
           val leftStr = {
 //            val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
             val tag = member.leftBalancedSource.elements.head.tag.get
