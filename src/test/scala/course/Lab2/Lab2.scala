@@ -76,6 +76,6 @@ trait RightShifter_TB extends DFSimulator {
 object Lab2 extends App {
   println("Hello world! I'm Lab #2")
   implicit val config = DFAnyConfiguration.foldedLatency
-  val rightShifter = new RightShifter {}.printCodeString
+  val rightShifter = new RightShifter {}.showLatencies.printCodeString
 //  val rightShifter_tb = new RightShifter_TB {}.compileToVHDL.print().toFile("lab2.vhd")
 }

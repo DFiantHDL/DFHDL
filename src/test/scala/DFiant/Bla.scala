@@ -56,7 +56,8 @@ trait Cont extends DFDesign {
   final val res = DFUInt(n) <> OUT
   val temp = DFUInt(32) init 5
   temp := temp.prev
-  res := temp.pipe()
+  val tp = temp.prev
+  res := tp.prev(2)
 }
 
 object Cont {

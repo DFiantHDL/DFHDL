@@ -194,12 +194,13 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  private[DFiant] lazy val thisSourceLB : LazyBox[DFAny.Source] =
-    LazyBox.Const[DFAny.Source](this)(DFAny.Source(this))
-  final private[DFiant] lazy val prevSourceLB : LazyBox[DFAny.Source] =
-    LazyBox.Const[DFAny.Source](this)(DFAny.Source.zeroLatency(protPrev(1).setAutoName(s"${Name.AnonStart}${name}_prev")))
-  private[DFiant] def currentSourceLB : LazyBox[DFAny.Source] = thisSourceLB
-  final private[DFiant] lazy val getCurrentSource : DFAny.Source = currentSourceLB.get
+  import DFAny.Source
+  private[DFiant] lazy val thisSourceLB : LazyBox[Source] =
+    LazyBox.Const[Source](this)(Source.zeroLatency(this))
+  final private[DFiant] lazy val prevSourceLB : LazyBox[Source] =
+    LazyBox.Const[Source](this)(Source.zeroLatency(this).prev(1))
+  private[DFiant] def currentSourceLB : LazyBox[Source] = thisSourceLB
+  final private[DFiant] lazy val getCurrentSource : Source = currentSourceLB.get
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 }
@@ -649,21 +650,32 @@ object DFAny {
 
     //TODO: something with balancing upon reading a complete value
     //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
-    private def sourceFunc(currentSourceList : List[Source]) : Source = Source(currentSourceList.map {s =>
+    private def thisSourceFunc(sourceList : List[Source]) : Source = Source(sourceList.map {s =>
       reference match {
         case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => s.bitsWL(relWidth, relBitLow)
         case DFAny.Alias.Reference.Prev(step) => s.prev(step)
+        case DFAny.Alias.Reference.Pipe(step) => s
+        case DFAny.Alias.Reference.AsIs() => s
+        case DFAny.Alias.Reference.BitReverse() => s.reverse
+        case DFAny.Alias.Reference.Invert() => s
+      }
+    }.flatMap(s => s.elements)).coalesce
+
+    override private[DFiant] lazy val thisSourceLB =
+      LazyBox.ArgList[Source, Source](this)(thisSourceFunc, aliasedVars.map(v => v.thisSourceLB))
+
+    private def currentSourceFunc(thisSource : Source, currentSourceList : List[Source]) : Source = Source(currentSourceList.map {s =>
+      reference match {
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => s.bitsWL(relWidth, relBitLow)
+        case DFAny.Alias.Reference.Prev(step) => thisSource
         case DFAny.Alias.Reference.Pipe(step) => s.pipe(step)
         case DFAny.Alias.Reference.AsIs() => s
         case DFAny.Alias.Reference.BitReverse() => s.reverse
         case DFAny.Alias.Reference.Invert() => s.invert
       }
     }.flatMap(s => s.elements)).coalesce
-
-    override private[DFiant] def currentSourceLB : LazyBox[Source] =
-      LazyBox.ArgList[Source, Source](this)(sourceFunc, aliasedVars.map(v => v.currentSourceLB))
-//    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
-//    override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = connectedOrAssignedSourceLB
+    override private[DFiant] lazy val currentSourceLB =
+      LazyBox.Args1List[Source, Source, Source](this)(currentSourceFunc, thisSourceLB, aliasedVars.map(v => v.currentSourceLB))
 
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
