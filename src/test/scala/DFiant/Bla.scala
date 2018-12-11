@@ -56,7 +56,7 @@ trait Cont extends DFDesign {
   final val res = DFUInt(n) <> OUT
   val temp = DFUInt(32) init 5
   temp := temp.prev
-  res := temp
+  res := temp.pipe()
 }
 
 object Cont {
@@ -64,6 +64,5 @@ object Cont {
 }
 
 object Bla extends App {
-  implicit val a = DFAnyConfiguration.foldedLatency
-  val bla = new Cont {}.printVHDLString
+  val bla = new Cont {}.showConnections.printCodeString
 }

@@ -27,6 +27,12 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
     noAnonymous.codeString.delimRowsBy(delim)
   }
 
+  private[DFiant] var privShowInits : Boolean = false
+  final def showInits : this.type = {privShowInits = true; this}
+  private[DFiant] var privShowLatencies : Boolean = false
+  final def showLatencies : this.type = {privShowLatencies = true; this}
+  private[DFiant] var privShowConnections : Boolean = false
+  final def showConnections : this.type = {privShowConnections = true; this}
 }
 
 trait DFAnyConfiguration extends DSLConfiguration {
@@ -39,9 +45,9 @@ object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = false
     val foldComponents : Boolean = true
-    val commentInitValues: Boolean = false
-    val commentLatencyValues: Boolean = false
-    val commentConnection: Boolean = false
+    val commentInitValues: Boolean = true
+    val commentLatencyValues: Boolean = true
+    val commentConnection: Boolean = true
   }
   object detailed extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = true

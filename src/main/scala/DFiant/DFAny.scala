@@ -173,11 +173,11 @@ trait DFAny extends DFAnyMember with HasWidth {
     ref.applyBrackets() //TODO: consider other way instead of this hack
   }
   private def initCommentString : String =
-    if (config.commentInitValues) s"//init = ${initLB.get.codeString}" else ""
+    if (config.commentInitValues && owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues && owner.isTop) s"//latency = ${getCurrentSource.latencyString}" else ""
+    if (config.commentLatencyValues && owner.privShowLatencies) s"//latency = ${getCurrentSource.latencyString}" else ""
   private def connCommentString : String =
-    if (config.commentConnection && owner.isTop) s"//conn = ${getCurrentSource.refCodeString}" else ""
+    if (config.commentConnection && owner.privShowConnections) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
   def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   //////////////////////////////////////////////////////////////////////////
@@ -649,7 +649,7 @@ object DFAny {
 
     //TODO: something with balancing upon reading a complete value
     //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
-    private def sourceFunc(sourceList : List[Source]) : Source = Source(sourceList.map {s =>
+    private def sourceFunc(currentSourceList : List[Source]) : Source = Source(currentSourceList.map {s =>
       reference match {
         case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => s.bitsWL(relWidth, relBitLow)
         case DFAny.Alias.Reference.Prev(step) => s.prev(step)
