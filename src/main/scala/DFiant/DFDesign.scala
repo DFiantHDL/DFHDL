@@ -25,11 +25,17 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   override def codeString: String = {
+    init
     val valCode = valCodeString
     if (isTop) s"$designDB\n$valCode" else valCode
   }
+  private def openInputsCheck() : Unit = discoveredList.collect {
+    case p : DFAny.Port[_,_] if p.dir.isIn && !isTop && !p.isConnected && p.initLB.get.isEmpty =>
+      throw new IllegalArgumentException(s"\nFound an uninitialized open input port: ${p.fullName}")
+  }
+  private lazy val init : Unit = openInputsCheck()
   final def printCodeString : this.type = {println(codeString); this}
-  def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
+  def compileToVHDL : Backend.VHDL = {init; new Backend.VHDL(this)}
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
 }
 
