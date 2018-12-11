@@ -387,13 +387,13 @@ object Backend {
           val leftStr = {
 //            val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
             val tag = member.leftBalancedSource.elements.head.tag.get
-            if (tag.dfVal.isInstanceOf[DFAny.Const[_]]) Value(tag.dfVal).toString
-            else References(tag.dfVal).ref(tag.pipeStep)
-          }.applyBrackets()
+            if (tag.pipeStep > 0) References(tag.dfVal).ref(tag.pipeStep)
+            else Value(tag.dfVal).value.applyBrackets()
+          }
           val rightStr = {
             val tag = member.rightBalancedSource.elements.head.tag.get
-            if (tag.dfVal.isInstanceOf[DFAny.Const[_]]) Value(tag.dfVal).toString
-            else References(tag.dfVal).ref(tag.pipeStep)
+            if (tag.pipeStep > 0) References(tag.dfVal).ref(tag.pipeStep)
+            else Value(tag.dfVal).value.applyBrackets()
 //            val right = Value(member.rightArg.asInstanceOf[DFAny])
 //            val rightPipe : PipeValue = ??? //member.rightBalanceLB.get.elements.head + member.rightArg.asInstanceOf[DFAny].extraPipe
 //            rightPipe match {
