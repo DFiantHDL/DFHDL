@@ -674,8 +674,10 @@ object DFAny {
         case DFAny.Alias.Reference.Invert() => s.invert
       }
     }.flatMap(s => s.elements)).coalesce
-    override private[DFiant] lazy val currentSourceLB =
+    override private[DFiant] def currentSourceLB =
       LazyBox.Args1List[Source, Source, Source](this)(currentSourceFunc, thisSourceLB, aliasedVars.map(v => v.currentSourceLB))
+
+    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = thisSourceLB
 
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"

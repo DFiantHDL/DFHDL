@@ -395,9 +395,9 @@ class ConnectTest extends Properties("ConnectTest") {
         |  val o_wc = DFUInt(9) <> OUT                                //init = (6)
         |  val o_c = DFBool() <> OUT                                  //init = (false)
         |  val plusOneWC = new `Func2Comp+` {}
+        |  val plusOne = plusOneWC.outResult.bits(7, 0).uint          //init = (6)
         |  plusOneWC.inLeft <> i
         |  plusOneWC.inRight <> 1
-        |  val plusOne = plusOneWC.outResult.bits(7, 0).uint          //init = (6)
         |  o <> plusOne
         |  o_wc <> plusOneWC.outResult
         |  val plusOneC = plusOneWC.outResult.bit(8)                  //init = (false)
@@ -507,7 +507,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val topLoop = new ContainerConnLoop {}
     val expectedError =
       """
-        |Circular dependency detected at topLoop.o.initLB <- topLoop.o.initConnectedLB <- topLoop.io.dFt_i_prev.initConnectedLB <- topLoop.io.i.initLB <- topLoop.io.i.initConnectedLB <- topLoop.io.dFt_i_prev.initConnectedLB <- topLoop.io.i.initLB <- topLoop.io.i.initConnectedLB <- topLoop.io.dFt_i_prev.initConnectedLB
+        |Contradiction in circular dependency topLoop.io.o(7, 0).prev(1) != None(7, 0) at topLoop.o.initLB <- topLoop.o.connectFrom <- topLoop.io.o.connectedOrAssignedSourceLB <- topLoop.io.o.connectedSourceLB
       """.stripMargin
     illRunCompare(expectedError) {
       topLoop.codeString
