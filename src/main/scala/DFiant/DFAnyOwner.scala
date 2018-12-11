@@ -45,9 +45,9 @@ object DFAnyConfiguration {
   implicit object default extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = false
     val foldComponents : Boolean = true
-    val commentInitValues: Boolean = true
-    val commentLatencyValues: Boolean = true
-    val commentConnection: Boolean = true
+    val commentInitValues: Boolean = false
+    val commentLatencyValues: Boolean = false
+    val commentConnection: Boolean = false
   }
   object detailed extends DFAnyConfiguration {
     val showAnonymousEntries : Boolean = true

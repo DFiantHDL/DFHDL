@@ -173,11 +173,11 @@ trait DFAny extends DFAnyMember with HasWidth {
     ref.applyBrackets() //TODO: consider other way instead of this hack
   }
   private def initCommentString : String =
-    if (config.commentInitValues && owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
+    if (config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
   private def latencyCommentString : String =
-    if (config.commentLatencyValues && owner.privShowLatencies) s"//latency = ${getCurrentSource.latencyString}" else ""
+    if (config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${getCurrentSource.latencyString}" else ""
   private def connCommentString : String =
-    if (config.commentConnection && owner.privShowConnections) s"//conn = ${getCurrentSource.refCodeString}" else ""
+    if (config.commentConnection || owner.privShowConnections) s"//conn = ${getCurrentSource.refCodeString}" else ""
   private def valCodeString : String = s"\nval $name = $constructCodeString"
   def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   //////////////////////////////////////////////////////////////////////////
