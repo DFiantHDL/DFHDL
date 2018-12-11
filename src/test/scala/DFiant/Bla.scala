@@ -57,7 +57,7 @@ trait Cont extends DFDesign {
   val temp = DFUInt(32) init 5
   temp := a
   val tp = temp.prev
-  res := tp.prev(2)
+  res := a + 1
 }
 
 object Cont {
@@ -65,5 +65,5 @@ object Cont {
 }
 
 object Bla extends App {
-  val bla = new Cont {}.showConnections.printCodeString
+  val bla = new Cont {}.printVHDLString
 }

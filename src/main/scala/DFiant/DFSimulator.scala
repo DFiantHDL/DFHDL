@@ -42,9 +42,15 @@ object Severity {
 trait DFSimulator extends DFDesign {
   private var clkFreqKHz : Int = 100000
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
-  override def compileToVHDL : Backend.VHDL = {
+  private def keepAll : Unit =
     mutableMemberList.collect{case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)} //for simulations we keep all
+  override def compileToVHDL : Backend.VHDL = {
+    keepAll
     new Backend.VHDL(this, null, Some(clkFreqKHz))
+  }
+  override def codeString: String = {
+    keepAll
+    super.codeString
   }
   protected object sim {
     final val Note = Severity.Note

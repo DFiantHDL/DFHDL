@@ -37,8 +37,8 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 //  def pipe() : this.type = pipe(1)
 //  private[DFiant] override def pipeGet : Int = extraPipe
 //  final def pipe(p : Int) : this.type = {extraPipe = p; this}
-//  final protected[DFiant] lazy val leftBalancedSource = leftArg.getCurrentSource.balanceTo(maxLatency)
-//  final protected[DFiant] lazy val rightBalancedSource = rightArg.getCurrentSource.balanceTo(maxLatency)
+  final private[DFiant] lazy val leftBalancedSource = leftArg.getCurrentSource.balanceTo(maxLatency.get)
+  final private[DFiant] lazy val rightBalancedSource = rightArg.getCurrentSource.balanceTo(maxLatency.get)
 
   lazy val connect : Unit ={
 //    println(s"$fullName connected")
