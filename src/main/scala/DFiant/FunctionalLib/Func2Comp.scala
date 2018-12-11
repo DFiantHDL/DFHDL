@@ -12,10 +12,10 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final protected[DFiant] lazy val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
 
-  final val leftLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, leftArg.currentSourceLB)
-  final val rightLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, rightArg.currentSourceLB)
+  final val leftLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, leftArg.flatCurrentSourceLB)
+  final val rightLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, rightArg.flatCurrentSourceLB)
   final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](this)((l, r) => List(l, r).max, leftLatency, rightLatency)
-  override private[DFiant] lazy val currentSourceLB : LazyBox[DFAny.Source] = {
+  override private[DFiant] lazy val flatCurrentSourceLB : LazyBox[DFAny.Source] = {
     connect
     LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
   }
