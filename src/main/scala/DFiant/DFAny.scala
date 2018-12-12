@@ -197,7 +197,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   import DFAny.Source
   private[DFiant] def thisSourceLB : LazyBox[Source] =
     LazyBox.Args1[Source, Source](this)(f => f.copyWithNewDFVal(this), inletSourceLB)
-  final private[DFiant] lazy val prevSourceLB : LazyBox[Source] =
+  private[DFiant] lazy val prevSourceLB : LazyBox[Source] =
     LazyBox.Const[Source](this)(Source.zeroLatency(this).prev(1))
   private[DFiant] def inletSourceLB : LazyBox[Source]
   final private[DFiant] lazy val getFoldedSource : Source = inletSourceLB.get
@@ -668,7 +668,7 @@ object DFAny {
       LazyBox.ArgList[Source, Source](this)(thisSourceFunc, aliasedVars.map(v => v.thisSourceLB))
 
 //    override private[DFiant] def inletSourceLB = thisSourceLB //TODO: Consider dealiasing
-    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = thisSourceLB
+    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = inletSourceLB
 
     final private[DFiant] def constructCodeStringDefault : String =
       if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
@@ -772,6 +772,7 @@ object DFAny {
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
     final private[DFiant] lazy val inletSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
     final override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
+    override private[DFiant] lazy val prevSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source.withLatency(this, None))
     final val isPort = false
     final val id = getID
   }
