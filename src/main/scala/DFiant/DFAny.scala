@@ -664,10 +664,10 @@ object DFAny {
       }
     }.flatMap(s => s.elements)).coalesce
 
-    override private[DFiant] def thisSourceLB =
+    override private[DFiant] def inletSourceLB =
       LazyBox.ArgList[Source, Source](this)(thisSourceFunc, aliasedVars.map(v => v.thisSourceLB))
 
-    override private[DFiant] def inletSourceLB = thisSourceLB
+//    override private[DFiant] def inletSourceLB = thisSourceLB //TODO: Consider dealiasing
     override private[DFiant] lazy val initSourceLB : LazyBox[Source] = thisSourceLB
 
     final private[DFiant] def constructCodeStringDefault : String =
@@ -715,6 +715,8 @@ object DFAny {
         case DFAny.Alias.Reference.Invert() => ???
         case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
       }
+      protAssignDependencies += Assignment(this, that)
+      protAssignDependencies += that
     }
 
     final val id = getID

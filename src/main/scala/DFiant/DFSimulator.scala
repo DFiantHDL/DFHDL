@@ -22,6 +22,7 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
          |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
   }
   final val id = getID
+  if (cond.isDefined) cond.get.keep
   keep
 }
 
@@ -43,7 +44,10 @@ trait DFSimulator extends DFDesign {
   private var clkFreqKHz : Int = 100000
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
   private def keepAll : Unit =
-    mutableMemberList.collect{case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)} //for simulations we keep all
+    mutableMemberList.collect {
+      case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
+      case m => m.keep
+    } //for simulations we keep all
   override def compileToVHDL : Backend.VHDL = {
     keepAll
     new Backend.VHDL(this, null, Some(clkFreqKHz))

@@ -68,5 +68,5 @@ object Cont {
 }
 
 object Bla extends App {
-  val bla = new Cont {}.showConnections.printCodeString
+  val bla = new Mux1 {}.printVHDLString
 }
