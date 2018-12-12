@@ -15,11 +15,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final val leftLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, leftArg.thisSourceLB)
   final val rightLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, rightArg.thisSourceLB)
   final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](this)((l, r) => List(l, r).max, leftLatency, rightLatency)
-//  override private[DFiant] def flatSourceLB : LazyBox[DFAny.Source] = {
-//    connect
-//    LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
-//  }
-  override private[DFiant] def foldedSourceLB : LazyBox[DFAny.Source] = {
+  override private[DFiant] def inletSourceLB : LazyBox[DFAny.Source] = {
     connect
     LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
   }
@@ -44,11 +40,9 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final private[DFiant] lazy val rightBalancedSource = rightArg.thisSourceLB.get.balanceTo(maxLatency.get)
 
   lazy val connect : Unit ={
-//    println(s"$fullName connected")
     inLeft.connectVal2Port(leftArg)
     inRight.connectVal2Port(rightArg)
   }
-//  connect
 
   //  outResult.connectVal2Port(this)
   override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
