@@ -33,10 +33,10 @@ trait RightShifter extends DFDesign {
   private val temp  = DFBits(n)
   temp := vec
   for (i <- shift.width.getValue-1 to 0 by -1) {
-    val mux = new MuxN{}.setName(s"m$i")
+    val mux = new MuxN{}.setName(s"m$i").showLatencies
     mux.a <> (temp >> (1 << i))
     mux.b <> temp
-    mux.sel <> shift.bit(i)
+    mux.sel <> shift.bit(i).pipe(4-i)
     temp := mux.res.pipe()
   }
   res := temp
@@ -75,6 +75,6 @@ trait RightShifter_TB extends DFSimulator {
 
 object Lab2 extends App {
   println("Hello world! I'm Lab #2")
-  val rightShifter = new RightShifter {}.printVHDLString//.showLatencies.printCodeString
+  val rightShifter = new RightShifter {}.printCodeString//.compileToVHDL.print().toFile("lab2.vhd")
 //  val rightShifter_tb = new RightShifter_TB {}.compileToVHDL.print().toFile("lab2.vhd")
 }

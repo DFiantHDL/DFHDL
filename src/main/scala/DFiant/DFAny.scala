@@ -770,7 +770,8 @@ object DFAny {
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
-    final private[DFiant] lazy val inletSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.none(width))
+    final private[DFiant] lazy val inletSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
+    final override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
     final val isPort = false
     final val id = getID
   }
