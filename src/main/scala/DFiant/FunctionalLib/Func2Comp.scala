@@ -12,18 +12,17 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final protected[DFiant] lazy val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
 
-  final val leftLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, leftArg.flatSourceLB)
-  final val rightLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, rightArg.flatSourceLB)
+  final val leftLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, leftArg.thisSourceLB)
+  final val rightLatency = LazyBox.Args1[Option[Int], DFAny.Source](this)(s => s.getMaxLatency, rightArg.thisSourceLB)
   final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](this)((l, r) => List(l, r).max, leftLatency, rightLatency)
-  override private[DFiant] def flatSourceLB : LazyBox[DFAny.Source] = {
-    connect
-    LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
-  }
+//  override private[DFiant] def flatSourceLB : LazyBox[DFAny.Source] = {
+//    connect
+//    LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
+//  }
   override private[DFiant] def foldedSourceLB : LazyBox[DFAny.Source] = {
     connect
     LazyBox.Args1[DFAny.Source, Option[Int]](this)(l => DFAny.Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
   }
-
 
   final val inLeft = leftArg.copyAsNewPort(IN)
   final val inRight = rightArg.copyAsNewPort(IN)
@@ -41,8 +40,8 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 //  def pipe() : this.type = pipe(1)
 //  private[DFiant] override def pipeGet : Int = extraPipe
 //  final def pipe(p : Int) : this.type = {extraPipe = p; this}
-  final private[DFiant] lazy val leftBalancedSource = leftArg.thisSourceLB.get//.balanceTo(maxLatency.get)
-  final private[DFiant] lazy val rightBalancedSource = rightArg.thisSourceLB.get//.getFoldedSource.balanceTo(maxLatency.get)
+  final private[DFiant] lazy val leftBalancedSource = leftArg.thisSourceLB.get.balanceTo(maxLatency.get)
+  final private[DFiant] lazy val rightBalancedSource = rightArg.thisSourceLB.get.balanceTo(maxLatency.get)
 
   lazy val connect : Unit ={
 //    println(s"$fullName connected")

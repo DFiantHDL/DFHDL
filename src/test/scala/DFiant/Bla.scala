@@ -51,23 +51,16 @@ trait Bug1 extends DFDesign {
 }
 
 trait Cont extends DFDesign {
-  val selP = DFBool() <> IN                                   //latency = Some(0)
-  val aP = DFBool() <> IN                                     //latency = Some(1)
-  val bP = DFBool() <> IN                                     //latency = Some(0)
-  val resP = DFBool() <> OUT                                  //latency = Some(0)
-  val mux = new Mux1 {}.showConnections
-  mux.sel <> selP
-  mux.a <> aP
-  mux.b <> bP
-  resP := mux.res
 
-//  final val n = Cont.n
-//  final val a   = DFUInt(n) <> IN
-//  final val res = DFUInt(n) <> OUT
-//  val temp = DFUInt(32) init 5
-//  temp := a
-//  val tp = temp.prev
-//  res := a + 1
+
+  final val n = Cont.n
+  final val a   = DFUInt(n) <> IN
+  final val res = DFUInt(n) <> OUT
+  val temp = DFUInt(32) init 5
+  temp := a
+  temp := temp.prev
+  val tp = temp.prev
+  res := tp
 }
 
 object Cont {
@@ -75,5 +68,5 @@ object Cont {
 }
 
 object Bla extends App {
-  val bla = new Mux1 {}.showConnections.printCodeString
+  val bla = new Cont {}.showConnections.printCodeString
 }
