@@ -223,7 +223,7 @@ object Backend {
       var maxPrevUse : Int = 0
       var maxPipeUse : Int = 0
       var assignedValue : String = ""
-      lazy val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 && maxPipeUse == 0
+      def showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 //&& maxPipeUse == 0
       def refName : String = name.value
       final def ref(pipe : Int) : String = {
         if (pipe > maxPipeUse) {
@@ -369,6 +369,11 @@ object Backend {
                 case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
           }
+//          override lazy val showValueInsteadOfName : Boolean = member.reference match {
+//            case DFAny.Alias.Reference.Prev(step) if step > 0 => false
+//            case DFAny.Alias.Reference.Pipe(step) if step > 0 => false
+//            case _ => false //member.isAnonymous && member.refCount < 2
+//          }
           override lazy val value : String = if (showValueInsteadOfName) aliasStr else ref(refPipe)
           if (!showValueInsteadOfName) architecture.statements.async_process.assignment(this, Value(aliasStr, Type(member)))
         }

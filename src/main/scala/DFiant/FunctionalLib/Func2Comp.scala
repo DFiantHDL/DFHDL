@@ -50,6 +50,9 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
     outResult.setInitFunc.forced(initLB)
   }
 
+  leftArg.privRefCount+=1
+  rightArg.privRefCount+=1
+
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   final val isPort = false
 

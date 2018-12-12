@@ -33,7 +33,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     case p : DFAny.Port[_,_] if p.dir.isIn && !isTop && !p.isConnected && p.initLB.get.isEmpty =>
       throw new IllegalArgumentException(s"\nFound an uninitialized open input port: ${p.fullName}")
   }
-  private lazy val init : Unit = openInputsCheck()
+  private lazy val init : Unit = {
+    discoveredList.collect{case a : DFAny => a.refCount}
+    openInputsCheck()
+  }
   final def printCodeString : this.type = {println(codeString); this}
   def compileToVHDL : Backend.VHDL = {init; new Backend.VHDL(this)}
   final def printVHDLString : this.type = {compileToVHDL.print(); this}

@@ -97,6 +97,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val initLB : LazyBox[Seq[TToken]]
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
+  private[DFiant] var privRefCount : Int = 0
   final lazy val refCount : Int = initLB.getDependencyNum
   private[DFiant] def pipeGet : Int = 0
   //////////////////////////////////////////////////////////////////////////
@@ -276,6 +277,7 @@ object DFAny {
       assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
       protAssignDependencies += Assignment(toVar, fromVal)
       protAssignDependencies += fromVal
+      fromVal.privRefCount+=1
     }
     protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       assign(width, 0, that)
@@ -476,6 +478,7 @@ object DFAny {
       //All is well. We can now connect fromVal->toVar
       toVar.protAssignDependencies += Connector(toVar, fromVal)
       toVar.protAssignDependencies += fromVal
+      fromVal.privRefCount+=1
     }
     override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       val toVar = this
