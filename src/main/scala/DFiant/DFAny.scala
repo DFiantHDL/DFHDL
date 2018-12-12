@@ -98,7 +98,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   protected[DFiant] val constLB : LazyBox[TToken]
   final def isConstant : Boolean = !constLB.get.isBubble
   private[DFiant] var privRefCount : Int = 0
-  final lazy val refCount : Int = initLB.getDependencyNum
+  final lazy val refCount : Int = privRefCount
   private[DFiant] def pipeGet : Int = 0
   //////////////////////////////////////////////////////////////////////////
 
@@ -720,9 +720,16 @@ object DFAny {
       }
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
+      privRefCount+=1
     }
 
     final val id = getID
+
+    reference match { //TODO: fix this terrible hack!!!!!!
+      case DFAny.Alias.Reference.Prev(step) => aliasedVars.head.privRefCount+=2
+      case DFAny.Alias.Reference.Pipe(step) => aliasedVars.head.privRefCount+=2
+      case _ =>
+    }
   }
   object Alias {
     trait Tag
