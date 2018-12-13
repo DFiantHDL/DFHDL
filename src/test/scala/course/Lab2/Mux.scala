@@ -26,7 +26,7 @@ trait MuxN extends DFDesign {
 }
 
 object Mux {
-  def apply(width : Int)(sel : DFBool)(trueVal : DFBits[Int], falseVal : DFBits[Int])(
+  def apply[W](width : Int)(sel : DFBool)(trueVal : DFBits[W], falseVal : DFBits[W])(
     implicit ctx : DFDesign.Context
   ) : DFBits[Int] = {
     val mux = new MuxN {override lazy val w : Int = width}.setName(ctx.getName)

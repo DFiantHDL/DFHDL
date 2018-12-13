@@ -5,10 +5,9 @@ trait CombinationalRightShifter extends RightShifter {
   private val temp  = DFBits(w)
   temp := vec
   for (i <- k-1 to 0 by -1) {
-    temp := Mux(w)(shift.bit(i).pipe(k-i-1))(temp >> (1 << i), temp).pipe()
+    temp := Mux(w)(shift.bit(i))(temp >> (1 << i), temp)
   }
   res := temp
-
 }
 
 trait CombinationalRightShifterTester extends RightShifterTester {
