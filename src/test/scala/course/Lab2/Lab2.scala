@@ -29,18 +29,18 @@ object Lab2 extends App {
   RightShifter.requestedWidth = if (cmdType == "t") 32 else width.toInt
 
   val top = (shifterType, cmdType) match {
-    case ("s", "s") => new SimpleRightShifter {}.setName("rightShifter")
-    case ("c", "s") => new CombinationalRightShifter {}.setName("rightShifter")
-    case ("m", "s") => new MulticycleRightShifter {}.setName("rightShifter")
-    case ("p", "s") => new PipelinedRightShifter {}.setName("rightShifter")
-    case ("s", "c") => new SimpleRightShifter {}.setName("rightShifter")
-    case ("c", "c") => new CombinationalRightShifter {}.setName("rightShifter")
-    case ("m", "c") => new MulticycleRightShifter {}.setName("rightShifter")
-    case ("p", "c") => new PipelinedRightShifter {}.setName("rightShifter")
-    case ("s", "t") => new SimpleRightShifterTester {}.setName("rightShifter_tb")
-    case ("c", "t") => new CombinationalRightShifterTester {}.setName("rightShifter_tb")
-    case ("m", "t") => new MulticycleRightShifterTester {}.setName("rightShifter_tb")
-    case ("p", "t") => new PipelinedRightShifterTester {}.setName("rightShifter_tb")
+    case ("s", "s") => new SimpleRightShifter {}
+    case ("c", "s") => new CombinationalRightShifter {}
+    case ("m", "s") => new MulticycleRightShifter {}
+    case ("p", "s") => new PipelinedRightShifter {}
+    case ("s", "c") => new SimpleRightShifter {}
+    case ("c", "c") => new CombinationalRightShifter {}
+    case ("m", "c") => new MulticycleRightShifter {}
+    case ("p", "c") => new PipelinedRightShifter {}
+    case ("s", "t") => new SimpleRightShifterTester {}
+    case ("c", "t") => new CombinationalRightShifterTester {}
+    case ("m", "t") => new MulticycleRightShifterTester {}
+    case ("p", "t") => new PipelinedRightShifterTester {}
     case _ => error()
   }
   if (cmdType == "c") top.printCodeString
