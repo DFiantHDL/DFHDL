@@ -749,12 +749,12 @@ object DFAny {
         def apply(relWidth: Int, relBitLow : Int, aliasCodeString : => String) = new BitsWL(relWidth, relBitLow, aliasCodeString)
         def unapply(arg : BitsWL): Option[(Int, Int)] = Some((arg.relWidth, arg.relBitLow))
       }
-      class Prev(val step : Int) extends Reference(if (step == 1) ".prev" else s".prev($step)")
+      class Prev(val step : Int) extends Reference(if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)")
       object Prev {
         def apply(step : Int) = new Prev(step)
         def unapply(arg: Prev): Option[Int] = Some(arg.step)
       }
-      class Pipe(val step : Int) extends Reference(if (step == 1) ".pipe" else s".pipe($step)")
+      class Pipe(val step : Int) extends Reference(if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)")
       object Pipe {
         def apply(step : Int) = new Pipe(step)
         def unapply(arg: Pipe): Option[Int] = Some(arg.step)

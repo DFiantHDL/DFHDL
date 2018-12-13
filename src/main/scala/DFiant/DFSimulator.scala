@@ -3,7 +3,15 @@ package DFiant
 import internals._
 import DFiant.compiler.Backend
 
-protected[DFiant] class Message(val value : List[Any])(implicit callOwner : DSLOwnerConstruct) extends HasCodeString {
+protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwnerConstruct) extends HasCodeString {
+  private def maxLatency : Option[Int] = value_.collect{case x : DFAny => x.thisSourceLB.get.getMaxLatency}.max
+  val value : List[Any] = value_.collect {
+    case x : DFAny =>
+      val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
+      assert(elms.length == 1, "Full handling of split pipeline in a message is not yet supported.")
+      elms.head.tag.get
+    case x => x
+  }
   def codeString: String = "msg\"" + value.collect {
     case x : DFAny => s"$${${x.refCodeString}}"
     case x => x.toString

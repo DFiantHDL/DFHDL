@@ -57,7 +57,7 @@ trait Cont extends DFDesign {
   val bP = DFBits(n) <> IN                                     //latency = Some(0)
   val resP = DFBits(n) <> OUT                                  //latency = Some(0)
   val mux = new MuxN {}.showLatencies
-  val bla = (aP >> 16).prev
+  val bla = (aP >> 16).pipe
   mux.sel <> selP
   mux.a <> bla
   mux.b <> bP
@@ -70,5 +70,5 @@ object Cont {
 }
 
 object Bla extends App {
-  val bla = new Cont {}.printVHDLString//.showLatencies.printCodeString
+  val bla = new Cont {}.showLatencies.printCodeString
 }

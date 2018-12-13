@@ -73,6 +73,16 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   val config : DSLConfiguration
   private var idCnt : Int = 0
+
+  private def headInterfaces(c : Class[_]) : List[Class[_]] =
+    c.getInterfaces.headOption match {
+      case Some(i) => i :: headInterfaces(i)
+      case None => List()
+    }
+  lazy val headInterfaceNames : List[String] = headInterfaces(getClass).map(i => i.getSimpleName)
+
+  private[internals] def fixMemberName(value : String) : String =
+    if (headInterfaceNames.contains(value) || (value == nameIt.value)) s"${Name.AnonStart}anon" else value
   private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {
@@ -114,7 +124,7 @@ object DSLOwnerConstruct {
     implicit val owner : Owner
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (owner == null) n.value else if ((n.value == owner.typeName) || (n.value == owner.nameIt.value)) s"${Name.AnonStart}anon" else n.value
+    def getName : String = if (owner == null) n.value else owner.fixMemberName(n.value)
     override def toString: String = getName
   }
   trait DB[Owner, Body <: Any] {

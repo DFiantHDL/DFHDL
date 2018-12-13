@@ -1,7 +1,8 @@
 package DFiant.compiler
-import DFiant.FunctionalLib.{Func2Comp, CompAlias}
+import DFiant.DFAny.SourceTag
+import DFiant.FunctionalLib.{CompAlias, Func2Comp}
 import DFiant._
-import DFiant.internals.{DSLOwnerConstruct, csoIntervalBigInt, StringExtras}
+import DFiant.internals.{DSLOwnerConstruct, StringExtras, csoIntervalBigInt}
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.HashMap
@@ -553,7 +554,9 @@ object Backend {
               case Severity.Error => "error"
             }
             val msgString : String = msg.value.collect {
-              case x : DFAny => s"to_string(${Value(x)})"
+              case x : SourceTag =>
+                if (x.pipeStep > 0) s"to_string(${References(x.dfVal).ref(x.pipeStep)})"
+                else s"to_string(${Value(x.dfVal)})"
               case x => s""""$x""""
             }.mkString(" & ")
             override def toString: String = condMember match {
