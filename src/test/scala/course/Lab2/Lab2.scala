@@ -63,7 +63,7 @@ object Lab2 extends App {
     if (ghdlTestFail)
       println("Test run of GHDL did not succeed :(\nMake sure it is available in your path for automatic simulation run.")
     else {
-      println("Attempting to compile and run simulation RTL files")
+      println("Attempting to compile and run simulation RTL files...")
       simRTLCompile()
       simRTLRun(500)
     }
