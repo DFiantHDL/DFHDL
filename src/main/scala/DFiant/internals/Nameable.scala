@@ -26,13 +26,12 @@ trait TypeNameable {
 
 trait NameIt {
   val value : String
+  val owner : String
 }
 object NameIt {
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName) : NameIt = new NameIt {
-    val value: String =
-      if (name.value == "$anon") ownerName.value
-      else if (name.value == "$anonfun") s"${Name.AnonStart}anon" //loops
-      else name.value
+    val value: String = if (name.value.contains("$")) s"${Name.AnonStart}anon" else name.value
+    val owner: String = if (ownerName.value.contains("$")) s"${Name.AnonStart}anon" else ownerName.value
 //    println(s"${name.value}, ${ownerName.value}, $value")
   }
 }
