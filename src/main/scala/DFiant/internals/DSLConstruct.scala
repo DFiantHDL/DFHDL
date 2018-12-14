@@ -130,7 +130,7 @@ object DSLOwnerConstruct {
     implicit val owner : Owner
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (owner == null) n.value else owner.fixMemberName(n.value)
+    def getName : String = if (owner == null) n.value else owner.nonTransparent.fixMemberName(n.value)
     def getOwnerName : String = n.owner
     override def toString: String = getName
   }

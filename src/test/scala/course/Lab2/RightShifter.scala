@@ -34,10 +34,10 @@ trait RightShifterTester extends DFSimulator {
 
   //Cyclic rotation through the test cases
   final val vec = DFBits(w) init vecSeq
-  vec := vec.prev(testNum)
   final val shift = DFUInt.rangeUntil(w) init shiftSeq
-  shift := shift.prev(testNum)
   final val expected = DFBits(w) init expectedSeq
+  vec := vec.prev(testNum)
+  shift := shift.prev(testNum)
   expected := expected.prev(testNum)
 
   rightShifter.vec <> vec
@@ -46,11 +46,9 @@ trait RightShifterTester extends DFSimulator {
   def check() : Unit = {
   }
   check()
-  ifdf(rightShifter.asInstanceOf[MulticycleRightShifter].valid){
-    val a = rightShifter.res == expected
-    a.keep
-    //    sim.assert(rightShifter.res == expected, msg"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
-  }
+  sim.assert(rightShifter.res == expected, msg"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
+//  ifdf(rightShifter.asInstanceOf[MulticycleRightShifter].valid){
+//  }
 
 
 }

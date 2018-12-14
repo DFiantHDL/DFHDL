@@ -1,4 +1,6 @@
 package course.Lab2
+import sys.process._
+import scala.language.postfixOps
 
 object Lab2 extends App {
   println("Hello world! I'm Lab #2")
@@ -21,6 +23,16 @@ object Lab2 extends App {
 
 
   def error() = throw new IllegalArgumentException("Error in program arguments\n" + msg)
+  def ghdlTestFail() : Boolean = {
+    val result = {"ghdl --version" !!}
+    !result.startsWith("GHDL")
+  }
+  def simRTLCompile() : Unit = println(
+    "ghdl -a --std=08 lab2.vhd" !!
+  )
+  def simRTLRun(timeNS : Int) : Unit = println(
+    s"ghdl -r --std=08 top --stop-time=${timeNS}ns" !!
+  )
 
   val shifterType = if (args.length < 1) "s" else args(0)
   val cmdType = if (args.length < 2) "t" else args(1)
@@ -43,7 +55,18 @@ object Lab2 extends App {
     case ("p", "t") => new PipelinedRightShifterTester {}
     case _ => error()
   }
+
+
   if (cmdType == "c") top.printCodeString
   else top.compileToVHDL.print().toFile("lab2.vhd")
+  if (cmdType == "t") {
+    if (ghdlTestFail)
+      println("Test run of GHDL did not succeed :(\nMake sure it is available in your path for automatic simulation run.")
+    else {
+      println("Attempting to compile and run simulation RTL files")
+      simRTLCompile()
+      simRTLRun(500)
+    }
+  }
 }
 
