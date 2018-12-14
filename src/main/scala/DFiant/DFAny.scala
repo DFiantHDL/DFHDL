@@ -573,7 +573,7 @@ object DFAny {
     private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
     final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
       if (initExternalLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-      if (this.owner ne owner) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
+      if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
       updatedInit = () => updatedInitLB.get
       initExternalLB.set(updatedInitLB)
     }
@@ -835,7 +835,7 @@ object DFAny {
         }
         //Ports in the same design, connected at the design's owner.
         //This is a loopback connection from a design's output to one of its inputs
-        else if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left.owner)) (left.dir, right.dir) match {
+        else if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
           case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
           case (ld : IN,  rd : OUT) => (right, left)
@@ -843,7 +843,7 @@ object DFAny {
           case _ => throwConnectionError("Unexpected connection error")
         }
         //Connecting owner and child design ports, while owner port is left and child port is right.
-        else if (right.isDownstreamMemberOf(left.owner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+        else if (right.isDownstreamMemberOf(left.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
           case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : IN,  rd : IN)  => (left, right)
@@ -851,7 +851,7 @@ object DFAny {
           case _ => throwConnectionError("Unexpected connection error")
         }
         //Connecting owner and child design ports, while owner port is right and child port is left.
-        else if (left.isDownstreamMemberOf(right.owner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+        else if (left.isDownstreamMemberOf(right.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
           case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : IN,  rd : IN)  => (right, left)
@@ -859,14 +859,14 @@ object DFAny {
           case _ => throwConnectionError("Unexpected connection error")
         }
         //Connecting sibling designs.
-        else if ((left.owner hasSameOwnerAs right.owner) && isConnectedAtOwnerOf(left.owner)) (left.dir, right.dir) match {
+        else if ((left.nonTransparentOwner hasSameOwnerAs right.nonTransparentOwner) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
           case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
           case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
           case (ld : OUT, rd : IN)  => (left, right)
           case (ld : IN,  rd : OUT) => (right, left)
           case _ => throwConnectionError("Unexpected connection error")
         }
-        else if (!left.isDownstreamMemberOf(right.owner) || !right.isDownstreamMemberOf(left.owner))
+        else if (!left.isDownstreamMemberOf(right.nonTransparentOwner) || !right.isDownstreamMemberOf(left.nonTransparentOwner))
           throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
         else if (!isConnectedAtEitherSide(left, right))
           throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
@@ -882,7 +882,7 @@ object DFAny {
         case p : Port[_,_] => p.connectPort2Port(port)
         case _ =>
           //Connecting external value from/to a output/input port
-          if (port.owner.isDownstreamMemberOf(dfVal.owner)) {
+          if (port.owner.isDownstreamMemberOf(dfVal.nonTransparentOwner)) {
             if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
             //Connecting from output port to external value
             if (port.dir.isOut) dfVal match {
@@ -899,7 +899,7 @@ object DFAny {
               case u : Initializable[_] => u.connectFrom(port)
               case _ => throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
             } else {
-              if (ctx.owner ne dfVal.owner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+              if (ctx.owner.nonTransparent ne dfVal.nonTransparentOwner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
               port.connectFrom(dfVal)
             }
           }

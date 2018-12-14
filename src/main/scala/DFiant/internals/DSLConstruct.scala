@@ -14,21 +14,24 @@ trait DSLConfiguration {
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs {
   val owner : DSLOwnerConstruct
-  private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean = (owner != null) && (that.owner != null) && (owner eq that.owner)
+  private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct =
+    if (owner == null) null else if (owner.isInstanceOf[DSLTransparentOwnerConstruct]) owner.nonTransparentOwner else owner
+  private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
+    (nonTransparentOwner != null) && (that.nonTransparentOwner != null) && (nonTransparentOwner eq that.nonTransparentOwner)
   private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
-    if ((owner == null) || (that == null)) false
-    else if (owner eq that) true
-    else owner.isDownstreamMemberOf(that)
+    if ((nonTransparentOwner == null) || (that == null)) false
+    else if (nonTransparentOwner eq that) true
+    else nonTransparentOwner.isDownstreamMemberOf(that)
   final def keep : this.type = {
     owner.mutableKeepList += this
     this
   }
   def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
-  ) : Boolean = (member != null) && (callOwner eq member.owner)
+  ) : Boolean = (member != null) && (callOwner.nonTransparent eq member.nonTransparentOwner)
   def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
-  ) : Boolean = isConnectedAtOwnerOf(left.owner) || isConnectedAtOwnerOf(right.owner)
+  ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
 
   protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
   final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
@@ -71,6 +74,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
+  private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = if (this.isInstanceOf[DSLTransparentOwnerConstruct]) nonTransparentOwner else this
   val config : DSLConfiguration
   private var idCnt : Int = 0
 
@@ -148,6 +152,10 @@ object DSLOwnerConstruct {
     def ownerToString(ownerTypeName : String, ownerBody : Body) : String
     override def toString : String = dbString
   }
+}
+
+trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
+
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {

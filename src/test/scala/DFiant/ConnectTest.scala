@@ -134,20 +134,20 @@ class ConnectTest extends Properties("ConnectTest") {
 
 
   property("DFDesign.codeString") = {
-    val topIO = new DFDesign {
+    val topIO = new DFDesign { //TODO: consider fixing name of anonymous DFDesign
       val i = DFUInt(8) <> IN init(1, 2)
       val o = DFUInt(8) <> OUT
       o <> i
     }
     val compare =
       """
-        |trait DFiant.DFDesign extends DFDesign {
+        |trait DFDesign extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2)
         |  val o = DFUInt(8) <> OUT
         |  o <> i
         |}
         |
-        |val topIO = new DFiant.DFDesign {}
+        |val topIO = new DFDesign {}
       """.stripMargin
     topIO.codeString =@= compare
   }
@@ -507,7 +507,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val topLoop = new ContainerConnLoop {}
     val expectedError =
       """
-        |Contradiction in circular dependency topLoop.io.o(7, 0).prev(1) != None(7, 0) at topLoop.o.initLB <- topLoop.o.connectFrom <- topLoop.io.o.connectedOrAssignedSourceLB <- topLoop.io.o.connectedSourceLB
+        |Contradiction in circular dependency topLoop.io.i(7, 0) != None(7, 0) at topLoop.o.initLB <- topLoop.o.connectFrom <- topLoop.io.o.thisSourceLB <- topLoop.io.o.inletSourceLB <- topLoop.io.o.connectedSourceLB
       """.stripMargin
     illRunCompare(expectedError) {
       topLoop.codeString

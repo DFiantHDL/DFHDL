@@ -13,8 +13,6 @@ trait MulticycleRightShifter extends RightShifter {
 
 trait MulticycleRightShifterTester extends RightShifterTester {
   final lazy val rightShifter = new MulticycleRightShifter {}
-  override def check(): Unit = {
-  }
 }
 
 

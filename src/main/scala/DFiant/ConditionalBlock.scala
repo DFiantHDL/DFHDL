@@ -3,7 +3,7 @@ import internals._
 
 import scala.collection.mutable.ListBuffer
 
-protected[DFiant] trait ConditionalBlock
+protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct
 
 //protected case class Select[RV](cond : Boolean)(thenSel : RV, elseSel : RV)(implicit ctx : Context) {
 //  def getValue : RV = ???
