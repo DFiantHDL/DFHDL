@@ -17,7 +17,6 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
     if (this.nonTransparent eq dfVal.nonTransparentOwner) true
     else if (this.nonTransparentOwner == null) false
-//    else if (this.isInstanceOf[ConditionalBlock]) this.owner.callSiteSameAsOwnerOf(dfVal)
     else false
 
   private[DFiant] def bodyCodeString : String = {
