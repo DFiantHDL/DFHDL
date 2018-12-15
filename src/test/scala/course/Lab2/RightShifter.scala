@@ -21,22 +21,30 @@ trait RightShifterTester extends DFSimulator {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   //Add additional test cases here
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  final val testCases = Seq(         //This is a sequence of Tuple3
+  final val testCases = List(         //This is a list of Tuple3
     //(vec        , shift, expected   )
     (h"80000000", 0    , h"80000000"),
-    (h"80000000", 31   , h"00000000"),
+    (h"80000000", 31   , h"00000001"),
     (h"80000000", 4    , h"08000000"),
     (h"80000000", 8    , h"00800000"),
     (h"80000000", 1    , h"40000000"),
     (h"80000000", 0    , h"80000000"),
-  ).reverse //initialization of init will be bottom to top
+  )
 
   final val testNum = testCases.length
   final val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
   final val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
   final val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
 
+  final val vec = DFBits(w) init b0s
+  final val shift = DFUInt.rangeUntil(w) init 0
+  final val expected = DFBits(w) init b0s
 
+  val test = testCases.foreachdf(t => {
+    vec := t._1
+    shift := t._2
+    expected := t._3
+  })
 }
 
 

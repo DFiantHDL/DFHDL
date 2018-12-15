@@ -56,6 +56,27 @@ package object DFiant extends {
 
 
   ////////////////////////////////////////////////////////////////////////////////////
+  // Intervals
+  ////////////////////////////////////////////////////////////////////////////////////
+  implicit class SeqExtender[T](val list : List[T]) {
+    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFUInt[Int] = {
+      import ctx.owner._
+      setFalseNamesInvalidator
+      val lastRun = list.length + 1
+      val sel = DFUInt(BigInt(lastRun).bitsWidth) init 0
+      val matcherCase = matchdf(sel).casedf(0)(block(list.head))
+      val v2 = list.drop(1).zipWithIndex.foldLeft(matcherCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+      v2.casedf_{}
+      ifdf(sel != lastRun) {
+        sel := sel + 1
+      }
+      sel
+    }
+  }
+  ////////////////////////////////////////////////////////////////////////////////////
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
   // BitVector from scodec library https://github.com/scodec/scodec
   // TODO: change after fix for https://github.com/scala/bug/issues/11070
   ////////////////////////////////////////////////////////////////////////////////////

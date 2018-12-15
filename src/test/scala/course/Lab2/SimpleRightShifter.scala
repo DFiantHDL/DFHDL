@@ -8,15 +8,6 @@ trait SimpleRightShifter extends RightShifter {
 trait SimpleRightShifterTester extends RightShifterTester {
   lazy val rightShifter : RightShifter = new SimpleRightShifter {}
 
-  //Cyclic rotation through the test cases
-  final val vec = DFBits(w) init vecSeq
-  final val shift = DFUInt.rangeUntil(w) init shiftSeq
-  final val expected = DFBits(w) init expectedSeq
-
-  vec := vec.prev(testNum)
-  shift := shift.prev(testNum)
-  expected := expected.prev(testNum)
-
   rightShifter.vec <> vec
   rightShifter.shift <> shift
 

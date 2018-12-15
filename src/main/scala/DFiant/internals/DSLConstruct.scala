@@ -87,8 +87,10 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     }
   lazy val headInterfaceNames : List[String] = headInterfaces(getClass).map(i => i.getSimpleName)
 
-  private[internals] def fixMemberName(value : String) : String =
-    if (headInterfaceNames.contains(value)) s"${Name.AnonStart}anon" else value
+  private var nameInvalidator : String = ""
+  final private[DFiant] def setFalseNamesInvalidator(implicit n : NameIt) : Unit = nameInvalidator = n.value
+  final private[internals] def fixMemberName(value : String) : String =
+    if (headInterfaceNames.contains(value) || value == nameInvalidator) s"${Name.AnonStart}anon" else value
   private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {
