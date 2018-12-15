@@ -31,7 +31,7 @@ object Lab2 extends App {
     "ghdl -a --std=08 lab2.vhd" !!
   )
   def simRTLRun(timeNS : Int) : Unit = println(
-    s"ghdl -r --std=08 top --stop-time=${timeNS}ns" !!
+    s"ghdl -r --std=08 top --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
   )
 
   val shifterType = if (args.length < 1) "s" else args(0)

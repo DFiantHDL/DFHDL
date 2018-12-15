@@ -23,32 +23,18 @@ trait RightShifterTester extends DFSimulator {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   final val testCases = Seq(         //This is a sequence of Tuple3
     //(vec        , shift, expected   )
+    (h"80000000", 0    , h"80000000"),
+    (h"80000000", 31   , h"00000000"),
     (h"80000000", 4    , h"08000000"),
-    (h"80000000", 1    , h"40000000")
+    (h"80000000", 8    , h"00800000"),
+    (h"80000000", 1    , h"40000000"),
+    (h"80000000", 0    , h"80000000"),
   ).reverse //initialization of init will be bottom to top
 
-  private val testNum = testCases.length
-  private val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
-  private val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
-  private val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
-
-  //Cyclic rotation through the test cases
-  final val vec = DFBits(w) init vecSeq
-  final val shift = DFUInt.rangeUntil(w) init shiftSeq
-  final val expected = DFBits(w) init expectedSeq
-  vec := vec.prev(testNum)
-  shift := shift.prev(testNum)
-  expected := expected.prev(testNum)
-
-  rightShifter.vec <> vec
-  rightShifter.shift <> shift
-  //validating output
-  def check() : Unit = {
-  }
-  check()
-  sim.assert(rightShifter.res == expected, msg"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
-//  ifdf(rightShifter.asInstanceOf[MulticycleRightShifter].valid){
-//  }
+  final val testNum = testCases.length
+  final val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
+  final val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
+  final val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
 
 
 }
