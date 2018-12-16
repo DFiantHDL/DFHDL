@@ -3,6 +3,8 @@ import sys.process._
 import scala.language.postfixOps
 
 object Lab2 extends App {
+  val vivado = "C:\\Xilinx\\Vivado\\2018.2\\bin\\vivado.bat"
+
   println("Hello world! I'm Lab #2")
   //run this program to generate the proper lab2.vhd
   val msg =
@@ -33,7 +35,7 @@ object Lab2 extends App {
     s"ghdl -r --std=08 top --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
   )
   def synthesize() : Unit = {
-    "C:\\Xilinx\\Vivado\\2018.2\\bin\\vivado.bat -mode batch -source lab2.tcl -log lab2.log" !!
+    s"$vivado -mode batch -source lab2.tcl -log lab2.log" !!
   }
 
   val shifterType = if (args.length < 1) "s" else args(0)
