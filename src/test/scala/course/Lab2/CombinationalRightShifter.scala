@@ -10,7 +10,7 @@ trait CombinationalRightShifter extends RightShifter {
   res := temp
 }
 
-trait CombinationalRightShifterTester extends RightShifterTester {
+trait CombinationalRightShifterTester extends RightShifterTester { //No need to modify the test
   final lazy val rightShifter = new CombinationalRightShifter {}
 }
 

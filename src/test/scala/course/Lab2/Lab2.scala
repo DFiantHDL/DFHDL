@@ -32,6 +32,9 @@ object Lab2 extends App {
   def simRTLRun(timeNS : Int) : Unit = println(
     s"ghdl -r --std=08 top --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
   )
+  def synthesize() : Unit = {
+    "C:\\Xilinx\\Vivado\\2018.2\\bin\\vivado.bat -mode batch -source lab2.tcl -log lab2.log" !!
+  }
 
   val shifterType = if (args.length < 1) "s" else args(0)
   val cmdType = if (args.length < 2) "t" else args(1)
@@ -39,7 +42,7 @@ object Lab2 extends App {
 
   RightShifter.requestedWidth = if (cmdType == "t") 32 else width.toInt
 
-  val top = (shifterType, cmdType) match {
+  val lab2 = (shifterType, cmdType) match {
     case ("s", "s") => new SimpleRightShifter {}
     case ("c", "s") => new CombinationalRightShifter {}
     case ("p", "s") => new PipelinedRightShifter {}
@@ -52,17 +55,22 @@ object Lab2 extends App {
     case _ => error()
   }
 
-
-  if (cmdType == "c") top.printCodeString
-  else top.compileToVHDL.print().toFile("lab2.vhd")
-  if (cmdType == "t") {
-    if (ghdlTestFail)
-      println("Test run of GHDL did not succeed :(\nMake sure it is available in your path for automatic simulation run.")
-    else {
-      println("Attempting to compile and run simulation RTL files...")
-      simRTLCompile()
-      simRTLRun(100)
-    }
+  cmdType match {
+    case "c" => lab2.printCodeString
+    case "t" =>
+      lab2.compileToVHDL.print().toFile("lab2.vhd")
+      if (ghdlTestFail)
+        println("Test run of GHDL did not succeed :(\nMake sure it is available in your path for automatic simulation run.")
+      else {
+        println("Attempting to compile and run simulation RTL files...")
+        simRTLCompile()
+        simRTLRun(100)
+      }
+    case "s" =>
+      lab2.compileToVHDL.print().toFile("lab2.vhd")
+      println("Attempting to synthesize the RTL files...")
+      synthesize()
+      println("Synthesis done!\nSee lab2.log, lab2_xxx.rpt files")
   }
 }
 
