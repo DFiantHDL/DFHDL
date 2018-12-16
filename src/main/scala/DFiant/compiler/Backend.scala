@@ -508,10 +508,10 @@ object Backend {
           }
           object ifStatement {
             case class ifBegin(condMember : DFAny) extends statement {
-              override def toString: String = s"\n${currentDelim}if ${Value(condMember).value} = '1' then"
+              override def toString: String = s"\n${currentDelim}if ${Value(condMember).value.applyBrackets()} = '1' then"
             }
             case class elseIfBegin(condMember : DFAny) extends statement {
-              override def toString: String = s"\n${currentDelim}elsif ${Value(condMember).value} = '1' then"
+              override def toString: String = s"\n${currentDelim}elsif ${Value(condMember).value.applyBrackets()} = '1' then"
             }
             case class elseBegin() extends statement {
               override def toString: String = s"\n${currentDelim}else"

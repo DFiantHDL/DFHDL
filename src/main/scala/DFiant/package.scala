@@ -56,21 +56,31 @@ package object DFiant extends {
 
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // Intervals
+  // List Extender
   ////////////////////////////////////////////////////////////////////////////////////
-  implicit class SeqExtender[T](val list : List[T]) {
-    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFUInt[Int] = {
+  trait DFLoopController {
+    def run() : Unit
+    def stop() : Unit
+    def restart() : Unit
+  }
+  implicit class ListExtender[+T, +Repr](val list : List[T]) {
+    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFLoopController = {
       import ctx.owner._
       setFalseNamesInvalidator
       val lastRun = list.length + 1
       val sel = DFUInt(BigInt(lastRun).bitsWidth) init 0
-      val matcherCase = matchdf(sel).casedf(0)(block(list.head))
-      val v2 = list.drop(1).zipWithIndex.foldLeft(matcherCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-      v2.casedf_{}
-      ifdf(sel != lastRun) {
+      val runCond = DFBool() init true
+      val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
+      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+      matcherCases.casedf_{}
+      ifdf(runCond && sel != lastRun) {
         sel := sel + 1
       }
-      sel
+      new DFLoopController {
+        override def run(): Unit = runCond := true
+        override def stop(): Unit = runCond := false
+        override def restart(): Unit = sel := 0
+      }
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////

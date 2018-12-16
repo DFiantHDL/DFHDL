@@ -10,8 +10,8 @@ trait CombinationalRightShifter extends RightShifter {
   res := temp
 }
 
-trait CombinationalRightShifterTester extends SimpleRightShifterTester {
-  final override lazy val rightShifter = new CombinationalRightShifter {}
+trait CombinationalRightShifterTester extends RightShifterTester {
+  final lazy val rightShifter = new CombinationalRightShifter {}
 }
 
 

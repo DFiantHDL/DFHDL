@@ -10,8 +10,8 @@ trait PipelinedRightShifter extends RightShifter {
   res := temp
 }
 
-trait PipelinedRightShifterTester extends SimpleRightShifterTester {
-  final override lazy val rightShifter = new PipelinedRightShifter {}
+trait PipelinedRightShifterTester extends RightShifterTester {
+  final lazy val rightShifter = new PipelinedRightShifter {}
 }
 
 

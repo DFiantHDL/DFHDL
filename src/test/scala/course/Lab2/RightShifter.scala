@@ -32,19 +32,22 @@ trait RightShifterTester extends DFSimulator {
   )
 
   final val testNum = testCases.length
-  final val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
-  final val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
-  final val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
+  private val vecSeq = testCases.map(t => t._1)     //getting just the vec test values
+  private val shiftSeq = testCases.map(t => t._2)   //getting just the shift test values
+  private val expectedSeq = testCases.map(t => t._3)//getting just the expected test values
 
-  final val vec = DFBits(w) init b0s
-  final val shift = DFUInt.rangeUntil(w) init 0
-  final val expected = DFBits(w) init b0s
+  //Cyclic rotation through the test cases
+  final val vec = DFBits(w) init vecSeq
+  vec := vec.prev(testNum)
+  final val shift = DFUInt.rangeUntil(w) init shiftSeq
+  shift := shift.prev(testNum)
+  final val expected = DFBits(w) init expectedSeq
+  expected := expected.prev(testNum)
 
-  val test = testCases.foreachdf(t => {
-    vec := t._1
-    shift := t._2
-    expected := t._3
-  })
+  rightShifter.vec <> vec
+  rightShifter.shift <> shift
+
+  sim.assert(rightShifter.res == expected, msg"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
 }
 
 

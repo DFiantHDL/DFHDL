@@ -10,7 +10,6 @@ object Lab2 extends App {
       |Param #1: Type of Right Shifter
       |s = Simple Right Shifter (given) [Default = s]
       |c = Combination Right Shifter (your own)
-      |m = Multi-cycle Right Shifter (your own)
       |p = Pipelined Right Shifter (your own)
       |
       |Param #2: Test, or Synthesis, or DFiant Code printout
@@ -43,15 +42,12 @@ object Lab2 extends App {
   val top = (shifterType, cmdType) match {
     case ("s", "s") => new SimpleRightShifter {}
     case ("c", "s") => new CombinationalRightShifter {}
-    case ("m", "s") => new MulticycleRightShifter {}
     case ("p", "s") => new PipelinedRightShifter {}
     case ("s", "c") => new SimpleRightShifter {}
     case ("c", "c") => new CombinationalRightShifter {}
-    case ("m", "c") => new MulticycleRightShifter {}
     case ("p", "c") => new PipelinedRightShifter {}
     case ("s", "t") => new SimpleRightShifterTester {}
     case ("c", "t") => new CombinationalRightShifterTester {}
-    case ("m", "t") => new MulticycleRightShifterTester {}
     case ("p", "t") => new PipelinedRightShifterTester {}
     case _ => error()
   }
@@ -65,7 +61,7 @@ object Lab2 extends App {
     else {
       println("Attempting to compile and run simulation RTL files...")
       simRTLCompile()
-      simRTLRun(500)
+      simRTLRun(100)
     }
   }
 }
