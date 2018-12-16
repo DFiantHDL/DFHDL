@@ -3,6 +3,7 @@ import sys.process._
 import scala.language.postfixOps
 
 object Lab2 extends App {
+  val ghdl = "ghdl"
   val vivado = "C:\\Xilinx\\Vivado\\2018.2\\bin\\vivado.bat"
 
   println("Hello world! I'm Lab #2")
@@ -25,14 +26,14 @@ object Lab2 extends App {
 
   def error() = throw new IllegalArgumentException("Error in program arguments\n" + msg)
   def ghdlTestFail() : Boolean = {
-    val result = {"ghdl --version" !!}
+    val result = {s"$ghdl --version" !!}
     !result.startsWith("GHDL")
   }
   def simRTLCompile() : Unit = println(
-    "ghdl -a --std=08 lab2.vhd" !!
+    s"$ghdl -a --std=08 lab2.vhd" !!
   )
   def simRTLRun(timeNS : Int) : Unit = println(
-    s"ghdl -r --std=08 top --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
+    s"$ghdl -r --std=08 top --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
   )
   def synthesize() : Unit = {
     s"$vivado -mode batch -source lab2.tcl -log lab2.log" !!
@@ -61,12 +62,12 @@ object Lab2 extends App {
     case "c" => lab2.printCodeString
     case "t" =>
       lab2.compileToVHDL.print().toFile("lab2.vhd")
-      if (ghdlTestFail)
+      if (ghdlTestFail())
         println("Test run of GHDL did not succeed :(\nMake sure it is available in your path for automatic simulation run.")
       else {
         println("Attempting to compile and run simulation RTL files...")
         simRTLCompile()
-        simRTLRun(100)
+        simRTLRun(500)
       }
     case "s" =>
       lab2.compileToVHDL.print().toFile("lab2.vhd")
