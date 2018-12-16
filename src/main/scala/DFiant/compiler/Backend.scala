@@ -629,25 +629,29 @@ object Backend {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
         if (x.isAssigned) {
-          val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
-          dstSig.maxPrevUse = 1
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
-          architecture.statements.async_process.assignment(dstVar, dstSigP1)
-          if (x.initLB.get.nonEmpty)
-            architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
-          architecture.statements.sync_process.assignment(dstSigP1, dstSig)
+          if (x.maxPrevUse > 0) {
+            val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
+            dstSig.maxPrevUse = 1
+            architecture.statements.async_process.assignment(dstVar, dstSigP1)
+            if (x.initLB.get.nonEmpty)
+              architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
+            architecture.statements.sync_process.assignment(dstSigP1, dstSig)
+          }
         }
       case x : DFAny.NewVar[_] =>
 //        if (x.assigned) {
           val dstSig = architecture.declarations.signal(x)
-          val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
-          dstSig.maxPrevUse = 1
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
-          architecture.statements.async_process.assignment(dstVar, dstSigP1)
-          if (x.initLB.get.nonEmpty)
-            architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
-//          else throw new IllegalArgumentException(s"\nUninitialized state variable ${x.fullName} may lead to deadlocks")
-          architecture.statements.sync_process.assignment(dstSigP1, dstSig)
+          if (x.maxPrevUse > 0) {
+            val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
+            dstSig.maxPrevUse = 1
+            architecture.statements.async_process.assignment(dstVar, dstSigP1)
+            if (x.initLB.get.nonEmpty)
+              architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
+            //          else throw new IllegalArgumentException(s"\nUninitialized state variable ${x.fullName} may lead to deadlocks")
+            architecture.statements.sync_process.assignment(dstSigP1, dstSig)
+          }
 //        }
 //        else architecture.declarations.signal(x)
       case x : DFAny.Const[_] => //Do nothing

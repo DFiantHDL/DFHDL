@@ -110,6 +110,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   final def prev()(implicit ctx : DFAny.Alias.Context) : TVal = protPrev(1)
   final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPrev(step)
+  private[DFiant] var maxPrevUse = 0 //TODO: hack. Remove this
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -392,7 +393,9 @@ object DFAny {
       var pos = width - 1
       Source(elements.map(e => {
         val thatTag : Option[SourceTag] = e.tag match {
-          case Some(t) => Some(SourceTag.withLatency(thatDFVal, t.latency))
+          case Some(t) =>
+            if (t.pipeStep > 0) t.dfVal.maxPrevUse = scala.math.max(t.dfVal.maxPrevUse, t.pipeStep)
+            Some(SourceTag.withLatency(thatDFVal, t.latency))
           case None => None
         }
         val se = SourceElement(pos, pos-e.relWidth+1, false, thatTag)

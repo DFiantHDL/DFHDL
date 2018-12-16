@@ -33,7 +33,7 @@ object Lab2 extends App {
     s"$ghdl -a --std=08 lab2.vhd" !!
   )
   def simRTLRun(timeNS : Int) : Unit = println(
-    s"$ghdl -r --std=08 top --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
+    s"$ghdl -r --std=08 lab2 --ieee-asserts=disable-at-0 --stop-time=${timeNS}ns" !!
   )
   def synthesize() : Unit = {
     s"$vivado -mode batch -source lab2.tcl -log lab2.log" !!
