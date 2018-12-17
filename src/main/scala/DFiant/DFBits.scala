@@ -330,7 +330,7 @@ object DFBits extends DFAny.Companion {
     def reverse (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => t.reverse)
     def toUInt(left : Seq[Token]) : Seq[DFUInt.Token] = TokenSeq(left)(t => t.toUInt)
 
-    def apply(width : Int, value : Int) : Token = Token(width, BitVector.fromInt(value, width))
+    def apply(width : Int, value : Int) : Token = Token(width, BigInt(value).toBitVector(width))
     def apply(width : Int, value : BitVector) : Token = {
       assert(value.length == width, s"\nThe init vector $value must have a width of $width")
       new Token(width, value.toLength(width), BitVector.low(width))

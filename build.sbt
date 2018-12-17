@@ -2,7 +2,7 @@ name := "dfiant"
 
 organization := "hdl.dfiant"
 
-version := "0.0.5-SNAPSHOT"
+version := "0.0.5"
 
 scalaVersion := "2.12.4-bin-typelevel-4"
 
