@@ -319,10 +319,11 @@ object DFAny {
     val relWidth : Int = relBitHigh - relBitLow + 1
     def range : Range = if (reverseBits) relBitLow to relBitHigh else relBitHigh to relBitLow by -1
     def reverse : SourceElement = SourceElement(relBitHigh, relBitLow, !reverseBits, tag)
-    def invert : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.invert) else None )
-    def prev(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.prev(step)) else None )
-    def pipe(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.pipe(step)) else None)
-    def balanceTo(maxLatency : Option[Int]) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, if (tag.isDefined) Some(tag.get.balanceTo(maxLatency)) else None)
+    def invert : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, tag.map(t => t.invert))
+    def prev(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, tag.map(t => t.prev(step)))
+    def pipe(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, tag.map(t => t.pipe(step)))
+    def balanceTo(maxLatency : Option[Int]) : SourceElement =
+      SourceElement(relBitHigh, relBitLow, reverseBits, tag.map(t => t.balanceTo(maxLatency)))
 
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = tag match {
       case Some(t) =>
