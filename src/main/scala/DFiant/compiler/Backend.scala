@@ -1,5 +1,5 @@
 package DFiant.compiler
-import DFiant.DFAny.SourceTag
+import DFiant.SourceTag
 import DFiant.FunctionalLib.{CompAlias, Func2Comp}
 import DFiant._
 import DFiant.internals.{DSLOwnerConstruct, StringExtras, csoIntervalBigInt}
