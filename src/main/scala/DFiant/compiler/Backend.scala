@@ -748,7 +748,7 @@ object Backend {
       this
     }
 
-    protected final lazy val hasSyncProcess : Boolean =
+    protected final lazy val hasSyncProcess : Boolean = design.isTop ||
       architecture.statements.components.list.map(e => e.hasSyncProcess)
         .fold(architecture.statements.sync_process.exists)((l, r) => l || r)
 
