@@ -24,8 +24,8 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   final protected[DFiant] lazy val init : Unit = {}
   final val id = getID
 
-  override lazy val typeName: String =
-    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
+//  override lazy val typeName: String =
+//    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
 
   override def codeString: String = {
     s"\nval $name = new $typeName {}"

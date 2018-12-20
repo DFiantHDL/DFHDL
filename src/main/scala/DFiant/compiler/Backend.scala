@@ -8,7 +8,7 @@ import scala.collection.immutable.HashSet
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
 
-abstract class Backend(design : DFDesign) {
+abstract class Backend(design : DFInterface) {
 }
 
 object Backend {
@@ -59,7 +59,7 @@ object Backend {
   }
   //////////////////////////////////////////////////////////////////////////////////
 
-  class VHDL(design : DFDesign, owner : VHDL = null, simClkPeriodKHz : Option[Int] = None) extends Backend(design) { self =>
+  class VHDL(design : DFInterface, owner : VHDL = null, simClkPeriodKHz : Option[Int] = None) extends Backend(design) { self =>
     private val top : VHDL = if (owner == null) this else owner
     private implicit val nameDB : NameDB = new NameDB
     private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name.toLowerCase()) else top.db
@@ -250,12 +250,9 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    //////////////////////////////////////////////////////////////////////////////////
-    // Entity
-    //////////////////////////////////////////////////////////////////////////////////
-    private object entity {
+    class PortsHandler(ifc : DFInterface, indent : Int) {
       private def emitPort(name : String, dir : String, typeS : String) : String =
-        f"\n$delim$name%-20s : $dir%-3s $typeS"
+        f"\n${delim*indent + name}%-22s : $dir%-3s $typeS"
       class port(member : DFAny.Port[_ <: DFAny,_ <: DFDir], name : Name) extends Reference(member, name) {
         ports.list += this
         val dir : String = member.dir.toString.toLowerCase()
@@ -268,13 +265,26 @@ object Backend {
       }
       object ports {
         val list : ListBuffer[port] = ListBuffer.empty[port]
-        private val clkPort : String = emitPort(clkName.value, "in", "std_logic")
-        private val rstPort : String = emitPort(rstName.value, "in", "std_logic")
+        private val clkPorts : List[String] = ifc match {
+          case x : RTComponent => x.clockList.toList.map(c => emitPort(c.name.toUpperCase, "in", "std_logic"))
+          case _ => List(emitPort(clkName.value, "in", "std_logic"))
+        }
+        private val rstPorts : List[String] = ifc match {
+          case x : RTComponent => x.resetList.toList.map(r => emitPort(r.name.toUpperCase, "in", "std_logic"))
+          case _ => List(emitPort(rstName.value, "in", "std_logic"))
+        }
         def portList : String =
-          if (hasSyncProcess && simClkPeriodKHz.isEmpty) (clkPort +: rstPort +: list.map(p => p.declare)).mkString(";")
+          if (hasSyncProcess && simClkPeriodKHz.isEmpty) (clkPorts ++ rstPorts ++ list.map(p => p.declare)).mkString(";")
           else list.map(p => p.declare).mkString(";")
-        override def toString : String = if (portList.isEmpty) "" else s"\nport ($portList\n);"
+        private val headDelim = delim * (indent-1)
+        override def toString : String = if (portList.isEmpty) "" else s"\n${headDelim}port ($portList\n$headDelim);"
       }
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // Entity
+    //////////////////////////////////////////////////////////////////////////////////
+    private object entity extends PortsHandler(design, 1) {
       def body : String = ports.toString
     }
     //////////////////////////////////////////////////////////////////////////////////
@@ -386,7 +396,17 @@ object Backend {
           }
         }
 
-        override def toString : String = s"$signals"
+        case class component(rtComponent: RTComponent) extends PortsHandler(rtComponent, 2) {
+          rtComponent.ports.foreach(p => port(p))
+          override def toString: String = s"\n${delim}component ${rtComponent.typeName.toLowerCase}${ports}\n${delim}end component;"
+
+          components.list += this
+        }
+        object components {
+          val list = ListBuffer.empty[component]
+          override def toString: String = list.mkString("\n")
+        }
+        override def toString : String = s"$signals$components"
       }
       object statements {
         def func2(member : Func2Comp[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
@@ -429,7 +449,7 @@ object Backend {
           result
         }
 
-        case class component_instance(member : DFDesign) extends VHDL(member, self) {
+        case class component_instance(member : DFInterface) extends VHDL(member, self) {
           private def emitConnection(portName : String, signalName : String) : String =
             f"\n$delim$portName%-20s => $signalName"
           case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
@@ -440,10 +460,16 @@ object Backend {
             lazy val list : List[connection] = member.ports.map(p => {
               connection(p, architecture.declarations.signal(p))
             })
-            private val clkConn = emitConnection(clkName.value, clkName.value)
-            private val rstConn = emitConnection(rstName.value, rstName.value)
+            private val clkConns : List[String] = member match {
+              case x : RTComponent => x.clockList.toList.map(c => emitConnection(c.name.toUpperCase, clkName.value))
+              case _ => List(emitConnection(clkName.value, clkName.value))
+            }
+            private val rstConns : List[String] = member match {
+              case x : RTComponent => x.resetList.toList.map(r => emitConnection(r.name.toUpperCase, rstName.value))
+              case _ => List(emitConnection(rstName.value, rstName.value))
+            }
             override def toString: String =
-              if (hasSyncProcess) (clkConn :: rstConn :: list.map(e => e.toString)).mkString(",")
+              if (hasSyncProcess) (clkConns ++ rstConns ++ list.map(e => e.toString)).mkString(",")
               else list.map(e => e.toString).mkString(",")
           }
 
@@ -625,7 +651,7 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    protected def pass(dsn : DFDesign) : Unit = dsn.discoveredList.foreach {
+    protected def pass(dsn : DFInterface) : Unit = dsn.discoveredList.foreach {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
         if (x.isAssigned) {
@@ -661,6 +687,9 @@ object Backend {
 //        else
           architecture.declarations.alias(x.alias)
       case x : DFAny.Alias[_] => architecture.declarations.alias(x)
+      case x : RTComponent =>
+        architecture.declarations.component(x)
+        architecture.statements.component_instance(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
       case x : Assert => architecture.statements.async_process.assert(x.cond, x.msg, x.severity)
 
@@ -748,9 +777,13 @@ object Backend {
       this
     }
 
-    protected final lazy val hasSyncProcess : Boolean = design.isTop ||
-      architecture.statements.components.list.map(e => e.hasSyncProcess)
-        .fold(architecture.statements.sync_process.exists)((l, r) => l || r)
+    protected final lazy val hasSyncProcess : Boolean = design match {
+      case x : RTComponent if x.resetList.nonEmpty || x.clockList.nonEmpty => true
+      case _ =>
+        design.isTop ||
+          architecture.statements.components.list.map(e => e.hasSyncProcess)
+            .fold(architecture.statements.sync_process.exists)((l, r) => l || r)
+    }
 
     val entityName : Name = {
       pass(design)
