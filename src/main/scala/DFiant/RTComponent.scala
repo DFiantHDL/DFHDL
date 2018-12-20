@@ -30,6 +30,17 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   override def codeString: String = {
     s"\nval $name = new $typeName {}"
   }
+
+  val clockList : ListBuffer[Clock] = ListBuffer.empty[Clock]
+  val resetList : ListBuffer[Reset] = ListBuffer.empty[Reset]
+  protected[DFiant] case class Clock()(implicit n : NameIt) {
+    val name : String = n.value
+    clockList += this
+  }
+  protected[DFiant] case class Reset(activeLow : Boolean = true)(implicit n : NameIt) {
+    val name : String = n.value
+    resetList += this
+  }
 }
 
 object RTComponent {
