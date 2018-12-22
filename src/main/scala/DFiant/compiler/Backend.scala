@@ -224,7 +224,7 @@ object Backend {
       var maxPrevUse : Int = 0
       var maxPipeUse : Int = 0
       var assignedValue : String = ""
-      def showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 //&& maxPipeUse == 0
+      def showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 || architecture.statements.async_process.condBlock > 0
       def refName : String = name.value
       final def ref(pipe : Int) : String = {
         if (pipe > maxPipeUse) {
@@ -236,7 +236,7 @@ object Backend {
         }
         if (pipe > 0) s"${refName}_pipe$pipe" else refName
       }
-      lazy val value : String = if (showValueInsteadOfName) assignedValue else ref(refPipe)
+      lazy val value : String = if (showValueInsteadOfName && assignedValue.nonEmpty) assignedValue else ref(refPipe)
       val addRef : Unit = References.add(member, this, false)
     }
     protected object References {
@@ -483,11 +483,14 @@ object Backend {
         }
 
         class process(val indent : Int) {
-          var statementIndent : Int = indent
+          var condBlock : Int = 0
+          def statementIndent : Int = condBlock + indent
           class variable(member : DFAny, name : Name, override val sigport : Reference) extends Reference(member, name) {
             variables.list += this
-            override def assign(src : Value): Unit =
+            override def assign(src : Value): Unit = {
               architecture.statements.async_process.assignment(this, src)
+              assignedValue = src.value
+            }
             override def declare : String = f"\n${delim}variable $name%-11s : $typeS;"
 
             override val refName: String = sigport.refName
@@ -702,9 +705,9 @@ object Backend {
           case ifBlock =>
             architecture.statements.async_process.ifStatement.ifBegin(x.cond)
         }
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
         pass(x)
-        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.condBlock -= 1
         if (x.isFinalBlock) architecture.statements.async_process.ifStatement.ifEnd()
 
       case x : ConditionalBlock.IfWithRetVal[_,_,_]#DFIfBlock =>
@@ -716,9 +719,9 @@ object Backend {
           case ifBlock =>
             architecture.statements.async_process.ifStatement.ifBegin(x.cond)
         }
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
         pass(x)
-        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.condBlock -= 1
         x match {
           case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseBlock =>
             architecture.statements.async_process.ifStatement.ifEnd()
@@ -726,38 +729,38 @@ object Backend {
         }
       case x : ConditionalBlock.MatchNoRetVal#DFMatchHeader[_] =>
         architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
       case x : ConditionalBlock.MatchNoRetVal#DFCase_Block[_] =>
         architecture.statements.async_process.caseStatement.whenOthers()
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
         pass(x)
-        architecture.statements.async_process.statementIndent -= 1
-        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.condBlock -= 1
+        architecture.statements.async_process.condBlock -= 1
         architecture.statements.async_process.caseStatement.caseEnd()
       case x : ConditionalBlock.MatchNoRetVal#DFCasePatternBlock[_] =>
         architecture.statements.async_process.caseStatement.when(x.pattern)
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
         pass(x)
-        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.condBlock -= 1
         if (x.isLastCase) {
-          architecture.statements.async_process.statementIndent -= 1
+          architecture.statements.async_process.condBlock -= 1
           architecture.statements.async_process.caseStatement.caseEnd()
         }
       case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFMatchHeader[_] =>
         architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
       case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFCase_Block[_] =>
         architecture.statements.async_process.caseStatement.whenOthers()
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
         pass(x)
-        architecture.statements.async_process.statementIndent -= 1
-        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.condBlock -= 1
+        architecture.statements.async_process.condBlock -= 1
         architecture.statements.async_process.caseStatement.caseEnd()
       case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFCasePatternBlock[_] =>
         architecture.statements.async_process.caseStatement.when(x.pattern)
-        architecture.statements.async_process.statementIndent += 1
+        architecture.statements.async_process.condBlock += 1
         pass(x)
-        architecture.statements.async_process.statementIndent -= 1
+        architecture.statements.async_process.condBlock -= 1
       case x : DFDesign => architecture.statements.component_instance(x)
       case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
         val dstSig = References(x.toPort)

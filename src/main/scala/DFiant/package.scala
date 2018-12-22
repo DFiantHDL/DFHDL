@@ -81,11 +81,17 @@ package object DFiant extends {
         override def restart(): Unit = sel := 0
       }
     }
-    def foreachdf[W](sel : DFUInt[W])(block : T => Unit)(implicit ctx : DFDesign.Context) : Unit = {
+    def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFDesign.Context) : Unit = {
       import ctx.owner._
       setFalseNamesInvalidator
       val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
       val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+    }
+    def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFDesign.Context) : Unit = {
+      import ctx.owner._
+      setFalseNamesInvalidator
+      val matcherFirstCase = matchdf(sel).casedf(BigInt(0).toBitVector(sel.width))(block(list.head))
+      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1)))
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////

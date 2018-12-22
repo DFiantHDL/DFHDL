@@ -11,25 +11,18 @@ trait RegFile extends DFDesign {
   private val rd_data   = DFBits[XLEN]   <> IN
   private val rd_wren   = DFBool()       <> IN
 
-  private val regsNum = 32
-  private val regs = (0 until regsNum).toList.map(r => DFBits[XLEN].init(b0s).setName(s"x$r"))
-  private val x0 = regs(0)
-  private val rs1_addr_u = rs1_addr.uint
-  private val rs2_addr_u = rs2_addr.uint
-  private val rd_addr_u = rd_addr.uint
+  private val regsNum = 0 until 32
+  private val regs = regsNum.toList.map(ri => (ri, DFBits[XLEN].init(b0s).setName(s"x$ri")))
 
-  regs.foreachdf(rs1_addr_u) {r => rs1_data := r.prev()}
-  regs.foreachdf(rs2_addr_u) {r => rs2_data := r.prev()}
-
-//  private val rs1_sel = selectdf(rs1_addr_u)(regs)
-//  private val rs2_sel = selectdf(rs2_addr_u)(regs)
-//  private val rd_sel  = selectdf(rd_addr_u)(regs)
-//  rs1_data <> rs1_sel.prev
-//  rs2_data <> rs2_sel.prev
-//  ifdf (rd_wren) {
-//    rd_sel := rd_data
-//  }
-  x0 := b0s //override X0 with zero value
+  regs.foreachdf(rs1_addr) {case (ri, r) => rs1_data := r.prev()}
+  regs.foreachdf(rs2_addr) {case (ri, r) => rs2_data := r.prev()}
+  regs.foreachdf(rd_addr) {
+    case (0, r) => //No write for X0
+    case (ri, r) =>
+      ifdf (rd_wren) {
+        r := rd_data
+      }
+  }
 
   def readConn1(rs1_addr : DFBits[5])(implicit ctx : DFDesign.Context) : DFBits[XLEN] = {
     this.rs1_addr <> rs2_addr
