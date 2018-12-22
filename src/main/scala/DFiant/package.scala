@@ -72,7 +72,6 @@ package object DFiant extends {
       val runCond = DFBool() init true
       val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
       val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-      matcherCases.casedf_{}
       ifdf(runCond && sel != lastRun) {
         sel := sel + 1
       }
@@ -81,6 +80,12 @@ package object DFiant extends {
         override def stop(): Unit = runCond := false
         override def restart(): Unit = sel := 0
       }
+    }
+    def foreachdf[W](sel : DFUInt[W])(block : T => Unit)(implicit ctx : DFDesign.Context) : Unit = {
+      import ctx.owner._
+      setFalseNamesInvalidator
+      val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
+      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////

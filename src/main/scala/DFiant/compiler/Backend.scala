@@ -739,6 +739,10 @@ object Backend {
         architecture.statements.async_process.statementIndent += 1
         pass(x)
         architecture.statements.async_process.statementIndent -= 1
+        if (x.isLastCase) {
+          architecture.statements.async_process.statementIndent -= 1
+          architecture.statements.async_process.caseStatement.caseEnd()
+        }
       case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFMatchHeader[_] =>
         architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
         architecture.statements.async_process.statementIndent += 1
