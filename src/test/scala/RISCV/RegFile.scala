@@ -12,10 +12,10 @@ trait RegFile extends DFDesign {
   private val rd_wren   = DFBool()       <> IN
 
   private val regsNum = 0 until 32
-  private val regs = regsNum.toList.map(ri => (ri, DFBits[XLEN].init(b0s).setName(s"x$ri")))
+  private val regs = regsNum.map(ri => (ri, DFBits[XLEN].init(b0s).setName(s"x$ri")))
 
-  regs.foreachdf(rs1_addr) {case (ri, r) => rs1_data := r.prev()}
-  regs.foreachdf(rs2_addr) {case (ri, r) => rs2_data := r.prev()}
+  regs.foreachdf(rs1_addr) {case (ri, r) => rs1_data := r}
+  regs.foreachdf(rs2_addr) {case (ri, r) => rs2_data := r}
   regs.foreachdf(rd_addr) {
     case (0, r) => //No write for X0
     case (ri, r) =>

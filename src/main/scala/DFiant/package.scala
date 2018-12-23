@@ -63,24 +63,24 @@ package object DFiant extends {
     def stop() : Unit
     def restart() : Unit
   }
-  implicit class ListExtender[+T, +Repr](val list : List[T]) {
-    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFLoopController = {
-      import ctx.owner._
-      setFalseNamesInvalidator
-      val lastRun = list.length + 1
-      val sel = DFUInt(BigInt(lastRun).bitsWidth) init 0
-      val runCond = DFBool() init true
-      val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
-      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-      ifdf(runCond && sel != lastRun) {
-        sel := sel + 1
-      }
-      new DFLoopController {
-        override def run(): Unit = runCond := true
-        override def stop(): Unit = runCond := false
-        override def restart(): Unit = sel := 0
-      }
-    }
+  implicit class ListExtender[+T, +Repr](val list : Iterable[T]) {
+//    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFLoopController = {
+//      import ctx.owner._
+//      setFalseNamesInvalidator
+//      val lastRun = list.length + 1
+//      val sel = DFUInt(BigInt(lastRun).bitsWidth) init 0
+//      val runCond = DFBool() init true
+//      val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
+//      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+//      ifdf(runCond && sel != lastRun) {
+//        sel := sel + 1
+//      }
+//      new DFLoopController {
+//        override def run(): Unit = runCond := true
+//        override def stop(): Unit = runCond := false
+//        override def restart(): Unit = sel := 0
+//      }
+//    }
     def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFDesign.Context) : Unit = {
       import ctx.owner._
       setFalseNamesInvalidator
@@ -237,6 +237,10 @@ package object DFiant extends {
     }
   }
 
+  implicit class XBitVectorExtras[LW](left : XBitVector[LW]) {
+    def ##[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
+      (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
+  }
   ////////////////////////////////////////////////////////////////////////////////////
 
 

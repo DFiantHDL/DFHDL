@@ -45,7 +45,7 @@ trait Execute extends DFDesign {
     this.imm <> decodedInst.imm
     this.shamt <> decodedInst.shamt
     val pcCalc = new PCCalc(this.pcNext, this.pcPlus4)
-    val executeInst = new ExecuteInst(decodedInst.rd_addr, decodedInst.rd_wren, this.aluOut, rs2_data, decodedInst.dmem_wren, decodedInst.wbSel, this.aluOut)
+    val executeInst = new ExecuteInst(decodedInst.rd_addr, decodedInst.rd_wren, this.aluOut, rs2_data, decodedInst.dmemSel, decodedInst.wbSel, this.aluOut)
     (pcCalc, executeInst)
   }
 }
@@ -56,7 +56,7 @@ class ExecuteInst(
 
   val dmem_addr : DFBits[32],
   val dataToMem : DFBits[32],
-  val dmem_wren : DFBool,
+  val dmemSel   : DFEnum[DMemSel],
 
   val wbSel     : DFEnum[WriteBackSel],
   val aluOut    : DFBits[32]

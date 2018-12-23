@@ -14,19 +14,29 @@ class DMem_Bram()(implicit ctx : RTComponent.Context) extends RTComponent {
 trait DMem extends DFDesign {
   private val addr        = DFBits[32] <> IN
   private val dataToMem   = DFBits[32] <> IN
-  private val wrEnToMem   = DFBool()   <> IN
+  private val dmemSel     = DFEnum[DMemSel] <> IN
   private val dataFromMem = DFBits[32] <> OUT
-
+  private val wrEnToMem   = DFBool()
+  wrEnToMem := false
+  matchdf(dmemSel)
+    .casedf(DMemSel.LB)   {}
+    .casedf(DMemSel.LH)   {}
+    .casedf(DMemSel.LW)   {}
+    .casedf(DMemSel.LBU)  {}
+    .casedf(DMemSel.LHU)  {}
+    .casedf(DMemSel.SB)   {wrEnToMem := true}
+    .casedf(DMemSel.SH)   {wrEnToMem := true}
+    .casedf(DMemSel.SW)   {wrEnToMem := true}
   val bram = new DMem_Bram()
   bram.addra <> addr(13, 2)
   bram.wea <> wrEnToMem
   bram.dina <> dataToMem
   bram.douta <> dataFromMem
 
-  def readWriteConn(addr : DFBits[32], dataToMem : DFBits[32], wrEnToMem : DFBool)(implicit ctx : DFDesign.Context) : DFBits[32] = {
+  def readWriteConn(addr : DFBits[32], dataToMem : DFBits[32], dmemSel : DFEnum[DMemSel])(implicit ctx : DFDesign.Context) : DFBits[32] = {
     this.addr <> addr
     this.dataToMem <> dataToMem
-    this.wrEnToMem <> wrEnToMem
+    this.dmemSel <> dmemSel
     this.dataFromMem
   }
 }

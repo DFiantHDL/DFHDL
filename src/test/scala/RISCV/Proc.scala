@@ -37,7 +37,7 @@ trait Proc extends DFDesign {
   // Memory
   ////////////////////////////////////////////////////////////////////////
   private val dmem = new DMem {}
-  private val dmem_dataFromMem = dmem.readWriteConn(executeInst.dmem_addr, executeInst.dataToMem, executeInst.dmem_wren)
+  private val dmem_dataFromMem = dmem.readWriteConn(executeInst.dmem_addr, executeInst.dataToMem, executeInst.dmemSel)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////

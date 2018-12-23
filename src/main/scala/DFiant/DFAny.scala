@@ -110,7 +110,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   final def prev()(implicit ctx : DFAny.Alias.Context) : TVal = protPrev(1)
   final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPrev(step)
-  private[DFiant] var maxPrevUse = 0 //TODO: hack. Remove this
+  private[DFiant] var maxPrevUse = 1 //TODO: hack. Remove this
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -273,6 +273,11 @@ object DFAny {
         throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
       if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
+//      fromVal match {
+//        case x : Var  if ((collection.immutable.BitSet.empty ++ (0 until toRelWidth)) &~ x.assignedIndication).nonEmpty =>
+//          x.maxPrevUse = scala.math.max(x.maxPrevUse, 1)
+////          println(s"$fullName ${x.maxPrevUse}")
+//      }
       assignedIndication ++= toRelBitLow to toRelBitHigh
       assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
       protAssignDependencies += Assignment(toVar, fromVal)
@@ -335,7 +340,6 @@ object DFAny {
       val toVar = this
       val toRelBitHigh = toRelBitLow + toRelWidth-1
       val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
-
       def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
       if ((connectedIndication & toBitSet).nonEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
       super.assign(toRelWidth, toRelBitLow, fromVal)

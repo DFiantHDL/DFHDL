@@ -16,7 +16,7 @@ trait PCGen extends DFDesign {
   pcPlus4 := pcPlus4U.bits
 
   private val pcOrReg1 = DFUInt[32].matchdf(branchSel)
-    .casedf(BranchSel.JumpReg)  {rs1_data.uint}
+    .casedf(BranchSel.JALR)  {rs1_data.uint}
     .casedf_                    {pcu}
   private val pcBrJmp = pcOrReg1 + imm.uint
 
@@ -32,14 +32,14 @@ trait PCGen extends DFDesign {
   private val r1_GEU_r2 = !r1_LTU_r2
 
   private val brTaken = DFBool().matchdf(branchSel)
-    .casedf(BranchSel.JumpReg, BranchSel.Jump)  {true}
-    .casedf(BranchSel.Equal)                    {r1_EQ_r2}
-    .casedf(BranchSel.NotEqual)                 {r1_NE_r2}
-    .casedf(BranchSel.GreaterEqual)             {r1_GE_r2}
-    .casedf(BranchSel.GreaterEqualUnsigned)     {r1_GEU_r2}
-    .casedf(BranchSel.LessThan)                 {r1_LT_r2}
-    .casedf(BranchSel.LessThanUnsigned)         {r1_LTU_r2}
-    .casedf_                                    {false}
+    .casedf(BranchSel.JALR, BranchSel.JAL)  {true}
+    .casedf(BranchSel.BEQ)                  {r1_EQ_r2}
+    .casedf(BranchSel.BNE)                  {r1_NE_r2}
+    .casedf(BranchSel.BGE)                  {r1_GE_r2}
+    .casedf(BranchSel.BGEU)                 {r1_GEU_r2}
+    .casedf(BranchSel.BLT)                  {r1_LT_r2}
+    .casedf(BranchSel.BLTU)                 {r1_LTU_r2}
+    .casedf_                                {false}
 
   private val pcNextU = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
 

@@ -224,7 +224,7 @@ object Backend {
       var maxPrevUse : Int = 0
       var maxPipeUse : Int = 0
       var assignedValue : String = ""
-      def showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 || architecture.statements.async_process.condBlock > 0
+      val showValueInsteadOfName : Boolean = member.isAnonymous && member.refCount < 2 || architecture.statements.async_process.condBlock > 0
       def refName : String = name.value
       final def ref(pipe : Int) : String = {
         if (pipe > maxPipeUse) {
@@ -670,6 +670,7 @@ object Backend {
         }
       case x : DFAny.NewVar[_] =>
 //        if (x.assigned) {
+//        println(s"${x.fullName}, ${x.maxPrevUse}")
           val dstSig = architecture.declarations.signal(x)
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
           if (x.maxPrevUse > 0) {

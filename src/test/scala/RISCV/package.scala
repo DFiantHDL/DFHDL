@@ -5,14 +5,15 @@ package object RISCV {
   type XLEN = XLEN.type
   final val StartAddress = h"00000000"
 
-  implicit object PCSel extends Enum.Manual(3) {
-    val Plus4, Branch, Jump, JumpReg, Exception = EntryDelta()
+  implicit object Op extends Enum.Auto {
+    val Unsupported, LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,
+    LB, LH, LW, LBU, LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI,
+    SLLI, SRLI, SRAI, ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND = Entry()
   }
-  type PCSel = PCSel.type
 
   implicit object BranchSel extends Enum.Manual(4) {
-    val Next, NotEqual, Equal, GreaterEqual,
-    GreaterEqualUnsigned, LessThan, LessThanUnsigned, Jump, JumpReg = EntryDelta()
+    val Next, BNE, BEQ, BGE,
+    BGEU, BLT, BLTU, JAL, JALR = EntryDelta()
   }
   type BranchSel = BranchSel.type
 
@@ -29,7 +30,8 @@ package object RISCV {
   type RS2OpSel = RS2OpSel.type
 
   implicit object ALUSel extends Enum.Manual(4) {
-    val DontCare, ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
+    val ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
+    val DontCare = ADD
   }
   type ALUSel = ALUSel.type
 
@@ -39,10 +41,10 @@ package object RISCV {
   }
   type WriteBackSel = WriteBackSel.type
 
-  implicit object MemFuncSel extends Enum.Manual(2) {
-    val Read, Write, Fence = EntryDelta()
-    val DontCare = Read
+  implicit object DMemSel extends Enum.Auto {
+    val LB, LH, LW, LBU, LHU, SB, SH, SW = Entry()
+    val DontCare = LW
   }
-  type MemFuncSel = MemFuncSel.type
+  type DMemSel = DMemSel.type
 
 }
