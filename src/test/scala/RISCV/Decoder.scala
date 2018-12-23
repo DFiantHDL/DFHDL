@@ -171,7 +171,7 @@ trait Decoder extends DFDesign {
         .casedf(b"111")               {op := Op.ANDI;   aluSel := ALUSel.AND}
         .casedf(b"001") {
           matchdf(func7)
-            .casedf(b"0000000")         {op := Op.SLLI;   aluSel := ALUSel.SLL}
+            .casedf(b"0000000")       {op := Op.SLLI;   aluSel := ALUSel.SLL}
         }
         .casedf(b"101") {
           matchdf(func7)
