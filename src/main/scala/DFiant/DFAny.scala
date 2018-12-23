@@ -581,8 +581,8 @@ object DFAny {
     final val id = getID
 
     reference match { //TODO: fix this terrible hack!!!!!!
-      case DFAny.Alias.Reference.Prev(step) => aliasedVars.head.privRefCount+=2
-      case DFAny.Alias.Reference.Pipe(step) => aliasedVars.head.privRefCount+=2
+      case DFAny.Alias.Reference.Prev(step) => aliasedVars.head.privRefCount+=1
+      case DFAny.Alias.Reference.Pipe(step) => aliasedVars.head.privRefCount+=1
       case _ =>
     }
   }

@@ -931,7 +931,7 @@ object Backend {
             })
             object entries {
               val hashMap : HashMap[Enum.Entry, enum_entry] = HashMap.empty[Enum.Entry, enum_entry]
-              def apply(entry : Enum.Entry) : enum_entry = hashMap(entry)
+              def apply(entry : Enum.Entry) : enum_entry = hashMap.getOrElse(entry, {enums(entry.enumOwner); hashMap(entry)})
             }
             override def toString: String = hashMap.values.mkString("\n")
           }

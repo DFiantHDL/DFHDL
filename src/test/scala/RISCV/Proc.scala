@@ -2,7 +2,8 @@ package RISCV
 import DFiant._
 
 trait Proc extends DFDesign {
-  private val pc = DFBits[32] init StartAddress keep
+  private val pc = DFBits[32] init StartAddress
+  pc.keep
 
   ////////////////////////////////////////////////////////////////////////
   // Fetch
@@ -55,5 +56,5 @@ trait Proc extends DFDesign {
 }
 
 object ProcTest extends App {
-  val riscv = new Proc {}.printCodeString
+  val riscv = new Proc {}.printVHDLString
 }
