@@ -25,7 +25,7 @@ trait RegFile extends DFDesign {
   }
 
   def readConn1(rs1_addr : DFBits[5])(implicit ctx : DFDesign.Context) : DFBits[XLEN] = {
-    this.rs1_addr <> rs2_addr
+    this.rs1_addr <> rs1_addr
     this.rs1_data
   }
   def readConn2(rs2_addr : DFBits[5])(implicit ctx : DFDesign.Context) : DFBits[XLEN] = {
