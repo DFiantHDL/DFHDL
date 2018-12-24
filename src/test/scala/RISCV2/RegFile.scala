@@ -1,4 +1,4 @@
-package RISCV
+package RISCV2
 
 import DFiant._
 
@@ -11,6 +11,7 @@ trait RegFile extends DFDesign {
   private val rd_data   = DFBits[XLEN]   <> IN
   private val rd_wren   = DFBool()       <> IN
 
+  private val regsNum = 0 until 32
   private val regs = regsNum.map(ri => (ri, DFBits[XLEN].init(b0s).setName(s"x$ri")))
 
   regs.foreachdf(rs1_addr) {case (ri, r) => rs1_data := r}

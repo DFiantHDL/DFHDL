@@ -1,6 +1,6 @@
 import DFiant._
 
-package object RISCV {
+package object RISCV2 {
   final val XLEN = 32
   type XLEN = XLEN.type
   final val StartAddress = h"00000000"
