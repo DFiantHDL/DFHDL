@@ -24,12 +24,16 @@ class IMem()(implicit ctx : RTComponent.Context) extends RTComponent {
 trait Cont extends DFDesign {
   final val addraP = DFBits(12) <> IN
   final val doutaP = DFBits(32) <> OUT
-  val imem = new IMem()
-  imem.addra <> addraP
-  imem.douta <> doutaP
+//  val imem = new IMem()
+//  imem.addra <> addraP
+//  imem.douta <> doutaP
+  matchdf(addraP)
+    .casedf(b"11111111111") {doutaP := b0s}
+    .casedf(b"01111111111") {}
+    .casedf_{doutaP := b1s}
 }
 
 
 object Bla extends App {
-  val bla = new Cont {}.printVHDLString
+  val bla = new Cont {}.printCodeString
 }

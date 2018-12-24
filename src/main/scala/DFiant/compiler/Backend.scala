@@ -453,7 +453,7 @@ object Backend {
           private def emitConnection(portName : String, signalName : String) : String =
             f"\n$delim$portName%-20s => $signalName"
           case class connection(port : DFAny.Port[_ <: DFAny,_ <: DFDir], signal : architecture.declarations.signal) {
-            self.References.add(port, signal, false)
+            self.References.add(port, signal, forceUpdate = true)
             override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
@@ -745,6 +745,7 @@ object Backend {
         architecture.statements.async_process.condBlock -= 1
         if (x.isLastCase) {
           architecture.statements.async_process.condBlock -= 1
+          architecture.statements.async_process.caseStatement.whenOthers() //TODO consider removing default others
           architecture.statements.async_process.caseStatement.caseEnd()
         }
       case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFMatchHeader[_] =>
