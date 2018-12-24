@@ -56,5 +56,5 @@ trait Proc extends DFDesign {
 }
 
 object ProcTest extends App {
-  val riscv = new Proc {}.printVHDLString
+  val riscv = new Proc {}.compileToVHDL.print.toFile("test.vhd")
 }

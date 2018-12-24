@@ -7,7 +7,7 @@ trait ALU extends DFDesign {
   private val op2     = DFBits[32]      <> IN
   private val shamt   = DFUInt[5]       <> IN
   private val aluSel  = DFEnum(ALUSel)  <> IN
-  private val out     = DFBits[32]      <> OUT
+  private val aluOut  = DFBits[32]      <> OUT
 
   //helper casted values
   private val op1u = op1.uint
@@ -29,7 +29,7 @@ trait ALU extends DFDesign {
     .casedf(ALUSel.COPY1){op1}
     .casedf_{b0s}
 
-  out <> outCalc
+  aluOut <> outCalc
 
   def calcConn(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel])(
     implicit ctx : DFAny.Op.Context
@@ -38,7 +38,7 @@ trait ALU extends DFDesign {
     this.op2 <> op2
     this.shamt <> shamt
     this.aluSel <> aluSel
-    this.out
+    this.aluOut
   }
 }
 
@@ -48,10 +48,10 @@ trait ALUTest extends DFDesign {
   val op2     = DFBits[32]     <> IN init(h"00000010", h"00000011", h"00000012")
   val shamt   = DFUInt[5]      <> IN init(1, 2)
   val aluSel  = DFEnum(ALUSel) <> IN init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
-  val out     = DFBits[32]     <> OUT
+  val aluOut  = DFBits[32]     <> OUT
 
   val alu = new ALU {}
-  out <> alu.calcConn(op1, op2, shamt, aluSel)
+  aluOut <> alu.calcConn(op1, op2, shamt, aluSel)
 
 }
 
