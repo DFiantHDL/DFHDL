@@ -126,12 +126,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar[DFUInt[W]](width, s"DFUInt($width)") with Var[W] {
-    //Dataflow If
-    final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
-    final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
-    final object selectdf extends ConditionalBlock.SelectWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
-  }
+  ) extends DFAny.NewVar[DFUInt[W]](width, s"DFUInt($width)") with Var[W]
 
   protected[DFiant] final class Alias[W](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context

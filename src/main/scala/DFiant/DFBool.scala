@@ -71,12 +71,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[DFiant] final class NewVar()(
     implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar[DFBool](1, "DFBool()") with Var {
-    //Dataflow If
-    final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
-    final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
-    final object selectdf extends ConditionalBlock.SelectWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
-  }
+  ) extends DFAny.NewVar[DFBool](1, "DFBool()") with Var
 
   protected[DFiant] final class Alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context

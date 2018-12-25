@@ -17,12 +17,12 @@ object MatchConfig {
 
 object ConditionalBlock {
   type Context = DFDesign.Context
-  class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar[RV]) {
+  class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
-      def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[RV, R])
+      def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[R])
       : DFIfBlock = new DFElseIfBlock(this, elseCond, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-      def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[RV, R])
+      def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[R])
       : RV = {
         val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
         returnVar.initialize(firstIf.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
@@ -65,13 +65,13 @@ object ConditionalBlock {
     }
 
     def apply[R](cond: DFBool)(block: => Able[R])(
-      implicit ctx : Context, op : Builder[RV, R]
+      implicit ctx : Context, op : Builder[R]
     ) : DFIfBlock = new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
 
-  class SelectWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar[RV]) {
+  class SelectWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     def apply[T, E](cond : DFBool)(thenSel : Able[T], elseSel : Able[E])(
-      implicit ctx : Context, opT : Builder[RV, T], opE : Builder[RV, E]
+      implicit ctx : Context, opT : Builder[T], opE : Builder[E]
     ) : RV = {
       object ifdf extends ConditionalBlock.IfWithRetVal[RV, Able, Builder](returnVar)
       ifdf(cond){thenSel}.elsedf(elseSel)
@@ -183,12 +183,12 @@ object ConditionalBlock {
       new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
   }
 
-  class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[L, R] <: DFAny.Op.Builder[L, R]](returnVar : DFAny.NewVar[RV]){
+  class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       type TPattern = matchVal.TPattern
       type TToken = matchVal.TToken
       def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(
-        implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV], retVld : Builder[RV, R]
+        implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV], retVld : Builder[R]
       ) : DFCasePatternBlock[MV] =
         new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern), retVld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
 
@@ -216,9 +216,9 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       final val matchVal = matchHeader.matchVal
-      def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV], retBld : Builder[RV, R])
+      def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV], retBld : Builder[R])
       : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](matchHeader)(Some(this), patternBld(matchVal, pattern), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-      def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[RV, R])
+      def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[R])
       : RV = {
         val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
         returnVar.initialize(firstCase.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)

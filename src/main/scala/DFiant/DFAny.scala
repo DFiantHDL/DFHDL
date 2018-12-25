@@ -488,14 +488,12 @@ object DFAny {
     final val isPort = false
 
     //Port Construction
-    //TODO: Implement generically after upgrading to 2.13.0-M5
-    //Also see https://github.com/scala/bug/issues/11026
     def <> [Dir <: DFDir](dir : Dir)(implicit port : PortBuilder[Dir])
     : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
-    //TODO: Implement generically after upgrading to 2.13.0-M5
-    //Also see https://github.com/scala/bug/issues/11026
-    //final object ifdf extends ConditionalBlock.WithRetVal[TVal, protComp.Op.Able, protComp.`Op:=`.Builder](NewVar.this)
+    final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, OpAble, `Op:=Builder`](this.asInstanceOf[NewVar[TVal]])
+    final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, OpAble, `Op:=Builder`](this.asInstanceOf[NewVar[TVal]])
+    final object selectdf extends ConditionalBlock.SelectWithRetVal[TVal, OpAble, `Op:=Builder`](this.asInstanceOf[NewVar[TVal]])
 
 //    def selectdf[T, E](cond : DFBool)(thenSel : protComp.Op.Able[T], elseSel : protComp.Op.Able[E]) : TVal = ???
 //    def selectdf[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
