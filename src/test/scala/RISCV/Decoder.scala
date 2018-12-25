@@ -204,28 +204,28 @@ trait Decoder extends DFDesign {
 
   def decodeConn(inst : DFBits[32])(implicit ctx : DFDesign.Context) : DecodedInst = {
     this.inst <> inst
-    new DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+    DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
       aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
   }
 }
 
 
-class DecodedInst(
-  val rs1_addr  : DFBits[5],
-  val rs2_addr  : DFBits[5],
-  val rd_addr   : DFBits[5],
-  val rd_wren   : DFBool,
+case class DecodedInst(
+  rs1_addr  : DFBits[5],
+  rs2_addr  : DFBits[5],
+  rd_addr   : DFBits[5],
+  rd_wren   : DFBool,
 
 //Immediate values for ALU execution
-  val imm       : DFBits[32],
-  val shamt     : DFUInt[5],
+  imm       : DFBits[32],
+  shamt     : DFUInt[5],
 
 //Control Signals
-  val branchSel : DFEnum[BranchSel],
-  val rs1OpSel  : DFEnum[RS1OpSel],
-  val rs2OpSel  : DFEnum[RS2OpSel],
-  val aluSel    : DFEnum[ALUSel],
-  val wbSel     : DFEnum[WriteBackSel],
-  val dmemSel   : DFEnum[DMemSel]
+  branchSel : DFEnum[BranchSel],
+  rs1OpSel  : DFEnum[RS1OpSel],
+  rs2OpSel  : DFEnum[RS2OpSel],
+  aluSel    : DFEnum[ALUSel],
+  wbSel     : DFEnum[WriteBackSel],
+  dmemSel   : DFEnum[DMemSel]
 )
