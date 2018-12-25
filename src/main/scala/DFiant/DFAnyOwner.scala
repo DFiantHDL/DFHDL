@@ -3,9 +3,10 @@ import DFiant.BasicLib.DFBasicLib
 import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
+  type ThisOwner <: DFAnyOwner
   protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
   implicit def theOwnerToBe : DFAnyOwner = ctx.owner
-  lazy val owner : DFAnyOwner = ctx.owner
+  lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
   final implicit lazy val config : DFAnyConfiguration = ctx.config
   final private[DFiant] lazy val nameIt = ctx.n
 }

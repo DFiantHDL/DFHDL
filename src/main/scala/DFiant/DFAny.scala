@@ -30,6 +30,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   type PortBuilder[Dir <: DFDir] <: DFAny.Port.Builder[TVal, Dir]
 //  type TUInt <: DFUInt
   val width : TwoFace.Int[Width]
+  type ThisOwner <: DFAnyOwner
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 

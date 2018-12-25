@@ -141,8 +141,8 @@ object ConditionalBlock {
       private def matchConfigCodeString : String =
         if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
-      implicit val owner = ctx.owner
-      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString}$matchConfigCodeString)\n"
+      lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
+      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
     }
@@ -207,8 +207,8 @@ object ConditionalBlock {
       private def matchConfigCodeString : String =
         if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
-      implicit val owner = ctx.owner
-      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString}$matchConfigCodeString)\n"
+      lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
+      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
     }

@@ -11,24 +11,33 @@ trait DSLConfiguration {
   val foldComponents : Boolean
 }
 
+trait HasOwner {
+  private[DFiant] val nonTransparentOwner : DSLOwnerConstruct
+  implicit val owner : DSLOwnerConstruct
+}
+
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
-  with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs {
-  val owner : DSLOwnerConstruct
-  private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct =
-    if (owner == null) null else if (owner.isInstanceOf[DSLTransparentOwnerConstruct]) owner.nonTransparentOwner else owner
+  with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
+  val ownerOption : Option[DSLOwnerConstruct]
+  type ThisOwner <: DSLOwnerConstruct
+  lazy val owner : ThisOwner = ownerOption.orNull.asInstanceOf[ThisOwner]
+  private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.orNull
+  private[DFiant] lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
   private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
-    (nonTransparentOwner != null) && (that.nonTransparentOwner != null) && (nonTransparentOwner eq that.nonTransparentOwner)
+    nonTransparentOwnerOption == that.nonTransparentOwnerOption
   private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
-    if ((nonTransparentOwner == null) || (that == null)) false
-    else if (nonTransparentOwner eq that) true
-    else nonTransparentOwner.isDownstreamMemberOf(that)
+    (nonTransparentOwnerOption, that) match {
+      case (None, _) => false
+      case (Some(a), b) if a == b => true
+      case (Some(a), b) => a.isDownstreamMemberOf(that)
+    }
   final def keep : this.type = {
-    owner.mutableKeepList += this
+    ownerOption.foreach(o => o.mutableKeepList += this)
     this
   }
   def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
-  ) : Boolean = (member != null) && (callOwner.nonTransparent eq member.nonTransparentOwner)
+  ) : Boolean = callOwner.nonTransparent == member.nonTransparentOwner
   def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
@@ -74,7 +83,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
-  private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = if (this.isInstanceOf[DSLTransparentOwnerConstruct]) nonTransparentOwner else this
+  private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = this
   val config : DSLConfiguration
   private var idCnt : Int = 0
 
@@ -132,6 +141,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
 object DSLOwnerConstruct {
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {
     implicit val owner : Owner
+    lazy val ownerOption : Option[Owner] = Option(owner)
     implicit val config : Config
     val n : NameIt
     def getName : String = if (owner == null) n.value else owner.nonTransparent.fixMemberName(n.value)
@@ -159,6 +169,9 @@ object DSLOwnerConstruct {
 }
 
 trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
+//  override private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct =
+//    if (owner == null) null else owner.nonTransparentOwner
+  override private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
 
 }
 

@@ -3,7 +3,7 @@ import sys.process._
 import scala.language.postfixOps
 
 object Lab2 extends App {
-  val ghdl = "/opt/ghdl/bin/ghdl"
+  val ghdl = "ghdl"
   val vivado = "/opt/Xilinx/Vivado/2018.2/bin/vivado"
 
   println("Hello world! I'm Lab #2")
