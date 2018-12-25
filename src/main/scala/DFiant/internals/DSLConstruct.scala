@@ -42,20 +42,16 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
 
-  protected def discoveryDepenencies : List[Discoverable] = if (owner != null) List(owner) else List()
-  final protected def getID : Int = if (owner != null) owner.newItemGetID(this) else 0
+  protected def discoveryDepenencies : List[Discoverable] = ownerOption.toList
+  final protected def getID : Int = ownerOption.map(o => o.newItemGetID(this)).getOrElse(0)
   val id : Int
 
-  final lazy val fullPath : String =
-    if (owner != null) s"${owner.fullName}"
-    else "" //Top
-
+  final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
   final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
   final private[internals] def getUniqueName(suggestedName : String) : String =
     if (owner != null) owner.getUniqueMemberName(suggestedName) else suggestedName
 
   final private def relativePath(refFullPath : String, callFullPath : String) : String = {
-
     val c = callFullPath.split('.')
     val r = refFullPath.split('.')
     if (r.length < c.length) {

@@ -9,10 +9,9 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
   implicit val basicLib = ctx.basicLib
   final val topDsn : DFDesign =
-    if (owner != null) owner.asInstanceOf[DFDesign].topDsn
-    else this.asInstanceOf[DFDesign] //The top will always be a DFDesign
+    ownerOption.map(o => o.asInstanceOf[DFDesign].topDsn).getOrElse(this.asInstanceOf[DFDesign])
   private[DFiant] val designDB : DFDesign.DB =
-    if (owner == null) new DFDesign.DB else owner.asInstanceOf[DFDesign].designDB
+    ownerOption.map(o => o.asInstanceOf[DFDesign].designDB).getOrElse(new DFDesign.DB)
 
   final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
   final object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
