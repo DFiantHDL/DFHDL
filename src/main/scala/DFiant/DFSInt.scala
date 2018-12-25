@@ -16,6 +16,7 @@ object DFSInt extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFSInt.type] {
+    type TUnbounded = Unbounded
     type TVal = DFSInt[Width]
     type TVar = DFSInt.Var[Width]
     type TToken = DFSInt.Token
@@ -25,6 +26,10 @@ object DFSInt extends DFAny.Companion {
     type OpAble[R] = Op.Able[R]
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    type InitAble[L <: DFAny] = Init.Able[L]
+    type InitBuilder = Init.Builder[TVal, TToken]
 
     final lazy val sign = bits.msbit.setAutoConstructCodeString(s"$refCodeString.sign")
 
@@ -103,9 +108,6 @@ object DFSInt extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFSInt[W] with DFAny.Var {
-    final def := [R](right: Op.Able[R])(
-      implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

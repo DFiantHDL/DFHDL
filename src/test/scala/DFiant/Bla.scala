@@ -14,12 +14,12 @@ trait Bug1 extends DFDesign {
   res(15, 0) := tempR
 }
 
-class IMem()(implicit ctx : RTComponent.Context) extends RTComponent {
-  final val clka = Clock()
-  final val addra = DFBits(12) <> IN
-  final val douta = DFBits(32) <> OUT
-//  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
-}
+//class IMem()(implicit ctx : RTComponent.Context) extends RTComponent {
+//  final val clka = Clock()
+//  final val addra = DFBits(12) <> IN
+//  final val douta = DFBits(32) <> OUT
+////  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
+//}
 
 trait Cont extends DFDesign {
   final val addraP = DFBits(12) <> IN

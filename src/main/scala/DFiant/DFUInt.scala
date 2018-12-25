@@ -16,6 +16,7 @@ object DFUInt extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFUInt.type] {
+    type TUnbounded = Unbounded
     type TVal = DFUInt[Width]
     type TVar = DFUInt.Var[Width]
     type TToken = DFUInt.Token
@@ -25,6 +26,10 @@ object DFUInt extends DFAny.Companion {
     type OpAble[R] = Op.Able[R]
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    type InitAble[L <: DFAny] = Init.Able[L]
+    type InitBuilder = Init.Builder[TVal, TToken]
     type TExtendable
     final def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, TExtendable, R]) = op(left, right)
     final def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, TExtendable, R]) = op(left, right)
@@ -81,9 +86,6 @@ object DFUInt extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFUInt[W] with DFAny.Var {
-    final def := [R](right: Op.Able[R])(
-      implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

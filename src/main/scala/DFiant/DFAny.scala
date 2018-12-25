@@ -8,7 +8,8 @@ import singleton.twoface._
 import scala.collection.mutable.ListBuffer
 
 trait DFAny extends DFAnyMember with HasWidth {
-  type TVal <: DFAny.Unbounded[TCompanion]
+  type TUnbounded <: DFAny
+  type TVal <: TUnbounded
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
   type TBool <: DFBool
@@ -16,16 +17,19 @@ trait DFAny extends DFAnyMember with HasWidth {
   type TUInt[W2] <: DFUInt[W2]
   type TSInt[W2] <: DFSInt[W2]
   type TCompanion <: DFAny.Companion
-  //  type TToken = protComp.Token //Good-code red in intellij, so using type projection instead
   type TToken <: DFAny.Token
   type TPattern <: DFAny.Pattern[TPattern]
   type TPatternAble[+R] <: DFAny.Pattern.Able[R]
   type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
-  type TUnbounded = TCompanion#Unbounded
+  type OpAble[R] <: DFAny.Op.Able[R]
+  type `Op<>Builder`[R] <: DFAny.Op.Builder[TVal, R]
+  type `Op:=Builder`[R] <: DFAny.Op.Builder[TVal, R]
+  type `Op==Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
+  type `Op!=Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
+  type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
+  type InitBuilder <: DFAny.Init.Builder[TVal, InitAble, TToken]
 //  type TUInt <: DFUInt
   val width : TwoFace.Int[Width]
-  protected[DFiant] val protComp : TCompanion
-  import protComp._
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
@@ -189,8 +193,8 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
-  final def == [R <: Unbounded](right : R)(implicit op: `Op==`.Builder[TVal, right.TVal]) = op(left, right.tVal)
-  final def != [R <: Unbounded](right : R)(implicit op: `Op!=`.Builder[TVal, right.TVal]) = op(left, right.tVal)
+  final def == [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
+  final def != [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -255,9 +259,9 @@ object DFAny {
     // Assignment (Mutation)
     //////////////////////////////////////////////////////////////////////////
     private[DFiant] type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
-//    final def := [R](right: protComp.Op.Able[R])(
-//      implicit dir : MustBeOut, op: protComp.`Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-//    ) = assign(op(left, right))
+    final def := [R](right: OpAble[R])(
+      implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFAny.Op.Context
+    ) = assign(op(left, right))
     final private[DFiant] def isAssigned : Boolean = assignedIndication.nonEmpty
     private[DFiant] val assignedIndication = collection.mutable.BitSet.empty
     private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
@@ -298,7 +302,6 @@ object DFAny {
   abstract class Constructor[DF <: DFAny](_width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny {
-    final protected[DFiant] lazy val protComp : TCompanion = cmp.asInstanceOf[TCompanion]
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -401,8 +404,8 @@ object DFAny {
   ) extends Connectable[DF](width) {
     type TPostInit <: TVal
 
-    final def init(that : protComp.Init.Able[TVal]*)(
-      implicit op : protComp.Init.Builder[TVal, TToken], ctx : Alias.Context
+    final def init(that : InitAble[TVal]*)(
+      implicit op : InitBuilder, ctx : Alias.Context
     ) : TPostInit = {
       initialize(LazyBox.Const(this)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
@@ -494,7 +497,7 @@ object DFAny {
     //final object ifdf extends ConditionalBlock.WithRetVal[TVal, protComp.Op.Able, protComp.`Op:=`.Builder](NewVar.this)
 
 //    def selectdf[T, E](cond : DFBool)(thenSel : protComp.Op.Able[T], elseSel : protComp.Op.Able[E]) : TVal = ???
-    def selectdf[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
+//    def selectdf[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
     final val id = getID
   }
   object NewVar {
@@ -762,15 +765,9 @@ object DFAny {
           else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
       }
     }
-    type OpAble[R] <: protComp.Op.Able[R]
-    type `Op<>Builder`[R] <: protComp.`Op<>`.Builder[TVal, R]
-    type `Op:=Builder`[R] <: protComp.`Op:=`.Builder[TVal, R]
     final def <> [R](right: OpAble[R])(
       implicit op: `Op<>Builder`[R], ctx : DFAny.Connector.Context
     ) : Unit = connectVal2Port(op(left, right))
-    final def := [R](right: OpAble[R])(
-      implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFAny.Op.Context
-    ) : Unit = assign(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
@@ -973,6 +970,8 @@ object DFAny {
     }
     type Context = DFBlock.Context
   }
+  type `Op==Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+  type `Op!=Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -1050,11 +1049,11 @@ object DFAny {
     }
     val `Op<>` : `Op<>`
     trait `Op==` {
-      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+      type Builder[L, R] <: DFAny.`Op==Builder`[L, R]
     }
     val `Op==` : `Op==`
     trait `Op!=` {
-      type Builder[L, R] <: DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+      type Builder[L, R] <: DFAny.`Op!=Builder`[L, R]
     }
     val `Op!=` : `Op!=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

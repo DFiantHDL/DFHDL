@@ -9,7 +9,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
 ) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
-  final protected[DFiant] lazy val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
 
   final val leftLatency = LazyBox.Args1[Option[Int], Source](this)(s => s.getMaxLatency, leftArg.thisSourceLB)

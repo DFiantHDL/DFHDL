@@ -46,6 +46,7 @@ object DFStruct extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFStruct.type] {
+    type TUnbounded = Unbounded
     type TSFields <: Fields
     type TFields = TSFields#TFields
     type Width = TSFields#Width
@@ -58,6 +59,10 @@ object DFStruct extends DFAny.Companion {
     type OpAble[R] = Op.Able[R]
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    type InitAble[L <: DFAny] = Init.Able[L]
+    type InitBuilder = Init.Builder[TVal, TToken]
     implicit val structFields : TSFields
     final lazy val fields : TFields = structFields.fields
     def == [SF <: Product](right : SF)(implicit op: `Op==`.Builder[TVal, SF]) = op(left, right)
@@ -75,9 +80,6 @@ object DFStruct extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[SF <: Fields] extends DFStruct[SF] with DFAny.Var {
-    final def := [R](right: Op.Able[R])(
-      implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -144,7 +146,7 @@ object DFStruct extends DFAny.Companion {
     def == [SF <: Fields](left : Seq[Token[SF]], right : Seq[Token[SF]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l == r)
     def != [SF <: Fields](left : Seq[Token[SF]], right : Seq[Token[SF]]) : Seq[DFBool.Token] = TokenSeq(left, right)((l, r) => l != r)
 
-    def apply[SF <: Fields](width : Int, value : Bubble) : Token[SF] = new Token[SF](width, List())
+    def apply[SF <: Fields](width : Int, value : Bubble) : Token[SF] = new Token[SF](width, ???)
     def apply[SF <: Fields](width : Int, value : Product) : Token[SF] = {
       //TODO: Need to convert to TokenList
 //      val tokenList : List[DFAny.Token] = ???

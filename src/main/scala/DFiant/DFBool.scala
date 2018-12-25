@@ -12,6 +12,7 @@ object DFBool extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBool.type] {
+    type TUnbounded = Unbounded
     type TVal = DFBool
     type TVar = DFBool.Var
     type TToken = DFBool.Token
@@ -22,6 +23,10 @@ object DFBool extends DFAny.Companion {
     type OpAble[R] = Op.Able[R]
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    type InitAble[L <: DFAny] = Init.Able[L]
+    type InitBuilder = Init.Builder[TVal, TToken]
     final def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 
@@ -49,9 +54,6 @@ object DFBool extends DFAny.Companion {
   trait Var extends DFAny.Var with DFBool {
     final def set(implicit ctx : DFAny.Op.Context) : Unit = this := true
     final def clear(implicit ctx : DFAny.Op.Context) : Unit = this := false
-    final def := [R](right: Op.Able[R])(
-      implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

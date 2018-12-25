@@ -791,7 +791,7 @@ object Backend {
       case _ =>
         design.isTop ||
           architecture.statements.components.list.map(e => e.hasSyncProcess)
-            .fold(architecture.statements.sync_process.exists)((l, r) => l || r)
+            .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r)
     }
 
     val entityName : Name = {

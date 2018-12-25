@@ -9,7 +9,6 @@ abstract class Selector[SW, W]
   implicit ctx: DFComponent.Context[Selector[SW, W]], cmp: DFAny.Companion = DFBits
 ) extends DFComponent[Selector[SW, W]] with DSLSelfConnectedFoldableOwnerConstruct with DFBits[W] {
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](args.map(a => a.width.getValue).max)
-  final protected[DFiant] lazy val protComp: TCompanion = cmp.asInstanceOf[TCompanion]
 
   final val inSel = new DFUInt.NewVar[SW](sel.width) <> IN
   final val inArgs = List.fill(args.length)(new DFBits.NewVar[Width](width) <> IN)

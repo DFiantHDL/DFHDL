@@ -18,6 +18,7 @@ object DFBits extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBits.type] {
+    type TUnbounded = Unbounded
     type TVal = DFBits[Width]
     type TVar = DFBits.Var[Width]
     type TToken = DFBits.Token
@@ -27,6 +28,10 @@ object DFBits extends DFAny.Companion {
     type OpAble[R] = Op.Able[R]
     type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
     type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    type InitAble[L <: DFAny] = Init.Able[L]
+    type InitBuilder = Init.Builder[TVal, TToken]
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////
@@ -105,12 +110,12 @@ object DFBits extends DFAny.Companion {
       type ParamFace = Int
     }
 
-    def as[T <: DFAny.NewVar[_]](mold : T)(
-      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
-    ) : mold.TVal = {
-      sameWidth.unsafeCheck(mold.width, width)
-      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVal]
-    }
+//    def as[T <: DFAny.NewVar[_]](mold : T)(
+//      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
+//    ) : mold.TVal = {
+//      sameWidth.unsafeCheck(mold.width, width)
+//      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVal]
+//    }
 
     final def uint(implicit ctx : DFAny.Alias.Context) : TUInt[Width] =
       new DFUInt.Alias[Width](List(this), DFAny.Alias.Reference.AsIs(".uint")).asInstanceOf[TUInt[Width]]
@@ -168,15 +173,12 @@ object DFBits extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var {
-    final override def as[T <: DFAny.NewVar[_]](mold : T)(
-      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
-    ) : mold.TVar = {
-      sameWidth.unsafeCheck(mold.width, width)
-      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVar]
-    }
-    final def := [R](right: Op.Able[R])(
-      implicit dir : MustBeOut, op: `Op:=`.Builder[TVal, R], ctx : DFAny.Op.Context
-    ) = assign(op(left, right))
+//    final override def as[T <: DFAny.NewVar[_]](mold : T)(
+//      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
+//    ) : mold.TVar = {
+//      sameWidth.unsafeCheck(mold.width, width)
+//      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVar]
+//    }
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
