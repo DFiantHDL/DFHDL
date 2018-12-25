@@ -49,7 +49,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
   final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
   final private[internals] def getUniqueName(suggestedName : String) : String =
-    if (owner != null) owner.getUniqueMemberName(suggestedName) else suggestedName
+    ownerOption.map(o => o.getUniqueMemberName(suggestedName)).getOrElse(suggestedName)
 
   final private def relativePath(refFullPath : String, callFullPath : String) : String = {
     val c = callFullPath.split('.')
@@ -140,7 +140,8 @@ object DSLOwnerConstruct {
     lazy val ownerOption : Option[Owner] = Option(owner)
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (owner == null) n.value else owner.nonTransparent.fixMemberName(n.value)
+    def getName : String =
+      ownerOption.map(o => o.nonTransparent.fixMemberName(n.value)).getOrElse(n.value)
     def getOwnerName : String = n.owner
     override def toString: String = getName
   }
