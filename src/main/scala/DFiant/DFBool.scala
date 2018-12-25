@@ -27,6 +27,7 @@ object DFBool extends DFAny.Companion {
     type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder = Init.Builder[TVal, TToken]
+    type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     final def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 
@@ -71,8 +72,6 @@ object DFBool extends DFAny.Companion {
   protected[DFiant] final class NewVar()(
     implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar[DFBool](1, "DFBool()") with Var {
-    //Port Construction
-    def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)

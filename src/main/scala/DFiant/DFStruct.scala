@@ -63,6 +63,7 @@ object DFStruct extends DFAny.Companion {
     type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder = Init.Builder[TVal, TToken]
+    type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     implicit val structFields : TSFields
     final lazy val fields : TFields = structFields.fields
     def == [SF <: Product](right : SF)(implicit op: `Op==`.Builder[TVal, SF]) = op(left, right)
@@ -98,8 +99,6 @@ object DFStruct extends DFAny.Companion {
   protected[DFiant] final class NewVar[SF <: Fields]()(
     implicit ctx : DFAny.NewVar.Context, val structFields : SF
   ) extends DFAny.NewVar[DFStruct[SF]](structFields.width, s"DFStruct(${structFields.name})") with Var[SF]  {
-    //Port Construction
-    def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)

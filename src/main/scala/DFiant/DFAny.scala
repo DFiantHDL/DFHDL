@@ -28,6 +28,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   type `Op!=Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
   type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
   type InitBuilder <: DFAny.Init.Builder[TVal, InitAble, TToken]
+  type PortBuilder[Dir <: DFDir] <: DFAny.Port.Builder[TVal, Dir]
 //  type TUInt <: DFUInt
   val width : TwoFace.Int[Width]
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
@@ -489,8 +490,8 @@ object DFAny {
     //Port Construction
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026
-//        def <> [Dir <: DFDir](dir : Dir)(implicit port : protComp.Port.Builder[TVal, Dir])
-//         : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+    def <> [Dir <: DFDir](dir : Dir)(implicit port : PortBuilder[Dir])
+    : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
     //TODO: Implement generically after upgrading to 2.13.0-M5
     //Also see https://github.com/scala/bug/issues/11026

@@ -33,6 +33,7 @@ object DFEnum extends DFAny.Companion {
     type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder = Init.Builder[TVal, TToken]
+    type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     implicit val enum : TEnum
     final def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     final def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
@@ -67,8 +68,6 @@ object DFEnum extends DFAny.Companion {
   protected[DFiant] final class NewVar[E <: Enum]()(
     implicit ctx : DFAny.NewVar.Context, val enum : E
   ) extends DFAny.NewVar[DFEnum[E]](enum.width, s"DFEnum(${enum.name})") with Var[E]  {
-    //Port Construction
-    def <> [Dir <: DFDir](dir : Dir)(implicit port : Port.Builder[TVal, Dir]) : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, Op.Able, `Op:=`.Builder](this)
