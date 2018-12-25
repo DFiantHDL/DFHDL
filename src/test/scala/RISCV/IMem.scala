@@ -9,16 +9,26 @@ class IMem_Bram()(implicit ctx : RTComponent.Context) extends RTComponent {
 }
 
 trait IMem extends DFDesign {
-  private val addr = DFBits[32] <> IN
-  private val inst = DFBits[32] <> OUT
+  private val pc      = DFBits[32] <> IN
+  private val instRaw = DFBits[32] <> OUT
 
   val bram = new IMem_Bram()
-  bram.addra <> addr(13, 2)
-  bram.douta <> inst
+  bram.addra <> pc(13, 2)
+  bram.douta <> instRaw
 
-  def readConn(addr : DFBits[32])(implicit ctx : DFDesign.Context) : DFBits[32] = {
-    this.addr <> addr
-    this.inst
+  val inst = IMemInst(pc = pc, instRaw = instRaw)
+}
+
+object IMem {
+  def apply(addr : DFBits[32])(implicit ctx : DFDesign.Context) : IMem = {
+    val imem = new IMem {}.setName("imem")
+    imem.pc <> addr
+    imem
   }
 }
+
+case class IMemInst(
+  pc : DFBits[32],
+  instRaw : DFBits[32]
+)
 

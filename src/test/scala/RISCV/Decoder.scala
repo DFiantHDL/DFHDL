@@ -3,7 +3,7 @@ package RISCV
 import DFiant._
 
 trait Decoder extends DFDesign {
-  private val inst      = DFBits[32]            <> IN
+  private val instRaw   = DFBits[32]            <> IN
 
   //Register File Addresses & Control
   private val rs1_addr  = DFBits[5]             <> OUT
@@ -23,18 +23,18 @@ trait Decoder extends DFDesign {
   private val wbSel     = DFEnum(WriteBackSel)  <> OUT
   private val dmemSel   = DFEnum(DMemSel)       <> OUT
 
-  private val opcode    = inst(6, 0)
-  private val func7     = inst(31, 25)
-  private val func3     = inst(14, 12)
-  private val immIType  = inst(31, 20).sint.extendTo(32).bits
-  private val immSType  = (inst(31, 25), inst(11, 7)).bits.sint.extendTo(32).bits
-  private val immBType  = (inst(31), inst(7), inst(30, 25), inst(11, 8), b"0").bits.sint.extendTo(32).bits
-  private val immUType  = inst(31, 12).extendRightTo(32).sint.bits
-  private val immJType  = (inst(31), inst(19, 12), inst(20), inst(30, 21), b"0").bits.sint.extendTo(32).bits
-  rs1_addr := inst(19, 15)
-  rs2_addr := inst(24, 20)
-  shamt := inst(24, 20).uint
-  rd_addr := inst(11, 7)
+  private val opcode    = instRaw(6, 0)
+  private val func7     = instRaw(31, 25)
+  private val func3     = instRaw(14, 12)
+  private val immIType  = instRaw(31, 20).sint.extendTo(32).bits
+  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.extendTo(32).bits
+  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.extendTo(32).bits
+  private val immUType  = instRaw(31, 12).extendRightTo(32).sint.bits
+  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.extendTo(32).bits
+  rs1_addr := instRaw(19, 15)
+  rs2_addr := instRaw(24, 20)
+  shamt := instRaw(24, 20).uint
+  rd_addr := instRaw(11, 7)
 
   val op = DFEnum(Op)
   op := Op.Unsupported //Default op is not supported unless selected otherwise
@@ -202,8 +202,8 @@ trait Decoder extends DFDesign {
     }
 
 
-  def decodeConn(inst : DFBits[32])(implicit ctx : DFDesign.Context) : DecodedInst = {
-    this.inst <> inst
+  def decodeConn(fetchInst : IMemInst)(implicit ctx : DFDesign.Context) : DecodedInst = {
+    this.instRaw <> fetchInst.instRaw
     DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
       aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
