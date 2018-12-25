@@ -121,6 +121,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   final def pipe()(implicit ctx : DFAny.Alias.Context) : TVal = protPipe(1)
   final def pipe[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPipe(step)
+  final def pipeBreak : TVal = ???
   //////////////////////////////////////////////////////////////////////////
 
 

@@ -53,11 +53,12 @@ trait PCGen extends DFDesign {
     this.rs1_data <> rs1_data
     this.rs2_data <> rs2_data
     this.imm <> imm
-    new PCCalc(this.pcNext, this.pcPlus4)
+    new PCCalc(this.pcNext, this.pcPlus4, this.brTaken)
   }
 }
 
 class PCCalc (
   val pcNext    : DFBits[32],
-  val pcPlus4   : DFBits[32]
+  val pcPlus4   : DFBits[32],
+  val brTaken   : DFBool
 )

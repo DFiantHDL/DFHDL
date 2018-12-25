@@ -241,6 +241,10 @@ package object DFiant extends {
     def ##[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
       (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
   }
+
+  implicit class ProductExtender[P <: Product](p : P) {
+    def pipe()(implicit ctx : DFAny.Alias.Context) : P = ???
+  }
   ////////////////////////////////////////////////////////////////////////////////////
 
 

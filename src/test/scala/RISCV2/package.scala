@@ -44,7 +44,7 @@ package object RISCV2 {
 
   implicit object DMemSel extends Enum.Auto {
     val LB, LH, LW, LBU, LHU, SB, SH, SW = Entry()
-    val DontCare = LW
+    val DontWrite = LW
   }
   type DMemSel = DMemSel.type
 

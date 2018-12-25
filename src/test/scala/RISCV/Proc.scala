@@ -31,7 +31,7 @@ trait Proc extends DFDesign {
   // ALU (Execute)
   ////////////////////////////////////////////////////////////////////////
   private val execute = new Execute {}
-  val (pcCalc, executeInst) = execute.exConn(pc, decodedInst, rs1_data, rs2_data)
+  private val (pcCalc, executeInst) = execute.exConn(pc, decodedInst, rs1_data, rs2_data)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
@@ -56,5 +56,5 @@ trait Proc extends DFDesign {
 }
 
 object ProcTest extends App {
-  val riscv = new Proc {}.compileToVHDL.print.toFile("test.vhd")
+  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
 }

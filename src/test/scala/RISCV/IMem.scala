@@ -16,7 +16,9 @@ trait IMem extends DFDesign {
   bram.addra <> addr(13, 2)
   bram.douta <> inst
 
-  def readConn(addr : DFBits[32])(implicit ctx : DFDesign.Context) : DFBits[32] = {
+  def readConn(addr : DFBits[32])(
+    implicit ctx : DFDesign.Context
+  ) : DFBits[32] = {
     this.addr <> addr
     this.inst
   }
