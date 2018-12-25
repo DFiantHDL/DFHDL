@@ -1,6 +1,5 @@
 package DFiant
 
-import DFiant.DFAny.Op.Context
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._

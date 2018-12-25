@@ -111,12 +111,12 @@ object DFBits extends DFAny.Companion {
       type ParamFace = Int
     }
 
-//    def as[T <: DFAny.NewVar[_]](mold : T)(
-//      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
-//    ) : mold.TVal = {
-//      sameWidth.unsafeCheck(mold.width, width)
-//      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVal]
-//    }
+    def as[T <: DFAny.NewVar[_]](mold : T)(
+      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
+    ) : mold.TVal = {
+      sameWidth.unsafeCheck(mold.width, width)
+      mold.alias(List(this), DFAny.Alias.Reference.AsIs(""))
+    }
 
     final def uint(implicit ctx : DFAny.Alias.Context) : TUInt[Width] =
       new DFUInt.Alias[Width](List(this), DFAny.Alias.Reference.AsIs(".uint")).asInstanceOf[TUInt[Width]]
@@ -174,12 +174,12 @@ object DFBits extends DFAny.Companion {
   // Var
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Var[W] extends DFBits[W] with DFAny.Var {
-//    final override def as[T <: DFAny.NewVar[_]](mold : T)(
-//      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
-//    ) : mold.TVar = {
-//      sameWidth.unsafeCheck(mold.width, width)
-//      mold.protComp.Alias(this, mold.asInstanceOf[mold.protComp.Unbounded]).asInstanceOf[mold.TVar]
-//    }
+    final override def as[T <: DFAny.NewVar[_]](mold : T)(
+      implicit sameWidth : SameWidth.CheckedShell[mold.Width, Width], ctx : DFAny.Alias.Context
+    ) : mold.TVar = {
+      sameWidth.unsafeCheck(mold.width, width)
+      mold.alias(List(this), DFAny.Alias.Reference.AsIs(""))
+    }
     //    def setBits(range : BitsRange)                       : TVar = assignBits(range, bitsWidthToMaxBigIntBits(range.width))
     //    def clearBits(range : BitsRange)                     : TVar = assignBits(range,0)
     //    def assignBits(range : BitsRange, value : DFBits.Unsafe) : TVar = {this.protBitsUnsafe(range) := value; this}
