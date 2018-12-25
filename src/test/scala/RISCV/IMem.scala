@@ -20,9 +20,9 @@ trait IMem extends DFDesign {
 }
 
 object IMem {
-  def apply(addr : DFBits[32])(implicit ctx : DFDesign.Context) : IMem = {
+  def apply(pc : DFBits[32])(implicit ctx : DFDesign.Context) : IMem = {
     val imem = new IMem {}.setName("imem")
-    imem.pc <> addr
+    imem.pc <> pc
     imem
   }
 }
