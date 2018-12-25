@@ -89,11 +89,6 @@ object DFBool extends DFAny.Companion {
   protected[DFiant] final class Port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(
     implicit ctx : DFAny.Port.Context
   ) extends DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool
-
-//  protected[DFiant] class Func2Comp[OpKind, L <: DFAny, R <: DFAny](leftArg : L, rightArg : R)
-//    (val tokenFunc : (L#TToken, R#TToken) => Token)(
-//    implicit ctx : DFComponent.Context[Func2Comp[OpKind, L, R]], opKind : OpKind
-//  ) extends DiSoComp[Func2Comp[OpKind, L, R], OpKind, L, R](leftArg, rightArg)(1) with DFBool
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
