@@ -5,8 +5,8 @@ import DFiant.internals._
 trait DFAnyMember extends DSLMemberConstruct {
   type ThisOwner <: DFAnyOwner
   protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
-  implicit def theOwnerToBe : DFAnyOwner = ctx.owner
-  lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
+  implicit def theOwnerToBe : DFAnyOwner = ownerOption.orNull
+  lazy val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   final implicit lazy val config : DFAnyConfiguration = ctx.config
   final private[DFiant] lazy val nameIt = ctx.n
 }
@@ -92,7 +92,7 @@ object DFAnyOwner {
   object ContextOf {
     implicit def ev[T, Owner <: DFAnyOwner](implicit evOwner : Owner, evConfig : DFAnyConfiguration, evNameIt : NameIt)
     : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-      implicit val owner: Owner = evOwner
+      val ownerOption : Option[Owner] = Some(evOwner)
       implicit val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt
     }
@@ -104,7 +104,7 @@ object DFAnyOwner {
   object ContextWithLibOf {
     implicit def ev[T, Owner <: DFAnyOwner](implicit evOwner : Owner, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt)
     : ContextWithLibOf[T, Owner] = new ContextWithLibOf[T, Owner] {
-      implicit val owner: Owner = evOwner
+      val ownerOption : Option[Owner] = Some(evOwner)
       implicit val basicLib : DFBasicLib = evBasicLib
       implicit val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt

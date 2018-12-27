@@ -32,7 +32,7 @@ object DFBlock {
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
     def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
-      implicit val owner: Owner0 = owner0
+      val ownerOption : Option[Owner0] = Some(owner0)
       implicit val basicLib: DFBasicLib = self.basicLib
       implicit val config: DFAnyConfiguration = self.config
       val n: NameIt = n0
@@ -42,7 +42,7 @@ object DFBlock {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit evOwner : Owner = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-      implicit val owner: Owner = evOwner
+      val ownerOption : Option[Owner] = Option(evOwner)
       implicit val basicLib: DFBasicLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt

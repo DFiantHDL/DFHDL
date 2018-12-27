@@ -136,8 +136,9 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
 }
 object DSLOwnerConstruct {
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {
-    implicit val owner : Owner
-    lazy val ownerOption : Option[Owner] = Option(owner)
+    val ownerOption : Option[Owner]
+    implicit lazy val owner : Owner =
+      ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
     val n : NameIt
     def getName : String =

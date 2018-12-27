@@ -45,7 +45,7 @@ object DFComponent {
       implicit evContext : DFAny.Op.Context, evImpl : Comp => Unit,
       evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
     ) : Context[Comp] = new Context[Comp] {
-      implicit val owner: DFBlock = evContext.owner
+      val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val impl: Comp => Unit = evImpl
       implicit val basicLib: DFBasicLib = evContext.basicLib
       implicit val config: DFAnyConfiguration = evContext.config
@@ -58,7 +58,7 @@ object DFComponent {
       implicit evOwner : DFBlock, evImpl : Comp => Unit, evBasicLib : DFBasicLib,
       evConfig : DFAnyConfiguration, evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
     ) : Context[Comp] = new Context[Comp] {
-      implicit val owner: DFBlock = evOwner
+      val ownerOption : Option[DFBlock] = Option(evOwner)
       implicit val impl: Comp => Unit = evImpl
       implicit val basicLib: DFBasicLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
