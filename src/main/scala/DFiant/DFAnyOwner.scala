@@ -81,15 +81,15 @@ object DFAnyConfiguration {
 
 object DFAnyOwner {
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
-//  trait LowPriority {
-//    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit evContext : ContextOf[T2, Owner], evNameIt : NameIt)
-//    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-//      implicit val owner: Owner = evContext.owner
-//      implicit val config : DFAnyConfiguration = evContext.config
-//      val n : NameIt = evNameIt
-//    }
-//  }
-  object ContextOf {
+  trait LowPriority {
+    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit evContext : ContextOf[T2, Owner], evNameIt : NameIt)
+    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
+      val ownerOption : Option[Owner] = evContext.ownerOption
+      implicit val config : DFAnyConfiguration = evContext.config
+      val n : NameIt = evNameIt
+    }
+  }
+  object ContextOf extends LowPriority {
     implicit def ev[T, Owner <: DFAnyOwner](implicit evOwner : Owner, evConfig : DFAnyConfiguration, evNameIt : NameIt)
     : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Some(evOwner)

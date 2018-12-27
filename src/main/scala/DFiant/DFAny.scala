@@ -765,7 +765,7 @@ object DFAny {
       }
     }
     final def <> [R](right: OpAble[R])(
-      implicit op: `Op<>Builder`[R], ctx : DFAny.Connector.Context
+      implicit ctx : DFAny.Connector.Context, op: `Op<>Builder`[R]
     ) : Unit = connectVal2Port(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP

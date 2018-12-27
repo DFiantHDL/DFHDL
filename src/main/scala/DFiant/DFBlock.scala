@@ -38,7 +38,7 @@ object DFBlock {
       val n: NameIt = n0
     }
   }
-  object ContextOf {
+  trait LowPriority {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit evOwner : Owner = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
@@ -47,6 +47,15 @@ object DFBlock {
       implicit val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
     }
+  }
+  object ContextOf extends LowPriority {
+//    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit evContext : ContextOf[T2, Owner], evNameIt : NameIt)
+//    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
+//      val ownerOption : Option[Owner] = evContext.ownerOption
+//      implicit val basicLib: DFBasicLib = evContext.basicLib
+//      implicit val config : DFAnyConfiguration = evContext.config
+//      val n : NameIt = evNameIt
+//    }
   }
   type Context = ContextOf[Nothing, DFBlock]
 }

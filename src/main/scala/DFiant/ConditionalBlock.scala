@@ -16,7 +16,7 @@ object MatchConfig {
 }
 
 object ConditionalBlock {
-  type Context = DFDesign.Context
+  type Context = DFAny.Op.Context
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
