@@ -20,8 +20,9 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
   val ownerOption : Option[DSLOwnerConstruct]
   type ThisOwner <: DSLOwnerConstruct
-  lazy val owner : ThisOwner = ownerOption.orNull.asInstanceOf[ThisOwner]
-  private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.orNull
+  private def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
+  lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
+  private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
   private[DFiant] lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
   private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
     nonTransparentOwnerOption == that.nonTransparentOwnerOption
@@ -37,7 +38,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   }
   def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
-  ) : Boolean = callOwner.nonTransparent == member.nonTransparentOwner
+  ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)
   def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
