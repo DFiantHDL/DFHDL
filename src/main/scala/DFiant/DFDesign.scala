@@ -44,7 +44,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
 object DFDesign {
   type Context = DFBlock.Context
-  type ContextOf[T] = DFBlock.ContextOf[T, DFBlock]
+  type ContextOf[T] = DFBlock.ContextOf[T, DFDesign]
   private[DFiant] class DB extends DSLOwnerConstruct.DB[DFDesign, String] {
     def ownerToString(designTypeName : String, designBodyString : String) : String =
       s"\ntrait $designTypeName extends DFDesign {$designBodyString\n}"

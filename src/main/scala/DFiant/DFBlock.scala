@@ -40,7 +40,7 @@ object DFBlock {
   }
   trait LowPriority {
     implicit def ev[T, Owner <: DFAnyOwner](
-      implicit evOwner : Owner = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
+      implicit lp : shapeless.LowPriority, evOwner : Owner = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Option(evOwner)
       implicit val basicLib: DFBasicLib = evBasicLib
@@ -49,13 +49,13 @@ object DFBlock {
     }
   }
   object ContextOf extends LowPriority {
-//    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit evContext : ContextOf[T2, Owner], evNameIt : NameIt)
-//    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-//      val ownerOption : Option[Owner] = evContext.ownerOption
-//      implicit val basicLib: DFBasicLib = evContext.basicLib
-//      implicit val config : DFAnyConfiguration = evContext.config
-//      val n : NameIt = evNameIt
-//    }
+    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit lp : shapeless.LowPriority, evContext : ContextOf[T2, Owner], evNameIt : NameIt)
+    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
+      val ownerOption : Option[Owner] = evContext.ownerOption
+      implicit val basicLib: DFBasicLib = evContext.basicLib
+      implicit val config : DFAnyConfiguration = evContext.config
+      val n : NameIt = evNameIt
+    }
   }
   type Context = ContextOf[Nothing, DFBlock]
 }
