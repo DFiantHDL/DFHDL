@@ -21,7 +21,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  override private[DFiant] def nameDefault: String = ctx.getOwnerName
+  override private[DFiant] def nameDefault: String = ctx.getName
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //final protected def discovery : Unit = protAlmanac
@@ -49,12 +49,12 @@ object DFBlock {
     }
   }
   object ContextOf extends LowPriority {
-    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit lp : shapeless.LowPriority, evContext : ContextOf[T2, Owner], evNameIt : NameIt)
+    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit lp : shapeless.LowPriority, evContext : ContextOf[T2, Owner])
     : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = evContext.ownerOption
       implicit val basicLib: DFBasicLib = evContext.basicLib
       implicit val config : DFAnyConfiguration = evContext.config
-      val n : NameIt = evNameIt
+      val n : NameIt = evContext.n
     }
   }
   type Context = ContextOf[Nothing, DFBlock]

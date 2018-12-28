@@ -14,6 +14,13 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     mutableOwner.value = originalOwner
     ifBlock
   }
+  protected def atOwnerDo[T](block : => T) : T = {
+    val originalOwner = mutableOwner.value
+    mutableOwner.value = owner.asInstanceOf[DFBlock]
+    val ret = block
+    mutableOwner.value = originalOwner
+    ret
+  }
 
   private[DFiant] def designType : String = typeName
   private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, this)

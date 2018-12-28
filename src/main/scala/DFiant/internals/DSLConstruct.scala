@@ -142,9 +142,8 @@ object DSLOwnerConstruct {
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
     val n : NameIt
-    def getName : String =
+    def getName : String = if (n.value.startsWith(Name.AnonStart)) n.owner else
       ownerOption.map(o => o.nonTransparent.fixMemberName(n.value)).getOrElse(n.value)
-    def getOwnerName : String = n.owner
     override def toString: String = getName
   }
   trait DB[Owner, Body <: Any] {
