@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.BasicLib.DFBasicLib
 import DFiant.compiler.Backend
 import DFiant.internals._
 
@@ -51,7 +52,22 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
 object DFDesign {
   type Context = DFBlock.Context
-  type ContextOf[T] = DFBlock.ContextOf[T, DFDesign]
+  trait ContextOf[+T] {
+    val ownerOption : Option[DFBlock]
+    val basicLib: DFBasicLib
+    val config : DFAnyConfiguration
+    val n : NameIt
+  }
+  object ContextOf {
+    implicit def ev[T](
+      implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
+    ) : ContextOf[T] = new ContextOf[T] {
+      val ownerOption : Option[DFBlock] = Option(evOwner)
+      val basicLib: DFBasicLib = evBasicLib
+      val config: DFAnyConfiguration = evConfig
+      val n: NameIt = evNameIt
+    }
+  }
   private[DFiant] class DB extends DSLOwnerConstruct.DB[DFDesign, String] {
     def ownerToString(designTypeName : String, designBodyString : String) : String =
       s"\ntrait $designTypeName extends DFDesign {$designBodyString\n}"

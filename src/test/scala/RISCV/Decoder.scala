@@ -2,7 +2,7 @@ package RISCV
 
 import DFiant._
 
-trait Decoder extends DFDesign {
+class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) extends DFDesign {
   private val instRaw   = DFBits[32]            <> IN
 
   //Register File Addresses & Control
@@ -201,12 +201,12 @@ trait Decoder extends DFDesign {
         .casedf(b"0000000" ## b"111") {op := Op.AND;    aluSel := ALUSel.AND}
     }
 
+  val inst = DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+    imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+    aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
 
-  def decodeConn(fetchInst : IMemInst)(implicit ctx : DFDesign.Context) : DecodedInst = {
+  atOwnerDo {
     this.instRaw <> fetchInst.instRaw
-    DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-      imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
   }
 }
 

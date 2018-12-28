@@ -6,6 +6,7 @@ import internals._
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
   val ctx = ctx0
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
+  final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
   implicit val basicLib = ctx.basicLib
   final val topDsn : DFDesign =
@@ -48,11 +49,12 @@ object DFBlock {
       val n: NameIt = evNameIt
     }
   }
+  private[DFiant] case class InternalContext()
   object ContextOf extends LowPriority {
-    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit lp : shapeless.LowPriority, evContext : ContextOf[T2, Owner])
-    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-      val ownerOption : Option[Owner] = evContext.ownerOption
-      implicit val basicLib: DFBasicLib = evContext.basicLib
+    implicit def evContext[T, T2](implicit lp : shapeless.LowPriority, evContext : DFDesign.ContextOf[T2], external : shapeless.Refute[InternalContext])
+    : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
+      val ownerOption : Option[DFBlock] = evContext.ownerOption
+      implicit val basicLib : DFBasicLib = evContext.basicLib
       implicit val config : DFAnyConfiguration = evContext.config
       val n : NameIt = evContext.n
     }

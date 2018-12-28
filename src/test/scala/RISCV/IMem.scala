@@ -8,7 +8,7 @@ class IMem_Bram()(implicit ctx : RTComponent.Context) extends RTComponent {
   //  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
 }
 
-class IMem()(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
+class IMem(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
   private val pc      = DFBits[32] <> IN
   private val instRaw = DFBits[32] <> OUT
 
@@ -17,13 +17,9 @@ class IMem()(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
   bram.douta <> instRaw
 
   val inst = IMemInst(pc = pc, instRaw = instRaw)
-}
 
-object IMem {
-  def apply(pc : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) : IMem = {
-    val imem = new IMem {}.setName("imem")
-    imem.pc <> pc
-    imem
+  atOwnerDo {
+    pc <> incomingPC
   }
 }
 
