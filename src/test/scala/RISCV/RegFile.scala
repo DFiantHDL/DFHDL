@@ -41,10 +41,16 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
     this.rs1_addr <> decodedInst.rs1_addr
     this.rs2_addr <> decodedInst.rs2_addr
   }
-  def writeConn(rd_addr : DFBits[5], rd_data : DFBits[XLEN], rd_wren : DFBool)(implicit ctx : DFDesign.Context) : Unit = {
-    this.rd_addr <> rd_addr
-    this.rd_data <> rd_data
-    this.rd_wren <> rd_wren
+
+  def writeBack(dmemInst : DMemInst) : Unit = atOwnerDo {
+    val wbData = DFBits[32].matchdf(dmemInst.wbSel)
+      .casedf(WriteBackSel.ALU)     {dmemInst.aluOut}
+      .casedf(WriteBackSel.PCPlus4) {dmemInst.pcPlus4}
+      .casedf_                      {dmemInst.dataFromMem}
+
+    this.rd_addr <> dmemInst.rd_addr
+    this.rd_data <> wbData
+    this.rd_wren <> dmemInst.rd_wren
   }
 }
 
