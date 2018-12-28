@@ -11,7 +11,7 @@ class DMem_Bram()(implicit ctx : RTComponent.Context) extends RTComponent {
   //  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
 }
 
-trait DMem extends DFDesign {
+class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) extends DFDesign {
   private val addr        = DFBits[32] <> IN
   private val dataToMem   = DFBits[32] <> IN
   private val dmemSel     = DFEnum[DMemSel] <> IN
@@ -63,10 +63,64 @@ trait DMem extends DFDesign {
   bram.wea <> wrEnToMem
   bram.dina <> dataToMem
 
-  def readWriteConn(addr : DFBits[32], dataToMem : DFBits[32], dmemSel : DFEnum[DMemSel])(implicit ctx : DFDesign.Context) : DFBits[32] = {
-    this.addr <> addr
-    this.dataToMem <> dataToMem
-    this.dmemSel <> dmemSel
-    this.dataFromMem
+  final val inst = {
+    import executeInst._
+    DMemInst(
+      //IMem
+      pc = pc, instRaw = instRaw,
+      //Decoder
+      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+      imm = imm, shamt = shamt, branchSel = branchSel,
+      rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+      aluSel = aluSel, wbSel = wbSel, dmemSel = executeInst.dmemSel,
+      //RegFile
+      rs1_data = rs1_data, rs2_data = rs2_data,
+      //Execute
+      dmem_addr = executeInst.dmem_addr, dataToMem = executeInst.dataToMem, aluOut = aluOut,
+      pcNext = pcNext, pcPlus4 = pcPlus4,
+      //DMem
+      dataFromMem = dataFromMem
+    )
+  }
+
+  atOwnerDo {
+    this.addr <> executeInst.dmem_addr
+    this.dataToMem <> executeInst.dataToMem
+    this.dmemSel <> executeInst.dmemSel
   }
 }
+
+
+case class DMemInst(
+  //IMem
+  pc          : DFBits[32],
+  instRaw     : DFBits[32],
+
+  //Decoder
+  rs1_addr    : DFBits[5],
+  rs2_addr    : DFBits[5],
+  rd_addr     : DFBits[5],
+  rd_wren     : DFBool,
+  imm         : DFBits[32],
+  shamt       : DFUInt[5],
+  branchSel   : DFEnum[BranchSel],
+  rs1OpSel    : DFEnum[RS1OpSel],
+  rs2OpSel    : DFEnum[RS2OpSel],
+  aluSel      : DFEnum[ALUSel],
+  wbSel       : DFEnum[WriteBackSel],
+  dmemSel     : DFEnum[DMemSel],
+
+  //RegFile
+  rs1_data    : DFBits[XLEN],
+  rs2_data    : DFBits[XLEN],
+
+  //Execute
+  dmem_addr   : DFBits[32],
+  dataToMem   : DFBits[32],
+  aluOut      : DFBits[32],
+  pcNext      : DFBits[32],
+  pcPlus4     : DFBits[32],
+
+  //DMem
+  dataFromMem : DFBits[32]
+)

@@ -9,24 +9,17 @@ trait Proc extends DFDesign {
   private val decoder = new Decoder(imem.inst)
   private val regFile = new RegFile(decoder.inst)
   private val execute = new Execute(regFile.inst)
-  ////////////////////////////////////////////////////////////////////////
-
-  ////////////////////////////////////////////////////////////////////////
-  // Memory
-  ////////////////////////////////////////////////////////////////////////
-  private val dmem = new DMem {}
-  private val dmem_dataFromMem = dmem.readWriteConn(execute.inst.dmem_addr, execute.inst.dataToMem, execute.inst.dmemSel)
-  ////////////////////////////////////////////////////////////////////////
+  private val dmem = new DMem(execute.inst)
 
   ////////////////////////////////////////////////////////////////////////
   // Write Back
   ////////////////////////////////////////////////////////////////////////
-  private val wbData = DFBits[32].matchdf(execute.inst.wbSel)
-    .casedf(WriteBackSel.ALU)     {execute.inst.aluOut}
-    .casedf(WriteBackSel.PCPlus4) {execute.inst.pcPlus4}
-    .casedf_                      {dmem_dataFromMem}
+  private val wbData = DFBits[32].matchdf(dmem.inst.wbSel)
+    .casedf(WriteBackSel.ALU)     {dmem.inst.aluOut}
+    .casedf(WriteBackSel.PCPlus4) {dmem.inst.pcPlus4}
+    .casedf_                      {dmem.inst.dataFromMem}
 
-  regFile.writeConn(decoder.inst.rd_addr, wbData, decoder.inst.rd_wren)
+  regFile.writeConn(dmem.inst.rd_addr, wbData, dmem.inst.rd_wren)
   ////////////////////////////////////////////////////////////////////////
 
   pc := execute.inst.pcNext

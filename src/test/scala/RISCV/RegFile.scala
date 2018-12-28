@@ -23,7 +23,7 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
       }
   }
 
-  val inst = {
+  final val inst = {
     import decodedInst._
     RegFileInst(
       //IMem
