@@ -2,7 +2,7 @@ package RISCV
 
 import DFiant._
 
-trait Execute extends DFDesign {
+class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execute]) extends DFDesign {
   private val branchSel = DFEnum[BranchSel] <> IN
   private val rs1OpSel  = DFEnum[RS1OpSel]  <> IN
   private val rs2OpSel  = DFEnum[RS2OpSel]  <> IN
@@ -32,32 +32,63 @@ trait Execute extends DFDesign {
   pcPlus4 <> pcCalc.pcPlus4
   aluOut <> aluCalc
 
-  def exConn(pc : DFBits[32], decodedInst: DecodedInst, rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN])(
-    implicit ctx : DFDesign.Context
-  ) : (PCCalc, ExecuteInst) = {
-    this.branchSel <> decodedInst.branchSel
-    this.rs1OpSel <> decodedInst.rs1OpSel
-    this.rs2OpSel <> decodedInst.rs2OpSel
-    this.aluSel <> decodedInst.aluSel
-    this.rs1_data <> rs1_data
-    this.rs2_data <> rs2_data
-    this.pc <> pc
-    this.imm <> decodedInst.imm
-    this.shamt <> decodedInst.shamt
-    val pcCalc = new PCCalc(this.pcNext, this.pcPlus4)
-    val executeInst = ExecuteInst(decodedInst.rd_addr, decodedInst.rd_wren, this.aluOut, rs2_data, decodedInst.dmemSel, decodedInst.wbSel, this.aluOut)
-    (pcCalc, executeInst)
+  final val inst = {
+    import regFileInst._
+    ExecuteInst(
+      //IMem
+      pc = regFileInst.pc, instRaw = instRaw,
+      //Decoder
+      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+      imm = regFileInst.imm, shamt = regFileInst.shamt, branchSel = regFileInst.branchSel,
+      rs1OpSel = regFileInst.rs1OpSel, rs2OpSel = regFileInst.rs2OpSel,
+      aluSel = regFileInst.aluSel, wbSel = wbSel, dmemSel = dmemSel,
+      //RegFile
+      rs1_data = regFileInst.rs1_data, rs2_data = regFileInst.rs2_data,
+      //Execute
+      dmem_addr = aluOut, dataToMem = regFileInst.rs2_data, aluOut = aluOut, pcNext = pcNext, pcPlus4 = pcPlus4
+    )
+  }
+
+  atOwnerDo {
+    this.branchSel <> regFileInst.branchSel
+    this.rs1OpSel <> regFileInst.rs1OpSel
+    this.rs2OpSel <> regFileInst.rs2OpSel
+    this.aluSel <> regFileInst.aluSel
+    this.rs1_data <> regFileInst.rs1_data
+    this.rs2_data <> regFileInst.rs2_data
+    this.pc <> regFileInst.pc
+    this.imm <> regFileInst.imm
+    this.shamt <> regFileInst.shamt
   }
 }
 
 case class ExecuteInst(
+  //IMem
+  pc        : DFBits[32],
+  instRaw   : DFBits[32],
+
+  //Decoder
+  rs1_addr  : DFBits[5],
+  rs2_addr  : DFBits[5],
   rd_addr   : DFBits[5],
   rd_wren   : DFBool,
-
-  dmem_addr : DFBits[32],
-  dataToMem : DFBits[32],
+  imm       : DFBits[32],
+  shamt     : DFUInt[5],
+  branchSel : DFEnum[BranchSel],
+  rs1OpSel  : DFEnum[RS1OpSel],
+  rs2OpSel  : DFEnum[RS2OpSel],
+  aluSel    : DFEnum[ALUSel],
+  wbSel     : DFEnum[WriteBackSel],
   dmemSel   : DFEnum[DMemSel],
 
-  wbSel     : DFEnum[WriteBackSel],
-  aluOut    : DFBits[32]
+  //RegFile
+  rs1_data  : DFBits[XLEN],
+  rs2_data  : DFBits[XLEN],
+
+  //Execute
+  dmem_addr : DFBits[32],
+  dataToMem : DFBits[32],
+  aluOut    : DFBits[32],
+  pcNext    : DFBits[32],
+  pcPlus4   : DFBits[32]
 )

@@ -16,7 +16,7 @@ class IMem(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) ext
   bram.addra <> pc(13, 2)
   bram.douta <> instRaw
 
-  final val inst = IMemInst(pc = pc, instRaw = instRaw)
+  final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
 
   atOwnerDo {
     pc <> incomingPC

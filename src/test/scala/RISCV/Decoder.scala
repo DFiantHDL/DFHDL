@@ -203,10 +203,14 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
   final val inst = {
     import fetchInst._
-    DecodedInst(pc = pc, instRaw = fetchInst.instRaw,
+    DecodedInst(
+      //IMem
+      pc = pc, instRaw = fetchInst.instRaw,
+      //Decoder
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
+      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel
+    )
   }
 
   atOwnerDo {

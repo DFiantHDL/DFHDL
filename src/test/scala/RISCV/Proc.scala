@@ -8,34 +8,28 @@ trait Proc extends DFDesign {
   private val imem = new IMem(pc)
   private val decoder = new Decoder(imem.inst)
   private val regFile = new RegFile(decoder.inst)
-  ////////////////////////////////////////////////////////////////////////
-
-  ////////////////////////////////////////////////////////////////////////
-  // ALU (Execute)
-  ////////////////////////////////////////////////////////////////////////
-  private val execute = new Execute {}
-  private val (pcCalc, executeInst) = execute.exConn(pc, decoder.inst, regFile.inst.rs1_data, regFile.inst.rs2_data)
+  private val execute = new Execute(regFile.inst)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Memory
   ////////////////////////////////////////////////////////////////////////
   private val dmem = new DMem {}
-  private val dmem_dataFromMem = dmem.readWriteConn(executeInst.dmem_addr, executeInst.dataToMem, executeInst.dmemSel)
+  private val dmem_dataFromMem = dmem.readWriteConn(execute.inst.dmem_addr, execute.inst.dataToMem, execute.inst.dmemSel)
   ////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////
   // Write Back
   ////////////////////////////////////////////////////////////////////////
-  private val wbData = DFBits[32].matchdf(executeInst.wbSel)
-    .casedf(WriteBackSel.ALU)     {executeInst.aluOut}
-    .casedf(WriteBackSel.PCPlus4) {pcCalc.pcPlus4}
+  private val wbData = DFBits[32].matchdf(execute.inst.wbSel)
+    .casedf(WriteBackSel.ALU)     {execute.inst.aluOut}
+    .casedf(WriteBackSel.PCPlus4) {execute.inst.pcPlus4}
     .casedf_                      {dmem_dataFromMem}
 
   regFile.writeConn(decoder.inst.rd_addr, wbData, decoder.inst.rd_wren)
   ////////////////////////////////////////////////////////////////////////
 
-  pc := pcCalc.pcNext
+  pc := execute.inst.pcNext
 }
 
 object ProcTest extends App {
