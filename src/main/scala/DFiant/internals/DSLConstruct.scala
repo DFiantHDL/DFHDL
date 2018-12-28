@@ -98,7 +98,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   //This is currently a workaround for sourcecode's library issue that gets an owner name
   final private[DFiant] def setFalseNamesInvalidator(implicit n : NameIt) : Unit = nameInvalidator = n.value
   final private[internals] def fixMemberName(value : String) : String =
-    if (headInterfaceNames.contains(value) || value == nameInvalidator) s"${Name.AnonStart}anon" else value
+    if (headInterfaceNames.contains(value) || value == typeName || value == nameInvalidator) s"${Name.AnonStart}anon" else value
   private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {
@@ -142,7 +142,7 @@ object DSLOwnerConstruct {
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
     val n : NameIt
-    def getName : String = if (n.value.startsWith(Name.AnonStart)) n.owner else
+    def getName : String = if (n.value.startsWith(Name.AnonStart) && !n.invalidated) n.owner else
       ownerOption.map(o => o.nonTransparent.fixMemberName(n.value)).getOrElse(n.value)
     override def toString: String = getName
   }

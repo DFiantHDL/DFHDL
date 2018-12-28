@@ -27,6 +27,7 @@ trait TypeNameable {
 trait NameIt {
   protected var invalidateName = false
   val value : String
+  val invalidated : Boolean
   val owner : String
 }
 object NameIt {
@@ -34,6 +35,7 @@ object NameIt {
   private var lastNameIt : NameIt = _
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName, fullName : sourcecode.FullName) : NameIt = new NameIt {
     lazy val value: String = if (name.value.contains("$") || invalidateName) s"${Name.AnonStart}anon" else name.value
+    lazy val invalidated : Boolean = invalidateName
     val owner: String = if (ownerName.value.contains("$")) s"${Name.AnonStart}anon" else ownerName.value
     if (lastFullName == fullName.value)
       lastNameIt.invalidateName = true
