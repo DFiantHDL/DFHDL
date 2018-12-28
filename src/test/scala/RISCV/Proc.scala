@@ -3,6 +3,7 @@ import DFiant._
 
 trait Proc extends DFDesign {
   private val pc = DFBits[32] init StartAddress
+  pc.keep
 
   private val imem = new IMem(pc)
   private val decoder = new Decoder(imem.inst)

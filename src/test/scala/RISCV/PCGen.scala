@@ -46,7 +46,7 @@ trait PCGen extends DFDesign {
   pcNext := pcNextU.bits
   
   def genPCConn(pc : DFBits[32], branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
-    implicit ctx : DFDesign.Context
+    implicit ctx : DFAny.Op.Context
   ) : PCCalc = {
     this.pc <> pc
     this.branchSel <> branchSel

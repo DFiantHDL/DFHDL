@@ -51,7 +51,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 }
 
 object DFDesign {
-  type Context = DFBlock.Context
+  private[DFiant] type Context = DFBlock.Context
   trait ContextOf[+T] {
     val ownerOption : Option[DFBlock]
     val basicLib: DFBasicLib
