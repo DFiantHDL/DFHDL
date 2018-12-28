@@ -201,9 +201,13 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
         .casedf(b"0000000" ## b"111") {op := Op.AND;    aluSel := ALUSel.AND}
     }
 
-  val inst = DecodedInst(rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-    imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-    aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
+  final val inst = {
+    import fetchInst._
+    DecodedInst(pc = pc, instRaw = fetchInst.instRaw,
+      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+      imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel)
+  }
 
   atOwnerDo {
     this.instRaw <> fetchInst.instRaw
@@ -212,16 +216,17 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
 
 case class DecodedInst(
+  //IMem
+  pc        : DFBits[32],
+  instRaw   : DFBits[32],
+
+  //Decoder
   rs1_addr  : DFBits[5],
   rs2_addr  : DFBits[5],
   rd_addr   : DFBits[5],
   rd_wren   : DFBool,
-
-//Immediate values for ALU execution
   imm       : DFBits[32],
   shamt     : DFUInt[5],
-
-//Control Signals
   branchSel : DFEnum[BranchSel],
   rs1OpSel  : DFEnum[RS1OpSel],
   rs2OpSel  : DFEnum[RS2OpSel],

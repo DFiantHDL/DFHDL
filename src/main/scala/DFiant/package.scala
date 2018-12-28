@@ -94,6 +94,11 @@ package object DFiant extends {
       val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1)))
     }
   }
+
+  // Implementation in terms of LabelledGeneric ...
+  implicit class MergeSyntax[T](t: T) {
+    def mergeWith[U](u: U)(implicit merge: CaseClassMerge[T, U]): T = merge(t, u)
+  }
   ////////////////////////////////////////////////////////////////////////////////////
 
 
