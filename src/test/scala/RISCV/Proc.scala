@@ -2,7 +2,6 @@ package RISCV
 import DFiant._
 
 trait Proc extends DFDesign {
-  val pcOut = DFBits[32] <> OUT
   private val pc = DFBits[32] init StartAddress
   pc.keep
 
@@ -14,7 +13,6 @@ trait Proc extends DFDesign {
   regFile.writeBack(dmem.inst)
 
   pc := dmem.inst.pcNext
-  pcOut <> pc
 }
 
 trait Proc_TB extends DFSimulator {
@@ -23,7 +21,7 @@ trait Proc_TB extends DFSimulator {
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB {}.printCodeString.compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB {}.compileToVHDL.print().toFile("test.vhd")
   import sys.process._
   import scala.language.postfixOps
   {s"ghdl -a --std=08 test.vhd" !!}

@@ -370,7 +370,11 @@ object Backend {
             case DFAny.Alias.Reference.Pipe(step) =>
               References(member.aliasedVars.head).ref(step)
             case DFAny.Alias.Reference.AsIs() =>
-              val concat : String = member.aliasedVars.map(a => Value(a).bits).mkString(" & ")
+              val concat : String = member.aliasedVars.map{
+                case a : DFBits[_] => Value(a)
+                case a : DFBool => Value(a)
+                case a => Value(a).bits
+              }.mkString(" & ")
               member match {
                 case m : DFBits[_] => concat
                 case m : DFUInt[_] => s"unsigned($concat)"
@@ -417,6 +421,10 @@ object Backend {
             if (tag.pipeStep > 0) References(tag.dfVal).ref(tag.pipeStep)
             else Value(tag.dfVal).value.applyBrackets()
           }
+          val leftStrFixed = member.opString match {
+            case "+" | "-" | "*" => s"resize($leftStr, ${member.width})"
+            case _ => leftStr
+          }
           val rightStr = {
             val tag = member.rightBalancedSource.elements.head.tag.get
             if (tag.pipeStep > 0) References(tag.dfVal).ref(tag.pipeStep)
@@ -440,9 +448,9 @@ object Backend {
             case others => others
           }
           val infixOpStr = op match {
-            case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStr $op $rightStr)"
-            case "sla" | "sll" | "sra" | "srl" => s"$leftStr $op to_integer($rightStr)"
-            case _ => s"$leftStr $op $rightStr"
+            case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStrFixed $op $rightStr)"
+            case "sla" | "sll" | "sra" | "srl" => s"$leftStrFixed $op to_integer($rightStr)"
+            case _ => s"$leftStrFixed $op $rightStr"
           }
           val result = architecture.declarations.signal(member)
           result.assign(Value(infixOpStr, Type(member)))
@@ -897,15 +905,19 @@ object Backend {
         val to_slvFunc2 : String =
           s"""
              |function to_slv(arg : unsigned) return std_logic_vector is
+             |  variable slv : std_logic_vector(arg'length-1 downto 0);
              |begin
-             |  return std_logic_vector(arg);
+             |  slv := std_logic_vector(arg);
+             |  return slv;
              |end to_slv;
          """.stripMargin
         val to_slvFunc3 : String =
           s"""
              |function to_slv(arg : signed) return std_logic_vector is
+             |  variable slv : std_logic_vector(arg'length-1 downto 0);
              |begin
-             |  return std_logic_vector(arg);
+             |  slv := std_logic_vector(arg);
+             |  return slv;
              |end to_slv;
          """.stripMargin
 
