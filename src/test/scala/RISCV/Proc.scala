@@ -17,4 +17,7 @@ trait Proc extends DFDesign {
 
 object ProcTest extends App {
   val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
+  import sys.process._
+  import scala.language.postfixOps
+  s"ghdl -a --std=08 test.vhd" !!
 }

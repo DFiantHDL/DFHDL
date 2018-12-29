@@ -475,7 +475,11 @@ object Backend {
 
           components.list += this
           ports_map.list
-          override def toString: String = s"\n${member.name} : entity work.$entityName($archName) port map ($ports_map\n);"
+          override def toString: String =
+            if (member.isInstanceOf[RTComponent])
+              s"\n${member.name} : $entityName port map ($ports_map\n);"
+            else
+              s"\n${member.name} : entity work.$entityName($archName) port map ($ports_map\n);"
         }
         object components {
           val list : ListBuffer[component_instance] = ListBuffer.empty[component_instance]
@@ -794,7 +798,7 @@ object Backend {
             .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r)
     }
 
-    val entityName : Name = {
+    val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.typeName.toLowerCase) else {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
       val topOrElseName = if (design.isTop) design.name else design.typeName
