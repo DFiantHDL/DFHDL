@@ -17,8 +17,10 @@ class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) e
   private val dmemSel     = DFEnum[DMemSel] <> IN
   private val dataFromMem = DFBits[32] <> OUT
   private val wrEnToMem   = DFBits(4)
+  private val dataToMemBH = DFBits[32] //Data to memory modified for byte and half-word writes
   val bram = new DMem_Bram()
   wrEnToMem := b"0000"
+  dataToMemBH := dataToMem
   dataFromMem := bram.douta
   matchdf(dmemSel)
     .casedf(DMemSel.LB) {
@@ -47,6 +49,7 @@ class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) e
         .casedf(b"1")    {dataFromMem := bram.douta(31, 16).extendLeftTo(32)}
     }
     .casedf(DMemSel.SB) {
+      dataToMemBH := (dataToMem(7,0), dataToMem(7,0), dataToMem(7,0), dataToMem(7,0)).bits
       matchdf(addr(1, 0))
         .casedf(b"00")    {wrEnToMem := b"0001"}
         .casedf(b"01")    {wrEnToMem := b"0010"}
@@ -54,6 +57,7 @@ class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) e
         .casedf(b"11")    {wrEnToMem := b"1000"}
     }
     .casedf(DMemSel.SH) {
+      dataToMemBH := dataToMem(15,0) ## dataToMem(15,0)
       matchdf(addr(1, 1))
         .casedf(b"0")     {wrEnToMem := b"0011"}
         .casedf(b"1")     {wrEnToMem := b"1100"}
@@ -61,7 +65,7 @@ class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) e
     .casedf(DMemSel.SW)   {wrEnToMem := b"1111"}
   bram.addra <> addr(13, 2)
   bram.wea <> wrEnToMem
-  bram.dina <> dataToMem
+  bram.dina <> dataToMemBH
 
   final val inst = {
     import executeInst._
@@ -72,7 +76,7 @@ class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) e
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, shamt = shamt, branchSel = branchSel,
       rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = executeInst.dmemSel,
+      aluSel = aluSel, wbSel = wbSel, dmemSel = executeInst.dmemSel, debugOp = debugOp,
       //RegFile
       rs1_data = rs1_data, rs2_data = rs2_data,
       //Execute
@@ -109,6 +113,7 @@ case class DMemInst(
   aluSel      : DFEnum[ALUSel],
   wbSel       : DFEnum[WriteBackSel],
   dmemSel     : DFEnum[DMemSel],
+  debugOp     : DFEnum[DebugOp],
 
   //RegFile
   rs1_data    : DFBits[XLEN],

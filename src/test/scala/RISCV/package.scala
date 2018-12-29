@@ -6,11 +6,12 @@ package object RISCV {
   final val StartAddress = h"00000000"
   final val regsNum = 0 until 32
 
-  implicit object Op extends Enum.Auto {
+  implicit object DebugOp extends Enum.Auto {
     val Unsupported, LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,
     LB, LH, LW, LBU, LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI,
     SLLI, SRLI, SRAI, ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND = Entry()
   }
+  type DebugOp = DebugOp.type
 
   implicit object BranchSel extends Enum.Manual(4) {
     val Next, BNE, BEQ, BGE,

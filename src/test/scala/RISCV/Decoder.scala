@@ -22,6 +22,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   private val aluSel    = DFEnum(ALUSel)        <> OUT
   private val wbSel     = DFEnum(WriteBackSel)  <> OUT
   private val dmemSel   = DFEnum(DMemSel)       <> OUT
+  private val debugOp   = DFEnum(DebugOp)       <> OUT //Just for debugging
 
   private val opcode    = instRaw(6, 0)
   private val func7     = instRaw(31, 25)
@@ -36,8 +37,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   shamt := instRaw(24, 20).uint
   rd_addr := instRaw(11, 7)
 
-  val op = DFEnum(Op)
-  op := Op.Unsupported //Default op is not supported unless selected otherwise
+  debugOp := DebugOp.Unsupported //Default op is not supported unless selected otherwise
   imm := immIType //Default immediate is IType unless selected otherwise
   branchSel := BranchSel.Next
   rs1OpSel := RS1OpSel.DontCare
@@ -58,7 +58,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       aluSel := ALUSel.COPY1
       dmemSel := DMemSel.DontCare
       branchSel := BranchSel.Next
-      op := Op.LUI
+      debugOp := DebugOp.LUI
     }
     //////////////////////////////////////////////
     // AUIPC
@@ -71,7 +71,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       aluSel := ALUSel.ADD
       dmemSel := DMemSel.DontCare
       branchSel := BranchSel.Next
-      op := Op.AUIPC
+      debugOp := DebugOp.AUIPC
     }
     //////////////////////////////////////////////
     // JAL
@@ -84,7 +84,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       aluSel := ALUSel.DontCare
       dmemSel := DMemSel.DontCare
       branchSel := BranchSel.JAL
-      op := Op.JAL
+      debugOp := DebugOp.JAL
     }
     //////////////////////////////////////////////
     // JALR
@@ -99,7 +99,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
           aluSel := ALUSel.DontCare
           dmemSel := DMemSel.DontCare
           branchSel := BranchSel.JALR
-          op := Op.JALR
+          debugOp := DebugOp.JALR
         }
     }
     //////////////////////////////////////////////
@@ -113,12 +113,12 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       aluSel := ALUSel.DontCare
       dmemSel := DMemSel.DontCare
       matchdf(func3)
-        .casedf(b"000")               {op := Op.BEQ;    branchSel := BranchSel.BEQ}
-        .casedf(b"001")               {op := Op.BNE;    branchSel := BranchSel.BNE}
-        .casedf(b"100")               {op := Op.BLT;    branchSel := BranchSel.BLT}
-        .casedf(b"101")               {op := Op.BGE;    branchSel := BranchSel.BGE}
-        .casedf(b"110")               {op := Op.BLTU;   branchSel := BranchSel.BLTU}
-        .casedf(b"111")               {op := Op.BGEU;   branchSel := BranchSel.BGEU}
+        .casedf(b"000")               {debugOp := DebugOp.BEQ;    branchSel := BranchSel.BEQ}
+        .casedf(b"001")               {debugOp := DebugOp.BNE;    branchSel := BranchSel.BNE}
+        .casedf(b"100")               {debugOp := DebugOp.BLT;    branchSel := BranchSel.BLT}
+        .casedf(b"101")               {debugOp := DebugOp.BGE;    branchSel := BranchSel.BGE}
+        .casedf(b"110")               {debugOp := DebugOp.BLTU;   branchSel := BranchSel.BLTU}
+        .casedf(b"111")               {debugOp := DebugOp.BGEU;   branchSel := BranchSel.BGEU}
     }
     //////////////////////////////////////////////
     // Load from Memory
@@ -131,11 +131,11 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       wbSel := WriteBackSel.Mem
       aluSel := ALUSel.ADD
       matchdf(func3)
-        .casedf(b"000")               {op := Op.LB;     dmemSel := DMemSel.LB}
-        .casedf(b"001")               {op := Op.LH;     dmemSel := DMemSel.LH}
-        .casedf(b"010")               {op := Op.LW;     dmemSel := DMemSel.LW}
-        .casedf(b"100")               {op := Op.LBU;    dmemSel := DMemSel.LBU}
-        .casedf(b"101")               {op := Op.LHU;    dmemSel := DMemSel.LHU}
+        .casedf(b"000")               {debugOp := DebugOp.LB;     dmemSel := DMemSel.LB}
+        .casedf(b"001")               {debugOp := DebugOp.LH;     dmemSel := DMemSel.LH}
+        .casedf(b"010")               {debugOp := DebugOp.LW;     dmemSel := DMemSel.LW}
+        .casedf(b"100")               {debugOp := DebugOp.LBU;    dmemSel := DMemSel.LBU}
+        .casedf(b"101")               {debugOp := DebugOp.LHU;    dmemSel := DMemSel.LHU}
     }
     //////////////////////////////////////////////
     // Store to Memory
@@ -148,9 +148,9 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       wbSel := WriteBackSel.DontCare
       aluSel := ALUSel.ADD
       matchdf(func3)
-        .casedf(b"000")               {op := Op.SB;     dmemSel := DMemSel.SB}
-        .casedf(b"001")               {op := Op.SH;     dmemSel := DMemSel.SH}
-        .casedf(b"010")               {op := Op.SW;     dmemSel := DMemSel.SW}
+        .casedf(b"000")               {debugOp := DebugOp.SB;     dmemSel := DMemSel.SB}
+        .casedf(b"001")               {debugOp := DebugOp.SH;     dmemSel := DMemSel.SH}
+        .casedf(b"010")               {debugOp := DebugOp.SW;     dmemSel := DMemSel.SW}
     }
     //////////////////////////////////////////////
     // Immediate Calc
@@ -163,20 +163,20 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       wbSel := WriteBackSel.ALU
       dmemSel := DMemSel.DontCare
       matchdf(func3)
-        .casedf(b"000")               {op := Op.ADDI;   aluSel := ALUSel.ADD}
-        .casedf(b"010")               {op := Op.SLTI;   aluSel := ALUSel.SLT}
-        .casedf(b"011")               {op := Op.SLTIU;  aluSel := ALUSel.SLTU}
-        .casedf(b"100")               {op := Op.XORI;   aluSel := ALUSel.XOR}
-        .casedf(b"110")               {op := Op.ORI;    aluSel := ALUSel.OR}
-        .casedf(b"111")               {op := Op.ANDI;   aluSel := ALUSel.AND}
+        .casedf(b"000")               {debugOp := DebugOp.ADDI;   aluSel := ALUSel.ADD}
+        .casedf(b"010")               {debugOp := DebugOp.SLTI;   aluSel := ALUSel.SLT}
+        .casedf(b"011")               {debugOp := DebugOp.SLTIU;  aluSel := ALUSel.SLTU}
+        .casedf(b"100")               {debugOp := DebugOp.XORI;   aluSel := ALUSel.XOR}
+        .casedf(b"110")               {debugOp := DebugOp.ORI;    aluSel := ALUSel.OR}
+        .casedf(b"111")               {debugOp := DebugOp.ANDI;   aluSel := ALUSel.AND}
         .casedf(b"001") {
           matchdf(func7)
-            .casedf(b"0000000")       {op := Op.SLLI;   aluSel := ALUSel.SLL}
+            .casedf(b"0000000")       {debugOp := DebugOp.SLLI;   aluSel := ALUSel.SLL}
         }
         .casedf(b"101") {
           matchdf(func7)
-            .casedf(b"0000000")       {op := Op.SRLI;   aluSel := ALUSel.SRL}
-            .casedf(b"0100000")       {op := Op.SRAI;   aluSel := ALUSel.SRA}
+            .casedf(b"0000000")       {debugOp := DebugOp.SRLI;   aluSel := ALUSel.SRL}
+            .casedf(b"0100000")       {debugOp := DebugOp.SRAI;   aluSel := ALUSel.SRA}
         }
     }
     //////////////////////////////////////////////
@@ -189,16 +189,16 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       wbSel := WriteBackSel.ALU
       dmemSel := DMemSel.DontCare
       matchdf(func7 ## func3)
-        .casedf(b"0000000" ## b"000") {op := Op.ADD;    aluSel := ALUSel.ADD}
-        .casedf(b"0100000" ## b"000") {op := Op.SUB;    aluSel := ALUSel.SUB}
-        .casedf(b"0000000" ## b"001") {op := Op.SLL;    aluSel := ALUSel.SLL}
-        .casedf(b"0000000" ## b"010") {op := Op.SLT;    aluSel := ALUSel.SLT}
-        .casedf(b"0000000" ## b"011") {op := Op.SLTU;   aluSel := ALUSel.SLTU}
-        .casedf(b"0000000" ## b"100") {op := Op.XOR;    aluSel := ALUSel.XOR}
-        .casedf(b"0000000" ## b"101") {op := Op.SRL;    aluSel := ALUSel.SRL}
-        .casedf(b"0100000" ## b"101") {op := Op.SRA;    aluSel := ALUSel.SRA}
-        .casedf(b"0000000" ## b"110") {op := Op.OR;     aluSel := ALUSel.OR}
-        .casedf(b"0000000" ## b"111") {op := Op.AND;    aluSel := ALUSel.AND}
+        .casedf(b"0000000" ## b"000") {debugOp := DebugOp.ADD;    aluSel := ALUSel.ADD}
+        .casedf(b"0100000" ## b"000") {debugOp := DebugOp.SUB;    aluSel := ALUSel.SUB}
+        .casedf(b"0000000" ## b"001") {debugOp := DebugOp.SLL;    aluSel := ALUSel.SLL}
+        .casedf(b"0000000" ## b"010") {debugOp := DebugOp.SLT;    aluSel := ALUSel.SLT}
+        .casedf(b"0000000" ## b"011") {debugOp := DebugOp.SLTU;   aluSel := ALUSel.SLTU}
+        .casedf(b"0000000" ## b"100") {debugOp := DebugOp.XOR;    aluSel := ALUSel.XOR}
+        .casedf(b"0000000" ## b"101") {debugOp := DebugOp.SRL;    aluSel := ALUSel.SRL}
+        .casedf(b"0100000" ## b"101") {debugOp := DebugOp.SRA;    aluSel := ALUSel.SRA}
+        .casedf(b"0000000" ## b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
+        .casedf(b"0000000" ## b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
     }
 
   final val inst = {
@@ -209,7 +209,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       //Decoder
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel
+      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
     )
   }
 
@@ -236,5 +236,6 @@ case class DecodedInst(
   rs2OpSel  : DFEnum[RS2OpSel],
   aluSel    : DFEnum[ALUSel],
   wbSel     : DFEnum[WriteBackSel],
-  dmemSel   : DFEnum[DMemSel]
+  dmemSel   : DFEnum[DMemSel],
+  debugOp   : DFEnum[DebugOp]
 )

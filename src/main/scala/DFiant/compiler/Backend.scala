@@ -457,7 +457,7 @@ object Backend {
             override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
-            lazy val list : List[connection] = member.ports.map(p => {
+            lazy val list : List[connection] = member.ports.filterNot(p => p.isNotDiscovered).map(p => {
               connection(p, architecture.declarations.signal(p))
             })
             private val clkConns : List[String] = member match {

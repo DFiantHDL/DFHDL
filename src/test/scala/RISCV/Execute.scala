@@ -41,7 +41,7 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execut
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = regFileInst.imm, shamt = regFileInst.shamt, branchSel = regFileInst.branchSel,
       rs1OpSel = regFileInst.rs1OpSel, rs2OpSel = regFileInst.rs2OpSel,
-      aluSel = regFileInst.aluSel, wbSel = wbSel, dmemSel = dmemSel,
+      aluSel = regFileInst.aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp,
       //RegFile
       rs1_data = regFileInst.rs1_data, rs2_data = regFileInst.rs2_data,
       //Execute
@@ -80,6 +80,7 @@ case class ExecuteInst(
   aluSel    : DFEnum[ALUSel],
   wbSel     : DFEnum[WriteBackSel],
   dmemSel   : DFEnum[DMemSel],
+  debugOp   : DFEnum[DebugOp],
 
   //RegFile
   rs1_data  : DFBits[XLEN],
