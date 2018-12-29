@@ -213,6 +213,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
     )
   }
 
+  sim.report(msg"$debugOp")
   atOwnerDo {
     this.instRaw <> fetchInst.instRaw
   }

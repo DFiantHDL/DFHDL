@@ -12,10 +12,14 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
       elms.head.tag.get
     case x => x
   }
-  def codeString: String = "msg\"" + value.collect {
+  def codeString: String = "msg\"" + value_.collect {
     case x : DFAny => s"$${${x.refCodeString}}"
     case x => x.toString
   }.mkString + "\""
+  final def keep : Unit = value_.foreach {
+    case x : DFAny => x.keep
+    case _ =>
+  }
 }
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
@@ -31,6 +35,7 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
   }
   final val id = getID
   if (cond.isDefined) cond.get.keep
+  msg.keep
   keep
 }
 
