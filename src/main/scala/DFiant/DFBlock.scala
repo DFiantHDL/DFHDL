@@ -5,19 +5,34 @@ import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
   val ctx = ctx0
+  override type ThisOwner = DFBlock
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
   implicit val basicLib = ctx.basicLib
   final val topDsn : DFDesign =
-    ownerOption.map(o => o.asInstanceOf[DFDesign].topDsn).getOrElse(this.asInstanceOf[DFDesign])
+    ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(this.asInstanceOf[DFDesign])
   private[DFiant] val designDB : DFDesign.DB =
-    ownerOption.map(o => o.asInstanceOf[DFDesign].designDB).getOrElse(new DFDesign.DB)
+    ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
+  protected val inSimulation : Boolean =
+    ownerOption.exists(o => o.asInstanceOf[DFBlock].inSimulation)
 
   final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
   final object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
   def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
   def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
+
+  protected object sim {
+    final val Note = Severity.Note
+    final val Warning = Severity.Warning
+    final val Error = Severity.Error
+    def assert(cond : DFBool, msg : Message, severity : Severity = Warning) : Unit = {
+      if (inSimulation) Assert(Some(cond), msg, severity)(ctx.updateOwner(theOwnerToBe))
+    }
+    def report(msg : Message, severity : Severity = Note) : Unit = {
+      if (inSimulation) Assert(None, msg, severity)(ctx.updateOwner(theOwnerToBe))
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Naming

@@ -51,6 +51,7 @@ object Severity {
 trait DFSimulator extends DFDesign {
   private var clkFreqKHz : Int = 100000
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
+  override protected val inSimulation : Boolean = true
   private def keepAll : Unit =
     mutableMemberList.collect {
       case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
@@ -63,16 +64,5 @@ trait DFSimulator extends DFDesign {
   override def codeString: String = {
     keepAll
     super.codeString
-  }
-  protected object sim {
-    final val Note = Severity.Note
-    final val Warning = Severity.Warning
-    final val Error = Severity.Error
-    def assert(cond : DFBool, msg : Message, severity : Severity = Warning)(implicit ctx : DFAny.Op.Context) : Unit = {
-      Assert(Some(cond), msg, severity)
-    }
-    def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Op.Context) : Unit = {
-      Assert(None, msg, severity)
-    }
   }
 }

@@ -36,7 +36,7 @@ object NameIt {
   implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName, fullName : sourcecode.FullName) : NameIt = new NameIt {
     lazy val value: String = if (name.value.contains("$") || invalidateName) s"${Name.AnonStart}anon" else name.value
     lazy val invalidated : Boolean = invalidateName
-    val owner: String = if (ownerName.value.contains("$")) s"${Name.AnonStart}anon" else ownerName.value
+    val owner: String = if (ownerName.value.contains("$") || ownerName.value.startsWith("<")) s"${Name.AnonStart}anon" else ownerName.value
     if (lastFullName == fullName.value)
       lastNameIt.invalidateName = true
     lastFullName = fullName.value
