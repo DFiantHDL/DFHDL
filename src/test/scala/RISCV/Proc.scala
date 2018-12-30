@@ -24,7 +24,7 @@ object ProcTest extends App {
   val riscv_tb = new Proc_TB {}.compileToVHDL.print().toFile("test.vhd")
   import sys.process._
   import scala.language.postfixOps
-  {s"ghdl -a --std=08 test.vhd" !!}
+  {s"ghdl -a -Pc:/ghdl/lib/vendors/xilinx-vivado -frelaxed-rules --ieee=synopsys --std=08 test.vhd imem_bram.vhdl dmem_bram.vhdl" !!}
   {s"ghdl -r -Pc:/ghdl/lib/vendors/xilinx-vivado -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 --stop-time=100ns" !}
 
 }

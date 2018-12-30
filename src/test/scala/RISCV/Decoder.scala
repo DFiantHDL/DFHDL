@@ -213,8 +213,8 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
     )
   }
 
-  sim.report(msg"$debugOp")
   atOwnerDo {
+    sim.report(msg"PC=${fetchInst.pc}, instRaw=${fetchInst.instRaw}, debugOp=$debugOp")
     this.instRaw <> fetchInst.instRaw
   }
 }

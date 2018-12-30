@@ -596,8 +596,12 @@ object Backend {
             }
             val msgString : String = msg.value.collect {
               case x : SourceTag =>
-                if (x.pipeStep > 0) s"to_string(${References(x.dfVal).ref(x.pipeStep)})"
-                else s"to_string(${Value(x.dfVal)})"
+                val convFuncStr : String = x.dfVal match {
+                  case d : DFBits[_] if d.width % 8 == 0 => "to_hstring"
+                  case _ => "to_string"
+                }
+                if (x.pipeStep > 0) s"$convFuncStr(${References(x.dfVal).ref(x.pipeStep)})"
+                else s"$convFuncStr(${Value(x.dfVal)})"
               case x => s""""$x""""
             }.mkString(" & ")
             override def toString: String = condMember match {
