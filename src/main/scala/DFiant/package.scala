@@ -63,7 +63,7 @@ package object DFiant extends {
     def stop() : Unit
     def restart() : Unit
   }
-  implicit class ListExtender[+T, +Repr](val list : Iterable[T]) {
+  implicit class ListExtender[+T](val list : Iterable[T]) {
 //    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFLoopController = {
 //      import ctx.owner._
 //      setFalseNamesInvalidator
@@ -96,6 +96,19 @@ package object DFiant extends {
       val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1)))
 //      if (list.size < (1 << (sel.width-1)))
 //        matcherCases.casedf_(default)
+    }
+  }
+
+  implicit class MatchList(list : List[(BitVector, BitVector)]) {
+    def matchdf[WM, WR](matchValue : DFBits[WM], resultVar : DFBits[WR] with DFAny.Var)(implicit ctx : ConditionalBlock.Context) : Unit = {
+      val thisMatchDF = ctx.owner.matchdf
+      import ctx.owner._
+      setFalseNamesInvalidator
+
+      if (list.nonEmpty) {
+        val matcherFirstCase = thisMatchDF(matchValue).casedf(list.head._1)({resultVar := list.head._2})
+        val matcherCases = list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1)({resultVar := b._2}))
+      }
     }
   }
 

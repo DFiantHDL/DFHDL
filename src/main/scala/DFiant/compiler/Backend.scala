@@ -760,8 +760,8 @@ object Backend {
         pass(x)
         architecture.statements.async_process.condBlock -= 1
         if (x.isLastCase) {
-          architecture.statements.async_process.condBlock -= 1
           architecture.statements.async_process.caseStatement.whenOthers() //TODO consider removing default others
+          architecture.statements.async_process.condBlock -= 1
           architecture.statements.async_process.caseStatement.caseEnd()
         }
       case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFMatchHeader[_] =>
