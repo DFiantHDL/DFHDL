@@ -86,12 +86,16 @@ package object DFiant extends {
       setFalseNamesInvalidator
       val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
       val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+//      if (list.size < (1 << (sel.width-1)))
+//        matcherCases.casedf_(default)
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFAny.Op.Context) : Unit = {
       import ctx.owner.{matchdf, setFalseNamesInvalidator}
       setFalseNamesInvalidator
       val matcherFirstCase = matchdf(sel).casedf(BigInt(0).toBitVector(sel.width))(block(list.head))
       val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1)))
+//      if (list.size < (1 << (sel.width-1)))
+//        matcherCases.casedf_(default)
     }
   }
 
