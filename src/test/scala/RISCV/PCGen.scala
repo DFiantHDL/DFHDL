@@ -2,14 +2,15 @@ package RISCV
 
 import DFiant._
 
-trait PCGen extends DFDesign {
+class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits[XLEN], rs2_data0 : DFBits[XLEN],
+  imm0 : DFBits[32])(implicit ctx : DFDesign.ContextOf[PCGen]) extends DFDesign {
   private val pc        = DFBits[32]        <> IN
   private val branchSel = DFEnum(BranchSel) <> IN
   private val rs1_data  = DFBits[XLEN]      <> IN
   private val rs2_data  = DFBits[XLEN]      <> IN
   private val imm       = DFBits[32]        <> IN
-  private val pcNext    = DFBits[32]        <> OUT
-  private val pcPlus4   = DFBits[32]        <> OUT
+  final val   pcNext    = DFBits[32]        <> OUT
+  final val   pcPlus4   = DFBits[32]        <> OUT
 
   private val pcu = pc.uint
   private val pcPlus4U = pcu + 4
@@ -42,18 +43,19 @@ trait PCGen extends DFDesign {
     .casedf_                                {false}
 
   private val pcNextU = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
+//  sim.report(msg"${branchSel}, taken:$brTaken, rs1: $rs1_data, rs2: $rs2_data")
 
   pcNext := pcNextU.bits
-  
-  def genPCConn(pc : DFBits[32], branchSel : DFEnum[BranchSel], rs1_data : DFBits[XLEN], rs2_data : DFBits[XLEN], imm : DFBits[32])(
-    implicit ctx : DFAny.Op.Context
-  ) : PCCalc = {
-    this.pc <> pc
-    this.branchSel <> branchSel
-    this.rs1_data <> rs1_data
-    this.rs2_data <> rs2_data
-    this.imm <> imm
-    new PCCalc(this.pcNext, this.pcPlus4)
+
+
+  final val pcCalc = new PCCalc(this.pcNext, this.pcPlus4)
+
+  atOwnerDo {
+    this.pc <> pc0
+    this.branchSel <> branchSel0
+    this.rs1_data <> rs1_data0
+    this.rs2_data <> rs2_data0
+    this.imm <> imm0
   }
 }
 

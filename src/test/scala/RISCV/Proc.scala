@@ -21,13 +21,13 @@ class Proc_TB(programMem : ProgramMem)(implicit ctx : DFDesign.ContextOf[Proc_TB
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(ProgramMem.fromFile("towers.riscv.dump")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(ProgramMem.fromFile("rv32ui-p-addi.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
   val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
   import scala.language.postfixOps
   {s"ghdl -a $flags dmem_bram_sim.vhdl" !!}
   {s"ghdl -a $flags test.vhd" !!}
-  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=100ns" !}
+  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=50ns" !}
 
 }

@@ -26,10 +26,9 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execut
 
   private val alu = new ALU {}
   private val aluCalc = alu.calcConn(aluOp1, aluOp2, shamt, aluSel)
-  private val pcGen = new PCGen {}
-  private val pcCalc = pcGen.genPCConn(pc, branchSel, rs1_data, rs2_data, imm)
-  pcNext <> pcCalc.pcNext
-  pcPlus4 <> pcCalc.pcPlus4
+  private val pcGen = new PCGen(pc, branchSel, rs1_data, rs2_data, imm)
+  pcNext <> pcGen.pcNext
+  pcPlus4 <> pcGen.pcPlus4
   aluOut <> aluCalc
 
   final val inst = {

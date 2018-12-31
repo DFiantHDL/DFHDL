@@ -2,7 +2,7 @@ package RISCV
 import DFiant._
 
 case class MemEntry(addr : BitVector, inst : BitVector, instStr : String) {
-  println(this)
+//  println(this)
 }
 
 case class ProgramMem(list : List[MemEntry], startAddress : BitVector)

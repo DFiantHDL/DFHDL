@@ -24,6 +24,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     final val Note = Severity.Note
     final val Warning = Severity.Warning
     final val Error = Severity.Error
+    final val Failure = Severity.Failure
     def assert(cond : DFBool, msg : Message, severity : Severity = Warning) : Unit = {
       if (inSimulation) Assert(Some(cond), msg, severity)(ctx.updateOwner(theOwnerToBe))
     }
