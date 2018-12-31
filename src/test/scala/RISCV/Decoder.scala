@@ -216,7 +216,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
   atOwnerDo {
     sim.report(msg"PC=${fetchInst.pc}, instRaw=${fetchInst.instRaw}, debugOp=$debugOp")
-    sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Error)
+    sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
     this.instRaw <> fetchInst.instRaw
   }
 }

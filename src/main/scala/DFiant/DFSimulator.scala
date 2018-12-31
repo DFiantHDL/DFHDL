@@ -50,6 +50,9 @@ object Severity {
   case object Error extends Severity {
     def codeString: String = "sim.Error"
   }
+  case object Failure extends Severity {
+    def codeString: String = "sim.Failure"
+  }
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {

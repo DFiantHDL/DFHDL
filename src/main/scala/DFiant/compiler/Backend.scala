@@ -593,6 +593,7 @@ object Backend {
               case Severity.Note => "note"
               case Severity.Warning => "warning"
               case Severity.Error => "error"
+              case Severity.Failure => "failure"
             }
             val msgString : String = msg.value.collect {
               case x : SourceTag =>
