@@ -249,13 +249,12 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
+        import FunctionalLib.DFEnumOps._
         val (left, right) = properLR(leftL, rightR)
-        val leftBits = left.bits
-        val rightBits = right.bits
 
         val result : DFBool with CanBePiped = kind match {
-          case k : DiSoOp.Kind.== => leftBits == rightBits
-          case k : DiSoOp.Kind.!= => leftBits != rightBits
+          case k : DiSoOp.Kind.== => new `Func2Comp==`[E](left, right)
+          case k : DiSoOp.Kind.!= => new `Func2Comp!=`[E](left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
 
