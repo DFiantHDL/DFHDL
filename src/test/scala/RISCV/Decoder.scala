@@ -46,6 +46,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   aluSel := ALUSel.DontCare
   wbSel := WriteBackSel.DontCare
   dmemSel := DMemSel.DontCare
+  rd_wren := false
 
   matchdf(opcode)
     //////////////////////////////////////////////
@@ -56,6 +57,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.Immediate
       rs2OpSel := RS2OpSel.DontCare
       wbSel := WriteBackSel.ALU
+      rd_wren := true
       aluSel := ALUSel.COPY1
       dmemSel := DMemSel.DontCare
       branchSel := BranchSel.Next
@@ -69,6 +71,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.Immediate
       rs2OpSel := RS2OpSel.PC
       wbSel := WriteBackSel.ALU
+      rd_wren := true
       aluSel := ALUSel.ADD
       dmemSel := DMemSel.DontCare
       branchSel := BranchSel.Next
@@ -82,6 +85,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.DontCare
       rs2OpSel := RS2OpSel.DontCare
       wbSel := WriteBackSel.PCPlus4
+      rd_wren := true
       aluSel := ALUSel.DontCare
       dmemSel := DMemSel.DontCare
       branchSel := BranchSel.JAL
@@ -97,6 +101,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
           rs1OpSel := RS1OpSel.RegSource
           rs2OpSel := RS2OpSel.Immediate
           wbSel := WriteBackSel.PCPlus4
+          rd_wren := true
           aluSel := ALUSel.DontCare
           dmemSel := DMemSel.DontCare
           branchSel := BranchSel.JALR
@@ -111,6 +116,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.DontCare
       rs2OpSel := RS2OpSel.DontCare
       wbSel := WriteBackSel.DontCare
+      rd_wren := false
       aluSel := ALUSel.DontCare
       dmemSel := DMemSel.DontCare
       matchdf(func3)
@@ -130,6 +136,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.RegSource
       rs2OpSel := RS2OpSel.Immediate
       wbSel := WriteBackSel.Mem
+      rd_wren := true
       aluSel := ALUSel.ADD
       matchdf(func3)
         .casedf(b"000")               {debugOp := DebugOp.LB;     dmemSel := DMemSel.LB}
@@ -147,6 +154,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.RegSource
       rs2OpSel := RS2OpSel.Immediate
       wbSel := WriteBackSel.DontCare
+      rd_wren := false
       aluSel := ALUSel.ADD
       matchdf(func3)
         .casedf(b"000")               {debugOp := DebugOp.SB;     dmemSel := DMemSel.SB}
@@ -162,6 +170,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.RegSource
       rs2OpSel := RS2OpSel.Immediate
       wbSel := WriteBackSel.ALU
+      rd_wren := true
       dmemSel := DMemSel.DontCare
       matchdf(func3)
         .casedf(b"000")               {debugOp := DebugOp.ADDI;   aluSel := ALUSel.ADD}
@@ -188,6 +197,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       rs1OpSel := RS1OpSel.RegSource
       rs2OpSel := RS2OpSel.RegSource
       wbSel := WriteBackSel.ALU
+      rd_wren := true
       dmemSel := DMemSel.DontCare
       matchdf(func7 ## func3)
         .casedf(b"0000000" ## b"000") {debugOp := DebugOp.ADD;    aluSel := ALUSel.ADD}
