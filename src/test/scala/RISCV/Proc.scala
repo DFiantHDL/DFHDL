@@ -2,7 +2,7 @@ package RISCV
 import DFiant._
 
 class Proc(programMem : ProgramMem)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
-  private val pc = DFBits[32] init StartAddress
+  private val pc = DFBits[32] init programMem.startAddress
   pc.keep
 
   private val imem = new IMem(programMem)(pc)
@@ -21,7 +21,7 @@ class Proc_TB(programMem : ProgramMem)(implicit ctx : DFDesign.ContextOf[Proc_TB
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(ProgramMem.fromFile("testA.asm")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(ProgramMem.fromFile("towers.riscv.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
   val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._

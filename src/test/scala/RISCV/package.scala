@@ -3,13 +3,13 @@ import DFiant._
 package object RISCV {
   final val XLEN = 32
   type XLEN = XLEN.type
-  final val StartAddress = h"00000000"
   final val regsNum = 0 until 32
 
   implicit object DebugOp extends Enum.Auto {
     val Unsupported, LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,
     LB, LH, LW, LBU, LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI,
-    SLLI, SRLI, SRAI, ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND = Entry()
+    SLLI, SRLI, SRAI, ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND,
+    FENCE, FENCE_I, ECALL, EBREAK, CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI = Entry()
   }
   type DebugOp = DebugOp.type
 

@@ -32,6 +32,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.extendTo(32).bits
   private val immUType  = instRaw(31, 12).extendRightTo(32).sint.bits
   private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.extendTo(32).bits
+  private val notOpCode = instRaw(31, 7)
   rs1_addr := instRaw(19, 15)
   rs2_addr := instRaw(24, 20)
   shamt := instRaw(24, 20).uint
@@ -200,6 +201,29 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
         .casedf(b"0000000" ## b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
         .casedf(b"0000000" ## b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
     }
+    //////////////////////////////////////////////
+    // System
+    //////////////////////////////////////////////
+//    .casedf(b"1110011"){
+//      imm := immIType
+//      branchSel := BranchSel.Next
+//      rs1OpSel := RS1OpSel.RegSource
+//      rs2OpSel := RS2OpSel.Immediate
+//      wbSel := WriteBackSel.CSR
+//      dmemSel := DMemSel.DontCare
+//      matchdf(func3)
+//        .casedf(b"000") { //ECALL/EBREAK
+//          matchdf(notOpCode)
+//            .casedf(b"000000000000" ## b"00000" ## b"000" ## b"00000") {debugOp := DebugOp.ECALL;}
+//            .casedf(b"000000000001" ## b"00000" ## b"000" ## b"00000") {debugOp := DebugOp.EBREAK;}
+//        }
+//        .casedf(b"001")               {debugOp := DebugOp.CSRRW;  }
+//        .casedf(b"010")               {debugOp := DebugOp.CSRRS;  }
+//        .casedf(b"011")               {debugOp := DebugOp.CSRRC;  }
+//        .casedf(b"101")               {debugOp := DebugOp.CSRRWI; }
+//        .casedf(b"110")               {debugOp := DebugOp.CSRRSI; }
+//        .casedf(b"111")               {debugOp := DebugOp.CSRRCI; }
+//    }
 
 
   final val inst = {
