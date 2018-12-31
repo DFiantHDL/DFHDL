@@ -27,6 +27,9 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
     noAnonymous.codeString.delimRowsBy(delim)
   }
 
+  protected[DFiant] lazy val inSimulation : Boolean =
+    ownerOption.exists(o => o.inSimulation)
+
   private[DFiant] var privShowInits : Boolean = false
   final def showInits : this.type = {privShowInits = true; this}
   private[DFiant] var privShowLatencies : Boolean = false

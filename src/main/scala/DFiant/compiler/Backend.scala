@@ -62,7 +62,7 @@ object Backend {
   class VHDL(design : DFInterface, owner : VHDL = null, simClkPeriodKHz : Option[Int] = None) extends Backend(design) { self =>
     private val top : VHDL = if (owner == null) this else owner
     private implicit val nameDB : NameDB = new NameDB
-    private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name.toLowerCase()) else top.db
+    private val db : VHDL.DB = if (owner == null) VHDL.DB(design.name.toLowerCase(), design.inSimulation) else top.db
     private val delim = "  "
 
     private val clkName = Name("CLK")
@@ -118,7 +118,7 @@ object Backend {
         case t : Type.signed => ValueBits(s"to_slv($value)", t.width)
         case t : Type.std_logic => ValueBits(s"to_slv($value)", 1)
         case Type.enumeration(enum) =>
-          ValueBits(s"to_slv(to_unsigned(${db.Package.declarations.enums(enum)}'POS($value), ${enum.width}))", enum.width)
+          ValueBits(s"to_slv(to_unsigned(${db.Package.declarations.enums(enum).name}'POS($value), ${enum.width}))", enum.width)
       }
       def bits(width : Int, lsbit : Int) : ValueBits =
         if (width == typeS.width) bits
@@ -617,6 +617,13 @@ object Backend {
                    |${currentDelim}end if;""".stripMargin
             }
           }
+          case class finish() extends statement {
+            override def toString: String =
+                s"""
+                   |${currentDelim}if rising_edge($clkName) then
+                   |$delim${currentDelim}finish(0);
+                   |${currentDelim}end if;""".stripMargin
+          }
         }
         object sync_process extends process(2) {
           case class resetStatement(dst : Reference, value : Value){
@@ -820,7 +827,7 @@ object Backend {
   }
 
   object VHDL {
-    private case class DB(topName : String)(implicit nameDB : NameDB) extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
+    private case class DB(topName : String, inSimulation : Boolean)(implicit nameDB : NameDB) extends DSLOwnerConstruct.DB[VHDL, Tuple2[String, String]] {
       //////////////////////////////////////////////////////////////////////////////////
       // Library
       //////////////////////////////////////////////////////////////////////////////////
@@ -832,6 +839,14 @@ object Backend {
              |use ieee.numeric_std.all;
              |use work.${topName}_pkg.all;
              |""".stripMargin
+      }
+      private object SimLibrary {
+        override def toString: String = if (inSimulation)
+          s"""
+             |library std;
+             |use std.env.all;
+             |""".stripMargin
+        else ""
       }
       //////////////////////////////////////////////////////////////////////////////////
 
@@ -979,7 +994,7 @@ object Backend {
       def ownerToString(ownerTypeName: String, ownerBody: (String, String)): String = {
         def entity : String = s"\nentity $ownerTypeName is${ownerBody._1}\nend $ownerTypeName;"
         def architecture : String = s"\narchitecture ${ownerTypeName}_arch of $ownerTypeName is${ownerBody._2}\nend ${ownerTypeName}_arch;"
-        s"$Library$entity\n$architecture"
+        s"$Library$SimLibrary$entity\n$architecture"
       }
 
       override def toString : String = s"$Package\n${super.toString}"

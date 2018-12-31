@@ -201,6 +201,9 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
         .casedf(b"0000000" ## b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
     }
 
+  val c = debugOp != DebugOp.Unsupported
+  sim.assert(c, msg"Unsupported instruction", severity = Severity.Error)
+
   final val inst = {
     import fetchInst._
     DecodedInst(

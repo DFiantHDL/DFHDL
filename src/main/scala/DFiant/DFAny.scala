@@ -24,7 +24,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   type `Op<>Builder`[R] <: DFAny.Op.Builder[TVal, R]
   type `Op:=Builder`[R] <: DFAny.Op.Builder[TVal, R]
   type `Op==Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
-  type `Op!=Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
+  type `Op!=Builder`[R] <: DFAny.`Op!=Builder`[TVal, R]
   type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
   type InitBuilder <: DFAny.Init.Builder[TVal, InitAble, TToken]
   type PortBuilder[Dir <: DFDir] <: DFAny.Port.Builder[TVal, Dir]
@@ -195,7 +195,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Equality
   //////////////////////////////////////////////////////////////////////////
   final def == [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
-  final def != [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
+  final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
   //////////////////////////////////////////////////////////////////////////
 
 

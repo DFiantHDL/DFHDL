@@ -52,11 +52,21 @@ object Severity {
   }
 }
 
+protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
+  final val ctx = ctx0
+  override private[DFiant] def nameDefault = s"${Name.Separator}finish"
+  def codeString : String =
+      s"""
+         |sim.finish()""".stripMargin
+  final val id = getID
+  keep
+}
+
 
 trait DFSimulator extends DFDesign {
   private var clkFreqKHz : Int = 100000
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
-  override protected val inSimulation : Boolean = true
+  override protected[DFiant] lazy val inSimulation : Boolean = true
   private def keepAll : Unit =
     mutableMemberList.collect {
       case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)

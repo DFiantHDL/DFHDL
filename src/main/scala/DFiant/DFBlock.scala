@@ -14,8 +14,6 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(this.asInstanceOf[DFDesign])
   private[DFiant] val designDB : DFDesign.DB =
     ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
-  protected val inSimulation : Boolean =
-    ownerOption.exists(o => o.asInstanceOf[DFBlock].inSimulation)
 
   final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
   final object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
@@ -31,6 +29,9 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     }
     def report(msg : Message, severity : Severity = Note) : Unit = {
       if (inSimulation) Assert(None, msg, severity)(ctx.updateOwner(theOwnerToBe))
+    }
+    def finish() : Unit = {
+      if (inSimulation) Finish()(ctx.updateOwner(theOwnerToBe))
     }
   }
 

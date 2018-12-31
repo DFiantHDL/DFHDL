@@ -210,7 +210,12 @@ object Foo extends Enum.Auto {
 trait IODesignConn8 extends DFDesign {
   val i = DFEnum(Foo) <> IN// init Foo.Baz3
   val o = DFEnum(Foo) <> OUT
-  o <> i
+  val b = DFBool() <> OUT
+  o := i
+  val c = i != Foo.Baz0
+  c.keep
+//  b := c
+//  o <> i
 }
 
 trait IODesignConn9 extends DFDesign {
@@ -290,8 +295,8 @@ object BasicTest extends App {
 //  val top_ioDesignConn5 = new IODesignConn5 {}
 //  val top_ioDesignConn6 = new IODesignConn6 {}
 //    val top_ioDesignConn7 = new IODesignConn7 {}
-//    val top_ioDesignConn8 = new IODesignConn8 {}.printVHDLString
-  val top_ioDesignConn10 = new IO {}.printCodeString//.compileToVHDL.print().toFile("test.vhd")
+    val top_ioDesignConn8 = new IODesignConn8 {}.printCodeString.printVHDLString
+//  val top_ioDesignConn10 = new IO {}.printCodeString//.compileToVHDL.print().toFile("test.vhd")
 
   //  val top_containerConn1 = new ContainerConn1 {}
 //  val top_containerConn3 = new ContainerConn3 {}.printVHDLString
