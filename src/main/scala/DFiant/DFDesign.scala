@@ -16,6 +16,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     ifBlock
   }
   protected def atOwnerDo[T](block : => T) : T = {
+    owner.setFalseNamesInvalidator(typeName)
     val originalOwner = mutableOwner.value
     mutableOwner.value = owner.asInstanceOf[DFBlock]
     val ret = block

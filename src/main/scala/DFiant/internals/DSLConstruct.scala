@@ -96,7 +96,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   private var nameInvalidator : String = ""
   //Place a false names invalidator at the start of a new scope.
   //This is currently a workaround for sourcecode's library issue that gets an owner name
-  final private[DFiant] def setFalseNamesInvalidator(implicit n : NameIt) : Unit = nameInvalidator = n.value
+  final private[DFiant] def setFalseNamesInvalidator()(implicit n : NameIt) : Unit = nameInvalidator = n.value
+  final private[DFiant] def setFalseNamesInvalidator(value : String) : Unit = nameInvalidator = value
   final private[internals] def fixMemberName(value : String) : String =
     if (headInterfaceNames.contains(value) || value == typeName || value == nameInvalidator) s"${Name.AnonStart}anon" else value
   private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
