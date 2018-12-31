@@ -12,6 +12,7 @@ object ProgramMem {
   import internals.BitVectorExtras
   private val extractor = """[ \t]*([0-9a-f]+):[ \t]*([0-9a-f]+)[ \t]*(.+)""".r
   private val mainExtractor = """[ \t]*([0-9a-f]+) <main>:[ \t]*""".r
+  private val testExtractor = """[ \t]*([0-9a-f]+) <test_2>:[ \t]*""".r
 
   def fromFile(progMemFile : String) : ProgramMem = {
     val file = Source.fromFile(progMemFile)
@@ -20,6 +21,9 @@ object ProgramMem {
       case extractor(addr, inst, asm) =>
         Some(MemEntry(BitVector.fromHex(addr).get.toLength(32), BitVector.fromHex(inst).get, asm))
       case mainExtractor(addr) =>
+        mainAddr = Some(BitVector.fromHex(addr).get.toLength(32))
+        None
+      case testExtractor(addr) =>
         mainAddr = Some(BitVector.fromHex(addr).get.toLength(32))
         None
     }.toList.flatten

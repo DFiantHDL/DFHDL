@@ -211,32 +211,30 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
         .casedf(b"0000000" ## b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
         .casedf(b"0000000" ## b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
     }
-
-  ifdf (instRaw == b1s) {sim.finish()}.keep
-//  sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
     //////////////////////////////////////////////
     // System
     //////////////////////////////////////////////
-//    .casedf(b"1110011"){
+    .casedf(b"1110011"){
 //      imm := immIType
 //      branchSel := BranchSel.Next
 //      rs1OpSel := RS1OpSel.RegSource
 //      rs2OpSel := RS2OpSel.Immediate
 //      wbSel := WriteBackSel.CSR
 //      dmemSel := DMemSel.DontCare
-//      matchdf(func3)
-//        .casedf(b"000") { //ECALL/EBREAK
-//          matchdf(notOpCode)
-//            .casedf(b"000000000000" ## b"00000" ## b"000" ## b"00000") {debugOp := DebugOp.ECALL;}
-//            .casedf(b"000000000001" ## b"00000" ## b"000" ## b"00000") {debugOp := DebugOp.EBREAK;}
-//        }
-//        .casedf(b"001")               {debugOp := DebugOp.CSRRW;  }
-//        .casedf(b"010")               {debugOp := DebugOp.CSRRS;  }
-//        .casedf(b"011")               {debugOp := DebugOp.CSRRC;  }
-//        .casedf(b"101")               {debugOp := DebugOp.CSRRWI; }
-//        .casedf(b"110")               {debugOp := DebugOp.CSRRSI; }
-//        .casedf(b"111")               {debugOp := DebugOp.CSRRCI; }
-//    }
+      matchdf(func3)
+        .casedf(b"000") { //ECALL/EBREAK
+          matchdf(notOpCode)
+            .casedf(b"000000000000" ## b"00000" ## b"000" ## b"00000") {debugOp := DebugOp.ECALL;}
+            .casedf(b"000000000001" ## b"00000" ## b"000" ## b"00000") {debugOp := DebugOp.EBREAK;}
+        }
+        .casedf(b"001")               {debugOp := DebugOp.CSRRW;  }
+        .casedf(b"010")               {debugOp := DebugOp.CSRRS;  }
+        .casedf(b"011")               {debugOp := DebugOp.CSRRC;  }
+        .casedf(b"101")               {debugOp := DebugOp.CSRRWI; }
+        .casedf(b"110")               {debugOp := DebugOp.CSRRSI; }
+        .casedf(b"111")               {debugOp := DebugOp.CSRRCI; }
+    }
+    .casedf(b"0001111"){debugOp := DebugOp.FENCE;}//FENCE
 
 
   final val inst = {
@@ -253,6 +251,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
   atOwnerDo {
     sim.report(msg"PC=${fetchInst.pc}, instRaw=${fetchInst.instRaw}, debugOp=$debugOp")
+    sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
     this.instRaw <> fetchInst.instRaw
   }
 }
