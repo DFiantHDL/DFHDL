@@ -720,6 +720,7 @@ object Backend {
         architecture.statements.component_instance(x)
       case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
       case x : Assert => architecture.statements.async_process.assert(x.cond, x.msg, x.severity)
+      case x : Finish => architecture.statements.async_process.finish()
 
       case x : ConditionalBlock.IfNoRetVal#DFIfBlock =>
         x match {

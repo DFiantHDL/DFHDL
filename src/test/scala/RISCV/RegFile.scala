@@ -16,7 +16,7 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
   regs.foreachdf(rs1_addr) {case (ri, r) => rs1_data := r}
   regs.foreachdf(rs2_addr) {case (ri, r) => rs2_data := r}
 
-  sim.report(msg"rs1_addr: $rs1_addr, rs1_data: $rs1_data, rs2_addr: $rs2_addr, rs2_data: $rs2_data, rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
+//  sim.report(msg"rs1_addr: $rs1_addr, rs1_data: $rs1_data, rs2_addr: $rs2_addr, rs2_data: $rs2_data, rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
 
   regs.foreachdf(rd_addr) {
     case (0, r) => //No write for X0

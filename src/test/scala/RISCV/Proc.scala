@@ -28,6 +28,6 @@ object ProcTest extends App {
   import scala.language.postfixOps
   {s"ghdl -a $flags dmem_bram_sim.vhdl" !!}
   {s"ghdl -a $flags test.vhd" !!}
-  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=50ns" !}
+  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=5000ns" !}
 
 }

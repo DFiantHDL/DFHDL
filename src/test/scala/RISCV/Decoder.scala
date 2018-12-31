@@ -211,6 +211,9 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
         .casedf(b"0000000" ## b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
         .casedf(b"0000000" ## b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
     }
+
+  ifdf (instRaw == b1s) {sim.finish()}.keep
+//  sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
     //////////////////////////////////////////////
     // System
     //////////////////////////////////////////////
@@ -250,7 +253,6 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
   atOwnerDo {
     sim.report(msg"PC=${fetchInst.pc}, instRaw=${fetchInst.instRaw}, debugOp=$debugOp")
-    sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
     this.instRaw <> fetchInst.instRaw
   }
 }

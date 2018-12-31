@@ -30,6 +30,7 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execut
   pcNext <> pcGen.pcNext
   pcPlus4 <> pcGen.pcPlus4
   aluOut <> aluCalc
+//  sim.report(msg"rs1_data: $rs1_data, rs2_data: $rs2_data, imm: $imm, rs1OpSel: $rs1OpSel, aluOp1: $aluOp1, rs2OpSel: $rs2OpSel, aluOp2: $aluOp2, aluSel: $aluSel, aluCalc: $aluCalc")
 
   final val inst = {
     import regFileInst._
