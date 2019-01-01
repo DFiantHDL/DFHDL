@@ -131,6 +131,9 @@ object DFBits extends DFAny.Companion {
     final def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
     final def ## [R](right: Op.Able[R])(implicit op: `Op##`.Builder[TVal, R]) = op(left, right)
     final def == (right : SameBitsVector)(implicit op: `Op==`.Builder[TVal, SameBitsVector]) : DFBool = op(left, right)
+    final def != (right : SameBitsVector)(implicit op: `Op!=`.Builder[TVal, SameBitsVector]) : DFBool = op(left, right)
+    final def == [R](that : BitVector)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : DFBool = op(left, right)
+    final def != [R](that : BitVector)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) : DFBool = op(left, right)
     final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFBits[Width] = {
       if (shift >= width) new DFBits.Const[Width](DFBits.Token(width, 0))
       else {

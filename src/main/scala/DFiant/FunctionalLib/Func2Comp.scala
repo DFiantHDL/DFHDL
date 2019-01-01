@@ -41,10 +41,11 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   lazy val connect : Unit ={
     inLeft.connectVal2Port(leftArg)
     inRight.connectVal2Port(rightArg)
+//    outResult.connectVal2Port(this)
   }
 
-  //  outResult.connectVal2Port(this)
-  override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
+  //TODO: leftArg, rightArg
+  override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult :+ leftArg :+ rightArg
   override protected def foldedRun: Unit = {
     outResult.setInitFunc.forced(initLB)
   }
