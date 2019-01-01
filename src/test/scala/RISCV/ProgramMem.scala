@@ -19,7 +19,8 @@ object ProgramMem {
     var mainAddr : Option[BitVector] = None
     val list = file.getLines.collect {
       case extractor(addr, inst, asm) =>
-        Some(MemEntry(BitVector.fromHex(addr).get.toLength(32), BitVector.fromHex(inst).get, asm))
+        if (inst.length < 8) None
+        else Some(MemEntry(BitVector.fromHex(addr).get.toLength(32), BitVector.fromHex(inst).get, asm))
       case mainExtractor(addr) =>
         mainAddr = Some(BitVector.fromHex(addr).get.toLength(32))
         None
