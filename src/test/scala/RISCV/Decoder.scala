@@ -97,7 +97,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
     .casedf(b"1100111") {
       matchdf(func3)
         .casedf(b"000") {
-          imm := immUType
+          imm := immIType
           rs1OpSel := RS1OpSel.RegSource
           rs2OpSel := RS2OpSel.Immediate
           wbSel := WriteBackSel.PCPlus4

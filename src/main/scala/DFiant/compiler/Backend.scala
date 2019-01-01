@@ -599,6 +599,7 @@ object Backend {
               case x : SourceTag =>
                 val convFuncStr : String = x.dfVal match {
                   case d : DFBits[_] if d.width % 8 == 0 => "to_hstring"
+                  case d : DFUInt[_] if d.width % 8 == 0 => "to_hstring"
                   case _ => "to_string"
                 }
                 if (x.pipeStep > 0) s"$convFuncStr(${References(x.dfVal).ref(x.pipeStep)})"
