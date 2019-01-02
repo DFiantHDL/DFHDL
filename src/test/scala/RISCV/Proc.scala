@@ -3,7 +3,6 @@ import DFiant._
 
 class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
   private val pc = DFBits[32] init program.imem.startAddress
-  pc.keep
 
   private val imem = new IMem(program.imem)(pc)
   private val decoder = new Decoder(imem.inst)
