@@ -181,7 +181,7 @@ object Backend {
       }
       def apply(member : DFAny, token : DFAny.Token) : Value = {
         val value = token match {
-          case x : DFBits.Token => s""""${x.value.toBin}""""
+          case x : DFBits.Token => if (x.width % 4 == 0) s"""x"${x.value.toHex}"""" else s""""${x.value.toBin}""""
           case x : DFUInt.Token => s"to_unsigned(${x.value}, ${member.width})"
           case x : DFSInt.Token => s"to_signed(${x.value}, ${member.width})"
           case x : DFBool.Token => if (x.value) "'1'" else "'0'"
