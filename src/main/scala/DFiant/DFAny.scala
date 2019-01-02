@@ -703,6 +703,7 @@ object DFAny {
         //Connecting owner and child design ports, while owner port is left and child port is right.
         else if (right.isDownstreamMemberOf(left.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
           case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+          case (ld : OUT, rd : IN) if left.isAssigned => (left, right) //relaxation if the rule when the owner output port is already assigned to
           case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : IN,  rd : IN)  => (left, right)
           case (ld : OUT, rd : OUT) => (right, left)
@@ -710,6 +711,7 @@ object DFAny {
         }
         //Connecting owner and child design ports, while owner port is right and child port is left.
         else if (left.isDownstreamMemberOf(right.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+          case (ld : IN,  rd : OUT) if right.isAssigned => (right, left)  //relaxation if the rule when the owner output port is already assigned to
           case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
           case (ld : IN,  rd : IN)  => (right, left)

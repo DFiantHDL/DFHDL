@@ -230,6 +230,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
     }
     .casedf(b"0001111"){debugOp := DebugOp.FENCE;}//FENCE
 
+  sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
 
   final val inst = {
     import fetchInst._
@@ -245,7 +246,6 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
   atOwnerDo {
     sim.report(msg"PC=${fetchInst.pc}, instRaw=${fetchInst.instRaw}, debugOp=$debugOp")
-    sim.assert(debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
     this.instRaw <> fetchInst.instRaw
   }
 }
