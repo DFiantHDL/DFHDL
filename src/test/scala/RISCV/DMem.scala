@@ -6,12 +6,14 @@ import DFiant._
 create_ip -name blk_mem_gen -vendor xilinx.com -library ip -version 8.4 -module_name dmem_bram
 set_property -dict [list CONFIG.Component_Name {dmem_bram} CONFIG.Use_Byte_Write_Enable {true} CONFIG.Byte_Size {8} CONFIG.Write_Width_A {32} CONFIG.Write_Depth_A {4096} CONFIG.Read_Width_A {32} CONFIG.Enable_A {Always_Enabled} CONFIG.Write_Width_B {32} CONFIG.Read_Width_B {32} CONFIG.Register_PortA_Output_of_Memory_Primitives {false}] [get_ips dmem_bram]
  */
-class DMem_Bram_Sim()(implicit ctx : DFDesign.ContextOf[DMem_Bram_Sim]) extends DFDesign {
-  final val wea   = DFBits(4)  <> IN
-  final val addra = DFBits(12) <> IN
-  final val dina  = DFBits(32) <> IN
-  final val douta = DFBits(32) <> OUT
+trait DMem_Bram_Ifc extends DFInterface {
+  final val wea   = DFBits[4] <> IN
+  final val addra = DFBits[12] <> IN
+  final val dina  = DFBits[32] <> IN
+  final val douta = DFBits[32] <> OUT
+}
 
+class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : DFDesign.ContextOf[DMem_Bram_Sim]) extends DFDesign with DMem_Bram_Ifc {
   private val cells = (0 until 256).map(ci => DFBits[32].setName(s"cell$ci"))
   cells.foreachdf(addra(7, 0)) {
     case cell =>
@@ -23,23 +25,21 @@ class DMem_Bram_Sim()(implicit ctx : DFDesign.ContextOf[DMem_Bram_Sim]) extends 
   }
 }
 
-class DMem_Bram()(implicit ctx : RTComponent.Context) extends RTComponent {
+class DMem_Bram(programDMem : ProgramDMem)(implicit ctx : RTComponent.Context) extends RTComponent with DMem_Bram_Ifc {
   final val clka  = Clock()
-  final val wea   = DFBits(4)  <> IN
-  final val addra = DFBits(12) <> IN
-  final val dina  = DFBits(32) <> IN
-  final val douta = DFBits(32) <> OUT
   //  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
 }
 
-class DMem(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) extends DFDesign {
+class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) extends DFDesign {
   private val addr        = DFBits[32] <> IN
   private val dataToMem   = DFBits[32] <> IN
   private val dmemSel     = DFEnum[DMemSel] <> IN
   private val dataFromMem = DFBits[32] <> OUT
-  private val wrEnToMem   = DFBits(4)
+  private val wrEnToMem   = DFBits[4]
   private val dataToMemBH = DFBits[32] //Data to memory modified for byte and half-word writes
-  val bram = new DMem_Bram_Sim()
+
+  private val bram = if (inSimulation) new DMem_Bram_Sim(programDMem) else new DMem_Bram(programDMem)
+
   wrEnToMem := b"0000"
   dataToMemBH := dataToMem
   dataFromMem := bram.douta

@@ -5,6 +5,8 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFInterface extends DFAnyOwner {
+  override implicit def theOwnerToBe : DFInterface = this
+
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
     mutableMemberList.toList.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
 
@@ -20,7 +22,10 @@ trait DFInterface extends DFAnyOwner {
     if (ifc.isEmpty) { //No interfaces. This is a class
       if (cls.getSimpleName.contains("anon$")) cls.getSuperclass.getSimpleName //For anonymous classes we get the name of the superclass
       else cls.getSimpleName //get the name of the class
-    } else ifc.head.getSimpleName //get the name of the head interface
+    } else {
+      if (cls.getSimpleName.contains("anon$")) ifc.head.getSimpleName //get the name of the head interface
+      else cls.getSimpleName
+    }
   }
 
   override def toString: String = s"$name : $typeName"

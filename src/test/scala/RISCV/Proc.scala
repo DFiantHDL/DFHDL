@@ -9,7 +9,7 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
   private val decoder = new Decoder(imem.inst)
   private val regFile = new RegFile(decoder.inst)
   private val execute = new Execute(regFile.inst)
-  private val dmem = new DMem(execute.inst)
+  private val dmem = new DMem(program.dmem)(execute.inst)
   regFile.writeBack(dmem.inst)
 
   pc := dmem.inst.pcNext
