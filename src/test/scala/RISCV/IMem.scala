@@ -7,7 +7,7 @@ create_ip -name blk_mem_gen -vendor xilinx.com -library ip -version 8.4 -module_
 set_property -dict [list CONFIG.Component_Name {imem_bram} CONFIG.Memory_Type {Single_Port_ROM} CONFIG.Write_Width_A {32} CONFIG.Write_Depth_A {4096} CONFIG.Read_Width_A {32} CONFIG.Enable_A {Always_Enabled} CONFIG.Write_Width_B {32} CONFIG.Read_Width_B {32} CONFIG.Register_PortA_Output_of_Memory_Primitives {false} CONFIG.Load_Init_File {true} CONFIG.Coe_File {/home/soronpo/XilinxProjects/ZedBoardEst/imem.coe} CONFIG.Fill_Remaining_Memory_Locations {true} CONFIG.Port_A_Write_Rate {0}] [get_ips imem_bram]
  */
 
-class IMem_Bram(programMem : ProgramIMem)(implicit ctx : RTComponent.Context) extends RTComponent {
+class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val clka = Clock()
   final val addra = DFBits[12] <> IN
   final val douta = DFBits[32] <> OUT
@@ -15,36 +15,36 @@ class IMem_Bram(programMem : ProgramIMem)(implicit ctx : RTComponent.Context) ex
   //need to generate COE file
 }
 
-class IMem_Bram_Sim(programMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[IMem_Bram_Sim]) extends DFDesign {
+class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[IMem_Bram_Sim]) extends DFDesign {
   final val addra = DFBits[12] <> IN
   final val douta = DFBits[32] <> OUT
 
   douta := b0s
-  programMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, douta)
+  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, douta)
 }
 
-class IMem(programMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
+class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
   private val pc      = DFBits[32] <> IN
   private val instRaw = DFBits[32] <> OUT
 
   if (inSimulation) {
-    val bram_sim = new IMem_Bram_Sim(programMem)
+    val bram_sim = new IMem_Bram_Sim(programIMem)
     bram_sim.addra <> pc(13, 2)
     bram_sim.douta <> instRaw
   } else {
-    val bram = new IMem_Bram(programMem)
+    val bram = new IMem_Bram(programIMem)
     bram.addra <> pc(13, 2)
     bram.douta <> instRaw
   }
 
-  programMem.failAddress match {
+  programIMem.failAddress match {
     case Some(failPC) => ifdf(pc == failPC){
       sim.report(msg"Test failed")
       sim.finish()
     }.keep
     case None =>
   }
-  ifdf (pc == programMem.finishAddress) {
+  ifdf (pc == programIMem.finishAddress) {
     sim.report(msg"Program execution finished")
     sim.finish()
   }.keep
