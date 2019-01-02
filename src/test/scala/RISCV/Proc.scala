@@ -23,11 +23,13 @@ object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
   val riscv_tb = new Proc_TB(ProgramMem.fromFile("riscv-tests/rv32ui-p-add.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
-  val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
+    val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
   import scala.language.postfixOps
   {s"ghdl -a $flags dmem_bram_sim.vhdl" !!}
   {s"ghdl -a $flags test.vhd" !!}
-  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=5000ns" !}
+  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=150000ns" !}
+  //spike -l --isa=RV32IMAFDC towers.riscv 2>&1 >/dev/null | awk '{print $3}' | tr a-z A-Z | sed -e 's/0XFFFFFFFF//g'
+  //ghdl -r -P/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/ -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 --stop-time=5000ns | awk '{print $3}' | sed -e 's/PC=//g' | sed -e 's/,//g'
 
 }

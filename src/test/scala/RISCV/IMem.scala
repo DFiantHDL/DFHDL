@@ -37,6 +37,18 @@ class IMem(programMem : ProgramMem)(incomingPC : DFBits[32])(implicit ctx : DFDe
     bram.douta <> instRaw
   }
 
+  programMem.failAddress match {
+    case Some(failPC) => ifdf(pc == failPC){
+      sim.report(msg"Test failed")
+      sim.finish()
+    }.keep
+    case None =>
+  }
+  ifdf (pc == programMem.finishAddress) {
+    sim.report(msg"Program execution finished")
+    sim.finish()
+  }.keep
+
   final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
 
   atOwnerDo {

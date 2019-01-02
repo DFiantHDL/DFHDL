@@ -43,10 +43,10 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
     .casedf_                                {false}
 
   private val pcNextU = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
-//  sim.report(msg"${branchSel}, taken:$brTaken, rs1: $rs1_data, rs2: $rs2_data")
 
   pcNext := pcNextU.bits
 
+//  sim.report(msg"PCGen~~>$branchSel, pcNext:$pcNext, imm: $imm, pcOrReg1: $pcOrReg1, pcBrJmp: $pcBrJmp, brTaken: $brTaken, rs1_data: $rs1_data, rs2_data: $rs2_data")
 
   final val pcCalc = new PCCalc(this.pcNext, this.pcPlus4)
 

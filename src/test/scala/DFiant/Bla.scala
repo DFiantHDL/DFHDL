@@ -21,19 +21,34 @@ trait Bug1 extends DFDesign {
 ////  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
 //}
 
+trait Inst extends DFDesign {
+  final val wea = DFBits(4) <> IN
+  final val o = DFBool() <> OUT
+  val c = wea != b0s
+  o := true
+  ifdf (c) {
+    o := false
+  }
+}
+
+
 trait Cont extends DFDesign {
-  final val addraP = DFBits(12) <> IN
-  final val doutaP = DFBits(32) <> OUT
-//  val imem = new IMem()
-//  imem.addra <> addraP
-//  imem.douta <> doutaP
-  matchdf(addraP)
-    .casedf(b"11111111111") {doutaP := b0s}
-    .casedf(b"01111111111") {}
-    .casedf_{doutaP := b1s}
+//  final val addraP = DFBits(12) <> IN
+//  final val doutaP = DFBits(32) <> OUT
+////  val imem = new IMem()
+////  imem.addra <> addraP
+////  imem.douta <> doutaP
+//  matchdf(addraP)
+//    .casedf(b"11111111111") {doutaP := b0s}
+//    .casedf(b"01111111111") {}
+//    .casedf_{doutaP := b1s}
+  val o = DFBool() <> OUT
+  val inst = new Inst {}
+  inst.wea <> b1s
+  o <> inst.o
 }
 
 
 object Bla extends App {
-  val bla = new Cont {}.printCodeString
+  val bla = new Cont {}.printCodeString.printVHDLString
 }

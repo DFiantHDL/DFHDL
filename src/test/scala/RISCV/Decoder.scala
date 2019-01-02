@@ -215,12 +215,6 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
     // System
     //////////////////////////////////////////////
     .casedf(b"1110011"){
-//      imm := immIType
-//      branchSel := BranchSel.Next
-//      rs1OpSel := RS1OpSel.RegSource
-//      rs2OpSel := RS2OpSel.Immediate
-//      wbSel := WriteBackSel.CSR
-//      dmemSel := DMemSel.DontCare
       matchdf(func3)
         .casedf(b"000") { //ECALL/EBREAK
           matchdf(notOpCode)

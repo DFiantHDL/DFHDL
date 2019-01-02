@@ -8,7 +8,7 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
   val value : List[Any] = value_.collect {
     case x : DFAny =>
       val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
-      assert(elms.length == 1, "Full handling of split pipeline in a message is not yet supported.")
+//      assert(elms.length == 1, s"Full handling of split pipeline in a message is not yet supported (${x.fullName})")
       elms.head.tag.get
     case x => x
   }
