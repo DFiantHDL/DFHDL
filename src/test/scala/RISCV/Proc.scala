@@ -1,11 +1,11 @@
 package RISCV
 import DFiant._
 
-class Proc(programMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
-  private val pc = DFBits[32] init programMem.startAddress
+class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
+  private val pc = DFBits[32] init program.imem.startAddress
   pc.keep
 
-  private val imem = new IMem(programMem)(pc)
+  private val imem = new IMem(program.imem)(pc)
   private val decoder = new Decoder(imem.inst)
   private val regFile = new RegFile(decoder.inst)
   private val execute = new Execute(regFile.inst)
@@ -15,13 +15,13 @@ class Proc(programMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[Proc]) ex
   pc := dmem.inst.pcNext
 }
 
-class Proc_TB(programMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[Proc_TB]) extends DFSimulator {
-  val proc = new Proc(programMem)
+class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) extends DFSimulator {
+  val proc = new Proc(program)
 }
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(ProgramIMem.fromFile("riscv-tests/rv32ui-p-add.dump")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(Program.fromFile("riscv-tests/rv32ui-p-add.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
     val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
