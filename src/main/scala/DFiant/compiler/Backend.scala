@@ -536,7 +536,7 @@ object Backend {
             extends assignment(dst, src) {
             override val dstStr: String =
               if (relWidth == 1) s"${dst.name}($relBitLow)"
-              else s"${dst.name}(${relWidth-1} downto $relBitLow)"
+              else s"${dst.name}(${relWidth+relBitLow-1} downto $relBitLow)"
           }
           object assignment {
             def apply(dst : Reference, src : Value) : assignment = new assignment(dst, src.to(dst.typeS))

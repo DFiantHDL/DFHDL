@@ -1,7 +1,7 @@
 package RISCV
 import DFiant._
 
-class Proc(programMem : ProgramMem)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
+class Proc(programMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
   private val pc = DFBits[32] init programMem.startAddress
   pc.keep
 
@@ -15,13 +15,13 @@ class Proc(programMem : ProgramMem)(implicit ctx : DFDesign.ContextOf[Proc]) ext
   pc := dmem.inst.pcNext
 }
 
-class Proc_TB(programMem : ProgramMem)(implicit ctx : DFDesign.ContextOf[Proc_TB]) extends DFSimulator {
+class Proc_TB(programMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[Proc_TB]) extends DFSimulator {
   val proc = new Proc(programMem)
 }
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(ProgramMem.fromFile("riscv-tests/rv32ui-p-add.dump")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(ProgramIMem.fromFile("riscv-tests/rv32ui-p-add.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
     val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
