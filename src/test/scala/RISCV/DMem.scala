@@ -13,15 +13,12 @@ class DMem_Bram_Sim()(implicit ctx : DFDesign.ContextOf[DMem_Bram_Sim]) extends 
   final val douta = DFBits(32) <> OUT
 
   final val we : DFBool = wea != b0s
-  private val regs = (0 until 256).map(ri => (ri, DFBits[32]))
-  regs.foreachdf(addra(7, 0)) {
-    case (ri, r) =>
+  private val cells = (0 until 256).map(ci => DFBits[32].setName(s"cell$ci"))
+  cells.foreachdf(addra(7, 0)) {
+    case r =>
       douta := r
-      ifdf (we) {
-        r := dina
-      }
+      ifdf (we) {r := dina}
   }
-
 }
 
 class DMem_Bram()(implicit ctx : RTComponent.Context) extends RTComponent {
