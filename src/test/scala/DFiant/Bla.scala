@@ -22,17 +22,18 @@ trait Bug1 extends DFDesign {
 //}
 
 trait Inst extends DFDesign {
-  final val wea = DFBits(4) <> IN
+  final val wea = DFBool() <> IN
   final val o = DFBool() <> OUT
-  val c = wea != b0s
   o := true
-  ifdf (c) {
-    o := false
+  ifdf (wea) {
+    ifdf(wea) {
+      sim.report(msg"None")
+    }
   }
 }
 
 
-trait Cont extends DFDesign {
+trait Cont extends DFSimulator {
 //  final val addraP = DFBits(12) <> IN
 //  final val doutaP = DFBits(32) <> OUT
 ////  val imem = new IMem()
@@ -44,7 +45,7 @@ trait Cont extends DFDesign {
 //    .casedf_{doutaP := b1s}
   val o = DFBool() <> OUT
   val inst = new Inst {}
-  inst.wea <> b1s
+  inst.wea <> true
   o <> inst.o
 }
 

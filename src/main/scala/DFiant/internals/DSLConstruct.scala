@@ -1,7 +1,7 @@
 package DFiant.internals
 
 import scala.collection.mutable.ListBuffer
-import scala.collection.mutable.HashMap
+import scala.collection._
 
 trait DSLConstruct {
 
@@ -33,7 +33,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
       case (Some(a), b) => a.isDownstreamMemberOf(that)
     }
   final def keep : this.type = {
-    ownerOption.foreach(o => o.mutableKeepList += this)
+    ownerOption.foreach(o => {
+      o.mutableKeepSet += this
+      o.keep
+    })
     this
   }
   def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
@@ -117,7 +120,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   }
   //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
   //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-  private val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
+  private val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
   final private[internals] def getUniqueMemberName(suggestedName : String) : String =
     nameTable.get(suggestedName) match {
       case Some(v) =>
@@ -128,8 +131,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
         suggestedName
     }
 
-  private[internals] val mutableKeepList : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-  final lazy val keepList : List[Discoverable] = mutableKeepList.toList
+  private[internals] val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+  final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
   override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
   final lazy val discoveredList : List[DSLMemberConstruct] = {
     discover
@@ -149,13 +152,13 @@ object DSLOwnerConstruct {
   }
   trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, owners : ListBuffer[Owner])
-    private val db = HashMap.empty[String, HashMap[Body, Info]]
+    private val db = mutable.HashMap.empty[String, mutable.HashMap[Body, Info]]
     private var dbString = ""
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
       if (info.id == 0) ownerTypeName else ownerTypeName + Name.Separator + info.id
     def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
       var newBody : Boolean = false
-      val csHM = db.getOrElseUpdate(ownerTypeName, {newBody = true; HashMap.empty[Body, Info]})
+      val csHM = db.getOrElseUpdate(ownerTypeName, {newBody = true; mutable.HashMap.empty[Body, Info]})
       val info = csHM.getOrElseUpdate(ownerBody, {newBody = true; Info(csHM.size, ListBuffer.empty)})
       info.owners += owner
       val atn = actualTypeName(ownerTypeName, info)

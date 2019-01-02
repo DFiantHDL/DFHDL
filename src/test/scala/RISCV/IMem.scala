@@ -36,13 +36,13 @@ class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DF
     case Some(failPC) => ifdf(pc == failPC){
       sim.report(msg"Test failed")
       sim.finish()
-    }.keep
+    }
     case None =>
   }
   ifdf (pc == programIMem.finishAddress) {
     sim.report(msg"Program execution finished")
     sim.finish()
-  }.keep
+  }
 
   final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
 

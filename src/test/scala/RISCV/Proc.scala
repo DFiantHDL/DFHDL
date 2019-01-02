@@ -26,7 +26,6 @@ object ProcTest extends App {
     val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
   import scala.language.postfixOps
-  {s"ghdl -a $flags dmem_bram_sim.vhdl" !!}
   {s"ghdl -a $flags test.vhd" !!}
   {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0 --stop-time=150000ns" !}
   //spike -l --isa=RV32IMAFDC towers.riscv 2>&1 >/dev/null | awk '{print $3}' | tr a-z A-Z | sed -e 's/0XFFFFFFFF//g'
