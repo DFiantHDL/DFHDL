@@ -5,7 +5,6 @@ import DFiant._
 trait ALU extends DFDesign {
   private val op1     = DFBits[32]      <> IN
   private val op2     = DFBits[32]      <> IN
-  private val shamt   = DFUInt[5]       <> IN
   private val aluSel  = DFEnum(ALUSel)  <> IN
   private val aluOut  = DFBits[32]      <> OUT
 
@@ -14,6 +13,7 @@ trait ALU extends DFDesign {
   private val op2u = op2.uint
   private val op1s = op1.sint
   private val op2s = op2.sint
+  private val shamt = op2(4, 0).uint
 
   private val outCalc = DFBits[32].matchdf(aluSel)
     .casedf(ALUSel.ADD){(op1u + op2u).bits}
@@ -31,12 +31,11 @@ trait ALU extends DFDesign {
 
   aluOut <> outCalc
 
-  def calcConn(op1 : DFBits[32], op2 : DFBits[32], shamt : DFUInt[5], aluSel : DFEnum[ALUSel])(
+  def calcConn(op1 : DFBits[32], op2 : DFBits[32], aluSel : DFEnum[ALUSel])(
     implicit ctx : DFAny.Op.Context
   ) : DFBits[32] = {
     this.op1 <> op1
     this.op2 <> op2
-    this.shamt <> shamt
     this.aluSel <> aluSel
     this.aluOut
   }
@@ -46,12 +45,11 @@ trait ALU extends DFDesign {
 trait ALUTest extends DFDesign {
   val op1     = DFBits[32]     <> IN init(h"00000000", h"00000001", h"00000002")
   val op2     = DFBits[32]     <> IN init(h"00000010", h"00000011", h"00000012")
-  val shamt   = DFUInt[5]      <> IN init(1, 2)
   val aluSel  = DFEnum(ALUSel) <> IN init(ALUSel.ADD, ALUSel.SLL, ALUSel.AND)
   val aluOut  = DFBits[32]     <> OUT
 
   val alu = new ALU {}
-  aluOut <> alu.calcConn(op1, op2, shamt, aluSel)
+  aluOut <> alu.calcConn(op1, op2, aluSel)
 
 }
 

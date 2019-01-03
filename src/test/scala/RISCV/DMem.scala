@@ -1,7 +1,7 @@
 package RISCV
 
 import DFiant._
-
+import internals._
 /*
 create_ip -name blk_mem_gen -vendor xilinx.com -library ip -version 8.4 -module_name dmem_bram
 set_property -dict [list CONFIG.Component_Name {dmem_bram} CONFIG.Use_Byte_Write_Enable {true} CONFIG.Byte_Size {8} CONFIG.Write_Width_A {32} CONFIG.Write_Depth_A {4096} CONFIG.Read_Width_A {32} CONFIG.Enable_A {Always_Enabled} CONFIG.Write_Width_B {32} CONFIG.Read_Width_B {32} CONFIG.Register_PortA_Output_of_Memory_Primitives {false}] [get_ips dmem_bram]
@@ -14,7 +14,20 @@ trait DMem_Bram_Ifc extends DFInterface {
 }
 
 class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : DFDesign.ContextOf[DMem_Bram_Sim]) extends DFDesign with DMem_Bram_Ifc {
-  private val cells = (0 until 256).map(ci => DFBits[32].setName(s"cell$ci"))
+  private val cellNum = 256
+  private val cellRange = 0 until cellNum
+  private val initArr = Array.fill(cellNum)(BitVector.low(32))
+  programDMem.list.foreach(e => {
+    val i = e.addr.bits(9, 2).toBigInt.toInt
+    e.data.length match {
+      case 32 => initArr(i) = e.data
+      case 16 => e.addr.bits(1, 0).toBigInt.toInt match {
+        case 0 => initArr(i) = initArr(i).bits(31, 16) ++ e.data
+        case 2 => initArr(i) = e.data ++ initArr(i).bits(15, 0)
+      }
+    }
+  })
+  private val cells = cellRange.map(ci => DFBits[32].setName(s"cell$ci").init(initArr(ci)))
   cells.foreachdf(addra(7, 0)) {
     case cell =>
       douta := cell
@@ -24,6 +37,7 @@ class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : DFDesign.ContextOf
       ifdf (wea(3)) {cell(31, 24) := dina(31, 24)}
   }
 }
+
 
 class DMem_Bram(programDMem : ProgramDMem)(implicit ctx : RTComponent.Context) extends RTComponent with DMem_Bram_Ifc {
   final val clka  = Clock()
@@ -98,7 +112,7 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
       pc = pc, instRaw = instRaw,
       //Decoder
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-      imm = imm, shamt = shamt, branchSel = branchSel,
+      imm = imm, branchSel = branchSel,
       rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
       aluSel = aluSel, wbSel = wbSel, dmemSel = executeInst.dmemSel, debugOp = debugOp,
       //RegFile
@@ -130,7 +144,6 @@ case class DMemInst(
   rd_addr     : DFBits[5],
   rd_wren     : DFBool,
   imm         : DFBits[32],
-  shamt       : DFUInt[5],
   branchSel   : DFEnum[BranchSel],
   rs1OpSel    : DFEnum[RS1OpSel],
   rs2OpSel    : DFEnum[RS2OpSel],

@@ -13,7 +13,6 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
 
   //Immediate values for ALU execution
   private val imm       = DFBits[32]            <> OUT
-  private val shamt     = DFUInt[5]             <> OUT
 
   //Control Signals
   private val branchSel = DFEnum(BranchSel)     <> OUT
@@ -35,7 +34,6 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   private val notOpCode = instRaw(31, 7)
   rs1_addr := instRaw(19, 15)
   rs2_addr := instRaw(24, 20)
-  shamt := instRaw(24, 20).uint
   rd_addr := instRaw(11, 7)
 
   debugOp := DebugOp.Unsupported //Default op is not supported unless selected otherwise
@@ -239,12 +237,13 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
       pc = pc, instRaw = fetchInst.instRaw,
       //Decoder
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-      imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
       aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
     )
   }
 
   atOwnerDo {
+//    sim.report(msg"-----------------------")
     sim.report(msg"PC=${fetchInst.pc}, instRaw=${fetchInst.instRaw}, debugOp=$debugOp")
     this.instRaw <> fetchInst.instRaw
   }
@@ -262,7 +261,6 @@ case class DecodedInst(
   rd_addr   : DFBits[5],
   rd_wren   : DFBool,
   imm       : DFBits[32],
-  shamt     : DFUInt[5],
   branchSel : DFEnum[BranchSel],
   rs1OpSel  : DFEnum[RS1OpSel],
   rs2OpSel  : DFEnum[RS2OpSel],

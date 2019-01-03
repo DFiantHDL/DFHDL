@@ -36,7 +36,7 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
       pc = pc, instRaw = instRaw,
       //Decoder
       rs1_addr = decodedInst.rs1_addr, rs2_addr = decodedInst.rs2_addr, rd_addr = decodedInst.rd_addr, rd_wren = decodedInst.rd_wren,
-      imm = imm, shamt = shamt, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
       aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp,
       //RegFile
       rs1_data = rs1_data, rs2_data = rs2_data
@@ -73,7 +73,6 @@ case class RegFileInst(
   rd_addr   : DFBits[5],
   rd_wren   : DFBool,
   imm       : DFBits[32],
-  shamt     : DFUInt[5],
   branchSel : DFEnum[BranchSel],
   rs1OpSel  : DFEnum[RS1OpSel],
   rs2OpSel  : DFEnum[RS2OpSel],
