@@ -1,11 +1,48 @@
 package RISCV
 import DFiant._
+import internals._
 
 case class IMemEntry(addr : BitVector, inst : BitVector, instStr : String)
 case class DMemEntry(addr : BitVector, data : BitVector)
 
 case class ProgramIMem(list : List[IMemEntry], startAddress : BitVector, finishAddress : BitVector, failAddress : Option[BitVector])
-case class ProgramDMem(list : List[DMemEntry])
+case class ProgramDMem(list : List[DMemEntry]) {
+  def toInitArr(size : Int) : Array[BitVector] = {
+    val initArr = Array.fill(size)(BitVector.low(32))
+    list.foreach(e => {
+      val i = e.addr.bits(9, 2).toBigInt.toInt
+      e.data.length match {
+        case 32 => e.addr.bits(1, 0).toBigInt.toInt match {
+          case 0 => initArr(i) = e.data
+          case 1 =>
+            initArr(i) = e.data.bits(23, 0) ++ initArr(i).bits(7, 0)
+            initArr(i+1) = initArr(i+1).bits(31, 8) ++ e.data.bits(31, 24)
+          case 2 =>
+            initArr(i) = e.data.bits(15, 0) ++ initArr(i).bits(15, 0)
+            initArr(i+1) = initArr(i+1).bits(31, 16) ++ e.data.bits(31, 16)
+          case 3 =>
+            initArr(i) = e.data.bits(7, 0) ++ initArr(i).bits(23, 0)
+            initArr(i+1) = initArr(i+1).bits(31, 24) ++ e.data.bits(31, 8)
+        }
+        case 16 => e.addr.bits(1, 0).toBigInt.toInt match {
+          case 0 => initArr(i) = initArr(i).bits(31, 16) ++ e.data
+          case 1 => initArr(i) = initArr(i).bits(31, 24) ++ e.data ++ initArr(i).bits(7, 0)
+          case 2 => initArr(i) = e.data ++ initArr(i).bits(15, 0)
+          case 3 =>
+            initArr(i) = e.data.bits(7, 0) ++ initArr(i).bits(23, 0)
+            initArr(i+1) = initArr(i+1).bits(31, 8) ++ e.data.bits(15, 8)
+        }
+        case 8 => e.addr.bits(1, 0).toBigInt.toInt match {
+          case 0 => initArr(i) = initArr(i).bits(31, 8) ++ e.data
+          case 1 => initArr(i) = initArr(i).bits(31, 16) ++ e.data ++ initArr(i).bits(7, 0)
+          case 2 => initArr(i) = initArr(i).bits(31, 24) ++ e.data ++ initArr(i).bits(15, 0)
+          case 3 => initArr(i) = e.data ++ initArr(i).bits(23, 0)
+        }
+      }
+    })
+    initArr
+  }
+}
 case class Program(imem : ProgramIMem, dmem : ProgramDMem)
 
 object Program {
@@ -50,6 +87,7 @@ object Program {
     file.close
     ProgramIMem(list, mainAddr.getOrElse(list.head.addr), endAddr.getOrElse(list.last.addr), failAddr)
   }
+
   private def dmemFromFile(progMemFile : String) : ProgramDMem = {
     val file = Source.fromFile(progMemFile)
     var reachedData : Boolean = false
@@ -60,7 +98,6 @@ object Program {
         reachedData = true
         None
     }.toList.flatten
-
     file.close
     ProgramDMem(list)
   }

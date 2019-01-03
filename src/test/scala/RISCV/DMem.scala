@@ -1,7 +1,6 @@
 package RISCV
 
 import DFiant._
-import internals._
 /*
 create_ip -name blk_mem_gen -vendor xilinx.com -library ip -version 8.4 -module_name dmem_bram
 set_property -dict [list CONFIG.Component_Name {dmem_bram} CONFIG.Use_Byte_Write_Enable {true} CONFIG.Byte_Size {8} CONFIG.Write_Width_A {32} CONFIG.Write_Depth_A {4096} CONFIG.Read_Width_A {32} CONFIG.Enable_A {Always_Enabled} CONFIG.Write_Width_B {32} CONFIG.Read_Width_B {32} CONFIG.Register_PortA_Output_of_Memory_Primitives {false}] [get_ips dmem_bram]
@@ -16,38 +15,7 @@ trait DMem_Bram_Ifc extends DFInterface {
 class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : DFDesign.ContextOf[DMem_Bram_Sim]) extends DFDesign with DMem_Bram_Ifc {
   private val cellNum = 256
   private val cellRange = 0 until cellNum
-  private val initArr = Array.fill(cellNum)(BitVector.low(32))
-  programDMem.list.foreach(e => {
-    val i = e.addr.bits(9, 2).toBigInt.toInt
-    e.data.length match {
-      case 32 => e.addr.bits(1, 0).toBigInt.toInt match {
-        case 0 => initArr(i) = e.data
-        case 1 =>
-          initArr(i) = e.data.bits(23, 0) ++ initArr(i).bits(7, 0)
-          initArr(i+1) = initArr(i+1).bits(31, 8) ++ e.data.bits(31, 24)
-        case 2 =>
-          initArr(i) = e.data.bits(15, 0) ++ initArr(i).bits(15, 0)
-          initArr(i+1) = initArr(i+1).bits(31, 16) ++ e.data.bits(31, 16)
-        case 3 =>
-          initArr(i) = e.data.bits(7, 0) ++ initArr(i).bits(23, 0)
-          initArr(i+1) = initArr(i+1).bits(31, 24) ++ e.data.bits(31, 8)
-      }
-      case 16 => e.addr.bits(1, 0).toBigInt.toInt match {
-        case 0 => initArr(i) = initArr(i).bits(31, 16) ++ e.data
-        case 1 => initArr(i) = initArr(i).bits(31, 24) ++ e.data ++ initArr(i).bits(7, 0)
-        case 2 => initArr(i) = e.data ++ initArr(i).bits(15, 0)
-        case 3 =>
-          initArr(i) = e.data.bits(7, 0) ++ initArr(i).bits(23, 0)
-          initArr(i+1) = initArr(i+1).bits(31, 8) ++ e.data.bits(15, 8)
-      }
-      case 8 => e.addr.bits(1, 0).toBigInt.toInt match {
-        case 0 => initArr(i) = initArr(i).bits(31, 8) ++ e.data
-        case 1 => initArr(i) = initArr(i).bits(31, 16) ++ e.data ++ initArr(i).bits(7, 0)
-        case 2 => initArr(i) = initArr(i).bits(31, 24) ++ e.data ++ initArr(i).bits(15, 0)
-        case 3 => initArr(i) = e.data ++ initArr(i).bits(23, 0)
-      }
-    }
-  })
+  private val initArr = programDMem.toInitArr(cellNum)
   private val cells = cellRange.map(ci => DFBits[32].setName(s"cell$ci").init(initArr(ci)))
   cells.foreachdf(addra(7, 0)) {
     case cell =>
