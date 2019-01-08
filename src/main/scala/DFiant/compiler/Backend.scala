@@ -372,7 +372,7 @@ object Backend {
             case DFAny.Alias.Reference.AsIs() =>
               val concat : String = member.aliasedVars.map{
                 case a : DFBits[_] => Value(a)
-                case a : DFBool => Value(a)
+                case a : DFBool if member.aliasedVars.length > 1 => Value(a)
                 case a => Value(a).bits
               }.mkString(" & ")
               member match {
@@ -817,7 +817,8 @@ object Backend {
       case _ =>
         design.isTop ||
           architecture.statements.components.list.map(e => e.hasSyncProcess)
-            .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r)
+            .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r) ||
+          design.inSimulation//mutableMemberList.collect{case x : DFAnySimMember => x}.nonEmpty
     }
 
     val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.typeName.toLowerCase) else {

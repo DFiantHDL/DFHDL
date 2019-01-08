@@ -109,9 +109,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
     var pos = width - 1
     Source(elements.map(e => {
       val thatTag : Option[SourceTag] = e.tag match {
-        case Some(t) =>
-          if (t.pipeStep > 0) t.dfVal.maxPrevUse = scala.math.max(t.dfVal.maxPrevUse, t.pipeStep)
-          Some(SourceTag.withLatency(thatDFVal, t.latency))
+        case Some(t) => Some(SourceTag.withLatency(thatDFVal, t.latency))
         case None => None
       }
       val se = SourceElement(pos, pos-e.relWidth+1, false, thatTag)

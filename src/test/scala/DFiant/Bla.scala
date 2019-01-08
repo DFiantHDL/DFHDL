@@ -22,14 +22,11 @@ trait Bug1 extends DFDesign {
 //}
 
 trait Inst extends DFDesign {
+  val g_predict = DFBool() <> OUT
+  val l_predict = DFBool() <> OUT
   final val wea = DFBool() <> IN
-  final val o = DFBool() <> OUT
-  o := true
-  ifdf (wea) {
-    ifdf(wea) {
-      sim.report(msg"None")
-    }
-  }
+  g_predict := wea
+  l_predict := wea
 }
 
 
@@ -43,13 +40,22 @@ trait Cont extends DFSimulator {
 //    .casedf(b"11111111111") {doutaP := b0s}
 //    .casedf(b"01111111111") {}
 //    .casedf_{doutaP := b1s}
-  val o = DFBool() <> OUT
-  val inst = new Inst {}
-  inst.wea <> true
-  o <> inst.o
+//  val i = DFBool() <> IN
+//  val o = DFBool() <> OUT
+//  val inst = new Inst {}
+//  private val selector = DFBool()
+//  private val g_predict = DFBool()
+//  private val l_predict = DFBool()
+//
+//  selector := i
+//  o := DFBool().selectdf(selector)(l_predict,g_predict)
+  val cc = DFUInt(8) <> OUT
+  val cnt = DFUInt(8)
+  sim.report(msg"$cnt")
+  cc := cnt
 }
 
 
 object Bla extends App {
-  val bla = new Cont {}.printCodeString.printVHDLString
+  val bla = new Cont {}.compileToVHDL.print().toFile("tour.vhd")
 }

@@ -115,7 +115,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   final def prev()(implicit ctx : DFAny.Alias.Context) : TVal = protPrev(1)
   final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPrev(step)
-  private[DFiant] var maxPrevUse = 1 //TODO: hack. Remove this
+  private[DFiant] var maxPrevUse = 0 //TODO: hack. Remove this
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -146,8 +146,12 @@ trait DFAny extends DFAnyMember with HasWidth {
   //    seq
   //  }
 
-  final def consume() : TAlias = {
-    ???
+  private[DFiant] def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
+    //Do Nothing
+    //TODO: consider adding stuff here
+  }
+  def consume() : TAlias = {
+    consume(width, 0)
     this.asInstanceOf[TAlias]
   }
   final def dontConsume() : TAlias = {
@@ -267,6 +271,14 @@ object DFAny {
     private[DFiant] val assignedIndication = collection.mutable.BitSet.empty
     private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
 
+    override private[DFiant] def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
+      val fromRelBitHigh = fromRelBitLow + fromRelWidth - 1
+      val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
+
+      if ((assignedIndication | fromBitSet) != assignedIndication) //not all used bits are assigned to
+        maxPrevUse = scala.math.max(maxPrevUse, 1)
+    }
+
     private[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
       assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
     }
@@ -284,6 +296,7 @@ object DFAny {
 //          x.maxPrevUse = scala.math.max(x.maxPrevUse, 1)
 ////          println(s"$fullName ${x.maxPrevUse}")
 //      }
+      fromVal.consume()
       assignedIndication ++= toRelBitLow to toRelBitHigh
       assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
       protAssignDependencies += Assignment(toVar, fromVal)
@@ -330,6 +343,7 @@ object DFAny {
       if ((connectedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")
       if ((assignedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
       //All is well. We can now connect fromVal->toVar
+      fromVal.consume()
       connectedIndication ++= toRelBitLow to toRelBitHigh
       connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), connectedSourceLB.getBox, fromVal.thisSourceLB))
     }
@@ -538,6 +552,20 @@ object DFAny {
     final val isPort = false
 
     final lazy val isAliasOfPort : Boolean = ???
+
+    override def consume(): TAlias = {
+      reference match {
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+          aliasedVars.head.consume(relWidth, relBitLow)
+        case DFAny.Alias.Reference.Prev(step) =>
+          aliasedVars.head.maxPrevUse = scala.math.max(step, aliasedVars.head.maxPrevUse)
+        case DFAny.Alias.Reference.Pipe(step) =>
+          //Do nothing
+        case _ => aliasedVars.map(a => a.consume())
+      }
+      this.asInstanceOf[TAlias]
+    }
+
     override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
       val toVar = this
       val toRelBitHigh = toRelBitLow + toRelWidth-1
@@ -570,8 +598,12 @@ object DFAny {
         a.protAssignDependencies ++= List(this, that)
       } //TODO: fix dependency to bit accurate dependency?
       reference match {
-        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => assign(relWidth, relBitLow, that.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
-        case DFAny.Alias.Reference.AsIs() => assign(width, 0, that.inletSourceLB)
+        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+          that.consume()
+          assign(relWidth, relBitLow, that.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
+        case DFAny.Alias.Reference.AsIs() =>
+          that.consume()
+          assign(width, 0, that.inletSourceLB)
         case DFAny.Alias.Reference.BitReverse() => ??? // assign(width, 0, that.reverse)
         case DFAny.Alias.Reference.Invert() => ???
         case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
@@ -669,7 +701,12 @@ object DFAny {
       if (dir.isIn && owner.isTop) LazyBox.Const[Source](this)(Source.zeroLatency(this))
       else super.thisSourceLB
 
-//    private var extraPipe : Int = 0
+    override private[DFiant] def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
+      //Nothing happens when consuming an input port
+      if (dir.isOut) super.consume(fromRelWidth, fromRelBitLow)
+    }
+
+    //    private var extraPipe : Int = 0
 //    def pipe() : this.type = pipe(1)
 //    final private[DFiant] override def pipeGet = extraPipe
 //    final def pipe(p : Int) : this.type = {extraPipe = p; this}

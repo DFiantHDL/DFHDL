@@ -15,7 +15,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final val rightLatency = LazyBox.Args1[Option[Int], Source](this)(s => s.getMaxLatency, rightArg.thisSourceLB)
   final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](this)((l, r) => List(l, r).max, leftLatency, rightLatency)
   override private[DFiant] def inletSourceLB : LazyBox[Source] = {
-    connect
     LazyBox.Args1[Source, Option[Int]](this)(l => Source.withLatency(this, l)/*.pipe(extraPipe)*/, maxLatency)
   }
 
@@ -24,7 +23,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final val outResult = this.copyAsNewPort(OUT)
 
   final protected[DFiant] lazy val initLB: LazyBox[Seq[TToken]] = {
-    connect
     def leftInit = inLeft.initLB.asInstanceOf[LazyBox[Seq[leftArg.TToken]]]
     def rightInit = inRight.initLB.asInstanceOf[LazyBox[Seq[rightArg.TToken]]]
     LazyBox.Args2[Seq[TToken],Seq[leftArg.TToken],Seq[rightArg.TToken]](this)((l, r) => DFAny.TokenSeq(l, r)(tokenFunc), leftInit, rightInit)
@@ -38,7 +36,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final private[DFiant] lazy val leftBalancedSource = leftArg.thisSourceLB.get.balanceTo(maxLatency.get)
   final private[DFiant] lazy val rightBalancedSource = rightArg.thisSourceLB.get.balanceTo(maxLatency.get)
 
-  lazy val connect : Unit ={
+  atOwnerDo {
     inLeft.connectVal2Port(leftArg)
     inRight.connectVal2Port(rightArg)
 //    outResult.connectVal2Port(this)
