@@ -43,7 +43,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       throw new IllegalArgumentException(s"\nFound an uninitialized open input port: ${p.fullName}")
   }
   private lazy val init : Unit = {
-    discoveredList.collect{case a : DFAny => a.refCount}
     openInputsCheck()
   }
   final def printCodeString : this.type = {println(codeString); this}
