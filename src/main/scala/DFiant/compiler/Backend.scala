@@ -512,7 +512,7 @@ object Backend {
           object variables {
             val list : ListBuffer[variable] = ListBuffer.empty[variable]
 //            def fromSigPorts : String = list.map(v => assignment(v.sigport))
-            def toSigPorts : Unit = list.foreach(v => assignment(v.sigport, v))
+            def toSigPorts : Unit = list.foreach(v => if (!v.showValueInsteadOfName) assignment(v.sigport, v))
             override def toString: String = list.map(v => v.declare).mkString
           }
           class statement {

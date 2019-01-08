@@ -40,19 +40,19 @@ trait Cont extends DFSimulator {
 //    .casedf(b"11111111111") {doutaP := b0s}
 //    .casedf(b"01111111111") {}
 //    .casedf_{doutaP := b1s}
-//  val i = DFBool() <> IN
-//  val o = DFBool() <> OUT
-//  val inst = new Inst {}
-//  private val selector = DFBool()
-//  private val g_predict = DFBool()
-//  private val l_predict = DFBool()
-//
-//  selector := i
-//  o := DFBool().selectdf(selector)(l_predict,g_predict)
-  val cc = DFUInt(8) <> OUT
-  val cnt = DFUInt(8)
-  sim.report(msg"$cnt")
-  cc := cnt
+  val i = DFBool() <> IN
+  val o = DFBool() <> OUT
+  val inst = new Inst {}
+  private val selector = DFBool()
+  private val g_predict = DFBool()
+  private val l_predict = DFBool()
+
+  selector := i
+  o := DFBool().selectdf(selector)(l_predict,g_predict)
+//  val cc = DFUInt(8) <> OUT
+//  val cnt = DFUInt(8)
+//  sim.report(msg"$cnt")
+//  cc := cnt
 }
 
 
