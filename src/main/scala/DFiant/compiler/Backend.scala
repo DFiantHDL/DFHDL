@@ -809,11 +809,11 @@ object Backend {
 
     protected final lazy val hasSyncProcess : Boolean = design match {
       case x : RTComponent if x.resetList.nonEmpty || x.clockList.nonEmpty => true
+      case x : DFBlock if x.hasSimMembers => true
       case _ =>
         design.isTop ||
           architecture.statements.components.list.map(e => e.hasSyncProcess)
-            .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r) ||
-          design.inSimulation//mutableMemberList.collect{case x : DFAnySimMember => x}.nonEmpty
+            .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r)
     }
 
     val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.typeName.toLowerCase) else {
