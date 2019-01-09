@@ -367,7 +367,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     private def initFunc(source : Source) : Seq[TToken] = {
       val bitsTokenSeq : Seq[DFBits.Token] = source.elements.map(x =>
-        x.tag match {
+        x.aliasTag match {
         case Some(t) =>
           val selBits = t.dfVal.initLB.get.bitsWL(x.relWidth, x.relBitLow)
           val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
@@ -389,7 +389,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     private def constFunc(source : Source) : TToken = {
       val bitsToken : DFBits.Token = source.elements.map(x =>
-        x.tag match {
+        x.aliasTag match {
         case Some(t) =>
           val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
             if (t.prevStep > 0) DFBits.Token(t.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
@@ -430,7 +430,7 @@ object DFAny {
       var lsbitPos : Int = width
       val bitsTokenSeq : Seq[DFBits.Token] = connectedSource.elements.map(x => {
         lsbitPos -= x.relWidth
-        x.tag match {
+        x.aliasTag match {
           case Some(t) => initConnected.bitsWL(x.relWidth, lsbitPos)
           case None => initExternal.bitsWL(x.relWidth, lsbitPos)
         }

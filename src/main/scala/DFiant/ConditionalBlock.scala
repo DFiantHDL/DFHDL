@@ -34,7 +34,7 @@ object ConditionalBlock {
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}if"
-      override def codeString: String = s"\nval $name = ifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
+      override def codeString: String = s"\nifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -90,7 +90,7 @@ object ConditionalBlock {
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = ctx.getName
-      override def codeString: String = s"\nval $name = ifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
+      override def codeString: String = s"\nifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
       private[DFiant] var _nextIfBlockOption : Option[DFIfBlock] = None
       final lazy val nextIfBlockOption = _nextIfBlockOption
       final def isFinalBlock : Boolean = nextIfBlockOption.isEmpty
@@ -142,7 +142,7 @@ object ConditionalBlock {
         if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
-      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
+      override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
     }
@@ -208,7 +208,7 @@ object ConditionalBlock {
         if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
       override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
-      override def codeString: String = s"\nval $name = matchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
+      override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
     }

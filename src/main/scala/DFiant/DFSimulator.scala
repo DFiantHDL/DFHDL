@@ -10,7 +10,7 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
       val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
       //TODO: fix this
 //      assert(elms.length == 1, s"Full handling of split pipeline in a message is not yet supported (${x.fullName})")
-      elms.head.tag.get
+      elms.head.aliasTag.get
     case x => x
   }
   def codeString: String = "msg\"" + value_.collect {

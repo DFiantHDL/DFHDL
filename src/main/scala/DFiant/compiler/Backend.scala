@@ -1,5 +1,5 @@
 package DFiant.compiler
-import DFiant.SourceTag
+import DFiant.AliasTag
 import DFiant.FunctionalLib.{CompAlias, Func2Comp}
 import DFiant._
 import DFiant.internals.{DSLOwnerConstruct, StringExtras, csoIntervalBigInt}
@@ -412,7 +412,7 @@ object Backend {
 //          println(s"$member ===> ${member.leftArg.asInstanceOf[DFAny].fullName} ${member.opString} ${member.rightArg.asInstanceOf[DFAny].fullName}")
           val leftStr = {
 //            val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
-            val tag = member.leftBalancedSource.elements.head.tag.get
+            val tag = member.leftBalancedSource.elements.head.aliasTag.get
             if (tag.pipeStep > 0) References(tag.dfVal).ref(tag.pipeStep)
             else Value(tag.dfVal).value.applyBrackets()
           }
@@ -421,7 +421,7 @@ object Backend {
             case _ => leftStr
           }
           val rightStr = {
-            val tag = member.rightBalancedSource.elements.head.tag.get
+            val tag = member.rightBalancedSource.elements.head.aliasTag.get
             if (tag.pipeStep > 0) References(tag.dfVal).ref(tag.pipeStep)
             else Value(tag.dfVal).value.applyBrackets()
 //            val right = Value(member.rightArg.asInstanceOf[DFAny])
@@ -591,7 +591,7 @@ object Backend {
               case Severity.Failure => "failure"
             }
             val msgString : String = msg.value.collect {
-              case x : SourceTag =>
+              case x : AliasTag =>
                 val convFuncStr : String = x.dfVal match {
                   case d : DFBits[_] if d.width % 8 == 0 => "to_hstring"
                   case d : DFUInt[_] if d.width % 8 == 0 => "to_hstring"
