@@ -33,7 +33,7 @@ object DFUInt extends DFAny.Companion {
     type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     type TExtendable
 
-    final lazy val maxValue : BigInt = BigInt(2) << (width - 1)
+    final lazy val maxValue : BigInt = BigInt(2) << (width - 1) - 1
     final def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, TExtendable, R]) = op(left, right)
     final def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, TExtendable, R]) = op(left, right)
     final def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, TExtendable, R]) = op(left, right)
