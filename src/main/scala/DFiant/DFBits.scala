@@ -320,7 +320,7 @@ object DFBits extends DFAny.Companion {
     val | : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l | r)
     val & : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l & r)
     val ^ : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ^ r)
-    val concat : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ## r)
+    val ## : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ## r)
     val << : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l << r)
     val >> : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
     val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)

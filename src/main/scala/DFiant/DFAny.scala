@@ -374,7 +374,7 @@ object DFAny {
           val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
           if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
         case None => Seq()
-      }).reduce(DFBits.Token.concat)
+      }).reduce(DFBits.Token.##)
       bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
     }
 
@@ -434,7 +434,7 @@ object DFAny {
           case Some(t) => initConnected.bitsWL(x.relWidth, lsbitPos)
           case None => initExternal.bitsWL(x.relWidth, lsbitPos)
         }
-      }).reduce(DFBits.Token.concat)
+      }).reduce(DFBits.Token.##)
       bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
     }
 
