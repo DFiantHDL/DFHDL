@@ -236,11 +236,11 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Future Stuff
     //////////////////////////////////////////////////////////////////////////
-//    final def dontProduce() : TAlias = {
-//      ???
-//      this.asInstanceOf[TAlias]
-//    }
-//    final def isNotFull : DFBool = ???
+    final def dontProduce() : TAlias = {
+      ???
+      this.asInstanceOf[TAlias]
+    }
+    final def isNotFull : DFBool = ???
 //
 //    final def assignNext(step : Int, that : TVal) : Unit = ???
 //    final def assignNext(step : Int, that : BigInt) : Unit = ???

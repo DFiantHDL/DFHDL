@@ -149,10 +149,12 @@ package object internals {
   }
 
   implicit class IntExtras(value : Int) {
+    def bitsWidth : Int = BigInt(value).bitsWidth
     def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
   }
 
   implicit class LongExtras(value : Long) {
+    def bitsWidth : Int = BigInt(value).bitsWidth
     def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
   }
 
