@@ -19,8 +19,14 @@ class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : RTComponent.Context) e
 }
 
 class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[IMem_Bram_Sim]) extends DFDesign with IMem_Bram_Ifc {
-  douta := b0s
-  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, douta)
+  private val temp = DFBits[32] init b0s
+  temp := b0s
+  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
+  private val tempSel = microArchitecture match {
+    case OneCycle => temp
+    case TwoCycle => temp.prev
+  }
+  douta := tempSel
 }
 
 class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
@@ -31,18 +37,6 @@ class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DF
 
   bram.addra <> pc(13, 2)
   bram.douta <> instRaw
-
-  programIMem.failAddress match {
-    case Some(failPC) => ifdf(pc == failPC){
-      sim.report(msg"Test failed")
-      sim.finish()
-    }
-    case None =>
-  }
-  ifdf (pc == programIMem.finishAddress) {
-    sim.report(msg"Program execution finished")
-    sim.finish()
-  }
 
   final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
 

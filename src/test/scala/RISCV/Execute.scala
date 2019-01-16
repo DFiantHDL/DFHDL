@@ -14,6 +14,7 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execut
   private val pcNext    = DFBits[32]        <> OUT
   private val pcPlus4   = DFBits[32]        <> OUT
   private val aluOut    = DFBits[32]        <> OUT
+  final val mispredict  = DFBool()          <> OUT
 
   private val aluOp1 = DFBits[32].matchdf(rs1OpSel)
     .casedf(RS1OpSel.RegSource) {rs1_data}
@@ -29,6 +30,7 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execut
   pcNext <> pcGen.pcNext
   pcPlus4 <> pcGen.pcPlus4
   aluOut <> aluCalc
+  mispredict <> pcGen.mispredict
 //  sim.report(msg"rs1_data: $rs1_data, rs2_data: $rs2_data, imm: $imm, rs1OpSel: $rs1OpSel, aluOp1: $aluOp1, rs2OpSel: $rs2OpSel, aluOp2: $aluOp2, aluSel: $aluSel, aluCalc: $aluCalc")
 
   final val inst = {

@@ -4,21 +4,29 @@ import DFiant._
 
 class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits[XLEN], rs2_data0 : DFBits[XLEN],
   imm0 : DFBits[32])(implicit ctx : DFDesign.ContextOf[PCGen]) extends DFDesign {
-  private val pc        = DFBits[32]        <> IN
-  private val branchSel = DFEnum(BranchSel) <> IN
-  private val rs1_data  = DFBits[XLEN]      <> IN
-  private val rs2_data  = DFBits[XLEN]      <> IN
-  private val imm       = DFBits[32]        <> IN
-  final val   pcNext    = DFBits[32]        <> OUT
-  final val   pcPlus4   = DFBits[32]        <> OUT
+  private val pc          = DFBits[32]        <> IN
+  private val branchSel   = DFEnum(BranchSel) <> IN
+  private val rs1_data    = DFBits[XLEN]      <> IN
+  private val rs2_data    = DFBits[XLEN]      <> IN
+  private val imm         = DFBits[32]        <> IN
+  final val   pcNext      = DFBits[32]        <> OUT
+  final val   pcPlus4     = DFBits[32]        <> OUT
+  final val   mispredict  = DFBool()          <> OUT init true
 
   private val pcu = pc.uint
+
   private val pcPlus4U = pcu + 4
+  private val prevPCPlus4U = pcPlus4U.prev()
+  private val prevPCU = pcu.prev
+  private val pcuSel = microArchitecture match {
+    case OneCycle => pcu
+    case TwoCycle => prevPCU
+  }
   pcPlus4 := pcPlus4U.bits
 
   private val pcOrReg1 = DFUInt[32].matchdf(branchSel)
     .casedf(BranchSel.JALR)  {rs1_data.uint}
-    .casedf_                    {pcu}
+    .casedf_                    {pcuSel}
   private val pcBrJmp = pcOrReg1 + imm.uint
 
   private val r1s = rs1_data.sint
@@ -42,7 +50,16 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
     .casedf(BranchSel.BLTU)                 {r1_LTU_r2}
     .casedf_                                {false}
 
-  private val pcNextU = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
+  private val pcNextU = microArchitecture match {
+    case OneCycle =>
+      DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
+    case TwoCycle =>
+      val actualPC = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{prevPCPlus4U}
+      val predictedPC = pcPlus4U
+      mispredict := predictedPC.prev != actualPC
+      ifdf (mispredict.prev) {mispredict := false}
+      DFUInt[32].ifdf(mispredict){actualPC}.elsedf{predictedPC}
+  }
 
   pcNext := pcNextU.bits
 

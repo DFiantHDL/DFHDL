@@ -19,6 +19,13 @@ package object RISCV {
   final val tournament_entries = 0 until 1024//(2<<GH_len)
   final val LH_table_entries = 0 until 256//( 2 << Local_table)
 
+  sealed trait MicroArchitecture
+  case object OneCycle extends MicroArchitecture
+  case object TwoCycle extends MicroArchitecture
+
+  val microArchitecture : MicroArchitecture = OneCycle
+
+  final val NOPInst = h"00000013"
   implicit object DebugOp extends Enum.Auto {
     val Unsupported, LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,
     LB, LH, LW, LBU, LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI,
