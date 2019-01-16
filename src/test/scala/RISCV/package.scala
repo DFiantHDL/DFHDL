@@ -2,22 +2,8 @@ import DFiant._
 
 package object RISCV {
   final val XLEN = 32
-  final val GH_len = 10 // added by me
-  final val LH_len = 6
-  final val Local_table = 8 // added
-  final val tag_len = XLEN - Local_table - 2 // added
-  final val row_len_local = tag_len + LH_len
   type XLEN = XLEN.type
-  type GH_len = GH_len.type // added by me
-  type LH_len = LH_len.type // added
-  type Local_table = Local_table.type // added
-  type tag_len = tag_len.type // added
-  type row_len_local = row_len_local.type
   final val regsNum = 0 until 32
-  final val GHNum = 0 until 1024 //2<<GH_len added by me
-  final val LHNum = 0 until 64//(2 << LH_len)
-  final val tournament_entries = 0 until 1024//(2<<GH_len)
-  final val LH_table_entries = 0 until 256//( 2 << Local_table)
 
   sealed trait MicroArchitecture
   case object OneCycle extends MicroArchitecture
