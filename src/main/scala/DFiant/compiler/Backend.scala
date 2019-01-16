@@ -605,7 +605,7 @@ object Backend {
               case Some(c) =>
                 s"""
                    |${currentDelim}if rising_edge($clkName) then
-                   |$delim${currentDelim}assert (${Value(c)} = '1') report $msgString severity $severityStr;
+                   |$delim${currentDelim}assert (${Value(c).value.applyBrackets()} = '1') report $msgString severity $severityStr;
                    |${currentDelim}end if;""".stripMargin
               case None =>
                 s"""
