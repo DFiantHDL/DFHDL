@@ -9,7 +9,7 @@ package object RISCV {
   case object OneCycle extends MicroArchitecture
   case object TwoCycle extends MicroArchitecture
 
-  val microArchitecture : MicroArchitecture = OneCycle
+  val microArchitecture : MicroArchitecture = TwoCycle
 
   final val NOPInst = h"00000013"
   implicit object DebugOp extends Enum.Auto {

@@ -28,19 +28,19 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
     case TwoCycle => pc.prev(2)
   }
   ifdf (stall) {
-    sim.report(msg"stall")
+//    sim.report(msg"stall")
     stallCnt := stallCnt + 1
   }.elsedf {
     sim.report(msg"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
 
     program.imem.failAddress match {
-      case Some(failPC) => ifdf(pc == failPC){
+      case Some(failPC) => ifdf(ppc == failPC){
         sim.report(msg"Test failed")
         sim.finish()
       }
       case None =>
     }
-    ifdf (pc == program.imem.finishAddress) {
+    ifdf (ppc == program.imem.finishAddress) {
       sim.report(msg"Program execution finished with 0x$stallCnt stalls")
       sim.finish()
     }
@@ -64,7 +64,7 @@ class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) ext
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(Program.fromFile("riscv-tests/rv32ui-p-jal.dump")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(Program.fromFile("riscv-tests/rv32ui-p-bne.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
     val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
@@ -73,5 +73,6 @@ object ProcTest extends App {
   {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
   //spike -l --isa=RV32IMAFDC towers.riscv 2>&1 >/dev/null | awk '{print $3}' | tr a-z A-Z | sed -e 's/0XFFFFFFFF//g'
   //ghdl -r -P/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/ -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 --stop-time=5000ns | awk '{print $3}' | sed -e 's/PC=//g' | sed -e 's/,//g'
+  //ghdl -r -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 | awk '{print $3}' | sed -e 's/PC=//g' | sed -e 's/,//g' > test.txt
 
 }

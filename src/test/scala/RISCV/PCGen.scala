@@ -14,19 +14,22 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
   final val   mispredict  = DFBool()          <> OUT init true
 
   private val pcu = pc.uint
-
   private val pcPlus4U = pcu + 4
-  private val prevPCPlus4U = pcPlus4U.prev()
-  private val prevPCU = pcu.prev
   private val pcuSel = microArchitecture match {
     case OneCycle => pcu
-    case TwoCycle => prevPCU
+    case TwoCycle => pcu.prev
   }
-  pcPlus4 := pcPlus4U.bits
+  private val pcPlus4B = pcPlus4U.bits
+  private val pcPlus4Sel = microArchitecture match {
+    case OneCycle => pcPlus4B
+    case TwoCycle => pcPlus4B.prev
+  }
+
+  pcPlus4 := pcPlus4Sel
 
   private val pcOrReg1 = DFUInt[32].matchdf(branchSel)
     .casedf(BranchSel.JALR)  {rs1_data.uint}
-    .casedf_                    {pcuSel}
+    .casedf_                 {pcuSel}
   private val pcBrJmp = pcOrReg1 + imm.uint
 
   private val r1s = rs1_data.sint
@@ -54,6 +57,7 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
     case OneCycle =>
       DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
     case TwoCycle =>
+      val prevPCPlus4U = pcPlus4U.prev()
       val actualPC = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{prevPCPlus4U}
       val predictedPC = pcPlus4U
       mispredict := predictedPC.prev != actualPC
