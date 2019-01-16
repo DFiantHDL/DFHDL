@@ -31,6 +31,8 @@ object DFBool extends DFAny.Companion {
     final def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
 
+    final def == (right : Boolean)(implicit op: `Op==`.Builder[TVal, Boolean]) : DFBool = op(left, right)
+    final def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : DFBool = op(left, right)
     final def || [R](right: Op.Able[R])(implicit op: `Op||`.Builder[TVal, R]) = op(left, right)
     final def && [R](right: Op.Able[R])(implicit op: `Op&&`.Builder[TVal, R]) = op(left, right)
     final def ^  [R](right: Op.Able[R])(implicit op: `Op^`.Builder[TVal, R]) = op(left, right)
