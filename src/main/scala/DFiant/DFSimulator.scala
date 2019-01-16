@@ -21,6 +21,10 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
     case x : DFAny => x.keep
     case _ =>
   }
+  final def consume : Unit = value_.foreach {
+    case x : DFAny => x.consume()
+    case _ =>
+  }
 }
 
 trait DFAnySimMember extends DFAnyMember
@@ -37,8 +41,12 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
          |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
   }
   final val id = getID
-  if (cond.isDefined) cond.get.keep
+  if (cond.isDefined) {
+    cond.get.keep
+    cond.get.consume()
+  }
   msg.keep
+  msg.consume
   keep
 }
 

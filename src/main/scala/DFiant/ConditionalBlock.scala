@@ -41,6 +41,7 @@ object ConditionalBlock {
       final val returnValue : RV = block
       returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
       mutableOwner.value = originalOwner
+      if (cond != null) cond.consume()
 
       protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken], Seq[DFBool.Token], Seq[RV#TToken], Seq[RV#TToken]](this)(DFBool.Token.select, cond.initLB, returnValue.initLB, nextIf.get.initLB)
     }
@@ -99,6 +100,7 @@ object ConditionalBlock {
       mutableOwner.value = this
       block
       mutableOwner.value = originalOwner
+      if (cond != null) cond.consume()
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner : MutableOwner)
@@ -145,6 +147,7 @@ object ConditionalBlock {
       override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
+      matchVal.consume()
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
@@ -211,6 +214,7 @@ object ConditionalBlock {
       override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
       private[DFiant] lazy val nameIt = ctx.n
       val id : Int = getID
+      matchVal.consume()
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
