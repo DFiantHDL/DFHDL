@@ -41,7 +41,7 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
   private val wrEnToMem   = DFBits[4]
   private val dataToMemBH = DFBits[32] //Data to memory modified for byte and half-word writes
 
-  private val bram = if (inSimulation) new DMem_Bram_Sim(programDMem) else new DMem_Bram(programDMem)
+  private val bram = if (inSimulation || caseDMem) new DMem_Bram_Sim(programDMem) else new DMem_Bram(programDMem)
 
   wrEnToMem := b"0000"
   dataToMemBH := dataToMem

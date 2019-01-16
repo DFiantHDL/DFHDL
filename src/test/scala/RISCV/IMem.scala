@@ -33,7 +33,7 @@ class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DF
   private val pc      = DFBits[32] <> IN
   private val instRaw = DFBits[32] <> OUT
 
-  private val bram = if (inSimulation) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
+  private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
 
   bram.addra <> pc(13, 2)
   bram.douta <> instRaw

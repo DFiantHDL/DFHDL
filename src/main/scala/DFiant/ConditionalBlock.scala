@@ -165,7 +165,7 @@ object ConditionalBlock {
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}case"
       override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
       private var nextCase : Option[DFCasePatternBlock[MV]] = None
-      final def isLastCase : Boolean = nextCase.isEmpty
+      final def isLastCase : Boolean = nextCase.isEmpty || nextCase.get.isNotDiscovered
       prevCase.foreach(pc => pc.nextCase = Some(this))
 
       private val originalOwner = mutableOwner.value

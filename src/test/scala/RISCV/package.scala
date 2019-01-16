@@ -11,6 +11,9 @@ package object RISCV {
 
   val microArchitecture : MicroArchitecture = TwoCycle
 
+  val caseIMem : Boolean = true //when true, implements the IMem for synthesis as a case statement
+  val caseDMem : Boolean = true //when true, implements the DMem for synthesis as a case statement
+
   final val NOPInst = h"00000013"
   implicit object DebugOp extends Enum.Auto {
     val Unsupported, LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,

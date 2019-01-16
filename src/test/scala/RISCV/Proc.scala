@@ -2,6 +2,7 @@ package RISCV
 import DFiant._
 
 class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
+  private val done = DFBool() <> OUT init false
   private val pc = DFBits[32] init program.imem.startAddress
   private val imem = new IMem(program.imem)(pc)
   private val stall = DFBool() init true
@@ -37,12 +38,14 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
       case Some(failPC) => ifdf(ppc == failPC){
         sim.report(msg"Test failed")
         sim.finish()
+        done := true
       }
       case None =>
     }
     ifdf (ppc == program.imem.finishAddress) {
       sim.report(msg"Program execution finished with 0x$stallCnt stalls")
       sim.finish()
+      done := true
     }
 
     sim.assert(decoder.inst.debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
