@@ -618,35 +618,41 @@ object DFAny {
     sealed abstract class Reference(aliasCodeString_ : => String) {
       lazy val aliasCodeString : String = aliasCodeString_
     }
+    sealed abstract class SingleReference(val aliasedVar : DFAny, aliasCodeString : => String) extends Reference(aliasCodeString)
     object Reference {
-      class AsIs(aliasCodeString : => String) extends Reference(aliasCodeString)
+      class AsIs(aliasedVar : DFAny, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
       object AsIs {
-        def apply(aliasCodeString : => String) = new AsIs(aliasCodeString)
+        def apply(aliasedVar : DFAny, aliasCodeString : => String) = new AsIs(aliasedVar, aliasCodeString)
         def unapply(arg: AsIs): Boolean = true
       }
-      class BitsWL(val relWidth : Int, val relBitLow : Int, aliasCodeString : => String) extends Reference(aliasCodeString)
+      class Concat(val aliasedVars : List[DFAny], aliasCodeString : => String) extends Reference(aliasCodeString)
+      object Concat {
+        def apply(aliasedVar : List[DFAny], aliasCodeString : => String) = new Concat(aliasedVar, aliasCodeString)
+        def unapply(arg: AsIs): Boolean = true
+      }
+      class BitsWL(aliasedVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
       object BitsWL {
-        def apply(relWidth: Int, relBitLow : Int, aliasCodeString : => String) = new BitsWL(relWidth, relBitLow, aliasCodeString)
+        def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String) = new BitsWL(aliasedVar, relWidth, relBitLow, aliasCodeString)
         def unapply(arg : BitsWL): Option[(Int, Int)] = Some((arg.relWidth, arg.relBitLow))
       }
-      class Prev(val step : Int) extends Reference(if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)")
+      class Prev(aliasedVar : DFAny, val step : Int) extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)")
       object Prev {
-        def apply(step : Int) = new Prev(step)
+        def apply(aliasedVar : DFAny, step : Int) = new Prev(aliasedVar, step)
         def unapply(arg: Prev): Option[Int] = Some(arg.step)
       }
-      class Pipe(val step : Int) extends Reference(if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)")
+      class Pipe(aliasedVar : DFAny, val step : Int) extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)")
       object Pipe {
-        def apply(step : Int) = new Pipe(step)
+        def apply(aliasedVar : DFAny, step : Int) = new Pipe(aliasedVar, step)
         def unapply(arg: Pipe): Option[Int] = Some(arg.step)
       }
-      class BitReverse(aliasCodeString : => String) extends Reference(aliasCodeString)
+      class BitReverse(aliasedVar : DFAny, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
       object BitReverse {
-        def apply(aliasCodeString : => String) = new BitReverse(aliasCodeString)
+        def apply(aliasedVar : DFAny, aliasCodeString : => String) = new BitReverse(aliasedVar, aliasCodeString)
         def unapply(arg: BitReverse): Boolean = true
       }
-      class Invert(aliasCodeString : => String) extends Reference(aliasCodeString)
+      class Invert(aliasedVar : DFAny, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
       object Invert {
-        def apply(aliasCodeString : => String) = new Invert(aliasCodeString)
+        def apply(aliasedVar : DFAny, aliasCodeString : => String) = new Invert(aliasedVar, aliasCodeString)
         def unapply(arg: Invert): Boolean = true
       }
     }
