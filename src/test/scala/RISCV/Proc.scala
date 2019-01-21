@@ -67,7 +67,7 @@ class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) ext
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(Program.fromFile("riscv-tests/rv32ui-p-bne.dump")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(Program.fromFile("riscv-bmarks/towers.riscv.dump")).compileToVHDL.print().toFile("test.vhd")
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
     val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._

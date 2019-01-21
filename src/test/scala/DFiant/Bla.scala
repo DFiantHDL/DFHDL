@@ -30,7 +30,7 @@ trait Inst extends DFDesign {
 }
 
 
-trait Cont extends DFSimulator {
+class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
 //  final val addraP = DFBits(12) <> IN
 //  final val doutaP = DFBits(32) <> OUT
 ////  val imem = new IMem()
@@ -41,14 +41,13 @@ trait Cont extends DFSimulator {
 //    .casedf(b"01111111111") {}
 //    .casedf_{doutaP := b1s}
   val i = DFBool() <> IN
+  val i2 = DFUInt(2) <> IN
   val o = DFBool() <> OUT
-  val inst = new Inst {}
-  private val selector = DFBool()
-  private val g_predict = DFBool()
-  private val l_predict = DFBool()
-
-  selector := i
-  o := DFBool().selectdf(selector)(l_predict,g_predict)
+  val list = (0 until 4).map(ri => DFBool().init(false).setName(s"r$ri"))
+  ifdf(i) {
+    list.foreachdf(i2){case r => o := r}
+  }.setName("theIf")
+  list.foreachdf(i2){case r => o := r}
 //  val cc = DFUInt(8) <> OUT
 //  val cnt = DFUInt(8)
 //  sim.report(msg"$cnt")
@@ -57,5 +56,5 @@ trait Cont extends DFSimulator {
 
 
 object Bla extends App {
-  val bla = new Cont {}.compileToVHDL.print().toFile("tour.vhd")
+  val bla = new Cont {}.printCodeString.compileToVHDL.print().toFile("tour.vhd")
 }
