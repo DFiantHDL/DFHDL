@@ -38,7 +38,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBit[I](relBit : TwoFace.Int[I])(implicit ctx : DFAny.Alias.Context) : TBool =
-    new DFBool.Alias(List(this), DFAny.Alias.Reference.BitsWL(1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
+    new DFBool.Alias(DFAny.Alias.Reference.BitsWL(this, 1, relBit, s".bit($relBit)")).asInstanceOf[TBool]
 
   final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Alias.Context) : TBool =
     protBit(relBit.unsafeCheck(width))
@@ -50,12 +50,12 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Bit range selection
   //////////////////////////////////////////////////////////////////////////
   final def bits(implicit ctx : DFAny.Alias.Context) : TBits[Width] =
-    new DFBits.Alias[Width](List(this), DFAny.Alias.Reference.BitsWL(width, 0, ".bits")).asInstanceOf[TBits[Width]]
+    new DFBits.Alias[Width](DFAny.Alias.Reference.BitsWL(this, width, 0, ".bits")).asInstanceOf[TBits[Width]]
 
   final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
     implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
   ) : TBits[relWidth.Out] =
-    new DFBits.Alias[relWidth.Out](List(this), DFAny.Alias.Reference.BitsWL(relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
+    new DFBits.Alias[relWidth.Out](DFAny.Alias.Reference.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow, s".bits($relBitHigh, $relBitLow)")).asInstanceOf[TBits[relWidth.Out]]
 
   final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
     implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Alias.Context
@@ -78,7 +78,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Partial Bits at Position selection
   //////////////////////////////////////////////////////////////////////////
   final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(implicit ctx : DFAny.Alias.Context)
-  : TBits[W] = new DFBits.Alias[W](List(this), DFAny.Alias.Reference.BitsWL(relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
+  : TBits[W] = new DFBits.Alias[W](DFAny.Alias.Reference.BitsWL(this, relWidth, relBitLow, s".bits($relWidth, $relBitLow)")).asInstanceOf[TBits[W]]
 
   import singleton.ops.-
   final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
@@ -110,7 +110,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Prev
   //////////////////////////////////////////////////////////////////////////
   final protected[DFiant] def protPrev(step : Int)(implicit ctx : DFAny.Alias.Context)
-  : TVal = alias(List(this), DFAny.Alias.Reference.Prev(step))
+  : TVal = alias(DFAny.Alias.Reference.Prev(this, step))
   final def prev()(implicit ctx : DFAny.Alias.Context) : TVal = protPrev(1)
   final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPrev(step)
@@ -121,7 +121,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Pipe
   //////////////////////////////////////////////////////////////////////////
   final protected[DFiant] def protPipe(step : Int)(implicit ctx : DFAny.Alias.Context)
-  : TVal = alias(List(this), DFAny.Alias.Reference.Pipe(step))
+  : TVal = alias(DFAny.Alias.Reference.Pipe(this, step))
   final def pipe()(implicit ctx : DFAny.Alias.Context) : TVal = protPipe(1)
   final def pipe[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPipe(step)
@@ -162,7 +162,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   //  def newEmptyDFVar : TVar
 //  protected[DFiant] def copyAsNewVar : DFAny.NewVar with TVar = ???
   protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context) : TVal <> Dir
-  protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+  protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
   ) : TAlias
   //////////////////////////////////////////////////////////////////////////
@@ -514,51 +514,31 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
-  abstract class Alias[DF <: DFAny](val aliasedVars : List[DFAny], val reference : DFAny.Alias.Reference)(
+  abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Connectable[DF](width =
-    aliasedVars.map(aliasedVar => reference match {
-    case DFAny.Alias.Reference.BitsWL(relWidth, _) => relWidth
-    case _ => aliasedVar.width.getValue
-  }).sum) {
+  ) extends Connectable[DF](reference.width) {
     final val ctx = ctx0
 
-    //TODO: something with balancing upon reading a complete value
-    //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
-    private def thisSourceFunc(sourceList : List[Source]) : Source = Source(sourceList.map {s =>
-      reference match {
-        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) => s.bitsWL(relWidth, relBitLow)
-        case DFAny.Alias.Reference.Prev(step) => s.prev(step)
-        case DFAny.Alias.Reference.Pipe(step) => s.pipe(step)
-        case DFAny.Alias.Reference.AsIs() => s
-        case DFAny.Alias.Reference.BitReverse() => s.reverse
-        case DFAny.Alias.Reference.Invert() => s.invert
-      }
-    }.flatMap(s => s.elements)).coalesce
-
-    override private[DFiant] def inletSourceLB =
-      LazyBox.ArgList[Source, Source](this)(thisSourceFunc, aliasedVars.map(v => v.thisSourceLB))
+    override private[DFiant] def inletSourceLB = reference.sourceLB
 
 //    override private[DFiant] def inletSourceLB = thisSourceLB //TODO: Consider dealiasing
     override private[DFiant] lazy val initSourceLB : LazyBox[Source] = inletSourceLB
 
-    final private[DFiant] def constructCodeStringDefault : String =
-      if (aliasedVars.length == 1) s"${aliasedVars.head.refCodeString}${reference.aliasCodeString}"
-      else s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}${reference.aliasCodeString}"
-    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ aliasedVars
+    final private[DFiant] def constructCodeStringDefault : String = reference.constructCodeString
+    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ reference.aliasedVars
     final val isPort = false
 
     final lazy val isAliasOfPort : Boolean = ???
 
     override def consume(): TAlias = {
       reference match {
-        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-          aliasedVars.head.consume(relWidth, relBitLow)
-        case DFAny.Alias.Reference.Prev(step) =>
-          aliasedVars.head.maxPrevUse = scala.math.max(step, aliasedVars.head.maxPrevUse)
-        case DFAny.Alias.Reference.Pipe(step) =>
+        case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
+          aliasedVar.consume(relWidth, relBitLow)
+        case DFAny.Alias.Reference.Prev(aliasedVar, step) =>
+          aliasedVar.maxPrevUse = scala.math.max(step, aliasedVar.maxPrevUse)
+        case DFAny.Alias.Reference.Pipe(aliasedVar, step) =>
           //Do nothing
-        case _ => aliasedVars.map(a => a.consume())
+        case _ => reference.aliasedVars.map(a => a.consume())
       }
       this.asInstanceOf[TAlias]
     }
@@ -568,9 +548,8 @@ object DFAny {
       val toRelBitHigh = toRelBitLow + toRelWidth-1
       case class absolute(alias : DFAny, high : Int, low : Int)
       //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
-      val allAliasedVarsWidth = aliasedVars.map(a => a.width.getValue).sum
-      val absolutes = aliasedVars.foldLeft[List[absolute]](List()) {
-        case (list, alias) if list.isEmpty => List(absolute(alias, allAliasedVarsWidth - 1, allAliasedVarsWidth - alias.width))
+      val absolutes = reference.aliasedVars.foldLeft[List[absolute]](List()) {
+        case (list, alias) if list.isEmpty => List(absolute(alias, reference.width - 1, reference.width - alias.width))
         case (list, alias) => list :+ absolute(alias, list.last.low - 1, list.last.low - alias.width)
       }
       val assignableAbsolutes = absolutes.filter(a => toRelBitHigh >= a.low || toRelBitLow <= a.high)
@@ -591,18 +570,21 @@ object DFAny {
       }
     }
     final override protected[DFiant] def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
-      aliasedVars.foreach{case a : DFAny.Var =>
+      reference.aliasedVars.foreach{case a : DFAny.Var =>
         a.protAssignDependencies ++= List(this, that)
       } //TODO: fix dependency to bit accurate dependency?
       reference match {
-        case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+        case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
           that.consume()
           assign(relWidth, relBitLow, that.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
-        case DFAny.Alias.Reference.AsIs() =>
+        case DFAny.Alias.Reference.AsIs(aliasedVar) =>
           that.consume()
           assign(width, 0, that.inletSourceLB)
-        case DFAny.Alias.Reference.BitReverse() => ??? // assign(width, 0, that.reverse)
-        case DFAny.Alias.Reference.Invert() => ???
+        case DFAny.Alias.Reference.Concat(aliasedVars) =>
+          that.consume()
+          assign(width, 0, that.inletSourceLB)
+        case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
+        case DFAny.Alias.Reference.Invert(aliasedVar) => ???
         case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
       }
       protAssignDependencies += Assignment(this, that)
@@ -616,44 +598,82 @@ object DFAny {
     type Context = DFAnyOwner.Context[DFAnyOwner]
 
     sealed abstract class Reference(aliasCodeString_ : => String) {
+      val width : Int
       lazy val aliasCodeString : String = aliasCodeString_
+      def constructCodeString(implicit owner : DSLOwnerConstruct) : String
+      val aliasedVars : List[DFAny]
+      val sourceLB : LazyBox[Source]
     }
-    sealed abstract class SingleReference(val aliasedVar : DFAny, aliasCodeString : => String) extends Reference(aliasCodeString)
+    sealed abstract class SingleReference(val aliasedVar : DFAny, aliasCodeString : => String)
+      extends Reference(aliasCodeString) {
+      val width : Int = aliasedVar.width
+      def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
+        s"${aliasedVar.refCodeString}$aliasCodeString"
+      val aliasedVars : List[DFAny] = List(aliasedVar)
+    }
     object Reference {
-      class AsIs(aliasedVar : DFAny, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
+      class AsIs(aliasedVar : DFAny, aliasCodeString : => String)
+        extends SingleReference(aliasedVar, aliasCodeString) {
+        lazy val sourceLB: LazyBox[Source] = aliasedVar.thisSourceLB
+      }
       object AsIs {
         def apply(aliasedVar : DFAny, aliasCodeString : => String) = new AsIs(aliasedVar, aliasCodeString)
-        def unapply(arg: AsIs): Boolean = true
+        def unapply(arg: AsIs): Option[DFAny] = Some(arg.aliasedVar)
       }
-      class Concat(val aliasedVars : List[DFAny], aliasCodeString : => String) extends Reference(aliasCodeString)
+      class Concat(val aliasedVars : List[DFAny], aliasCodeString : => String)
+        extends Reference(aliasCodeString) {
+        val width : Int = aliasedVars.map(a => a.width.getValue).sum
+        def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
+          s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}$aliasCodeString"
+        //TODO: something with balancing upon reading a complete value
+        //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
+        lazy val sourceLB: LazyBox[Source] = ???
+      }
       object Concat {
-        def apply(aliasedVar : List[DFAny], aliasCodeString : => String) = new Concat(aliasedVar, aliasCodeString)
-        def unapply(arg: AsIs): Boolean = true
+        def apply(aliasedVars : List[DFAny], aliasCodeString : => String) = new Concat(aliasedVars, aliasCodeString)
+        def unapply(arg: Concat): Option[List[DFAny]] = Some(arg.aliasedVars)
       }
-      class BitsWL(aliasedVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
+      class BitsWL(aliasedVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String)
+        extends SingleReference(aliasedVar, aliasCodeString) {
+        override val width: Int = relWidth
+        lazy val sourceLB: LazyBox[Source] = ???
+      }
       object BitsWL {
-        def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String) = new BitsWL(aliasedVar, relWidth, relBitLow, aliasCodeString)
-        def unapply(arg : BitsWL): Option[(Int, Int)] = Some((arg.relWidth, arg.relBitLow))
+        def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String) =
+          new BitsWL(aliasedVar, relWidth, relBitLow, aliasCodeString)
+        def unapply(arg : BitsWL): Option[(DFAny, Int, Int)] = Some((arg.aliasedVar, arg.relWidth, arg.relBitLow))
       }
-      class Prev(aliasedVar : DFAny, val step : Int) extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)")
+      class Prev(aliasedVar : DFAny, val step : Int)
+        extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
+        lazy val sourceLB: LazyBox[Source] = ???
+      }
       object Prev {
         def apply(aliasedVar : DFAny, step : Int) = new Prev(aliasedVar, step)
-        def unapply(arg: Prev): Option[Int] = Some(arg.step)
+        def unapply(arg: Prev): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
       }
-      class Pipe(aliasedVar : DFAny, val step : Int) extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)")
+      class Pipe(aliasedVar : DFAny, val step : Int)
+        extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
+        lazy val sourceLB: LazyBox[Source] = ???
+      }
       object Pipe {
         def apply(aliasedVar : DFAny, step : Int) = new Pipe(aliasedVar, step)
-        def unapply(arg: Pipe): Option[Int] = Some(arg.step)
+        def unapply(arg: Pipe): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
       }
-      class BitReverse(aliasedVar : DFAny, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
+      class BitReverse(aliasedVar : DFAny, aliasCodeString : => String)
+        extends SingleReference(aliasedVar, aliasCodeString) {
+        lazy val sourceLB: LazyBox[Source] = ???
+      }
       object BitReverse {
         def apply(aliasedVar : DFAny, aliasCodeString : => String) = new BitReverse(aliasedVar, aliasCodeString)
-        def unapply(arg: BitReverse): Boolean = true
+        def unapply(arg: BitReverse): Option[DFAny] = Some(arg.aliasedVar)
       }
-      class Invert(aliasedVar : DFAny, aliasCodeString : => String) extends SingleReference(aliasedVar, aliasCodeString)
+      class Invert(aliasedVar : DFAny, aliasCodeString : => String)
+        extends SingleReference(aliasedVar, aliasCodeString) {
+        lazy val sourceLB: LazyBox[Source] = ???
+      }
       object Invert {
         def apply(aliasedVar : DFAny, aliasCodeString : => String) = new Invert(aliasedVar, aliasCodeString)
-        def unapply(arg: Invert): Boolean = true
+        def unapply(arg: Invert): Option[DFAny] = Some(arg.aliasedVar)
       }
     }
   }
@@ -1105,7 +1125,7 @@ object DFAny {
     type WSum
     protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
     def bits(implicit ctx : DFAny.Alias.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits.Var[w.Out] =
-      new DFBits.Alias[w.Out](e.productIterator.toList.asInstanceOf[List[DFAny]], DFAny.Alias.Reference.AsIs(".bits"))
+      new DFBits.Alias[w.Out](DFAny.Alias.Reference.Concat(e.productIterator.toList.asInstanceOf[List[DFAny]], ".bits"))
   }
 
   abstract class ValProductExtender(e : Product) {
@@ -1119,7 +1139,7 @@ object DFAny {
         case dfAny : DFAny => dfAny
         case bv : BitVector => new DFBits.Const[Int](DFBits.Token(bv))
       }
-      new DFBits.Alias[w.Out](list, DFAny.Alias.Reference.AsIs(".bits"))
+      new DFBits.Alias[w.Out](DFAny.Alias.Reference.Concat(list, ".bits"))
     }
   }
 

@@ -313,45 +313,43 @@ object Backend {
         class alias(member : DFAny.Alias[_], name : Name) extends signal(member, name) {
           override def assign(src : Value) : Unit = {
             member.reference match {
-              case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
-                if (member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                  architecture.statements.async_process.assignment(References(member.aliasedVars.head), src, relWidth, relBitLow)
+              case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
+                if (aliasedVar.isInstanceOf[DFBits[_]])
+                  architecture.statements.async_process.assignment(References(aliasedVar), src, relWidth, relBitLow)
                 else
-                  References(member.aliasedVars.head).assign(Value(member.aliasedVars.head).bits.replace(relWidth, relBitLow, src.bits))
-              case DFAny.Alias.Reference.BitReverse() =>
-                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                References(member.aliasedVars.head).assign(Value(s"bit_reverse($src)", src.typeS))
-              case DFAny.Alias.Reference.Invert() =>
-                assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-                References(member.aliasedVars.head).assign(Value(s"(not $src)", src.typeS))
-              case DFAny.Alias.Reference.AsIs() =>
-                if (member.aliasedVars.length == 1) {
-                  References(member.aliasedVars.head).assign(src)
-                } else {
+                  References(aliasedVar).assign(Value(aliasedVar).bits.replace(relWidth, relBitLow, src.bits))
+              case DFAny.Alias.Reference.BitReverse(aliasedVar) =>
+                assert(aliasedVar.isInstanceOf[DFBits[_]])
+                References(aliasedVar).assign(Value(s"bit_reverse($src)", src.typeS))
+              case DFAny.Alias.Reference.Invert(aliasedVar) =>
+                assert(aliasedVar.isInstanceOf[DFBits[_]])
+                References(aliasedVar).assign(Value(s"(not $src)", src.typeS))
+              case DFAny.Alias.Reference.AsIs(aliasedVar) =>
+                  References(aliasedVar).assign(src)
+              case DFAny.Alias.Reference.Concat(aliasedVars) =>
                   var pos : Int = member.width-1
-                  member.aliasedVars.foreach(a => {
+                  aliasedVars.foreach(a => {
                     References(a).assign(src.bits(a.width, pos - a.width+1))
                     pos = pos - a.width
                   })
-                }
               case _ =>
                 throw new IllegalArgumentException(s"\nUnexpected assignment to immutable previous value of ${member.fullName}")
             }
           }
           val aliasStr : String = member.reference match {
-            case DFAny.Alias.Reference.BitsWL(relWidth, relBitLow) =>
+            case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
               if ((relWidth == 1) && member.isInstanceOf[DFBool])
-                s"${Value(member.aliasedVars.head).bits}($relBitLow)"
+                s"${Value(aliasedVar).bits}($relBitLow)"
               else
-                s"${Value(member.aliasedVars.head).bits(relWidth, relBitLow).to(Type(member))}"
-            case DFAny.Alias.Reference.BitReverse() =>
-              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-              s"bit_reverse(${Value(member.aliasedVars.head)})"
-            case DFAny.Alias.Reference.Invert() =>
-//              assert(member.aliasedVars.head.isInstanceOf[DFBits[_]])
-              s"(not ${Value(member.aliasedVars.head)})"
-            case DFAny.Alias.Reference.Prev(step) =>
-              val ref = References(member.aliasedVars.head).sigport
+                s"${Value(aliasedVar).bits(relWidth, relBitLow).to(Type(member))}"
+            case DFAny.Alias.Reference.BitReverse(aliasedVar) =>
+              assert(aliasedVar.isInstanceOf[DFBits[_]])
+              s"bit_reverse(${Value(aliasedVar)})"
+            case DFAny.Alias.Reference.Invert(aliasedVar) =>
+//              assert(aliasedVar.isInstanceOf[DFBits[_]])
+              s"(not ${Value(aliasedVar)})"
+            case DFAny.Alias.Reference.Prev(aliasedVar, step) =>
+              val ref = References(aliasedVar).sigport
               val refName = ref.name
               val initSeq = ref.member.initLB.get
               if (step > ref.maxPrevUse) {
@@ -367,12 +365,25 @@ object Backend {
                 ref.maxPrevUse = step
               }
               s"${refName}_prev$step"
-            case DFAny.Alias.Reference.Pipe(step) =>
-              References(member.aliasedVars.head).ref(step)
-            case DFAny.Alias.Reference.AsIs() =>
-              val concat : String = member.aliasedVars.map{
+            case DFAny.Alias.Reference.Pipe(aliasedVar, step) =>
+              References(aliasedVar).ref(step)
+            case DFAny.Alias.Reference.AsIs(aliasedVar) =>
+              val cast : String = aliasedVar match {
+                case a : DFBits[_] => Value(a).toString
+                case a => Value(a).bits.toString
+              }
+              member match {
+                case m : DFBits[_] => cast
+                case m : DFUInt[_] => s"unsigned($cast)"
+                case m : DFSInt[_] => s"signed($cast)"
+                case m : DFBool => s"to_sl($cast)"
+                case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($cast)"
+                case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
+              }
+            case DFAny.Alias.Reference.Concat(aliasedVars) =>
+              val concat : String = aliasedVars.map{
                 case a : DFBits[_] => Value(a)
-                case a : DFBool if member.aliasedVars.length > 1 => Value(a)
+                case a : DFBool => Value(a)
                 case a => Value(a).bits
               }.mkString(" & ")
               member match {
@@ -389,7 +400,6 @@ object Backend {
         }
         object alias {
           def apply(member : DFAny.Alias[_]) : alias = {
-            if (!member.reference.isInstanceOf[DFAny.Alias.Reference.AsIs]) assert(member.aliasedVars.length == 1)
             val dst = new alias(member, Name(member.name))
             dst
           }

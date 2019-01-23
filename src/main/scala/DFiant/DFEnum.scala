@@ -39,9 +39,9 @@ object DFEnum extends DFAny.Companion {
     final def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar[TEnum], dir)
-    final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+    final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
-    ) : TAlias = new Alias(aliasedVars, reference)(ctx, enum).asInstanceOf[TAlias]
+    ) : TAlias = new Alias(reference)(ctx, enum).asInstanceOf[TAlias]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,9 +69,9 @@ object DFEnum extends DFAny.Companion {
     implicit ctx : DFAny.NewVar.Context, val enum : E
   ) extends DFAny.NewVar[DFEnum[E]](enum.width, s"DFEnum(${enum.name})") with Var[E]
 
-  protected[DFiant] final class Alias[E <: Enum](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+  protected[DFiant] final class Alias[E <: Enum](reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context, val enum : E
-  ) extends DFAny.Alias[DFEnum[E]](aliasedVars, reference) with Var[E]
+  ) extends DFAny.Alias[DFEnum[E]](reference) with Var[E]
 
   protected[DFiant] final class Const[E <: Enum](token : Token[E])(
     implicit ctx : DFAny.Const.Context, val enum : E
@@ -133,7 +133,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.TEnum](List(left), DFAny.Alias.Reference.AsIs(s".as(DFEnum(${mold.enum}))"))(ctx, mold.enum)
+      new Alias[mold.TEnum](DFAny.Alias.Reference.AsIs(left, s".as(DFEnum(${mold.enum}))"))(ctx, mold.enum)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

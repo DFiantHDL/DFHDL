@@ -70,9 +70,9 @@ object DFStruct extends DFAny.Companion {
     def != [SF <: Product](right : SF)(implicit op: `Op!=`.Builder[TVal, SF]) = op(left, right)
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar[TSFields], dir)
-    final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+    final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
-    ) : TAlias = new Alias(aliasedVars, reference)(ctx, structFields).asInstanceOf[TAlias]
+    ) : TAlias = new Alias(reference)(ctx, structFields).asInstanceOf[TAlias]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -100,9 +100,9 @@ object DFStruct extends DFAny.Companion {
     implicit ctx : DFAny.NewVar.Context, val structFields : SF
   ) extends DFAny.NewVar[DFStruct[SF]](structFields.width, s"DFStruct(${structFields.name})") with Var[SF]
 
-  protected[DFiant] final class Alias[SF <: Fields](aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+  protected[DFiant] final class Alias[SF <: Fields](reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context, val structFields : SF
-  ) extends DFAny.Alias[DFStruct[SF]](aliasedVars, reference) with Var[SF]
+  ) extends DFAny.Alias[DFStruct[SF]](reference) with Var[SF]
 
   protected[DFiant] final class Const[SF <: Fields](token : Token[SF])(
     implicit ctx : DFAny.Const.Context, val structFields : SF
@@ -171,7 +171,7 @@ object DFStruct extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.TSFields](List(left), DFAny.Alias.Reference.AsIs(s".as(DFStruct(${mold.structFields}))"))(ctx, mold.structFields)
+      new Alias[mold.TSFields](DFAny.Alias.Reference.AsIs(left, s".as(DFStruct(${mold.structFields}))"))(ctx, mold.structFields)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

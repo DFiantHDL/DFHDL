@@ -29,7 +29,7 @@ object DFBool extends DFAny.Companion {
     type InitBuilder = Init.Builder[TVal, TToken]
     type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     final def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
-      new DFBool.Alias(List(this), DFAny.Alias.Reference.Invert(".invert"))
+      new DFBool.Alias(DFAny.Alias.Reference.Invert(this, ".invert"))
 
     final def == (right : Boolean)(implicit op: `Op==`.Builder[TVal, Boolean]) : DFBool = op(left, right)
     final def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) : DFBool = op(left, right)
@@ -43,9 +43,9 @@ object DFBool extends DFAny.Companion {
 
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar(), dir)
-    final protected[DFiant] def alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+    final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
-    ) : TAlias = new Alias(aliasedVars, reference)(ctx).asInstanceOf[TAlias]
+    ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
     final override lazy val typeName : String = s"DFBool"
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,9 +75,9 @@ object DFBool extends DFAny.Companion {
     implicit ctx : DFAny.NewVar.Context
   ) extends DFAny.NewVar[DFBool](1, "DFBool()") with Var
 
-  protected[DFiant] final class Alias(aliasedVars : List[DFAny], reference : DFAny.Alias.Reference)(
+  protected[DFiant] final class Alias(reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFBool](aliasedVars, reference) with Var
+  ) extends DFAny.Alias[DFBool](reference) with Var
 
   protected[DFiant] final class Const(token : DFBool.Token)(
     implicit ctx : DFAny.Const.Context
@@ -164,7 +164,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Alias extends AliasCO {
     def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias(List(left), DFAny.Alias.Reference.AsIs(s".as(DFBool())"))
+      new Alias(DFAny.Alias.Reference.AsIs(left, s".as(DFBool())"))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -228,7 +228,7 @@ object DFBool extends DFAny.Companion {
       final implicit def DFBoolFrom1(left: 1): DFBoolFrom1 = new DFBoolFrom1(left)
       sealed class DFBoolFromBoolean[L <: Boolean](left : L) extends Able[L](left)
       final implicit def DFBoolFromBoolean[L <: Boolean](left: L): DFBoolFromBoolean[L] = new DFBoolFromBoolean[L](left)
-      sealed class DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Alias.Context, r : Require[LW == 1]) extends Able[DFBool](new Alias(List(left), DFAny.Alias.Reference.AsIs("")))
+      sealed class DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Alias.Context, r : Require[LW == 1]) extends Able[DFBool](new Alias(DFAny.Alias.Reference.AsIs(left, "")))
       final implicit def DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Alias.Context, r : Require[LW == 1]) : DFBoolFromDFBitsW1[LW] = new DFBoolFromDFBitsW1[LW](left)
       final implicit def ofDFBool[R <: DFBool.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
     }
