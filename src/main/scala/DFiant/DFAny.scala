@@ -627,7 +627,8 @@ object DFAny {
           s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}$aliasCodeString"
         //TODO: something with balancing upon reading a complete value
         //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
-        lazy val sourceLB: LazyBox[Source] = ???
+        lazy val sourceLB: LazyBox[Source] = LazyBox.ArgList[Source, Source](aliasedVars.head)(
+          s => Source(s.flatMap(a => a.elements)).coalesce, aliasedVars.map(a => a.thisSourceLB))
       }
       object Concat {
         def apply(aliasedVars : List[DFAny], aliasCodeString : => String) = new Concat(aliasedVars, aliasCodeString)
@@ -636,7 +637,8 @@ object DFAny {
       class BitsWL(aliasedVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String)
         extends SingleReference(aliasedVar, aliasCodeString) {
         override val width: Int = relWidth
-        lazy val sourceLB: LazyBox[Source] = ???
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+          s => s.bitsWL(relWidth, relBitLow), aliasedVar.thisSourceLB)
       }
       object BitsWL {
         def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String) =
@@ -645,7 +647,8 @@ object DFAny {
       }
       class Prev(aliasedVar : DFAny, val step : Int)
         extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
-        lazy val sourceLB: LazyBox[Source] = ???
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+          s => s.prev(step), aliasedVar.thisSourceLB)
       }
       object Prev {
         def apply(aliasedVar : DFAny, step : Int) = new Prev(aliasedVar, step)
@@ -653,7 +656,8 @@ object DFAny {
       }
       class Pipe(aliasedVar : DFAny, val step : Int)
         extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
-        lazy val sourceLB: LazyBox[Source] = ???
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+          s => s.pipe(step), aliasedVar.thisSourceLB)
       }
       object Pipe {
         def apply(aliasedVar : DFAny, step : Int) = new Pipe(aliasedVar, step)
@@ -661,7 +665,8 @@ object DFAny {
       }
       class BitReverse(aliasedVar : DFAny, aliasCodeString : => String)
         extends SingleReference(aliasedVar, aliasCodeString) {
-        lazy val sourceLB: LazyBox[Source] = ???
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+          s => s.reverse, aliasedVar.thisSourceLB)
       }
       object BitReverse {
         def apply(aliasedVar : DFAny, aliasCodeString : => String) = new BitReverse(aliasedVar, aliasCodeString)
@@ -669,7 +674,8 @@ object DFAny {
       }
       class Invert(aliasedVar : DFAny, aliasCodeString : => String)
         extends SingleReference(aliasedVar, aliasCodeString) {
-        lazy val sourceLB: LazyBox[Source] = ???
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+          s => s.invert, aliasedVar.thisSourceLB)
       }
       object Invert {
         def apply(aliasedVar : DFAny, aliasCodeString : => String) = new Invert(aliasedVar, aliasCodeString)
