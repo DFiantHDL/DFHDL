@@ -184,12 +184,12 @@ object DFBool extends DFAny.Companion {
       implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 
       def toTokenSeq(right : Seq[Able[DFBool]]) : Seq[DFBool.Token] =
-        right.toSeqAny.map(e => e match {
-          case (t : Bubble) => DFBool.Token(t)
-          case (t : DFBool.Token) => t
-          case (t : Int) => DFBool.Token(t)
-          case (t : Boolean) => DFBool.Token(t)
-        })
+        right.toSeqAny.map {
+          case t : Bubble => DFBool.Token(t)
+          case t : DFBool.Token => t
+          case t : Int => DFBool.Token(t)
+          case t : Boolean => DFBool.Token(t)
+        }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
