@@ -99,6 +99,14 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def invert : Source = Source(elements.map(e => e.invert))
   def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
   def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
+  def signExtend(toWidth : Int) : Source = {
+    assert(toWidth >= width)
+    Source(List.fill(toWidth - width)(bitsWL(1, width-1).elements.head) ++ elements)
+  }
+//  def zeroExtend(toWidth : Int) : Source = {
+//    assert(toWidth >= width)
+//    Source(List.fill(toWidth - width)(SourceElement(0, 0, false, AliasTag.apply())) ++ elements)
+//  }
   def getMaxLatency : Option[Int] = {
     val list = elements.flatMap(e => e.aliasTag).flatMap(t => t.latency)
     if (list.isEmpty) None else Some(list.max)

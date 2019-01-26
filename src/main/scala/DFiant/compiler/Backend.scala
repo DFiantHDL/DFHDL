@@ -326,6 +326,8 @@ object Backend {
                 References(aliasedVar).assign(Value(s"(not $src)", src.typeS))
               case DFAny.Alias.Reference.AsIs(aliasedVar) =>
                   References(aliasedVar).assign(src)
+              case DFAny.Alias.Reference.SignExtend(aliasedBar, toWidth) =>
+                ???
               case DFAny.Alias.Reference.Concat(aliasedVars) =>
                   var pos : Int = member.width-1
                   aliasedVars.foreach(a => {
@@ -367,6 +369,15 @@ object Backend {
               s"${refName}_prev$step"
             case DFAny.Alias.Reference.Pipe(aliasedVar, step) =>
               References(aliasedVar).ref(step)
+            case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) =>
+              s"resize(${Value(aliasedVar)}, $toWidth)"
+//            case DFAny.Alias.Reference.LeftShift(aliasedVar, shift) =>
+//              val op : String = aliasedVar match {
+//                case a : DFBits[_] => "sll"
+//                case a : DFUInt[_] => "sll"
+//                case a : DFSInt[_] => "sla"
+//              }
+//              s"${Value(aliasedVar).value.applyBrackets()} $op $shift"
             case DFAny.Alias.Reference.AsIs(aliasedVar) =>
               val cast : String = aliasedVar match {
                 case a : DFBits[_] => Value(a).toString

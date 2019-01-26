@@ -585,6 +585,7 @@ object DFAny {
           assign(width, 0, that.inletSourceLB)
         case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
         case DFAny.Alias.Reference.Invert(aliasedVar) => ???
+        case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) => ???
         case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
       }
       protAssignDependencies += Assignment(this, that)
@@ -662,6 +663,25 @@ object DFAny {
       object Pipe {
         def apply(aliasedVar : DFAny, step : Int) = new Pipe(aliasedVar, step)
         def unapply(arg: Pipe): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
+      }
+//      class LeftShift(aliasedVar : DFAny, val shift : Int)
+//        extends SingleReference(aliasedVar, if (shift == 0) "" else s"$shift") {
+//        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+//          s => s.prev(shift), aliasedVar.thisSourceLB)
+//      }
+//      object LeftShift {
+//        def apply(aliasedVar : DFAny, shift : Int) = new LeftShift(aliasedVar, shift)
+//        def unapply(arg: LeftShift): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.shift)
+//      }
+      class SignExtend(aliasedVar : DFAny, val toWidth : Int)
+        extends SingleReference(aliasedVar, if (toWidth == 0) "" else s".extendTo($toWidth)") {
+        override val width: Int = toWidth
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
+          s => s.signExtend(toWidth), aliasedVar.thisSourceLB)
+      }
+      object SignExtend {
+        def apply(aliasedVar : DFAny, toWidth : Int) = new SignExtend(aliasedVar, toWidth)
+        def unapply(arg: SignExtend): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.toWidth)
       }
       class BitReverse(aliasedVar : DFAny, aliasCodeString : => String)
         extends SingleReference(aliasedVar, aliasCodeString) {

@@ -61,14 +61,11 @@ object DFSInt extends DFAny.Companion {
       new DFSInt.Alias[tfs.Out](DFAny.Alias.Reference.Concat(extension :+ this, s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    protected[DFiant] def protExtendTo[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = if (numOfBits != width) {
-      val extension = List.fill(numOfBits - width)(sign)
-      new DFSInt.Alias[EW](DFAny.Alias.Reference.Concat(extension :+ this, s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
-    } else this.asInstanceOf[DFSInt[EW]]
+    protected[DFiant] def protExtendTo[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = new DFSInt.Alias[EW](DFAny.Alias.Reference.SignExtend(this, toWidth))
 
-    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = protExtendTo(numOfBits)
+    final def extendTo[EW](toWidth : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = protExtendTo(toWidth)
 
     final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
       if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
