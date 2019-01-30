@@ -173,8 +173,9 @@ trait DFAny extends DFAnyMember with HasWidth {
   //////////////////////////////////////////////////////////////////////////
   final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
   final override private[DFiant] def nameDefault: String = ctx.getName
-  private var autoConstructCodeString : String = ""
-  final private[DFiant] def setAutoConstructCodeString(cs : String) : this.type = {autoConstructCodeString = cs; this}
+  private var autoConstructCodeStringFunc : () => String = () => ""
+  private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
+  final private[DFiant] def setAutoConstructCodeString(cs : => String) : this.type = {autoConstructCodeStringFunc = () => cs; this}
   private[DFiant] def constructCodeStringDefault : String
   private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
   private def constructCodeString : String =

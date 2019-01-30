@@ -39,6 +39,15 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     })
     this
   }
+  override protected def postDiscoveryRun : Unit = {
+    //Touching the name lazy val to set the final names bottom up.
+    //It is important to do so to invalidate name duplicate of anonymous values.
+    //For example: val result = if (someConst) new Box else new OtherBox
+    //In the example we both Box and OtherBox will potentially get the name `result`,
+    //but don't want to invalidate the result name for `Box` if it's in use.
+    name
+  }
+
   def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)

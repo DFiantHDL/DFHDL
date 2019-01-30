@@ -7,7 +7,7 @@ abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Opt
   import LazyBox.CustomException
   def valueFunc : ValueOrError[T]
   val owner : DSLMemberConstruct
-  final val name : String = n.value
+  final lazy val name : String = n.value
   final lazy val fullName = s"${owner.fullName}.$name"
   lazy val typeName: String = s"LazyBox.${getClass.getSimpleName}"
   private var visitedCnt : Int = 0

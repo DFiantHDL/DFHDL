@@ -3,7 +3,8 @@ package DFiant.internals
 trait Nameable {
   private[DFiant] def nameDefault : String = "???"
   private var nameManual : String = ""
-  private var nameAuto : String = ""
+  private var nameAutoFunc : () => String = () => ""
+  private lazy val nameAuto : String = nameAutoFunc()
   private[DFiant] val nameIt : NameIt
   final def hasName : Boolean = !nameManual.isEmpty || !nameAuto.isEmpty
   final lazy val name : String = getUniqueName (
@@ -13,7 +14,7 @@ trait Nameable {
   )
   private[internals] def getUniqueName(suggestedName : String) : String
   final def setName(name : String) : this.type = {nameManual = name; this}
-  final protected[DFiant] def setAutoName(name : String) : this.type = {nameAuto = name; this}
+  final protected[DFiant] def setAutoName(name : => String) : this.type = {nameAutoFunc = () => name; this}
   override def toString : String = name
 }
 
@@ -43,12 +44,19 @@ object NameIt {
       case sourcecode.OwnerKind.Obj => false
       case _ => true
     }
-    lazy val value: String = if (invalidateName) s"${Name.AnonStart}anon" else name.value
+    val lastNameIt : NameIt = NameIt.lastNameIt
+    val lastFullName : String = NameIt.lastFullName
+    lazy val value: String = {
+      if (lastFullName == fullName.value) {
+        lastNameIt.invalidateName = true
+        println(s"invalidating $lastFullName")
+      }
+
+      if (invalidateName) s"${Name.AnonStart}anon" else name.value
+    }
     lazy val invalidated : Boolean = invalidateName
-    if (lastFullName == fullName.value)
-      lastNameIt.invalidateName = true
-    lastFullName = fullName.value
-    lastNameIt = this
+    NameIt.lastFullName = fullName.value
+    NameIt.lastNameIt = this
 //    println(s"${name.value}, ${ownerKind.value}, $value")
   }
 }
