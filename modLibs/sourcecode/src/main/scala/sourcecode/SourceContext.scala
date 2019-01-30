@@ -181,7 +181,39 @@ object Args extends SourceCompanion[Seq[Seq[Text[_]]], Args](new Args(_)) {
     c.Expr[Args](q"""Seq(..$textSeqs)""")
   }
 }
-
+//
+//trait CheckFor
+//protected trait CheckCompanion[CF] {
+//  implicit def generate : CF = macro impl
+//  def impl(c: Compat.Context)(implicit cf : c.WeakTypeTag[CF]): c.Expr[CF] = ???
+//  def check(c: Compat.Context)(checkFunc : c.universe.Symbol => Boolean, errMsg : String): c.Expr[CF] = {
+//    import c.universe._
+//    val owner = Compat.enclosingOwner(c)
+//    val sym = symbolOf[CF]
+//    if (owner.isTerm && checkFunc(owner.asTerm)) c.Expr[CF](q"""new $sym""")
+//    else c.abort(c.enclosingPosition, "This term is not a var.")
+//  }
+//}
+class IsVar()
+object IsVar {
+  implicit def generate : IsVar = macro impl
+  def impl(c: Compat.Context): c.Expr[IsVar] = {
+    import c.universe._
+    val owner = Compat.enclosingOwner(c)
+    if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""new sourcecode.IsVar""")
+    else c.abort(c.enclosingPosition, "This is not a var.")
+  }
+}
+class IsDef()
+object IsDef {
+  implicit def generate : IsDef = macro impl
+  def impl(c: Compat.Context): c.Expr[IsDef] = {
+    import c.universe._
+    val owner = Compat.enclosingOwner(c)
+    if (owner.isTerm && owner.asTerm.isMethod) c.Expr[IsDef](q"""new sourcecode.IsDef""")
+    else c.abort(c.enclosingPosition, "This is not a def.")
+  }
+}
 object Impls{
   def text[T: c.WeakTypeTag](c: Compat.Context)(v: c.Expr[T]): c.Expr[sourcecode.Text[T]] = {
     import c.universe._
