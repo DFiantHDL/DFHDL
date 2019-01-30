@@ -60,7 +60,12 @@ object DFDesign {
   }
   object ContextOf {
     implicit def ev[T](
-      implicit evOwner : DFBlock = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
+      implicit
+      evOwner : DFBlock = null,
+      evBasicLib : DFBasicLib,
+      evConfig : DFAnyConfiguration,
+      evNameIt : NameIt,
+//      forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
       val basicLib: DFBasicLib = evBasicLib

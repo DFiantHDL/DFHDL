@@ -199,19 +199,41 @@ object IsVar {
   implicit def generate : IsVar = macro impl
   def impl(c: Compat.Context): c.Expr[IsVar] = {
     import c.universe._
-    val owner = Compat.enclosingOwner(c)
+    var owner = Compat.enclosingOwner(c)
+    while(Util.isSynthetic(c)(owner)) {
+      println(owner.fullName)
+      owner = owner.owner
+    }
+    println(owner.fullName)
+    if (owner.name.toString.contains("$")) {
+      owner = owner.owner
+    }
     if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""new sourcecode.IsVar""")
     else c.abort(c.enclosingPosition, "This is not a var.")
   }
 }
-class IsDef()
-object IsDef {
-  implicit def generate : IsDef = macro impl
-  def impl(c: Compat.Context): c.Expr[IsDef] = {
+class IsVal()
+object IsVal {
+  implicit def generate : IsVal = macro impl
+  def impl(c: Compat.Context): c.Expr[IsVal] = {
     import c.universe._
-    val owner = Compat.enclosingOwner(c)
-    if (owner.isTerm && owner.asTerm.isMethod) c.Expr[IsDef](q"""new sourcecode.IsDef""")
-    else c.abort(c.enclosingPosition, "This is not a def.")
+    var owner = Compat.enclosingOwner(c)
+    while(Util.isSynthetic(c)(owner)) owner = owner.owner
+    if (owner.name.toString.contains("$")) owner = owner.owner
+    if (owner.isTerm && (owner.asTerm.isVal || owner.asTerm.isLazy )) c.Expr[IsVal](q"""new sourcecode.IsVal""")
+    else c.abort(c.enclosingPosition, "This is not a val.")
+  }
+}
+class IsObj()
+object IsObj {
+  implicit def generate : IsObj = macro impl
+  def impl(c: Compat.Context): c.Expr[IsObj] = {
+    import c.universe._
+    var owner = Compat.enclosingOwner(c)
+    while(Util.isSynthetic(c)(owner)) owner = owner.owner
+    if (owner.name.toString.contains("$")) owner = owner.owner
+    if (owner.asTerm.isModuleClass) c.Expr[IsObj](q"""new sourcecode.IsObj""")
+    else c.abort(c.enclosingPosition, "This is not an object.")
   }
 }
 object Impls{

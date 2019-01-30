@@ -63,7 +63,13 @@ object DFBlock {
   }
   trait LowPriority {
     implicit def ev[T, Owner <: DFAnyOwner](
-      implicit lp : shapeless.LowPriority, evOwner : Owner = null, evBasicLib : DFBasicLib, evConfig : DFAnyConfiguration, evNameIt : NameIt
+      implicit
+      lp : shapeless.LowPriority,
+      evOwner : Owner = null,
+      evBasicLib : DFBasicLib,
+      evConfig : DFAnyConfiguration,
+      evNameIt : NameIt,
+//      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Option(evOwner)
       implicit val basicLib: DFBasicLib = evBasicLib
@@ -73,8 +79,13 @@ object DFBlock {
   }
   private[DFiant] case class InternalContext()
   object ContextOf extends LowPriority {
-    implicit def evContext[T, T2](implicit lp : shapeless.LowPriority, evContext : DFDesign.ContextOf[T2], external : shapeless.Refute[InternalContext])
-    : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
+    implicit def evContext[T, T2](
+      implicit
+      lp : shapeless.LowPriority,
+      evContext : DFDesign.ContextOf[T2],
+      external : shapeless.Refute[InternalContext],
+//      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+    ) : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val basicLib : DFBasicLib = evContext.basicLib
       implicit val config : DFAnyConfiguration = evContext.config

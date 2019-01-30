@@ -42,8 +42,12 @@ object DFComponent {
   }
   trait LowPriority {
     implicit def evFromOpContext[Comp <: DFComponent[Comp]](
-      implicit evContext : DFAny.Op.Context, evImpl : Comp => Unit,
-      evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
+      implicit
+      evContext : DFAny.Op.Context,
+      evImpl : Comp => Unit,
+      evNameIt : NameIt,
+      evCompName : sourcecode.Name.OfType[Comp],
+//      forceNotVar : NameIt.ForceNotVar[Context[_]]
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val impl: Comp => Unit = evImpl
@@ -55,8 +59,14 @@ object DFComponent {
   }
   object Context extends LowPriority {
     implicit def ev[Comp <: DFComponent[Comp]](
-      implicit evOwner : DFBlock, evImpl : Comp => Unit, evBasicLib : DFBasicLib,
-      evConfig : DFAnyConfiguration, evNameIt : NameIt, evCompName : sourcecode.Name.OfType[Comp]
+      implicit
+      evOwner : DFBlock,
+      evImpl : Comp => Unit,
+      evBasicLib : DFBasicLib,
+      evConfig : DFAnyConfiguration,
+      evNameIt : NameIt,
+      evCompName : sourcecode.Name.OfType[Comp],
+//      forceNotVar : NameIt.ForceNotVar[Context[_]]
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
       implicit val impl: Comp => Unit = evImpl
