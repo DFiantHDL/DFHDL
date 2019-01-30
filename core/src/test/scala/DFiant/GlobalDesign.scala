@@ -6,7 +6,6 @@ import DFiant.internals._
 object GlobalDesignName extends NameIt {
   override val value: String = "GlobalDesign"
   override val invalidated: Boolean = false
-  override val owner: String = s"${Name.AnonStart}anon"
 }
 
 object GlobalContext extends DFDesign.Context {

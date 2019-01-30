@@ -28,20 +28,28 @@ trait NameIt {
   protected var invalidateName = false
   val value : String
   val invalidated : Boolean
-  val owner : String
 }
 object NameIt {
   private var lastFullName : String = ""
   private var lastNameIt : NameIt = _
-  implicit def ev(implicit name : sourcecode.Name, ownerName : sourcecode.OwnerName, fullName : sourcecode.FullName) : NameIt = new NameIt {
-    lazy val value: String = if (name.value.contains("$") || invalidateName) s"${Name.AnonStart}anon" else name.value
+  import singleton.ops._
+  type ForceNotVar[Sym] = DummyImplicit//RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], "Do not use `var` for DFiant values", Sym]
+  implicit def ev(implicit name : sourcecode.Name, ownerKind : sourcecode.OwnerKind, fullName : sourcecode.FullName)
+  : NameIt = new NameIt {
+    invalidateName = ownerKind.value match {
+      case sourcecode.OwnerKind.Lzy => false
+      case sourcecode.OwnerKind.Val => false
+      case sourcecode.OwnerKind.Var => false
+      case sourcecode.OwnerKind.Obj => false
+      case _ => true
+    }
+    lazy val value: String = if (invalidateName) s"${Name.AnonStart}anon" else name.value
     lazy val invalidated : Boolean = invalidateName
-    val owner: String = if (ownerName.value.contains("$") || ownerName.value.startsWith("<")) s"${Name.AnonStart}anon" else ownerName.value
     if (lastFullName == fullName.value)
       lastNameIt.invalidateName = true
     lastFullName = fullName.value
     lastNameIt = this
-//    println(s"${name.value}, ${ownerName.value}, $value")
+//    println(s"${name.value}, ${ownerKind.value}, $value")
   }
 }
 

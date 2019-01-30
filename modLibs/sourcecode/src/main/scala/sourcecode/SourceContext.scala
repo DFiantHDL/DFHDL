@@ -6,7 +6,7 @@ import language.experimental.macros
 object Util{
   def isSynthetic(c: Compat.Context)(s: c.Symbol) = isSyntheticName(getName(c)(s))
   def isSyntheticName(name: String) = {
-    name == "<init>" || (name.startsWith("<local ") && name.endsWith(">"))
+    name == "<init>" || (name.startsWith("<local ") && name.endsWith(">")) || name.contains("$")
   }
   def getName(c: Compat.Context)(s: c.Symbol) = s.name.decodedName.toString.trim
 }
@@ -24,7 +24,22 @@ object Name extends SourceCompanion[String, Name](new Name(_)){
   def impl(c: Compat.Context): c.Expr[Name] = {
     import c.universe._
     var owner = Compat.enclosingOwner(c)
-    while(Util.isSynthetic(c)(owner)) owner = owner.owner
+    while(Util.isSynthetic(c)(owner)) {
+//      println(c.enclosingPosition, owner.fullName, owner.owner.fullName)
+      owner = owner.owner
+    }
+    val kind = owner match {
+      case x if x.isPackage => q"sourcecode.OwnerKind.Pkg"
+      case x if x.isModuleClass => q"sourcecode.OwnerKind.Obj"
+      case x if x.isClass && x.asClass.isTrait => q"sourcecode.OwnerKind.Trt"
+      case x if x.isClass => q"sourcecode.OwnerKind.Cls"
+      case x if x.isTerm && x.asTerm.isVar => q"sourcecode.OwnerKind.Var"
+      case x if x.isTerm && x.asTerm.isLazy => q"sourcecode.OwnerKind.Lzy"
+      case x if x.isTerm && x.asTerm.isVal => q"sourcecode.OwnerKind.Val"
+      case x if x.isMethod => q"sourcecode.OwnerKind.Def"
+    }
+
+//    println(c.enclosingPosition, owner.fullName, kind.toString())
     val simpleName = Util.getName(c)(owner)
 
     c.Expr[sourcecode.Name](q"""${c.prefix}($simpleName)""")
@@ -63,27 +78,36 @@ object Name extends SourceCompanion[String, Name](new Name(_)){
   }
 }
 
-case class OwnerName(value: String) extends SourceValue[String]
-object OwnerName extends SourceCompanion[String, OwnerName](new OwnerName(_)){
-  implicit def generate: OwnerName = macro impl
+sealed trait Kind
+case class OwnerKind(value: Kind) extends SourceValue[Kind]
+object OwnerKind extends SourceCompanion[Kind, OwnerKind](new OwnerKind(_)){
+  case object Pkg extends Kind
+  case object Obj extends Kind
+  case object Cls extends Kind
+  case object Trt extends Kind
+  case object Val extends Kind
+  case object Var extends Kind
+  case object Lzy extends Kind
+  case object Def extends Kind
 
-  def impl(c: Compat.Context): c.Expr[OwnerName] = {
+  implicit def generate: OwnerKind = macro impl
+
+  def impl(c: Compat.Context): c.Expr[OwnerKind] = {
     import c.universe._
     var owner = Compat.enclosingOwner(c)
     while(Util.isSynthetic(c)(owner)) owner = owner.owner
-    val simpleName = Util.getName(c)(owner.owner)
-
-    c.Expr[sourcecode.OwnerName](q"""${c.prefix}($simpleName)""")
-  }
-  case class Machine(value: String) extends SourceValue[String]
-  object Machine extends SourceCompanion[String, Machine](new Machine(_)){
-    implicit def generate: Machine = macro impl
-    def impl(c: Compat.Context): c.Expr[Machine] = {
-      import c.universe._
-      val owner = Compat.enclosingOwner(c)
-      val simpleName = Util.getName(c)(owner.owner)
-      c.Expr[Machine](q"""${c.prefix}($simpleName)""")
+    val kind = owner match {
+      case x if x.isPackage => q"sourcecode.OwnerKind.Pkg"
+      case x if x.isModuleClass => q"sourcecode.OwnerKind.Obj"
+      case x if x.isClass && x.asClass.isTrait => q"sourcecode.OwnerKind.Trt"
+      case x if x.isClass => q"sourcecode.OwnerKind.Cls"
+      case x if x.isMethod => q"sourcecode.OwnerKind.Def"
+      case x if x.isTerm && x.asTerm.isVar => q"sourcecode.OwnerKind.Var"
+      case x if x.isTerm && x.asTerm.isLazy => q"sourcecode.OwnerKind.Lzy"
+      case x if x.isTerm && x.asTerm.isVal => q"sourcecode.OwnerKind.Val"
     }
+
+    c.Expr[sourcecode.OwnerKind](q"""${c.prefix}($kind)""")
   }
 }
 case class FullName(value: String) extends SourceValue[String]
@@ -181,19 +205,6 @@ object Args extends SourceCompanion[Seq[Seq[Text[_]]], Args](new Args(_)) {
     c.Expr[Args](q"""Seq(..$textSeqs)""")
   }
 }
-//
-//trait CheckFor
-//protected trait CheckCompanion[CF] {
-//  implicit def generate : CF = macro impl
-//  def impl(c: Compat.Context)(implicit cf : c.WeakTypeTag[CF]): c.Expr[CF] = ???
-//  def check(c: Compat.Context)(checkFunc : c.universe.Symbol => Boolean, errMsg : String): c.Expr[CF] = {
-//    import c.universe._
-//    val owner = Compat.enclosingOwner(c)
-//    val sym = symbolOf[CF]
-//    if (owner.isTerm && checkFunc(owner.asTerm)) c.Expr[CF](q"""new $sym""")
-//    else c.abort(c.enclosingPosition, "This term is not a var.")
-//  }
-//}
 class IsVar()
 object IsVar {
   implicit def generate : IsVar = macro impl
@@ -210,30 +221,6 @@ object IsVar {
     }
     if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""new sourcecode.IsVar""")
     else c.abort(c.enclosingPosition, "This is not a var.")
-  }
-}
-class IsVal()
-object IsVal {
-  implicit def generate : IsVal = macro impl
-  def impl(c: Compat.Context): c.Expr[IsVal] = {
-    import c.universe._
-    var owner = Compat.enclosingOwner(c)
-    while(Util.isSynthetic(c)(owner)) owner = owner.owner
-    if (owner.name.toString.contains("$")) owner = owner.owner
-    if (owner.isTerm && (owner.asTerm.isVal || owner.asTerm.isLazy )) c.Expr[IsVal](q"""new sourcecode.IsVal""")
-    else c.abort(c.enclosingPosition, "This is not a val.")
-  }
-}
-class IsObj()
-object IsObj {
-  implicit def generate : IsObj = macro impl
-  def impl(c: Compat.Context): c.Expr[IsObj] = {
-    import c.universe._
-    var owner = Compat.enclosingOwner(c)
-    while(Util.isSynthetic(c)(owner)) owner = owner.owner
-    if (owner.name.toString.contains("$")) owner = owner.owner
-    if (owner.asTerm.isModuleClass) c.Expr[IsObj](q"""new sourcecode.IsObj""")
-    else c.abort(c.enclosingPosition, "This is not an object.")
   }
 }
 object Impls{
