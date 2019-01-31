@@ -34,7 +34,7 @@ object NameIt {
   private var lastFullName : String = ""
   private var lastNameIt : NameIt = _
   import singleton.ops._
-  type ForceNotVar[Sym] = DummyImplicit//RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], "Do not use `var` for DFiant values", Sym]
+  type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], "Do not use `var` for DFiant values", Sym]
   implicit def ev(implicit name : sourcecode.Name, ownerKind : sourcecode.OwnerKind, fullName : sourcecode.FullName)
   : NameIt = new NameIt {
     invalidateName = ownerKind.value match {

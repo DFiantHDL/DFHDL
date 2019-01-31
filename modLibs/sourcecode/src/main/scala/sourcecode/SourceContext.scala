@@ -211,14 +211,7 @@ object IsVar {
   def impl(c: Compat.Context): c.Expr[IsVar] = {
     import c.universe._
     var owner = Compat.enclosingOwner(c)
-    while(Util.isSynthetic(c)(owner)) {
-      println(owner.fullName)
-      owner = owner.owner
-    }
-    println(owner.fullName)
-    if (owner.name.toString.contains("$")) {
-      owner = owner.owner
-    }
+    while(Util.isSynthetic(c)(owner)) owner = owner.owner
     if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""new sourcecode.IsVar""")
     else c.abort(c.enclosingPosition, "This is not a var.")
   }

@@ -65,7 +65,7 @@ object DFDesign {
       evBasicLib : DFBasicLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
-//      forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
+      forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
       val basicLib: DFBasicLib = evBasicLib

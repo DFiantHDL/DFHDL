@@ -98,7 +98,7 @@ object DFAnyOwner {
       evOwner : Owner,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
-//      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Some(evOwner)
       implicit val config : DFAnyConfiguration = evConfig
@@ -116,7 +116,7 @@ object DFAnyOwner {
       evBasicLib : DFBasicLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
-//      forceNotVar : NameIt.ForceNotVar[ContextWithLibOf[_,_]]
+      forceNotVar : NameIt.ForceNotVar[ContextWithLibOf[_,_]]
     ) : ContextWithLibOf[T, Owner] = new ContextWithLibOf[T, Owner] {
       val ownerOption : Option[Owner] = Some(evOwner)
       implicit val basicLib : DFBasicLib = evBasicLib
