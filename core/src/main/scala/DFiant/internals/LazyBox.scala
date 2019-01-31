@@ -2,7 +2,7 @@ package DFiant.internals
 import LazyBox.ValueOrError
 import scala.collection.mutable
 
-abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Option[T] = None)(implicit n : NameIt) {
+abstract class LazyBox[+T] private (args : List[LazyBox[_]], fallBackValue : Option[T] = None)(implicit n : sourcecode.Name) {
   import LazyBox.ValueOrError._
   import LazyBox.CustomException
   def valueFunc : ValueOrError[T]
@@ -94,7 +94,7 @@ object LazyBox {
   }
 
   //cdFallBack - in case of circular dependency, fallback to the initialization value
-  case class Mutable[T](owner : DSLMemberConstruct)(initialization : => T)(implicit n : NameIt) extends LazyBox[T](List(), Some(initialization)){
+  case class Mutable[T](owner : DSLMemberConstruct)(initialization : => T)(implicit n : sourcecode.Name) extends LazyBox[T](List(), Some(initialization)){
     import LazyBox.ValueOrError._
     private var lbox : LazyBox[T] = LazyBox.Const(owner)(initialization)
     def getBox : LazyBox[T] = lbox
@@ -111,25 +111,25 @@ object LazyBox {
     }
     def set(value : => T) : Unit = set(Const(owner)(value))
   }
-  case class Const[+T](owner : DSLMemberConstruct)(value : => T)(implicit n : NameIt) extends LazyBox[T](List()){
+  case class Const[+T](owner : DSLMemberConstruct)(value : => T)(implicit n : sourcecode.Name) extends LazyBox[T](List()){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = Value(value)
   }
-  case class Args1[+T, +A](owner : DSLMemberConstruct)(func : A => T, arg : LazyBox[A], fallBackValue : Option[T] = None)(implicit n : NameIt) extends LazyBox[T](List(arg), fallBackValue){
+  case class Args1[+T, +A](owner : DSLMemberConstruct)(func : A => T, arg : LazyBox[A], fallBackValue : Option[T] = None)(implicit n : sourcecode.Name) extends LazyBox[T](List(arg), fallBackValue){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = arg.getValueOrError match {
       case Error(p, m) => Error(this :: p, m)
       case Value(a) => Value(func(a))
     }
   }
-  case class Args1C[+T, +A, C](owner : DSLMemberConstruct)(func : (A, C) => T, arg : LazyBox[A], const : => C)(implicit n : NameIt) extends LazyBox[T](List(arg)){
+  case class Args1C[+T, +A, C](owner : DSLMemberConstruct)(func : (A, C) => T, arg : LazyBox[A], const : => C)(implicit n : sourcecode.Name) extends LazyBox[T](List(arg)){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = arg.getValueOrError match {
       case Error(p, m) => Error(this :: p, m)
       case Value(a) => Value(func(a, const))
     }
   }
-  case class Args2[+T, +L, +R](owner : DSLMemberConstruct)(func : (L, R) => T, leftArg : LazyBox[L], rightArg : LazyBox[R])(implicit n : NameIt) extends LazyBox[T](List(leftArg, rightArg)){
+  case class Args2[+T, +L, +R](owner : DSLMemberConstruct)(func : (L, R) => T, leftArg : LazyBox[L], rightArg : LazyBox[R])(implicit n : sourcecode.Name) extends LazyBox[T](List(leftArg, rightArg)){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = (leftArg.getValueOrError, rightArg.getValueOrError) match {
       case (Error(p, m), _) => Error(this :: p, m)
@@ -137,7 +137,7 @@ object LazyBox {
       case (Value(l), Value(r)) => Value(func(l, r))
     }
   }
-  case class Args3[+T, +A1, +A2, +A3](owner : DSLMemberConstruct)(func : (A1, A2, A3) => T, arg1 : LazyBox[A1], arg2 : LazyBox[A2], arg3 : LazyBox[A3])(implicit n : NameIt) extends LazyBox[T](List(arg1, arg2, arg3)){
+  case class Args3[+T, +A1, +A2, +A3](owner : DSLMemberConstruct)(func : (A1, A2, A3) => T, arg1 : LazyBox[A1], arg2 : LazyBox[A2], arg3 : LazyBox[A3])(implicit n : sourcecode.Name) extends LazyBox[T](List(arg1, arg2, arg3)){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = (arg1.getValueOrError, arg2.getValueOrError, arg3.getValueOrError) match {
       case (Error(p, m), _, _) => Error(this :: p, m)
@@ -146,7 +146,7 @@ object LazyBox {
       case (Value(a1), Value(a2), Value(a3)) => Value(func(a1, a2, a3))
     }
   }
-  case class Args1List[+T, +A, +L](owner : DSLMemberConstruct)(func : (A, List[L]) => T, arg : LazyBox[A], argList : List[LazyBox[L]])(implicit n : NameIt) extends LazyBox[T](arg :: argList){
+  case class Args1List[+T, +A, +L](owner : DSLMemberConstruct)(func : (A, List[L]) => T, arg : LazyBox[A], argList : List[LazyBox[L]])(implicit n : sourcecode.Name) extends LazyBox[T](arg :: argList){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = arg.getValueOrError match {
       case Error(p, m) => Error(this :: p, m)
@@ -155,7 +155,7 @@ object LazyBox {
         xs collectFirst {case x : Error => x} getOrElse Value(func(argVal, xs.collect {case Value(x) => x}))
     }
   }
-  case class ArgList[+T, +L](owner : DSLMemberConstruct)(func : List[L] => T, argList : List[LazyBox[L]])(implicit n : NameIt) extends LazyBox[T](argList){
+  case class ArgList[+T, +L](owner : DSLMemberConstruct)(func : List[L] => T, argList : List[LazyBox[L]])(implicit n : sourcecode.Name) extends LazyBox[T](argList){
     import LazyBox.ValueOrError._
     final def valueFunc : ValueOrError[T] = {
       val xs = argList.map(a => a.getValueOrError)

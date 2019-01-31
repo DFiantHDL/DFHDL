@@ -47,10 +47,8 @@ object NameIt {
     val lastNameIt : NameIt = NameIt.lastNameIt
     val lastFullName : String = NameIt.lastFullName
     lazy val value: String = {
-      if (lastFullName == fullName.value) {
+      if (lastFullName == fullName.value)
         lastNameIt.invalidateName = true
-        println(s"invalidating $lastFullName")
-      }
 
       if (invalidateName) s"${Name.AnonStart}anon" else name.value
     }

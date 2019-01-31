@@ -101,10 +101,10 @@ object OwnerKind extends SourceCompanion[Kind, OwnerKind](new OwnerKind(_)){
       case x if x.isModuleClass => q"sourcecode.OwnerKind.Obj"
       case x if x.isClass && x.asClass.isTrait => q"sourcecode.OwnerKind.Trt"
       case x if x.isClass => q"sourcecode.OwnerKind.Cls"
-      case x if x.isMethod => q"sourcecode.OwnerKind.Def"
       case x if x.isTerm && x.asTerm.isVar => q"sourcecode.OwnerKind.Var"
       case x if x.isTerm && x.asTerm.isLazy => q"sourcecode.OwnerKind.Lzy"
       case x if x.isTerm && x.asTerm.isVal => q"sourcecode.OwnerKind.Val"
+      case x if x.isMethod => q"sourcecode.OwnerKind.Def"
     }
 
     c.Expr[sourcecode.OwnerKind](q"""${c.prefix}($kind)""")
