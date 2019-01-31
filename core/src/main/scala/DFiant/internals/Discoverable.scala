@@ -8,7 +8,6 @@ trait Discoverable {
   final protected def discover : Unit = {
     if (!discovered) {
       discovered = true
-//      println(s"discovered ${this.asInstanceOf[DSLMemberConstruct].fullName}")
       val dependencies = discoveryDepenencies
       dependencies.foreach(d => d.discover)
       postDiscoveryRun

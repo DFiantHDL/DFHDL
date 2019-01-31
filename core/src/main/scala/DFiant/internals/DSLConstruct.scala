@@ -46,6 +46,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     //In the example we both Box and OtherBox will potentially get the name `result`,
     //but don't want to invalidate the result name for `Box` if it's in use.
     name
+//    println(s"discovered $fullName")
   }
 
   def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
