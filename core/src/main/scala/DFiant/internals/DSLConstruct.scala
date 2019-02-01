@@ -17,7 +17,13 @@ trait HasOwner {
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
-  with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
+  with Nameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
+  trait DSLMemberFields extends TypeNameable {
+
+  }
+  val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
+  import __dslMemberFields._
+
   val ownerOption : Option[DSLOwnerConstruct]
   type ThisOwner <: DSLOwnerConstruct
   private def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")

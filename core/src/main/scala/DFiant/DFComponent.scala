@@ -4,7 +4,13 @@ import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
-  extends DFDesign with DSLFoldableOwnerConstruct {
+  extends DFDesign with DSLFoldableOwnerConstruct { self =>
+
+  trait DSLMemberFields extends super.DSLMemberFields {
+    override lazy val typeName: String = self.getClass.getSimpleName
+  }
+  override val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
+
   def foldedConstructCodeString : String = {
     ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
   }
@@ -27,7 +33,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     def isOpen : Boolean = !dfVal.isConnected
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-  override lazy val typeName: String = getClass.getSimpleName
 
   override def postDiscoveryRun : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
     out.injectDependencies(inList)

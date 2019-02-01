@@ -5,6 +5,7 @@ import DFiant.compiler.Backend
 import DFiant.internals._
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
+  import __dslMemberFields._
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
   //The block by value object is created within the context of the current DFDesign,
   //so we mutate `theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs

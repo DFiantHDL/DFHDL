@@ -734,6 +734,7 @@ object DFAny {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
+    import __dslMemberFields._
     final val ctx = ctx0
 
     override private[DFiant] def inletSourceLB : LazyBox[Source] =

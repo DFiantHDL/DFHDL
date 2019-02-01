@@ -4,7 +4,22 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-trait DFInterface extends DFAnyOwner {
+trait DFInterface extends DFAnyOwner { self =>
+  trait DSLMemberFields extends super.DSLMemberFields {
+    override lazy val typeName: String = {
+      val cls = self.getClass
+      val ifc = cls.getInterfaces
+      if (ifc.isEmpty) { //No interfaces. This is a class
+        if (cls.getSimpleName.contains("anon$")) cls.getSuperclass.getSimpleName //For anonymous classes we get the name of the superclass
+        else cls.getSimpleName //get the name of the class
+      } else {
+        if (cls.getSimpleName.contains("anon$")) ifc.head.getSimpleName //get the name of the head interface
+        else cls.getSimpleName
+      }
+    }
+  }
+  override val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
+  import __dslMemberFields._
   override implicit def theOwnerToBe : DFInterface = this
 
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
@@ -16,17 +31,6 @@ trait DFInterface extends DFAnyOwner {
   final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
     ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
-  override lazy val typeName: String = {
-    val cls = getClass
-    val ifc = cls.getInterfaces
-    if (ifc.isEmpty) { //No interfaces. This is a class
-      if (cls.getSimpleName.contains("anon$")) cls.getSuperclass.getSimpleName //For anonymous classes we get the name of the superclass
-      else cls.getSimpleName //get the name of the class
-    } else {
-      if (cls.getSimpleName.contains("anon$")) ifc.head.getSimpleName //get the name of the head interface
-      else cls.getSimpleName
-    }
-  }
 
   override def toString: String = s"$name : $typeName"
 }

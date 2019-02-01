@@ -169,7 +169,7 @@ object DFBits extends DFAny.Companion {
 
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <> Dir = new Port(new NewVar[Width](width), dir)
-    override lazy val typeName : String = s"DFBits[$width]"
+    __dslMemberFields.setAutoTypeName(s"DFBits[$width]")
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

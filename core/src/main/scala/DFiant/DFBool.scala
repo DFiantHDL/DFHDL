@@ -46,7 +46,7 @@ object DFBool extends DFAny.Companion {
     final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
-    final override lazy val typeName : String = s"DFBool"
+    __dslMemberFields.setAutoTypeName(s"DFBool")
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
