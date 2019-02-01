@@ -102,8 +102,14 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = this
   val config : DSLConfiguration
   private var idCnt : Int = 0
+  final lazy val isTop : Boolean = ownerOption.isEmpty
 
-  private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+  final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
+    if (this.nonTransparent eq member.nonTransparentOwner) true
+    else if (this.nonTransparentOwnerOption.isEmpty) false
+    else false
+
+  final private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   final lazy val memberList : List[DSLMemberConstruct] = {
     mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
     mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners

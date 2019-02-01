@@ -13,12 +13,6 @@ trait DFAnyMember extends DSLMemberConstruct {
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   override implicit def theOwnerToBe : DFAnyOwner = this
-  lazy val isTop : Boolean = ownerOption.isEmpty
-
-  private[DFiant] def callSiteSameAsOwnerOf(dfVal : DFAny) : Boolean =
-    if (this.nonTransparent eq dfVal.nonTransparentOwner) true
-    else if (this.nonTransparentOwnerOption.isEmpty) false
-    else false
 
   private[DFiant] def bodyCodeString : String = {
     val delim = "  "
