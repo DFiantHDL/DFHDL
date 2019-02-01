@@ -104,9 +104,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   private var idCnt : Int = 0
 
   private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
-  private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {
-    temp = true
     mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
     mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners
 //    println(s"memberList $fullName")
