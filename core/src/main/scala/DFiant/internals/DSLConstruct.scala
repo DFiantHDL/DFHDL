@@ -62,7 +62,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
 
-  protected def discoveryDepenencies : List[Discoverable] = ownerOption.toList
+  override protected def discoveryDepenencies : List[Discoverable] = ownerOption.toList
   final protected def getID : Int = ownerOption.map(o => o.newItemGetID(this)).getOrElse(0)
   val id : Int
 

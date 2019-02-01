@@ -3,7 +3,7 @@ package DFiant.internals
 trait Discoverable {
   private var discovered : Boolean = false
   final protected[DFiant] def isNotDiscovered : Boolean = !discovered
-  protected def discoveryDepenencies : List[Discoverable]
+  protected def discoveryDepenencies : List[Discoverable] = List()
   protected def preDiscoveryRun : Unit = {}
   protected def postDiscoveryRun : Unit = {}
   final protected def discover : Unit = {
