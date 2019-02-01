@@ -11,17 +11,17 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
   private val rd_data   = DFBits[XLEN]   <> IN
   private val rd_wren   = DFBool()       <> IN
 
-  private val regs = regsNum.map(ri => (ri, DFBits[XLEN].init(b0s).setName(s"x$ri")))
-
-  regs.foreachdf(rs1_addr) {case (ri, r) => rs1_data := r}
-  regs.foreachdf(rs2_addr) {case (ri, r) => rs2_data := r}
+  private val regs = List.tabulate(32)(ri => DFBits[XLEN].init(b0s).setName(s"x$ri"))
+  private val regsWithIndex = regs.zipWithIndex
+  regsWithIndex.foreachdf(rs1_addr) {case (r, ri) => rs1_data := r}
+  regsWithIndex.foreachdf(rs2_addr) {case (r, ri) => rs2_data := r}
 
 //  sim.report(msg"RFile~~>rs1_addr: $rs1_addr, rs1_data: $rs1_data, rs2_addr: $rs2_addr, rs2_data: $rs2_data, rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
 //  sim.report(msg"rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
 
-  regs.foreachdf(rd_addr) {
-    case (0, r) => //No write for X0
-    case (ri, r) =>
+  regsWithIndex.foreachdf(rd_addr) {
+    case (r, 0) => //No write for X0
+    case (r, ri) =>
       ifdf (rd_wren) {
         r := rd_data
       }

@@ -97,20 +97,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
   val config : DSLConfiguration
   private var idCnt : Int = 0
 
-  private def headInterfaces(c : Class[_]) : List[Class[_]] =
-    c.getInterfaces.headOption match {
-      case Some(i) => i :: headInterfaces(i)
-      case None =>
-        val s = c.getSuperclass
-        if (s == null) List() else s :: headInterfaces(s)
-    }
-  lazy val headInterfaceNames : List[String] = headInterfaces(getClass).map(i => i.getSimpleName)
-
-  private var nameInvalidator : String = ""
-  //Place a false names invalidator at the start of a new scope.
-  //This is currently a workaround for sourcecode's library issue that gets an owner name
-  final private[DFiant] def setFalseNamesInvalidator()(implicit n : NameIt) : Unit = nameInvalidator = n.value
-  final private[DFiant] def setFalseNamesInvalidator(value : String) : Unit = nameInvalidator = value
   private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
   private var temp : Boolean = false
   final lazy val memberList : List[DSLMemberConstruct] = {

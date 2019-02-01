@@ -83,7 +83,6 @@ package object DFiant extends {
 //    }
     def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : ConditionalBlock.Context) : Unit = {
       val blockOwner = ctx.owner
-      blockOwner.setFalseNamesInvalidator
       val blockMatchDF = blockOwner match {
         case o : DFBlock with ConditionalBlock => o.owner.asInstanceOf[DFBlock].matchdf
         case _ => blockOwner.matchdf
@@ -93,7 +92,6 @@ package object DFiant extends {
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : ConditionalBlock.Context) : Unit = {
       val blockOwner = ctx.owner
-      blockOwner.setFalseNamesInvalidator
       val blockMatchDF = blockOwner match {
         case o : DFBlock with ConditionalBlock => o.owner.asInstanceOf[DFBlock].matchdf
         case _ => blockOwner.matchdf
@@ -107,7 +105,6 @@ package object DFiant extends {
     def matchdf[WM, WR](matchValue : DFBits[WM], resultVar : DFBits[WR] with DFAny.Var)(implicit ctx : ConditionalBlock.Context) : Unit = {
       val thisMatchDF = ctx.owner.matchdf
       import ctx.owner._
-      setFalseNamesInvalidator
 
       if (list.nonEmpty) {
         val matcherFirstCase = thisMatchDF(matchValue).casedf(list.head._1)({resultVar := list.head._2})
