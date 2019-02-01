@@ -39,7 +39,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     })
     this
   }
-  override protected def postDiscoveryRun : Unit = {
+  override protected def preDiscoveryRun : Unit = {
     //Touching the name lazy val to set the final names bottom up.
     //It is important to do so to invalidate name duplicate of anonymous values.
     //For example: val result = if (someConst) new Box else new OtherBox
@@ -119,7 +119,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
     nameTable.get(suggestedName) match {
       case Some(v) =>
         nameTable.update(suggestedName, v + 1)
-        suggestedName + Name.Separator + v
+        s"${Name.AnonStart}${suggestedName}_$v"
       case _ =>
         nameTable.update(suggestedName, 1)
         suggestedName

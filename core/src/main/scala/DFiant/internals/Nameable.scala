@@ -26,35 +26,23 @@ trait TypeNameable {
 
 
 trait NameIt {
-  protected var invalidateName = false
   val value : String
-  val invalidated : Boolean
 }
 object NameIt {
-  private var lastFullName : String = ""
-  private var lastNameIt : NameIt = _
   import singleton.ops._
   type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], "Do not use `var` for DFiant values", Sym]
   implicit def ev(implicit name : sourcecode.Name, ownerKind : sourcecode.OwnerKind, fullName : sourcecode.FullName)
   : NameIt = new NameIt {
-    invalidateName = ownerKind.value match {
+    private val anonymous = ownerKind.value match {
       case sourcecode.OwnerKind.Lzy => false
       case sourcecode.OwnerKind.Val => false
       case sourcecode.OwnerKind.Var => false
       case sourcecode.OwnerKind.Obj => false
       case _ => true
     }
-    val lastNameIt : NameIt = NameIt.lastNameIt
-    val lastFullName : String = NameIt.lastFullName
     lazy val value: String = {
-      if (lastFullName == fullName.value)
-        lastNameIt.invalidateName = true
-
-      if (invalidateName) s"${Name.AnonStart}anon" else name.value
+      if (anonymous) s"${Name.AnonStart}anon" else name.value
     }
-    lazy val invalidated : Boolean = invalidateName
-    NameIt.lastFullName = fullName.value
-    NameIt.lastNameIt = this
 //    println(s"${name.value}, ${ownerKind.value}, $value")
   }
 }

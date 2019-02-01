@@ -4,11 +4,13 @@ trait Discoverable {
   private var discovered : Boolean = false
   final protected[DFiant] def isNotDiscovered : Boolean = !discovered
   protected def discoveryDepenencies : List[Discoverable]
+  protected def preDiscoveryRun : Unit = {}
   protected def postDiscoveryRun : Unit = {}
   final protected def discover : Unit = {
     if (!discovered) {
       discovered = true
       val dependencies = discoveryDepenencies
+      preDiscoveryRun
       dependencies.foreach(d => d.discover)
       postDiscoveryRun
     }

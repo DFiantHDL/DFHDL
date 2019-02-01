@@ -5,7 +5,6 @@ import DFiant.internals._
 
 object GlobalDesignName extends NameIt {
   override val value: String = "GlobalDesign"
-  override val invalidated: Boolean = false
 }
 
 object GlobalContext extends DFDesign.Context {
