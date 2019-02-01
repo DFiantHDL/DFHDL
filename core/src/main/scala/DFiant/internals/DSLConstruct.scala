@@ -27,12 +27,12 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   val ownerOption : Option[DSLOwnerConstruct]
   type ThisOwner <: DSLOwnerConstruct
   private def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
-  lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
-  private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
-  private[DFiant] lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
-  private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
+  final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
+  final private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
+  final private[DFiant] lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
+  final private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
     nonTransparentOwnerOption == that.nonTransparentOwnerOption
-  private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
+  final private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
     (nonTransparentOwnerOption, that) match {
       case (None, _) => false
       case (Some(a), b) if a == b => true
@@ -55,10 +55,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 //    println(s"discovered $fullName")
   }
 
-  def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
+  final def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)
-  def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
+  final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
 
