@@ -33,6 +33,10 @@ object ConditionalBlock {
       private[DFiant] val firstIf : DFIfBlock = this
       private[DFiant] var nextIf : Option[DFIfBlock] = None
 
+      override protected def preDiscoveryRun : Unit = {
+        returnVar.name //return value should get the name first then internals of the conditional block
+        super.preDiscoveryRun
+      }
       private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
       final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}if"
@@ -197,6 +201,10 @@ object ConditionalBlock {
       ) : DFCasePatternBlock[MV] =
         new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern), retVld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
 
+      override protected def preDiscoveryRun : Unit = {
+        returnVar.name //return value should get the name first then internals of the conditional block
+        super.preDiscoveryRun
+      }
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}match"
       private[DFiant] val patternList : ListBuffer[TPattern] = ListBuffer.empty[TPattern]
       private[DFiant] def addCasePattern(pattern : TPattern) : Unit = {
