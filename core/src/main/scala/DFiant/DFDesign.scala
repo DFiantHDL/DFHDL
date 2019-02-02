@@ -33,6 +33,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     ret
   }
 
+  final lazy val isTop : Boolean = __dev.isTop
+
   private[DFiant] def designType : String = typeName
   private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, this)
 

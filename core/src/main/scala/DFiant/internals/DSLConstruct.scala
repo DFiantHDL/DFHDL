@@ -65,11 +65,11 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
-    final private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
-    final private[DFiant] lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
-    final private[DFiant] def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
+    final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
+    final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
+    final def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
       nonTransparentOwnerOption == that.nonTransparentOwnerOption
-    final private[DFiant] def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
+    final def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
       (nonTransparentOwnerOption, that) match {
         case (None, _) => false
         case (Some(a), b) if a == b => true
@@ -136,12 +136,13 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = self
+    final lazy val isTop : Boolean = ownerOption.isEmpty
+    lazy val nonTransparent : DSLOwnerConstruct = self
     final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final private[DFiant] val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+    final val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
     final lazy val memberList : List[DSLMemberConstruct] = {
       mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
       mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners
@@ -162,7 +163,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   val config : DSLConfiguration
-  final lazy val isTop : Boolean = ownerOption.isEmpty
 }
 object DSLOwnerConstruct {
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {
@@ -199,7 +199,7 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
+    override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
 
   }
   override lazy val __dev : __DevDSLTransparentOwner = new __DevDSLTransparentOwner {}
