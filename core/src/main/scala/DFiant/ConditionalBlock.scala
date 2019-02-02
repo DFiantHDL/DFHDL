@@ -7,7 +7,7 @@ protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct {
   trait __DevConditionalBlock extends super.__DevDSLTransparentOwner {
 
   }
-  override val __dev : __DevConditionalBlock = new __DevConditionalBlock {}
+  override lazy val __dev : __DevConditionalBlock = new __DevConditionalBlock {}
   import __dev._
   type ThisOwner <: DFBlock
 }
@@ -39,7 +39,7 @@ object ConditionalBlock {
         final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[R])
@@ -71,7 +71,7 @@ object ConditionalBlock {
       trait __Dev extends super.__Dev {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}elseif"
@@ -85,7 +85,7 @@ object ConditionalBlock {
       trait __Dev extends super.__Dev {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}else"
@@ -120,7 +120,7 @@ object ConditionalBlock {
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
         final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)
@@ -146,7 +146,7 @@ object ConditionalBlock {
       trait __Dev extends super.__Dev {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}elseif"
@@ -159,7 +159,7 @@ object ConditionalBlock {
       trait __Dev extends super.__Dev {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}else"
@@ -179,7 +179,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       type TPattern = matchVal.TPattern
@@ -217,7 +217,7 @@ object ConditionalBlock {
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
         final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       final val matchVal = matchHeader.matchVal
@@ -228,7 +228,7 @@ object ConditionalBlock {
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}case"
       override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
       private var nextCase : Option[DFCasePatternBlock[MV]] = None
-      final def isLastCase : Boolean = nextCase.isEmpty || nextCase.get.__dev.isNotDiscovered
+      final def isLastCase : Boolean = nextCase.isEmpty || nextCase.get.isNotDiscovered
       prevCase.foreach(pc => pc.nextCase = Some(this))
 
       private val originalOwner = mutableOwner.value
@@ -244,7 +244,7 @@ object ConditionalBlock {
       trait __Dev extends super.__Dev {
 
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}case_"
@@ -267,7 +267,7 @@ object ConditionalBlock {
         }
         override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       type TPattern = matchVal.TPattern
@@ -309,7 +309,7 @@ object ConditionalBlock {
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
         final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       final val matchVal = matchHeader.matchVal
@@ -343,7 +343,7 @@ object ConditionalBlock {
       trait __Dev extends super.__Dev {
 
       }
-      override val __dev : __Dev = new __Dev {}
+      override lazy val __dev : __Dev = new __Dev {}
       import __dev._
 
       override private[DFiant] def nameDefault: String = s"$ctx${Name.Separator}case_"

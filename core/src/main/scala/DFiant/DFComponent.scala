@@ -10,12 +10,12 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 
     override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
       out.__dev.injectDependencies(inList)
-      out.__dev.rediscoverDependencies()
+      out.rediscoverDependencies()
     }
 
     override lazy val typeName: String = self.getClass.getSimpleName
   }
-  override val __dev : __DevDFComponent = new __DevDFComponent {}
+  override lazy val __dev : __DevDFComponent = new __DevDFComponent {}
 
   def foldedConstructCodeString : String = {
     ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
@@ -24,7 +24,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
   final override private[DFiant] def unfoldedRun = {
     ctx.impl(this.asInstanceOf[Comp])
-    portsOut.foreach(p => p.__dev.rediscoverDependencies())
+    portsOut.foreach(p => p.rediscoverDependencies())
     isFolded = false
   }
 

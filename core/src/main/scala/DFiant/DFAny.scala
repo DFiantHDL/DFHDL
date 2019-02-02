@@ -37,7 +37,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   trait __DevDFAny extends super.__DevDFAnyMember {
 
   }
-  override val __dev : __DevDFAny = new __DevDFAny {}
+  override lazy val __dev : __DevDFAny = new __DevDFAny {}
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -247,7 +247,7 @@ object DFAny {
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
     }
-    override val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
+    override lazy val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
     import __dev._
 
     //////////////////////////////////////////////////////////////////////////
@@ -325,7 +325,7 @@ object DFAny {
     trait __DevConstructor extends super.__DevDFAny {
 
     }
-    override val __dev : __DevConstructor = new __DevConstructor {}
+    override lazy val __dev : __DevConstructor = new __DevConstructor {}
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -340,7 +340,7 @@ object DFAny {
     trait __Dev extends super.__DevConstructor with super.__DevDFAnyVar {
 
     }
-    override val __dev : __Dev = new __Dev {}
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
@@ -436,7 +436,7 @@ object DFAny {
     trait __Dev extends super.__Dev {
 
     }
-    override val __dev : __Dev = new __Dev {}
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     type TPostInit <: TVal
@@ -490,6 +490,7 @@ object DFAny {
   // Connections and Assignments
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
+    import __dev._
     final val ctx = ctx0
     override private[DFiant] def nameDefault = s"${Name.Separator}connect"
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
@@ -504,6 +505,7 @@ object DFAny {
   }
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
+    import __dev._
     final val ctx = ctx0
     override private[DFiant] def nameDefault = s"${Name.Separator}assign"
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
@@ -521,7 +523,7 @@ object DFAny {
     trait __Dev extends super.__Dev {
 
     }
-    override val __dev : __Dev = new __Dev {}
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     type TPostInit = TVar
@@ -554,7 +556,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ reference.aliasedVars
     }
-    override val __dev : __Dev = new __Dev {}
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     final val ctx = ctx0
@@ -749,7 +751,7 @@ object DFAny {
     trait __Dev extends super.__DevConstructor {
 
     }
-    override val __dev : __Dev = new __Dev {}
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     final val ctx = ctx0
@@ -785,7 +787,7 @@ object DFAny {
       private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
       final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
     }
-    override val __dev : __Dev = new __Dev {}
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
 

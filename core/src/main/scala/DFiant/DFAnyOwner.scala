@@ -6,7 +6,7 @@ trait DFAnyMember extends DSLMemberConstruct {
   trait __DevDFAnyMember extends super.__Dev {
 
   }
-  override val __dev : __DevDFAnyMember = new __DevDFAnyMember {}
+  override lazy val __dev : __DevDFAnyMember = new __DevDFAnyMember {}
   import __dev._
 
   type ThisOwner <: DFAnyOwner
@@ -21,7 +21,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   trait __DevDFAnyOwner extends super.__DevDFAnyMember with super.__DevDSLOwner {
 
   }
-  override val __dev : __DevDFAnyOwner = new __DevDFAnyOwner {}
+  override lazy val __dev : __DevDFAnyOwner = new __DevDFAnyOwner {}
   import __dev._
 
   override implicit def theOwnerToBe : DFAnyOwner = this

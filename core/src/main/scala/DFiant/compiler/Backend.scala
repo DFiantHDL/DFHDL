@@ -99,7 +99,7 @@ object Backend {
         case x : DFSInt[_] => signed(x.width)
         case x : DFBool => std_logic()
         case x : DFEnum[_] => enumeration(x.enum)
-        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.__dev.typeName}")
+        case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
       }
       def apply(value : Value) : Type = value.typeS
     }
@@ -186,7 +186,7 @@ object Backend {
           case x : DFSInt.Token => s"""${member.width}d"${x.value}""""
           case x : DFBool.Token => if (x.value) "'1'" else "'0'"
           case x : DFEnum.Token[_] => db.Package.declarations.enums.entries(x.value).name.toString
-          case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.__dev.typeName}")
+          case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
         }
         Value(value, Type(member))
       }
@@ -389,7 +389,7 @@ object Backend {
                 case m : DFSInt[_] => s"signed($cast)"
                 case m : DFBool => s"to_sl($cast)"
                 case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($cast)"
-                case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.__dev.typeName}")
+                case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
             case DFAny.Alias.Reference.Concat(aliasedVars) =>
               val concat : String = aliasedVars.map{
@@ -403,7 +403,7 @@ object Backend {
                 case m : DFSInt[_] => s"signed($concat)"
                 case m : DFBool => s"to_sl($concat)"
                 case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($concat)"
-                case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.__dev.typeName}")
+                case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
           }
           override lazy val value : String = if (showValueInsteadOfName) aliasStr else ref(refPipe)
@@ -418,7 +418,7 @@ object Backend {
 
         case class component(rtComponent: RTComponent) extends PortsHandler(rtComponent, 2) {
           rtComponent.ports.foreach(p => port(p))
-          override def toString: String = s"\n${delim}component ${rtComponent.__dev.typeName.toLowerCase}${ports}\n${delim}end component;"
+          override def toString: String = s"\n${delim}component ${rtComponent.typeName.toLowerCase}${ports}\n${delim}end component;"
 
           components.list += this
         }
@@ -481,7 +481,7 @@ object Backend {
             override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
-            lazy val list : List[connection] = member.ports.filterNot(p => p.__dev.isNotDiscovered).map(p => {
+            lazy val list : List[connection] = member.ports.filterNot(p => p.isNotDiscovered).map(p => {
               connection(p, architecture.declarations.signal(p))
             })
             private val clkConns : List[String] = member match {
@@ -695,7 +695,7 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    protected def pass(dsn : DFInterface) : Unit = dsn.__dev.discoveredList.foreach {
+    protected def pass(dsn : DFInterface) : Unit = dsn.discoveredList.foreach {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
         if (x.isAssigned) {
@@ -837,10 +837,10 @@ object Backend {
             .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r)
     }
 
-    val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.__dev.typeName.toLowerCase) else {
+    val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.typeName.toLowerCase) else {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
-      val topOrElseName = if (design.isTop) design.name else design.__dev.typeName
+      val topOrElseName = if (design.isTop) design.name else design.typeName
       Name(db.addOwnerBody(topOrElseName.toLowerCase, body, this))
     }
     val archName : Name = Name(s"${entityName}_arch")

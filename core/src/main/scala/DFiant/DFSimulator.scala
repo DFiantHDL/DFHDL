@@ -30,6 +30,7 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  import __dev._
   final val ctx = ctx0
   override private[DFiant] def nameDefault = s"${Name.Separator}assert"
   def codeString : String = cond match {
@@ -67,6 +68,7 @@ object Severity {
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  import __dev._
   final val ctx = ctx0
   override private[DFiant] def nameDefault = s"${Name.Separator}finish"
   def codeString : String =
@@ -82,7 +84,7 @@ trait DFSimulator extends DFDesign {
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
   override protected[DFiant] lazy val inSimulation : Boolean = true
   private def keepAll : Unit =
-    mutableMemberList.collect {
+    __dev.mutableMemberList.collect {
       case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
       case m => m.keep
     } //for simulations we keep all

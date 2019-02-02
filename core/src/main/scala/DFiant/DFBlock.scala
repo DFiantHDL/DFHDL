@@ -7,7 +7,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   trait __DevDFBlock extends super.__DevDFAnyOwner {
 
   }
-  override val __dev : __DevDFBlock = new __DevDFBlock {}
+  override lazy val __dev : __DevDFBlock = new __DevDFBlock {}
   import __dev._
 
   val ctx = ctx0

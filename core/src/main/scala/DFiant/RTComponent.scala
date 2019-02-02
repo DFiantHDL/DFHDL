@@ -11,7 +11,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn
   }
-  override val __dev : __Dev = new __Dev {}
+  override lazy val __dev : __Dev = new __Dev {}
   import __dev._
 
   val ctx = ctx0

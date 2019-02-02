@@ -12,7 +12,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     override protected def discoveryDepenencies : List[Discoverable] =
       if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
   }
-  override val __dev : __DevDFDesign = new __DevDFDesign {}
+  override lazy val __dev : __DevDFDesign = new __DevDFDesign {}
   import __dev._
 
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]

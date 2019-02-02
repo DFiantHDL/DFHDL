@@ -7,6 +7,9 @@ import singleton.twoface._
 import scala.math.{ceil, floor, log}
 
 package object internals {
+  final private[DFiant] implicit def __fetchDev(d : DSLMemberConstruct) : d.__dev.type = d.__dev
+  final private[DFiant] implicit def __fetchDev2(d : DSLOwnerConstruct) : d.__dev.type = d.__dev
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   // Conversions
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
