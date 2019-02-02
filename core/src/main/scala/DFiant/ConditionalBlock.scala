@@ -28,13 +28,16 @@ object ConditionalBlock {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Member discovery
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def preDiscoveryRun() : Unit = {
           returnVar.name //return value should get the name first then internals of the conditional block
           super.preDiscoveryRun()
         }
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
         final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
-
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
       override val __dev : __Dev = new __Dev {}
       import __dev._
@@ -111,6 +114,9 @@ object ConditionalBlock {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Member discovery
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
         final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
       }
@@ -168,6 +174,9 @@ object ConditionalBlock {
   class MatchNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       trait __Dev extends super.__Dev {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Member discovery
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
       }
       override val __dev : __Dev = new __Dev {}
@@ -200,6 +209,9 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Member discovery
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
@@ -246,6 +258,9 @@ object ConditionalBlock {
   class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(implicit ctx : Context, mutableOwner: MutableOwner) extends DSLMemberConstruct {
       trait __Dev extends super.__Dev {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Member discovery
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def preDiscoveryRun() : Unit = {
           returnVar.name //return value should get the name first then internals of the conditional block
           super.preDiscoveryRun()
@@ -286,6 +301,9 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Member discovery
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)

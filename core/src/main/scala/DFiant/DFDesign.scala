@@ -6,7 +6,9 @@ import DFiant.internals._
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   trait __DevDFDesign extends super.__DevDFBlock with super.__DevDFInterface {
-
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def discoveryDepenencies : List[Discoverable] =
       if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
   }

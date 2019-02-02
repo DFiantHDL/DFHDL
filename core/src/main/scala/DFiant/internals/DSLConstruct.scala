@@ -19,6 +19,9 @@ trait HasOwner {
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
   trait __Dev extends __DevTypeNameable with __DevDiscoverable {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def preDiscoveryRun() : Unit = {
       //Touching the name lazy val to set the final names bottom up.
       //It is important to do so to invalidate name duplicate of anonymous values.
@@ -98,6 +101,9 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
   trait __DevDSLOwner extends super.__Dev {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
     final lazy val discoveredList : List[DSLMemberConstruct] = {
       discover()

@@ -241,6 +241,9 @@ object DFAny {
     type TDir <: DFDir
 
     trait __DevDFAnyVar extends super.__DevDFAny {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Member discovery
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
     }
@@ -546,6 +549,9 @@ object DFAny {
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {
     trait __Dev extends super.__Dev {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Member discovery
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ reference.aliasedVars
     }
     override val __dev : __Dev = new __Dev {}
@@ -773,6 +779,9 @@ object DFAny {
     type TPostInit = TVal <> Dir
     type TDir = Dir
     trait __Dev extends super.__Dev {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Member discovery
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
       final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
     }

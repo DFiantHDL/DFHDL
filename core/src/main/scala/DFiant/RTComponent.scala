@@ -6,6 +6,9 @@ import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
   trait __Dev extends super.__DevDFInterface {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ portsIn
   }
   override val __dev : __Dev = new __Dev {}
