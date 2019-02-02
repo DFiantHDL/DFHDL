@@ -6,7 +6,7 @@ import internals._
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct { self =>
 
-  trait __DevDFComponent extends super.__DevDFDesign with super.__DevDSLFoldableOwner {
+  protected[DFiant] trait __DevDFComponent extends super.__DevDFDesign with super.__DevDSLFoldableOwner {
 
     override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
       out.__dev.injectDependencies(inList)

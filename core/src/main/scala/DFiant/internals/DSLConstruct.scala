@@ -14,10 +14,14 @@ trait DSLConfiguration {
 trait HasOwner {
   implicit val owner : DSLOwnerConstruct
 }
-
+//object DevAccess {
+//  implicit class DslMember[M <: DSLMemberConstruct](member : M) {
+//    final lazy val __dev = member.__dev
+//  }
+//}
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
-  trait __Dev extends __DevNameable with __DevTypeNameable with __DevDiscoverable {
+  protected[DFiant] trait __Dev extends __DevNameable with __DevTypeNameable with __DevDiscoverable {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +109,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
-  trait __DevDSLOwner extends super.__Dev {
+  protected[DFiant] trait __DevDSLOwner extends super.__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -195,7 +199,7 @@ object DSLOwnerConstruct {
 }
 
 trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
-  trait __DevDSLTransparentOwner extends super.__DevDSLOwner {
+  protected[DFiant] trait __DevDSLTransparentOwner extends super.__DevDSLOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -207,7 +211,7 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
-  trait __DevDSLFoldableOwner extends super.__DevDSLOwner {
+  protected[DFiant] trait __DevDSLFoldableOwner extends super.__DevDSLOwner {
 
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwner = new __DevDSLFoldableOwner {}

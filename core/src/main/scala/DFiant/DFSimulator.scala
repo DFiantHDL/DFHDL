@@ -30,7 +30,7 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-  trait __Dev extends super.__DevDFAnyMember {
+  protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ object Severity {
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-  trait __Dev extends super.__DevDFAnyMember {
+  protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

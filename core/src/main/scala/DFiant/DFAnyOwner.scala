@@ -3,7 +3,7 @@ import DFiant.BasicLib.DFBasicLib
 import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
-  trait __DevDFAnyMember extends super.__Dev {
+  protected[DFiant] trait __DevDFAnyMember extends super.__Dev {
 
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = new __DevDFAnyMember {}
@@ -18,7 +18,7 @@ trait DFAnyMember extends DSLMemberConstruct {
 }
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
-  trait __DevDFAnyOwner extends super.__DevDFAnyMember with super.__DevDSLOwner {
+  protected[DFiant] trait __DevDFAnyOwner extends super.__DevDFAnyMember with super.__DevDSLOwner {
 
   }
   override private[DFiant] lazy val __dev : __DevDFAnyOwner = new __DevDFAnyOwner {}

@@ -5,7 +5,7 @@ import DFiant.compiler.Backend
 import DFiant.internals._
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
-  trait __DevDFDesign extends super.__DevDFBlock with super.__DevDFInterface {
+  protected[DFiant] trait __DevDFDesign extends super.__DevDFBlock with super.__DevDFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

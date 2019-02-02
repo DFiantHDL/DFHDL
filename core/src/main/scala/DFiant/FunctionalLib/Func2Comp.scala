@@ -9,7 +9,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
 ) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {
 
-  trait __Dev extends super.__DevDFComponent with super.__DevDFAny {
+  protected[DFiant] trait __Dev extends super.__DevDFComponent with super.__DevDFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -4,7 +4,7 @@ import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
-  trait __DevDFBlock extends super.__DevDFAnyOwner {
+  protected[DFiant] trait __DevDFBlock extends super.__DevDFAnyOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
