@@ -98,6 +98,12 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
+  trait __DevDSLOwner extends super.__Dev {
+
+  }
+  override val __dev : __DevDSLOwner = new __DevDSLOwner {}
+  import __dev._
+
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = this
   val config : DSLConfiguration
@@ -174,6 +180,12 @@ object DSLOwnerConstruct {
 }
 
 trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
+  trait __DevDSLTransparentOwner extends super.__DevDSLOwner {
+
+  }
+  override val __dev : __DevDSLTransparentOwner = new __DevDSLTransparentOwner {}
+  import __dev._
+
 //  override private[DFiant] lazy val nonTransparentOwner : DSLOwnerConstruct =
 //    if (owner == null) null else owner.nonTransparentOwner
   override private[DFiant] lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
@@ -181,6 +193,12 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
+  trait __DevDSLFoldableOwner extends super.__DevDSLOwner {
+
+  }
+  override val __dev : __DevDSLFoldableOwner = new __DevDSLFoldableOwner {}
+  import __dev._
+
 //  private[DFiant] var foldRequest : Boolean = true
 //  val fold : this.type = {foldRequest = true; this}
 //  val unfold : this.type = {foldRequest = false; this}

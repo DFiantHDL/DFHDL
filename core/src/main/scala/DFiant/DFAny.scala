@@ -34,6 +34,12 @@ trait DFAny extends DFAnyMember with HasWidth {
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
+  trait __DevDFAny extends super.__DevDFAnyMember {
+
+  }
+  override val __dev : __DevDFAny = new __DevDFAny {}
+  import __dev._
+
   //////////////////////////////////////////////////////////////////////////
   // Single bit (Bool) selection
   //////////////////////////////////////////////////////////////////////////

@@ -3,6 +3,12 @@ import DFiant.BasicLib.DFBasicLib
 import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
+  trait __DevDFAnyMember extends super.__Dev {
+
+  }
+  override val __dev : __DevDFAnyMember = new __DevDFAnyMember {}
+  import __dev._
+
   type ThisOwner <: DFAnyOwner
   protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
   implicit def theOwnerToBe : DFAnyOwner = ownerOption.orNull
@@ -12,6 +18,12 @@ trait DFAnyMember extends DSLMemberConstruct {
 }
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
+  trait __DevDFAnyOwner extends super.__DevDFAnyMember with super.__DevDSLOwner {
+
+  }
+  override val __dev : __DevDFAnyOwner = new __DevDFAnyOwner {}
+  import __dev._
+
   override implicit def theOwnerToBe : DFAnyOwner = this
 
   private[DFiant] def bodyCodeString : String = {

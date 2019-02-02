@@ -8,6 +8,12 @@ abstract class Selector[SW, W]
 (val sel : DFUInt[SW])(val args: List[DFBits[W]]) (
   implicit ctx: DFComponent.Context[Selector[SW, W]], cmp: DFAny.Companion = DFBits
 ) extends DFComponent[Selector[SW, W]] with DSLSelfConnectedFoldableOwnerConstruct with DFBits[W] {
+  trait __Dev extends super.__DevDFComponent with super.__DevDFAny {
+
+  }
+  override val __dev : __Dev = new __Dev {}
+  import __dev._
+
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](args.map(a => a.width.getValue).max)
 
   final val inSel = new DFUInt.NewVar[SW](sel.width) <> IN

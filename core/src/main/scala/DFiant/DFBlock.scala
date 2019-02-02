@@ -4,6 +4,12 @@ import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
+  trait __DevDFBlock extends super.__DevDFAnyOwner {
+
+  }
+  override val __dev : __DevDFBlock = new __DevDFBlock {}
+  import __dev._
+
   val ctx = ctx0
   override type ThisOwner = DFBlock
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
