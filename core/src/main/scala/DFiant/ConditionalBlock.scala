@@ -41,7 +41,7 @@ object ConditionalBlock {
           super.preDiscoveryRun()
         }
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
-        final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
+        final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
       override lazy val __dev : __Dev = new __Dev {}
@@ -141,7 +141,7 @@ object ConditionalBlock {
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
-        final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
+        final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override lazy val __dev : __Dev = new __Dev {}
       import __dev._
@@ -218,7 +218,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
+        override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies :+ matchVal
       }
       override lazy val __dev : __Dev = new __Dev {}
       import __dev._
@@ -260,7 +260,7 @@ object ConditionalBlock {
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
-        final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
+        final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override lazy val __dev : __Dev = new __Dev {}
       import __dev._
@@ -316,7 +316,7 @@ object ConditionalBlock {
           returnVar.name //return value should get the name first then internals of the conditional block
           super.preDiscoveryRun()
         }
-        override protected def discoveryDepenencies = super.discoveryDepenencies :+ matchVal
+        override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies :+ matchVal
       }
       override lazy val __dev : __Dev = new __Dev {}
       import __dev._
@@ -347,6 +347,7 @@ object ConditionalBlock {
       val id : Int = getID
       matchVal.consume()
     }
+
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
@@ -362,7 +363,7 @@ object ConditionalBlock {
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
-        final override protected def discoveryDepenencies = super.discoveryDepenencies ++ ifDiscoveryDepenencies
+        final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override lazy val __dev : __Dev = new __Dev {}
       import __dev._

@@ -31,7 +31,7 @@
 //  inSel.connectVal2Port(sel)
 //  inArgs.zip(args).foreach{case (inArg, arg) => inArg.connectVal2Port(arg)}
 //
-//  override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult
+//  override def discoveryDependencies: List[Discoverable] = super.discoveryDependencies :+ outResult
 //  override protected def foldedRun: Unit = {
 //    outResult.setInitFunc.forced(initLB)
 //  }

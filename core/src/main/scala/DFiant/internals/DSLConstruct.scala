@@ -59,7 +59,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
       name
       //    println(s"discovered $fullName")
     }
-    override protected def discoveryDepenencies : List[Discoverable] = ownerOption.toList
+    override protected def discoveryDependencies : List[Discoverable] = ownerOption.toList
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
@@ -127,7 +127,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private[internals] val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
     final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
-    override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
+    override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepList
     final lazy val discoveredList : List[DSLMemberConstruct] = {
       discover()
       memberList.filterNot(o => o.isNotDiscovered)

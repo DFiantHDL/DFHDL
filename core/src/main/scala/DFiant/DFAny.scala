@@ -249,7 +249,7 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-      override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
+      override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
     }
     override lazy val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
     import __dev._
@@ -570,7 +570,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ reference.aliasedVars
+      final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ reference.aliasedVars
     }
     override lazy val __dev : __Dev = new __Dev {}
     import __dev._
@@ -801,7 +801,7 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
-      final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
+      final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
     }
     override lazy val __dev : __Dev = new __Dev {}
     import __dev._

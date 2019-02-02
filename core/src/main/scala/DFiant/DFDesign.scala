@@ -9,8 +9,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected def discoveryDepenencies : List[Discoverable] =
-      if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
+    override protected def discoveryDependencies : List[Discoverable] =
+      if (isTop) portsOut ++ super.discoveryDependencies else super.discoveryDependencies
   }
   override lazy val __dev : __DevDFDesign = new __DevDFDesign {}
   import __dev._
