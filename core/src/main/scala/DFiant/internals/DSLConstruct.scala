@@ -17,7 +17,36 @@ trait HasOwner {
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
-  trait __Dev extends __DevTypeNameable with __DevDiscoverable {
+  trait __Dev extends __DevNameable with __DevTypeNameable with __DevDiscoverable {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final private[internals] def getUniqueName(suggestedName : String) : String =
+      ownerOption.map(o => o.getUniqueMemberName(suggestedName)).getOrElse(suggestedName)
+    final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
+    final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
+
+    final private def relativePath(refFullPath : String, callFullPath : String) : String = {
+      val c = callFullPath.split('.')
+      val r = refFullPath.split('.')
+      if (r.length < c.length) {
+        val idx = r.zip(c).indexWhere(e => e._1 != e._2)
+        if (idx == -1) "" else r.takeRight(c.length-idx-1).mkString(".")
+      } else {
+        val idx = c.zip(r).indexWhere(e => e._1 != e._2)
+        if (idx == -1) r.takeRight(r.length-c.length).mkString(".") else r.takeRight(r.length-idx).mkString(".")
+      }
+    }
+
+    final private def relativePath(implicit callOwner : DSLOwnerConstruct) : String =
+      relativePath(fullPath, callOwner.fullName)
+
+    final private[DFiant] def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(name)(callOwner)
+    final private[DFiant] def relativeName(name : String)(implicit callOwner : DSLOwnerConstruct) : String = {
+      val path = relativePath(callOwner)
+      if (path == "") name else s"$path.$name"
+    }
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -70,32 +99,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
   val id : Int
 
-  final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
-  final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
-  final private[internals] def getUniqueName(suggestedName : String) : String =
-    ownerOption.map(o => o.getUniqueMemberName(suggestedName)).getOrElse(suggestedName)
-
-  final private def relativePath(refFullPath : String, callFullPath : String) : String = {
-    val c = callFullPath.split('.')
-    val r = refFullPath.split('.')
-    if (r.length < c.length) {
-      val idx = r.zip(c).indexWhere(e => e._1 != e._2)
-      if (idx == -1) "" else r.takeRight(c.length-idx-1).mkString(".")
-    } else {
-      val idx = c.zip(r).indexWhere(e => e._1 != e._2)
-      if (idx == -1) r.takeRight(r.length-c.length).mkString(".") else r.takeRight(r.length-idx).mkString(".")
-    }
-  }
-
-  final private def relativePath(implicit callOwner : DSLOwnerConstruct) : String =
-    relativePath(fullPath, callOwner.fullName)
-
-  final private[DFiant] def relativeName(implicit callOwner : DSLOwnerConstruct) : String = relativeName(name)(callOwner)
-  final private[DFiant] def relativeName(name : String)(implicit callOwner : DSLOwnerConstruct) : String = {
-    val path = relativePath(callOwner)
-    if (path == "") name else s"$path.$name"
-  }
-
   def codeString : String
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = relativeName
   override def toString: String = s"$fullName : $typeName"
@@ -104,8 +107,26 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   trait __DevDSLOwner extends super.__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
+    //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
+    private val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
+    final private[internals] def getUniqueMemberName(suggestedName : String) : String =
+      nameTable.get(suggestedName) match {
+        case Some(v) =>
+          nameTable.update(suggestedName, v + 1)
+          s"${Name.AnonStart}${suggestedName}_$v"
+        case _ =>
+          nameTable.update(suggestedName, 1)
+          suggestedName
+      }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[internals] val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+    final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
     override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
     final lazy val discoveredList : List[DSLMemberConstruct] = {
       discover()
@@ -142,22 +163,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   val config : DSLConfiguration
   final lazy val isTop : Boolean = ownerOption.isEmpty
-
-  //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
-  //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-  private val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
-  final private[internals] def getUniqueMemberName(suggestedName : String) : String =
-    nameTable.get(suggestedName) match {
-      case Some(v) =>
-        nameTable.update(suggestedName, v + 1)
-        s"${Name.AnonStart}${suggestedName}_$v"
-      case _ =>
-        nameTable.update(suggestedName, 1)
-        suggestedName
-    }
-
-  private[internals] val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
-  final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
 }
 object DSLOwnerConstruct {
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {

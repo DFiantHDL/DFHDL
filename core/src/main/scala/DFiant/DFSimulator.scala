@@ -30,9 +30,16 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  trait __Dev extends super.__DevDFAnyMember {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override protected def nameDefault = s"${Name.Separator}assert"
+  }
+  override lazy val __dev : __Dev = new __Dev {}
   import __dev._
+
   final val ctx = ctx0
-  override private[DFiant] def nameDefault = s"${Name.Separator}assert"
   def codeString : String = cond match {
     case Some(c) =>
       s"""
@@ -68,9 +75,15 @@ object Severity {
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  trait __Dev extends super.__DevDFAnyMember {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override protected def nameDefault = s"${Name.Separator}finish"
+  }
+  override lazy val __dev : __Dev = new __Dev {}
   import __dev._
   final val ctx = ctx0
-  override private[DFiant] def nameDefault = s"${Name.Separator}finish"
   def codeString : String =
       s"""
          |sim.finish()""".stripMargin

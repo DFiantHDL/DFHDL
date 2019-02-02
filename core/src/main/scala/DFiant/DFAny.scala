@@ -35,6 +35,11 @@ trait DFAny extends DFAnyMember with HasWidth {
   final protected[DFiant] val left = tVal
 
   trait __DevDFAny extends super.__DevDFAnyMember {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final override protected def nameDefault: String = ctx.getName
+
 
   }
   override lazy val __dev : __DevDFAny = new __DevDFAny {}
@@ -178,7 +183,6 @@ trait DFAny extends DFAnyMember with HasWidth {
   // Naming
   //////////////////////////////////////////////////////////////////////////
   final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
-  final override private[DFiant] def nameDefault: String = ctx.getName
   private var autoConstructCodeStringFunc : () => String = () => ""
   private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
   final private[DFiant] def setAutoConstructCodeString(cs : => String) : this.type = {autoConstructCodeStringFunc = () => cs; this}
@@ -490,9 +494,15 @@ object DFAny {
   // Connections and Assignments
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
+    trait __Dev extends super.__DevDFAnyMember {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Naming
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override protected def nameDefault = s"${Name.Separator}connect"
+    }
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
-    override private[DFiant] def nameDefault = s"${Name.Separator}connect"
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
     def codeString : String = toPort.owner match {
       case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
@@ -505,9 +515,15 @@ object DFAny {
   }
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
+    trait __Dev extends super.__DevDFAnyMember {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Naming
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override protected def nameDefault = s"${Name.Separator}assign"
+    }
+    override lazy val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
-    override private[DFiant] def nameDefault = s"${Name.Separator}assign"
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     final val id = getID
   }
