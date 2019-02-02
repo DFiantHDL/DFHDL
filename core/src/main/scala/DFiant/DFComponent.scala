@@ -6,10 +6,10 @@ import internals._
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct { self =>
 
-  trait DSLMemberFields extends super.DSLMemberFields {
+  trait __Dev extends super.__Dev {
     override lazy val typeName: String = self.getClass.getSimpleName
   }
-  override val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
+  override val __dev : __Dev = new __Dev {}
 
   def foldedConstructCodeString : String = {
     ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString

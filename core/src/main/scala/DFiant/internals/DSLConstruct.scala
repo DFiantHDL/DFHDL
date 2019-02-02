@@ -18,11 +18,11 @@ trait HasOwner {
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
-  trait DSLMemberFields extends TypeNameable {
+  trait __Dev extends TypeNameable {
 
   }
-  val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
-  import __dslMemberFields._
+  val __dev : __Dev = new __Dev {}
+  import __dev._
 
   val ownerOption : Option[DSLOwnerConstruct]
   type ThisOwner <: DSLOwnerConstruct

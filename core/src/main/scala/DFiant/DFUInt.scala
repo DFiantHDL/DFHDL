@@ -80,7 +80,7 @@ object DFUInt extends DFAny.Companion {
     final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
-    __dslMemberFields.setAutoTypeName(s"DFUInt[$width]")
+    __dev.setAutoTypeName(s"DFUInt[$width]")
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

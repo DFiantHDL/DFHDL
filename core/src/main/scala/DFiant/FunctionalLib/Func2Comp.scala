@@ -9,10 +9,10 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
 ) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {
 
-  trait DSLMemberFields extends super.DSLMemberFields {
+  trait __Dev extends super.__Dev {
     final override lazy val typeName: String = s"DFSInt[$width]"
   }
-  override val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
+  override val __dev : __Dev = new __Dev {}
 
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   protected val tokenFunc : (L#TToken, R#TToken) => TToken

@@ -5,7 +5,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFInterface extends DFAnyOwner { self =>
-  trait DSLMemberFields extends super.DSLMemberFields {
+  trait __Dev extends super.__Dev {
     override lazy val typeName: String = {
       val cls = self.getClass
       val ifc = cls.getInterfaces
@@ -18,8 +18,8 @@ trait DFInterface extends DFAnyOwner { self =>
       }
     }
   }
-  override val __dslMemberFields : DSLMemberFields = new DSLMemberFields {}
-  import __dslMemberFields._
+  override val __dev : __Dev = new __Dev {}
+  import __dev._
   override implicit def theOwnerToBe : DFInterface = this
 
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
