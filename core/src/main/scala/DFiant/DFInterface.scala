@@ -18,7 +18,7 @@ trait DFInterface extends DFAnyOwner { self =>
       }
     }
   }
-  override lazy val __dev : __DevDFInterface = new __DevDFInterface {}
+  override private[DFiant] lazy val __dev : __DevDFInterface = new __DevDFInterface {}
   import __dev._
   override implicit def theOwnerToBe : DFInterface = this
 

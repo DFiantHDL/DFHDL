@@ -83,7 +83,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
     final def getID : Int = ownerOption.map(o => o.newItemGetID(self)).getOrElse(0)
   }
-  override lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
   import __dev._
 
   val ownerOption : Option[DSLOwnerConstruct]
@@ -158,7 +158,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     }
 
   }
-  override lazy val __dev : __DevDSLOwner = new __DevDSLOwner {}
+  override private[DFiant] lazy val __dev : __DevDSLOwner = new __DevDSLOwner {}
   import __dev._
 
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
@@ -202,7 +202,7 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
     override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
 
   }
-  override lazy val __dev : __DevDSLTransparentOwner = new __DevDSLTransparentOwner {}
+  override private[DFiant] lazy val __dev : __DevDSLTransparentOwner = new __DevDSLTransparentOwner {}
   import __dev._
 }
 
@@ -210,7 +210,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   trait __DevDSLFoldableOwner extends super.__DevDSLOwner {
 
   }
-  override lazy val __dev : __DevDSLFoldableOwner = new __DevDSLFoldableOwner {}
+  override private[DFiant] lazy val __dev : __DevDSLFoldableOwner = new __DevDSLFoldableOwner {}
   import __dev._
 
 //  private[DFiant] var foldRequest : Boolean = true

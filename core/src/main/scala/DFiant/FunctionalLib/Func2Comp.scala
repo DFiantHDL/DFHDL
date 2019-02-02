@@ -15,7 +15,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def discoveryDependencies: List[Discoverable] = super.discoveryDependencies :+ outResult :+ leftArg :+ rightArg
   }
-  override lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
   import __dev._
 
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)

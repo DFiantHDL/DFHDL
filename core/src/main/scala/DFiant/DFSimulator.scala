@@ -36,7 +36,7 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault = s"${Name.Separator}assert"
   }
-  override lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
   import __dev._
 
   final val ctx = ctx0
@@ -81,7 +81,7 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault = s"${Name.Separator}finish"
   }
-  override lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
   import __dev._
   final val ctx = ctx0
   def codeString : String =

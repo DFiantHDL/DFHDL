@@ -14,6 +14,7 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
       val stalledInstRaw = DFBits[32].selectdf(stall)(NOPInst, imem.inst.instRaw)
       imem.inst.copy(instRaw = stalledInstRaw)
   }
+
   private val decoder = new Decoder(imemInst)
   private val regFile = new RegFile(decoder.inst)
   private val execute = new Execute(regFile.inst)

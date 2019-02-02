@@ -42,7 +42,7 @@ trait DFAny extends DFAnyMember with HasWidth {
 
 
   }
-  override lazy val __dev : __DevDFAny = new __DevDFAny {}
+  override private[DFiant] lazy val __dev : __DevDFAny = new __DevDFAny {}
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -251,7 +251,7 @@ object DFAny {
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
     }
-    override lazy val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
+    override private[DFiant] lazy val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
     import __dev._
 
     //////////////////////////////////////////////////////////////////////////
@@ -329,7 +329,7 @@ object DFAny {
     trait __DevConstructor extends super.__DevDFAny {
 
     }
-    override lazy val __dev : __DevConstructor = new __DevConstructor {}
+    override private[DFiant] lazy val __dev : __DevConstructor = new __DevConstructor {}
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -344,7 +344,7 @@ object DFAny {
     trait __Dev extends super.__DevConstructor with super.__DevDFAnyVar {
 
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
@@ -440,7 +440,7 @@ object DFAny {
     trait __Dev extends super.__Dev {
 
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     type TPostInit <: TVal
@@ -500,7 +500,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}connect"
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
@@ -521,7 +521,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}assign"
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
@@ -539,7 +539,7 @@ object DFAny {
     trait __Dev extends super.__Dev {
 
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     type TPostInit = TVar
@@ -572,7 +572,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ reference.aliasedVars
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     final val ctx = ctx0
@@ -767,7 +767,7 @@ object DFAny {
     trait __Dev extends super.__DevConstructor {
 
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
 
     final val ctx = ctx0
@@ -803,7 +803,7 @@ object DFAny {
       private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
     }
-    override lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
 

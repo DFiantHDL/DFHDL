@@ -20,5 +20,5 @@ trait Discoverable {
     final private[DFiant] def rediscoverDependencies() : Unit = if (discovered) discoverDependencies()
 
   }
-  lazy val __dev : __DevDiscoverable = new __DevDiscoverable {}
+  private[DFiant] lazy val __dev : __DevDiscoverable = new __DevDiscoverable {}
 }
