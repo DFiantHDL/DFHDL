@@ -30,13 +30,14 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  type TDev <: __Dev
   protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault = s"${Name.Separator}assert"
   }
-  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
   final val ctx = ctx0
@@ -75,13 +76,14 @@ object Severity {
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  type TDev <: __Dev
   protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault = s"${Name.Separator}finish"
   }
-  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
   final val ctx = ctx0
   def codeString : String =

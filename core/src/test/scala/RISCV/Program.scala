@@ -5,7 +5,7 @@ package RISCV
   *************************************************************************************************************/
 
 import DFiant._
-import internals._
+import internals.BitVectorExtras
 
 case class IMemEntry(addr : BitVector, inst : BitVector, instStr : String)
 case class DMemEntry(addr : BitVector, data : BitVector)

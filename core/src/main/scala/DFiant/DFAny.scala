@@ -34,6 +34,7 @@ trait DFAny extends DFAnyMember with HasWidth {
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
+  type TDev <: __DevDFAny
   protected[DFiant] trait __DevDFAny extends super.__DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -42,7 +43,7 @@ trait DFAny extends DFAnyMember with HasWidth {
 
 
   }
-  override private[DFiant] lazy val __dev : __DevDFAny = new __DevDFAny {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDFAny {}.asInstanceOf[TDev]
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -244,6 +245,7 @@ object DFAny {
     type TSInt[W2] = DFSInt.Var[W2]//DFSInt[W2]#TVar
     type TDir <: DFDir
 
+    type TDev <: __DevDFAnyVar
     protected[DFiant] trait __DevDFAnyVar extends super.__DevDFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
@@ -251,7 +253,7 @@ object DFAny {
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
     }
-    override private[DFiant] lazy val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
+    override private[DFiant] lazy val __dev : TDev = new __DevDFAnyVar {}.asInstanceOf[TDev]
     import __dev._
 
     //////////////////////////////////////////////////////////////////////////
@@ -326,10 +328,11 @@ object DFAny {
   abstract class Constructor[DF <: DFAny](_width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny {
+    type TDev <: __DevConstructor
     protected[DFiant] trait __DevConstructor extends super.__DevDFAny {
 
     }
-    override private[DFiant] lazy val __dev : __DevConstructor = new __DevConstructor {}
+    override private[DFiant] lazy val __dev : TDev = new __DevConstructor {}.asInstanceOf[TDev]
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -341,10 +344,11 @@ object DFAny {
   abstract class Connectable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](width) with DFAny.Var {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__DevConstructor with super.__DevDFAnyVar {
 
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
@@ -437,10 +441,11 @@ object DFAny {
   abstract class Initializable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](width) {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
 
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     type TPostInit <: TVal
@@ -494,13 +499,14 @@ object DFAny {
   // Connections and Assignments
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}connect"
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
     final val ctx = ctx0
     private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
@@ -515,13 +521,14 @@ object DFAny {
   }
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}assign"
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
     final val ctx = ctx0
     def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
@@ -536,10 +543,11 @@ object DFAny {
   abstract class NewVar[DF <: DFAny](width : Int, newVarCodeString : String)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
 
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     type TPostInit = TVar
@@ -566,13 +574,14 @@ object DFAny {
   abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ reference.aliasedVars
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     final val ctx = ctx0
@@ -764,10 +773,11 @@ object DFAny {
   abstract class Const[DF <: DFAny](token : Token)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__DevConstructor {
 
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     final val ctx = ctx0
@@ -796,6 +806,7 @@ object DFAny {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
+    type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
@@ -803,7 +814,7 @@ object DFAny {
       private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
     }
-    override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
     final val ctx = ctx0
 

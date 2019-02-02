@@ -5,6 +5,7 @@ import DFiant.compiler.Backend
 import DFiant.internals._
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
+  type TDev <: __DevDFDesign
   protected[DFiant] trait __DevDFDesign extends super.__DevDFBlock with super.__DevDFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
@@ -12,7 +13,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     override protected def discoveryDependencies : List[Discoverable] =
       if (isTop) portsOut ++ super.discoveryDependencies else super.discoveryDependencies
   }
-  override private[DFiant] lazy val __dev : __DevDFDesign = new __DevDFDesign {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDFDesign {}.asInstanceOf[TDev]
   import __dev._
 
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]

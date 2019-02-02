@@ -10,6 +10,10 @@ package object internals {
   final private[DFiant] implicit def __fetchDev(d : DSLMemberConstruct) : d.__dev.type = d.__dev
   final private[DFiant] implicit def __fetchDev(d : DSLOwnerConstruct) : d.__dev.type = d.__dev
 
+  implicit class __DslMember[M <: DSLMemberConstruct](val member : M) {
+    final lazy val __dev : member.TDev = member.__dev
+  }
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   // Conversions
   ///////////////////////////////////////////////////////////////////////////////////////////////////////

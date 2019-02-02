@@ -6,6 +6,7 @@ import internals._
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct { self =>
 
+  type TDev <: __DevDFComponent
   protected[DFiant] trait __DevDFComponent extends super.__DevDFDesign with super.__DevDSLFoldableOwner {
 
     override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
@@ -15,7 +16,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 
     override lazy val typeName: String = self.getClass.getSimpleName
   }
-  override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDFComponent {}.asInstanceOf[TDev]
 
   def foldedConstructCodeString : String = {
     ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString

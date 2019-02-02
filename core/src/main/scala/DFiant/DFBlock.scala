@@ -4,13 +4,14 @@ import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
+  type TDev <: __DevDFBlock
   protected[DFiant] trait __DevDFBlock extends super.__DevDFAnyOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
   }
-  override private[DFiant] lazy val __dev : __DevDFBlock = new __DevDFBlock {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDFBlock {}.asInstanceOf[TDev]
   import __dev._
 
   val ctx = ctx0

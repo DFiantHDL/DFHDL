@@ -11,7 +11,7 @@
 //  protected[DFiant] trait __Dev extends super.__DevDFComponent with super.__DevDFAny {
 //
 //  }
-//  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+//  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
 //  import __dev._
 //
 //  final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](args.map(a => a.width.getValue).max)

@@ -5,6 +5,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
+  type TDev <: __Dev
   protected[DFiant] trait __Dev extends super.__DevDFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -16,7 +17,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ portsIn
   }
-  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
   val ctx = ctx0

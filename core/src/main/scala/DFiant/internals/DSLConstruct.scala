@@ -3,9 +3,7 @@ package DFiant.internals
 import scala.collection.mutable.ListBuffer
 import scala.collection._
 
-trait DSLConstruct {
-
-}
+trait DSLConstruct
 
 trait DSLConfiguration {
   val foldComponents : Boolean
@@ -14,14 +12,11 @@ trait DSLConfiguration {
 trait HasOwner {
   implicit val owner : DSLOwnerConstruct
 }
-//object DevAccess {
-//  implicit class DslMember[M <: DSLMemberConstruct](member : M) {
-//    final lazy val __dev = member.__dev
-//  }
-//}
+
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
-  protected[DFiant] trait __Dev extends __DevNameable with __DevTypeNameable with __DevDiscoverable {
+  type TDev <: __Dev
+  trait __Dev extends __DevNameable with __DevTypeNameable with __DevDiscoverable {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,7 +82,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
     final def getID : Int = ownerOption.map(o => o.newItemGetID(self)).getOrElse(0)
   }
-  override private[DFiant] lazy val __dev : __Dev = new __Dev {}
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
   val ownerOption : Option[DSLOwnerConstruct]
@@ -109,6 +104,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
+  type TDev <: __DevDSLOwner
   protected[DFiant] trait __DevDSLOwner extends super.__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -162,7 +158,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     }
 
   }
-  override private[DFiant] lazy val __dev : __DevDSLOwner = new __DevDSLOwner {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDSLOwner {}.asInstanceOf[TDev]
   import __dev._
 
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
@@ -199,6 +195,7 @@ object DSLOwnerConstruct {
 }
 
 trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
+  type TDev <: __DevDSLTransparentOwner
   protected[DFiant] trait __DevDSLTransparentOwner extends super.__DevDSLOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
@@ -206,15 +203,16 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
     override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
 
   }
-  override private[DFiant] lazy val __dev : __DevDSLTransparentOwner = new __DevDSLTransparentOwner {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDSLTransparentOwner {}.asInstanceOf[TDev]
   import __dev._
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
+  type TDev <: __DevDSLFoldableOwner
   protected[DFiant] trait __DevDSLFoldableOwner extends super.__DevDSLOwner {
 
   }
-  override private[DFiant] lazy val __dev : __DevDSLFoldableOwner = new __DevDSLFoldableOwner {}
+  override private[DFiant] lazy val __dev : TDev = new __DevDSLFoldableOwner {}.asInstanceOf[TDev]
   import __dev._
 
 //  private[DFiant] var foldRequest : Boolean = true
