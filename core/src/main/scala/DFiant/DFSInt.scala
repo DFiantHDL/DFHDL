@@ -447,7 +447,7 @@ object DFSInt extends DFAny.Companion {
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
       lazy val comp = wc
-      lazy val bypassAlias = c.isNotDiscovered
+      lazy val bypassAlias = c.__dev.isNotDiscovered
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
@@ -537,7 +537,7 @@ object DFSInt extends DFAny.Companion {
       lazy val c = new DFBits.Alias[CW](DFAny.Alias.Reference.BitsWL(wc, cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
       lazy val comp = wc
-      lazy val bypassAlias = c.isNotDiscovered
+      lazy val bypassAlias = c.__dev.isNotDiscovered
     }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")

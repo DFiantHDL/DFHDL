@@ -17,11 +17,20 @@ trait HasOwner {
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
-  with Nameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
-  trait __Dev extends TypeNameable {
-
+  with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {
+  trait __Dev extends __DevTypeNameable with __DevDiscoverable {
+    override protected def preDiscoveryRun() : Unit = {
+      //Touching the name lazy val to set the final names bottom up.
+      //It is important to do so to invalidate name duplicate of anonymous values.
+      //For example: val result = if (someConst) new Box else new OtherBox
+      //In the example we both Box and OtherBox will potentially get the name `result`,
+      //but don't want to invalidate the result name for `Box` if it's in use.
+      name
+      //    println(s"discovered $fullName")
+    }
+    override protected def discoveryDepenencies : List[Discoverable] = ownerOption.toList
   }
-  val __dev : __Dev = new __Dev {}
+  override val __dev : __Dev = new __Dev {}
   import __dev._
 
   val ownerOption : Option[DSLOwnerConstruct]
@@ -45,15 +54,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     })
     this
   }
-  override protected def preDiscoveryRun : Unit = {
-    //Touching the name lazy val to set the final names bottom up.
-    //It is important to do so to invalidate name duplicate of anonymous values.
-    //For example: val result = if (someConst) new Box else new OtherBox
-    //In the example we both Box and OtherBox will potentially get the name `result`,
-    //but don't want to invalidate the result name for `Box` if it's in use.
-    name
-//    println(s"discovered $fullName")
-  }
 
   final def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
     implicit callOwner : DSLOwnerConstruct
@@ -62,7 +62,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     implicit callOwner : DSLOwnerConstruct
   ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
 
-  override protected def discoveryDepenencies : List[Discoverable] = ownerOption.toList
   final protected def getID : Int = ownerOption.map(o => o.newItemGetID(this)).getOrElse(0)
   val id : Int
 
@@ -99,7 +98,11 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {
   trait __DevDSLOwner extends super.__Dev {
-
+    override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
+    final lazy val discoveredList : List[DSLMemberConstruct] = {
+      discover()
+      memberList.filterNot(o => o.__dev.isNotDiscovered)
+    }
   }
   override val __dev : __DevDSLOwner = new __DevDSLOwner {}
   import __dev._
@@ -143,11 +146,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {
 
   private[internals] val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
   final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
-  override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ keepList
-  final lazy val discoveredList : List[DSLMemberConstruct] = {
-    discover
-    memberList.filterNot(o => o.isNotDiscovered)
-  }
 }
 object DSLOwnerConstruct {
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {

@@ -7,6 +7,12 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   extends DFDesign with DSLFoldableOwnerConstruct { self =>
 
   trait __DevDFComponent extends super.__DevDFDesign with super.__DevDSLFoldableOwner {
+
+    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
+      out.__dev.injectDependencies(inList)
+      out.__dev.rediscoverDependencies()
+    }
+
     override lazy val typeName: String = self.getClass.getSimpleName
   }
   override val __dev : __DevDFComponent = new __DevDFComponent {}
@@ -18,7 +24,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
   final override private[DFiant] def unfoldedRun = {
     ctx.impl(this.asInstanceOf[Comp])
-    portsOut.foreach(p => p.rediscoverDependencies)
+    portsOut.foreach(p => p.__dev.rediscoverDependencies())
     isFolded = false
   }
 
@@ -33,11 +39,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     def isOpen : Boolean = !dfVal.isConnected
   }
   final implicit def InPortExtended(dfVal: DFAny.Port[_ <: DFAny, _ <: IN]): InPortExtended = new InPortExtended(dfVal)
-
-  override def postDiscoveryRun : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
-    out.injectDependencies(inList)
-    out.rediscoverDependencies
-  }
 }
 
 object DFComponent {

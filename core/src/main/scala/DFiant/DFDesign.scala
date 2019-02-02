@@ -7,6 +7,8 @@ import DFiant.internals._
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
   trait __DevDFDesign extends super.__DevDFBlock with super.__DevDFInterface {
 
+    override protected def discoveryDepenencies : List[Discoverable] =
+      if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
   }
   override val __dev : __DevDFDesign = new __DevDFDesign {}
   import __dev._
@@ -35,8 +37,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
 //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
-  override protected def discoveryDepenencies : List[Discoverable] =
-    if (isTop) portsOut ++ super.discoveryDepenencies else super.discoveryDepenencies
 
   override def codeString: String = {
     init

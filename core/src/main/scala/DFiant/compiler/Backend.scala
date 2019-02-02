@@ -481,7 +481,7 @@ object Backend {
             override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
-            lazy val list : List[connection] = member.ports.filterNot(p => p.isNotDiscovered).map(p => {
+            lazy val list : List[connection] = member.ports.filterNot(p => p.__dev.isNotDiscovered).map(p => {
               connection(p, architecture.declarations.signal(p))
             })
             private val clkConns : List[String] = member match {
@@ -695,7 +695,7 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    protected def pass(dsn : DFInterface) : Unit = dsn.discoveredList.foreach {
+    protected def pass(dsn : DFInterface) : Unit = dsn.__dev.discoveredList.foreach {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
         if (x.isAssigned) {

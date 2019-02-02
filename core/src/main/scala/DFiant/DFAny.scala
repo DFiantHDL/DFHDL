@@ -240,6 +240,13 @@ object DFAny {
     type TSInt[W2] = DFSInt.Var[W2]//DFSInt[W2]#TVar
     type TDir <: DFDir
 
+    trait __DevDFAnyVar extends super.__DevDFAny {
+      private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+      override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
+    }
+    override val __dev : __DevDFAnyVar = new __DevDFAnyVar {}
+    import __dev._
+
     //////////////////////////////////////////////////////////////////////////
     // Future Stuff
     //////////////////////////////////////////////////////////////////////////
@@ -256,15 +263,6 @@ object DFAny {
 //      this.asInstanceOf[TVar]
 //    }
     //////////////////////////////////////////////////////////////////////////
-
-
-    //////////////////////////////////////////////////////////////////////////
-    // Administration
-    //////////////////////////////////////////////////////////////////////////
-    private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-    override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ protAssignDependencies.toList
-    //////////////////////////////////////////////////////////////////////////
-
 
     //////////////////////////////////////////////////////////////////////////
     // Assignment (Mutation)
@@ -321,6 +319,11 @@ object DFAny {
   abstract class Constructor[DF <: DFAny](_width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny {
+    trait __DevConstructor extends super.__DevDFAny {
+
+    }
+    override val __dev : __DevConstructor = new __DevConstructor {}
+    import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,6 +334,12 @@ object DFAny {
   abstract class Connectable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](width) with DFAny.Var {
+    trait __Dev extends super.__DevConstructor with super.__DevDFAnyVar {
+
+    }
+    override val __dev : __Dev = new __Dev {}
+    import __dev._
+
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
     private[DFiant] val connectedIndication = collection.mutable.BitSet.empty
     private[DFiant] lazy val connectedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
@@ -356,8 +365,8 @@ object DFAny {
       val toVar = this
       connectFrom(width, 0, fromVal)
       //All is well. We can now connect fromVal->toVar
-      toVar.protAssignDependencies += Connector(toVar, fromVal)
-      toVar.protAssignDependencies += fromVal
+      toVar.__dev.protAssignDependencies += Connector(toVar, fromVal)
+      toVar.__dev.protAssignDependencies += fromVal
     }
     override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
       val toVar = this
@@ -421,6 +430,12 @@ object DFAny {
   abstract class Initializable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](width) {
+    trait __Dev extends super.__Dev {
+
+    }
+    override val __dev : __Dev = new __Dev {}
+    import __dev._
+
     type TPostInit <: TVal
 
     final def init(that : InitAble[TVal]*)(
@@ -500,6 +515,12 @@ object DFAny {
   abstract class NewVar[DF <: DFAny](width : Int, newVarCodeString : String)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
+    trait __Dev extends super.__Dev {
+
+    }
+    override val __dev : __Dev = new __Dev {}
+    import __dev._
+
     type TPostInit = TVar
     final val ctx = ctx0
     final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
@@ -524,6 +545,12 @@ object DFAny {
   abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {
+    trait __Dev extends super.__Dev {
+      final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ reference.aliasedVars
+    }
+    override val __dev : __Dev = new __Dev {}
+    import __dev._
+
     final val ctx = ctx0
 
     override private[DFiant] def inletSourceLB = reference.sourceLB
@@ -532,7 +559,6 @@ object DFAny {
     override private[DFiant] lazy val initSourceLB : LazyBox[Source] = inletSourceLB
 
     final private[DFiant] def constructCodeStringDefault : String = reference.constructCodeString
-    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies ++ reference.aliasedVars
     final val isPort = false
 
     final lazy val isAliasOfPort : Boolean = ???
@@ -578,7 +604,7 @@ object DFAny {
     }
     final override protected[DFiant] def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
       reference.aliasedVars.foreach{case a : DFAny.Var =>
-        a.protAssignDependencies ++= List(this, that)
+        a.__dev.protAssignDependencies ++= List(this, that)
       } //TODO: fix dependency to bit accurate dependency?
       reference match {
         case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
@@ -714,6 +740,12 @@ object DFAny {
   abstract class Const[DF <: DFAny](token : Token)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {
+    trait __Dev extends super.__DevConstructor {
+
+    }
+    override val __dev : __Dev = new __Dev {}
+    import __dev._
+
     final val ctx = ctx0
     final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
     private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
@@ -740,6 +772,11 @@ object DFAny {
     this : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
+    trait __Dev extends super.__Dev {
+      private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
+      final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
+    }
+    override val __dev : __Dev = new __Dev {}
     import __dev._
     final val ctx = ctx0
 
@@ -760,9 +797,6 @@ object DFAny {
 //    def pipe() : this.type = pipe(1)
 //    final private[DFiant] override def pipeGet = extraPipe
 //    final def pipe(p : Int) : this.type = {extraPipe = p; this}
-
-    private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
-    final override protected def discoveryDepenencies : List[Discoverable] = super.discoveryDepenencies
 
     private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
     private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {

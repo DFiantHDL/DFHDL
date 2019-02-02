@@ -10,7 +10,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 ) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {
 
   trait __Dev extends super.__DevDFComponent with super.__DevDFAny {
-
+    override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult :+ leftArg :+ rightArg
   }
   override val __dev : __Dev = new __Dev {}
   import __dev._
@@ -50,7 +50,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   }
 
   //TODO: leftArg, rightArg
-  override def discoveryDepenencies: List[Discoverable] = super.discoveryDepenencies :+ outResult :+ leftArg :+ rightArg
   override protected def foldedRun: Unit = {
     outResult.setInitFunc.forced(initLB)
   }
