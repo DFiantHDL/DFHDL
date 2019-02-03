@@ -36,20 +36,24 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault = s"${Name.Separator}assert"
+    def codeString : String = cond match {
+      case Some(c) =>
+        s"""
+           |sim.assert(${c.refCodeString}, ${msg.codeString}, ${severity.codeString})""".stripMargin
+      case None =>
+        s"""
+           |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
   final val ctx = ctx0
-  def codeString : String = cond match {
-    case Some(c) =>
-      s"""
-         |sim.assert(${c.refCodeString}, ${msg.codeString}, ${severity.codeString})""".stripMargin
-    case None =>
-      s"""
-         |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
-  }
-  final val id = getID
   if (cond.isDefined) {
     cond.get.keep
     cond.get.consume()
@@ -82,33 +86,50 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault = s"${Name.Separator}finish"
+    def codeString : String =
+      s"""
+         |sim.finish()""".stripMargin
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
   final val ctx = ctx0
-  def codeString : String =
-      s"""
-         |sim.finish()""".stripMargin
-  final val id = getID
   keep
 }
 
 
 trait DFSimulator extends DFDesign {
+  type TDev <: __Dev
+  protected[DFiant] trait __Dev extends super[DFDesign].__Dev {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override def codeString: String = {
+      keepAll
+      super.codeString
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFSimulator] def keepAll() : Unit =
+      __dev.mutableMemberList.collect {
+        case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
+        case m => m.keep
+      } //for simulations we keep all
+  }
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  import __dev._
+
   private var clkFreqKHz : Int = 100000
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
   override protected[DFiant] lazy val inSimulation : Boolean = true
-  private def keepAll : Unit =
-    __dev.mutableMemberList.collect {
-      case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
-      case m => m.keep
-    } //for simulations we keep all
   override def compileToVHDL : Backend.VHDL = {
-    keepAll
+    keepAll()
     new Backend.VHDL(this, null, Some(clkFreqKHz))
-  }
-  override def codeString: String = {
-    keepAll
-    super.codeString
   }
 }

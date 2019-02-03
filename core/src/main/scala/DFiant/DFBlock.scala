@@ -7,11 +7,16 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   type TDev <: __Dev
   protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final val id = getID
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] val __dev : TDev
   import __dev._
 
   val ctx = ctx0
@@ -50,8 +55,6 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
       if (inSimulation) Finish()(ctx.updateOwner(theOwnerToBe))
     }
   }
-
-  final val id = getID
 }
 object DFBlock {
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {

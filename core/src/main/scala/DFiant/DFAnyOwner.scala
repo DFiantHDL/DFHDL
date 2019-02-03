@@ -7,7 +7,7 @@ trait DFAnyMember extends DSLMemberConstruct {
   protected[DFiant] trait __Dev extends super.__Dev {
 
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] val __dev : TDev
   import __dev._
 
   type ThisOwner <: DFAnyOwner
@@ -21,19 +21,20 @@ trait DFAnyMember extends DSLMemberConstruct {
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   type TDev <: __Dev
   protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev with super[DSLOwnerConstruct].__Dev {
-
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFiant] def bodyCodeString : String = {
+      val delim = "  "
+      val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const[_]])
+      val noAnonymous = noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous && !e.asInstanceOf[DFAny].showAnonymous)
+      noAnonymous.codeString.delimRowsBy(delim)
+    }
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] val __dev : TDev
   import __dev._
 
   override implicit def theOwnerToBe : DFAnyOwner = this
-
-  private[DFiant] def bodyCodeString : String = {
-    val delim = "  "
-    val noConst = discoveredList.filterNot(e => e.isInstanceOf[DFAny.Const[_]])
-    val noAnonymous = noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous && !e.asInstanceOf[DFAny].showAnonymous)
-    noAnonymous.codeString.delimRowsBy(delim)
-  }
 
   protected[DFiant] lazy val inSimulation : Boolean =
     ownerOption.exists(o => o.inSimulation)

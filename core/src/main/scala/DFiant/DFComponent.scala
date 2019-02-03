@@ -8,19 +8,25 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 
   type TDev <: __DevDFComponent
   protected[DFiant] trait __DevDFComponent extends super[DFDesign].__Dev with super[DSLFoldableOwnerConstruct].__Dev {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override lazy val typeName: String = self.getClass.getSimpleName
+    def foldedConstructCodeString : String = {
+      ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
+    }
+    private[DFiant] override def constructCodeString : String = if (isFolded) foldedConstructCodeString else super.constructCodeString
+    override def codeString : String = valCodeString
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
       out.__dev.injectDependencies(inList)
       out.rediscoverDependencies()
     }
-
-    override lazy val typeName: String = self.getClass.getSimpleName
   }
   override private[DFiant] lazy val __dev : TDev = new __DevDFComponent {}.asInstanceOf[TDev]
-
-  def foldedConstructCodeString : String = {
-    ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
-  }
 
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
   final override private[DFiant] def unfoldedRun = {
@@ -32,9 +38,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
   : Unit = dfVal.setInitFunc.forced(value)
   final protected def getInit[DFVal <: DFAny.Initializable[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
-
-  private[DFiant] override def constructCodeString : String = if (isFolded) foldedConstructCodeString else super.constructCodeString
-  override def codeString : String = valCodeString
 
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
     def isOpen : Boolean = !dfVal.isConnected

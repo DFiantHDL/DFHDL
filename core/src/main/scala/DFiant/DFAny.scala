@@ -41,9 +41,28 @@ trait DFAny extends DFAnyMember with HasWidth {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def nameDefault: String = ctx.getName
 
-
+    final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
+    private var autoConstructCodeStringFunc : () => String = () => ""
+    private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
+    final private[DFiant] def setAutoConstructCodeString(cs : => String) : this.type = {autoConstructCodeStringFunc = () => cs; this}
+    private[DFiant] def constructCodeStringDefault : String
+    private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
+    private def constructCodeString : String =
+      if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
+    override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = {
+      val ref = if (isAnonymous && !showAnonymous) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
+      ref.applyBrackets() //TODO: consider other way instead of this hack
+    }
+    private def initCommentString : String =
+      if (config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
+    private def latencyCommentString : String =
+      if (config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${thisSourceLB.get.latencyString}" else ""
+    private def connCommentString : String =
+      if (config.commentConnection || owner.privShowConnections) s"//conn = ${getFoldedSource.refCodeString}" else ""
+    private def valCodeString : String = s"\nval $name = $constructCodeString"
+    def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] val __dev : TDev
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -181,32 +200,6 @@ trait DFAny extends DFAnyMember with HasWidth {
 
 
   //////////////////////////////////////////////////////////////////////////
-  // Naming
-  //////////////////////////////////////////////////////////////////////////
-  final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
-  private var autoConstructCodeStringFunc : () => String = () => ""
-  private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
-  final private[DFiant] def setAutoConstructCodeString(cs : => String) : this.type = {autoConstructCodeStringFunc = () => cs; this}
-  private[DFiant] def constructCodeStringDefault : String
-  private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
-  private def constructCodeString : String =
-    if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
-  override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = {
-    val ref = if (isAnonymous && !showAnonymous) relativeName(constructCodeString)(callOwner) else relativeName(callOwner)
-    ref.applyBrackets() //TODO: consider other way instead of this hack
-  }
-  private def initCommentString : String =
-    if (config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
-  private def latencyCommentString : String =
-    if (config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${thisSourceLB.get.latencyString}" else ""
-  private def connCommentString : String =
-    if (config.commentConnection || owner.privShowConnections) s"//conn = ${getFoldedSource.refCodeString}" else ""
-  private def valCodeString : String = s"\nval $name = $constructCodeString"
-  def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
-  //////////////////////////////////////////////////////////////////////////
-
-
-  //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
   final def == [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
@@ -230,6 +223,8 @@ trait DFAny extends DFAnyMember with HasWidth {
 
 
 object DFAny {
+//  implicit def fetchDev(from : DFAny)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Head Types
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -245,15 +240,15 @@ object DFAny {
     type TSInt[W2] = DFSInt.Var[W2]//DFSInt[W2]#TVar
     type TDir <: DFDir
 
-    type TDev <: __DevDFAnyVar
-    protected[DFiant] trait __DevDFAnyVar extends super[DFAny].__Dev {
+    type TDev <: __Dev
+    protected[DFiant] trait __Dev extends super[DFAny].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
     }
-    override private[DFiant] lazy val __dev : TDev = new __DevDFAnyVar {}.asInstanceOf[TDev]
+    override private[DFiant] val __dev : TDev
     import __dev._
 
     //////////////////////////////////////////////////////////////////////////
@@ -332,7 +327,7 @@ object DFAny {
     protected[DFiant] trait __Dev extends super[DFAny].__Dev {
 
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] val __dev : TDev
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -345,10 +340,10 @@ object DFAny {
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](width) with DFAny.Var {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super[Constructor].__Dev with super[Var].__DevDFAnyVar {
+    protected[DFiant] trait __Dev extends super[Constructor].__Dev with super[Var].__Dev {
 
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] val __dev : TDev
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
@@ -445,7 +440,7 @@ object DFAny {
     protected[DFiant] trait __Dev extends super.__Dev {
 
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] val __dev : TDev
     import __dev._
 
     type TPostInit <: TVal
@@ -502,19 +497,23 @@ object DFAny {
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Ownership
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val id = getID
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}connect"
+      private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
+      def codeString : String = toPort.owner match {
+        case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
+        case _ => connectCodeString
+      }
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
     final val ctx = ctx0
-    private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
-    def codeString : String = toPort.owner match {
-      case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
-      case _ => connectCodeString
-    }
-    final val id = getID
   }
   object Connector {
     type Context = DFAnyOwner.Context[DFBlock]
@@ -524,15 +523,19 @@ object DFAny {
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Ownership
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val id = getID
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}assign"
+      def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
     final val ctx = ctx0
-    def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
-    final val id = getID
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -545,14 +548,21 @@ object DFAny {
   ) extends Initializable[DF](width) {
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Naming
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
 
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Ownership
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     type TPostInit = TVar
     final val ctx = ctx0
-    final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     final val isPort = false
 
     //Port Construction
@@ -565,9 +575,9 @@ object DFAny {
 
 //    def selectdf[T, E](cond : DFBool)(thenSel : protComp.Op.Able[T], elseSel : protComp.Op.Able[E]) : TVal = ???
 //    def selectdf[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
-    final val id = getID
   }
   object NewVar {
+//    implicit def fetchDev(from : NewVar[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
@@ -577,9 +587,19 @@ object DFAny {
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Naming
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final private[DFiant] def constructCodeStringDefault : String = reference.constructCodeString
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ reference.aliasedVars
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Ownership
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
@@ -591,7 +611,6 @@ object DFAny {
 //    override private[DFiant] def inletSourceLB = thisSourceLB //TODO: Consider dealiasing
     override private[DFiant] lazy val initSourceLB : LazyBox[Source] = inletSourceLB
 
-    final private[DFiant] def constructCodeStringDefault : String = reference.constructCodeString
     final val isPort = false
 
     final lazy val isAliasOfPort : Boolean = ???
@@ -657,8 +676,6 @@ object DFAny {
       protAssignDependencies += Assignment(this, that)
       protAssignDependencies += that
     }
-
-    final val id = getID
   }
   object Alias {
     trait Tag
@@ -775,21 +792,27 @@ object DFAny {
   ) extends Constructor[DF](token.width) {
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super[Constructor].__Dev {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Naming
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
+      private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
 
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Ownership
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
     final val ctx = ctx0
-    final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
-    private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
     final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
     final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
     final private[DFiant] lazy val inletSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
     final override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
     override private[DFiant] lazy val prevSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source.withLatency(this, None))
     final val isPort = false
-    final val id = getID
   }
   object Const {
     type Context = DFAnyOwner.Context[DFAnyOwner]
@@ -809,10 +832,20 @@ object DFAny {
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super.__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Naming
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      private[DFiant] def constructCodeStringDefault : String = s"${dfVar.constructCodeStringDefault} <> $dir$initCodeString"
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Ownership
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
@@ -933,9 +966,7 @@ object DFAny {
     //* For OUT ports, supported only TVar and TOP
     final val isPort = true
 
-    private[DFiant] def constructCodeStringDefault : String = s"${dfVar.constructCodeStringDefault} <> $dir$initCodeString"
     override def toString : String = s"$fullName : $typeName <> $dir"
-    final val id = getID
   }
   object Port {
     type Context = DFAnyOwner.Context[DFInterface]

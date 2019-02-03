@@ -12,6 +12,16 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   type TDev <: __Dev
   protected[DFiant] trait __Dev extends super[DFComponent].__DevDFComponent with super[CanBePiped].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =
+      if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
+    override def constructCodeStringDefault: String = foldedConstructCodeString
+    private[DFiant] override def designType : String = s"`Func2Comp$opString`"
+    override def foldedConstructCodeString: String = s"${leftBalancedSource.refCodeString} $opString ${rightBalancedSource.refCodeString}"
+    override def codeString: String = if (isFolded) super.codeString else valCodeString
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def discoveryDependencies: List[Discoverable] = super.discoveryDependencies :+ outResult :+ leftArg :+ rightArg
@@ -60,13 +70,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
   final val isPort = false
-
-  override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =
-    if (isFolded) super.refCodeString else outResult.refCodeString(ctx.owner)
-  override def constructCodeStringDefault: String = foldedConstructCodeString
-  private[DFiant] override def designType : String = s"`Func2Comp$opString`"
-  override def foldedConstructCodeString: String = s"${leftBalancedSource.refCodeString} $opString ${rightBalancedSource.refCodeString}"
-  override def codeString: String = if (isFolded) super.codeString else valCodeString
 }
 
 trait CompAlias extends CanBePiped {

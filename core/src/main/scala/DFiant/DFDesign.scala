@@ -4,9 +4,24 @@ import DFiant.BasicLib.DFBasicLib
 import DFiant.compiler.Backend
 import DFiant.internals._
 
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {self =>
   type TDev <: __Dev
   protected[DFiant] trait __Dev extends super[DFBlock].__Dev with super[DFInterface].__Dev {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFiant] def designType : String = typeName
+    private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, self)
+
+    private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
+    //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
+
+    override def codeString: String = {
+      init
+      val valCode = valCodeString
+      if (isTop) s"$designDB\n$valCode" else valCode
+    }
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,18 +51,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
   final lazy val isTop : Boolean = __dev.isTop
 
-  private[DFiant] def designType : String = typeName
-  private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, this)
-
-  private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
-//  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
-
-
-  override def codeString: String = {
-    init
-    val valCode = valCodeString
-    if (isTop) s"$designDB\n$valCode" else valCode
-  }
   private def openInputsCheck() : Unit = discoveredList.collect {
     case p : DFAny.Port[_,_] if p.dir.isIn && !isTop && !p.isConnected && p.initLB.get.isEmpty =>
       throw new IllegalArgumentException(s"\nFound an uninitialized open input port: ${p.fullName}")
