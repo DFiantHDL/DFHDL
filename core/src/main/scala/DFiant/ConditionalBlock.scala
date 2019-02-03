@@ -49,7 +49,6 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[R])
@@ -94,7 +93,6 @@ object ConditionalBlock {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
@@ -118,7 +116,6 @@ object ConditionalBlock {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
@@ -161,7 +158,6 @@ object ConditionalBlock {
           super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)
@@ -198,7 +194,6 @@ object ConditionalBlock {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       prevIfBlock._nextIfBlockOption = Some(this)
@@ -221,7 +216,6 @@ object ConditionalBlock {
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       prevIfBlock._nextIfBlockOption = Some(this)
@@ -256,7 +250,6 @@ object ConditionalBlock {
         val id : Int = getID
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       type TPattern = matchVal.TPattern
@@ -300,7 +293,6 @@ object ConditionalBlock {
         final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       final val matchVal = matchHeader.matchVal
@@ -335,7 +327,6 @@ object ConditionalBlock {
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
     }
 
@@ -374,7 +365,6 @@ object ConditionalBlock {
         val id : Int = getID
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       type TPattern = matchVal.TPattern
@@ -421,7 +411,6 @@ object ConditionalBlock {
         final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       final val matchVal = matchHeader.matchVal
@@ -460,7 +449,6 @@ object ConditionalBlock {
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       }
       override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-      __dev //touch dev. We only need the lazyness for initialization order
       import __dev._
 
       override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB

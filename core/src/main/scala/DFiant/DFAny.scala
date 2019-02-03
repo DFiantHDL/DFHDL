@@ -495,7 +495,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit private val ctx0 : Connector.Context) extends DFAnyMember {
     type TDev <: __Dev
-    final val ctx = ctx0
+    final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Ownership
@@ -513,7 +513,6 @@ object DFAny {
       }
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-    __dev //touch dev. We only need the lazyness for initialization order
     import __dev._
   }
   object Connector {
@@ -522,7 +521,7 @@ object DFAny {
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
     type TDev <: __Dev
-    final val ctx = ctx0
+    final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Ownership
@@ -536,7 +535,6 @@ object DFAny {
       def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-    __dev //touch dev. We only need the lazyness for initialization order
     import __dev._
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -549,7 +547,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
     type TDev <: __Dev
-    final val ctx = ctx0
+    final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Initializable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -562,7 +560,6 @@ object DFAny {
       final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-    __dev //touch dev. We only need the lazyness for initialization order
     import __dev._
 
     type TPostInit = TVar
@@ -588,7 +585,7 @@ object DFAny {
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {
     type TDev <: __Dev
-    final val ctx = ctx0
+    final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Connectable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -606,7 +603,6 @@ object DFAny {
       final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-    __dev //touch dev. We only need the lazyness for initialization order
     import __dev._
 
 
@@ -795,7 +791,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {
     type TDev <: __Dev
-    final val ctx = ctx0
+    final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Constructor].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -809,7 +805,6 @@ object DFAny {
       final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-    __dev //touch dev. We only need the lazyness for initialization order
     import __dev._
 
     final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
@@ -835,7 +830,7 @@ object DFAny {
     type TPostInit = TVal <> Dir
     type TDir = Dir
     type TDev <: __Dev
-    final val ctx = ctx0
+    final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Initializable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -854,7 +849,6 @@ object DFAny {
       final val id = getID
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-    __dev //touch dev. We only need the lazyness for initialization order
     import __dev._
 
     override private[DFiant] def inletSourceLB : LazyBox[Source] =

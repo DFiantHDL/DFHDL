@@ -29,7 +29,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       if (isTop) portsOut ++ super.discoveryDependencies else super.discoveryDependencies
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]

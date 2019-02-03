@@ -9,7 +9,6 @@ case class Comment(comment : String)(implicit ctx : DFDesign.Context) extends DS
 
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
   final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   private[DFiant] lazy val nameIt = ctx.n

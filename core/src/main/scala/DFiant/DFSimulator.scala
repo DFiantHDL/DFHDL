@@ -31,7 +31,7 @@ trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   type TDev <: __Dev
-  final val ctx = ctx0
+  final lazy val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFAnySimMember].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -52,7 +52,6 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
   if (cond.isDefined) {
@@ -82,7 +81,7 @@ object Severity {
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   type TDev <: __Dev
-  final val ctx = ctx0
+  final lazy val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFAnySimMember].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -98,7 +97,6 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
     final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
   keep
 }
@@ -125,7 +123,6 @@ trait DFSimulator extends DFDesign {
       } //for simulations we keep all
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
-  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
   private var clkFreqKHz : Int = 100000

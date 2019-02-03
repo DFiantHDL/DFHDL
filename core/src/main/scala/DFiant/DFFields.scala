@@ -4,7 +4,7 @@
 //
 //abstract class DFFields()(implicit ctx0 : DFFields.Context) extends DFAnyOwner {
 //  import __dev._
-//  final val ctx = ctx0
+//  final lazy val ctx = ctx0
 //  final def codeString : String = {
 //    s"\ntrait $name extends DFFields {$bodyCodeString\n}"
 //  }

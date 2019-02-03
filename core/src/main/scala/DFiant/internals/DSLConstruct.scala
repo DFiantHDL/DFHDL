@@ -87,6 +87,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     val id : Int
   }
   override private[DFiant] lazy val __dev : TDev = ???
+  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
   val ownerOption : Option[DSLOwnerConstruct]
