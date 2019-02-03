@@ -31,6 +31,7 @@ object DFSInt extends DFAny.Companion {
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder = Init.Builder[TVal, TToken]
     type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
+    import __dev._
 
     final lazy val sign = bits.msbit.setAutoConstructCodeString(s"$refCodeString.sign")
 
@@ -491,7 +492,7 @@ object DFSInt extends DFAny.Companion {
                     case DiSoOp.Kind.- => `Func2Comp-`[LW, RW, WCW](left, right)
                     case _ => throw new IllegalArgumentException("Unexpected operation")
                   }
-                  opInst.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(s"${ctx}WC")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](opInst)
                 }
@@ -583,7 +584,7 @@ object DFSInt extends DFAny.Companion {
                   val cWidth = cW(left.width, right.width)
 
                   val opInst = `Func2Comp*`[LW, RW, WCW](left, right)
-                  opInst.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(s"${ctx}WC")
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](opInst, ncWidth, cWidth)
@@ -648,7 +649,7 @@ object DFSInt extends DFAny.Companion {
               case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
               case _ => throw new IllegalArgumentException("Unexpected logic operation")
             }
-            opInst.setAutoName(s"${ctx}")
+            opInst.__dev.setAutoName(s"${ctx}")
             opInst
           }
         }
@@ -709,7 +710,7 @@ object DFSInt extends DFAny.Companion {
           case DiSoOp.Kind.>= => `Func2Comp>=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"${ctx}")
+        opInst.__dev.setAutoName(s"${ctx}")
       }
 
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](

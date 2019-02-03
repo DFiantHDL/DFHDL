@@ -32,6 +32,7 @@ object DFUInt extends DFAny.Companion {
     type InitBuilder = Init.Builder[TVal, TToken]
     type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     type TExtendable
+    import __dev._
 
     final lazy val maxValue : BigInt = BigInt(2) << (width - 1) - 1
     final def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, TExtendable, R]) = op(left, right)
@@ -560,7 +561,7 @@ object DFUInt extends DFAny.Companion {
                     case `Ops+Or-`.+ => `Func2Comp+`[LW, RW, WCW](left, right)
                     case `Ops+Or-`.- => `Func2Comp-`[LW, RW, WCW](left, right)
                   }
-                  opInst.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(s"${ctx}WC")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](opInst)
                 }
@@ -675,7 +676,7 @@ object DFUInt extends DFAny.Companion {
                   val cWidth = cW(left.width, right.width)
 
                   val opInst = `Func2Comp*`[LW, RW, WCW](left, right)
-                  opInst.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(s"${ctx}WC")
 
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW, CW](opInst, ncWidth, cWidth)
@@ -740,7 +741,7 @@ object DFUInt extends DFAny.Companion {
           case DiSoOp.Kind.>= => `Func2Comp>=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"${ctx}")
+        opInst.__dev.setAutoName(s"${ctx}")
         opInst
       }
 

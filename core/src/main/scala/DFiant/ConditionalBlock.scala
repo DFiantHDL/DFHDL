@@ -8,7 +8,7 @@ protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct {
   protected[DFiant] trait __Dev extends super[DSLTransparentOwnerConstruct].__Dev {
 
   }
-  override private[DFiant] val __dev : TDev
+  override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
   import __dev._
   type ThisOwner <: DFBlock
 }

@@ -7,7 +7,7 @@ trait DFAnyMember extends DSLMemberConstruct {
   protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
 
   }
-  override private[DFiant] val __dev : TDev
+  override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
   import __dev._
 
   type ThisOwner <: DFAnyOwner
@@ -31,7 +31,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
       noAnonymous.codeString.delimRowsBy(delim)
     }
   }
-  override private[DFiant] val __dev : TDev
+  override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
   import __dev._
 
   override implicit def theOwnerToBe : DFAnyOwner = this

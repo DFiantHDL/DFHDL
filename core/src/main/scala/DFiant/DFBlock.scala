@@ -16,7 +16,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
   }
-  override private[DFiant] val __dev : TDev
+  override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
   import __dev._
 
   val ctx = ctx0

@@ -1,5 +1,5 @@
 import DFiant._
-import DFiant.internals.LazyBox
+import DFiant.internals.{LazyBox, devAccess}
 import org.scalacheck._
 import shapeless.test.illTyped
 import TestUtils._

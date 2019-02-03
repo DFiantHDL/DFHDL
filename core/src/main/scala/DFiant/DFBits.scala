@@ -33,6 +33,7 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder = Init.Builder[TVal, TToken]
     type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
+    import __dev._
     //////////////////////////////////////////////////////////////////////////
     // Single bit (Bool) selection
     //////////////////////////////////////////////////////////////////////////
@@ -600,7 +601,7 @@ object DFBits extends DFAny.Companion {
                     case DiSoOp.Kind.^ => `Func2Comp^`[LW, RW, OW](left, right)
                     case _ => throw new IllegalArgumentException("Unexpected logic operation")
                   }
-                  opInst.setAutoName(s"${ctx}")
+                  opInst.__dev.setAutoName(s"${ctx}")
                   opInst
                 }
               }
@@ -673,7 +674,7 @@ object DFBits extends DFAny.Companion {
               case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
               case _ => throw new IllegalArgumentException("Unexpected logic operation")
             }
-            opInst.setAutoName(s"${ctx}")
+            opInst.__dev.setAutoName(s"${ctx}")
             opInst
           }
         }
@@ -806,7 +807,7 @@ object DFBits extends DFAny.Companion {
           case DiSoOp.Kind.!= => new `Func2Comp!=`(left, right)
           case _ => throw new IllegalArgumentException("Unexpected compare operation")
         }
-        opInst.setAutoName(s"$ctx")
+        opInst.__dev.setAutoName(s"$ctx")
       }
 
       implicit def evDFBits_op_DFBits[LW, RW](

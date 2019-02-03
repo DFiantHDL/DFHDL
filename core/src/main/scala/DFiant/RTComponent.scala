@@ -11,11 +11,19 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def nameDefault: String = ctx.getName
+    override def codeString: String = {
+      s"\nval $name = new $typeName {}"
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ portsIn
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
@@ -30,14 +38,9 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   final protected def getInit[DFVal <: DFAny.Initializable[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
 
   final protected[DFiant] lazy val init : Unit = {}
-  final val id = getID
 
 //  override lazy val typeName: String =
 //    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
-
-  override def codeString: String = {
-    s"\nval $name = new $typeName {}"
-  }
 
   val clockList : ListBuffer[Clock] = ListBuffer.empty[Clock]
   val resetList : ListBuffer[Reset] = ListBuffer.empty[Reset]

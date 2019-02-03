@@ -6,7 +6,7 @@ import singleton.twoface._
 
 import scala.collection.mutable.ListBuffer
 
-trait DFAny extends DFAnyMember with HasWidth {
+trait DFAny extends DFAnyMember with HasWidth {self =>
   type TUnbounded <: DFAny
   type TVal <: TUnbounded
   type TVar <: TVal with DFAny.Var
@@ -44,7 +44,7 @@ trait DFAny extends DFAnyMember with HasWidth {
     final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
     private var autoConstructCodeStringFunc : () => String = () => ""
     private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
-    final private[DFiant] def setAutoConstructCodeString(cs : => String) : this.type = {autoConstructCodeStringFunc = () => cs; this}
+    final private[DFiant] def setAutoConstructCodeString(cs : => String) : self.type = {autoConstructCodeStringFunc = () => cs; self}
     private[DFiant] def constructCodeStringDefault : String
     private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
     private def constructCodeString : String =
@@ -62,7 +62,7 @@ trait DFAny extends DFAnyMember with HasWidth {
     private def valCodeString : String = s"\nval $name = $constructCodeString"
     def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
   }
-  override private[DFiant] val __dev : TDev
+  override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -223,7 +223,7 @@ trait DFAny extends DFAnyMember with HasWidth {
 
 
 object DFAny {
-//  implicit def fetchDev(from : DFAny)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFAny)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Head Types
@@ -248,7 +248,7 @@ object DFAny {
       private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
     }
-    override private[DFiant] val __dev : TDev
+    override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
     import __dev._
 
     //////////////////////////////////////////////////////////////////////////
@@ -327,7 +327,7 @@ object DFAny {
     protected[DFiant] trait __Dev extends super[DFAny].__Dev {
 
     }
-    override private[DFiant] val __dev : TDev
+    override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -343,7 +343,7 @@ object DFAny {
     protected[DFiant] trait __Dev extends super[Constructor].__Dev with super[Var].__Dev {
 
     }
-    override private[DFiant] val __dev : TDev
+    override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
@@ -440,7 +440,7 @@ object DFAny {
     protected[DFiant] trait __Dev extends super[Connectable].__Dev {
 
     }
-    override private[DFiant] val __dev : TDev
+    override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
     import __dev._
 
     type TPostInit <: TVal
