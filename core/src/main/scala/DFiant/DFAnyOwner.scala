@@ -4,7 +4,7 @@ import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
   type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super.__Dev {
+  protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
 
   }
   override private[DFiant] val __dev : TDev

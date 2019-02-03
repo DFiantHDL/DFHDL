@@ -80,7 +80,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(cond, block) {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,7 +103,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(null, block) {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,7 +181,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(cond, block) {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -203,7 +203,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(null, block) {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,7 +230,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DSLMemberConstruct {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -319,7 +319,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DFCasePatternBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -341,7 +341,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DSLMemberConstruct {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -441,7 +441,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__Dev {
+      protected[DFiant] trait __Dev extends super[DFCasePatternBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////

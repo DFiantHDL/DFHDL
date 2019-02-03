@@ -437,7 +437,7 @@ object DFAny {
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](width) {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__Dev {
+    protected[DFiant] trait __Dev extends super[Connectable].__Dev {
 
     }
     override private[DFiant] val __dev : TDev
@@ -547,7 +547,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__Dev {
+    protected[DFiant] trait __Dev extends super[Initializable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -585,7 +585,7 @@ object DFAny {
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__Dev {
+    protected[DFiant] trait __Dev extends super[Connectable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -830,11 +830,11 @@ object DFAny {
     type TPostInit = TVal <> Dir
     type TDir = Dir
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__Dev {
+    protected[DFiant] trait __Dev extends super[Initializable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private[DFiant] def constructCodeStringDefault : String = s"${dfVar.constructCodeStringDefault} <> $dir$initCodeString"
+      private[DFiant] def constructCodeStringDefault : String = s"${dfVar.__dev.constructCodeStringDefault} <> $dir$initCodeString"
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
