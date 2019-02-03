@@ -7,7 +7,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   extends DFDesign with DSLFoldableOwnerConstruct { self =>
 
   type TDev <: __DevDFComponent
-  protected[DFiant] trait __DevDFComponent extends super.__DevDFDesign with super.__DevDSLFoldableOwner {
+  protected[DFiant] trait __DevDFComponent extends super[DFDesign].__Dev with super[DSLFoldableOwnerConstruct].__Dev {
 
     override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
       out.__dev.injectDependencies(inList)

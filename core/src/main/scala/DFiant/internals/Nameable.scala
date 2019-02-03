@@ -1,7 +1,7 @@
 package DFiant.internals
 
 trait Nameable {self =>
-  protected[DFiant] trait __DevNameable {
+  protected[DFiant] trait __Dev {
     protected def nameDefault : String = "???"
     private[Nameable] var nameManual : String = ""
     private var nameAutoFunc : () => String = () => ""
@@ -14,18 +14,18 @@ trait Nameable {self =>
     private[internals] def getUniqueName(suggestedName : String) : String
     final def setAutoName(name : => String) : self.type = {nameAutoFunc = () => name; self}
   }
-  private[DFiant] val __dev : __DevNameable
+  private[DFiant] val __dev : __Dev
   final def setName(name : String) : self.type = {__dev.nameManual = name; self}
   override def toString : String = __dev.name
 }
 
 trait TypeNameable {
-  protected[DFiant] trait __DevTypeNameable {
+  protected[DFiant] trait __Dev {
     private var typeNameAuto : String = "???"
     lazy val typeName : String = typeNameAuto
     final def setAutoTypeName(name : String) : this.type = {typeNameAuto = name; this}
   }
-  private[DFiant] lazy val __dev : __DevTypeNameable = new __DevTypeNameable {}
+  private[DFiant] lazy val __dev : __Dev = new __Dev {}
 }
 
 

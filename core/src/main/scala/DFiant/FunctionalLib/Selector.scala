@@ -8,7 +8,7 @@
 //(val sel : DFUInt[SW])(val args: List[DFBits[W]]) (
 //  implicit ctx: DFComponent.Context[Selector[SW, W]], cmp: DFAny.Companion = DFBits
 //) extends DFComponent[Selector[SW, W]] with DSLSelfConnectedFoldableOwnerConstruct with DFBits[W] {
-//  protected[DFiant] trait __Dev extends super.__DevDFComponent with super.__DevDFAny {
+//  protected[DFiant] trait __Dev extends super[DFComponent].__DevDFComponent with super[DFAny].__DevDFAny {
 //
 //  }
 //  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]

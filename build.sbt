@@ -10,10 +10,10 @@ lazy val global = project
   .in(file("."))
   .settings(settings)
   .aggregate(
-    sourcecode,
-    `singleton-ops`,
-    continuum,
-    common,
+//    sourcecode,
+//    `singleton-ops`,
+//    continuum,
+//    common,
     macros,
     core
   )

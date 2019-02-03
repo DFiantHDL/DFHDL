@@ -16,7 +16,7 @@ trait HasOwner {
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
   type TDev <: __Dev
-  trait __Dev extends __DevNameable with __DevTypeNameable with __DevDiscoverable {
+  trait __Dev extends super[Nameable].__Dev with super[TypeNameable].__Dev with super[Discoverable].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,8 +104,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
-  type TDev <: __DevDSLOwner
-  protected[DFiant] trait __DevDSLOwner extends super.__Dev {
+  type TDev <: __Dev
+  protected[DFiant] trait __Dev extends super.__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -158,7 +158,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     }
 
   }
-  override private[DFiant] lazy val __dev : TDev = new __DevDSLOwner {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
@@ -195,24 +195,24 @@ object DSLOwnerConstruct {
 }
 
 trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
-  type TDev <: __DevDSLTransparentOwner
-  protected[DFiant] trait __DevDSLTransparentOwner extends super.__DevDSLOwner {
+  type TDev <: __Dev
+  protected[DFiant] trait __Dev extends super[DSLOwnerConstruct].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
 
   }
-  override private[DFiant] lazy val __dev : TDev = new __DevDSLTransparentOwner {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
-  type TDev <: __DevDSLFoldableOwner
-  protected[DFiant] trait __DevDSLFoldableOwner extends super.__DevDSLOwner {
+  type TDev <: __Dev
+  protected[DFiant] trait __Dev extends super[DSLOwnerConstruct].__Dev {
 
   }
-  override private[DFiant] lazy val __dev : TDev = new __DevDSLFoldableOwner {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
 //  private[DFiant] var foldRequest : Boolean = true

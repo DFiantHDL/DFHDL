@@ -4,11 +4,11 @@ import internals._
 import scala.collection.mutable.ListBuffer
 
 protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct {
-  type TDev <: __DevConditionalBlock
-  protected[DFiant] trait __DevConditionalBlock extends super.__DevDSLTransparentOwner {
+  type TDev <: __Dev
+  protected[DFiant] trait __Dev extends super[DSLTransparentOwnerConstruct].__Dev {
 
   }
-  override private[DFiant] lazy val __dev : TDev = new __DevConditionalBlock {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
   type ThisOwner <: DFBlock
 }
@@ -29,7 +29,7 @@ object ConditionalBlock {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,7 @@ object ConditionalBlock {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,7 +257,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,7 +363,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super.__DevDFDesign with super.__DevConditionalBlock {
+      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////

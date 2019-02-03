@@ -34,8 +34,8 @@ trait DFAny extends DFAnyMember with HasWidth {
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
-  type TDev <: __DevDFAny
-  protected[DFiant] trait __DevDFAny extends super.__DevDFAnyMember {
+  type TDev <: __Dev
+  protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +43,7 @@ trait DFAny extends DFAnyMember with HasWidth {
 
 
   }
-  override private[DFiant] lazy val __dev : TDev = new __DevDFAny {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -246,7 +246,7 @@ object DFAny {
     type TDir <: DFDir
 
     type TDev <: __DevDFAnyVar
-    protected[DFiant] trait __DevDFAnyVar extends super.__DevDFAny {
+    protected[DFiant] trait __DevDFAnyVar extends super[DFAny].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -328,11 +328,11 @@ object DFAny {
   abstract class Constructor[DF <: DFAny](_width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny {
-    type TDev <: __DevConstructor
-    protected[DFiant] trait __DevConstructor extends super.__DevDFAny {
+    type TDev <: __Dev
+    protected[DFiant] trait __Dev extends super[DFAny].__Dev {
 
     }
-    override private[DFiant] lazy val __dev : TDev = new __DevConstructor {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
@@ -345,7 +345,7 @@ object DFAny {
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](width) with DFAny.Var {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__DevConstructor with super.__DevDFAnyVar {
+    protected[DFiant] trait __Dev extends super[Constructor].__Dev with super[Var].__DevDFAnyVar {
 
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
@@ -500,7 +500,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
+    protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -522,7 +522,7 @@ object DFAny {
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
+    protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -774,7 +774,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {
     type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super.__DevConstructor {
+    protected[DFiant] trait __Dev extends super[Constructor].__Dev {
 
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]

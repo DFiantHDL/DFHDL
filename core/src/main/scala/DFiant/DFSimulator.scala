@@ -31,7 +31,7 @@ trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
+  protected[DFiant] trait __Dev extends super[DFAnySimMember].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,7 +77,7 @@ object Severity {
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super.__DevDFAnyMember {
+  protected[DFiant] trait __Dev extends super[DFAnySimMember].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

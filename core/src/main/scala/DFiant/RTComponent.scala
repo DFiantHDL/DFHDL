@@ -6,7 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
   type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super.__DevDFInterface {
+  protected[DFiant] trait __Dev extends super[DFInterface].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
