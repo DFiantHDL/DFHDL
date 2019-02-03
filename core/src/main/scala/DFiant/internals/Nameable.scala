@@ -14,7 +14,7 @@ trait Nameable {self =>
     private[internals] def getUniqueName(suggestedName : String) : String
     final def setAutoName(name : => String) : self.type = {nameAutoFunc = () => name; self}
   }
-  private[DFiant] val __dev : __Dev
+  private[DFiant] lazy val __dev : __Dev = ???
   final def setName(name : String) : self.type = {__dev.nameManual = name; self}
   override def toString : String = __dev.name
 }

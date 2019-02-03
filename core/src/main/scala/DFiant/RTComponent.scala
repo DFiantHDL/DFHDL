@@ -6,6 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
   type TDev <: __Dev
+  val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFInterface].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -26,9 +27,9 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
-  val ctx = ctx0
   override implicit def theOwnerToBe : RTComponent = this
   protected def newGeneric() : Unit = {}
   //final protected def discovery : Unit = {}

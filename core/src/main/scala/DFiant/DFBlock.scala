@@ -5,6 +5,7 @@ import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
   type TDev <: __Dev
+  final val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
@@ -16,10 +17,9 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
   }
-  override private[DFiant] lazy val __dev : TDev = ???.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
 
-  val ctx = ctx0
   override type ThisOwner = DFBlock
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
