@@ -5,14 +5,11 @@ import java.lang.Float._
 import singleton.ops._
 import singleton.twoface._
 import scala.math.{ceil, floor, log}
-
 package object internals {
-  final private[DFiant] implicit def __fetchDev(d : DSLMemberConstruct) : d.__dev.type = d.__dev
-  final private[DFiant] implicit def __fetchDev(d : DSLOwnerConstruct) : d.__dev.type = d.__dev
+//  final private[DFiant] implicit def __fetchDev(d : DSLMemberConstruct) : d.__dev.type = d.__dev
+//  final private[DFiant] implicit def __fetchDev(d : DSLOwnerConstruct) : d.__dev.type = d.__dev
 
-  implicit class __DslMember[M <: DSLMemberConstruct](val member : M) {
-    final lazy val __dev : member.TDev = member.__dev
-  }
+  implicit object devAccess extends dev.Access
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   // Conversions

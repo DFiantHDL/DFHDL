@@ -2,7 +2,7 @@ package DFiant.compiler
 import DFiant.AliasTag
 import DFiant.FunctionalLib.{CompAlias, Func2Comp}
 import DFiant._
-import DFiant.internals.{DSLOwnerConstruct, StringExtras, csoIntervalBigInt}
+import DFiant.internals._
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.HashMap

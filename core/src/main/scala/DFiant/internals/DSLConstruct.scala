@@ -103,6 +103,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   override def toString: String = s"$fullName : $typeName"
 }
 
+object DSLMemberConstruct {
+  implicit def fetchDev(from : DSLMemberConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+}
+
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   type TDev <: __Dev
   protected[DFiant] trait __Dev extends super.__Dev {
@@ -164,7 +168,9 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   protected implicit def theOwnerToBe : DSLOwnerConstruct = this
   val config : DSLConfiguration
 }
+
 object DSLOwnerConstruct {
+  implicit def fetchDev(from : DSLOwnerConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] {
     val ownerOption : Option[Owner]
     implicit lazy val owner : Owner =
