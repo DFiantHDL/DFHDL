@@ -7,10 +7,20 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   type TDev <: __Dev
   final lazy val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
+    protected val designDB : DFDesign.DB =
+      ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Simulation
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFiant] def hasSimMembers : Boolean = mutableMemberList.collectFirst{
+      case m : DFAnySimMember => m
+      case m : DFBlock if m.hasSimMembers => m
+    }.nonEmpty
   }
   override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
@@ -22,18 +32,11 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   implicit val basicLib = ctx.basicLib
   final val topDsn : DFDesign =
     ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(this.asInstanceOf[DFDesign])
-  private[DFiant] val designDB : DFDesign.DB =
-    ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
 
   final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
   final object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
   def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
   def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
-
-  private[DFiant] def hasSimMembers : Boolean = mutableMemberList.collectFirst{
-    case m : DFAnySimMember => m
-    case m : DFBlock if m.hasSimMembers => m
-  }.nonEmpty
 
   protected object sim {
     final val Note = Severity.Note
@@ -52,6 +55,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   }
 }
 object DFBlock {
+  implicit def fetchDev(from : DFBlock)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
     def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
