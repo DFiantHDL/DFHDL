@@ -10,7 +10,20 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFiant] def designType : String = typeName
+    //The block by value object is created within the context of the current DFDesign,
+    //so we mutate `theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs
+    private[DFiant] def injectConditionalBlock[IB <: DFDesign](ifBlock : IB, block: => Unit)(mutableOwner: MutableOwner) : IB = {
+      val originalOwner = mutableOwner.value
+      mutableOwner.value = ifBlock
+      block
+      mutableOwner.value = originalOwner
+      ifBlock
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    protected def designType : String = typeName
     private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, self)
 
     private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
@@ -32,15 +45,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   import __dev._
 
   final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
-  //The block by value object is created within the context of the current DFDesign,
-  //so we mutate `theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs
-  private[DFiant] def injectConditionalBlock[IB <: DFDesign](ifBlock : IB, block: => Unit)(mutableOwner: MutableOwner) : IB = {
-    val originalOwner = mutableOwner.value
-    mutableOwner.value = ifBlock
-    block
-    mutableOwner.value = originalOwner
-    ifBlock
-  }
+
   protected def atOwnerDo[T](block : => T) : T = {
     val originalOwner = mutableOwner.value
     mutableOwner.value = owner.asInstanceOf[DFBlock]

@@ -3,16 +3,22 @@ package DFiant
 import DFiant.BasicLib.DFBasicLib
 import internals._
 
-abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {
+abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
   type TDev <: __Dev
   final lazy val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
-    protected val designDB : DFDesign.DB =
-      ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final val topDsn : DFDesign =
+      ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(self.asInstanceOf[DFDesign])
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
+    protected val designDB : DFDesign.DB =
+      ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Simulation
@@ -30,13 +36,11 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
   implicit val basicLib = ctx.basicLib
-  final val topDsn : DFDesign =
-    ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(this.asInstanceOf[DFDesign])
 
-  final object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
-  final object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
-  def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
-  def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
+  final protected object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
+  final protected object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
+  protected def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
+  protected def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
 
   protected object sim {
     final val Note = Severity.Note
