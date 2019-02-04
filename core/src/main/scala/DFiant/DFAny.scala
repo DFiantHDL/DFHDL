@@ -493,7 +493,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Connections and Assignments
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit private val ctx0 : Connector.Context) extends DFAnyMember {
+  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
     type TDev <: __Dev
     final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
