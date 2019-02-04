@@ -37,8 +37,8 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   override implicit def theOwnerToBe : DFBlock = mutableOwner.value
   implicit val basicLib = ctx.basicLib
 
-  final protected object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
-  final protected object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
+  final protected[DFiant] object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
+  final protected[DFiant] object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
   protected def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
   protected def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
 

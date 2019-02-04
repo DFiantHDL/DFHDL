@@ -1,22 +1,22 @@
-package DFiant
-
-import DFiant.TestUtils._
-import org.scalacheck._
-import shapeless.test.illTyped
-import singleton.ops._
-
-class DFStructAutoTest extends Properties("DFStructAutoTest") {
-  trait Foo extends DFFields {
-    val u = DFUInt(8)
-    val b = DFBits(8)
-  }
-
-
-  trait MyDesign extends DFDesign {
+//package DFiant
+//
+//import DFiant.TestUtils._
+//import org.scalacheck._
+//import shapeless.test.illTyped
+//import singleton.ops._
+//
+//class DFStructAutoTest extends Properties("DFStructAutoTest") {
+//  trait Foo extends DFFields {
+//    val u = DFUInt(8)
+//    val b = DFBits(8)
+//  }
+//
+//
+//  trait MyDesign extends DFDesign {
 //    val p1 = DFStruct(new Foo{}) <> IN
 //    val p1dup = DFStruct(Foo) <> OUT
 //    p1dup := p1
-
+//
 //    val p2 = DFStruct(Foo) <> IN init Foo.Baz2
 //    val p3 = DFStruct(Foo) <> OUT
 //    p3 := DFStructFromEntry(Foo.Baz1)
@@ -27,8 +27,8 @@ class DFStructAutoTest extends Properties("DFStructAutoTest") {
 //    e == Foo.Baz2
 //    e.bits(1,0)
 //    illRun {e.bits(4,0)}
-  }
-
+//  }
+//
 //  property("Foo.codeString") = {
 //    val compare =
 //      """
@@ -42,4 +42,4 @@ class DFStructAutoTest extends Properties("DFStructAutoTest") {
 //      """.stripMargin
 //    Foo.codeString =@= compare
 //  }
-}
+//}
