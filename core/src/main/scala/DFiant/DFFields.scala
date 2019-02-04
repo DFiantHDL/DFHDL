@@ -8,7 +8,6 @@
 //  final def codeString : String = {
 //    s"\ntrait $name extends DFFields {$bodyCodeString\n}"
 //  }
-//  final val id = getID
 //}
 //
 //object DFFields {

@@ -4,7 +4,6 @@ import internals._
 
 case class Comment(comment : String)(implicit ctx : DFDesign.Context) extends DSLMemberConstruct {
   protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
-    final val id = getID
     def codeString : String = s"\n//$comment"
 
   }

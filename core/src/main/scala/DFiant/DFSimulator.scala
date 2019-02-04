@@ -45,11 +45,6 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
         s"""
            |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Ownership
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
@@ -90,11 +85,6 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
     def codeString : String =
       s"""
          |sim.finish()""".stripMargin
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Ownership
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val id = getID
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
