@@ -10,6 +10,5 @@ case class Comment(comment : String)(implicit ctx0 : DFDesign.Context) extends D
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
-  private[DFiant] lazy val nameIt = ctx.n
   keep
 }

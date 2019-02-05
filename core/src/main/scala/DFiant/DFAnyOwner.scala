@@ -14,7 +14,6 @@ trait DFAnyMember extends DSLMemberConstruct {
   private[DFiant] val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
   implicit def theOwnerToBe : DFAnyOwner = ownerOption.orNull
   final implicit lazy val config : DFAnyConfiguration = ctx.config
-  final private[DFiant] lazy val nameIt = ctx.n
 }
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
