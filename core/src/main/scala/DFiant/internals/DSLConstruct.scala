@@ -66,6 +66,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
     def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
     final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
     final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
@@ -91,7 +92,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
-  val ownerOption : Option[DSLOwnerConstruct]
+  private[DFiant] val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration]
   type ThisOwner <: DSLOwnerConstruct
   final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
   final def keep : this.type = {

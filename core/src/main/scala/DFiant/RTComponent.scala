@@ -6,7 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
   type TDev <: __Dev
-  final lazy val ctx = ctx0
+  final private[DFiant] lazy val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFInterface].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming

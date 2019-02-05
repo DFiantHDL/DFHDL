@@ -5,15 +5,14 @@ import DFiant.internals._
 trait DFAnyMember extends DSLMemberConstruct {
   type TDev <: __Dev
   protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
-
+    final override lazy val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   }
   override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
 
   type ThisOwner <: DFAnyOwner
-  protected val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
+  private[DFiant] val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
   implicit def theOwnerToBe : DFAnyOwner = ownerOption.orNull
-  lazy val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   final implicit lazy val config : DFAnyConfiguration = ctx.config
   final private[DFiant] lazy val nameIt = ctx.n
 }

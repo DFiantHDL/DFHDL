@@ -5,7 +5,7 @@ import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
   type TDev <: __Dev
-  final lazy val ctx = ctx0
+  final private[DFiant] lazy val ctx = ctx0
   protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership

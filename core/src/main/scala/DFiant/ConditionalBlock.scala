@@ -227,9 +227,10 @@ object ConditionalBlock {
 
   class MatchNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
-      implicit ctx : Context, mutableOwner: MutableOwner
+      implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DSLMemberConstruct {
       type TDev <: __Dev
+      final private[DFiant] lazy val ctx = ctx0
       protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -253,7 +254,7 @@ object ConditionalBlock {
 
       type TPattern = matchVal.TPattern
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(
-        implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV]
+        implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV]
       ) : DFCasePatternBlock[MV] =
         new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern).asInstanceOf[TPattern], block)
 
@@ -268,12 +269,11 @@ object ConditionalBlock {
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
-      lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
       private[DFiant] lazy val nameIt = ctx.n
       matchVal.consume()
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
-      implicit ctx : Context, mutableOwner: MutableOwner
+      implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
       type TDev <: __Dev
       protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
@@ -296,11 +296,11 @@ object ConditionalBlock {
 
       final val matchVal = matchHeader.matchVal
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(
-        implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV]
+        implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV]
       ) : DFCasePatternBlock[MV] =
         new DFCasePatternBlock[MV](matchHeader)(Some(this), patternBld(matchVal, pattern), block)
 
-      def casedf_(block : => Unit)(implicit ctx : Context)
+      def casedf_(block : => Unit)(implicit ctx0 : Context)
       : Unit = new DFCase_Block[MV](matchHeader)(Some(this), block)
 
       private var nextCase : Option[DFCasePatternBlock[MV]] = None
@@ -337,9 +337,10 @@ object ConditionalBlock {
 
   class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
-      implicit ctx : Context, mutableOwner: MutableOwner
+      implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DSLMemberConstruct {
       type TDev <: __Dev
+      final private[DFiant] lazy val ctx = ctx0
       protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -369,7 +370,7 @@ object ConditionalBlock {
       type TToken = matchVal.TToken
 
       def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(
-        implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV], retVld : Builder[R]
+        implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV], retVld : Builder[R]
       ) : DFCasePatternBlock[MV] =
         new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern), retVld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
 
@@ -384,7 +385,6 @@ object ConditionalBlock {
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
-      lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
       private[DFiant] lazy val nameIt = ctx.n
       matchVal.consume()
     }

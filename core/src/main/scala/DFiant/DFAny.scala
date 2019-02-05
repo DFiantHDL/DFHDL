@@ -514,7 +514,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
     type TDev <: __Dev
-    final lazy val ctx = ctx0
+    final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -535,7 +535,7 @@ object DFAny {
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
     type TDev <: __Dev
-    final lazy val ctx = ctx0
+    final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -556,7 +556,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
     type TDev <: __Dev
-    final lazy val ctx = ctx0
+    final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Initializable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -587,7 +587,7 @@ object DFAny {
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {self =>
     type TDev <: __Dev
-    final lazy val ctx = ctx0
+    final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Connectable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -790,7 +790,7 @@ object DFAny {
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {self =>
     type TDev <: __Dev
-    final lazy val ctx = ctx0
+    final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Constructor].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -838,7 +838,7 @@ object DFAny {
     type TPostInit = TVal <> Dir
     type TDir = Dir
     type TDev <: __Dev
-    final lazy val ctx = ctx0
+    final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Initializable].__Dev {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
