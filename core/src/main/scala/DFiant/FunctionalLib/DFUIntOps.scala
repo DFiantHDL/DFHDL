@@ -1,5 +1,6 @@
 package DFiant.FunctionalLib
 import DFiant._
+import internals.devAccess
 import singleton.ops._
 import singleton.twoface._
 

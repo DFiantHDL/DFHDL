@@ -61,6 +61,36 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
       if (config.commentConnection || owner.privShowConnections) s"//conn = ${getFoldedSource.refCodeString}" else ""
     private def valCodeString : String = s"\nval $name = $constructCodeString"
     def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Consumption
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
+      //Do Nothing
+      //TODO: consider adding stuff here
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Init (for use with Prev)
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    val initLB : LazyBox[Seq[TToken]]
+    var privRefCount : Int = 0
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Constant
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    val constLB : LazyBox[TToken]
+    final def isConstant : Boolean = !constLB.get.isBubble
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Source
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    def thisSourceLB : LazyBox[Source] =
+      LazyBox.Args1[Source, Source](self)(f => f.copyWithNewDFVal(self), inletSourceLB)
+    lazy val prevSourceLB : LazyBox[Source] =
+      LazyBox.Const[Source](self)(Source.zeroLatency(self).prev(1))
+    def inletSourceLB : LazyBox[Source]
+    final lazy val getFoldedSource : Source = inletSourceLB.get
   }
   override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
@@ -127,15 +157,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   }
   //////////////////////////////////////////////////////////////////////////
 
-  //////////////////////////////////////////////////////////////////////////
-  // Init (for use with Prev)
-  //////////////////////////////////////////////////////////////////////////
-  protected[DFiant] val initLB : LazyBox[Seq[TToken]]
-  protected[DFiant] val constLB : LazyBox[TToken]
-  final def isConstant : Boolean = !constLB.get.isBubble
-  private[DFiant] var privRefCount : Int = 0
-  private[DFiant] def pipeGet : Int = 0
-  //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
   // Prev
@@ -157,6 +178,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   final def pipe[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPipe(step)
   final def pipeBreak : TVal = ???
+  private[DFiant] def pipeGet : Int = 0
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -164,41 +186,25 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Future Stuff
   //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
-  //  final def getNextSeq(seqNum : Int, slidingWindow : Boolean = false) : Seq[TVal] = {
-  //    val seq = Seq.tabulate(seqNum)(_ => this.newEmptyDFVar.dontProduce())
-  //    if (slidingWindow)
-  //      seq.zipWithIndex.foreach{case (e, i) => e := this.next(i)}
-  //    else {
-  //      ifdf (this.tokensCounter(seqNum) == 0) { //TODO: think about tokenCnt limit here (maybe seqNum-1 ??)
-  //        seq.zipWithIndex.foreach{case (e, i) => e := this.next(i)}
-  //      }
-  //    }
-  //    seq
-  //  }
-
-  private[DFiant] def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
-    //Do Nothing
-    //TODO: consider adding stuff here
-  }
   def consume() : TAlias = {
-    consume(width, 0)
+    consume(width.getValue, 0)
     this.asInstanceOf[TAlias]
   }
-  final def dontConsume() : TAlias = {
-    ???
-    this.asInstanceOf[TAlias]
-  }
+  final def dontConsume() : TAlias = ???
   final def isNotEmpty : DFBool = ???
-  //  final def tokensCounter(supremLimit : Int) : DFUInt = TokensCounter(this, supremLimit)
-  //  def newEmptyDFVar : TVar
-//  protected[DFiant] def copyAsNewVar : DFAny.NewVar with TVar = ???
+  //////////////////////////////////////////////////////////////////////////
+
+
+  //////////////////////////////////////////////////////////////////////////
+  // Generation
+  //////////////////////////////////////////////////////////////////////////
   protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context) : TVal <> Dir
   protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
   ) : TAlias
   //////////////////////////////////////////////////////////////////////////
 
-
+  
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
@@ -210,12 +216,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  private[DFiant] def thisSourceLB : LazyBox[Source] =
-    LazyBox.Args1[Source, Source](this)(f => f.copyWithNewDFVal(this), inletSourceLB)
-  private[DFiant] lazy val prevSourceLB : LazyBox[Source] =
-    LazyBox.Const[Source](this)(Source.zeroLatency(this).prev(1))
-  private[DFiant] def inletSourceLB : LazyBox[Source]
-  final private[DFiant] lazy val getFoldedSource : Source = inletSourceLB.get
   val isPort : Boolean
   //////////////////////////////////////////////////////////////////////////
 }
@@ -232,12 +232,12 @@ object DFAny {
     type TCompanion = T
   }
 
-  trait Var extends DFAny {
+  trait Var extends DFAny {self =>
     type TAlias = TVar
-    type TBool = DFBool.Var//DFBool#TVar
-    type TBits[W2] = DFBits.Var[W2]//DFBits[W2]#TVar
-    type TUInt[W2] = DFUInt.Var[W2]//DFUInt[W2]#TVar
-    type TSInt[W2] = DFSInt.Var[W2]//DFSInt[W2]#TVar
+    type TBool = DFBool.Var
+    type TBits[W2] = DFBits.Var[W2]
+    type TUInt[W2] = DFUInt.Var[W2]
+    type TSInt[W2] = DFSInt.Var[W2]
     type TDir <: DFDir
 
     type TDev <: __Dev
@@ -245,8 +245,54 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private[DFiant] val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
+      final val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
       override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Consumption
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
+        val fromRelBitHigh = fromRelBitLow + fromRelWidth - 1
+        val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
+
+        if ((assignedIndication | fromBitSet) != assignedIndication) //not all used bits are assigned to
+          maxPrevUse = scala.math.max(maxPrevUse, 1)
+      }
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Assignment
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final def isAssigned : Boolean = assignedIndication.nonEmpty
+      final protected val assignedIndication = collection.mutable.BitSet.empty
+      final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
+      def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
+        implicit ctx : DFAny.Op.Context
+      ) : Unit = {
+        assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
+      }
+      def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+        val toVar = self
+        //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
+        val toRelBitHigh = toRelBitLow + toRelWidth-1
+        val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
+        if (!ctx.owner.callSiteSameAsOwnerOf(self))
+          throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
+        def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
+        if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
+        //      fromVal match {
+        //        case x : Var  if ((collection.immutable.BitSet.empty ++ (0 until toRelWidth)) &~ x.assignedIndication).nonEmpty =>
+        //          x.maxPrevUse = scala.math.max(x.maxPrevUse, 1)
+        ////          println(s"$fullName ${x.maxPrevUse}")
+        //      }
+        fromVal.consume()
+        assignedIndication ++= toRelBitLow to toRelBitHigh
+        assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
+        protAssignDependencies += Assignment(toVar, fromVal)
+        protAssignDependencies += fromVal
+      }
+      def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+        assign(width, 0, that)
+      }
     }
     override private[DFiant] lazy val __dev : TDev = ???
     import __dev._
@@ -254,18 +300,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Future Stuff
     //////////////////////////////////////////////////////////////////////////
-    final def dontProduce() : TAlias = {
-      ???
-      this.asInstanceOf[TAlias]
-    }
+    final def dontProduce() : TAlias = ???
     final def isNotFull : DFBool = ???
-//
-//    final def assignNext(step : Int, that : TVal) : Unit = ???
-//    final def assignNext(step : Int, that : BigInt) : Unit = ???
-//    final def <-- (that : Iterable[TVal]) : TVar = {
-//      that.zipWithIndex.foreach{case (e, i) => this.assignNext(i, e)}
-//      this.asInstanceOf[TVar]
-//    }
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
@@ -275,45 +311,12 @@ object DFAny {
     final def := [R](right: OpAble[R])(
       implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFAny.Op.Context
     ) = assign(op(left, right))
-    final private[DFiant] def isAssigned : Boolean = assignedIndication.nonEmpty
-    private[DFiant] val assignedIndication = collection.mutable.BitSet.empty
-    private[DFiant] lazy val assignedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
 
-    override private[DFiant] def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
-      val fromRelBitHigh = fromRelBitLow + fromRelWidth - 1
-      val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
 
-      if ((assignedIndication | fromBitSet) != assignedIndication) //not all used bits are assigned to
-        maxPrevUse = scala.math.max(maxPrevUse, 1)
-    }
-
-    private[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
-      assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
-    }
-    protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-      val toVar = this
-      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
-      val toRelBitHigh = toRelBitLow + toRelWidth-1
-      val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
-      if (!ctx.owner.callSiteSameAsOwnerOf(this))
-        throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-      if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
-//      fromVal match {
-//        case x : Var  if ((collection.immutable.BitSet.empty ++ (0 until toRelWidth)) &~ x.assignedIndication).nonEmpty =>
-//          x.maxPrevUse = scala.math.max(x.maxPrevUse, 1)
-////          println(s"$fullName ${x.maxPrevUse}")
-//      }
-      fromVal.consume()
-      assignedIndication ++= toRelBitLow to toRelBitHigh
-      assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
-      protAssignDependencies += Assignment(toVar, fromVal)
-      protAssignDependencies += fromVal
-    }
-    protected[DFiant] def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-      assign(width, 0, that)
-    }
     //////////////////////////////////////////////////////////////////////////
+  }
+  object Var {
+    implicit def fetchDev(from : Var)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   }
 
 
@@ -333,99 +336,109 @@ object DFAny {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Connectable Constructor
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Connectable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Constructor[DF](width) with DFAny.Var {
+  ) extends Constructor[DF](width) with DFAny.Var {self =>
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super[Constructor].__Dev with super[Var].__Dev {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Assignment
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+        val toVar = self
+        val toRelBitHigh = toRelBitLow + toRelWidth-1
+        val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
+        def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
+        if ((connectedIndication & toBitSet).nonEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        super.assign(toRelWidth, toRelBitLow, fromVal)
+      }
 
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Connection
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val connectedIndication = collection.mutable.BitSet.empty
+      final lazy val connectedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
+      final def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+        val toVar = self
+        //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
+        val toRelBitHigh = toRelBitLow + toRelWidth-1
+        val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
+
+        def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName}")
+        if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
+        if ((connectedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")
+        if ((assignedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        //All is well. We can now connect fromVal->toVar
+        fromVal.consume()
+        connectedIndication ++= toRelBitLow to toRelBitHigh
+        connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), connectedSourceLB.getBox, fromVal.thisSourceLB))
+      }
+      def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+        val toVar = self
+        connectFrom(width, 0, fromVal)
+        //All is well. We can now connect fromVal->toVar
+        toVar.protAssignDependencies += Connector(toVar, fromVal)
+        toVar.protAssignDependencies += fromVal
+      }
+      final private[DFiant] def isConnected : Boolean = !connectedSourceLB.get.isEmpty
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Init
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      private def initFunc(source : Source) : Seq[TToken] = {
+        val bitsTokenSeq : Seq[DFBits.Token] = source.elements.map(x =>
+          x.aliasTag match {
+            case Some(t) =>
+              val selBits = t.dfVal.initLB.get.bitsWL(x.relWidth, x.relBitLow)
+              val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
+              val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
+              if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
+            case None => Seq()
+          }).reduce(DFBits.Token.concat)
+        bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
+      }
+      lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
+      lazy val initConnectedLB : LazyBox[Seq[TToken]] =
+        LazyBox.Args1[Seq[TToken], Source](self)(initFunc, initSourceLB)
+      lazy val initLB : LazyBox[Seq[TToken]] = initConnectedLB
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Constant
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      private def constFunc(source : Source) : TToken = {
+        val bitsToken : DFBits.Token = source.elements.map(x =>
+          x.aliasTag match {
+            case Some(t) =>
+              val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
+                if (t.prevStep > 0) DFBits.Token(t.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
+                else t.dfVal.constLB.get
+              val selBits = prvBits.bitsWL(x.relWidth, x.relBitLow)
+              val revBits = if (x.reverseBits) selBits.reverse else selBits
+              if (t.inverted) ~revBits else revBits
+            case None => DFBits.Token(x.relWidth, Bubble)
+          }).reduce((l, r) => l ## r)
+        protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
+      }
+      lazy val constLB : LazyBox[TToken] =
+        LazyBox.Args1[TToken, Source](self)(constFunc, inletSourceLB, Some(bubbleToken(self.asInstanceOf[DF]).asInstanceOf[TToken]))
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Source
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def inletSourceLB : LazyBox[Source] =
+        LazyBox.Args3[Source, Source, Source, Source](self)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB.getBox, prevSourceLB)
     }
     override private[DFiant] lazy val __dev : TDev = ???
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
-    private[DFiant] val connectedIndication = collection.mutable.BitSet.empty
-    private[DFiant] lazy val connectedSourceLB = LazyBox.Mutable[Source](this)(Source.none(width))
-    override private[DFiant] def inletSourceLB : LazyBox[Source] =
-      LazyBox.Args3[Source, Source, Source, Source](this)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB.getBox, prevSourceLB)
-
-    final private[DFiant] def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-      val toVar = this
-      //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
-      val toRelBitHigh = toRelBitLow + toRelWidth-1
-      val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
-
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName}")
-      if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
-      if ((connectedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")
-      if ((assignedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
-      //All is well. We can now connect fromVal->toVar
-      fromVal.consume()
-      connectedIndication ++= toRelBitLow to toRelBitHigh
-      connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](this)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), connectedSourceLB.getBox, fromVal.thisSourceLB))
-    }
-    private[DFiant] def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-      val toVar = this
-      connectFrom(width, 0, fromVal)
-      //All is well. We can now connect fromVal->toVar
-      toVar.__dev.protAssignDependencies += Connector(toVar, fromVal)
-      toVar.__dev.protAssignDependencies += fromVal
-    }
-    override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-      val toVar = this
-      val toRelBitHigh = toRelBitLow + toRelWidth-1
-      val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
-      def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-      if ((connectedIndication & toBitSet).nonEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
-      super.assign(toRelWidth, toRelBitLow, fromVal)
-    }
-    final private[DFiant] def isConnected : Boolean = !connectedSourceLB.get.isEmpty
-
-    //////////////////////////////////////////////////////////////////////////
-    // Initialization
-    //////////////////////////////////////////////////////////////////////////
-    private def initFunc(source : Source) : Seq[TToken] = {
-      val bitsTokenSeq : Seq[DFBits.Token] = source.elements.map(x =>
-        x.aliasTag match {
-        case Some(t) =>
-          val selBits = t.dfVal.initLB.get.bitsWL(x.relWidth, x.relBitLow)
-          val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
-          val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
-          if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
-        case None => Seq()
-      }).reduce(DFBits.Token.concat)
-      bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
-    }
-
-    private[DFiant] lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
-    private[DFiant] lazy val initConnectedLB : LazyBox[Seq[TToken]] =
-      LazyBox.Args1[Seq[TToken], Source](this)(initFunc, initSourceLB)
-    protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = initConnectedLB
-    //////////////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////////////
-    // Constant propagation
-    //////////////////////////////////////////////////////////////////////////
-    private def constFunc(source : Source) : TToken = {
-      val bitsToken : DFBits.Token = source.elements.map(x =>
-        x.aliasTag match {
-        case Some(t) =>
-          val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
-            if (t.prevStep > 0) DFBits.Token(t.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
-            else t.dfVal.constLB.get
-          val selBits = prvBits.bitsWL(x.relWidth, x.relBitLow)
-          val revBits = if (x.reverseBits) selBits.reverse else selBits
-          if (t.inverted) ~revBits else revBits
-        case None => DFBits.Token(x.relWidth, Bubble)
-      }).reduce((l, r) => l ## r)
-      protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
-    }
-    protected[DFiant] lazy val constLB : LazyBox[TToken] =
-      LazyBox.Args1[TToken, Source](this)(constFunc, inletSourceLB, Some(bubbleToken(this.asInstanceOf[DF]).asInstanceOf[TToken]))
-    //////////////////////////////////////////////////////////////////////////
+  }
+  object Connectable {
+    implicit def fetchDev(from : Connectable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -435,10 +448,44 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Initializable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Connectable[DF](width) {
+  ) extends Connectable[DF](width) {self =>
     type TDev <: __Dev
     protected[DFiant] trait __Dev extends super[Connectable].__Dev {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Init
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override lazy val initLB : LazyBox[Seq[TToken]] =
+        LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](self)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
+      private val initExternalLB = LazyBox.Mutable[Seq[TToken]](self)(Seq())
 
+      //If there is a connection to the specific bits, then the initialization uses that connection.
+      //Otherwise, the initialization uses the initialization set externally (via init or initialize)
+      private def initFunc(connectedSource : Source, initConnected : Seq[TToken], initExternal : Seq[TToken]) : Seq[TToken] = {
+        var lsbitPos : Int = width
+        val bitsTokenSeq : Seq[DFBits.Token] = connectedSource.elements.map(x => {
+          lsbitPos -= x.relWidth
+          x.aliasTag match {
+            case Some(t) => initConnected.bitsWL(x.relWidth, lsbitPos)
+            case None => initExternal.bitsWL(x.relWidth, lsbitPos)
+          }
+        }).reduce(DFBits.Token.concat)
+        bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
+      }
+
+      private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
+      final def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
+        if (initExternalLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
+        if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
+        updatedInit = () => updatedInitLB.get
+        initExternalLB.set(updatedInitLB)
+      }
+      object setInitFunc {
+        def forced(value : LazyBox[Seq[Token]]) : Unit = initExternalLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
+      }
+      final def initCodeString : String = {
+        val init = updatedInit()
+        if (initExternalLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
+      }
     }
     override private[DFiant] lazy val __dev : TDev = ???
     import __dev._
@@ -448,44 +495,13 @@ object DFAny {
     final def init(that : InitAble[TVal]*)(
       implicit op : InitBuilder, ctx : Alias.Context
     ) : TPostInit = {
-      initialize(LazyBox.Const(this)(op(left, that)), ctx.owner)
+      initialize(LazyBox.Const(self)(op(left, that)), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
-    private val initExternalLB = LazyBox.Mutable[Seq[TToken]](this)(Seq())
-
-    //If there is a connection to the specific bits, then the initialization uses that connection.
-    //Otherwise, the initialization uses the initialization set externally (via init or initialize)
-    private def initFunc(connectedSource : Source, initConnected : Seq[TToken], initExternal : Seq[TToken]) : Seq[TToken] = {
-      var lsbitPos : Int = width
-      val bitsTokenSeq : Seq[DFBits.Token] = connectedSource.elements.map(x => {
-        lsbitPos -= x.relWidth
-        x.aliasTag match {
-          case Some(t) => initConnected.bitsWL(x.relWidth, lsbitPos)
-          case None => initExternal.bitsWL(x.relWidth, lsbitPos)
-        }
-      }).reduce(DFBits.Token.concat)
-      bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
-    }
-
-    override protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] =
-      LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](this)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
-
-    private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
-    final protected[DFiant] def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
-      if (initExternalLB.isSet) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-      if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
-      updatedInit = () => updatedInitLB.get
-      initExternalLB.set(updatedInitLB)
-    }
-//    final def reInit(cond : DFBool) : Unit = ???
-    private[DFiant] object setInitFunc {
-      def forced(value : LazyBox[Seq[Token]]) : Unit = initExternalLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
-    }
-    final def initCodeString : String = {
-      val init = updatedInit()
-      if (initExternalLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
-    }
-    //////////////////////////////////////////////////////////////////////////
+    //    final def reInit(cond : DFBool) : Unit = ???
+  }
+  object Initializable {
+    implicit def fetchDev(from : Initializable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -562,13 +578,12 @@ object DFAny {
 //    def selectdf[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
   }
   object NewVar {
-//    implicit def fetchDev(from : NewVar[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
     type Context = DFAnyOwner.Context[DFAnyOwner]
   }
 
   abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Connectable[DF](reference.width) {
+  ) extends Connectable[DF](reference.width) {self =>
     type TDev <: __Dev
     final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Connectable].__Dev {
@@ -581,15 +596,67 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ reference.aliasedVars
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Assignment
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
+        val toVar = this
+        val toRelBitHigh = toRelBitLow + toRelWidth-1
+        case class absolute(alias : DFAny, high : Int, low : Int)
+        //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
+        val absolutes = reference.aliasedVars.foldLeft[List[absolute]](List()) {
+          case (list, alias) if list.isEmpty => List(absolute(alias, reference.width - 1, reference.width - alias.width))
+          case (list, alias) => list :+ absolute(alias, list.last.low - 1, list.last.low - alias.width)
+        }
+        val assignableAbsolutes = absolutes.filter(a => toRelBitHigh >= a.low || toRelBitLow <= a.high)
+        //      println(f"${s"$fullName($toRelBitHigh, $toRelBitLow)"}%-30s := ") //${fromVal.fullName}@${fromVal.width}
+        assignableAbsolutes.foreach {
+          case absolute(alias : DFAny.Port[_,_], high, low) if alias.dir.isIn =>
+            throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
+          case absolute(alias : DFAny.Var, high, low) =>
+            val partHigh = scala.math.min(high, toRelBitHigh)
+            val partLow = scala.math.max(low, toRelBitLow)
+            val fromWidth = partHigh - partLow + 1
+            val fromLow = partLow + low
+            //          val partFromSourceLB = LazyBox.Args1[Source, Source](this)(f => f.bitsWL(fromWidth, fromLow), fromSourceLB)
+            //          println(s"Boom ${alias.fullName}(${fromWidth+fromLow-1}, $fromLow) := ")
+            alias.assign(fromWidth, fromLow, fromSourceLB)
+          case absolute(alias, high, low) =>
+            throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
+        }
+      }
+      final override def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
+        reference.aliasedVars.foreach{case a : DFAny.Var =>
+          a.__dev.protAssignDependencies ++= List(self, that)
+        } //TODO: fix dependency to bit accurate dependency?
+        reference match {
+          case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
+            that.consume()
+            assign(relWidth, relBitLow, that.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
+          case DFAny.Alias.Reference.AsIs(aliasedVar) =>
+            that.consume()
+            assign(width, 0, that.inletSourceLB)
+          case DFAny.Alias.Reference.Concat(aliasedVars) =>
+            that.consume()
+            assign(width, 0, that.inletSourceLB)
+          case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
+          case DFAny.Alias.Reference.Invert(aliasedVar) => ???
+          case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) => ???
+          case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
+        }
+        protAssignDependencies += Assignment(self, that)
+        protAssignDependencies += that
+      }
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Source
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def inletSourceLB = reference.sourceLB
+      override lazy val initSourceLB : LazyBox[Source] = inletSourceLB
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
-
-
-    override private[DFiant] def inletSourceLB = reference.sourceLB
-
-//    override private[DFiant] def inletSourceLB = thisSourceLB //TODO: Consider dealiasing
-    override private[DFiant] lazy val initSourceLB : LazyBox[Source] = inletSourceLB
 
     final val isPort = false
 
@@ -608,54 +675,6 @@ object DFAny {
       this.asInstanceOf[TAlias]
     }
 
-    override protected[DFiant] def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
-      val toVar = this
-      val toRelBitHigh = toRelBitLow + toRelWidth-1
-      case class absolute(alias : DFAny, high : Int, low : Int)
-      //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
-      val absolutes = reference.aliasedVars.foldLeft[List[absolute]](List()) {
-        case (list, alias) if list.isEmpty => List(absolute(alias, reference.width - 1, reference.width - alias.width))
-        case (list, alias) => list :+ absolute(alias, list.last.low - 1, list.last.low - alias.width)
-      }
-      val assignableAbsolutes = absolutes.filter(a => toRelBitHigh >= a.low || toRelBitLow <= a.high)
-//      println(f"${s"$fullName($toRelBitHigh, $toRelBitLow)"}%-30s := ") //${fromVal.fullName}@${fromVal.width}
-      assignableAbsolutes.foreach {
-        case absolute(alias : DFAny.Port[_,_], high, low) if alias.dir.isIn =>
-          throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
-        case absolute(alias : DFAny.Var, high, low) =>
-          val partHigh = scala.math.min(high, toRelBitHigh)
-          val partLow = scala.math.max(low, toRelBitLow)
-          val fromWidth = partHigh - partLow + 1
-          val fromLow = partLow + low
-//          val partFromSourceLB = LazyBox.Args1[Source, Source](this)(f => f.bitsWL(fromWidth, fromLow), fromSourceLB)
-//          println(s"Boom ${alias.fullName}(${fromWidth+fromLow-1}, $fromLow) := ")
-          alias.assign(fromWidth, fromLow, fromSourceLB)
-        case absolute(alias, high, low) =>
-          throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
-      }
-    }
-    final override protected[DFiant] def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
-      reference.aliasedVars.foreach{case a : DFAny.Var =>
-        a.__dev.protAssignDependencies ++= List(this, that)
-      } //TODO: fix dependency to bit accurate dependency?
-      reference match {
-        case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
-          that.consume()
-          assign(relWidth, relBitLow, that.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
-        case DFAny.Alias.Reference.AsIs(aliasedVar) =>
-          that.consume()
-          assign(width, 0, that.inletSourceLB)
-        case DFAny.Alias.Reference.Concat(aliasedVars) =>
-          that.consume()
-          assign(width, 0, that.inletSourceLB)
-        case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
-        case DFAny.Alias.Reference.Invert(aliasedVar) => ???
-        case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) => ???
-        case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
-      }
-      protAssignDependencies += Assignment(this, that)
-      protAssignDependencies += that
-    }
   }
   object Alias {
     trait Tag
@@ -769,7 +788,7 @@ object DFAny {
 
   abstract class Const[DF <: DFAny](token : Token)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Constructor[DF](token.width) {
+  ) extends Constructor[DF](token.width) {self =>
     type TDev <: __Dev
     final lazy val ctx = ctx0
     protected[DFiant] trait __Dev extends super[Constructor].__Dev {
@@ -778,15 +797,32 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = constructCodeStringDefault
       private[DFiant] def constructCodeStringDefault : String = s"${token.codeString}"
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Init
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final lazy val initLB : LazyBox[Seq[TToken]] =
+        LazyBox.Const(self)(Seq(token).asInstanceOf[Seq[TToken]])
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Constant
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final lazy val constLB : LazyBox[TToken] =
+        LazyBox.Const(self)(token.asInstanceOf[TToken])
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Source
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final lazy val inletSourceLB : LazyBox[Source] =
+        LazyBox.Const(self)(Source.withLatency(self, None))
+      final override lazy val thisSourceLB : LazyBox[Source] =
+        LazyBox.Const(self)(Source.withLatency(self, None))
+      override lazy val prevSourceLB : LazyBox[Source] =
+        LazyBox.Const[Source](self)(Source.withLatency(self, None))
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
-    final protected[DFiant] lazy val initLB : LazyBox[Seq[TToken]] = LazyBox.Const(this)(Seq(token).asInstanceOf[Seq[TToken]])
-    final protected[DFiant] lazy val constLB : LazyBox[TToken] = LazyBox.Const(this)(token.asInstanceOf[TToken])
-    final private[DFiant] lazy val inletSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
-    final override private[DFiant] lazy val thisSourceLB : LazyBox[Source] = LazyBox.Const(this)(Source.withLatency(this, None))
-    override private[DFiant] lazy val prevSourceLB : LazyBox[Source] = LazyBox.Const[Source](this)(Source.withLatency(this, None))
     final val isPort = false
   }
   object Const {
@@ -800,8 +836,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
     implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {
-    this : DF <> Dir =>
+  ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {self : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
     type TDev <: __Dev
@@ -810,124 +845,137 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private[DFiant] def constructCodeStringDefault : String = s"${dfVar.__dev.constructCodeStringDefault} <> $dir$initCodeString"
+      private[DFiant] def constructCodeStringDefault : String =
+        s"${dfVar.__dev.constructCodeStringDefault} <> $dir$initCodeString"
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Connection
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = self.dir == right.dir
+      private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
+        implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
+        val left = self
+        def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}\nConnected at ${ctx.owner.fullName}")
+        val (fromPort, toPort) =
+        //Ports in the same design, connected at the same design
+          if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left)) (left.dir, right.dir) match {
+            case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
+            case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
+            case (ld : IN,  rd : OUT) => (left, right)
+            case (ld : OUT, rd : IN)  => (right, left)
+            case _ => throwConnectionError("Unexpected connection error")
+          }
+          //Ports in the same design, connected at the design's owner.
+          //This is a loopback connection from a design's output to one of its inputs
+          else if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
+            case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
+            case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
+            case (ld : IN,  rd : OUT) => (right, left)
+            case (ld : OUT, rd : IN)  => (left, right)
+            case _ => throwConnectionError("Unexpected connection error")
+          }
+          //Connecting owner and child design ports, while owner port is left and child port is right.
+          else if (right.isDownstreamMemberOf(left.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+            case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+            case (ld : OUT, rd : IN) if left.isAssigned => (left, right) //relaxation if the rule when the owner output port is already assigned to
+            case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+            case (ld : IN,  rd : IN)  => (left, right)
+            case (ld : OUT, rd : OUT) => (right, left)
+            case _ => throwConnectionError("Unexpected connection error")
+          }
+          //Connecting owner and child design ports, while owner port is right and child port is left.
+          else if (left.isDownstreamMemberOf(right.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+            case (ld : IN,  rd : OUT) if right.isAssigned => (right, left)  //relaxation if the rule when the owner output port is already assigned to
+            case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+            case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+            case (ld : IN,  rd : IN)  => (right, left)
+            case (ld : OUT, rd : OUT) => (left, right)
+            case _ => throwConnectionError("Unexpected connection error")
+          }
+          //Connecting sibling designs.
+          else if ((left.nonTransparentOwner hasSameOwnerAs right.nonTransparentOwner) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
+            case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
+            case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
+            case (ld : OUT, rd : IN)  => (left, right)
+            case (ld : IN,  rd : OUT) => (right, left)
+            case _ => throwConnectionError("Unexpected connection error")
+          }
+          else if (!left.isDownstreamMemberOf(right.nonTransparentOwner) || !right.isDownstreamMemberOf(left.nonTransparentOwner))
+            throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
+          else if (!isConnectedAtEitherSide(left, right))
+            throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
+          else throwConnectionError("Unexpected connection error")
+
+        toPort.connectFrom(fromPort)
+      }
+      final private[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+        implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
+        val port = self
+        def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
+        dfVal match {
+          case p : Port[_,_] => p.connectPort2Port(port)
+          case _ =>
+            //Connecting external value from/to a output/input port
+            if (port.owner.isDownstreamMemberOf(dfVal.nonTransparentOwner)) {
+              if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+              //Connecting from output port to external value
+              if (port.dir.isOut) dfVal match {
+                case u : Initializable[_] => u.connectFrom(port)
+                //              case a : Alias[_] if a.isAliasOfPort => a.connect
+                case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
+              }
+              //Connecting from external value to input port
+              else port.connectFrom(dfVal)
+            }
+            //Connecting internal value and output port
+            else if (port hasSameOwnerAs dfVal) {
+              if (port.dir.isIn) dfVal match {
+                case u : Initializable[_] => u.connectFrom(port)
+                case _ => throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
+              } else {
+                if (ctx.owner.nonTransparent ne dfVal.nonTransparentOwner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
+                port.connectFrom(dfVal)
+              }
+            }
+            else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
+        }
+      }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private[DFiant] def injectDependencies(dependencies : List[Discoverable]) : Unit = protAssignDependencies ++= dependencies
+      def injectDependencies(dependencies : List[Discoverable]) : Unit =
+        protAssignDependencies ++= dependencies
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Consumption
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
+        //Nothing happens when consuming an input port
+        if (dir.isOut) super.consume(fromRelWidth, fromRelBitLow)
+      }
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Source
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override def inletSourceLB : LazyBox[Source] =
+        if (dir.isIn && owner.isTop) LazyBox.Const[Source](self)(Source.none(width))
+        else super.inletSourceLB
+
+      override def thisSourceLB : LazyBox[Source] =
+        if (dir.isIn && owner.isTop) LazyBox.Const[Source](self)(Source.zeroLatency(self))
+        else super.thisSourceLB
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
 
-    override private[DFiant] def inletSourceLB : LazyBox[Source] =
-      if (dir.isIn && owner.isTop) LazyBox.Const[Source](this)(Source.none(width))
-      else super.inletSourceLB
-
-    override private[DFiant] def thisSourceLB : LazyBox[Source] =
-      if (dir.isIn && owner.isTop) LazyBox.Const[Source](this)(Source.zeroLatency(this))
-      else super.thisSourceLB
-
-    override private[DFiant] def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
-      //Nothing happens when consuming an input port
-      if (dir.isOut) super.consume(fromRelWidth, fromRelBitLow)
-    }
 
     //    private var extraPipe : Int = 0
 //    def pipe() : this.type = pipe(1)
 //    final private[DFiant] override def pipeGet = extraPipe
 //    final def pipe(p : Int) : this.type = {extraPipe = p; this}
 
-    private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = this.dir == right.dir
-    private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
-      implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
-      val left = this
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}\nConnected at ${ctx.owner.fullName}")
-      val (fromPort, toPort) =
-        //Ports in the same design, connected at the same design
-        if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left)) (left.dir, right.dir) match {
-          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
-          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
-          case (ld : IN,  rd : OUT) => (left, right)
-          case (ld : OUT, rd : IN)  => (right, left)
-          case _ => throwConnectionError("Unexpected connection error")
-        }
-        //Ports in the same design, connected at the design's owner.
-        //This is a loopback connection from a design's output to one of its inputs
-        else if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
-          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
-          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
-          case (ld : IN,  rd : OUT) => (right, left)
-          case (ld : OUT, rd : IN)  => (left, right)
-          case _ => throwConnectionError("Unexpected connection error")
-        }
-        //Connecting owner and child design ports, while owner port is left and child port is right.
-        else if (right.isDownstreamMemberOf(left.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
-          case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
-          case (ld : OUT, rd : IN) if left.isAssigned => (left, right) //relaxation if the rule when the owner output port is already assigned to
-          case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
-          case (ld : IN,  rd : IN)  => (left, right)
-          case (ld : OUT, rd : OUT) => (right, left)
-          case _ => throwConnectionError("Unexpected connection error")
-        }
-        //Connecting owner and child design ports, while owner port is right and child port is left.
-        else if (left.isDownstreamMemberOf(right.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
-          case (ld : IN,  rd : OUT) if right.isAssigned => (right, left)  //relaxation if the rule when the owner output port is already assigned to
-          case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
-          case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
-          case (ld : IN,  rd : IN)  => (right, left)
-          case (ld : OUT, rd : OUT) => (left, right)
-          case _ => throwConnectionError("Unexpected connection error")
-        }
-        //Connecting sibling designs.
-        else if ((left.nonTransparentOwner hasSameOwnerAs right.nonTransparentOwner) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
-          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
-          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
-          case (ld : OUT, rd : IN)  => (left, right)
-          case (ld : IN,  rd : OUT) => (right, left)
-          case _ => throwConnectionError("Unexpected connection error")
-        }
-        else if (!left.isDownstreamMemberOf(right.nonTransparentOwner) || !right.isDownstreamMemberOf(left.nonTransparentOwner))
-          throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
-        else if (!isConnectedAtEitherSide(left, right))
-          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
-        else throwConnectionError("Unexpected connection error")
-
-      toPort.connectFrom(fromPort)
-    }
-    final private[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-      implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
-      val port = this
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
-      dfVal match {
-        case p : Port[_,_] => p.connectPort2Port(port)
-        case _ =>
-          //Connecting external value from/to a output/input port
-          if (port.owner.isDownstreamMemberOf(dfVal.nonTransparentOwner)) {
-            if (!isConnectedAtEitherSide(dfVal, port)) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
-            //Connecting from output port to external value
-            if (port.dir.isOut) dfVal match {
-              case u : Initializable[_] => u.connectFrom(port)
-//              case a : Alias[_] if a.isAliasOfPort => a.connect
-              case _ => throwConnectionError(s"Cannot connect an external value to an output port.")
-            }
-            //Connecting from external value to input port
-            else port.connectFrom(dfVal)
-          }
-          //Connecting internal value and output port
-          else if (port hasSameOwnerAs dfVal) {
-            if (port.dir.isIn) dfVal match {
-              case u : Initializable[_] => u.connectFrom(port)
-              case _ => throwConnectionError(s"Cannot connect an internal non-port value to an input port.")
-            } else {
-              if (ctx.owner.nonTransparent ne dfVal.nonTransparentOwner) throwConnectionError(s"The connection call must be placed at the same design as the source non-port side. Call placed at ${ctx.owner.fullName}")
-              port.connectFrom(dfVal)
-            }
-          }
-          else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
-      }
-    }
     final def <> [R](right: OpAble[R])(
       implicit ctx : DFAny.Connector.Context, op: `Op<>Builder`[R]
     ) : Unit = connectVal2Port(op(left, right))
@@ -939,6 +987,7 @@ object DFAny {
     override def toString : String = s"$fullName : $typeName <> $dir"
   }
   object Port {
+    implicit def fetchDev(from : Port[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
     type Context = DFAnyOwner.Context[DFInterface]
     trait Builder[L <: DFAny, Dir <: DFDir] {
       def apply(right : L, dir : Dir) : L <> Dir

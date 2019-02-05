@@ -17,11 +17,11 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
     case x : DFAny => s"$${${x.refCodeString}}"
     case x => x.toString
   }.mkString + "\""
-  final def keep : Unit = value_.foreach {
+  final def keep() : Unit = value_.foreach {
     case x : DFAny => x.keep
     case _ =>
   }
-  final def consume : Unit = value_.foreach {
+  final def consume() : Unit = value_.foreach {
     case x : DFAny => x.consume()
     case _ =>
   }
@@ -53,8 +53,8 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     cond.get.keep
     cond.get.consume()
   }
-  msg.keep
-  msg.consume
+  msg.keep()
+  msg.consume()
   keep
 }
 
@@ -99,7 +99,7 @@ trait DFSimulator extends DFDesign {
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def codeString: String = {
-      keepAll
+      keepAll()
       super.codeString
     }
 
