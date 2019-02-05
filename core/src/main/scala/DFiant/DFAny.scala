@@ -216,7 +216,10 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   //////////////////////////////////////////////////////////////////////////
   // Administration
   //////////////////////////////////////////////////////////////////////////
-  val isPort : Boolean
+  final val isPort : Boolean = this match {
+    case x : DFAny.Port[_,_] => true
+    case _ => false
+  }
   //////////////////////////////////////////////////////////////////////////
 }
 
@@ -564,7 +567,6 @@ object DFAny {
     import __dev._
 
     type TPostInit = TVar
-    final val isPort = false
 
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : PortBuilder[Dir])
@@ -657,8 +659,6 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
-
-    final val isPort = false
 
     final lazy val isAliasOfPort : Boolean = ???
 
@@ -822,8 +822,6 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
     import __dev._
-
-    final val isPort = false
   }
   object Const {
     type Context = DFAnyOwner.Context[DFAnyOwner]
@@ -982,7 +980,6 @@ object DFAny {
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP
     //* For OUT ports, supported only TVar and TOP
-    final val isPort = true
 
     override def toString : String = s"$fullName : $typeName <> $dir"
   }

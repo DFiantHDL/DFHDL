@@ -43,6 +43,10 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
     //  final def pipe(p : Int) : this.type = {extraPipe = p; this}
     final lazy val leftBalancedSource = leftArg.thisSourceLB.get.balanceTo(maxLatency.get)
     final lazy val rightBalancedSource = rightArg.thisSourceLB.get.balanceTo(maxLatency.get)
+
+    final val leftLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, leftArg.thisSourceLB)
+    final val rightLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, rightArg.thisSourceLB)
+    final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](self)((l, r) => List(l, r).max, leftLatency, rightLatency)
   }
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   __dev
@@ -50,10 +54,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
-
-  final val leftLatency = LazyBox.Args1[Option[Int], Source](this)(s => s.getMaxLatency, leftArg.thisSourceLB)
-  final val rightLatency = LazyBox.Args1[Option[Int], Source](this)(s => s.getMaxLatency, rightArg.thisSourceLB)
-  final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](this)((l, r) => List(l, r).max, leftLatency, rightLatency)
 
   final val inLeft = leftArg.copyAsNewPort(IN)
   final val inRight = rightArg.copyAsNewPort(IN)
@@ -71,7 +71,6 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   }
 
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
-  final val isPort = false
 }
 object Func2Comp {
   implicit def fetchDev(from : Func2Comp[_,_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
