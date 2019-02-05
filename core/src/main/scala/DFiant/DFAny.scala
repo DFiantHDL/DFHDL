@@ -46,7 +46,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
     final private[DFiant] def setAutoConstructCodeString(cs : => String) : self.type = {autoConstructCodeStringFunc = () => cs; self}
     private[DFiant] def constructCodeStringDefault : String
-    private[DFiant] def showAnonymous : Boolean = config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
+    private[DFiant] def showAnonymous : Boolean = __config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
     private def constructCodeString : String =
       if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
     override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = {
@@ -54,11 +54,11 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
       ref.applyBrackets() //TODO: consider other way instead of this hack
     }
     private def initCommentString : String =
-      if (config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
+      if (__config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
     private def latencyCommentString : String =
-      if (config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${thisSourceLB.get.latencyString}" else ""
+      if (__config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${thisSourceLB.get.latencyString}" else ""
     private def connCommentString : String =
-      if (config.commentConnection || owner.privShowConnections) s"//conn = ${getFoldedSource.refCodeString}" else ""
+      if (__config.commentConnection || owner.privShowConnections) s"//conn = ${getFoldedSource.refCodeString}" else ""
     private def valCodeString : String = s"\nval $name = $constructCodeString"
     def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
 
@@ -851,7 +851,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = self.dir == right.dir
       private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
-        implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
+        implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
         val left = self
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}\nConnected at ${ctx.owner.fullName}")
         val (fromPort, toPort) =
@@ -907,7 +907,7 @@ object DFAny {
         toPort.connectFrom(fromPort)
       }
       final private[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-        implicit val theOwnerToBe : DSLOwnerConstruct = ctx.owner
+        implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
         val port = self
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
         dfVal match {

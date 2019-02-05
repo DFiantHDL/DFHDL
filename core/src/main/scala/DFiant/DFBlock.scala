@@ -34,7 +34,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   override type ThisOwner = DFBlock
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
-  override implicit def theOwnerToBe : DFBlock = mutableOwner.value
+  override implicit def __theOwnerToBe : DFBlock = mutableOwner.value
   implicit val basicLib = ctx.basicLib
 
   final protected[DFiant] object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
@@ -48,13 +48,13 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     final val Error = Severity.Error
     final val Failure = Severity.Failure
     def assert(cond : DFBool, msg : Message, severity : Severity = Warning) : Unit = {
-      if (inSimulation) Assert(Some(cond), msg, severity)(ctx.updateOwner(theOwnerToBe))
+      if (inSimulation) Assert(Some(cond), msg, severity)(ctx.updateOwner(__theOwnerToBe))
     }
     def report(msg : Message, severity : Severity = Note) : Unit = {
-      if (inSimulation) Assert(None, msg, severity)(ctx.updateOwner(theOwnerToBe))
+      if (inSimulation) Assert(None, msg, severity)(ctx.updateOwner(__theOwnerToBe))
     }
     def finish() : Unit = {
-      if (inSimulation) Finish()(ctx.updateOwner(theOwnerToBe))
+      if (inSimulation) Finish()(ctx.updateOwner(__theOwnerToBe))
     }
   }
 }

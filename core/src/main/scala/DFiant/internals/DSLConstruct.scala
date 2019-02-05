@@ -168,8 +168,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
 
-  protected implicit def theOwnerToBe : DSLOwnerConstruct = this
-  val config : DSLConfiguration
+  protected implicit def __theOwnerToBe : DSLOwnerConstruct = this
+  val __config : DSLConfiguration
 }
 
 object DSLOwnerConstruct {
@@ -233,7 +233,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   protected def foldedRun : Unit = unfoldedRun
   private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = {
 //    println(s"foldOrUnFoldRunOnce $fullName")
-    if (config.foldComponents) foldedRun else unfoldedRun
+    if (__config.foldComponents) foldedRun else unfoldedRun
   }
 
 }

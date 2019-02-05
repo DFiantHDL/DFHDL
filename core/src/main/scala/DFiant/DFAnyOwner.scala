@@ -12,8 +12,8 @@ trait DFAnyMember extends DSLMemberConstruct {
 
   type ThisOwner <: DFAnyOwner
   private[DFiant] val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
-  implicit def theOwnerToBe : DFAnyOwner = ownerOption.orNull
-  final implicit lazy val config : DFAnyConfiguration = ctx.config
+  implicit def __theOwnerToBe : DFAnyOwner = ownerOption.get
+  final implicit lazy val __config : DFAnyConfiguration = ctx.config
 }
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
@@ -32,7 +32,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
 
-  override implicit def theOwnerToBe : DFAnyOwner = this
+  override implicit def __theOwnerToBe : DFAnyOwner = this
 
   protected[DFiant] lazy val inSimulation : Boolean =
     ownerOption.exists(o => o.inSimulation)

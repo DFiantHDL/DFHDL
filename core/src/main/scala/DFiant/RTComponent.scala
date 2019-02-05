@@ -24,7 +24,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
-  override implicit def theOwnerToBe : RTComponent = this
+  override implicit def __theOwnerToBe : RTComponent = this
   protected def newGeneric() : Unit = {}
   //final protected def discovery : Unit = {}
 

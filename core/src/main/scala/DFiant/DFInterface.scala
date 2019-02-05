@@ -21,7 +21,7 @@ trait DFInterface extends DFAnyOwner { self =>
   }
   override private[DFiant] lazy val __dev : TDev = ???
   import __dev._
-  override implicit def theOwnerToBe : DFInterface = this
+  override implicit def __theOwnerToBe : DFInterface = this
 
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
     mutableMemberList.toList.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]

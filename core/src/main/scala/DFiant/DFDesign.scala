@@ -11,7 +11,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //The block by value object is created within the context of the current DFDesign,
-    //so we mutate `theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs
+    //so we mutate `__theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs
     private[DFiant] def injectConditionalBlock[IB <: DFDesign](ifBlock : IB, block: => Unit)(mutableOwner: MutableOwner) : IB = {
       val originalOwner = mutableOwner.value
       mutableOwner.value = ifBlock
@@ -44,7 +44,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
   import __dev._
 
-  final override implicit def theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
+  final override implicit def __theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
 
   protected def atOwnerDo[T](block : => T) : T = {
     val originalOwner = mutableOwner.value
