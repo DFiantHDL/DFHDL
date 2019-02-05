@@ -10,13 +10,15 @@ trait DSLConfiguration {
 }
 
 trait HasOwner {
-  implicit val owner : DSLOwnerConstruct
+  trait __Dev {
+    implicit val owner : DSLOwnerConstruct
+  }
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
   type TDev <: __Dev
-  trait __Dev extends super[Nameable].__Dev with super[TypeNameable].__Dev with super[Discoverable].__Dev {
+  trait __Dev extends super[Nameable].__Dev with super[TypeNameable].__Dev with super[Discoverable].__Dev with super[HasOwner].__Dev {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,6 +69,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
+    final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
     def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
     final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
     final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
@@ -94,7 +97,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
   private[DFiant] val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration]
   type ThisOwner <: DSLOwnerConstruct
-  final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
   final def keep : this.type = {
     ownerOption.foreach(o => {
       o.mutableKeepSet += this
