@@ -1,27 +1,4 @@
-package scala.collection.immutable
-
-import scala.collection.generic.CanBuildFrom
-import scala.collection.immutable.{RedBlackTree => RB}
-import scala.collection.{GenSet, SortedSetLike, mutable}
-
-import continuum.Interval
-
-object IntervalSet extends {
-  def empty[T](implicit conv: T=>Ordered[T]): IntervalSet[T] = new IntervalSet()
-
-  def apply[T](intervals: Interval[T]*)(implicit conv: T=>Ordered[T]): IntervalSet[T] =
-    intervals.foldLeft(empty[T])(_ + _)
-
-  def newBuilder[T](implicit conv: T=>Ordered[T]): mutable.Builder[Interval[T], IntervalSet[T]] =
-    new mutable.SetBuilder[Interval[T], IntervalSet[T]](empty)
-
-  implicit def canBuildFrom[T](implicit conv: T=>Ordered[T])
-  : CanBuildFrom[IntervalSet[_], Interval[T], IntervalSet[T]] =
-    new CanBuildFrom[IntervalSet[_], Interval[T], IntervalSet[T]] {
-      def apply(from: IntervalSet[_]): mutable.Builder[Interval[T], IntervalSet[T]] = newBuilder[T]
-      def apply(): mutable.Builder[Interval[T], IntervalSet[T]] = newBuilder[T]
-    }
-}
+package continuum;
 
 /**
  * A set containing 0 or more intervals. Intervals which may be unioned together are automatically

@@ -1,6 +1,6 @@
 name := "dfiant"
 organization in ThisBuild := "hdl.dfiant"
-scalaVersion in ThisBuild := "2.12.4-bin-typelevel-4"
+scalaVersion in ThisBuild := "2.13.0-M5"
 
 version := "0.0.12-SNAPSHOT"
 
@@ -52,7 +52,21 @@ lazy val continuum = (project in file("modLibs/continuum"))
     libraryDependencies ++= commonDependencies ++ Seq(
       dependencies.scalacheck,
       dependencies.scalatest % "test"
-    )
+    ),
+    unmanagedSourceDirectories in Compile ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, v)) if v >= 13 =>
+          Seq(baseDirectory.value / "src" / "main" / "scala_2.13+")
+        case _ =>
+          Seq(baseDirectory.value / "src" / "main" / "scala_2.12-")
+    }},
+    unmanagedSourceDirectories in Test ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, v)) if v >= 13 =>
+          Seq(baseDirectory.value / "src" / "test" / "scala_2.13+")
+        case _ =>
+          Seq(baseDirectory.value / "src" / "test" / "scala_2.12-")
+      }},
   )
 //////////////////////////////////////////////////////////////////////////////////////
 
@@ -146,8 +160,6 @@ lazy val settings =
 lazy val compilerOptions = Seq(
   "-unchecked",
   "-feature",
-  "-Yliteral-types", // enable SIP-23 implementation
-  "-Xsource:2.13", //https://github.com/scala/scala/commit/33478bdc9792ee13baa8208e326278695b1bd4e4
   "-language:reflectiveCalls",
   "-language:existentials",
   "-language:higherKinds",
@@ -183,8 +195,26 @@ lazy val macroSettings = Seq(
 )
 
 lazy val commonSettings = Seq(
-  scalaOrganization := "org.typelevel",
+  scalaOrganization := {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 =>
+        "org.scala-lang"
+      case _ =>
+        "org.typelevel"
+    }
+  },
   scalacOptions ++= compilerOptions,
+  scalacOptions ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 =>
+        Nil
+      case _ =>
+        Seq(
+          "-Yliteral-types", // enable SIP-23 implementation
+          "-Xsource:2.13",   //https://github.com/scala/scala/commit/33478bdc9792ee13baa8208e326278695b1bd4e4
+        )
+    }
+  },
   resolvers ++= Seq(
     "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository",
     Resolver.sonatypeRepo("releases"),

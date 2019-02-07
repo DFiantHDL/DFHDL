@@ -1,9 +1,3 @@
-package continuum
-
-import scala.language.implicitConversions
-
-import continuum.bound.{Closed, Open, Unbounded}
-
 /**
  * A non-empty bounded interval over a continuous, infinite, total-ordered set of values. An
  * interval contains all values between its lower and upper bound. The lower and/or upper bound may
@@ -206,64 +200,6 @@ final case class Interval[T](lower: GreaterRay[T], upper: LesserRay[T])(implicit
     (lower.bound, upper.bound) match {
       case (Closed(l), Closed(u)) if l == u => "[" + l + "]"
       case _ => lowerString + ", " + upperString
-    }
-  }
-}
-
-object Interval {
-
-  private[continuum] def validate[T](lower: Ray[T], upper: Ray[T])(implicit conv: T=>Ordered[T]): Boolean =
-    lower intersects upper
-
-  def open[T](lower: T, upper: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Open(lower)), LesserRay(Open(upper)))
-
-  def closed[T](lower: T, upper: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Closed(lower)), LesserRay(Closed(upper)))
-
-  def openClosed[T](lower: T, upper: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Open(lower)), LesserRay(Closed(upper)))
-
-  def closedOpen[T](lower: T, upper: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Closed(lower)), LesserRay(Open(upper)))
-
-  def greaterThan[T](cut: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Open(cut)), LesserRay(Unbounded()))
-
-  def atLeast[T](cut: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Closed(cut)), LesserRay(Unbounded()))
-
-  def lessThan[T](cut: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Unbounded()), LesserRay(Open(cut)))
-
-  def atMost[T](cut: T)(implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Unbounded()), LesserRay(Closed(cut)))
-
-  def full[T](implicit conv: T=>Ordered[T]): Interval[T] =
-    Interval(GreaterRay(Unbounded()), LesserRay(Unbounded()))
-
-  def all[T](implicit conv: T=>Ordered[T]): Interval[T] = full
-
-  def point[T](point: T)(implicit conv: T=>Ordered[T]): Interval[T] = closed(point, point)
-
-  def apply[T](implicit conv: T=>Ordered[T]): Interval[T] = full
-
-  def apply[T](point: T)(implicit conv: T=>Ordered[T]): Interval[T] = closed(point, point)
-
-  implicit def fromTuple[T](tuple: (T, T))(implicit conv: T=>Ordered[T]): Interval[T] =
-    closedOpen(tuple._1, tuple._2)
-
-  implicit def fromRange(range: Range): Interval[Int] = {
-    require(range.step == 1, "Range must be continuous.")
-    if(range.isInclusive) closed(range.start, range.end)
-    else closedOpen(range.start, range.end)
-  }
-
-  def rightOrdering[T]: Ordering[Interval[T]] = new Ordering[Interval[T]] {
-    def compare(a: Interval[T], b: Interval[T]): Int = {
-      val c = a.upper compare b.upper
-      if (c != 0) c
-      else a.lower compare b.lower
     }
   }
 }

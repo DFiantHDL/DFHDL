@@ -30,7 +30,7 @@ object Discrete {
   implicit def DiscreteArray[T : ClassTag]: Discrete[Array[T]] = new Discrete[Array[T]] {
     override def next(value: Array[T]): Option[Array[T]] = {
       val ary = new Array[T](value.length + 1)
-      value.copyToArray(ary)
+      value.copyToArray(ary, 0)
       Some(ary)
     }
   }
