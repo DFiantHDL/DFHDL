@@ -39,7 +39,9 @@ lazy val `singleton-ops` = (project in file("modLibs/singleton-ops"))
     settings,
     macroSettings,
     assemblySettings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies ++ Seq(
+      dependencies.macroCompat
+    )
   )
 
 lazy val continuum = (project in file("modLibs/continuum"))
@@ -83,9 +85,7 @@ lazy val core = project
     name := "core",
     settings,
     assemblySettings,
-    libraryDependencies ++= commonDependencies ++ Seq(
-      dependencies.pureconfig
-    )
+    libraryDependencies ++= commonDependencies
   )
   .dependsOn(
     common
@@ -101,7 +101,7 @@ lazy val dependencies =
     val typesafeConfigV = "1.3.1"
     val pureconfigV     = "0.8.0"
     val akkaV           = "2.5.19"
-    val scalatestV      = "3.0.4"
+    val scalatestV      = "3.0.6-SNAP6"
     val scalacheckV     = "1.14.0"
     val singletonOpsV   = "0.3.2-SNAPSHOT"
     val shapelessV      = "2.3.3"
@@ -109,6 +109,7 @@ lazy val dependencies =
     val sourcecodeV     = "0.1.5-SNAPSHOT"
     val continuumV      = "0.4-SNAPSHOT"
     val macroParadiseV  = "2.1.1"
+    val macroCompatV    = "1.1.1"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
@@ -123,6 +124,7 @@ lazy val dependencies =
     val scodec         = "org.scodec"                 %% "scodec-bits"             % scodecV
     val sourcecode     = "com.lihaoyi"                %% "sourcecode"              % sourcecodeV // Scala-JVM
     val continuum      = "danburkert"                 %% "continuum"               % continuumV
+    val macroCompat    = "org.typelevel"              %% "macro-compat"            % macroCompatV
     val macroParadise  = compilerPlugin("org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch)
   }
 
@@ -139,8 +141,7 @@ lazy val commonDependencies = Seq(
 // SETTINGS
 
 lazy val settings =
-  commonSettings ++
-    wartremoverSettings //++ scalafmtSettings
+  commonSettings //++ wartremoverSettings //++ scalafmtSettings
 
 lazy val compilerOptions = Seq(
   "-unchecked",

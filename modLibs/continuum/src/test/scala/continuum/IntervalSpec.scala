@@ -1,13 +1,12 @@
 package continuum
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{PropSpec, Matchers}
-
+import org.scalatest.{Matchers, PropSpec}
 import continuum.test.Generators
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class IntervalSpec
   extends PropSpec
-  with GeneratorDrivenPropertyChecks
+  with ScalaCheckDrivenPropertyChecks
   with Matchers
   with Generators {
 
