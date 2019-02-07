@@ -1,1 +1,0 @@
-scalaOrganization in ThisBuild := "org.typelevel"
