@@ -5,7 +5,7 @@ import DFiant._
 import DFiant.internals._
 
 import scala.collection.immutable.HashSet
-import scala.collection.mutable.HashMap
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 abstract class Backend(design : DFInterface) {
@@ -20,7 +20,7 @@ object Backend {
     override def toString: String = value
   }
   final class NameDB {
-    val nameTable : HashMap[String, Int] = HashMap.empty[String, Int]
+    val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
     def getUniqueName(suggestedName : String) : String = {
       val fixedName = suggestedName.replace('.', '_')
       val lcSuggestedName = fixedName.toLowerCase()
@@ -89,7 +89,7 @@ object Backend {
         override def toString: String = s"std_logic"
       }
       case class enumeration(enum : Enum) extends Type {
-        val width = enum.width
+        final val width = enum.width
         override def toString: String = db.Package.declarations.enums(enum).name.toString
       }
 
@@ -240,7 +240,7 @@ object Backend {
       val addRef : Unit = References.add(member, this, false)
     }
     protected object References {
-      private val hashMap : HashMap[DFAny, Reference] = HashMap.empty[DFAny, Reference]
+      private val hashMap : mutable.HashMap[DFAny, Reference] = mutable.HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
       def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName}"))
 //      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
@@ -978,7 +978,7 @@ object Backend {
             override def toString: String = s"\ntype $name is ($typeList);"
           }
           object enums {
-            val hashMap : HashMap[Enum, enum_type] = HashMap.empty[Enum, enum_type]
+            val hashMap : mutable.HashMap[Enum, enum_type] = mutable.HashMap.empty[Enum, enum_type]
             def apply(enumType : Enum) : enum_type = hashMap.getOrElse(enumType, {
               val typeName : Name = Name(enumType.name + "_type")
               val entries : List[enum_entry] =
@@ -986,7 +986,7 @@ object Backend {
               enum_type(enumType, typeName, entries)
             })
             object entries {
-              val hashMap : HashMap[Enum.Entry, enum_entry] = HashMap.empty[Enum.Entry, enum_entry]
+              val hashMap : mutable.HashMap[Enum.Entry, enum_entry] = mutable.HashMap.empty[Enum.Entry, enum_entry]
               def apply(entry : Enum.Entry) : enum_entry = hashMap.getOrElse(entry, {enums(entry.enumOwner); hashMap(entry)})
             }
             override def toString: String = hashMap.values.mkString("\n")

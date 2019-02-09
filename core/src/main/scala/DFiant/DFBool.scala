@@ -204,6 +204,28 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   class Pattern(set : Set[Boolean]) extends DFAny.Pattern.OfSet[Boolean, Pattern](set)
   object Pattern extends PatternCO {
+    trait Able[+R] extends DFAny.Pattern.Able[R] {
+      val bool : Boolean
+    }
+    object Able {
+      implicit class DFBoolPatternBoolean[R <: Boolean](val right : R) extends Able[R] {
+        val bool : Boolean = right
+      }
+    }
+    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    object Builder {
+      implicit def ev[LW] : Builder[DFBool] = new Builder[DFBool] {
+        def apply[R](left: DFBool, right: Seq[Able[R]]): Pattern = {
+          val patternSet = right.map(e => e.bool).foldLeft(Set.empty[Boolean])((set, bool) => {
+            if (set.contains(bool)) throw new IllegalArgumentException(s"\nThe boolean $bool already intersects with $set")
+            set + bool
+          })
+
+          new Pattern(patternSet)
+        }
+      }
+    }
+
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
