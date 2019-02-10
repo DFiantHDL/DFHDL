@@ -1,14 +1,37 @@
-package continuum;
+package scala.collection.immutable
+
+import scala.collection.generic.CanBuildFrom
+import scala.collection.immutable.{RedBlackTree => RB}
+import scala.collection.{GenSet, SortedSetLike, mutable}
+
+import continuum.Interval
+
+object IntervalSet extends {
+  def empty[T](implicit conv: T=>Ordered[T]): IntervalSet[T] = new IntervalSet()
+
+  def apply[T](intervals: Interval[T]*)(implicit conv: T=>Ordered[T]): IntervalSet[T] =
+    intervals.foldLeft(empty[T])(_ + _)
+
+  def newBuilder[T](implicit conv: T=>Ordered[T]): mutable.Builder[Interval[T], IntervalSet[T]] =
+    new mutable.SetBuilder[Interval[T], IntervalSet[T]](empty)
+
+  implicit def canBuildFrom[T](implicit conv: T=>Ordered[T])
+  : CanBuildFrom[IntervalSet[_], Interval[T], IntervalSet[T]] =
+    new CanBuildFrom[IntervalSet[_], Interval[T], IntervalSet[T]] {
+      def apply(from: IntervalSet[_]): mutable.Builder[Interval[T], IntervalSet[T]] = newBuilder[T]
+      def apply(): mutable.Builder[Interval[T], IntervalSet[T]] = newBuilder[T]
+    }
+}
 
 /**
- * A set containing 0 or more intervals. Intervals which may be unioned together are automatically
- * coalesced, so at all times an interval set contains the minimum number of necessary intervals.
- * Interval sets are immutable and persistent.
- */
+  * A set containing 0 or more intervals. Intervals which may be unioned together are automatically
+  * coalesced, so at all times an interval set contains the minimum number of necessary intervals.
+  * Interval sets are immutable and persistent.
+  */
 class IntervalSet[T](tree: RB.Tree[Interval[T], Unit])(implicit conv: T=>Ordered[T])
   extends SortedSet[Interval[T]]
-  with SortedSetLike[Interval[T], IntervalSet[T]]
-  with Serializable {
+    with SortedSetLike[Interval[T], IntervalSet[T]]
+    with Serializable {
 
   def this()(implicit conv: T=>Ordered[T]) = this(null)
 
@@ -103,8 +126,8 @@ class IntervalSet[T](tree: RB.Tree[Interval[T], Unit])(implicit conv: T=>Ordered
   override def lastKey = last
 
   /**
-   * Returns the subset of intervals which intersect with the given interval.
-   */
+    * Returns the subset of intervals which intersect with the given interval.
+    */
   def intersecting(interval: Interval[T]): IntervalSet[T] = {
     val buf = mutable.ArrayBuffer[Interval[T]]()
     def loop(t: RB.Tree[Interval[T], Unit]): Unit = {
@@ -113,7 +136,7 @@ class IntervalSet[T](tree: RB.Tree[Interval[T], Unit])(implicit conv: T=>Ordered
         if (!RB.isEmpty(t.left) && (RB.greatest(t.left).key.upper intersects interval.lower))
           loop(t.left)
         if (!RB.isEmpty(t.right) && (RB.smallest(t.right).key.lower intersects interval.upper))
-           loop(t.right)
+          loop(t.right)
       }
     }
     loop(tree)
@@ -121,13 +144,13 @@ class IntervalSet[T](tree: RB.Tree[Interval[T], Unit])(implicit conv: T=>Ordered
   }
 
   /**
-   * Tests if the provided interval intersects with any of the intervals in this set.
-   */
+    * Tests if the provided interval intersects with any of the intervals in this set.
+    */
   def intersects(interval: Interval[T]): Boolean = from(interval).head intersects interval
 
   /**
-   * Returns the the result of the intervals in this set intersected with the given interval.
-   */
+    * Returns the the result of the intervals in this set intersected with the given interval.
+    */
   def intersect(interval: Interval[T]): IntervalSet[T] =
     IntervalSet(intersecting(interval).toList.flatMap(_ intersect interval):_*)
 
@@ -136,13 +159,13 @@ class IntervalSet[T](tree: RB.Tree[Interval[T], Unit])(implicit conv: T=>Ordered
     other.foldLeft(empty)(_ ++ intersect(_))
 
   /**
-   * Alias for `intersect`.
-   */
+    * Alias for `intersect`.
+    */
   def &(interval: Interval[T]): IntervalSet[T] = intersect(interval)
 
   /**
-   * Returns the subset of intervals which union with the given interval.
-   */
+    * Returns the subset of intervals which union with the given interval.
+    */
   def unioning(interval: Interval[T]): IntervalSet[T] = {
     val buf = mutable.ArrayBuffer[Interval[T]]()
     def loop(tree: RB.Tree[Interval[T], Unit]): Unit = {

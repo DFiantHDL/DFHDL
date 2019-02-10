@@ -29,12 +29,12 @@ trait Generators {
     Arbitrary(for (b <- arbitrary[Bound[T]]) yield GreaterRay(b))
 
   implicit def arbRay[T : Arbitrary](implicit conv: T => Ordered[T]): Arbitrary[Ray[T]] =
-      Arbitrary(Gen.oneOf(arbitrary[GreaterRay[T]], arbitrary[LesserRay[T]]))
+    Arbitrary(Gen.oneOf(arbitrary[GreaterRay[T]], arbitrary[LesserRay[T]]))
 
   implicit def arbInterval[T: Arbitrary](implicit conv: T => Ordered[T]): Arbitrary[Interval[T]] = Arbitrary {
     def validate(a: Bound[T], b: Bound[T]) =
       Interval.validate(GreaterRay(a), LesserRay(b)) ||
-      Interval.validate(GreaterRay(b), LesserRay(a))
+        Interval.validate(GreaterRay(b), LesserRay(a))
     def interval(a: Bound[T], b: Bound[T]) =
       if (Interval.validate(GreaterRay(a), LesserRay(b))) new Interval(GreaterRay(a), LesserRay(b))
       else new Interval(GreaterRay(b), LesserRay(a))
@@ -45,10 +45,10 @@ trait Generators {
   }
 
   /**
-   * Generates arbitrary Interval[Int]s. This is functionally the same as the generic Interval
-   * generator, but it is more efficient at generating valid intervals. It will automatically be
-   * used by the ScalaCheck framework if both are in scope.
-   */
+    * Generates arbitrary Interval[Int]s. This is functionally the same as the generic Interval
+    * generator, but it is more efficient at generating valid intervals. It will automatically be
+    * used by the ScalaCheck framework if both are in scope.
+    */
   implicit def arbIntInterval: Arbitrary[Interval[Int]] = Arbitrary {
     def genOpenAbove(below: Bound[Int]): Gen[Bound[Int]] = below match {
       case Closed(l)   if l == Int.MaxValue => arbitrary[Unbounded[Int]]
@@ -109,10 +109,10 @@ trait Generators {
   }
 
   /**
-   * Generates ranges which can be converted to a [[scala.collection.immutable.Range]] with the
-   * .toRange method. As opposed to the arbitrary Int interval generator, this ensures the created
-   * ranges are of a reasonable size.
-   */
+    * Generates ranges which can be converted to a [[scala.collection.immutable.Range]] with the
+    * .toRange method. As opposed to the arbitrary Int interval generator, this ensures the created
+    * ranges are of a reasonable size.
+    */
   def genIntervalRange: Gen[Interval[Int]] = {
     def genOpen: Gen[Interval[Int]] = Gen.sized { size =>
       for {
@@ -165,8 +165,8 @@ trait Generators {
     Arbitrary(for (intervals <- arbitrary[Array[Interval[T]]]) yield IntervalSet(intervals:_*))
 
   /**
-   * Generates arbitrary interval sets of Ints using the more efficient Int interval generator.
-   */
+    * Generates arbitrary interval sets of Ints using the more efficient Int interval generator.
+    */
   implicit def arbIntIntervalSet: Arbitrary[IntervalSet[Int]] =
     Arbitrary(for (intervals <- arbitrary[Array[Interval[Int]]]) yield IntervalSet(intervals:_*))
 }

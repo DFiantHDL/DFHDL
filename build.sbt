@@ -1,6 +1,6 @@
 name := "dfiant"
 organization in ThisBuild := "hdl.dfiant"
-scalaVersion in ThisBuild := "2.13.0-M5"
+scalaVersion in ThisBuild := "2.12.4-bin-typelevel-4"
 
 version := "0.0.12-SNAPSHOT"
 
