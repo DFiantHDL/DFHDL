@@ -898,6 +898,12 @@ object DFAny {
             case (ld : IN,  rd : OUT) => (right, left)
             case _ => throwConnectionError("Unexpected connection error")
           }
+          else if (left.dir.isIn && isConnectedAtOwnerOf(left.nonTransparentOwner)) {
+            throwConnectionError(s"Via connection is currently not supported")
+          }
+          else if (right.dir.isIn && isConnectedAtOwnerOf(right.nonTransparentOwner)) {
+            throwConnectionError(s"Via connection is currently not supported")
+          }
           else if (!left.isDownstreamMemberOf(right.nonTransparentOwner) || !right.isDownstreamMemberOf(left.nonTransparentOwner))
             throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
           else if (!isConnectedAtEitherSide(left, right))
