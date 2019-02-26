@@ -5,6 +5,7 @@ target/
 doc/**/_minted*/
 doc/**/*.aux
 doc/**/*.bbl
+doc/**/*.bst
 doc/**/*.blg
 doc/**/*.log
 doc/**/*.out
@@ -12,5 +13,6 @@ doc/**/*.cb
 doc/**/*.cb2
 doc/**/*.synctex.gz
 doc/fpga2018/fpga2018.pdf
+doc/fpl2019/fpl2019.pdf
 
 
