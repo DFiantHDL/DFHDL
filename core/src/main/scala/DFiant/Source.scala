@@ -133,6 +133,8 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
       case (left, right) => if (left.aliasTag.isDefined) left else right
     }).coalesce
   def isEmpty : Boolean = elements.length == 1 && elements.head.aliasTag.isEmpty
+  def nonEmptyAtWL(relWidth : Int, relBitLow : Int) : Boolean = !bitsWL(relWidth, relBitLow).isEmpty
+  def isCompletelyAllocated : Boolean = !elements.map(e => e.aliasTag.isEmpty).reduce((l, r) => l | r)
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
     if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
   def latencyString : String = {
