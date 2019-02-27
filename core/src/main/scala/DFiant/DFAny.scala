@@ -258,20 +258,25 @@ object DFAny {
         val fromRelBitHigh = fromRelBitLow + fromRelWidth - 1
         val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
 
-        if ((assignedIndication | fromBitSet) != assignedIndication) //not all used bits are assigned to
+        if (!assignedSource.isCompletelyAllocated) //not all used bits are assigned to
           maxPrevUse = scala.math.max(maxPrevUse, 1)
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final def isAssigned : Boolean = assignedIndication.nonEmpty
-      final protected val assignedIndication = collection.mutable.BitSet.empty
+      final def isAssigned : Boolean = !assignedSource.isEmpty
+      final var assignedSource : Source = Source.none(width)
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
         implicit ctx : DFAny.Op.Context
       ) : Unit = {
         assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
+      }
+      def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(
+        implicit ctx : DFAny.Op.Context
+      ) : Unit = {
+        assignedSource = assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource)
       }
       def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
         val toVar = self
@@ -288,8 +293,8 @@ object DFAny {
         ////          println(s"$fullName ${x.maxPrevUse}")
         //      }
         fromVal.consume()
-        assignedIndication ++= toRelBitLow to toRelBitHigh
         assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
+        assign(toRelWidth, toRelBitLow, Source(fromVal))
         protAssignDependencies += Assignment(toVar, fromVal)
         protAssignDependencies += fromVal
       }
@@ -356,15 +361,15 @@ object DFAny {
         val toRelBitHigh = toRelBitLow + toRelWidth-1
         val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-        if ((connectedIndication & toBitSet).nonEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final val connectedIndication = collection.mutable.BitSet.empty
       final lazy val connectedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
+      final var connectedSource : Source = Source.none(width)
       final def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
         val toVar = self
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -373,12 +378,12 @@ object DFAny {
 
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName}")
         if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
-        if ((connectedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")
-        if ((assignedIndication & toBitSet).nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")
+        if (assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
         fromVal.consume()
-        connectedIndication ++= toRelBitLow to toRelBitHigh
         connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), connectedSourceLB.getBox, fromVal.thisSourceLB))
+        connectedSource = connectedSource.replaceWL(toRelWidth, toRelBitLow, Source(fromVal))
       }
       def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
         val toVar = self
@@ -387,7 +392,7 @@ object DFAny {
         toVar.protAssignDependencies += Connector(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
-      final private[DFiant] def isConnected : Boolean = !connectedSourceLB.get.isEmpty
+      final private[DFiant] def isConnected : Boolean = !connectedSource.isEmpty
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
