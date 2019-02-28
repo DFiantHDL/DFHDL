@@ -281,8 +281,6 @@ object DFAny {
       def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
         val toVar = self
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
-        val toRelBitHigh = toRelBitLow + toRelWidth-1
-        val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
         if (!ctx.owner.callSiteSameAsOwnerOf(self))
           throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
@@ -358,8 +356,6 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
         val toVar = self
-        val toRelBitHigh = toRelBitLow + toRelWidth-1
-        val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
         if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
@@ -373,9 +369,6 @@ object DFAny {
       final def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
         val toVar = self
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
-        val toRelBitHigh = toRelBitLow + toRelWidth-1
-        val toBitSet = collection.immutable.BitSet.empty ++ (toRelBitLow to toRelBitHigh)
-
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName}")
         if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
         if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")

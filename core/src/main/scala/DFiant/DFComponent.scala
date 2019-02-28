@@ -11,7 +11,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override lazy val typeName: String = self.getClass.getSimpleName
+//    override lazy val typeName: String = self.getClass.getSimpleName
     def foldedConstructCodeString : String = {
       ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
     }
