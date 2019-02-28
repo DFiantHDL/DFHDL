@@ -289,7 +289,7 @@ class ConnectTest extends Properties("ConnectTest") {
     val top_ioDesignConn2 = new IODesignConn2 {}
     val compare =
       """
-        |trait $anon$1 extends DFDesign {
+        |trait Comp extends DFDesign {
         |  val i = DFUInt(8) <> IN                                    //init = (1)
         |  val o = DFUInt(8) <> OUT                                   //init = (2)
         |  val rt = new RTx2 {}
@@ -300,7 +300,7 @@ class ConnectTest extends Properties("ConnectTest") {
         |trait IODesignConn2 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1)                            //init = (1)
         |  val o = DFUInt(8) <> OUT                                   //init = (2)
-        |  val io = new $anon$1 {}
+        |  val io = new Comp {}
         |  io.i <> i
         |  o <> io.o
         |}
@@ -318,26 +318,27 @@ class ConnectTest extends Properties("ConnectTest") {
         |trait IODesignConn5 extends DFDesign {
         |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)                //init = (1, 2, 3, 4, Φ)
         |  val o = DFUInt(8) <> OUT                                   //init = (Φ)
-        |  val dFt_anon = i.prev                                      //init = (2, 3, 4, Φ)
-        |  val dFt_anon_d_1 = dFt_anon.prev                           //init = (3, 4, Φ)
-        |  val dFt_anon_d_2 = dFt_anon_d_1.prev                       //init = (4, Φ)
-        |  val dFt_anon_d_3 = dFt_anon_d_2.prev                       //init = (Φ)
-        |  o <> dFt_anon_d_3
-        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)            //init = (1, 2, 3, 4, Φ)
-        |  val o_d_1 = DFUInt(8) <> OUT                               //init = (Φ)
-        |  val dFt_anon_d_4 = i_d_1.prev                              //init = (2, 3, 4, Φ)
-        |  val dFt_anon_d_5 = dFt_anon_d_4.prev                       //init = (3, 4, Φ)
-        |  val dFt_anon_d_6 = dFt_anon_d_5.prev                       //init = (4, Φ)
-        |  val dFt_anon_d_7 = dFt_anon_d_6.prev                       //init = (Φ)
-        |  o_d_1 <> dFt_anon_d_7
-        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)            //init = (1, 2, 3, 4, Φ)
-        |  val o_d_2 = DFUInt(8) <> OUT                               //init = (Φ)
-        |  val dFt_anon_d_8 = i_d_2.prev                              //init = (2, 3, 4, Φ)
-        |  val dFt_anon_d_9 = dFt_anon_d_8.prev                       //init = (3, 4, Φ)
-        |  val dFt_anon_d_10 = dFt_anon_d_9.prev                      //init = (4, Φ)
-        |  val dFt_anon_d_11 = dFt_anon_d_10.prev                     //init = (Φ)
-        |  o_d_2 <> dFt_anon_d_11
+        |  val dFt_myloop_3 = i.prev                                  //init = (2, 3, 4, Φ)
+        |  val dFt_myloop_2 = dFt_myloop_3.prev                       //init = (3, 4, Φ)
+        |  val dFt_myloop_1 = dFt_myloop_2.prev                       //init = (4, Φ)
+        |  val myloop = dFt_myloop_1.prev                             //init = (Φ)
+        |  o <> myloop
+        |  val dFt_i_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)          //init = (1, 2, 3, 4, Φ)
+        |  val dFt_o_1 = DFUInt(8) <> OUT                             //init = (Φ)
+        |  val dFt_myloop_7 = dFt_i_1.prev                            //init = (2, 3, 4, Φ)
+        |  val dFt_myloop_6 = dFt_myloop_7.prev                       //init = (3, 4, Φ)
+        |  val dFt_myloop_5 = dFt_myloop_6.prev                       //init = (4, Φ)
+        |  val dFt_myloop_4 = dFt_myloop_5.prev                       //init = (Φ)
+        |  dFt_o_1 <> dFt_myloop_4
+        |  val dFt_i_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)          //init = (1, 2, 3, 4, Φ)
+        |  val dFt_o_2 = DFUInt(8) <> OUT                             //init = (Φ)
+        |  val dFt_myloop_11 = dFt_i_2.prev                           //init = (2, 3, 4, Φ)
+        |  val dFt_myloop_10 = dFt_myloop_11.prev                     //init = (3, 4, Φ)
+        |  val dFt_myloop_9 = dFt_myloop_10.prev                      //init = (4, Φ)
+        |  val dFt_myloop_8 = dFt_myloop_9.prev                       //init = (Φ)
+        |  dFt_o_2 <> dFt_myloop_8
         |}
+        |
         |
         |val top_ioDesignConn5 = new IODesignConn5 {}
       """.stripMargin
