@@ -90,7 +90,7 @@
   \end{threeparttable}
 \end{table*}%
 
-In the previous section we compared implementations of a pure (stateless) function, $f$. Typical designs, however, possess a state that is implemented via clocked registers. Registers have other functional roles, such as pipelining a data path, deriving timed signals from an input clock, and synchronizing an input signal. We believe that by avoiding explicit register use, we can design without, or very little, clock dependency. 
+Previous work \cite{Port2017} compared implementations of a pure (stateless) function, $f$. Typical designs, however, possess a state that is implemented via clocked registers. Registers have other functional roles, such as pipelining a data path, deriving timed signals from an input clock, and synchronizing an input signal. We believe that by avoiding explicit register use, we can design without, or very little, clock dependency. 
 
 In this section we classify various register use-cases, and present their DFiant functional counterpart. The classifications are divided into three main categories: \textit{synchronous technology backend}, \textit{synchronous technology interface}, and \textit{state}. For the state classification, we also explore an impure function, $g$, and compare its implementation in VHDL, C++, and DFiant (see Table~\ref{tbl:StateExDefImpl}).
 
