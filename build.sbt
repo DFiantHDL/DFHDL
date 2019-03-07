@@ -15,7 +15,8 @@ lazy val global = project
 //    continuum,
 //    common,
     macros,
-    core
+    core,
+    examples
   )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -71,11 +72,7 @@ lazy val continuum = (project in file("modLibs/continuum"))
 //////////////////////////////////////////////////////////////////////////////////////
 
 lazy val common = project
-  .settings(
-    name := "common",
-    settings,
-    libraryDependencies ++= commonDependencies
-  )
+  .settings(settings)
   .dependsOn(
     sourcecode,
     `singleton-ops`,
@@ -104,6 +101,28 @@ lazy val core = project
   .dependsOn(
     common
   )
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Examples
+//////////////////////////////////////////////////////////////////////////////////////
+lazy val sorted_networks = (project in file("examples/sorted_networks"))
+  .settings(
+    name := "sorted_networks",
+    settings,
+    assemblySettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    core
+  )
+
+lazy val examples = project
+  .settings(settings)
+  .aggregate(
+    sorted_networks
+  )
+//////////////////////////////////////////////////////////////////////////////////////
+
 
 // DEPENDENCIES
 
