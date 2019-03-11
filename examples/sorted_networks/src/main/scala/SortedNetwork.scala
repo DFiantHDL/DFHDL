@@ -1,31 +1,26 @@
 import DFiant._
+import singleton.ops._
 
 object bitonic_sort {
   implicit class BitonicSort(list : List[DFSInt[Int]])(implicit ctx : DFBlock.Context) {
     private val dist = list.length / 2
     private val maxWidth : Int = list.map(e => e.width.getValue).max
-    def sortdf(lowToHigh : Boolean) : List[DFSInt[Int]] = {
+    def sortdf(lowToHigh : Boolean) : List[DFSInt[Int]] =
       if (list.length <= 1) list
       else {
         val split = list.splitAt(dist)
         val sorted = split._1.sortdf(lowToHigh) ++ split._2.sortdf(!lowToHigh)
         sorted.merge(lowToHigh)
       }
-    }
-    private[BitonicSort] def merge(lowToHigh : Boolean) : List[DFSInt[Int]] = {
+    private[BitonicSort] def merge(lowToHigh : Boolean) : List[DFSInt[Int]] =
       if (list.length <= 1) list
       else {
-        val swapped = list.swap(lowToHigh)
+        val swapped = list.cas(lowToHigh)
         val split = swapped.splitAt(dist)
         split._1.merge(lowToHigh) ++ split._2.merge(!lowToHigh)
       }
-    }
-    private[BitonicSort] def swap(lowToHigh : Boolean) : List[DFSInt[Int]] = {
-      val split = list.splitAt(dist)
-      val swapped = for (i <- 0 until dist)
-        yield cas(lowToHigh, (list(i), list(i + dist)))
-      swapped.toList.flatten
-    }
+    private[BitonicSort] def cas(lowToHigh : Boolean) : List[DFSInt[Int]] =
+      list.splitAt(dist).zipped.toList.flatMap(e => cas(lowToHigh, e))
     private def cas(lowToHigh : Boolean, tuple : (DFSInt[Int], DFSInt[Int])) : List[DFSInt[Int]] = {
       val swap = if (lowToHigh) tuple._1 > tuple._2 else tuple._2 > tuple._1
       List(
