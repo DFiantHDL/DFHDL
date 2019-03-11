@@ -1,5 +1,6 @@
-\section{The DFiant Type System}
-\label{sec:type_system}
+\section{The DFiant Language}
+\label{sec:dfiant}
+\subsection{Type System}
 DFiant is a Scala library, hence it inherently supports type safe and rich language constructs. DFiant brings type driven development concepts to hardware design, by creating an extensible dataflow class hierarchy, with the trait \code{DFAny} at its head (similar concept to Scala's Unified Types hierarchy). \code{DFAny} contains all properties that are common to every dataflow variable (e.g., \code{.width} represents the number of bits contained by the variable). Fig.~\ref{fig:Inherit} illustrates a simplified inheritance diagram of DFiant's dataflow types. Further explanation is given in Section~\ref{sec:mutability}. 
 
 \begin{figure}[h]
@@ -8,6 +9,17 @@ DFiant is a Scala library, hence it inherently supports type safe and rich langu
 	\captionof{figure}{DFiant dataflow types: simplified inheritance diagram}
 	\label{fig:Inherit}
 \end{figure}
+
+\subsection{Dataflow Semantics}
+DFiant has a dataflow programming model. Data scheduling order, or \textit{token-flow}, is set by the \textit{data dependency}. Essentially, the DFiant semantics schedules all independent dataflow expressions concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. Dataflow branches are implicitly forked and joined. Unused nodes, semantically, always consume tokens, and are discarded during compilation. We observe the DFiant \code{f} implementation as follows:
+
+\begin{enumerate}
+  \item All expressions are dataflow variable declarations.
+  \item Concurrency is implicit, and \code{f} is coded intuitively, in a sequential manner, since dataflow dependency is oblivious to statement order. 
+  \item All scheduling is implicitly guarded by its dependencies. For example, \code{a} is forked into both \code{b} and \code{c} operations, while \code{c} joins branches from \code{a} and \code{b}.
+  It is impossible to read an invalid result or an old result (without extending semantics further).
+  \item DFiant semantics are intuitive: data is consumed only when it is ready and can be accepted by all receiving nodes, while back-pressure prevents data loss. 
+\end{enumerate} 
 
 %The basic DFiant types are DFBits and DFBool
 %Each dataflow type points to a static bits vector
