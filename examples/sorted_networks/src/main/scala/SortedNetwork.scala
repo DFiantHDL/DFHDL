@@ -32,15 +32,28 @@ object bitonic_sort {
 }
 
 trait UDCounter extends DFDesign {
-  val enable    = DFBool() <> IN
-  val upDown_n  = DFBool() <> IN
-  val cnt       = DFUInt(32) <> OUT   init 0
+  val enable    = DFBool()   <> IN
+  val upDown_n  = DFBool()   <> IN
+  val cnt       = DFUInt(32) <> OUT init 0
   ifdf (enable) {
     ifdf (upDown_n) {
       cnt := cnt + 1
     }.elsedf {
       cnt := cnt - 1
     }
+  }
+}
+
+trait SampleFilterAccumulator extends DFDesign {
+  val max_stdv  = 1000
+  val sample    = DFSInt(16) <> IN
+  val acc       = DFSInt(32) <> OUT init 0
+  val delta1    = (sample-sample.prev).wc
+  val delta2    = (sample-sample.prev(2)).wc
+  val usable1   = ((delta1 < max_stdv) && (delta1 > -max_stdv))
+  val usable2   = ((delta2 < max_stdv) && (delta2 > -max_stdv))
+  ifdf (usable1 && usable2) {
+    acc := acc + sample
   }
 }
 

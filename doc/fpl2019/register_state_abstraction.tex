@@ -1,94 +1,94 @@
 \section{Register and State Abstraction}
 \label{sec:state_abstractions}
-\begin{table*}
-  \begin{threeparttable}
-  \captionof{table}{State Semantics Example Function, $g$: Definition and Implementations}
-	\label{tbl:StateExDefImpl}
-	\setlength\tabcolsep{1.5pt}
-  \begin{tabular}{|c|c|c|c|c|}
-  \hline 
-  \textbf{Formal Definition} & \textbf{Functional Drawing} & \textbf{C++ Impl.}\tnote{†}~\tnote{‡} & \textbf{VHDL Impl.}\tnote{‡} & \textbf{DFiant Impl.} \\ 
-  \hline
-	\begin{minipage}[b][3.2cm][c]{0.21\linewidth}
-    {\fontsize{8}{8}\selectfont
-		\begin{equation}
-			\nonumber
-      \begin{split}
-			&g:(i_{n})_{n\in \mathbb{N}}\rightarrow (a_n,b_n,c_n)_{n\in \mathbb{N}}\\  
-      &\triangleq\left\{
-      \begin{aligned}
-      a_k &= i_k+5 & k\geq 0\\ 
-      b_k &= i_k+i_{k-1} & k>0 \\   
-      b_k &= i_k+0  & k=0 \\
-      c_k &= i_k+c_{k-1} & k>0  \\ 
-      c_k &= i_k+0 & k=0
-      \end{aligned} 
-      \right.
-      \end{split}
-		\end{equation}
-    }
-	\end{minipage}
-  &
-	\begin{minipage}[b][3.2cm][c]{0.18\linewidth}
-    \includegraphics[width=\linewidth]{graphics/gFuncDraw.pdf}
-  \end{minipage}%
-  &
-	\begin{minipage}[b]{0.14\linewidth}
-		\begin{minted}[autogobble,tabsize=2,fontsize=\fontsize{8}{8}\selectfont]{c}
-      void g(int i,
-             &a,&b,&c){
-        static int î=0;
-        static int C=0;
-        
-        a = i + 5;
-        b = i + î;
-        î = i;
-        c = i + C;
-        C = c;
-      }
-		\end{minted}
-	\end{minipage}
-	&
-	\begin{minipage}[b]{0.21\linewidth}
-		\begin{minted}[autogobble,tabsize=2,fontsize=\fontsize{8}{8}\selectfont]{vhdl}
-      g : process(clk)
-        variable î : integer:=0;
-      begin
-        if rising_edge(clk)
-        begin
-          a <= i + 5;
-          b <= i + î;
-          î := i;
-          c <= i + c;
-        end; 
-      end process;
-			\end{minted}
-	\end{minipage}
-	&
-	\begin{minipage}[b]{0.23\linewidth}
-		\begin{minted}[autogobble,tabsize=2,fontsize=\fontsize{8}{8}\selectfont]{scala}
-      def g(i : DFSInt[32]) = 
-      {
-        
-        
-        
-        val a = i + 5
-        val b = i + i.init(0).prev
-        val c = DFSInt[32]
-        c := i + c //prev optional
-        (a,b,c.prev) //tuple of 3
-      }
-		\end{minted}
-	\end{minipage}
-  \\
-  \hline
-  \end{tabular}
-  \begin{tablenotes}
-    \item [†] Some type annotations were removed for brevity.
-    \item [‡] \textbf{î} and \textbf{C} represent previous state values of \textbf{i} and \textbf{c}, respectively.
-  \end{tablenotes}
-  \end{threeparttable}
-\end{table*}%
+%\begin{table*}
+%  \begin{threeparttable}
+%  \captionof{table}{State Semantics Example Function, $g$: Definition and Implementations}
+%	\label{tbl:StateExDefImpl}
+%	\setlength\tabcolsep{1.5pt}
+%  \begin{tabular}{|c|c|c|c|c|}
+%  \hline 
+%  \textbf{Formal Definition} & \textbf{Functional Drawing} & \textbf{C++ Impl.}\tnote{†}~\tnote{‡} & \textbf{VHDL Impl.}\tnote{‡} & \textbf{DFiant Impl.} \\ 
+%  \hline
+%	\begin{minipage}[b][3.2cm][c]{0.21\linewidth}
+%    {\fontsize{8}{8}\selectfont
+%		\begin{equation}
+%			\nonumber
+%      \begin{split}
+%			&g:(i_{n})_{n\in \mathbb{N}}\rightarrow (a_n,b_n,c_n)_{n\in \mathbb{N}}\\  
+%      &\triangleq\left\{
+%      \begin{aligned}
+%      a_k &= i_k+5 & k\geq 0\\ 
+%      b_k &= i_k+i_{k-1} & k>0 \\   
+%      b_k &= i_k+0  & k=0 \\
+%      c_k &= i_k+c_{k-1} & k>0  \\ 
+%      c_k &= i_k+0 & k=0
+%      \end{aligned} 
+%      \right.
+%      \end{split}
+%		\end{equation}
+%    }
+%	\end{minipage}
+%  &
+%	\begin{minipage}[b][3.2cm][c]{0.18\linewidth}
+%    \includegraphics[width=\linewidth]{graphics/gFuncDraw.pdf}
+%  \end{minipage}%
+%  &
+%	\begin{minipage}[b]{0.14\linewidth}
+%		\begin{minted}[autogobble,tabsize=2,fontsize=\fontsize{8}{8}\selectfont]{c}
+%      void g(int i,
+%             &a,&b,&c){
+%        static int î=0;
+%        static int C=0;
+%        
+%        a = i + 5;
+%        b = i + î;
+%        î = i;
+%        c = i + C;
+%        C = c;
+%      }
+%		\end{minted}
+%	\end{minipage}
+%	&
+%	\begin{minipage}[b]{0.21\linewidth}
+%		\begin{minted}[autogobble,tabsize=2,fontsize=\fontsize{8}{8}\selectfont]{vhdl}
+%      g : process(clk)
+%        variable î : integer:=0;
+%      begin
+%        if rising_edge(clk)
+%        begin
+%          a <= i + 5;
+%          b <= i + î;
+%          î := i;
+%          c <= i + c;
+%        end; 
+%      end process;
+%			\end{minted}
+%	\end{minipage}
+%	&
+%	\begin{minipage}[b]{0.23\linewidth}
+%		\begin{minted}[autogobble,tabsize=2,fontsize=\fontsize{8}{8}\selectfont]{scala}
+%      def g(i : DFSInt[32]) = 
+%      {
+%        
+%        
+%        
+%        val a = i + 5
+%        val b = i + i.init(0).prev
+%        val c = DFSInt[32]
+%        c := i + c //prev optional
+%        (a,b,c.prev) //tuple of 3
+%      }
+%		\end{minted}
+%	\end{minipage}
+%  \\
+%  \hline
+%  \end{tabular}
+%  \begin{tablenotes}
+%    \item [†] Some type annotations were removed for brevity.
+%    \item [‡] \textbf{î} and \textbf{C} represent previous state values of \textbf{i} and \textbf{c}, respectively.
+%  \end{tablenotes}
+%  \end{threeparttable}
+%\end{table*}%
 
 Previous work \cite{Port2017} compared implementations of a pure (stateless) function, $f$. Typical designs, however, possess a state that is implemented via clocked registers. Registers have other functional roles, such as pipelining a data path, deriving timed signals from an input clock, and synchronizing an input signal. We believe that by avoiding explicit register use, we can design without, or very little, clock dependency. 
 
