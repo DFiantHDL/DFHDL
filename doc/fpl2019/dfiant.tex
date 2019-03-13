@@ -4,36 +4,38 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 
 \begin{table*}[t!]
   \centering
-  \begin{minipage}[t][6.8cm][t]{\linewidth}
+  \begin{minipage}[t][6.8cm][t]{0.46\linewidth}
     \centering
-    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
+    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{scala}
       import DFiant._
       
-      trait SampleFilterAccumulator extends DFDesign {
+      trait SampleFilterAcc extends DFDesign {
         val max_stdv  = 1000
         val sample    = DFSInt(16) <> IN
         val acc       = DFSInt(32) <> OUT init 0
-        val delta1    = (sample-sample.prev).wc
-        val delta2    = (sample-sample.prev(2)).wc
-        val usable1   = (delta1 < max_stdv) && (delta1 > -max_stdv)
-        val usable2   = (delta2 < max_stdv) && (delta2 > -max_stdv)
+        val delta1    = (sample - sample.prev).wc
+        val delta2    = (sample - sample.prev(2)).wc
+        val usable1   = (delta1 < max_stdv) && 
+                        (delta1 > -max_stdv)
+        val usable2   = (delta2 < max_stdv) && 
+                        (delta2 > -max_stdv)
         ifdf (usable1 && usable2) {
           acc := acc + sample
         }
       }    
       
       object SFAApp extends App {
-        val sfa = new SampleFilterAccumulator {}
+        val sfa = new SampleFilterAcc {}
         sfa.compileToVHDL.toFile("sfa.vhd")
       }
     \end{minted}
-    \captionof{figure}{AES cypher RTL designs score comparison (higher = better)}
+    \captionof{figure}{SFA DFiant code}
     \label{fig:AES_Compare_Graph}
   \end{minipage}
-
-  \begin{minipage}[t][16cm][t]{\linewidth}
+  \hfill
+  \begin{minipage}[t][22cm][t]{0.51\linewidth}
     \centering
-    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{vhdl}
+    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
       library ieee;
       use ieee.std_logic_1164.all;
       use ieee.numeric_std.all;
@@ -49,48 +51,61 @@ DFiant is a Scala library and thus possesses various rich type safe language con
       end sfa;
       
       architecture sfa_arch of sfa is
-        signal ACC_prev1                  : signed(31 downto 0);
-        signal SAMPLE_prev1, SAMPLE_prev2 : signed(15 downto 0);
-        signal delta2, delta2_pipe1       : signed(16 downto 0);
-        signal delta2, delta2_pipe1       : signed(16 downto 0);
-        signal usable1, usable1_pipe1     : std_logic;
-        signal usable2, usable2_pipe1     : std_logic;
-        signal pipe_stall1, pipe_stall2   : std_logic;
+        signal ACC_prev1     : signed(31 downto 0);
+        signal SAMPLE_prev1  : signed(15 downto 0);
+        signal SAMPLE_prev2  : signed(15 downto 0);
+        signal delta1        : signed(16 downto 0);
+        signal delta2        : signed(16 downto 0);
+        signal delta1_pipe1  : signed(16 downto 0);
+        signal delta2_pipe1  : signed(16 downto 0);
+        signal usable1       : std_logic;
+        signal usable2       : std_logic;
+        signal usable1_pipe1 : std_logic;
+        signal usable2_pipe1 : std_logic;
+        signal pipe_stall1   : std_logic;
+        signal pipe_stall2   : std_logic;
       begin
       
       process (CLK, RSTn)
       begin
         if RSTn = '0' then
           ACC_prev1          <= 32d"0";
-          pipe_stall1        <= '1';     pipe_stall2        <= '1';
+          pipe_stall1        <= '1';     
+          pipe_stall2        <= '1';
         elsif rising_edge(CLK) then
           ACC_prev1          <= ACC;
-          SAMPLE_prev1       <= SAMPLE;  SAMPLE_prev2       <= SAMPLE_prev1;
-          delta1_pipe1       <= delta1;  delta2_pipe1       <= delta2;
-          usable1_pipe1      <= usable1; usable2_pipe1      <= usable2;
-          pipe_stall1        <= '0';     pipe_stall2        <= pipe_stall1;
+          SAMPLE_prev1       <= SAMPLE;  
+          SAMPLE_prev2       <= SAMPLE_prev1;
+          delta1_pipe1       <= delta1;  
+          delta2_pipe1       <= delta2;
+          usable1_pipe1      <= usable1; 
+          usable2_pipe1      <= usable2;
+          pipe_stall1        <= '0';     
+          pipe_stall2        <= pipe_stall1;
         end if;
       end process;
       
       process (all)
         variable v_ACC       : signed(31 downto 0);
       begin
-        v_ACC                := ACC_prev1;
-        delta1               <= resize(SAMPLE, 17) - SAMPLE_prev1;
-        delta2               <= resize(SAMPLE, 17) - SAMPLE_prev2;
-        usable1              <= to_sl(delta1_pipe1 < 11d'1000) and to_sl(delta1_pipe1 > -11d'1000);
-        usable2              <= to_sl(delta2_pipe1 < 11d'1000) and to_sl(delta2_pipe1 > -11d'1000);
+        v_ACC     := ACC_prev1;
+        delta1    <= resize(SAMPLE, 17) - SAMPLE_prev1;
+        delta2    <= resize(SAMPLE, 17) - SAMPLE_prev2;
+        usable1   <= to_sl(delta1_pipe1 < 11d'1000) and 
+                     to_sl(delta1_pipe1 > -11d'1000);
+        usable2   <= to_sl(delta2_pipe1 < 11d'1000) and 
+                     to_sl(delta2_pipe1 > -11d'1000);
         if (usable1_pipe1 and usable2_pipe1) = '1' then
           if (not pipe_stall2) = '1' then
-            v_ACC            := v_ACC + SAMPLE_prev2; --SAMPLE_pipe2
+            v_ACC := v_ACC + SAMPLE_prev2; --SAMPLE_pipe2
           end if;
         end if;
-        ACC                  <= v_ACC;
+        ACC       <= v_ACC;
       end process;
       
       end sfa_arch;
     \end{minted}
-    \captionof{figure}{FP multiplication RTL designs score comparison (higher = better)}
+    \captionof{figure}{SFA Generated VHDL code}
     \label{fig:FP_Compare_Graph}
   \end{minipage}
 \end{table*}
@@ -259,62 +274,62 @@ Fig.~\ref{fig:Aliasing} demonstrates aliasing code and its effect on the content
   
 \end{enumerate}
 
-\begin{figure}[h]
-  \centering
-  \begin{minipage}[b][3cm][b]{0.57\linewidth}
-    \vfill
-    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
-      val bits128 = DFBits[128] := 0
-      val alias64 = bits128(127, 64)
-      val alias32 = alias64(31, 0)
-      val dbl = DFDouble := 1.0
-      dbl.bits(7,0) := 0x28
-      bits128(127) := 1
-      bits128(63, 0) := dbl.bits()
-      alias32(16, 8) := 0x57		    
-    \end{minted}
-    \vfill
-    \subcaption{DFiant code}
-  \end{minipage}%
-  \hfill
-  \begin{minipage}[b][3cm][b]{0.42\linewidth}
-    \centering
-    \vfill
-		\includegraphics[width=\linewidth]{graphics/Aliasing.pdf} 
-    \vfill
-    \subcaption{Contents of \code{bits128}}
-  \end{minipage}
-  \captionof{figure}{Bit aliasing and casting example}
-  \label{fig:Aliasing}
-\end{figure}
+%\begin{figure}[h]
+%  \centering
+%  \begin{minipage}[b][3cm][b]{0.57\linewidth}
+%    \vfill
+%    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
+%      val bits128 = DFBits[128] := 0
+%      val alias64 = bits128(127, 64)
+%      val alias32 = alias64(31, 0)
+%      val dbl = DFDouble := 1.0
+%      dbl.bits(7,0) := 0x28
+%      bits128(127) := 1
+%      bits128(63, 0) := dbl.bits()
+%      alias32(16, 8) := 0x57		    
+%    \end{minted}
+%    \vfill
+%    \subcaption{DFiant code}
+%  \end{minipage}%
+%  \hfill
+%  \begin{minipage}[b][3cm][b]{0.42\linewidth}
+%    \centering
+%    \vfill
+%		\includegraphics[width=\linewidth]{graphics/Aliasing.pdf} 
+%    \vfill
+%    \subcaption{Contents of \code{bits128}}
+%  \end{minipage}
+%  \captionof{figure}{Bit aliasing and casting example}
+%  \label{fig:Aliasing}
+%\end{figure}
 
 
 \subsection{Structural Composition and Generation}
 
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). Different composition examples are available in Table~\ref{tbl:Box}.
 
-\input{box_table}
+%\input{box_table}
 
 \subsection{IO Ports}
 \label{sec:io_ports}
 The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
 
 
-\begin{figure}[h]
-  \centering
-  \begin{minipage}{0.4\linewidth}
-  \begin{minted}[autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
-  abstract class Box() { 
-    val iT: DFB <> IN
-    val iB: DFB <> IN
-    val oT: DFB <> OUT
-    val oB: DFB <> OUT
-  }
-  \end{minted}
-  \end{minipage}
-  \captionof{figure}{IO port annotation DFiant code example}
-  \label{fig:IOBox}
-\end{figure}
+%\begin{figure}[h]
+%  \centering
+%  \begin{minipage}{0.4\linewidth}
+%  \begin{minted}[autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
+%  abstract class Box() { 
+%    val iT: DFB <> IN
+%    val iB: DFB <> IN
+%    val oT: DFB <> OUT
+%    val oB: DFB <> OUT
+%  }
+%  \end{minted}
+%  \end{minipage}
+%  \captionof{figure}{IO port annotation DFiant code example}
+%  \label{fig:IOBox}
+%\end{figure}
 
 
 
