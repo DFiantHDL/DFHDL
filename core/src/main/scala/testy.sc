@@ -1,3 +1,9 @@
+class Foo(aaa : Int) {
+  println(aaa.getClass)
+}
+
+new Foo(1)
+
 //I have a code structure similar to the following. Is this legal?
 //```scala
 //class Enum {

@@ -1,6 +1,8 @@
 \section{The DFiant Language}
 \label{sec:dfiant}
-DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. In this section we elaborate on these constructs and semantics.
+DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. In this section we elaborate on these constructs and semantics. 
+
+\fig{fig:SFADFiant} and \fig{fig:SFAVHDL} contain our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result. An input is considered stable when the last three samples are distributed within a given standard deviation. \fig{fig:SFADFiant} contains the complete DFiant (Scala) program that generates a pipelined VHDL (2008) RTL implementation presented\footnote{The presented VHDL code was slightly modified for brevity.} in \fig{fig:SFAVHDL}.
 
 \begin{table*}[t!]
   \centering
@@ -30,7 +32,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
       }
     \end{minted}
     \captionof{figure}{SFA DFiant code}
-    \label{fig:AES_Compare_Graph}
+    \label{fig:SFADFiant}
   \end{minipage}
   \hfill
   \begin{minipage}[t][22cm][t]{0.51\linewidth}
@@ -105,10 +107,12 @@ DFiant is a Scala library and thus possesses various rich type safe language con
       
       end sfa_arch;
     \end{minted}
-    \captionof{figure}{SFA Generated VHDL code}
-    \label{fig:FP_Compare_Graph}
+    \captionof{figure}{SFA generated VHDL code}
+    \label{fig:SFAVHDL}
   \end{minipage}
 \end{table*}
+
+    
 
 %\begin{figure}[t]
 %  \centering

@@ -12,35 +12,35 @@ For baseline comparison we used three AES cypher RTL designs from opencores.org:
 
 We compiled the DFiant and Vivado HLS designs with three target clock frequencies: 200 MHz, 300 MHz, and 450 MHz. We named the designs accordingly (e.g., DFiant\_200 is the 200MHz target design). We collected the results in Table~\ref{tbl:AES_Compare_Table}, and displayed their normalized standard score in Fig.~\ref{fig:AES_Compare_Graph}. We added the supported key types quantity as a metric, since some designs support 128bit keys and do not include 192bit and 256bit keys as well. The table also includes an 'SBox BRAM Use' column, since some designs do not use memory to implement the AES SBox function.
 
-\begin{table*}[t!]
-  \centering
-  \begin{minipage}[t][5cm][t]{0.62\linewidth}
-    \centering
-    \captionof{table}{AES Cypher RTL Designs Comparison\\(the numbering on the left associates configurations with \fig{fig:AES_Compare_Graph})}
-    \label{tbl:AES_Compare_Table}
-    \includegraphics[scale=1]{graphics/AES_Compare_Table.pdf} 
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t][5cm][t]{0.37\linewidth}
-    \centering
-    \captionof{table}{FP Mult. RTL Designs Comparison\\(the numbering on the left associates configurations with \fig{fig:FP_Compare_Graph})}
-    \label{tbl:FP_Compare_Table}
-    \includegraphics[scale=1]{graphics/FP_Compare_Table.pdf} 
-  \end{minipage}
-  \begin{minipage}[b][3.8cm][b]{0.62\linewidth}
-  	\centering
-    \includegraphics[height=3cm]{graphics/AES_Compare.pdf} 
-    \captionof{figure}{AES cypher RTL designs score comparison (higher = better)\\ \quad}
-    \label{fig:AES_Compare_Graph}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b][3.8cm][b]{0.37\linewidth}
-    \centering
-    \includegraphics[height=3cm]{graphics/FP_Compare.pdf} 
-    \captionof{figure}{FP multiplication RTL designs score comparison (higher = better)}
-    \label{fig:FP_Compare_Graph}
-  \end{minipage}
-\end{table*}
+%\begin{table*}[t!]
+%  \centering
+%  \begin{minipage}[t][5cm][t]{0.62\linewidth}
+%    \centering
+%    \captionof{table}{AES Cypher RTL Designs Comparison\\(the numbering on the left associates configurations with \fig{fig:AES_Compare_Graph})}
+%    \label{tbl:AES_Compare_Table}
+%    \includegraphics[scale=1]{graphics/AES_Compare_Table.pdf} 
+%  \end{minipage}
+%  \hfill
+%  \begin{minipage}[t][5cm][t]{0.37\linewidth}
+%    \centering
+%    \captionof{table}{FP Mult. RTL Designs Comparison\\(the numbering on the left associates configurations with \fig{fig:FP_Compare_Graph})}
+%    \label{tbl:FP_Compare_Table}
+%    \includegraphics[scale=1]{graphics/FP_Compare_Table.pdf} 
+%  \end{minipage}
+%  \begin{minipage}[b][3.8cm][b]{0.62\linewidth}
+%  	\centering
+%    \includegraphics[height=3cm]{graphics/AES_Compare.pdf} 
+%    \captionof{figure}{AES cypher RTL designs score comparison (higher = better)\\ \quad}
+%    \label{fig:AES_Compare_Graph}
+%  \end{minipage}
+%  \hfill
+%  \begin{minipage}[b][3.8cm][b]{0.37\linewidth}
+%    \centering
+%    \includegraphics[height=3cm]{graphics/FP_Compare.pdf} 
+%    \captionof{figure}{FP multiplication RTL designs score comparison (higher = better)}
+%    \label{fig:FP_Compare_Graph}
+%  \end{minipage}
+%\end{table*}
 
 The Hsing core clearly has the best performance among the different designs (but the lowest score on LUTs utilization). The primary reason it achieved this is because it uses LUTs instead of BRAMs. This enables the synthesizer to optimize the AES SBox function, and even pipeline it. DFiant uses its \code{lookupTable} library function to implement SBox, and we have yet to enable such an option for DFiant. 
 
