@@ -1,8 +1,7 @@
 \section{The DFiant Language}
 \label{sec:dfiant}
-DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. In this section we elaborate on these constructs and semantics. 
+DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result continuously. An input is considered stable when the last three sample values are distributed within a given standard deviation. The complete SFA DFiant implementation, its equivalent dataflow graph, and its DFiant-generated VHDL (2008) code are available in \fig{fig:SFADFiant},~\ref{fig:SFADraw}, and~\ref{fig:SFAVHDL}, respectively.
 
-\fig{fig:SFADFiant},~\ref{fig:SFADraw}, and~\ref{fig:SFAVHDL} contain our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result continuously. An input is considered stable when the last three sample values are distributed within a given standard deviation. \fig{fig:SFADFiant} contains the complete DFiant (Scala) program that generates a pipelined VHDL (2008) RTL implementation which is presented\footnote{The presented VHDL code was slightly modified for brevity.} in \fig{fig:SFAVHDL}.
 
 \begin{table*}[t!]
   \centering
@@ -116,6 +115,17 @@ DFiant is a Scala library and thus possesses various rich type safe language con
   \end{minipage}
 \end{table*}
 
+\subsection{Structural Composition and Generation}
+
+DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). Different composition examples are available in Table~\ref{tbl:Box}.
+
+%\input{box_table}
+
+\subsection{IO Ports}
+\label{sec:io_ports}
+The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
+
+
 
 \subsection{Dataflow Semantics}
 DFiant has a dataflow programming model. Data scheduling order, or \textit{token-flow}, is set by the \textit{data dependency}. Essentially, the DFiant semantics schedules all independent dataflow expressions concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. Dataflow branches are implicitly forked and joined. Unused nodes, semantically, always consume tokens, and are discarded during compilation. We observe the DFiant \code{f} implementation as follows:
@@ -201,15 +211,6 @@ Fig.~\ref{fig:Aliasing} demonstrates aliasing code and its effect on the content
 %\end{figure}
 
 
-\subsection{Structural Composition and Generation}
-
-DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). Different composition examples are available in Table~\ref{tbl:Box}.
-
-%\input{box_table}
-
-\subsection{IO Ports}
-\label{sec:io_ports}
-The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
 
 
 %\begin{figure}[h]
