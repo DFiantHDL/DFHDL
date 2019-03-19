@@ -2,11 +2,11 @@
 \label{sec:dfiant}
 DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. In this section we elaborate on these constructs and semantics. 
 
-\fig{fig:SFADFiant} and \fig{fig:SFAVHDL} contain our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result continuously. An input is considered stable when the last three sample values are distributed within a given standard deviation. \fig{fig:SFADFiant} contains the complete DFiant (Scala) program that generates a pipelined VHDL (2008) RTL implementation which is presented\footnote{The presented VHDL code was slightly modified for brevity.} in \fig{fig:SFAVHDL}.
+\fig{fig:SFADFiant},~\ref{fig:SFADraw}, and~\ref{fig:SFAVHDL} contain our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result continuously. An input is considered stable when the last three sample values are distributed within a given standard deviation. \fig{fig:SFADFiant} contains the complete DFiant (Scala) program that generates a pipelined VHDL (2008) RTL implementation which is presented\footnote{The presented VHDL code was slightly modified for brevity.} in \fig{fig:SFAVHDL}.
 
 \begin{table*}[t!]
   \centering
-  \begin{minipage}[t][6.8cm][t]{0.46\linewidth}
+  \begin{minipage}[t][23cm][t]{0.46\linewidth}
     \centering
     \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{scala}
       import DFiant._
@@ -31,13 +31,15 @@ DFiant is a Scala library and thus possesses various rich type safe language con
         sfa.compileToVHDL.toFile("sfa.vhd")
       }
     \end{minted}
-    \captionof{figure}{SFA DFiant code}
+    \captionof{figure}{SFA DFiant code \\ Some \\ Other}
     \label{fig:SFADFiant}
-    \vspace{1cm}
+    \vfill
     \includegraphics[width=\linewidth]{graphics/sfa.pdf}
+    \captionof{figure}{SFA Dataflow Functional Drawing \\ hi \\ hello }
+		\label{fig:SFADraw}
   \end{minipage}
   \hfill
-  \begin{minipage}[t][22cm][t]{0.51\linewidth}
+  \begin{minipage}[t][23cm][t]{0.51\linewidth}
     \centering
     \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
       library ieee;
@@ -114,117 +116,6 @@ DFiant is a Scala library and thus possesses various rich type safe language con
   \end{minipage}
 \end{table*}
 
-    
-
-%\begin{figure}[t]
-%  \centering
-%  \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
-%    import DFiant._
-%    
-%    trait SampleFilterAccumulator extends DFDesign {
-%      val max_stdv  = 1000
-%      val sample    = DFSInt(16) <> IN
-%      val acc       = DFSInt(32) <> OUT init 0
-%      val delta1    = (sample-sample.prev).wc
-%      val delta2    = (sample-sample.prev(2)).wc
-%      val usable1   = (delta1 < max_stdv) && (delta1 > -max_stdv)
-%      val usable2   = (delta2 < max_stdv) && (delta2 > -max_stdv)
-%      ifdf (usable1 && usable2) {
-%        acc := acc + sample
-%      }
-%    }    
-%    
-%    object SFAApp extends App {
-%      val sfa = new SampleFilterAccumulator {}
-%      sfa.compileToVHDL.toFile("sfa.vhd")
-%    }
-%  \end{minted}
-%  \caption{Up/down counter DFiant code}
-%  \label{fig:UDCounterDFiant}
-%\end{figure}
-%
-%\begin{figure}[t]
-%  \centering
-%  \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{vhdl}
-%library ieee;
-%use ieee.std_logic_1164.all;
-%use ieee.numeric_std.all;
-%use work.sfa_pkg.all;
-%
-%entity sfa is
-%port (
-%CLK                  : in  std_logic;
-%RSTn                 : in  std_logic;
-%SAMPLE               : in  signed(15 downto 0);
-%ACC                  : out signed(31 downto 0)
-%);
-%end sfa;
-%
-%architecture sfa_arch of sfa is
-%signal ACC_prev1     : signed(31 downto 0);
-%signal SAMPLE_prev1  : signed(15 downto 0);
-%signal delta1        : signed(16 downto 0);
-%signal SAMPLE_prev2  : signed(15 downto 0);
-%signal delta2        : signed(16 downto 0);
-%signal delta1_pipe1  : signed(16 downto 0);
-%signal usable1       : std_logic;
-%signal delta2_pipe1  : signed(16 downto 0);
-%signal usable2       : std_logic;
-%signal usable1_pipe1 : std_logic;
-%signal usable2_pipe1 : std_logic;
-%signal pipe_stall1   : std_logic;
-%signal pipe_stall2   : std_logic;
-%begin
-%
-%process (CLK, RSTn)
-%begin
-%if RSTn = '0' then
-%ACC_prev1          <= 32d"0";
-%pipe_stall1        <= '1';
-%pipe_stall2        <= '1';
-%elsif rising_edge(CLK) then
-%ACC_prev1          <= ACC;
-%SAMPLE_prev1       <= SAMPLE;
-%SAMPLE_prev2       <= SAMPLE_prev1;
-%delta1_pipe1       <= delta1;
-%delta2_pipe1       <= delta2;
-%usable1_pipe1      <= usable1;
-%usable2_pipe1      <= usable2;
-%pipe_stall1        <= '0';
-%pipe_stall2        <= pipe_stall1;
-%end if;
-%end process;
-%
-%process (all)
-%variable v_ACC       : signed(31 downto 0);
-%begin
-%v_ACC                := ACC_prev1;
-%delta1               <= resize(SAMPLE, 17) - SAMPLE_prev1;
-%delta2               <= resize(SAMPLE, 17) - SAMPLE_prev2;
-%usable1              <= to_sl(delta1_pipe1 < 11d"1000") and to_sl(delta1_pipe1 > -11d"1000");
-%usable2              <= to_sl(delta2_pipe1 < 11d"1000") and to_sl(delta2_pipe1 > -11d"1000");
-%if (usable1_pipe1 and usable2_pipe1) = '1' then
-%if (not pipe_stall2) = '1' then
-%v_ACC            := v_ACC + SAMPLE_prev2; --SAMPLE_pipe2
-%end if;
-%end if;
-%ACC                  <= v_ACC;
-%end process;
-%
-%end sfa_arch;
-%  \end{minted}
-%  \caption{Compiled DFiant up/down counter as generated VHDL code}
-%  \label{fig:UDCounterVHDL}
-%\end{figure}
-
-%DFiant brings type driven development concepts to hardware design, by creating an extensible dataflow class hierarchy, with the trait \code{DFAny} at its head (similar concept to Scala's Unified Types hierarchy). \code{DFAny} contains all properties that are common to every dataflow variable (e.g., \code{.width} represents the number of bits contained by the variable). Fig.~\ref{fig:Inherit} illustrates a simplified inheritance diagram of DFiant's dataflow types. Further explanation is given in Section~\ref{sec:mutability}. 
-
-%\begin{figure}[h]
-%	\centering
-%	\includegraphics[scale=0.7]{graphics/Inherit.pdf} 
-%	\captionof{figure}{DFiant dataflow types: simplified inheritance diagram}
-%	\label{fig:Inherit}
-%\end{figure}
 
 \subsection{Dataflow Semantics}
 DFiant has a dataflow programming model. Data scheduling order, or \textit{token-flow}, is set by the \textit{data dependency}. Essentially, the DFiant semantics schedules all independent dataflow expressions concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. Dataflow branches are implicitly forked and joined. Unused nodes, semantically, always consume tokens, and are discarded during compilation. We observe the DFiant \code{f} implementation as follows:
