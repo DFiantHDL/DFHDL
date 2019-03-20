@@ -88,6 +88,10 @@ object Backend {
         val width = 1
         override def toString: String = s"std_logic"
       }
+//      case class boolean() extends Type {
+//        val width = 1
+//        override def toString: String = s"boolean"
+//      }
       case class enumeration(enum : Enum) extends Type {
         final val width = enum.width
         override def toString: String = db.Package.declarations.enums(enum).name.toString

@@ -50,6 +50,12 @@ object DFBool extends DFAny.Companion {
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  protected[DFiant] sealed trait VHDL
+  protected[DFiant] object VHDL {
+    case object std_logic extends VHDL
+    case object boolean extends VHDL
+    case object bit extends VHDL
+  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Var
@@ -85,7 +91,10 @@ object DFBool extends DFAny.Companion {
 
   protected[DFiant] final class Port[Dir <: DFDir](dfVar : DFBool, dir : Dir)(
     implicit ctx : DFAny.Port.Context
-  ) extends DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool
+  ) extends DFAny.Port[DFBool, Dir](dfVar, dir) with DFBool {
+    def asVHDLBit : this.type = this
+    def asVHDLBoolean : this.type = this
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

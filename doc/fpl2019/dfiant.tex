@@ -11,15 +11,15 @@ DFiant is a Scala library and thus possesses various rich type safe language con
       import DFiant._
       
       trait SampleFilterAcc extends DFDesign {
-        val max_stdv  = 1000
+        val stdv      = 1000
         val sample    = DFSInt(16) <> IN
         val acc       = DFSInt(32) <> OUT init 0
         val delta1    = (sample - sample.prev).wc
         val delta2    = (sample - sample.prev(2)).wc
-        val usable1   = (delta1 < max_stdv) && 
-                        (delta1 > -max_stdv)
-        val usable2   = (delta2 < max_stdv) && 
-                        (delta2 > -max_stdv)
+        val usable1   = (delta1 < stdv) && 
+                        (delta1 > -stdv)
+        val usable2   = (delta2 < stdv) && 
+                        (delta2 > -stdv)
         ifdf (usable1 && usable2) {
           acc := acc + sample //acc.prev + sample
         }
@@ -34,7 +34,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
     \label{fig:SFADFiant}
     \vfill
     \includegraphics[width=\linewidth]{graphics/sfa.pdf}
-    \captionof{figure}{SFA Dataflow Functional Drawing \\ hi \\ hello }
+    \captionof{figure}{SFA dataflow graph \\ hi \\ hello }
 		\label{fig:SFADraw}
   \end{minipage}
   \hfill
@@ -63,20 +63,20 @@ DFiant is a Scala library and thus possesses various rich type safe language con
         signal delta2        : signed(16 downto 0);
         signal delta1_pipe1  : signed(16 downto 0);
         signal delta2_pipe1  : signed(16 downto 0);
-        signal usable1       : std_logic;
-        signal usable2       : std_logic;
-        signal usable1_pipe1 : std_logic;
-        signal usable2_pipe1 : std_logic;
-        signal pipe_stall1   : std_logic;
-        signal pipe_stall2   : std_logic;
+        signal usable1       : boolean;
+        signal usable2       : boolean;
+        signal usable1_pipe1 : boolean;
+        signal usable2_pipe1 : boolean;
+        signal pipe_stall1   : boolean;
+        signal pipe_stall2   : boolean;
       begin
       
       process (CLK, RSTn)
       begin
         if RSTn = '0' then
           ACC_prev1          <= 32d"0";
-          pipe_stall1        <= '1';     
-          pipe_stall2        <= '1';
+          pipe_stall1        <= true;     
+          pipe_stall2        <= true;
         elsif rising_edge(CLK) then
           ACC_prev1          <= ACC;
           SAMPLE_prev1       <= SAMPLE;  
@@ -85,7 +85,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
           delta2_pipe1       <= delta2;
           usable1_pipe1      <= usable1; 
           usable2_pipe1      <= usable2;
-          pipe_stall1        <= '0';     
+          pipe_stall1        <= false;     
           pipe_stall2        <= pipe_stall1;
         end if;
       end process;
@@ -96,12 +96,12 @@ DFiant is a Scala library and thus possesses various rich type safe language con
         v_ACC     := ACC_prev1;
         delta1    <= resize(SAMPLE, 17) - SAMPLE_prev1;
         delta2    <= resize(SAMPLE, 17) - SAMPLE_prev2;
-        usable1   <= to_sl(delta1_pipe1 < 11d'1000) and 
-                     to_sl(delta1_pipe1 > -11d'1000);
-        usable2   <= to_sl(delta2_pipe1 < 11d'1000) and 
-                     to_sl(delta2_pipe1 > -11d'1000);
-        if (usable1_pipe1 and usable2_pipe1) = '1' then
-          if (not pipe_stall2) = '1' then
+        usable1   <= (delta1_pipe1 < 11d"1000") and 
+                     (delta1_pipe1 > -11d"1000");
+        usable2   <= (delta2_pipe1 < 11d"1000") and 
+                     (delta2_pipe1 > -11d"1000");
+        if (usable1_pipe1 and usable2_pipe1) then
+          if (not pipe_stall2) then
             v_ACC := v_ACC + SAMPLE_prev2; --SAMPLE_pipe2
           end if;
         end if;
@@ -118,9 +118,9 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 \subsection{Hello DFiant world!}
 The SFA DFiant code demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-16), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (lines 18-21). 
 
-The SFA design is fairly straightforward. Lines 5 and 6 construct the signed input and output dataflow ports, respectively. Notice that we set an initial 0 value for the accumulated output state (see section ??). Lines 7 and 8 calculate the delta value between the current sample and the previous two samples. The \code{.prev(x)} construct is used to fetch values from the stream history (see section ??). The \code{-} operation, yields a subtractor instance and the \code{.wc} construct is applied to get the a carried result. Lines 9 to 12 compare if the delta values are within the given standard deviation. Finally, Lines 13 to 15 conditionally increase the accumulated state, as required. Notice we used  \code{acc + sample} and not \code{acc.prev + sample}, but both expression at line 14 are equivalent, since we have an implicit state assignment \code{acc := acc.prev} when an (see section ??). 
+The SFA design is fairly straightforward. Lines 5 and 6 construct the signed input and output dataflow ports, respectively. Notice that we set an initial 0 value for the accumulated output state (see section ??). Lines 7 and 8 calculate the delta value between the current sample and the previous two samples. The \code{.prev(x)} construct is used to fetch values from the stream history (see section ??). The \code{-} operation, yields a subtractor instance and the \code{.wc} construct is applied to get the a carried result. Lines 9 to 12 compare if the delta values are within the given standard deviation. Finally, lines 13 to 15 conditionally increase the accumulated state, as required. Notice we used \code{acc + sample} and not \code{acc.prev + sample}, but both expression at line 14 are equivalent, since we have an implicit state assignment \code{acc := acc.prev} when an (see section ??). 
 
-The SFA dataflow drawing clearly demonstrates the concurrent paths constructed by the SFA dataflow dependency, even though its code is expressed in a sequential manner.
+The SFA dataflow graph clearly demonstrates the concurrent paths constructed according to the dataflow dependency, even though the code is expressed in a sequential manner. Each application of an arithmetic/logic operator is translated into the appropriate hardware construction and the conditional \code{ifdf} statement is translated into a selector. 
 
 %Note: the shown SFA application uses default configuration for vendor, device, target frequency, etc.  
 
