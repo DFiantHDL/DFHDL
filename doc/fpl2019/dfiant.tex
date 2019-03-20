@@ -1,6 +1,6 @@
-\section{The DFiant Language}
+\section{The DFiant Language Overview}
 \label{sec:dfiant}
-DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result continuously. An input is considered stable when the last three sample values are distributed within a given standard deviation. The complete SFA DFiant implementation, its equivalent dataflow graph, and its DFiant-generated VHDL (2008) code are available in \fig{fig:SFADFiant},~\ref{fig:SFADraw}, and~\ref{fig:SFAVHDL}, respectively.
+DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a sample filter-accumulator (SFA) that accumulates only \textit{stable} input samples and outputs the accumulated result continuously. An input is considered stable when the last three sample values are distributed within a given standard deviation. The sample input is a 16-bit signed integer and the accumulated output is a 32-bit signed integer. The complete SFA DFiant implementation, its equivalent dataflow graph, and its DFiant-generated VHDL (2008) code are available in \fig{fig:SFADFiant},~\ref{fig:SFADraw}, and~\ref{fig:SFAVHDL}, respectively.
 
 
 \begin{table*}[t!]
@@ -115,6 +115,15 @@ DFiant is a Scala library and thus possesses various rich type safe language con
   \end{minipage}
 \end{table*}
 
+\subsection{Hello DFiant world!}
+The SFA DFiant code demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-16), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (lines 18-21). 
+
+The SFA design is fairly straightforward. Lines 5 and 6 construct the signed input and output dataflow ports, respectively. Notice that we set an initial 0 value for the accumulated output state (see section ??). Lines 7 and 8 calculate the delta value between the current sample and the previous two samples. The \code{.prev(x)} construct is used to fetch values from the stream history (see section ??). The \code{-} operation, yields a subtractor instance and the \code{.wc} construct is applied to get the a carried result. Lines 9 to 12 compare if the delta values are within the given standard deviation. Finally, Lines 13 to 15 conditionally increase the accumulated state, as required. Notice we used  \code{acc + sample} and not \code{acc.prev + sample}, but both expression at line 14 are equivalent, since we have an implicit state assignment \code{acc := acc.prev} when an (see section ??). 
+
+The SFA dataflow drawing clearly demonstrates the concurrent paths constructed by the SFA dataflow dependency, even though its code is expressed in a sequential manner.
+
+%Note: the shown SFA application uses default configuration for vendor, device, target frequency, etc.  
+
 \subsection{Structural Composition and Generation}
 
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). Different composition examples are available in Table~\ref{tbl:Box}.
@@ -211,6 +220,15 @@ Fig.~\ref{fig:Aliasing} demonstrates aliasing code and its effect on the content
 %\end{figure}
 
 
+\subsection{How much code we save vs VHDL}
+Explicitly saving history for sample
+Thanks to type inference, no need to declare types for internal values.
+No need to extend the a value to get a carried result.
+No need to create explicit pipeline (which also changed according to the target device).
+No need to explicitly create stall logic.
+
+\subsection{Brainstorming}
+We are replacing concepts of register and wire to state and stateless. This is key difference between dataflow and RTL HDLs. Dataflow assumes there is always a history, in every dataflow value. So we can access the history, yet call it stateless.
 
 
 %\begin{figure}[h]
