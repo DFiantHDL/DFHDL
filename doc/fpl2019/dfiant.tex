@@ -30,7 +30,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
         sfa.compileToVHDL.toFile("sfa.vhd")
       }
     \end{minted}
-    \captionof{figure}{SFA DFiant code \\ Some \\ Other}
+    \captionof{figure}{SFA DFiant code \\ Concise and portable}
     \label{fig:SFADFiant}
     \vfill
     \includegraphics[width=\linewidth]{graphics/sfa.pdf}
@@ -110,23 +110,41 @@ DFiant is a Scala library and thus possesses various rich type safe language con
       
       end sfa_arch;
     \end{minted}
-    \captionof{figure}{SFA generated VHDL code}
+    \captionof{figure}{SFA generated VHDL code \\ Notice something cool  }
     \label{fig:SFAVHDL}
   \end{minipage}
 \end{table*}
 
 \subsection{Hello DFiant world!}
-The SFA DFiant code demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-16), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (lines 18-21). 
+The SFA DFiant code in \fig{fig:SFADFiant} demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-16), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (lines 18-21). 
 
-The SFA design is fairly straightforward. Lines 5 and 6 construct the signed input and output dataflow ports, respectively. Notice that we set an initial 0 value for the accumulated output state (see section ??). Lines 7 and 8 calculate the delta value between the current sample and the previous two samples. The \code{.prev(x)} construct is used to fetch values from the stream history (see section ??). The \code{-} operation, yields a subtractor instance and the \code{.wc} construct is applied to get the a carried result. Lines 9 to 12 compare if the delta values are within the given standard deviation. Finally, lines 13 to 15 conditionally increase the accumulated state, as required. Notice we used \code{acc + sample} and not \code{acc.prev + sample}, but both expression at line 14 are equivalent, since we have an implicit state assignment \code{acc := acc.prev} when an (see section ??). 
+The SFA design is fairly straightforward. Lines 5 and 6 construct the signed input and output dataflow ports, respectively, including an initial 0 value for the accumulated output state (see section ??). Lines 7 and 8 calculate the delta value between the current sample and the previous two samples. The \code{.prev(x)} construct is used to fetch values from the stream history (see section ??). The \code{-} operation, yields a subtractor instance and the \code{.wc} construct is applied to get the a carried result. Lines 9 to 12 compare if the delta values are within the given standard deviation. Finally, lines 13 to 15 conditionally increase the accumulated state, as required. Notice we used \code{acc + sample} and not \code{acc.prev + sample}, but both expression at line 14 are equivalent, since we have an implicit state assignment \code{acc := acc.prev} when an (see section ??). 
 
-The SFA dataflow graph clearly demonstrates the concurrent paths constructed according to the dataflow dependency, even though the code is expressed in a sequential manner. Each application of an arithmetic/logic operator is translated into the appropriate hardware construction and the conditional \code{ifdf} statement is translated into a selector. 
+The SFA dataflow graph in \fig{fig:SFADraw} clearly demonstrates the concurrent paths constructed according to the dataflow dependency, even though the code is expressed in a sequential manner. Each application of an arithmetic/logic operator is translated into the appropriate hardware construction and the conditional \code{ifdf} statement is translated into a selector. Additionally, state elements are automatically constructed when a stream history is accessed. State elements are not registers, although they can be mapped to registers if the design is compiled to a synchronous backend. DFiant tags the graph of the backend pipelined stages and of the stall guards placed on the accumulated result.
 
-%Note: the shown SFA application uses default configuration for vendor, device, target frequency, etc.  
+The generated VHDL code in \fig{fig:SFAVHDL} is a pipelined RTL representation of the SFA DFiant code. The code demonstrates several advantages of DFiant:
+\begin{enumerate}
+	\item \textit{Portability and Correctness}\quad The generated RTL is but one of many possible RTL representations that vary when different device and performance constraints are applied and therefore can be considered \textit{correct} only when those conditions are true, whereas the DFiant design remains unchanged and can be considered always correct once verified.  
+	\item \textit{Conciseness}\quad  The DFiant code is significantly more compact than the RTL code, because DFiant semantically implies much of the additional information required by the RTL description. Most prominently, the RTL code differentiates between registers and wires, requires explicit pipeline register placement, and adds stall control logic. Evidently, there is little to reduce in this RTL code, even by an experienced VHDL designer.
+	\item \textit{Legibility}\quad The generated RTL code maintains a readable, true to the source, format, by maintaining the intended names and structure expressed in the original DFiant design, unlike cryptic codes generated by many HLS and high-level design tools.  
+\end{enumerate} 
+
+\subsection{Dataflow Semantics}
+DFiant employs an asynchronous dataflow programming model to enable an intuitive concurrent hardware description, but in a sequential manner, since dataflow dependency is oblivious to statement order. For this purpose, DFiant applies the following rules:  
+
+\begin{itemize} %[leftmargin=*]
+	\item \textit{Concurrency and Execution Order}\quad Concurrency is implicit and the data scheduling order, or \textit{token-flow}, is set by the \textit{data dependency}. DFiant schedules all independent dataflow expressions concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline.
+	\item \textit{Branches}\quad Dataflow branches are implicitly forked and joined. All scheduling is implicitly guarded by its dependencies. For example, \code{a} is forked into both \code{b} and \code{c} operations, while \code{c} joins branches from \code{a} and \code{b}.
+	It is impossible to read an invalid result or an old result (without extending semantics further).
+	\item DFiant semantics are intuitive: data is consumed only when it is ready and can be accepted by all receiving nodes, while back-pressure prevents data loss. 
+	\item \textit{Pruning}\quad Unused nodes always consume tokens and are discarded during compilation. 
+\end{itemize} 
+
+\subsection{State Constructs}
+As described in Section \ref{sec:motivation}, DFiant does not directly expose register and wire constructs. Instead, DFiant 
 
 \subsection{Structural Composition and Generation}
-
-DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). Different composition examples are available in Table~\ref{tbl:Box}.
+DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time).
 
 %\input{box_table}
 
@@ -136,16 +154,6 @@ The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrate
 
 
 
-\subsection{Dataflow Semantics}
-DFiant has a dataflow programming model. Data scheduling order, or \textit{token-flow}, is set by the \textit{data dependency}. Essentially, the DFiant semantics schedules all independent dataflow expressions concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. Dataflow branches are implicitly forked and joined. Unused nodes, semantically, always consume tokens, and are discarded during compilation. We observe the DFiant \code{f} implementation as follows:
-
-\begin{enumerate}
-  \item All expressions are dataflow variable declarations.
-  \item Concurrency is implicit, and \code{f} is coded intuitively, in a sequential manner, since dataflow dependency is oblivious to statement order. 
-  \item All scheduling is implicitly guarded by its dependencies. For example, \code{a} is forked into both \code{b} and \code{c} operations, while \code{c} joins branches from \code{a} and \code{b}.
-  It is impossible to read an invalid result or an old result (without extending semantics further).
-  \item DFiant semantics are intuitive: data is consumed only when it is ready and can be accepted by all receiving nodes, while back-pressure prevents data loss. 
-\end{enumerate} 
 
 %The basic DFiant types are DFBits and DFBool
 %Each dataflow type points to a static bits vector
