@@ -1,12 +1,6 @@
 \section{Motivation: Design Once, Synthesize Everywhere}
 \label{sec:motivation}
 Something to do with the graph....
-\begin{figure*}[t!]
-	\centering
-	\includegraphics[width=\linewidth]{graphics/motivation.pdf} 
-  \captionof{figure}{HDL synthesizable constructs summary. Higher }
-	\label{fig:motivation}
-\end{figure*}
 RTL languages utilize behavioral combinational hardware description that must complete within a given cycle if fed to a register.
 
 Previous work \cite{Port2017} compared implementations of a pure (stateless) function, $f$. Typical designs, however, possess a state that is implemented via clocked registers. Registers have other functional roles, such as pipelining a data path, deriving timed signals from an input clock, and synchronizing an input signal. We believe that by avoiding explicit register use, we can design without, or very little, clock dependency. 

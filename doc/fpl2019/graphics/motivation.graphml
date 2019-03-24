@@ -20,7 +20,7 @@
           <y:Geometry height="212.0" width="779.84" x="12.0" y="259.0"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="24.328125" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="107.09375" x="4.0" xml:space="preserve" y="4.0">Dataflow HDL</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="108.0" x="4.0" xml:space="preserve" y="4.0">Dataflow HDL</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -28,10 +28,10 @@
     <node id="n1">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="172.0" width="495.568" x="12.0" y="299.0"/>
+          <y:Geometry height="178.83200000000005" width="567.8239999999998" x="12.0" y="292.1679999999999"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="24.328125" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="116.859375" x="4.0" xml:space="preserve" y="4.0">High-level RTL</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="116.0078125" x="4.0" xml:space="preserve" y="4.0">High-level RTL</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -39,10 +39,10 @@
     <node id="n2">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="132.0" width="326.864" x="12.0" y="339.0"/>
+          <y:Geometry height="146.07999999999993" width="385.1056" x="12.0" y="324.9200000000001"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="24.328125" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="35.1015625" x="4.0" xml:space="preserve" y="4.0">RTL</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="35.1015625" x="4.0" xml:space="preserve" y="4.0">RTL</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -50,10 +50,10 @@
     <node id="n3">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="30.783999999999992" width="164.0" x="134.60000000000008" y="342.76000000000005"/>
+          <y:Geometry height="112.48000000000002" width="146.0" x="12.0" y="358.52"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
-          <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.24609375" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="l" textColor="#000000" verticalTextPosition="bottom" visible="true" width="162.009765625" x="4.0" xml:space="preserve" y="5.768953124999996">VHDL, Verilog, SystemVerilog</y:NodeLabel>
+          <y:BorderStyle color="#000000" raised="false" type="line" width="1.0"/>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="133.828125" x="4.0" xml:space="preserve" y="4.0">Netlist/Gate-level</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -61,10 +61,10 @@
     <node id="n4">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="92.0" width="146.0" x="12.0" y="379.0"/>
-          <y:Fill color="#FFFFFF" transparent="false"/>
-          <y:BorderStyle color="#000000" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="16" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="24.328125" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="136.8984375" x="4.0" xml:space="preserve" y="4.0">Netlist/Gate-level</y:NodeLabel>
+          <y:Geometry height="26.196480000000008" width="164.0" x="133.60000000000002" y="261.3839999999999"/>
+          <y:Fill hasColor="false" transparent="false"/>
+          <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="17.40625" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="l" textColor="#0000FF" verticalTextPosition="bottom" visible="true" width="39.34375" x="4.0" xml:space="preserve" y="4.3951150000000325">DFiant</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -72,10 +72,12 @@
     <node id="n5">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="30.783999999999992" width="365.96799999999996" x="133.60000000000002" y="302.072"/>
+          <y:Geometry height="64.38399999999996" width="135.0" x="17.5" y="393.30400000000003"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.24609375" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="l" textColor="#000000" verticalTextPosition="bottom" visible="true" width="358.955078125" x="4.0" xml:space="preserve" y="5.768953124999996">Chisel, SpinalHDL, VeriScala, PyRTL, Migen, MyHDL, Bluespec, Cx</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="44.21875" horizontalTextPosition="center" iconTextGap="4" modelName="custom" textColor="#000000" verticalTextPosition="bottom" visible="true" width="140.048828125" x="-2.5244140625" xml:space="preserve" y="10.08262499999995">Components, Instances,
+Ports, Wire Connections, 
+Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:LabelModel><y:ModelParameter><y:SmartNodeLabelModelParameter labelRatioX="0.0" labelRatioY="0.0" nodeRatioX="0.0" nodeRatioY="0.0" offsetX="0.0" offsetY="0.0" upX="0.0" upY="-1.0"/></y:ModelParameter></y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -83,10 +85,19 @@
     <node id="n6">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="30.783999999999992" width="164.0" x="133.60000000000002" y="261.38399999999996"/>
+          <y:Geometry height="112.48000000000002" width="232.80319999999995" x="161.07199999999995" y="355.448"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.24609375" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="l" textColor="#000000" verticalTextPosition="bottom" visible="true" width="39.34375" x="4.0" xml:space="preserve" y="5.768953124999996">DFiant</y:NodeLabel>
+          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="109.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="232.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
+* &lt;u&gt; Combinational Operations&lt;/u&gt;: &lt;br&gt;
+ &amp;nbsp; Arithmetic, Logic, Conditional &lt;br&gt;
+* &lt;u&gt; Registers&lt;/u&gt;: Pipeline, Balance, &lt;br&gt;
+ &amp;nbsp; Derived State, Regular State,  &lt;br&gt;
+ &amp;nbsp; Time Delay, Clock Division, Synchronizer&lt;br&gt;
+* &lt;u&gt; Clocks&lt;/u&gt;: External, PLL (via blackbox)&lt;br&gt;
+* &lt;u&gt; Resets&lt;/u&gt;: Async, Sync, Active High/Low
+&lt;/html&gt;
+</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -94,12 +105,10 @@
     <node id="n7">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="64.38399999999996" width="135.0" x="17.5" y="403.54400000000004"/>
-          <y:Fill color="#FFFFFF" transparent="false"/>
+          <y:Geometry height="26.196480000000008" width="365.728" x="134.60000000000005" y="295.63022079999996"/>
+          <y:Fill hasColor="false" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="49.73828125" horizontalTextPosition="center" iconTextGap="4" modelName="custom" textColor="#000000" verticalTextPosition="bottom" visible="true" width="137.318359375" x="-1.1591796875" xml:space="preserve" y="7.32285937499995">Components, Instances,
-Ports, Wire Connections, 
-Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:LabelModel><y:ModelParameter><y:SmartNodeLabelModelParameter labelRatioX="0.0" labelRatioY="0.0" nodeRatioX="0.0" nodeRatioY="0.0" offsetX="0.0" offsetY="0.0" upX="0.0" upY="-1.0"/></y:ModelParameter></y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="17.40625" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="l" textColor="#0000FF" verticalTextPosition="bottom" visible="true" width="366.1328125" x="4.0" xml:space="preserve" y="4.3951150000000325">Chisel, SpinalHDL, VeriScala, PyRTL, Migen, MyHDL, Bluespec, Cx</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -107,14 +116,10 @@ Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:La
     <node id="n8">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="87.14312908799997" width="320.04799999999994" x="171.88000000000002" y="381.42843545600005"/>
-          <y:Fill color="#FFFFFF" transparent="false"/>
+          <y:Geometry height="26.196480000000008" width="164.0" x="134.64800000000008" y="327.07511039999997"/>
+          <y:Fill hasColor="false" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="80.23046875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="t" textColor="#000000" verticalTextPosition="bottom" visible="true" width="319.65625" x="0.1958749999999725" xml:space="preserve" y="4.0">* Combinational Operations: Arithmetic, Logic, Conditional
-* Registers:Derived State, Regular State, Pipeline, Balance, 
-  Time Delay, Clock Division, Synchronizers
-* Clocks: External, PLL (via blackbox)
-* Resets: Async, Sync, Active High/Low</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="17.40625" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="l" textColor="#0000FF" verticalTextPosition="bottom" visible="true" width="164.060546875" x="4.0" xml:space="preserve" y="4.3951150000000325">VHDL, Verilog, SystemVerilog</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -122,13 +127,17 @@ Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:La
     <node id="n9">
       <data key="d6">
         <y:ShapeNode>
-          <y:Geometry height="79.91680000000002" width="272.43200000000013" x="515.3119999999999" y="381.4284354560001"/>
+          <y:Geometry height="112.48000000000002" width="199.01119999999992" x="587.5519999999999" y="355.448"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="64.984375" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="t" textColor="#000000" verticalTextPosition="bottom" visible="true" width="277.005859375" x="-2.286929687499878" xml:space="preserve" y="4.0">* Ordered Operations: Arithmetic, Logic, Conditional
-* Dataflow History
-* Auto Pipelining, Auto Flow-Control
-* Timers</y:NodeLabel>
+          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="79.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="197.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
+* &lt;u&gt; Ordered Operations&lt;/u&gt;: &lt;br&gt;
+ &amp;nbsp; Arithmetic, Logic, Conditional &lt;br&gt;
+* Dataflow History Access&lt;br&gt;
+* Auto Pipelining, Auto Flow-Control&lt;br&gt;
+* Timers
+&lt;/html&gt;
+</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>

@@ -25,6 +25,13 @@ DFiant decouples functionality from timing constraints (in an effort to end the 
   functional register/state constructs accompanied by an automatic pipelining process, which eliminate all explicit register placements along with their direct clock dependency.
 \end{enumerate*} DFiant borrows and combines constructs and semantics from software, hardware and dataflow languages. Consequently, the DFiant programming model accommodates a middle-ground approach between low-level hardware description and high-level sequential programming. 
 
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=\linewidth]{graphics/motivation.pdf} 
+	\captionof{figure}{HDL synthesizable constructs summary. Higher }
+	\label{fig:motivation}
+\end{figure*}
+
 %\newpage %equivalent to when author names aren't removed
 DFiant is implemented as a Scala library and relies on Scala's strong, extensible, and polymorphic type system to provide its own hardware-focused type system (e.g., bit-accurate dataflow types, input/output port types). The library performs two main tasks: the frontend compilation, which translates dataflow variable interactions into a dependency graph; and the backend compilation, which translates the graph into a pipelined RTL code and a TCL constraints file, followed by a hardware synthesis process using commercial tools. Additionally, the graph can be simulated within the Scala integrated development environment (IDE). 
 
