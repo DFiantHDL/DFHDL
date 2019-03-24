@@ -1,7 +1,7 @@
 % As a general rule, do not put math, special symbols or citations
 % in the abstract
 \begin{abstract}
-Prevalent hardware description langues, e.g., Verilog and VHDL, employ the register-transfer level (RTL) as their underlying programming model. A major downside of the RTL model is that it tightly couples design functionality with timing and device constraints. As a result, increasing design complexity results in code that is more verbose and less portable.
+Prevalent hardware description languages, e.g., Verilog and VHDL, employ the register-transfer level (RTL) as their underlying programming model. A major downside of the RTL model is that it tightly couples design functionality with timing and device constraints. As a result, increasing design complexity results in code that is more verbose and less portable.
 Emerging high-level synthesis (HLS) tools attempt to bridge this hardware programmability gap by utilizing constructs from imperative programming languages. These constructs and their sequential semantics, however, impede construction of inherently parallel hardware and data scheduling, which is crucial in many design use-cases.
 
 In this paper we propose to use constructs from dataflow programming languages as basis for hardware design. We present DFiant, a Scala-embedded HDL that leverages dataflow semantics to decouple functionality from implementation constraints.
