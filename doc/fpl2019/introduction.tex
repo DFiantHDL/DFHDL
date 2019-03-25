@@ -1,20 +1,19 @@
 \section{Introduction}
-%For the past two decades, VHDL and Verilog have governed as hardware description languages (HDLs) for field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC) devices. Originally developed for simulation, these languages have limited synthesizable register-transfer language (RTL) constructs.
+The register-transfer level (RTL) programming model paved the road for Verilog and VHDL to flourish as the leading hardware description languages (HDLs) in the electronic design automation industry. However, that road is steadily nearing its end, as both hardware designs and devices become increasingly more complex. While the software world is striving for a "write once, run anywhere" programmability, an RTL design with the same requirements may vary greatly across different FPGA and ASIC devices that incorporate various technologies and core components. Moreover, minor requirement changes may lead to significant design changes, since RTL abstraction prevents separation of functionality and timing constraints. For example, registers serve various roles such as preserving a state, pipelining and balancing a data path, deriving timed signals from an input clock, and synchronizing an input signal. This coupling between core requirements and device constraints leads to verbose and unportable RTL designs. Ongoing efforts to bridge this hardware programmability gap can be split into two major tracks: high-level synthesis (HLS) tools and high-level RTL (HLRTL) languages.
 
-%RTLs are very limited due to their explicit expressiveness. For example, vector addition is pipelined, either by coding a registered logic path, or by instancing a pipelined library component. Such components are typically coupled to a specific vendor, device family, or even a given device. Furthermore, clock-latency must be balanced between converging pipelines. Synthesis retiming can assist, provided that the designer places enough registers beforehand.
+HLS tools, such as Vivado~\cite{Vivado2012}, HercuLeS~\cite{Kavvadias2013}, Catapult~\cite{graphics2008catapult}, and Synphony~\cite{?} rely on modern programming languages like C or M to make hardware accelerators accessible to software engineers. While this approach has proven successful in algorithmic acceleration thanks to auto-pipelining and optimization mechanisms, such languages carry Von Neumann sequential semantics and thus hinder construction of parallel hardware, which is required to describe architectures. Even a periodic led toggle is impossible to generate via HLS languages.
 
+HLRTL languages such as Chisel~\cite{Bachrach2012}, SpinalHDL~\cite{Charles2016}, VeriScala~\cite{Liu2017}, Bluespec SystemVerilog~\cite{nikhil2004bluespec}, Cx~\cite{CxLang2014}, MyHDL~\cite{decaluwe2004myhdl}, PyRTL~\cite{Clow2017}, PyMTL~\cite{Lockhart2014}, and Mamba~\cite{jiang2018mamba} Bla bla bla...
+Further comparison of these languages can be found in past surveys ~\cite{Kapre2016, Nane2016, Windh2015}.
 
-Low-level hardware description languages (HDLs) such as Verilog and VHDL have been dominating the field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC) domains for decades.
-These languages burden designers with explicitly clocked constructs that do not distinguish between design functionality and implementation constraints (e.g., timing, target device).
-For example, the register-transfer-level (RTL) constructs of both Verilog and VHDL require designers to explicitly place a register, regardless if it is part of the core functionality (e.g., a state-machine state register), an artifact of the timing constraints (e.g, a pipeline register), or an artifact of the target interface (e.g., a synchronous protocol cycle delay).
-%
-These semantics narrow design correctness to specific timing restrictions, while vendor library component instances couple the design to a given target device. Evidently, formulating complex portable designs is difficult, if not impossible.
-%
-Finally, these older languages do not support modern programming features that enhance productivity and correctness such as polymorphism and type safety.
+%plague
 
-High-level synthesis (HLS) tools such as Vivado HLS~\cite{Vivado2012}, and high-level HDLs such as Bluespec SystemVerilog~\cite{nikhil2004bluespec} and Chisel~\cite{Bachrach2012} attempt to bridge the programmability gap.
-While these tools and languages tend to incorporate modern programming features, they still mix functionality with timing and device constraints, or lack hardware construction and timed synchronization control. For example, designs must be explicitly pipelined in Chisel or Bluespec, while a simple task as toggling a led at a given rate is impossible to describe with C++ constructs in Vivado HLS.
-Such tools and languages, therefore, fail to deliver a clean separation between functionality and implementation that can yield portable code, while providing general purpose HDL constructs. We explore these gaps further in Section~\ref{sec:related_work}.
+%what if we want to automatically enhance performance of architectures (like a Network on Chip) or structurally compose accelerators (like Neural Networks)
+%Finally, these older languages do not support modern programming features that enhance productivity and correctness such as polymorphism and type safety.
+
+%High-level synthesis (HLS) tools such as  and high-level HDLs such as  and  attempt to bridge the programmability gap.
+%While these tools and languages tend to incorporate modern programming features, they still mix functionality with timing and device constraints, or lack hardware construction and timed synchronization control. For example, designs must be explicitly pipelined in Chisel or Bluespec, while a simple task as toggling a led at a given rate is impossible to describe with C++ constructs in Vivado HLS.
+%Such tools and languages, therefore, fail to deliver a clean separation between functionality and implementation that can yield portable code, while providing general purpose HDL constructs. We explore these gaps further in Section~\ref{sec:related_work}.
 
 In this paper we further extend DFiant~\cite{Port2017}, a modern HDL whose goal is to improve hardware programmability and designer productivity by enabling designers to express truely portable and composable hardware designs.
 DFiant decouples functionality from timing constraints (in an effort to end the \emph{"tyranny of the clock"}~\cite{Sutherland2012}). DFiant offers a clean model for hardware construction based on its core characteristics:
@@ -27,6 +26,7 @@ DFiant decouples functionality from timing constraints (in an effort to end the 
 
 \begin{figure*}[t]
 	\centering
+	\captionsetup{justification=centering}
 	\includegraphics[width=\linewidth]{graphics/motivation.pdf} 
 	\captionof{figure}{HDL abstraction layer summary (lowest=netlist, highest=dataflow) \\ DFiant is the first language to support the highest layer, a dataflow HDL.}
 	\label{fig:motivation}
@@ -38,11 +38,8 @@ DFiant is implemented as a Scala library and relies on Scala's strong, extensibl
 This work focuses on the DFiant language and frontend compiler. DFiant is \emph{not} an RTL language, nor is it a sequential language such as C. The following two sections highlight DFiant's unique semantics by comparing them against modern design language alternatives. For a proof of concept, we implemented a preliminary auto-pipelining backend compiler to compare DFiant and traditional HDL design flows in two test cases: an Advanced Encryption Standard~\cite{pub2001197} (AES) cipher block and an IEEE-754~\cite{IEEE2008} floating point multiplier (FPMul). Future work may delve further into the backend compiler and its HLS potential.
 
 
-The paper is organized as follows. The next two sections describe DFiant's concurrency and state abstractions, followed by Section~\ref{sec:related_work}, which contrasts DFiant with related work. 
-Section~\ref{sec:type_system} details the DFiant type system.
-Section~\ref{sec:lzc} provides a real-world DFiant code compilation example.
-Section~\ref{sec:evaluation} provides the proof of concept results.
-Finally, Section~\ref{sec:conclusion} concludes the paper.
+The paper is organized as follows. The next section describes the motivation for the dataflow HDL abstraction layer, followed by Section~\ref{sec:dfiant}, which provides a general overview of the DFiant HDL language. 
+Section~\ref{sec:evaluation} provides results, and finally, Section~\ref{sec:conclusion} concludes the paper.
 
 
 

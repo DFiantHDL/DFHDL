@@ -659,21 +659,21 @@ object Backend {
           lazy val exists : Boolean = steadyStateStatements.list.nonEmpty
           override def toString: String = if (!exists) "" else
             s"""
-               |process ($clkName, $rstName)
+               |sync_proc : process ($clkName, $rstName)
                |begin
                |  if $rstName = '0' then$resetStatements
                |  elsif rising_edge($clkName) then$steadyStateStatements
                |  end if;
-               |end process;
+               |end process sync_proc;
                |""".stripMargin
 
         }
         object async_process extends process(1) {
           override def toString: String = if (steadyStateStatements.list.isEmpty) "" else
             s"""
-               |process (all)$variables
+               |async_proc : process (all)$variables
                |begin$steadyStateStatements
-               |end process;
+               |end process async_proc;
                |""".stripMargin
 
         }

@@ -1,22 +1,13 @@
-\section{Motivation: Design Once, Synthesize Everywhere}
+\section{Motivation: Design Once, Synthesize Anywhere}
 \label{sec:motivation}
-\fig{fig:motivation} summarizes the basic elements that make up HDLs at different abstraction layers, from the lowest layer, a netlist, to the novel dataflow HDL layer presented in this paper. Each layer includes the expressive capabilities of the lowest layer (e.g., structural instance composition is possible in all HDLs). The layers are tagged with the relevant HDL names. Currently, DFiant is the first and only language to support Dataflow HDL constructs and semantics.
-Note that HLS languages and simulation constructs are not included in this figure.
+\fig{fig:motivation} summarizes the basic elements that make up HDLs at different abstraction layers, from the lowest layer, a netlist, to the novel dataflow HDL layer presented in this paper. Each layer includes the expressive capabilities of the lowest layer (e.g., structural instance composition is possible in all HDLs). The layers are tagged with the relevant HDL names. Currently, DFiant is the first and only language to support Dataflow HDL constructs and semantics. Note that HLS languages and simulation constructs are not included in this summary.
 
-RTL languages utilize behavioral combinational hardware description that must complete within a given cycle if fed to a register.
-
-Previous work \cite{Port2017} compared implementations of a pure (stateless) function, $f$. Typical designs, however, possess a state that is implemented via clocked registers. Registers have other functional roles, such as pipelining a data path, deriving timed signals from an input clock, and synchronizing an input signal. We believe that by avoiding explicit register use, we can design without, or very little, clock dependency. 
-
-In this section we classify various register use-cases, and present their DFiant functional counterpart. The classifications are divided into three main categories: \textit{synchronous technology backend}, \textit{synchronous technology interface}, and \textit{state}. For the state classification, we also explore an impure function, $g$, and compare its implementation in VHDL, C++, and DFiant (see Table~\ref{tbl:StateExDefImpl}).
-
-%Clocked registers have various functional roles, yet all appear the same in modern HDL designs. 
-%The main reason is that devices have very small number of IO ports, measurable in the hundreds, while modern designs process trillions of bps. Designs are This, of course, forces existance of state, since pure functions must receive all inputs  . Therefore, it is impossible to avoid state in a full (\textit{top}) system hardware description. 
-%When HLS abstract away the clock, it is left to the code analysis to classify what variable hold state.
+The key differences between RTL and dataflow abstractions reveal why one is coupled to the device and timing constraints while the other is agnostic to them. Firstly, the RTL abstraction utilizes combinational operations that must complete within a given cycle if fed to a register, while the dataflow abstraction only assumes order and not exactly when the operations are to complete, which leaves the option to pipeline the operations at will. Secondly, the RTL abstraction directly uses registers for variety of reasons, thus binds the design to specific timing conditions, while the dataflow abstraction provides higher constructs to avoid specific clock binding where possible. We classify the various register use-cases, and present their DFiant functional counterpart. The classifications are divided into three main categories: \textit{synchronous technology backend}, \textit{synchronous technology interface}, and \textit{state}.
 
 \subsection{Synchronous Technology Backend}
 Registers are often forced upon the design due to a synchronous technology choice. Since they are unrelated to the functional requirement, DFiant has no constructs to express them, and relies on its compiler to implement them properly based on the functional requirements and design constraints.
 We differentiate between the following backend register uses:
-\subsubsection{Pipelining}
+\subsubsection{Pipelining and Balancing}
 DFiant auto-pipelines the design by inserting registers to split long combinational paths. The amount of pipelining is determined by designer-specified constraints, such as the maximum path cycle latency, or the maximum propagation delay between registers.
 \subsubsection{Synchronizers}
 Sampling clock domain crossing (CDC) or asynchronous signals is exposed to metastability. Synchronizers, often composed of registers, are used to mitigate its effect and bring the design to the proper reliability. Since we aspire for a clockless design frontend, we want the synchronizers to be implicit. Currently, DFiant only supports a single clock backend, and does not require synchronizers. Further research may explore other backend options.
