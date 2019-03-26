@@ -42,7 +42,19 @@ DFiant is a Scala library and thus possesses various rich type safe language con
   \begin{minipage}[t][23cm][t]{0.51\linewidth}
     \centering
     \captionsetup{justification=centering}
-    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
+\renewcommand\theFancyVerbLine{%
+	\ifnum\value{FancyVerbLine}=2 
+	\setcounter{FancyVerbLine}{127}\ldots
+	\else\ifnum\value{FancyVerbLine}=129
+	\setcounter{FancyVerbLine}{187}\ldots
+	\else\ifnum\value{FancyVerbLine}=190
+	\setcounter{FancyVerbLine}{200}\ldots
+	\else
+	\arabic{FancyVerbLine}%
+	\fi
+	\fi
+	\fi
+}    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
       library ieee;
       use ieee.std_logic_1164.all;
       use ieee.numeric_std.all;

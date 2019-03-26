@@ -89,9 +89,9 @@ Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:La
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
           <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="109.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="232.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
-* &lt;u&gt; Combinational Operations&lt;/u&gt;: &lt;br&gt;
+* &lt;u&gt;Combinational Operations&lt;/u&gt;:&lt;br&gt;
  &amp;nbsp; Arithmetic, Logic, Conditional &lt;br&gt;
-* &lt;u&gt; Registers&lt;/u&gt;: Pipeline, Balance, &lt;br&gt;
+* &lt;u&gt; Registers&lt;/u&gt;: Pipeline, Path-Balance, &lt;br&gt;
  &amp;nbsp; Derived State, Regular State,  &lt;br&gt;
  &amp;nbsp; Time Delay, Clock Division, Synchronizer&lt;br&gt;
 * &lt;u&gt; Clocks&lt;/u&gt;: External, PLL (via blackbox)&lt;br&gt;
