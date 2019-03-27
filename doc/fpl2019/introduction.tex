@@ -20,7 +20,7 @@ Recent related dataflow-for-hardware efforts are the Maxeler framework~\cite{Pel
 This work focuses on the DFiant language and compiler. DFiant is \emph{not} an HLS language, nor is it an RTL language, but it is still an HDL that provides abstractions beyond RTL behavioral modeling, to reduce verbosity yet maintain portable codes.
 DFiant is implemented as a Scala library and therefore offers a rich type safe ecosystem along its own hardware-focused type system (e.g., bit-accurate dataflow types, input/output port types). The library performs two main tasks: first, the frontend compilation, which enforces the type-safe rule-system and constructs a dataflow dependency graph; and second, the backend compilation, which translates the graph into a pipelined RTL code and a TCL constraints file, followed by a hardware synthesis process using commercial tools. 
 
-The paper is organized as follows. The next section describes the motivation for the dataflow HDL abstraction layer, followed by Section~\ref{sec:dfiant}, which provides a general overview of the DFiant HDL language. 
+The paper is organized as follows. The next section clarifies the motivation behind the dataflow HDL abstraction layer, followed by Section~\ref{sec:dfiant}, which provides a general overview of the DFiant HDL language. 
 Section~\ref{sec:evaluation} describes our evaluation of the DFiant language and compiler, and finally, Section~\ref{sec:conclusion} concludes the paper.
 
 
