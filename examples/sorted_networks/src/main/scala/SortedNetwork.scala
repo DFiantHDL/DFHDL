@@ -57,3 +57,25 @@ trait SampleFilterAccumulator extends DFDesign {
   }
 }
 
+class SlidingAvg(sample : DFSInt[16]) extends DFDesign {
+  val avg       = DFSInt(16) <> OUT
+  val acc       = DFSInt(18) init 0
+  acc := acc + sample - sample.prev(4)
+  avg := (acc >> 2).bits(15, 0).sint
+}
+
+trait SlidingAvg4x4 extends DFDesign {
+  val a    = DFSInt(16) <> IN init 0
+  val b    = DFSInt(16) <> IN init 0
+  val c    = DFSInt(16) <> IN init 0
+  val d    = DFSInt(16) <> IN init 0
+  val avg  = DFSInt(16) <> OUT
+
+  def sa(src : DFSInt[16]) : DFSInt[16] = {
+    val acc = DFSInt(18) init 0
+    acc := acc + src - src.prev(4)
+    (acc >> 2).bits(15, 0).sint
+  }
+  avg := ((sa(a) + sa(b)).wc + (sa(c) + sa(d)).wc).wc.bits(15, 0).sint
+}
+
