@@ -1,3 +1,4 @@
+\newpage
 \section{The DFiant Language Overview}
 \label{sec:dfiant}
 DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a four-by-four moving average (MA) unit. The MA has four 16-bit integer input channels and is required to output the average of all channels, while each channel is averaged by a four-sample moving window continuously. The complete MA DFiant implementation, its equivalent dataflow graph, and its DFiant-generated VHDL (2008) code are available in \fig{fig:MADFiant},~\ref{fig:MADraw}, and~\ref{fig:MAVHDL}, respectively.
