@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:java="http://www.yworks.com/xml/yfiles-common/1.0/java" xmlns:sys="http://www.yworks.com/xml/yfiles-common/markup/primitives/2.0" xmlns:x="http://www.yworks.com/xml/yfiles-common/markup/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:y="http://www.yworks.com/xml/graphml" xmlns:yed="http://www.yworks.com/xml/yed/3" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://www.yworks.com/xml/schema/graphml/1.1/ygraphml.xsd">
-  <!--Created by yEd 3.18.2-->
+  <!--Created by yEd 3.19-->
   <key attr.name="Description" attr.type="string" for="graph" id="d0"/>
   <key for="port" id="d1" yfiles.type="portgraphics"/>
   <key for="port" id="d2" yfiles.type="portgeometry"/>
@@ -88,12 +88,12 @@ Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:La
           <y:Geometry height="112.48000000000002" width="232.80319999999995" x="161.07199999999995" y="355.448"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="109.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="232.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
+          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="102.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="216.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
 * &lt;u&gt;Combinational Operations&lt;/u&gt;:&lt;br&gt;
  &amp;nbsp; Arithmetic, Logic, Conditional &lt;br&gt;
 * &lt;u&gt; Registers&lt;/u&gt;: Pipeline, Path-Balance, &lt;br&gt;
  &amp;nbsp; Derived State, Regular State,  &lt;br&gt;
- &amp;nbsp; Time Delay, Clock Division, Synchronizer&lt;br&gt;
+ &amp;nbsp; Time Delay, Clock Gen, Synchronizer&lt;br&gt;
 * &lt;u&gt; Clocks&lt;/u&gt;: External, PLL (via blackbox)&lt;br&gt;
 * &lt;u&gt; Resets&lt;/u&gt;: Async, Sync, Active High/Low
 &lt;/html&gt;
@@ -130,7 +130,7 @@ Hierarchy/Flat/Folded<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:La
           <y:Geometry height="112.48000000000002" width="199.01119999999992" x="587.5519999999999" y="355.448"/>
           <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle hasColor="false" raised="false" type="line" width="1.0"/>
-          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="79.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="197.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
+          <y:NodeLabel alignment="left" autoSizePolicy="content" fontFamily="Arial" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="74.0" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="tl" textColor="#000000" verticalTextPosition="bottom" visible="true" width="199.0" x="4.0" xml:space="preserve" y="4.0">&lt;html&gt;
 * &lt;u&gt; Ordered Operations&lt;/u&gt;: &lt;br&gt;
  &amp;nbsp; Arithmetic, Logic, Conditional &lt;br&gt;
 * Dataflow History Access&lt;br&gt;

@@ -71,11 +71,13 @@ trait SlidingAvg4x4 extends DFDesign {
   val d    = DFSInt(16) <> IN init 0
   val avg  = DFSInt(16) <> OUT
 
-  def sa(src : DFSInt[16]) : DFSInt[16] = {
+  def sa(src : DFSInt[16]) = {
     val acc = DFSInt(18) init 0
     acc := acc + src - src.prev(4)
     (acc >> 2).bits(15, 0).sint
   }
-  avg := ((sa(a) + sa(b)).wc + (sa(c) + sa(d)).wc).wc.bits(15, 0).sint
+  def avg2(src1 : DFSInt[16], src2 : DFSInt[16]) =
+    (src1 + src2).wc.bits(15, 0).sint
+  avg := avg2(avg2(sa(a), sa(b)), avg2(sa(c), sa(d)))
 }
 
