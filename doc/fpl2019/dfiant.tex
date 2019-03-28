@@ -170,6 +170,9 @@ DFiant employs an asynchronous dataflow programming model to enable an intuitive
 \subsection{State Constructs}
 As described in Section \ref{sec:motivation}, DFiant does not directly expose register and wire constructs. Instead, DFiant 
 
+%The DFiant state abstraction is achievable via the \code{.prev} construct, to summon the previous dataflow variable value, and also the construct \code{.init(value)}, to create an initialized dataflow variable. The \code{:=} assignment operation is available for a mutable dataflow variable such as \code{c} (see Section~\ref{sec:mutability}). The creation of \code{c} carries within it an implicit assignment \code{c := c.init(0).prev}, which makes the next assignment of \code{c}, \code{c := i + c}, equivalent to \code{c := i + c.init(0).prev}. This is possible due to the following semantics: \textit{previous values change at the end of the DFiant code} (similarly to signal update semantics in VHDL processes). One advantage is that the code resembles its RTL counterparts, but less verbose. Another advantage is that any type of state component, like the Muller C-element\cite{muller1957theory}, can be applied with DFiant as a frontend (note that the functional drawing in Table~\ref{tbl:StateExDefImpl} has no register drawn).
+
+
 \subsection{Structural Composition and Generation}
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time).
 

@@ -36,9 +36,6 @@ The two kinds of state differ heavily in performance improvement when the design
 
 Regular state causes bottlenecks in many systems. For instance, a RISC-V processor program counter (PC) register manifests as a regular state. The processor pipeline can only be improved thanks to a speculative mechanism that predicts the next PC value to prefetch instructions (e.g., PC+4 for a branch-not-taken prediction). In case of a miss-prediction, other mechanisms take place. Further research may expand on dataflow abstractions, and solve such problems functionally.
 
-
-%The DFiant state abstraction is achievable via the \code{.prev} construct, to summon the previous dataflow variable value, and also the construct \code{.init(value)}, to create an initialized dataflow variable. The \code{:=} assignment operation is available for a mutable dataflow variable such as \code{c} (see Section~\ref{sec:mutability}). The creation of \code{c} carries within it an implicit assignment \code{c := c.init(0).prev}, which makes the next assignment of \code{c}, \code{c := i + c}, equivalent to \code{c := i + c.init(0).prev}. This is possible due to the following semantics: \textit{previous values change at the end of the DFiant code} (similarly to signal update semantics in VHDL processes). One advantage is that the code resembles its RTL counterparts, but less verbose. Another advantage is that any type of state component, like the Muller C-element\cite{muller1957theory}, can be applied with DFiant as a frontend (note that the functional drawing in Table~\ref{tbl:StateExDefImpl} has no register drawn).
-
 %\subsubsection{Speculated State} 
 %A speculated state is a regular state that can generate a new speculative value when the actual next value is unavailable.
 
