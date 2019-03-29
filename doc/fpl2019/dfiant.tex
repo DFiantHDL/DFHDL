@@ -6,7 +6,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 
 \begin{table*}[t!]
   \centering
-  \begin{minipage}[t][23cm][t]{0.46\linewidth}
+  \begin{minipage}[t][12cm][t]{0.49\linewidth}
     \centering
     \captionsetup{justification=centering}    
     \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{scala}
@@ -21,7 +21,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 				
 				def ma(src:DFSInt[16]) = {
 					val acc = DFSInt[18] init 0
-					acc := acc + src - src.prev(4)
+					acc := acc - src.prev(4) + src 
 					(acc / 4).toWidth(16)
 				}
 				def avg2(src1:DFSInt[16], src2:DFSInt[16])=
@@ -39,107 +39,60 @@ DFiant is a Scala library and thus possesses various rich type safe language con
     \end{minted}
     \captionof{figure}{MA DFiant code \\ Concise and portable}
     \label{fig:MADFiant}
-    \vfill
-    \includegraphics[width=\linewidth]{graphics/ma.pdf}
-    \captionsetup{justification=centering}
-    \captionof{figure}{MA dataflow graph \\ hi \\ hello }
-		\label{fig:MADraw}
   \end{minipage}
   \hfill
-  \begin{minipage}[t][23cm][t]{0.51\linewidth}
+  \begin{minipage}[t][12cm][t]{0.49\linewidth}
     \centering
     \captionsetup{justification=centering}
-%\renewcommand\theFancyVerbLine{%
-%	\ifnum\value{FancyVerbLine}=2 
-%	\setcounter{FancyVerbLine}{127}\ldots
-%	\else\ifnum\value{FancyVerbLine}=129
-%	\setcounter{FancyVerbLine}{187}\ldots
-%	\else\ifnum\value{FancyVerbLine}=190
-%	\setcounter{FancyVerbLine}{200}\ldots
-%	\else
-%	\arabic{FancyVerbLine}%
-%	\fi
-%	\fi
-%	\fi
-%}    
-		\begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
-      library ieee;
-      use ieee.std_logic_1164.all;
-      use ieee.numeric_std.all;
-      use work.sfa_pkg.all;
-      
-      entity sfa is
-      port (
-        CLK                  : in  std_logic;
-        RSTn                 : in  std_logic;
-        SAMPLE               : in  signed(15 downto 0);
-        ACC                  : out signed(31 downto 0)
-      );
-      end sfa;
-      
-      architecture sfa_arch of sfa is
-        signal ACC_prev1     : signed(31 downto 0);
-        signal SAMPLE_prev1  : signed(15 downto 0);
-        signal SAMPLE_prev2  : signed(15 downto 0);
-        signal delta1        : signed(16 downto 0);
-        signal delta2        : signed(16 downto 0);
-        signal delta1_pipe1  : signed(16 downto 0);
-        signal delta2_pipe1  : signed(16 downto 0);
-        signal usable1       : boolean;
-        signal usable2       : boolean;
-        signal usable1_pipe1 : boolean;
-        signal usable2_pipe1 : boolean;
-        signal pipe_stall1   : boolean;
-        signal pipe_stall2   : boolean;
-      begin
-      
-      sync_proc : process (CLK, RSTn)
-      begin
-        if RSTn = '0' then
-          ACC_prev1          <= 32d"0";
-          pipe_stall1        <= true;     
-          pipe_stall2        <= true;
-        elsif rising_edge(CLK) then
-          ACC_prev1          <= ACC;
-          SAMPLE_prev1       <= SAMPLE;  
-          SAMPLE_prev2       <= SAMPLE_prev1;
-          delta1_pipe1       <= delta1;  
-          delta2_pipe1       <= delta2;
-          usable1_pipe1      <= usable1; 
-          usable2_pipe1      <= usable2;
-          pipe_stall1        <= false;     
-          pipe_stall2        <= pipe_stall1;
-        end if;
-      end process sync_proc;
-      
-      async_proc : process (all)
-        variable v_ACC       : signed(31 downto 0);
-      begin
-        v_ACC     := ACC_prev1;
-        delta1    <= resize(SAMPLE, 17) - SAMPLE_prev1;
-        delta2    <= resize(SAMPLE, 17) - SAMPLE_prev2;
-        usable1   <= (delta1_pipe1 < 11d"1000") and 
-                     (delta1_pipe1 > -11d"1000");
-        usable2   <= (delta2_pipe1 < 11d"1000") and 
-                     (delta2_pipe1 > -11d"1000");
-        if (usable1_pipe1 and usable2_pipe1) then
-          if (not pipe_stall2) then
-            v_ACC := v_ACC + SAMPLE_prev2; --SAMPLE_pipe2
-          end if;
-        end if;
-        ACC       <= v_ACC;
-      end process async_proc;
-      
-      end sfa_arch;
+		\begin{minted}[xleftmargin=1.5em,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
+			...
+			signal acc        : signed(17 downto 0);
+			signal acc_prev1  : signed(17 downto 0);
+			signal src_prev1  : signed(15 downto 0);
+			signal src_prev2  : signed(15 downto 0);
+			signal src_prev3  : signed(15 downto 0);
+			signal src_prev4  : signed(15 downto 0);
+			...
+			sync_proc : process (CLK, RSTn)
+			begin
+			  if RSTn = '0' then
+			    acc_prev1     <= 18d"0";
+			    src_prev1     <= 16d"0";
+			    src_prev2     <= 16d"0";
+			    src_prev3     <= 16d"0";
+			    src_prev4     <= 16d"0";
+			  elsif rising_edge(CLK) then
+			    acc_prev1     <= acc;
+			    src_prev1     <= src;
+			    src_prev2     <= src_prev1;
+			    src_prev3     <= src_prev2;
+			    src_prev4     <= src_prev3;
+			  end if;
+			end process sync_proc;
+			...
+			async_proc : process (all)
+			  variable v_acc  : signed(17 downto 0);
+			begin
+			  v_acc           := acc_prev1;
+				v_acc 		      := v_acc - src_prev4 + src
+			  acc             <= v_acc;
+			end process async_proc;
     \end{minted}
     \captionof{figure}{
-    	MA generated VHDL code \\ 
-    	Only correct under specific timing constraints \\ 
-    	Has explicit registers for pipelining and stalls \\
-    	Readable and conforms to original DFiant code structure
+    	MA DFiant lines 11-12 compiled to VHDL code \\ 
+    	The DFiant code is extremely compact in comparison.
     }
     \label{fig:MAVHDL}
   \end{minipage}
+  \vfill
+  \includegraphics[width=\linewidth]{graphics/ma.pdf}
+  \captionsetup{justification=centering}
+  \captionof{figure}{
+  	MA dataflow graph (inputs are \code{a}, \code{b}, \code{c}, \code{d} and output is \code{o}) \\ 
+  	The entire design is a composition of the \code{ma} and \code{avg} functions (detailed blowouts are depicted as well) \\ 
+  	hello 
+  }
+\label{fig:MADraw}
 \end{table*}
 
 \subsection{Hello DFiant world!}
