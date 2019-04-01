@@ -3,13 +3,13 @@
 In this section we present a working proof of concept by implementing two case studies: an AES cypher, and a double precision FPMul. We compare both test cases against traditional designs, and demonstrate competing performance while simplifying code verbosity significantly. 
 
 %{Brainstorming}
-Explicitly saving history for sample
-Thanks to type inference, no need to declare types for internal values.
-No need to extend the a value to get a carried result.
-No need to create explicit pipeline (which also changed according to the target device).
-No need to explicitly create stall logic.
-We are replacing concepts of register and wire to state and stateless. This is key difference between dataflow 
-and RTL HDLs. Dataflow assumes there is always a history, in every dataflow value. So we can access the history, yet call it stateless.
+%Explicitly saving history for sample
+%Thanks to type inference, no need to declare types for internal values.
+%No need to extend the a value to get a carried result.
+%No need to create explicit pipeline (which also changed according to the target device).
+%No need to explicitly create stall logic.
+%We are replacing concepts of register and wire to state and stateless. This is key difference between dataflow 
+%and RTL HDLs. Dataflow assumes there is always a history, in every dataflow value. So we can access the history, yet call it stateless.
 
 The generated VHDL code in \fig{fig:MAVHDL} is a pipelined RTL representation of the MA DFiant code. The code demonstrates several advantages of DFiant:
 \begin{enumerate}[leftmargin=*]
