@@ -1,0 +1,15 @@
+language: python
+install:
+- pip install mkdocs
+script:
+- cd doc/official
+- mkdocs build --verbose --clean --strict
+- cd ../../
+deploy:
+ provider: pages
+ repo: DFiantHDL
+ skip_cleanup: true
+ github_token: $GITHUB_TOKEN # Set in travis-ci.org dashboard
+ local_dir: doc/official/site
+ on:
+   branch: master
