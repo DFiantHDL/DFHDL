@@ -1,6 +1,6 @@
-# Welcome to MkDocs
+[![Build Status](https://www.travis-ci.com/DFiantHDL/DFiantHDL.github.io.svg?branch=master)](https://www.travis-ci.com/DFiantHDL/DFiantHDL.github.io)
+# Welcome to the DFiant HDL official documentation
 
-For full documentation visit [mkdocs.org](http://mkdocs.org).
 
 ## Commands
 
