@@ -1,5 +1,4 @@
-[![Build Status](https://www.travis-ci.com/DFiantHDL/DFiantHDL.github.io.svg?branch=master)](https://www.travis-ci.com/DFiantHDL/DFiantHDL.github.io)
-# Welcome to the DFiant HDL official documentation
+[![Build Status](https://travis-ci.com/soronpo/DFiant.svg?token=dzwzuUsZuyhzAjyvw87v&branch=master)](https://travis-ci.com/soronpo/DFiant)# Welcome to the DFiant HDL official documentation
 
 
 ## Commands
