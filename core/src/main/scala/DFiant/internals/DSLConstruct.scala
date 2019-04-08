@@ -10,15 +10,14 @@ trait DSLConfiguration {
 }
 
 trait HasOwner {
-  trait __Dev {
+  trait __DevHasOwner {
     implicit val owner : DSLOwnerConstruct
   }
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
-  type TDev <: __Dev
-  trait __Dev extends super[Nameable].__Dev with super[TypeNameable].__Dev with super[Discoverable].__Dev with super[HasOwner].__Dev {
+  trait __DevDSLMemberConstruct extends __DevNameable with __DevTypeNameable with __DevDiscoverable with __DevHasOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +90,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     final protected lazy val id : Int = getID
     id //touch dev. We only need the lazyness for initialization order
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
   __dev //touch dev. We only need the lazyness for initialization order
   import __dev._
 
@@ -113,8 +112,7 @@ object DSLMemberConstruct {
 }
 
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
+  protected[DFiant] trait __DevDSLOwnerConstruct extends __DevDSLMemberConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -167,7 +165,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     }
 
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDSLOwnerConstruct = ???
   import __dev._
 
   protected implicit def __theOwnerToBe : DSLOwnerConstruct = this
@@ -206,24 +204,22 @@ object DSLOwnerConstruct {
 }
 
 trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DSLOwnerConstruct].__Dev {
+  protected[DFiant] trait __DevDSLTransparentOwnerConstruct extends __DevDSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
 
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDSLTransparentOwnerConstruct = ???
   import __dev._
 }
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DSLOwnerConstruct].__Dev {
+  protected[DFiant] trait __DevDSLFoldableOwnerConstruct extends __DevDSLOwnerConstruct {
 
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
 
 //  private[DFiant] var foldRequest : Boolean = true

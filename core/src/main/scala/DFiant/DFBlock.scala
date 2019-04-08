@@ -4,9 +4,8 @@ import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
-  type TDev <: __Dev
   final private[DFiant] lazy val ctx = ctx0
-  protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
+  protected[DFiant] trait __DevDFBlock extends __DevDFAnyOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +27,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
       case m : DFBlock if m.hasSimMembers => m
     }.nonEmpty
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDFBlock = ???
   import __dev._
 
   override type ThisOwner = DFBlock

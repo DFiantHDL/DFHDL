@@ -30,9 +30,8 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 trait DFAnySimMember extends DFAnyMember
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-  type TDev <: __Dev
   final private[DFiant] lazy val ctx = ctx0
-  protected[DFiant] trait __Dev extends super[DFAnySimMember].__Dev {
+  protected[DFiant] trait __DevAssert extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,7 +45,7 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
            |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
     }
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : __DevAssert = new __DevAssert {}
   import __dev._
 
   if (cond.isDefined) {
@@ -75,9 +74,8 @@ object Severity {
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-  type TDev <: __Dev
   final private[DFiant] lazy val ctx = ctx0
-  protected[DFiant] trait __Dev extends super[DFAnySimMember].__Dev {
+  protected[DFiant] trait __DevFinish extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,15 +84,14 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
       s"""
          |sim.finish()""".stripMargin
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : __DevFinish = new __DevFinish {}
   import __dev._
   keep
 }
 
 
 trait DFSimulator extends DFDesign {
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DFDesign].__Dev {
+  protected[DFiant] trait __DevDFSimulator extends __DevDFDesign {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -112,7 +109,7 @@ trait DFSimulator extends DFDesign {
         case m => m.keep
       } //for simulations we keep all
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : __DevDFSimulator = new __DevDFSimulator {}
   import __dev._
 
   private var clkFreqKHz : Int = 100000

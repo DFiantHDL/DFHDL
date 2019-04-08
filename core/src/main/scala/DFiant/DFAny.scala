@@ -34,8 +34,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
+  protected[DFiant] trait __DevDFAny extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,7 +95,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     def inletSourceLB : LazyBox[Source]
     final lazy val getFoldedSource : Source = inletSourceLB.get
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDFAny = ???
   import __dev._
 
   //////////////////////////////////////////////////////////////////////////
@@ -208,7 +207,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   ) : TAlias
   //////////////////////////////////////////////////////////////////////////
 
-  
+
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
@@ -247,8 +246,7 @@ object DFAny {
     type TSInt[W2] = DFSInt.Var[W2]
     type TDir <: DFDir
 
-    type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super[DFAny].__Dev {
+    protected[DFiant] trait __DevVar extends __DevDFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -304,7 +302,7 @@ object DFAny {
         assign(width, 0, that)
       }
     }
-    override private[DFiant] lazy val __dev : TDev = ???
+    override private[DFiant] lazy val __dev : __DevVar = ???
     import __dev._
 
     //////////////////////////////////////////////////////////////////////////
@@ -336,25 +334,23 @@ object DFAny {
   abstract class Constructor[DF <: DFAny](_width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends DFAny {
-    type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super[DFAny].__Dev {
+    protected[DFiant] trait __DevConstructor extends __DevDFAny {
 
     }
-    override private[DFiant] lazy val __dev : TDev = ???
+    override private[DFiant] lazy val __dev : __DevConstructor = ???
     import __dev._
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Connectable Constructor
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Connectable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](width) with DFAny.Var {self =>
-    type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super[Constructor].__Dev with super[Var].__Dev {
+    protected[DFiant] trait __DevConnectable extends __DevConstructor with __DevVar {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -437,7 +433,7 @@ object DFAny {
       override def inletSourceLB : LazyBox[Source] =
         LazyBox.Args3[Source, Source, Source, Source](self)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB.getBox, prevSourceLB)
     }
-    override private[DFiant] lazy val __dev : TDev = ???
+    override private[DFiant] lazy val __dev : __DevConnectable = ???
     import __dev._
 
     final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
@@ -454,8 +450,7 @@ object DFAny {
   abstract class Initializable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](width) {self =>
-    type TDev <: __Dev
-    protected[DFiant] trait __Dev extends super[Connectable].__Dev {
+    protected[DFiant] trait __DevInitializable extends __DevConnectable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -493,7 +488,7 @@ object DFAny {
         if (initExternalLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
       }
     }
-    override private[DFiant] lazy val __dev : TDev = ???
+    override private[DFiant] lazy val __dev : __DevInitializable = ???
     import __dev._
 
     type TPostInit <: TVal
@@ -516,9 +511,8 @@ object DFAny {
   // Connections and Assignments
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
-    type TDev <: __Dev
     final private[DFiant] lazy val ctx = ctx0
-    protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
+    protected[DFiant] trait __DevConnector extends __DevDFAnyMember {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -529,7 +523,7 @@ object DFAny {
         case _ => connectCodeString
       }
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : __DevConnector = new __DevConnector {}
     import __dev._
   }
   object Connector {
@@ -537,16 +531,15 @@ object DFAny {
   }
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
-    type TDev <: __Dev
     final private[DFiant] lazy val ctx = ctx0
-    protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev {
+    protected[DFiant] trait __DevAssignment extends __DevDFAnyMember {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override protected def nameDefault = s"${Name.Separator}assign"
       def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : __DevAssignment = new __DevAssignment {}
     import __dev._
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -558,15 +551,14 @@ object DFAny {
   abstract class NewVar[DF <: DFAny](width : Int, newVarCodeString : String)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
-    type TDev <: __Dev
     final private[DFiant] lazy val ctx = ctx0
-    protected[DFiant] trait __Dev extends super[Initializable].__Dev {
+    protected[DFiant] trait __DevNewVar extends __DevInitializable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : __DevNewVar = new __DevNewVar {}
     import __dev._
 
     type TPostInit = TVar
@@ -589,9 +581,8 @@ object DFAny {
   abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {self =>
-    type TDev <: __Dev
     final private[DFiant] lazy val ctx = ctx0
-    protected[DFiant] trait __Dev extends super[Connectable].__Dev {
+    protected[DFiant] trait __DevAlias extends __DevConnectable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -660,7 +651,7 @@ object DFAny {
       override def inletSourceLB = reference.sourceLB
       override lazy val initSourceLB : LazyBox[Source] = inletSourceLB
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : __DevAlias = new __DevAlias {}
     import __dev._
 
     final lazy val isAliasOfPort : Boolean = ???
@@ -792,9 +783,8 @@ object DFAny {
   abstract class Const[DF <: DFAny](token : Token)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {self =>
-    type TDev <: __Dev
     final private[DFiant] lazy val ctx = ctx0
-    protected[DFiant] trait __Dev extends super[Constructor].__Dev {
+    protected[DFiant] trait __DevConst extends __DevConstructor {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -823,7 +813,7 @@ object DFAny {
       override lazy val prevSourceLB : LazyBox[Source] =
         LazyBox.Const[Source](self)(Source.withLatency(self, None))
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : __DevConst = new __DevConst {}
     import __dev._
   }
   object Const {
@@ -840,9 +830,8 @@ object DFAny {
   ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {self : DF <> Dir =>
     type TPostInit = TVal <> Dir
     type TDir = Dir
-    type TDev <: __Dev
     final private[DFiant] lazy val ctx = ctx0
-    protected[DFiant] trait __Dev extends super[Initializable].__Dev {
+    protected[DFiant] trait __DevPort extends __DevInitializable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -974,7 +963,7 @@ object DFAny {
         if (dir.isIn && owner.isTop) LazyBox.Const[Source](self)(Source.zeroLatency(self))
         else super.thisSourceLB
     }
-    override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+    override private[DFiant] lazy val __dev : __DevPort = new __DevPort {}
     import __dev._
 
 

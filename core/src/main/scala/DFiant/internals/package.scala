@@ -8,7 +8,7 @@ import scala.math.{ceil, floor, log}
 package object internals {
   implicit object devAccess extends dev.Access
   implicit class __DslMember[M <: DSLMemberConstruct](val member : M) {
-    final lazy val __dev : member.TDev = member.__dev
+    final lazy val __dev = member.__dev
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////

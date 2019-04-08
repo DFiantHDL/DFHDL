@@ -3,11 +3,10 @@ import DFiant.BasicLib.DFBasicLib
 import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
+  protected[DFiant] trait __DevDFAnyMember extends __DevDSLMemberConstruct {
     final override lazy val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
   import __dev._
 
   type ThisOwner <: DFAnyOwner
@@ -17,8 +16,7 @@ trait DFAnyMember extends DSLMemberConstruct {
 }
 
 trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DFAnyMember].__Dev with super[DSLOwnerConstruct].__Dev {
+  protected[DFiant] trait __DevDFAnyOwner extends __DevDFAnyMember with __DevDSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,7 +27,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
       noAnonymous.codeString.delimRowsBy(delim)
     }
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDFAnyOwner = ???
   import __dev._
 
   override implicit def __theOwnerToBe : DFAnyOwner = this

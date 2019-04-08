@@ -6,8 +6,7 @@ import internals._
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct { self =>
 
-  type TDev <: __DevDFComponent
-  protected[DFiant] trait __DevDFComponent extends super[DFDesign].__Dev with super[DSLFoldableOwnerConstruct].__Dev {
+  protected[DFiant] trait __DevDFComponent extends __DevDFDesign with __DevDSLFoldableOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +25,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
       out.rediscoverDependencies()
     }
   }
-  override private[DFiant] lazy val __dev : TDev = new __DevDFComponent {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
 
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
   final override private[DFiant] def unfoldedRun = {

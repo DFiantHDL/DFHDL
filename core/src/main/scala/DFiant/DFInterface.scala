@@ -5,8 +5,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 trait DFInterface extends DFAnyOwner { self =>
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DFAnyOwner].__Dev {
+  protected[DFiant] trait __DevDFInterface extends __DevDFAnyOwner {
     override lazy val typeName: String = {
       val cls = self.getClass
       val ifc = cls.getInterfaces
@@ -21,7 +20,7 @@ trait DFInterface extends DFAnyOwner { self =>
       }
     }
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._
   override implicit def __theOwnerToBe : DFInterface = this
 

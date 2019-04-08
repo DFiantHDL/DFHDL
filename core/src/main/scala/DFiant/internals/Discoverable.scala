@@ -1,7 +1,7 @@
 package DFiant.internals
 
 trait Discoverable {
-  protected[DFiant] trait __Dev {
+  protected[DFiant] trait __DevDiscoverable {
     private var discovered : Boolean = false
     final protected[DFiant] def isNotDiscovered : Boolean = !discovered
     protected def discoveryDependencies : List[Discoverable] = List()
@@ -20,5 +20,5 @@ trait Discoverable {
     final private[DFiant] def rediscoverDependencies() : Unit = if (discovered) discoverDependencies()
 
   }
-  private[DFiant] lazy val __dev : __Dev = new __Dev {}
+  private[DFiant] lazy val __dev : __DevDiscoverable = new __DevDiscoverable {}
 }

@@ -9,8 +9,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
 ) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {self =>
 
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DFComponent].__DevDFComponent with super[CanBePiped].__Dev {
+  protected[DFiant] trait __DevFunc2Comp extends __DevDFComponent with __DevDFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +47,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
     final val rightLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, rightArg.thisSourceLB)
     final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](self)((l, r) => List(l, r).max, leftLatency, rightLatency)
   }
-  override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+  override private[DFiant] lazy val __dev : __DevFunc2Comp = new __DevFunc2Comp {}
   __dev
   import __dev._
 

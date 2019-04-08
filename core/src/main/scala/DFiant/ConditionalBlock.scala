@@ -4,11 +4,10 @@ import internals._
 import scala.collection.mutable.ListBuffer
 
 protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct {
-  type TDev <: __Dev
-  protected[DFiant] trait __Dev extends super[DSLTransparentOwnerConstruct].__Dev {
+  protected[DFiant] trait __DevConditionalBlock extends __DevDSLTransparentOwnerConstruct {
 
   }
-  override private[DFiant] lazy val __dev : TDev = ???
+  override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
   import __dev._
   type ThisOwner <: DFBlock
 }
@@ -28,8 +27,7 @@ object ConditionalBlock {
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends DFDesign with ConditionalBlock {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
+      protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +46,7 @@ object ConditionalBlock {
           super.discoveryDependencies ++ ifDiscoveryDepenencies
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
       import __dev._
 
       def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[R])
@@ -79,8 +77,7 @@ object ConditionalBlock {
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(cond, block) {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
+      protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +89,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
 
       override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
@@ -102,8 +99,7 @@ object ConditionalBlock {
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(null, block) {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
+      protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,7 +111,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
 
       override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
@@ -142,8 +138,7 @@ object ConditionalBlock {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
+      protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,7 +152,7 @@ object ConditionalBlock {
         final override protected def discoveryDependencies : List[Discoverable] =
           super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
       import __dev._
 
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)
@@ -180,8 +175,7 @@ object ConditionalBlock {
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(cond, block) {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
+      protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -193,7 +187,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
 
       prevIfBlock._nextIfBlockOption = Some(this)
@@ -202,8 +196,7 @@ object ConditionalBlock {
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(
       implicit ctx : Context, mutableOwner : MutableOwner
     ) extends DFIfBlock(null, block) {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFIfBlock].__Dev {
+      protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -215,7 +208,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
 
       prevIfBlock._nextIfBlockOption = Some(this)
@@ -229,9 +222,8 @@ object ConditionalBlock {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DSLMemberConstruct {
-      type TDev <: __Dev
       final private[DFiant] lazy val ctx = ctx0
-      protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
+      protected[DFiant] trait __DevDFMatchHeader extends __DevDSLMemberConstruct {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -249,7 +241,7 @@ object ConditionalBlock {
         // Ownership
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFMatchHeader = new __DevDFMatchHeader {}
       import __dev._
 
       type TPattern = matchVal.TPattern
@@ -275,8 +267,7 @@ object ConditionalBlock {
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
+      protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -291,7 +282,7 @@ object ConditionalBlock {
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
         final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._
 
       final val matchVal = matchHeader.matchVal
@@ -317,15 +308,14 @@ object ConditionalBlock {
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFCasePatternBlock].__Dev {
+      protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def nameDefault: String = s"$ctx${Name.Separator}case_"
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
       import __dev._
     }
 
@@ -339,9 +329,8 @@ object ConditionalBlock {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DSLMemberConstruct {
-      type TDev <: __Dev
       final private[DFiant] lazy val ctx = ctx0
-      protected[DFiant] trait __Dev extends super[DSLMemberConstruct].__Dev {
+      protected[DFiant] trait __DevMatchWithRetVal extends __DevDSLMemberConstruct {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,7 +352,7 @@ object ConditionalBlock {
         // Ownership
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevMatchWithRetVal = new __DevMatchWithRetVal {}
       import __dev._
 
       type TPattern = matchVal.TPattern
@@ -392,8 +381,7 @@ object ConditionalBlock {
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFDesign with ConditionalBlock {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFDesign].__Dev with super[ConditionalBlock].__Dev {
+      protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -408,7 +396,7 @@ object ConditionalBlock {
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
         final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._
 
       final val matchVal = matchHeader.matchVal
@@ -438,15 +426,14 @@ object ConditionalBlock {
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) {
-      type TDev <: __Dev
-      protected[DFiant] trait __Dev extends super[DFCasePatternBlock].__Dev {
+      protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def nameDefault: String = s"$ctx${Name.Separator}case_"
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       }
-      override private[DFiant] lazy val __dev : TDev = new __Dev {}.asInstanceOf[TDev]
+      override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
       import __dev._
 
       override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB

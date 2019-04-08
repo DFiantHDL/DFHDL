@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.com/soronpo/DFiant.svg?token=dzwzuUsZuyhzAjyvw87v&branch=master)](https://travis-ci.com/soronpo/DFiant)
 
-# Welcome to the DFiant hardware fescription language (HDL) documentation!
+# Welcome to DFiant HDL
 
 ```scala
 import DFiant._ 
