@@ -1,1 +1,34 @@
-site_name: My Docs
+site_name: DFDocs
+site_url: https://dfianthdl.github.io/
+site_description: DFiant Hardware Description Language (HDL) Documentation
+site_author: Oron Port
+
+repo_url: https://github.com/DFiantHDL
+
+theme:
+    name: mkdocs
+    highlightjs: true
+    hljs_style: googlecode
+    hljs_languages:
+        - scala
+
+nav:
+    - Introduction:
+        - Why Another HDL?: intro/why-another-hdl.md
+        - What is a Dataflow HDL?: intro/what-is-a-datflow-hdl.md
+        - DFiant for Software Developers: intro/dfiant-for-software-developers.md
+        - DFiant for Hardware Developers: intro/dfiant-for-hardware-developers.md
+    - User Guide:
+        - TBD: user-guide/tbd.md
+    - About:
+        - Release Notes: about/release-notes.md
+        - Contributing: about/contributing.md
+        - License: about/license.md
+
+extra_css:
+    - css/extra.css
+
+copyright: Copyright &copy; 2019 <a href="https://www.researchgate.net/profile/Oron_Port">Oron Port</a> and <a href="https://yoav.net.technion.ac.il">Yoav Etsion</a>
+
+plugins:
+    - search
