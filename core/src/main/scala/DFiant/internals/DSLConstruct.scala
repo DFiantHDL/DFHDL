@@ -154,7 +154,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       else false
     final private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
     final lazy val memberList : List[DSLMemberConstruct] = {
-      mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
+      mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.__dev.foldOrUnFoldRunOnce }
       mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners
       //    println(s"memberList $fullName")
       mutableMemberList.toList
@@ -220,22 +220,25 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
 
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   protected[DFiant] trait __DevDSLFoldableOwnerConstruct extends __DevDSLOwnerConstruct {
-
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Folding/Unfolding
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFiant] var folded : Boolean = true
+    private[DFiant] def unfoldedRun : Unit = folded = false
+    private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = {
+      //    println(s"foldOrUnFoldRunOnce $fullName")
+      if (__config.foldComponents) foldedRun else unfoldedRun
+    }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
+  //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
+  protected def foldedRun : Unit = unfoldedRun
+  def isFolded : Boolean = folded
 
 //  private[DFiant] var foldRequest : Boolean = true
 //  val fold : this.type = {foldRequest = true; this}
 //  val unfold : this.type = {foldRequest = false; this}
-  private[DFiant] var isFolded : Boolean = true
-  private[DFiant] def unfoldedRun : Unit = isFolded = false
-  //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
-  protected def foldedRun : Unit = unfoldedRun
-  private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = {
-//    println(s"foldOrUnFoldRunOnce $fullName")
-    if (__config.foldComponents) foldedRun else unfoldedRun
-  }
 
 }
 

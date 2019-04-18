@@ -24,15 +24,19 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
       out.__dev.injectDependencies(inList)
       out.rediscoverDependencies()
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Folding/Unfolding
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final override private[DFiant] def unfoldedRun = {
+      ctx.impl(this.asInstanceOf[Comp])
+      portsOut.foreach(p => p.rediscoverDependencies())
+      folded = false
+    }
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
 
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
-  final override private[DFiant] def unfoldedRun = {
-    ctx.impl(this.asInstanceOf[Comp])
-    portsOut.foreach(p => p.rediscoverDependencies())
-    isFolded = false
-  }
 
   final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
   : Unit = dfVal.setInitFunc.forced(value)
