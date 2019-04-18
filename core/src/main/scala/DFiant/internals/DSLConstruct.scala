@@ -88,7 +88,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
     final protected def getID : Int = ownerOption.map(o => o.newItemGetID(self)).getOrElse(0)
     final protected lazy val id : Int = getID
-    id //touch dev. We only need the lazyness for initialization order
+    id //touch id. We only need the lazyness for initialization order
   }
   override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
   __dev //touch dev. We only need the lazyness for initialization order
@@ -97,10 +97,9 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   private[DFiant] val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration]
   type ThisOwner <: DSLOwnerConstruct
   final def keep : this.type = {
-    ownerOption.foreach(o => {
-      o.mutableKeepSet += this
-      o.keep
-    })
+    ownerOption.foreach {
+      o => o.keepMember(this)
+    }
     this
   }
 
@@ -118,8 +117,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-    private val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
-    final private[internals] def getUniqueMemberName(suggestedName : String) : String =
+    final private[internals] val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
+    private[internals] def getUniqueMemberName(suggestedName : String) : String =
       nameTable.get(suggestedName) match {
         case Some(v) =>
           nameTable.update(suggestedName, v + 1)
@@ -132,7 +131,11 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[internals] val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+    private val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+    private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
+      mutableKeepSet += member
+      keep //also keep the owner
+    }
     final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
     override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepList
     final lazy val discoveredList : List[DSLMemberConstruct] = {
@@ -149,7 +152,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+    final private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
     final lazy val memberList : List[DSLMemberConstruct] = {
       mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
       mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners
