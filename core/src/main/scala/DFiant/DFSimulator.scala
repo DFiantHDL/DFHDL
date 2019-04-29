@@ -104,7 +104,7 @@ trait DFSimulator extends DFDesign {
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private[DFSimulator] def keepAll() : Unit =
-      __dev.memberList.collect {
+      __dev.members.collect {
         case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
         case m => m.keep
       } //for simulations we keep all

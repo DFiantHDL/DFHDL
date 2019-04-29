@@ -7,7 +7,7 @@ import singleton.twoface._
 abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 (val leftArg: L, val opString : String, val rightArg: R)(_width : Int) (
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
-) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {self =>
+) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {self : Comp =>
 
   protected[DFiant] trait __DevFunc2Comp extends __DevDFComponent with __DevDFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

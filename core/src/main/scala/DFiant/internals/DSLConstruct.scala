@@ -131,16 +131,16 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private val mutableKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+    private val keepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
-      mutableKeepSet += member
-      keep //also keep the owner
+      keepSet += member
+      keep //also keep the owner chain
     }
-    final lazy val keepList : List[Discoverable] = mutableKeepSet.toList
+    final private lazy val keepList : List[Discoverable] = keepSet.toList
     override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepList
     final lazy val discoveredList : List[DSLMemberConstruct] = {
       discover()
-      memberList.filterNot(o => o.isNotDiscovered)
+      members.filterNot(o => o.isNotDiscovered)
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -153,10 +153,10 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
     final private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
-    final lazy val memberList : List[DSLMemberConstruct] = {
-      mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.__dev.foldOrUnFoldRunOnce }
-      mutableMemberList.collect{case e : DSLOwnerConstruct => e.memberList} //finalize members lists of all members that can be owners
-      //    println(s"memberList $fullName")
+    final lazy val members : List[DSLMemberConstruct] = {
+      mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
+      mutableMemberList.collect{case e : DSLOwnerConstruct => e.members} //finalize members lists of all members that can be owners
+      //    println(s"members $fullName")
       mutableMemberList.toList
     }
     private var idCnt : Int = 0
@@ -221,6 +221,44 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   protected[DFiant] trait __DevDSLFoldableOwnerConstruct extends __DevDSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private val unfoldedNameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
+    final override private[internals] def getUniqueMemberName(suggestedName : String) : String =
+      if (folded) super.getUniqueMemberName(suggestedName)
+      else nameTable.get(suggestedName) match {
+        case Some(v) =>
+          unfoldedNameTable.update(suggestedName, v + 1)
+          s"${Name.AnonStart}${suggestedName}_$v"
+        case _ =>
+          unfoldedNameTable.get(suggestedName) match {
+            case Some(v) =>
+              unfoldedNameTable.update(suggestedName, v + 1)
+              s"${Name.AnonStart}${suggestedName}_$v"
+            case _ =>
+              unfoldedNameTable.update(suggestedName, 1)
+              suggestedName
+          }
+      }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private val unfoldedKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+    final override private[internals] def keepMember(member : DSLMemberConstruct) : Unit =
+      if (folded) super.keepMember(member)
+      else {
+        unfoldedKeepSet += member
+        //the unfolded keepMember does not keep the owner chain
+      }
+//    final private lazy val keepList : List[Discoverable] = keepSet.toList
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final private val unfoldedMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private[DFiant] var folded : Boolean = true
@@ -240,6 +278,10 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
 //  val fold : this.type = {foldRequest = true; this}
 //  val unfold : this.type = {foldRequest = false; this}
 
+}
+
+object DSLFoldableOwnerConstruct {
+  implicit def fetchDev(from : DSLFoldableOwnerConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
 }
 
 trait DSLSelfConnectedFoldableOwnerConstruct extends DSLFoldableOwnerConstruct

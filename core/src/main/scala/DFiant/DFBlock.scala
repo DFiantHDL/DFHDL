@@ -22,7 +22,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Simulation
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFiant] def hasSimMembers : Boolean = memberList.collectFirst{
+    private[DFiant] def hasSimMembers : Boolean = members.collectFirst{
       case m : DFAnySimMember => m
       case m : DFBlock if m.hasSimMembers => m
     }.nonEmpty

@@ -25,7 +25,7 @@ trait DFInterface extends DFAnyOwner { self =>
   override implicit def __theOwnerToBe : DFInterface = this
 
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
-    memberList.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
+    members.collect{case o : DFAny => o}.filter(o => o.isPort).asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
 
   final lazy val portsIn : List[DFAny.Port[DFAny, IN]] =
     ports.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])

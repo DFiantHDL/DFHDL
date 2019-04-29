@@ -4,7 +4,7 @@ import DFiant.BasicLib.DFBasicLib
 import internals._
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
-  extends DFDesign with DSLFoldableOwnerConstruct { self =>
+  extends DFDesign with DSLFoldableOwnerConstruct { self : Comp =>
 
   protected[DFiant] trait __DevDFComponent extends __DevDFDesign with __DevDSLFoldableOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,7 +29,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override private[DFiant] def unfoldedRun = {
-      ctx.impl(this.asInstanceOf[Comp])
+      ctx.impl(self)
       portsOut.foreach(p => p.rediscoverDependencies())
       folded = false
     }
