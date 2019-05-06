@@ -105,7 +105,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 The MA4 DFiant code in \fig{fig:MADFiant} demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-21), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (lines 29-32). 
 
 The MA4 design is fairly straightforward. Lines 4-8 generate the signed dataflow ports and include a \code{0} value initialization (see Section~\ref{sec:state_constructs}). 
-Lines 10-14 define the function \code{ma} that generates a single four-sample moving average, while lines \code{15-16} define the function \code{avg2} that generates a two-input average unit. Finally, lines 18-20 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.
+Lines 10-14 define the function \code{ma} that generates a single four-sample moving average, while lines 15-16 define the function \code{avg2} that generates a two-input average unit. Finally, lines 18-20 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.
 
 
 \subsection{Dataflow Semantics}
@@ -131,13 +131,13 @@ In contrary to RTL languages, DFiant does not directly expose register and wire 
 	\item \textit{History Access}\quad The \code{.prev} construct reuses the previous state token. The very first "reused" token is the one set via \code{.init}. It is also possible to call \code{.prev(step)} with a step number argument to reuse older stream values. For example, in line 12 we reuse a \code{src} token from four steps ago. If the \code{src} token stream is "$1,2,3,4,...$" with a $0$ initialization, then the \code{src.prev(4)} token stream is "$0,0,0,0,1,2,3,...$".
 	\item \textit{Stall Bubbles}\quad Invoking \code{.prev} on an uninitialized dataflow variable generates a stall bubble. Stall bubbles are consumed and produced like any other token, yet a basic operation with a stall bubble token must produce a stall bubble token. Additionally, stall bubbles do not affect regular state. The backend compiler is responsible to generate the additional logic required for existing design stalls. 
 	\item \textit{State Update Scheduling}\quad The new updated token is pushed into a dataflow stream by using the \code{:=} assignment construct. There can be more then one assignment to same variable, however only the last assignment updates the state and occurs when all dependent dataflow firing rules are satisfied. This rule is similar to signal update semantics in VHDL processes.
-	\item \textit{Default Self Generation}\quad Any dataflow \code{a} variable has an implicit self assignment \code{a := a.prev} that comes immediately after the variable construction. This creates an equivalent reference between \code{a} and \code{a.prev} which leads to a more intuitive programming.
-	For example, in line 12 we used \code{acc - ...} and not \code{acc.prev - ...}, since both expression are equivalent.
+	\item \textit{Default Self-Generation}\quad Any dataflow \code{a} variable has an implicit self-assignment \code{a := a.prev} that comes immediately after the variable construction. This creates an equivalent reference between \code{a} and \code{a.prev} which leads to a more intuitive programming.
+	For example, in line 12 we used \code{acc - ...} and not \code{acc.prev - ...}, since both expressions are equivalent.
 \end{itemize} 
 \vspace{0.5ex}
 
 \fig{fig:MAVHDL} emphasizes the advantages of DFiant state constructs over RTL registers and wires.
-One advantage is that the DFiant code resembles its RTL counterparts, but is also very concise since state elements are automatically constructed when a stream history is accessed. Another advantage is portability, because state elements are not registers and any type of state component is applicable. Our first synchronous backend indeed maps state elements to registers, but even an asynchronous backend can compile the same code and apply Muller C-element\cite{muller1957theory} as a state element. 
+One advantage is that the DFiant code resembles its RTL counterparts, but is also very concise since state elements are automatically constructed when a stream history is accessed. Another advantage is portability, because state elements are not registers and any type of state component is applicable. Our first synchronous backend indeed maps state elements to registers, but even an asynchronous backend can compile the same code and apply the Muller C-element\cite{muller1957theory} as a state element. 
 
 
 \subsection{Automatic Pipelining, Path-Balancing and Flow-Control}
