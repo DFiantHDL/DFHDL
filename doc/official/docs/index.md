@@ -12,9 +12,9 @@ The Official DFiant Hardware Description Language (HDL) Documentation
 import DFiant._ 
 
 trait SlidingAverage extends DFDesign {
-  val i   = DFSInt(16) <> IN  init 0
-  val o   = DFSInt(16) <> OUT
-  val acc = DFSInt(18) init 0
+  val i   = DFSInt[16] <> IN  init 0
+  val o   = DFSInt[16] <> OUT
+  val acc = DFSInt[18] init 0
   acc := acc - i.prev(4) + i
   o := (acc / 4).toWidth(16)
 }
