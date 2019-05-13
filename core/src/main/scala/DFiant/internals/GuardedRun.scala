@@ -6,7 +6,7 @@ class GuardedRun(block : => Unit) {
   def run() : Unit = runStatus match {
     case RunStatus.Idle =>
       runStatus = RunStatus.Running
-      block()
+      block
     case RunStatus.Done =>
       runStatus = RunStatus.Running
 

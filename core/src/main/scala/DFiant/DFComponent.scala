@@ -31,7 +31,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     final override private[DFiant] def unfoldedRun = {
       ctx.impl(self)
       portsOut.foreach(p => p.rediscoverDependencies())
-      folded = false
     }
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}

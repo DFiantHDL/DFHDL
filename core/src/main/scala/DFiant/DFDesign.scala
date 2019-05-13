@@ -55,7 +55,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
   final lazy val isTop : Boolean = __dev.isTop
 
-  private def openInputsCheck() : Unit = discoveredList.collect {
+  private def openInputsCheck() : Unit = getDiscoveredMembers.collect {
     case p : DFAny.Port[_,_] if p.dir.isIn && !isTop && !p.isConnected && p.initLB.get.isEmpty =>
       throw new IllegalArgumentException(s"\nFound an uninitialized open input port: ${p.fullName}")
   }

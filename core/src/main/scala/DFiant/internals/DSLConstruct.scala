@@ -53,6 +53,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final private[internals] var keepFlag : Boolean = false
     override protected def preDiscoveryRun() : Unit = {
       //Touching the name lazy val to set the final names bottom up.
       //It is important to do so to invalidate name duplicate of anonymous values.
@@ -117,8 +118,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-    final private[internals] val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
-    private[internals] def getUniqueMemberName(suggestedName : String) : String =
+    final private[internals] var nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
+    final private[internals] def getUniqueMemberName(suggestedName : String) : String =
       nameTable.get(suggestedName) match {
         case Some(v) =>
           nameTable.update(suggestedName, v + 1)
@@ -131,14 +132,14 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private val keepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
+    final private def getKeepMembers : List[Discoverable] = members.filter(m => m.keepFlag)
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
-      keepSet += member
+      member.keepFlag = true
+      elaborateReq = true
       keep //also keep the owner chain
     }
-    final private lazy val keepList : List[Discoverable] = keepSet.toList
-    override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepList
-    final lazy val discoveredList : List[DSLMemberConstruct] = {
+    override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ getKeepMembers
+    final def getDiscoveredMembers : List[DSLMemberConstruct] = {
       discover()
       members.filterNot(o => o.isNotDiscovered)
     }
@@ -152,26 +153,22 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final private val mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
-    final lazy val members : List[DSLMemberConstruct] = {
-      mutableMemberList.collect{case e : DSLFoldableOwnerConstruct => e.foldOrUnFoldRunOnce }
-      mutableMemberList.collect{case e : DSLOwnerConstruct => e.members} //finalize members lists of all members that can be owners
-      //    println(s"members $fullName")
-      mutableMemberList.toList
-    }
-    private var idCnt : Int = 0
-    final private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
+    final private[internals] var mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+    @inline final def members : List[DSLMemberConstruct] = mutableMemberList.toList
+    private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
       mutableMemberList += item
-      idCnt += 1
+      elaborateReq = true
       //    println(s"newItemGetID ${item.fullName}")
-      idCnt
+      mutableMemberList.size
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Elaboration
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    def elaborate() : Unit = {
-
+    private var elaborateReq : Boolean = true
+    def elaborate() : Unit = if (elaborateReq) {
+      members.foreach{case m : DSLOwnerConstruct => m.elaborate()} //finalize members lists of all members that can be owners
+      elaborateReq = false
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLOwnerConstruct = ???
@@ -227,62 +224,40 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
 trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   protected[DFiant] trait __DevDSLFoldableOwnerConstruct extends __DevDSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Naming
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private val unfoldedNameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
-    final override private[internals] def getUniqueMemberName(suggestedName : String) : String =
-      if (folded) super.getUniqueMemberName(suggestedName)
-      else nameTable.get(suggestedName) match {
-        case Some(v) =>
-          unfoldedNameTable.update(suggestedName, v + 1)
-          s"${Name.AnonStart}${suggestedName}_$v"
-        case _ =>
-          unfoldedNameTable.get(suggestedName) match {
-            case Some(v) =>
-              unfoldedNameTable.update(suggestedName, v + 1)
-              s"${Name.AnonStart}${suggestedName}_$v"
-            case _ =>
-              unfoldedNameTable.update(suggestedName, 1)
-              suggestedName
-          }
-      }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Member discovery
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private val unfoldedKeepSet : collection.mutable.Set[Discoverable] = mutable.Set.empty[Discoverable]
-    final override private[internals] def keepMember(member : DSLMemberConstruct) : Unit =
-      if (folded) super.keepMember(member)
-      else {
-        unfoldedKeepSet += member
-        //the unfolded keepMember does not keep the owner chain
-      }
-//    final private lazy val keepList : List[Discoverable] = keepSet.toList
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Ownership
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private val unfoldedMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFiant] var folded : Boolean = true
-    private[DFiant] def unfoldedRun : Unit = folded = false
-    private[DFiant] lazy val foldOrUnFoldRunOnce : Unit = {
-      //    println(s"foldOrUnFoldRunOnce $fullName")
-      if (__config.foldComponents) foldedRun else unfoldedRun
+    private var foldedNameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
+    private var foldedMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+
+    private var folded : Boolean = false
+    final def isFolded : Boolean = folded
+    private[DFiant] def unfoldedRun : Unit = {}
+
+    private lazy val firstRun : Unit = {
+      foldedNameTable = mutable.HashMap.empty[String, Int] ++ nameTable
+      foldedMemberList = ListBuffer.empty[DSLMemberConstruct] ++ mutableMemberList
+      foldedRun
+      folded = true
+    }
+    override def elaborate(): Unit = {
+      firstRun
+      if (folded != foldRequest) {
+        nameTable = mutable.HashMap.empty[String, Int] ++ foldedNameTable
+        mutableMemberList = ListBuffer.empty[DSLMemberConstruct] ++ foldedMemberList
+        if (foldRequest) foldedRun else unfoldedRun
+        folded = foldRequest
+      }
+      super.elaborate()
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
   //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
-  protected def foldedRun : Unit = unfoldedRun
-  def isFolded : Boolean = folded
+  protected def foldedRun : Unit = {}
 
-//  private[DFiant] var foldRequest : Boolean = true
-//  val fold : this.type = {foldRequest = true; this}
-//  val unfold : this.type = {foldRequest = false; this}
+  private[DFiant] var foldRequest : Boolean = __config.foldComponents
+  def fold : this.type = {foldRequest = true; this}
+  def unfold : this.type = {foldRequest = false; this}
 
 }
 
