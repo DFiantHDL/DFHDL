@@ -233,14 +233,15 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     final def isFolded : Boolean = folded
     private[DFiant] def unfoldedRun : Unit = {}
 
-    private lazy val firstRun : Unit = {
+    private lazy val firstFold : Unit = {
       foldedNameTable = mutable.HashMap.empty[String, Int] ++ nameTable
       foldedMemberList = ListBuffer.empty[DSLMemberConstruct] ++ mutableMemberList
       foldedRun
       folded = true
+      foldRequest = __config.foldComponents
     }
     override def elaborate(): Unit = {
-      firstRun
+      firstFold
       if (folded != foldRequest) {
         nameTable = mutable.HashMap.empty[String, Int] ++ foldedNameTable
         mutableMemberList = ListBuffer.empty[DSLMemberConstruct] ++ foldedMemberList
@@ -255,7 +256,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
   protected def foldedRun : Unit = {}
 
-  private[DFiant] var foldRequest : Boolean = __config.foldComponents
+  private[DFiant] var foldRequest : Boolean = true
   def fold : this.type = {foldRequest = true; this}
   def unfold : this.type = {foldRequest = false; this}
 
