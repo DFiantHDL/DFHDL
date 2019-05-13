@@ -167,7 +167,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private var elaborateReq : Boolean = true
     def elaborate() : Unit = if (elaborateReq) {
-      members.foreach{case m : DSLOwnerConstruct => m.elaborate()} //finalize members lists of all members that can be owners
+      members.foreach{case m : DSLOwnerConstruct => m.elaborate()} //elaborates all members that are also owners
       elaborateReq = false
     }
   }
