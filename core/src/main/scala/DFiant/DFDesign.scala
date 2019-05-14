@@ -23,6 +23,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     protected def designType : String = typeName
+    private var _designDB : Option[DFDesign.DB] = None
+    protected[DFDesign] def designDB : DFDesign.DB = if (isTop) _designDB.get else topDsn.__dev.designDB
     private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, self)
 
     private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
@@ -30,6 +32,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
     override def codeString: String = {
       elaborate()
+      _designDB = Some(new DFDesign.DB)
       val valCode = valCodeString
       if (isTop) s"$designDB\n$valCode" else valCode
     }

@@ -16,8 +16,6 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def nameDefault: String = ctx.getName
-    protected val designDB : DFDesign.DB =
-      ownerOption.map(o => o.asInstanceOf[DFBlock].designDB).getOrElse(new DFDesign.DB)
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Simulation
