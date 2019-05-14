@@ -21,14 +21,18 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
-      out.__dev.injectDependencies(inList)
+      out.injectDependencies(inList)
       out.rediscoverDependencies()
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final override private[DFiant] def unfoldedRun = {
+    final override private[DFiant] def preFoldUnfold(): Unit = {
+      super.preFoldUnfold()
+      portsOut.foreach(p => p.preFoldUnfold())
+    }
+    final override private[DFiant] def unfoldedRun : Unit = {
       ctx.impl(self)
       portsOut.foreach(p => p.rediscoverDependencies())
     }

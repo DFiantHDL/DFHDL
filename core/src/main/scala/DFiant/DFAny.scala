@@ -301,6 +301,12 @@ object DFAny {
       def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
         assign(width, 0, that)
       }
+      def assignClear() : Unit = {
+        assignedSourceLB.set(Source.none(width))
+        assignedSource = Source.none(width)
+        protAssignDependencies.clear()
+      }
+
     }
     override private[DFiant] lazy val __dev : __DevVar = ???
     import __dev._
@@ -384,6 +390,10 @@ object DFAny {
         //All is well. We can now connect fromVal->toVar
         toVar.protAssignDependencies += Connector(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
+      }
+      def connectClear() : Unit = {
+        connectedSourceLB.set(Source.none(width))
+        connectedSource = Source.none(width)
       }
       final private[DFiant] def isConnected : Boolean = !connectedSource.isEmpty
 
@@ -962,6 +972,14 @@ object DFAny {
       override def thisSourceLB : LazyBox[Source] =
         if (dir.isIn && owner.isTop) LazyBox.Const[Source](self)(Source.zeroLatency(self))
         else super.thisSourceLB
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Folding/Unfolding
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final private[DFiant] def preFoldUnfold() : Unit = {
+        connectClear()
+        assignClear()
+      }
     }
     override private[DFiant] lazy val __dev : __DevPort = new __DevPort {}
     import __dev._

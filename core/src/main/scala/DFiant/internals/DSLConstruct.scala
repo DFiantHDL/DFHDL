@@ -240,11 +240,14 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
       folded = true
       foldRequest = __config.foldComponents
     }
+    private[DFiant] def preFoldUnfold() : Unit = {
+      nameTable = foldedNameTable.clone()
+      mutableMemberList = foldedMemberList.clone()
+    }
     override def elaborate(): Unit = {
       firstFold
       if (folded != foldRequest) {
-        nameTable = foldedNameTable.clone()
-        mutableMemberList = foldedMemberList.clone()
+        preFoldUnfold()
         if (foldRequest) foldedRun else unfoldedRun
         folded = foldRequest
       }
