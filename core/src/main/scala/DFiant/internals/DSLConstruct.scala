@@ -166,6 +166,10 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     // Elaboration
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private var elaborateReq : Boolean = true
+    def reelaborateReq() : Unit = {
+      elaborateReq = true
+      ownerOption.foreach(o => o.reelaborateReq())
+    }
     def elaborate() : Unit = if (elaborateReq) {
       members.collect{case m : DSLOwnerConstruct => m.elaborate()} //elaborates all members that are also owners
       elaborateReq = false
@@ -238,7 +242,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
       foldedMemberList = mutableMemberList.clone()
       foldedRun
       folded = true
-      foldRequest = __config.foldComponents
+//      foldRequest = __config.foldComponents
     }
     private[DFiant] def preFoldUnfold() : Unit = {
       nameTable = foldedNameTable.clone()
@@ -253,15 +257,24 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
       }
       super.elaborate()
     }
+
+    private[DSLFoldableOwnerConstruct] var foldRequest : Boolean = true
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
   //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
   protected def foldedRun : Unit = {}
 
-  private[DFiant] var foldRequest : Boolean = true
-  def fold : this.type = {foldRequest = true; this}
-  def unfold : this.type = {foldRequest = false; this}
+  def fold : this.type = {
+    foldRequest = true
+    reelaborateReq()
+    this
+  }
+  def unfold : this.type = {
+    foldRequest = false
+    reelaborateReq()
+    this
+  }
 
 }
 

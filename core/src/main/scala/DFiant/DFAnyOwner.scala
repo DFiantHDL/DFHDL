@@ -85,6 +85,13 @@ object DFAnyConfiguration {
     val commentLatencyValues: Boolean = false
     val commentConnection: Boolean = true
   }
+  object unfolded extends DFAnyConfiguration {
+    val showAnonymousEntries : Boolean = false
+    val foldComponents : Boolean = false
+    val commentInitValues: Boolean = false
+    val commentLatencyValues: Boolean = false
+    val commentConnection: Boolean = false
+  }
 }
 
 object DFAnyOwner {

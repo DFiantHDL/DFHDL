@@ -29,7 +29,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
     override def codeString: String = {
-      init
+      elaborate()
       val valCode = valCodeString
       if (isTop) s"$designDB\n$valCode" else valCode
     }
@@ -64,7 +64,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     openInputsCheck()
   }
   final def printCodeString : this.type = {println(codeString); this}
-  def compileToVHDL : Backend.VHDL = {init; new Backend.VHDL(this)}
+  def compileToVHDL : Backend.VHDL = {elaborate(); new Backend.VHDL(this)}
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
 }
 
