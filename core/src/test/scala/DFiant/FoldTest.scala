@@ -1,24 +1,27 @@
-package DFiant
+import DFiant._
 
 import internals._
 
-class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
+class FoldRTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val I = DFUInt(width) <> IN
   final val O = DFUInt(width) <> OUT
   setInitFunc(O)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(I), getInit(I)))
 }
 
-trait Comp extends DFComponent[Comp] {
+trait FoldComp extends DFComponent[FoldComp] {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
   final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
 }
-object Comp {
-  implicit val ev : Comp => Unit = ifc => {
+object FoldComp {
+  implicit val ev : FoldComp => Unit = ifc => {
     import ifc._
-    val rt = new RTx2(8)
-    rt.I <> i
-    rt.O <> o
+    if (i.isConstant) o := 0
+    else {
+      val rt = new FoldRTx2(8)
+      rt.I <> i
+      rt.O <> o
+    }
   }
 }
 
@@ -26,7 +29,7 @@ trait FoldTest extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
 
-  val io = new Comp {}
+  val io = new FoldComp {}
   i <> io.i
   o <> io.o
 }
