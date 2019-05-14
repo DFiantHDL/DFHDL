@@ -31,8 +31,6 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   : Unit = dfVal.setInitFunc.forced(value)
   final protected def getInit[DFVal <: DFAny.Initializable[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
 
-  final protected[DFiant] lazy val init : Unit = {}
-
 //  override lazy val typeName: String =
 //    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
 
