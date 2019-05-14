@@ -30,7 +30,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override private[DFiant] def preFoldUnfold(): Unit = {
       super.preFoldUnfold()
-      portsOut.foreach(p => p.preFoldUnfold())
+      portsOut.foreach(p => p.preFoldUnfold()) //clear output ports assignments and connections when folding
     }
     final override private[DFiant] def unfoldedRun : Unit = {
       ctx.impl(self)
