@@ -5,7 +5,7 @@ import internals._
 class FoldRTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val I = DFUInt(width) <> IN
   final val O = DFUInt(width) <> OUT
-  setInitFunc(O)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(I), getInit(I)))
+//  setInitFunc(O)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(I), getInit(I)))
 }
 
 trait FoldComp extends DFComponent[FoldComp] {
@@ -30,13 +30,13 @@ trait FoldTest extends DFDesign {
   val o = DFUInt(8) <> OUT
 
   val io = new FoldComp {}
-  i <> io.i
+  io.i <> 0
+//  i <> io.i
   o <> io.o
 }
 
 object FoldApp extends App {
-//  implicit val cfg = DFAnyConfiguration.unfolded
-  val foldtest = new FoldTest {}.printCodeString//.compileToVHDL.print().toFile("tour.vhd")
+  val foldtest = new FoldTest {}.printVHDLString
   println("------------------------------")
   foldtest.io.unfold
   foldtest.printCodeString

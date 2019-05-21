@@ -27,9 +27,9 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   protected def newGeneric() : Unit = {}
   //final protected def discovery : Unit = {}
 
-  final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
+  final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[DFVal#TToken]])
   : Unit = dfVal.setInitFunc.forced(value)
-  final protected def getInit[DFVal <: DFAny.Initializable[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
+  final protected def getInit[DFVal <: DFAny](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
 
 //  override lazy val typeName: String =
 //    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
@@ -48,4 +48,20 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
 
 object RTComponent {
   type Context = DFAnyOwner.ContextOf[RTComponent, DFBlock]
+}
+
+//class RTOp2[L <: DFAny, R <: DFAny, O <: DFAny.Initializable[_]](val O : O, val L : L, val R : R)
+//  (func : (Seq[L#TToken], Seq[R#TToken]) => Seq[O#TToken])
+//  (implicit ctx : RTComponent.Context) extends RTComponent {
+//  setInitFunc(O)(LazyBox.Args2[Seq[O#TToken], Seq[L#TToken], Seq[R#TToken]](this)(func, getInit(L), getInit(R)))
+//}
+
+sealed abstract class RTOp2(implicit ctx : RTComponent.Context) extends RTComponent {
+  val O : DFAny.Var //Output variable
+  val L : DFAny //Left argument of the operation
+  val R : DFAny //Right argument of the operation
+}
+object RTOp2 {
+  case class +(O : DFAny.Var, L : DFAny, R : DFAny)(implicit ctx : RTComponent.Context) extends RTOp2
+//  def +[L, R](l : DFUInt[Int], r : DFUInt[Int])(implicit ctx : RTComponent.Context) : DFUInt[Int] =
 }
