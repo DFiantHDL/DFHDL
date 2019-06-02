@@ -7,32 +7,32 @@ import singleton.twoface._
 import scala.collection.mutable.ListBuffer
 
 trait DFAny extends DFAnyMember with HasWidth {self =>
-  type TUnbounded <: DFAny
-  type TVal <: TUnbounded
-  type TVar <: TVal with DFAny.Var
-  type TAlias <: TVal
-  type TBool <: DFBool
+  protected[DFiant] type TUnbounded <: DFAny
+  protected[DFiant] type TVal <: TUnbounded
+  protected[DFiant] type TVar <: TVal with DFAny.Var
+  protected[DFiant] type TAlias <: TVal
+  protected[DFiant] type TBool <: DFBool
   type In = TVal
   type Out = TVal with DFAny.Var
-  type TBits[W2] <: DFBits[W2]
-  type TUInt[W2] <: DFUInt[W2]
-  type TSInt[W2] <: DFSInt[W2]
-  type TCompanion <: DFAny.Companion
-  type TToken <: DFAny.Token
-  type TPattern <: DFAny.Pattern[TPattern]
-  type TPatternAble[+R] <: DFAny.Pattern.Able[R]
-  type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
-  type OpAble[R] <: DFAny.Op.Able[R]
-  type `Op<>Builder`[R] <: DFAny.Op.Builder[TVal, R]
-  type `Op:=Builder`[R] <: DFAny.Op.Builder[TVal, R]
-  type `Op==Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
-  type `Op!=Builder`[R] <: DFAny.`Op!=Builder`[TVal, R]
-  type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
-  type InitBuilder <: DFAny.Init.Builder[TVal, InitAble, TToken]
-  type PortBuilder[Dir <: DFDir] <: DFAny.Port.Builder[TVal, Dir]
+  protected[DFiant] type TBits[W2] <: DFBits[W2]
+  protected[DFiant] type TUInt[W2] <: DFUInt[W2]
+  protected[DFiant] type TSInt[W2] <: DFSInt[W2]
+  protected[DFiant] type TCompanion <: DFAny.Companion
+  protected[DFiant] type TToken <: DFAny.Token
+  protected[DFiant] type TPattern <: DFAny.Pattern[TPattern]
+  protected[DFiant] type TPatternAble[+R] <: DFAny.Pattern.Able[R]
+  protected[DFiant] type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
+  protected[DFiant] type OpAble[R] <: DFAny.Op.Able[R]
+  protected[DFiant] type `Op<>Builder`[R] <: DFAny.Op.Builder[TVal, R]
+  protected[DFiant] type `Op:=Builder`[R] <: DFAny.Op.Builder[TVal, R]
+  protected[DFiant] type `Op==Builder`[R] <: DFAny.`Op==Builder`[TVal, R]
+  protected[DFiant] type `Op!=Builder`[R] <: DFAny.`Op!=Builder`[TVal, R]
+  protected[DFiant] type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
+  protected[DFiant] type InitBuilder <: DFAny.Init.Builder[TVal, InitAble, TToken]
+  protected[DFiant] type PortBuilder[Dir <: DFDir] <: DFAny.Port.Builder[TVal, Dir]
 //  type TUInt <: DFUInt
   val width : TwoFace.Int[Width]
-  type ThisOwner <: DFAnyOwner
+  protected[DFiant] type ThisOwner <: DFAnyOwner
   final protected[DFiant] val tVal = this.asInstanceOf[TVal]
   final protected[DFiant] val left = tVal
 
@@ -237,15 +237,15 @@ object DFAny {
   // Head Types
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded[T <: DFAny.Companion] extends DFAny {
-    type TCompanion = T
+    protected[DFiant] type TCompanion = T
   }
 
   trait Var extends DFAny {self =>
-    type TAlias = TVar
-    type TBool = DFBool.Var
-    type TBits[W2] = DFBits.Var[W2]
-    type TUInt[W2] = DFUInt.Var[W2]
-    type TSInt[W2] = DFSInt.Var[W2]
+    protected[DFiant] type TAlias = TVar
+    protected[DFiant] type TBool = DFBool.Var
+    protected[DFiant] type TBits[W2] = DFBits.Var[W2]
+    protected[DFiant] type TUInt[W2] = DFUInt.Var[W2]
+    protected[DFiant] type TSInt[W2] = DFSInt.Var[W2]
     type TDir <: DFDir
 
     protected[DFiant] trait __DevVar extends __DevDFAny {
@@ -1017,8 +1017,8 @@ object DFAny {
   trait Token extends HasCodeString {
     Self =>
     type TValue
-    type TToken <: Token
-    type TPattern <: DFAny.Pattern[TPattern]{type TValue = Self.TValue}
+    protected[DFiant] type TToken <: Token
+    protected[DFiant] type TPattern <: DFAny.Pattern[TPattern]{type TValue = Self.TValue}
     val value : TValue
     //maximum token value width
     val width : Int
@@ -1070,7 +1070,7 @@ object DFAny {
   object Token {
     abstract class Of[V, P <: DFAny.Pattern[P]{type TValue = V}](implicit codeStringOf : CodeStringOf[V]) extends Token {
       type TValue = V
-      type TPattern = P
+      protected[DFiant] type TPattern = P
       final def codeString : String = if (isBubble) "Φ" else value.codeString
     }
     implicit class TokenSeqInit[T <: DFAny.Token](tokenSeq : Seq[T]) {

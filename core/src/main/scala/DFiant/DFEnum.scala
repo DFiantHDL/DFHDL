@@ -16,24 +16,24 @@ object DFEnum extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFEnum.type] {
-    type TUnbounded = Unbounded
+    protected[DFiant] type TUnbounded = Unbounded
     type TEnum <: Enum
     type TEntry = TEnum#Entry
     type Width = TEnum#EntryWidth
-    type TVal = DFEnum[TEnum]
-    type TVar = DFEnum.Var[TEnum]
-    type TToken = DFEnum.Token[TEnum]
-    type TPattern = DFEnum.Pattern[TEnum]
-    type TPatternAble[+R] = DFEnum.Pattern.Able[R]
-    type TPatternBuilder[L <: DFAny] = DFEnum.Pattern.Builder[L]
-    type OpAble[R] = Op.Able[R]
-    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
-    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
-    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
-    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
-    type InitAble[L <: DFAny] = Init.Able[L]
-    type InitBuilder = Init.Builder[TVal, TToken]
-    type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
+    protected[DFiant] type TVal = DFEnum[TEnum]
+    protected[DFiant] type TVar = DFEnum.Var[TEnum]
+    protected[DFiant] type TToken = DFEnum.Token[TEnum]
+    protected[DFiant] type TPattern = DFEnum.Pattern[TEnum]
+    protected[DFiant] type TPatternAble[+R] = DFEnum.Pattern.Able[R]
+    protected[DFiant] type TPatternBuilder[L <: DFAny] = DFEnum.Pattern.Builder[L]
+    protected[DFiant] type OpAble[R] = Op.Able[R]
+    protected[DFiant] type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    protected[DFiant] type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    protected[DFiant] type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    protected[DFiant] type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    protected[DFiant] type InitAble[L <: DFAny] = Init.Able[L]
+    protected[DFiant] type InitBuilder = Init.Builder[TVal, TToken]
+    protected[DFiant] type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     implicit val enum : TEnum
     final def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     final def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
@@ -87,7 +87,7 @@ object DFEnum extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Token[E <: Enum] private[DFiant](width : Int, value : E#Entry) extends DFAny.Token.Of[E#Entry, Pattern[E]] {
-    type TToken = Token[E]
+    protected[DFiant] type TToken = Token[E]
     val (valueBits, bubbleMask) : (BitVector, BitVector) =
       if (value != null) (value.value.toBitVector(width), false.toBitVector(width))
       else (0.toBitVector(width), true.toBitVector(width))

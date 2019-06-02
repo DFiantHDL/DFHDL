@@ -9,7 +9,7 @@ protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct {
   }
   override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
   import __dev._
-  type ThisOwner <: DFBlock
+  protected[DFiant] type ThisOwner <: DFBlock
 }
 
 //protected case class Select[RV](cond : Boolean)(thenSel : RV, elseSel : RV)(implicit ctx : Context) {
@@ -244,7 +244,7 @@ object ConditionalBlock {
       override private[DFiant] lazy val __dev : __DevDFMatchHeader = new __DevDFMatchHeader {}
       import __dev._
 
-      type TPattern = matchVal.TPattern
+      protected[DFiant] type TPattern = matchVal.TPattern
       def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(
         implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV]
       ) : DFCasePatternBlock[MV] =
@@ -355,8 +355,8 @@ object ConditionalBlock {
       override private[DFiant] lazy val __dev : __DevMatchWithRetVal = new __DevMatchWithRetVal {}
       import __dev._
 
-      type TPattern = matchVal.TPattern
-      type TToken = matchVal.TToken
+      protected[DFiant] type TPattern = matchVal.TPattern
+      protected[DFiant] type TToken = matchVal.TToken
 
       def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(
         implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV], retVld : Builder[R]

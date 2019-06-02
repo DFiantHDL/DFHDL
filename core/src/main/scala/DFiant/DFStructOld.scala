@@ -13,12 +13,12 @@
 //  trait Unbounded extends DFAny.Unbounded[DFStruct.type] {
 //    type TStruct <: DFStruct[TStruct]
 //    type Width = Int
-//    type TVal = TStruct
-//    type TVar = TStruct with Var[TStruct]
-////    type TToken = DFEnum.Token[TEnum]
-////    type TPattern = DFEnum.Pattern[TEnum]
-////    type TPatternAble[+R] = DFEnum.Pattern.Able[R]
-////    type TPatternBuilder[L <: DFAny] = DFEnum.Pattern.Builder[L]
+//    protected[DFiant] type TVal = TStruct
+//    protected[DFiant] type TVar = TStruct with Var[TStruct]
+////    protected[DFiant] type TToken = DFEnum.Token[TEnum]
+////    protected[DFiant] type TPattern = DFEnum.Pattern[TEnum]
+////    protected[DFiant] type TPatternAble[+R] = DFEnum.Pattern.Able[R]
+////    protected[DFiant] type TPatternBuilder[L <: DFAny] = DFEnum.Pattern.Builder[L]
 ////    def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
 ////    def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
 ////    protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)

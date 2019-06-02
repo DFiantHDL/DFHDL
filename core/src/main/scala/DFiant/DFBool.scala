@@ -12,22 +12,22 @@ object DFBool extends DFAny.Companion {
   // Unbounded Val
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Unbounded extends DFAny.Unbounded[DFBool.type] {
-    type TUnbounded = Unbounded
-    type TVal = DFBool
-    type TVar = DFBool.Var
-    type TToken = DFBool.Token
-    type TPattern = DFBool.Pattern
-    type TPatternAble[+R] = DFBool.Pattern.Able[R]
-    type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
+    protected[DFiant] type TUnbounded = Unbounded
+    protected[DFiant] type TVal = DFBool
+    protected[DFiant] type TVar = DFBool.Var
+    protected[DFiant] type TToken = DFBool.Token
+    protected[DFiant] type TPattern = DFBool.Pattern
+    protected[DFiant] type TPatternAble[+R] = DFBool.Pattern.Able[R]
+    protected[DFiant] type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
     type Width = 1
-    type OpAble[R] = Op.Able[R]
-    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
-    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
-    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
-    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
-    type InitAble[L <: DFAny] = Init.Able[L]
-    type InitBuilder = Init.Builder[TVal, TToken]
-    type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
+    protected[DFiant] type OpAble[R] = Op.Able[R]
+    protected[DFiant] type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+    protected[DFiant] type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+    protected[DFiant] type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+    protected[DFiant] type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+    protected[DFiant] type InitAble[L <: DFAny] = Init.Able[L]
+    protected[DFiant] type InitBuilder = Init.Builder[TVal, TToken]
+    protected[DFiant] type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
     final def unary_!(implicit ctx : DFAny.Op.Context) : DFBool =
       new DFBool.Alias(DFAny.Alias.Reference.Invert(this, ".invert"))
 
@@ -102,7 +102,7 @@ object DFBool extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Token private[DFiant] (value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean, Pattern] {
-    type TToken = Token
+    protected[DFiant] type TToken = Token
     val width = 1
     lazy val valueBits : BitVector = BitVector.bit(value)
     lazy val bubbleMask: BitVector = BitVector.bit(bubble)

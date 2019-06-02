@@ -96,7 +96,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   import __dev._
 
   private[DFiant] val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration]
-  type ThisOwner <: DSLOwnerConstruct
+  protected[DFiant] type ThisOwner <: DSLOwnerConstruct
   final def keep : this.type = {
     ownerOption.foreach {
       o => o.keepMember(this)

@@ -9,7 +9,7 @@ trait DFAnyMember extends DSLMemberConstruct {
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
   import __dev._
 
-  type ThisOwner <: DFAnyOwner
+  protected[DFiant] type ThisOwner <: DFAnyOwner
   private[DFiant] val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner]
   implicit def __theOwnerToBe : DFAnyOwner = ownerOption.get
   final implicit lazy val __config : DFAnyConfiguration = ctx.config

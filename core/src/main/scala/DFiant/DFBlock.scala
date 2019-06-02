@@ -28,7 +28,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   override private[DFiant] lazy val __dev : __DevDFBlock = ???
   import __dev._
 
-  override type ThisOwner = DFBlock
+  override protected[DFiant] type ThisOwner = DFBlock
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
   override implicit def __theOwnerToBe : DFBlock = mutableOwner.value

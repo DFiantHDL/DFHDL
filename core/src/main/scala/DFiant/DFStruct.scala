@@ -46,24 +46,24 @@
 //  // Unbounded Val
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  trait Unbounded extends DFAny.Unbounded[DFStruct.type] {
-//    type TUnbounded = Unbounded
+//    protected[DFiant] type TUnbounded = Unbounded
 //    type TSFields <: Fields
 //    type TFields = TSFields#TFields
 //    type Width = TSFields#Width
-//    type TVal = DFStruct[TSFields]
-//    type TVar = DFStruct.Var[TSFields]
-//    type TToken = DFStruct.Token[TSFields]
-//    type TPattern = DFStruct.Pattern[TSFields]
-//    type TPatternAble[+R] = DFStruct.Pattern.Able[R]
-//    type TPatternBuilder[L <: DFAny] = DFStruct.Pattern.Builder[L]
-//    type OpAble[R] = Op.Able[R]
-//    type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
-//    type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
-//    type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
-//    type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
-//    type InitAble[L <: DFAny] = Init.Able[L]
-//    type InitBuilder = Init.Builder[TVal, TToken]
-//    type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
+//    protected[DFiant] type TVal = DFStruct[TSFields]
+//    protected[DFiant] type TVar = DFStruct.Var[TSFields]
+//    protected[DFiant] type TToken = DFStruct.Token[TSFields]
+//    protected[DFiant] type TPattern = DFStruct.Pattern[TSFields]
+//    protected[DFiant] type TPatternAble[+R] = DFStruct.Pattern.Able[R]
+//    protected[DFiant] type TPatternBuilder[L <: DFAny] = DFStruct.Pattern.Builder[L]
+//    protected[DFiant] type OpAble[R] = Op.Able[R]
+//    protected[DFiant] type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
+//    protected[DFiant] type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
+//    protected[DFiant] type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
+//    protected[DFiant] type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
+//    protected[DFiant] type InitAble[L <: DFAny] = Init.Able[L]
+//    protected[DFiant] type InitBuilder = Init.Builder[TVal, TToken]
+//    protected[DFiant] type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
 //    implicit val structFields : TSFields
 //    final lazy val fields : TFields = structFields.fields
 //    def == [SF <: Product](right : SF)(implicit op: `Op==`.Builder[TVal, SF]) = op(left, right)
@@ -120,7 +120,7 @@
 ////  implicit val codeStringOfListOfToken : CodeStringOf[List[DFAny.Token]] = list => list.mkString("(",", ",")")
 //  implicit val codeStringOfProduct : CodeStringOf[Product] = p => p.productIterator.mkString("(",", ",")")
 //  case class Token[SF <: Fields] private[DFiant](width : Int, value : Product) extends DFAny.Token.Of[Product, Pattern[SF]] {
-//    type TToken = Token[SF]
+//    protected[DFiant] type TToken = Token[SF]
 //    val (valueBits, bubbleMask) : (BitVector, BitVector) = ???
 ////    {
 ////      if (value.isEmpty) (0.toBitVector(width), true.toBitVector(width))
