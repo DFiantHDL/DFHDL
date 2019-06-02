@@ -7,7 +7,7 @@ import DFiant.internals._
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {self =>
   protected[DFiant] trait __DevDFDesign extends __DevDFBlock with __DevDFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Naming
+    // Conditional Block
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //The block by value object is created within the context of the current DFDesign,
     //so we mutate `__theOwnerToBe` via mutableOwner which is passed to the IfBlock constructs

@@ -24,6 +24,25 @@ trait DFInterface extends DFAnyOwner { self =>
   import __dev._
   override implicit def __theOwnerToBe : DFInterface = this
 
+  object externals {
+    private def getDFVals(cls : Class[_]) : List[DFAny] =
+      if (cls == null || cls == classOf[DFInterface]) List()
+      else {
+        val fields = cls.getDeclaredFields.toList
+        fields.flatMap{f =>
+          f.setAccessible(true)
+          val ref = f.get(self)
+          ref match {
+            case ref : DFAny if ref != null && ref.owner != self =>
+              println(f.getType.getName)
+              Some(ref)
+            case _ => None
+          }
+        } ++ getDFVals(cls.getSuperclass)
+      }
+
+    lazy val named : Set[DFAny] = getDFVals(self.getClass).toSet
+  }
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
     members.collect{case o : DFAny.Port[_,_] => o}.asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
 

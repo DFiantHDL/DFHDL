@@ -30,18 +30,18 @@ package object DFiant extends {
     val isOut : Boolean
     val isIn : Boolean
   }
-  sealed trait IN extends DFDir {
+  implicit object IN extends DFDir {
     override def toString: String = "IN"
     final val isOut : Boolean = false
     final val isIn : Boolean = true
   }
-  implicit object IN extends IN
-  sealed trait OUT extends DFDir {
+  type IN = IN.type
+  implicit object OUT extends DFDir {
     override def toString: String = "OUT"
     final val isOut : Boolean = true
     final val isIn : Boolean = false
   }
-  implicit object OUT extends OUT
+  type OUT = OUT.type
   ////////////////////////////////////////////////////////////////////////////////////
 
 

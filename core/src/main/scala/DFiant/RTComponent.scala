@@ -56,12 +56,23 @@ object RTComponent {
 //  setInitFunc(O)(LazyBox.Args2[Seq[O#TToken], Seq[L#TToken], Seq[R#TToken]](this)(func, getInit(L), getInit(R)))
 //}
 
-sealed abstract class RTOp2(implicit ctx : RTComponent.Context) extends RTComponent {
+sealed abstract class RTOp2(implicit ctx : RTComponent.Context) extends RTComponent { self =>
   val O : DFAny.Var //Output variable
   val L : DFAny //Left argument of the operation
   val R : DFAny //Right argument of the operation
+  protected[DFiant] trait __DevRTOp2 extends __DevRTComponent {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override def codeString: String = {
+      implicit val refCodeOwner : DSLOwnerConstruct = owner
+      s"RTOp2.$typeName(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
+    }
+  }
+  override private[DFiant] lazy val __dev : __DevRTOp2 = new __DevRTOp2 {}
 }
 object RTOp2 {
   case class +(O : DFAny.Var, L : DFAny, R : DFAny)(implicit ctx : RTComponent.Context) extends RTOp2
+  case class -(O : DFAny.Var, L : DFAny, R : DFAny)(implicit ctx : RTComponent.Context) extends RTOp2
 //  def +[L, R](l : DFUInt[Int], r : DFUInt[Int])(implicit ctx : RTComponent.Context) : DFUInt[Int] =
 }

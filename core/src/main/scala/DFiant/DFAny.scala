@@ -12,6 +12,8 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   type TVar <: TVal with DFAny.Var
   type TAlias <: TVal
   type TBool <: DFBool
+  type In = TVal
+  type Out = TVal with DFAny.Var
   type TBits[W2] <: DFBits[W2]
   type TUInt[W2] <: DFUInt[W2]
   type TSInt[W2] <: DFSInt[W2]
