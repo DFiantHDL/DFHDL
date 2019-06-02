@@ -13,7 +13,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   protected[DFiant] type TAlias <: TVal
   protected[DFiant] type TBool <: DFBool
   type In = TVal
-  type Out = TVal with DFAny.Var
+  type Out = DFAny.Var with TVal
   protected[DFiant] type TBits[W2] <: DFBits[W2]
   protected[DFiant] type TUInt[W2] <: DFUInt[W2]
   protected[DFiant] type TSInt[W2] <: DFSInt[W2]
@@ -203,7 +203,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   //////////////////////////////////////////////////////////////////////////
   // Generation
   //////////////////////////////////////////////////////////////////////////
-  protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context) : TVal <> Dir
+  protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context) : TVal <~> Dir
   protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
     implicit ctx : DFAny.Alias.Context
   ) : TAlias
@@ -448,7 +448,7 @@ object DFAny {
     override private[DFiant] lazy val __dev : __DevConnectable = ???
     import __dev._
 
-    final def <> [RDIR <: DFDir](right: TVal <> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
+    final def <> [RDIR <: DFDir](right: TVal <~> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
   }
   object Connectable {
     implicit def fetchDev(from : Connectable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
@@ -577,7 +577,7 @@ object DFAny {
 
     //Port Construction
     def <> [Dir <: DFDir](dir : Dir)(implicit port : PortBuilder[Dir])
-    : TVal <> Dir = port(this.asInstanceOf[TVal], dir)
+    : TVal <~> Dir = port(this.asInstanceOf[TVal], dir)
     //Dataflow If
     final object ifdf extends ConditionalBlock.IfWithRetVal[TVal, OpAble, `Op:=Builder`](this.asInstanceOf[NewVar[TVal]])
     final object matchdf extends ConditionalBlock.MatchWithRetVal[TVal, OpAble, `Op:=Builder`](this.asInstanceOf[NewVar[TVal]])
@@ -839,8 +839,8 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Port[DF <: DFAny, Dir <: DFDir](dfVar : DF, val dir : Dir)(
     implicit ctx0 : Port.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {self : DF <> Dir =>
-    type TPostInit = TVal <> Dir
+  ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {self : DF <~> Dir =>
+    type TPostInit = TVal <~> Dir
     type TDir = Dir
     final private[DFiant] lazy val ctx = ctx0
     protected[DFiant] trait __DevPort extends __DevInitializable {
@@ -1005,7 +1005,7 @@ object DFAny {
     implicit def fetchDev(from : Port[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
     type Context = DFAnyOwner.Context[DFInterface]
     trait Builder[L <: DFAny, Dir <: DFDir] {
-      def apply(right : L, dir : Dir) : L <> Dir
+      def apply(right : L, dir : Dir) : L <~> Dir
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

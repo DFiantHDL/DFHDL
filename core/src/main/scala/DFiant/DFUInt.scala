@@ -77,7 +77,7 @@ object DFUInt extends DFAny.Companion {
 
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(new NewVar[Width](width), dir)
+    : TVal <~> Dir = new Port(new NewVar[Width](width), dir)
     final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
@@ -340,7 +340,7 @@ object DFUInt extends DFAny.Companion {
       def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def <> [RW, RDIR <: DFDir](port : DFUInt[RW] <> RDIR)(
+      def <> [RW, RDIR <: DFDir](port : DFUInt[RW] <~> RDIR)(
         implicit op: `Op<>`.Builder[DFUInt[RW], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)

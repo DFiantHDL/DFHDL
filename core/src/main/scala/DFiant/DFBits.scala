@@ -169,7 +169,7 @@ object DFBits extends DFAny.Companion {
     ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
 
     protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(new NewVar[Width](width), dir)
+    : TVal <~> Dir = new Port(new NewVar[Width](width), dir)
     __dev.setAutoTypeName(s"DFBits[$width]")
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -441,7 +441,7 @@ object DFBits extends DFAny.Companion {
       final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def <> [RW, RDIR <: DFDir](port : DFBits[RW] <> RDIR)(
+      final def <> [RW, RDIR <: DFDir](port : DFBits[RW] <~> RDIR)(
         implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
     }

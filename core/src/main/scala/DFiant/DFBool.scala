@@ -42,7 +42,7 @@ object DFBool extends DFAny.Companion {
     final def newEmptyDFVar(implicit ctx : DFAny.NewVar.Context) = DFBool()
 
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(new NewVar(), dir)
+    : TVal <~> Dir = new Port(new NewVar(), dir)
     final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
@@ -248,7 +248,7 @@ object DFBool extends DFAny.Companion {
       final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
-      final def <> [RDIR <: DFDir](port : DFBool <> RDIR)(
+      final def <> [RDIR <: DFDir](port : DFBool <~> RDIR)(
         implicit op: `Op<>`.Builder[DFBool, L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
     }

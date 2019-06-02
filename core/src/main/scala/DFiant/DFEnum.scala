@@ -38,7 +38,7 @@ object DFEnum extends DFAny.Companion {
     final def == [E <: TEntry](right : E)(implicit op: `Op==`.Builder[TVal, E]) = op(left, right)
     final def != [E <: TEntry](right : E)(implicit op: `Op!=`.Builder[TVal, E]) = op(left, right)
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <> Dir = new Port(new NewVar[TEnum], dir)
+    : TVal <~> Dir = new Port(new NewVar[TEnum], dir)
     final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
       implicit ctx : DFAny.Alias.Context
     ) : TAlias = new Alias(reference)(ctx, enum).asInstanceOf[TAlias]
@@ -193,7 +193,7 @@ object DFEnum extends DFAny.Companion {
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
-      def <> [E <: Enum, RDIR <: DFDir](port : DFEnum[E] <> RDIR)(
+      def <> [E <: Enum, RDIR <: DFDir](port : DFEnum[E] <~> RDIR)(
         implicit op: `Op<>`.Builder[DFEnum[E], L], ctx : DFAny.Connector.Context
       ) = port.connectVal2Port(op(port, left))
     }

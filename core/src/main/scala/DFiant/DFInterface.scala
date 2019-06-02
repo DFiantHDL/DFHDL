@@ -25,6 +25,18 @@ trait DFInterface extends DFAnyOwner { self =>
   override implicit def __theOwnerToBe : DFInterface = this
 
   object externals {
+
+    def isInheritedClass(parent: Any, child: Any): Boolean =
+      if (parent == null || child == null) false
+      else isInheritedClass(parent.getClass, child.getClass)
+
+    def isInheritedClass(parent: Class[_], child: Class[_]): Boolean =
+      if (parent == null || child == null) false
+      else if (parent.isAssignableFrom(child)) { // is child or same class
+        parent.isAssignableFrom(child.getSuperclass)
+      }
+      else false
+
     private def getDFVals(cls : Class[_]) : List[DFAny] =
       if (cls == null || cls == classOf[DFInterface]) List()
       else {
@@ -33,8 +45,8 @@ trait DFInterface extends DFAnyOwner { self =>
           f.setAccessible(true)
           val ref = f.get(self)
           ref match {
-            case ref : DFAny if ref != null && ref.owner != self =>
-              println(f.getType.getName)
+            case ref : DFAny if ref != null && ref.owner != self && ref.isInstanceOf[DFAny.Var]=>
+              println(f)
               Some(ref)
             case _ => None
           }

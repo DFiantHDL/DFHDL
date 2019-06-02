@@ -24,19 +24,23 @@ package object DFiant extends {
   ////////////////////////////////////////////////////////////////////////////////////
   // Dataflow Port Annotations
   ////////////////////////////////////////////////////////////////////////////////////
-  type <>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF, Dir] with DF
+  type <>[DF <: DFAny, Dir <: DFDir] = Dir#Func[DF]
+  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF, Dir] with DF
   //Direction of a Port
   sealed trait DFDir {
+    type Func[DF <: DFAny]
     val isOut : Boolean
     val isIn : Boolean
   }
   implicit object IN extends DFDir {
+    type Func[DF <: DFAny] = DF#In
     override def toString: String = "IN"
     final val isOut : Boolean = false
     final val isIn : Boolean = true
   }
   type IN = IN.type
   implicit object OUT extends DFDir {
+    type Func[DF <: DFAny] = DF#Out
     override def toString: String = "OUT"
     final val isOut : Boolean = true
     final val isIn : Boolean = false
