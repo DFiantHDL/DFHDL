@@ -5,6 +5,7 @@ import singleton.ops._
 import singleton.twoface._
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 
 trait DFAny extends DFAnyMember with HasWidth {self =>
   protected[DFiant] type TUnbounded <: DFAny
@@ -86,6 +87,15 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     val constLB : LazyBox[TToken]
     final private[DFiant] def isConstant : Boolean = !constLB.get.isBubble
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Transparent Replacement References
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private val replacementRefs : mutable.Map[DFAnyOwner, DFAny] = mutable.Map.empty[DFAnyOwner, DFAny]
+    final def replaceWith(replacement : DFAny)(implicit callOwner : DFAnyOwner) : Unit = {
+      replacementRefs.update(callOwner, replacement)
+    }
+    final def replacementAt(owner : DFAnyOwner) : DFAny = replacementRefs.getOrElse(owner, self)
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Source
@@ -247,6 +257,7 @@ object DFAny {
     protected[DFiant] type TUInt[W2] = DFUInt.Var[W2]
     protected[DFiant] type TSInt[W2] = DFSInt.Var[W2]
     type TDir <: DFDir
+    protected[DFiant] type ThisOwner <: DFDesign
 
     protected[DFiant] trait __DevVar extends __DevDFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -282,8 +293,9 @@ object DFAny {
       ) : Unit = {
         assignedSource = assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource)
       }
-      def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = self
+      def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+        val toVar = self.replacementAt(ctx.owner)
+        val fromVal = that.replacementAt(ctx.owner)
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
         if (!ctx.owner.callSiteSameAsOwnerOf(self))
           throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
@@ -362,8 +374,9 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = self
+      override def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+        val toVar = self.replacementAt(ctx.owner)
+        val fromVal = that.replacementAt(ctx.owner)
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
         if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
@@ -609,7 +622,7 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = this
+        val toVar = self
         val toRelBitHigh = toRelBitLow + toRelWidth-1
         case class absolute(alias : DFAny, high : Int, low : Int)
         //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
@@ -635,26 +648,28 @@ object DFAny {
         }
       }
       final override def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
+        val toVar = self.replacementAt(ctx.owner)
+        val fromVal = that.replacementAt(ctx.owner)
         reference.aliasedVars.foreach{case a : DFAny.Var =>
-          a.__dev.protAssignDependencies ++= List(self, that)
+          a.__dev.protAssignDependencies ++= List(toVar, fromVal)
         } //TODO: fix dependency to bit accurate dependency?
         reference match {
           case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
-            that.consume()
-            assign(relWidth, relBitLow, that.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
+            fromVal.consume()
+            assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
           case DFAny.Alias.Reference.AsIs(aliasedVar) =>
-            that.consume()
-            assign(width, 0, that.inletSourceLB)
+            fromVal.consume()
+            assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.Concat(aliasedVars) =>
-            that.consume()
-            assign(width, 0, that.inletSourceLB)
+            fromVal.consume()
+            assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
           case DFAny.Alias.Reference.Invert(aliasedVar) => ???
           case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) => ???
           case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
         }
-        protAssignDependencies += Assignment(self, that)
-        protAssignDependencies += that
+        protAssignDependencies += Assignment(toVar, fromVal)
+        protAssignDependencies += fromVal
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -42,6 +42,33 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override protected def discoveryDependencies : List[Discoverable] =
       if (isTop) portsOut ++ super.discoveryDependencies else super.discoveryDependencies
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Elaboration
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
+      if (cls == null || cls == classOf[DFDesign]) List()
+      else {
+        val fields = cls.getDeclaredFields.toList
+        fields.flatMap{f =>
+          f.setAccessible(true)
+          val ref = f.get(self)
+          ref match {
+            case ref : DFAny if (ref ne null) && (ref.owner ne self) =>
+              val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Var])) OUT else IN
+              val port = ref.copyAsNewPort(dir).setName(f.getName).asInstanceOf[DFAny.Port[DFAny, DFDir]]
+//              dir match {
+//                case d : IN  => port.connectFrom(ref)(ctx.updateOwner(self))
+//                case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)(ctx.updateOwner(self))
+//              }
+              ref.replaceWith(port)
+              Some((ref, port))
+            case _ => None
+          }
+        } ++ addTransparentPorts(cls.getSuperclass)
+      }
+
+    lazy val transparentPorts : Map[DFAny, DFAny.Port[DFAny, DFDir]] = addTransparentPorts(self.getClass).toMap
   }
   override private[DFiant] lazy val __dev : __DevDFDesign = new __DevDFDesign {}
   import __dev._
@@ -69,9 +96,11 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   final def printCodeString : this.type = {println(codeString); this}
   def compileToVHDL : Backend.VHDL = {elaborate(); new Backend.VHDL(this)}
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
+  transparentPorts //force transparent ports to be added as regular ports before all other members
 }
 
 object DFDesign {
+  implicit def fetchDev(from : DFDesign)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   private[DFiant] type Context = DFBlock.Context
   trait ContextOf[+T] {
     val ownerOption : Option[DFBlock]

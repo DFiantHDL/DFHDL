@@ -17,28 +17,6 @@ trait DFInterface extends DFAnyOwner { self =>
         else clsSimpleName
       }
     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Elaboration
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
-      if (cls == null || cls == classOf[DFInterface]) List()
-      else {
-        val fields = cls.getDeclaredFields.toList
-        fields.flatMap{f =>
-          f.setAccessible(true)
-          val ref = f.get(self)
-          ref match {
-            case ref : DFAny if ref != null && ref.owner != self =>
-              val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Var])) OUT else IN
-              val port = ref.copyAsNewPort(dir).setName(f.getName).keep.asInstanceOf[DFAny.Port[DFAny, DFDir]]
-              Some((ref, port))
-            case _ => None
-          }
-        } ++ addTransparentPorts(cls.getSuperclass)
-      }
-
-    lazy val transparentPorts : Map[DFAny, DFAny.Port[DFAny, DFDir]] = addTransparentPorts(self.getClass).toMap
   }
   override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._
@@ -54,6 +32,5 @@ trait DFInterface extends DFAnyOwner { self =>
     ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
   override def toString: String = s"$name : $typeName"
-  transparentPorts //force transparent ports to be added as regular ports before all other members
 }
 
