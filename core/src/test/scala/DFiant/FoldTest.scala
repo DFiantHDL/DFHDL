@@ -37,7 +37,7 @@ trait FoldTest extends DFDesign {
 class Trans(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[Trans]) extends DFDesign {
 //  import internals._
 //  println(this.transparentPorts)
-  to := ti
+  to <> ti
 }
 
 object FoldApp extends App {
@@ -56,7 +56,9 @@ trait TransTest extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
 
-  val io = new Trans(i, o) {}
+  val temp = DFUInt(8)
+  val io1 = new Trans(i, temp) {}
+  val io2 = new Trans(temp, o) {}
 }
 
 object TransApp extends App {

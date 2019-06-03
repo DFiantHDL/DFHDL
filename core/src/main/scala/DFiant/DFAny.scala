@@ -14,7 +14,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   protected[DFiant] type TAlias <: TVal
   protected[DFiant] type TBool <: DFBool
   type In = TVal
-  type Out = DFAny.Var with TVal
+  type Out = DFAny.Connectable[TVal] with TVal
   protected[DFiant] type TBits[W2] <: DFBits[W2]
   protected[DFiant] type TUInt[W2] <: DFUInt[W2]
   protected[DFiant] type TSInt[W2] <: DFSInt[W2]
@@ -92,10 +92,14 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private val replacementRefs : mutable.Map[DFAnyOwner, DFAny] = mutable.Map.empty[DFAnyOwner, DFAny]
-    final def replaceWith(replacement : DFAny)(implicit callOwner : DFAnyOwner) : Unit = {
-      replacementRefs.update(callOwner, replacement)
+    final def replaceWith(replacement : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = ctx.ownerOption.foreach{o =>
+//      println(s"replaced ${self.fullName} with ${replacement.fullName} at ${ctx.owner.fullName}")
+      replacementRefs.update(o, replacement)
     }
-    final def replacementAt(owner : DFAnyOwner) : DFAny = replacementRefs.getOrElse(owner, self)
+    final def replacement()(implicit ctx : DFAny.Op.Context) : DFAny = ctx.ownerOption match {
+      case Some(o) => replacementRefs.getOrElse(o, self)
+      case None => self
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Source
@@ -294,11 +298,11 @@ object DFAny {
         assignedSource = assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource)
       }
       def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = self.replacementAt(ctx.owner)
-        val fromVal = that.replacementAt(ctx.owner)
+        val toVar = self.replacement().asInstanceOf[Var]
+        val fromVal = that.replacement()
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
-        if (!ctx.owner.callSiteSameAsOwnerOf(self))
-          throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
+        if (!ctx.owner.callSiteSameAsOwnerOf(toVar))
+          throw new IllegalArgumentException(s"\nTarget assignment variable (${toVar.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
         if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
         //      fromVal match {
@@ -307,10 +311,10 @@ object DFAny {
         ////          println(s"$fullName ${x.maxPrevUse}")
         //      }
         fromVal.consume()
-        assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
-        assign(toRelWidth, toRelBitLow, Source(fromVal))
-        protAssignDependencies += Assignment(toVar, fromVal)
-        protAssignDependencies += fromVal
+        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
+        toVar.assign(toRelWidth, toRelBitLow, Source(fromVal))
+        toVar.protAssignDependencies += Assignment(toVar, fromVal)
+        toVar.protAssignDependencies += fromVal
       }
       def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
         assign(width, 0, that)
@@ -375,10 +379,10 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = self.replacementAt(ctx.owner)
-        val fromVal = that.replacementAt(ctx.owner)
+        val toVar = self.replacement().asInstanceOf[Connectable[DF]]
+        val fromVal = that.replacement()
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-        if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        if (toVar.connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
       }
 
@@ -387,17 +391,19 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final lazy val connectedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       final var connectedSource : Source = Source.none(width)
-      final def connectFrom(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-        val toVar = self
+      final def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+        val toVar = self.replacement().asInstanceOf[Connectable[DF]]
+        val fromVal = that.replacement()
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName}")
         if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
-        if (connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${connectedSourceLB.get}")
-        if (assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        if (toVar.connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}")
+        if (toVar.assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${toVar.assignedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
         fromVal.consume()
-        connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), connectedSourceLB.getBox, fromVal.thisSourceLB))
-        connectedSource = connectedSource.replaceWL(toRelWidth, toRelBitLow, Source(fromVal))
+        toVar.connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), toVar.connectedSourceLB.getBox, fromVal.thisSourceLB))
+        toVar.connectedSource = toVar.connectedSource.replaceWL(toRelWidth, toRelBitLow, Source(fromVal))
+//        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
       def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
         val toVar = self
@@ -648,28 +654,28 @@ object DFAny {
         }
       }
       final override def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
-        val toVar = self.replacementAt(ctx.owner)
-        val fromVal = that.replacementAt(ctx.owner)
+        val toVar = self.replacement().asInstanceOf[Alias[DF]]
+        val fromVal = that.replacement()
         reference.aliasedVars.foreach{case a : DFAny.Var =>
           a.__dev.protAssignDependencies ++= List(toVar, fromVal)
         } //TODO: fix dependency to bit accurate dependency?
         reference match {
           case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
             fromVal.consume()
-            assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
+            toVar.assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
           case DFAny.Alias.Reference.AsIs(aliasedVar) =>
             fromVal.consume()
-            assign(width, 0, fromVal.inletSourceLB)
+            toVar.assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.Concat(aliasedVars) =>
             fromVal.consume()
-            assign(width, 0, fromVal.inletSourceLB)
+            toVar.assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
           case DFAny.Alias.Reference.Invert(aliasedVar) => ???
           case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) => ???
           case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
         }
-        protAssignDependencies += Assignment(toVar, fromVal)
-        protAssignDependencies += fromVal
+        toVar.protAssignDependencies += Assignment(toVar, fromVal)
+        toVar.protAssignDependencies += fromVal
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -869,9 +875,10 @@ object DFAny {
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = self.dir == right.dir
-      private[DFiant] def connectPort2Port(right : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
+      private[DFiant] def connectPort2Port(that : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
         implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
-        val left = self
+        val left = self.replacement().asInstanceOf[Port[DF, Dir]]
+        val right = that.replacement().asInstanceOf[Port[DF, Dir]]
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${this.fullName} <> ${right.fullName}\nConnected at ${ctx.owner.fullName}")
         val (fromPort, toPort) =
         //Ports in the same design, connected at the same design
@@ -931,9 +938,10 @@ object DFAny {
 
         toPort.connectFrom(fromPort)
       }
-      final private[DFiant] def connectVal2Port(dfVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      final private[DFiant] def connectVal2Port(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
         implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
-        val port = self
+        val port = self.replacement().asInstanceOf[Port[DF, Dir]]
+        val dfVal = that.replacement()
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${port.fullName} <> ${dfVal.fullName}")
         dfVal match {
           case p : Port[_,_] => p.connectPort2Port(port)

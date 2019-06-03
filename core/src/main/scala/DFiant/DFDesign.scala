@@ -44,7 +44,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       if (isTop) portsOut ++ super.discoveryDependencies else super.discoveryDependencies
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Elaboration
+    // Transparent Ports
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
       if (cls == null || cls == classOf[DFDesign]) List()
@@ -55,13 +55,13 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
           val ref = f.get(self)
           ref match {
             case ref : DFAny if (ref ne null) && (ref.owner ne self) =>
-              val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Var])) OUT else IN
+              val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Connectable[_]])) OUT else IN
               val port = ref.copyAsNewPort(dir).setName(f.getName).asInstanceOf[DFAny.Port[DFAny, DFDir]]
-//              dir match {
-//                case d : IN  => port.connectFrom(ref)(ctx.updateOwner(self))
-//                case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)(ctx.updateOwner(self))
-//              }
-              ref.replaceWith(port)
+              dir match {
+                case d : IN  => port.connectFrom(ref)
+                case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)
+              }
+              ref.replaceWith(port)(ctx.updateOwner(self))
               Some((ref, port))
             case _ => None
           }
