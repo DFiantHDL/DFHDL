@@ -1,5 +1,7 @@
 package DFiant
 
+import java.lang.reflect.AnnotatedElement
+
 import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
@@ -37,7 +39,7 @@ trait DFInterface extends DFAnyOwner { self =>
       }
       else false
 
-    private def getDFVals(cls : Class[_]) : List[DFAny] =
+    private def getDFVals(cls : Class[_]) : List[(DFAny, AnnotatedElement)] =
       if (cls == null || cls == classOf[DFInterface]) List()
       else {
         val fields = cls.getDeclaredFields.toList
@@ -45,15 +47,14 @@ trait DFInterface extends DFAnyOwner { self =>
           f.setAccessible(true)
           val ref = f.get(self)
           ref match {
-            case ref : DFAny if ref != null && ref.owner != self && ref.isInstanceOf[DFAny.Var]=>
-              println(f)
-              Some(ref)
+            case ref : DFAny if ref != null && ref.owner != self =>
+              Some((ref, f))
             case _ => None
           }
         } ++ getDFVals(cls.getSuperclass)
       }
 
-    lazy val named : Set[DFAny] = getDFVals(self.getClass).toSet
+    lazy val named : Map[DFAny, AnnotatedElement] = getDFVals(self.getClass).toMap
   }
   final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
     members.collect{case o : DFAny.Port[_,_] => o}.asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
