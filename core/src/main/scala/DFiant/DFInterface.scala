@@ -21,38 +21,24 @@ trait DFInterface extends DFAnyOwner { self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Elaboration
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    object externals {
+    private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
+      if (cls == null || cls == classOf[DFInterface]) List()
+      else {
+        val fields = cls.getDeclaredFields.toList
+        fields.flatMap{f =>
+          f.setAccessible(true)
+          val ref = f.get(self)
+          ref match {
+            case ref : DFAny if ref != null && ref.owner != self =>
+              val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Var])) OUT else IN
+              val port = ref.copyAsNewPort(dir).setName(f.getName).keep.asInstanceOf[DFAny.Port[DFAny, DFDir]]
+              Some((ref, port))
+            case _ => None
+          }
+        } ++ addTransparentPorts(cls.getSuperclass)
+      }
 
-      def isInheritedClass(parent: Any, child: Any): Boolean =
-        if (parent == null || child == null) false
-        else isInheritedClass(parent.getClass, child.getClass)
-
-      def isInheritedClass(parent: Class[_], child: Class[_]): Boolean =
-        if (parent == null || child == null) false
-        else if (parent.isAssignableFrom(child)) { // is child or same class
-          parent.isAssignableFrom(child.getSuperclass)
-        }
-        else false
-
-      private def getDFVals(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
-        if (cls == null || cls == classOf[DFInterface]) List()
-        else {
-          val fields = cls.getDeclaredFields.toList
-          fields.flatMap{f =>
-            f.setAccessible(true)
-            val ref = f.get(self)
-            ref match {
-              case ref : DFAny if ref != null && ref.owner != self =>
-                val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Var])) OUT else IN
-                val port = ref.copyAsNewPort(dir).setName(f.getName).keep.asInstanceOf[DFAny.Port[DFAny, DFDir]]
-                Some((ref, port))
-              case _ => None
-            }
-          } ++ getDFVals(cls.getSuperclass)
-        }
-
-      lazy val named : Map[DFAny, DFAny.Port[DFAny, DFDir]] = getDFVals(self.getClass).toMap
-    }
+    lazy val transparentPorts : Map[DFAny, DFAny.Port[DFAny, DFDir]] = addTransparentPorts(self.getClass).toMap
   }
   override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._
@@ -67,8 +53,7 @@ trait DFInterface extends DFAnyOwner { self =>
   final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
     ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
 
-
-  externals.named
   override def toString: String = s"$name : $typeName"
+  transparentPorts //force transparent ports to be added as regular ports before all other members
 }
 
