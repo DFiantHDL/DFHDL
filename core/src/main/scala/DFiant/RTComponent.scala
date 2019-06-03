@@ -66,7 +66,7 @@ sealed abstract class RTOp2(implicit ctx : RTComponent.Context) extends RTCompon
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def codeString: String = {
       implicit val refCodeOwner : DSLOwnerConstruct = owner
-      s"RTOp2.$typeName(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
+      s"\nRTOp2.$typeName(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
     }
   }
   override private[DFiant] lazy val __dev : __DevRTOp2 = new __DevRTOp2 {}

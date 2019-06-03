@@ -16,7 +16,7 @@ object FoldComp {
     import ifc._
     if (i.isConstant) o := 0
     else {
-      RTOp2.+(o, i, i)
+      RTOp2.+(o, i, ii)
 //      val rt = new FoldRTx2(8)
 //      rt.I <> i
 //      rt.O <> o
@@ -28,7 +28,7 @@ trait FoldTest extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
 
-  val io = new FoldComp(o) {}
+  val io = new FoldComp(i) {}
 //  io.i <> 0
   i <> io.i
   o <> io.o
@@ -36,7 +36,7 @@ trait FoldTest extends DFDesign {
 
 object FoldApp extends App {
   val foldtest = new FoldTest {}
-  println(foldtest.io.externals.named)
+//  println(foldtest.io.externals.named)
   println("------------------------------")
   foldtest.io.unfold
   foldtest.printCodeString
