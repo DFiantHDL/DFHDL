@@ -298,8 +298,8 @@ object DFAny {
         assignedSource = assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource)
       }
       def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = self.replacement().asInstanceOf[Var]
-        val fromVal = that.replacement()
+        val toVar = self
+        val fromVal = that
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
         if (!ctx.owner.callSiteSameAsOwnerOf(toVar))
           throw new IllegalArgumentException(s"\nTarget assignment variable (${toVar.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
@@ -317,7 +317,9 @@ object DFAny {
         toVar.protAssignDependencies += fromVal
       }
       def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        assign(width, 0, that)
+        val toVar = self.replacement().asInstanceOf[Var]
+        val fromVal = that.replacement()
+        toVar.assign(width, 0, fromVal)
       }
       def assignClear() : Unit = {
         assignedSourceLB.set(Source.none(width))
@@ -379,8 +381,8 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
-        val toVar = self.replacement().asInstanceOf[Connectable[DF]]
-        val fromVal = that.replacement()
+        val toVar = self
+        val fromVal = that
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
         if (toVar.connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
