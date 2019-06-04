@@ -102,7 +102,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 object DFDesign {
   implicit def fetchDev(from : DFDesign)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   private[DFiant] type Context = DFBlock.Context
-  trait ContextOf[+T] extends DSLOwnerContext {
+  trait ContextOf[+T] extends DSLContext {
     val ownerOption : Option[DFBlock]
     val basicLib: DFBasicLib
     val config : DFAnyConfiguration

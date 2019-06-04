@@ -92,11 +92,11 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private val replacementRefs : mutable.Map[DSLOwnerConstruct, DFAny] = mutable.Map.empty[DSLOwnerConstruct, DFAny]
-    final def replaceWith(replacement : DFAny)(implicit ctx : DSLOwnerContext) : Unit = ctx.ownerOption.foreach{o =>
+    final def replaceWith(replacement : DFAny)(implicit ctx : DSLContext) : Unit = ctx.ownerOption.foreach{o =>
 //      println(s"replaced ${self.fullName} with ${replacement.fullName} at ${ctx.owner.fullName}")
       replacementRefs.update(o, replacement)
     }
-    final def replacement()(implicit ctx : DSLOwnerContext) : DFAny = ctx.ownerOption match {
+    final def replacement()(implicit ctx : DSLContext) : DFAny = ctx.ownerOption match {
       case Some(o) => replacementRefs.getOrElse(o, self)
       case None => self
     }
@@ -719,31 +719,33 @@ object DFAny {
     trait Tag
     type Context = DFAnyOwner.Context[DFAnyOwner]
 
-    sealed abstract class Reference(aliasCodeString_ : => String) {
+    sealed abstract class Reference(aliasCodeString_ : => String)(implicit ctx : Alias.Context) {
+      val aliasedVars : List[DFAny]
       val width : Int
       lazy val aliasCodeString : String = aliasCodeString_
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String
-      val aliasedVars : List[DFAny]
       val sourceLB : LazyBox[Source]
     }
-    sealed abstract class SingleReference(val aliasedVar : DFAny, aliasCodeString : => String)
+    sealed abstract class SingleReference(refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
       extends Reference(aliasCodeString) {
-      val width : Int = aliasedVar.width
+      val aliasedVar : DFAny = refVar.replacement()
+      val aliasedVars : List[DFAny] = List(aliasedVar)
+      val width : Int = aliasedVars.head.width
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
         s"${aliasedVar.refCodeString}$aliasCodeString"
-      val aliasedVars : List[DFAny] = List(aliasedVar)
     }
     object Reference {
-      class AsIs(aliasedVar : DFAny, aliasCodeString : => String)
+      class AsIs private (aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, aliasCodeString) {
         lazy val sourceLB: LazyBox[Source] = aliasedVar.thisSourceLB
       }
       object AsIs {
-        def apply(aliasedVar : DFAny, aliasCodeString : => String) = new AsIs(aliasedVar, aliasCodeString)
+        def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new AsIs(aliasedVar, aliasCodeString)
         def unapply(arg: AsIs): Option[DFAny] = Some(arg.aliasedVar)
       }
-      class Concat(val aliasedVars : List[DFAny], aliasCodeString : => String)
+      class Concat private (concatVars : List[DFAny], aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends Reference(aliasCodeString) {
+        val aliasedVars : List[DFAny] = concatVars.map(c => c.replacement())
         val width : Int = aliasedVars.map(a => a.width.getValue).sum
         def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
           s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}$aliasCodeString"
@@ -753,36 +755,36 @@ object DFAny {
           s => Source(s.flatMap(a => a.elements)).coalesce, aliasedVars.map(a => a.thisSourceLB))
       }
       object Concat {
-        def apply(aliasedVars : List[DFAny], aliasCodeString : => String) = new Concat(aliasedVars, aliasCodeString)
+        def apply(aliasedVars : List[DFAny], aliasCodeString : => String)(implicit ctx : Alias.Context) = new Concat(aliasedVars, aliasCodeString)
         def unapply(arg: Concat): Option[List[DFAny]] = Some(arg.aliasedVars)
       }
-      class BitsWL(aliasedVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String)
+      class BitsWL private (aliasedVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, aliasCodeString) {
         override val width: Int = relWidth
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.bitsWL(relWidth, relBitLow), aliasedVar.thisSourceLB)
       }
       object BitsWL {
-        def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String) =
+        def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String)(implicit ctx : Alias.Context) =
           new BitsWL(aliasedVar, relWidth, relBitLow, aliasCodeString)
         def unapply(arg : BitsWL): Option[(DFAny, Int, Int)] = Some((arg.aliasedVar, arg.relWidth, arg.relBitLow))
       }
-      class Prev(aliasedVar : DFAny, val step : Int)
+      class Prev private (aliasedVar : DFAny, val step : Int)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.prev(step), aliasedVar.thisSourceLB)
       }
       object Prev {
-        def apply(aliasedVar : DFAny, step : Int) = new Prev(aliasedVar, step)
+        def apply(aliasedVar : DFAny, step : Int)(implicit ctx : Alias.Context) = new Prev(aliasedVar, step)
         def unapply(arg: Prev): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
       }
-      class Pipe(aliasedVar : DFAny, val step : Int)
+      class Pipe private (aliasedVar : DFAny, val step : Int)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.pipe(step), aliasedVar.thisSourceLB)
       }
       object Pipe {
-        def apply(aliasedVar : DFAny, step : Int) = new Pipe(aliasedVar, step)
+        def apply(aliasedVar : DFAny, step : Int)(implicit ctx : Alias.Context) = new Pipe(aliasedVar, step)
         def unapply(arg: Pipe): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
       }
 //      class LeftShift(aliasedVar : DFAny, val shift : Int)
@@ -794,32 +796,32 @@ object DFAny {
 //        def apply(aliasedVar : DFAny, shift : Int) = new LeftShift(aliasedVar, shift)
 //        def unapply(arg: LeftShift): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.shift)
 //      }
-      class SignExtend(aliasedVar : DFAny, val toWidth : Int)
+      class SignExtend private (aliasedVar : DFAny, val toWidth : Int)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, if (toWidth == 0) "" else s".extendTo($toWidth)") {
         override val width: Int = toWidth
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.signExtend(toWidth), aliasedVar.thisSourceLB)
       }
       object SignExtend {
-        def apply(aliasedVar : DFAny, toWidth : Int) = new SignExtend(aliasedVar, toWidth)
+        def apply(aliasedVar : DFAny, toWidth : Int)(implicit ctx : Alias.Context) = new SignExtend(aliasedVar, toWidth)
         def unapply(arg: SignExtend): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.toWidth)
       }
-      class BitReverse(aliasedVar : DFAny, aliasCodeString : => String)
+      class BitReverse private (aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, aliasCodeString) {
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.reverse, aliasedVar.thisSourceLB)
       }
       object BitReverse {
-        def apply(aliasedVar : DFAny, aliasCodeString : => String) = new BitReverse(aliasedVar, aliasCodeString)
+        def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new BitReverse(aliasedVar, aliasCodeString)
         def unapply(arg: BitReverse): Option[DFAny] = Some(arg.aliasedVar)
       }
-      class Invert(aliasedVar : DFAny, aliasCodeString : => String)
+      class Invert private (aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, aliasCodeString) {
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.invert, aliasedVar.thisSourceLB)
       }
       object Invert {
-        def apply(aliasedVar : DFAny, aliasCodeString : => String) = new Invert(aliasedVar, aliasCodeString)
+        def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new Invert(aliasedVar, aliasCodeString)
         def unapply(arg: Invert): Option[DFAny] = Some(arg.aliasedVar)
       }
     }

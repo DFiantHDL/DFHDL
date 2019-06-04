@@ -182,7 +182,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   val __config : DSLConfiguration
 }
 
-trait DSLOwnerContext {
+trait DSLContext {
   val ownerOption : Option[DSLOwnerConstruct]
   implicit lazy val owner : DSLOwnerConstruct =
     ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
@@ -190,7 +190,7 @@ trait DSLOwnerContext {
 
 object DSLOwnerConstruct {
   implicit def fetchDev(from : DSLOwnerConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
-  trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] extends DSLOwnerContext {
+  trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] extends DSLContext {
     val ownerOption : Option[Owner]
     override implicit lazy val owner : Owner =
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
