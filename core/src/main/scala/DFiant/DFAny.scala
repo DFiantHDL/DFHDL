@@ -96,9 +96,9 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
 //      println(s"replaced ${self.fullName} with ${replacement.fullName} at ${ctx.owner.fullName}")
       replacementRefs.update(o, replacement)
     }
-    final def replacement()(implicit ctx : DSLContext) : DFAny = ctx.ownerOption match {
-      case Some(o) => replacementRefs.getOrElse(o, self)
-      case None => self
+    final def replacement()(implicit ctx : DSLContext) : TAlias = ctx.ownerOption match {
+      case Some(o) => replacementRefs.getOrElse(o, self).asInstanceOf[TAlias]
+      case None => self.asInstanceOf[TAlias]
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

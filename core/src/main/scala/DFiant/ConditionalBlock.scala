@@ -50,7 +50,7 @@ object ConditionalBlock {
       import __dev._
 
       def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[R])
-      : DFIfBlock = new DFElseIfBlock(this, elseCond, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
+      : DFIfBlock = new DFElseIfBlock(this, elseCond.replacement(), op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
 
       def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[R])
       : RV = {
@@ -121,7 +121,7 @@ object ConditionalBlock {
 
     def apply[R](cond: DFBool)(block: => Able[R])(
       implicit ctx : Context, op : Builder[R]
-    ) : DFIfBlock = new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
+    ) : DFIfBlock = new DFIfBlock(cond.replacement(), op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
 
   class SelectWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
@@ -129,7 +129,7 @@ object ConditionalBlock {
       implicit ctx : Context, opT : Builder[T], opE : Builder[E]
     ) : RV = {
       object ifdf extends ConditionalBlock.IfWithRetVal[RV, Able, Builder](returnVar)
-      ifdf(cond){thenSel}.elsedf(elseSel)
+      ifdf(cond.replacement()){thenSel}.elsedf(elseSel)
     }
       //new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
@@ -156,7 +156,7 @@ object ConditionalBlock {
       import __dev._
 
       def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)
-      : DFIfBlock = new DFElseIfBlock(this, elseCond, elseBlock)
+      : DFIfBlock = new DFElseIfBlock(this, elseCond.replacement(), elseBlock)
 
       def elsedf(elseBlock: => Unit)(implicit ctx : Context)
       : Unit = new DFElseBlock(this, elseBlock)
@@ -215,7 +215,7 @@ object ConditionalBlock {
     }
 
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
-      new DFIfBlock(cond, block)(ctx, mutableOwner)
+      new DFIfBlock(cond.replacement(), block)(ctx, mutableOwner)
   }
 
   class MatchNoRetVal(mutableOwner: MutableOwner) {
@@ -322,7 +322,7 @@ object ConditionalBlock {
     def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : Context
     ): DFMatchHeader[MV#TVal] =
-      new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
+      new DFMatchHeader[MV#TVal](matchValue.replacement().asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
   }
 
   class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
@@ -442,7 +442,7 @@ object ConditionalBlock {
     def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : Context
     ): DFMatchHeader[MV#TVal] =
-      new DFMatchHeader[MV#TVal](matchValue.asInstanceOf[MV#TVal], matchConfig)(ctx, ctx.owner.mutableOwner)
+      new DFMatchHeader[MV#TVal](matchValue.replacement().asInstanceOf[MV#TVal], matchConfig)(ctx, ctx.owner.mutableOwner)
   }
 
 }
