@@ -92,11 +92,11 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private val replacementRefs : mutable.Map[DFAnyOwner, DFAny] = mutable.Map.empty[DFAnyOwner, DFAny]
-    final def replaceWith(replacement : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = ctx.ownerOption.foreach{o =>
+    final def replaceWith(replacement : DFAny)(implicit ctx : DFAny.Connector.Context) : Unit = ctx.ownerOption.foreach{o =>
 //      println(s"replaced ${self.fullName} with ${replacement.fullName} at ${ctx.owner.fullName}")
       replacementRefs.update(o, replacement)
     }
-    final def replacement()(implicit ctx : DFAny.Op.Context) : DFAny = ctx.ownerOption match {
+    final def replacement()(implicit ctx : DFAny.Connector.Context) : DFAny = ctx.ownerOption match {
       case Some(o) => replacementRefs.getOrElse(o, self)
       case None => self
     }
@@ -405,12 +405,24 @@ object DFAny {
         toVar.connectedSource = toVar.connectedSource.replaceWL(toRelWidth, toRelBitLow, Source(fromVal))
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
-      def connectFrom(fromVal : DFAny)(implicit ctx : Connector.Context) : Unit = {
-        val toVar = self
+      def connectFrom(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+        val toVar = self.replacement().asInstanceOf[Connectable[DF]]
+        val fromVal = that.replacement()
         connectFrom(width, 0, fromVal)
         //All is well. We can now connect fromVal->toVar
         toVar.protAssignDependencies += Connector(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
+      }
+      def connectWith(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+        val left = self.replacement()
+        val right = that.replacement()
+        def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
+        (left, right) match {
+          case (p1 : Port[_,_], p2 : Port[_,_]) => p1.connectPort2Port(p2)
+          case (p : Port[_,_], v) => p.connectVal2Port(v)
+          case (v, p : Port[_,_]) => p.connectVal2Port(v)
+          case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
+        }
       }
       def connectClear() : Unit = {
         connectedSourceLB.set(Source.none(width))
@@ -467,7 +479,7 @@ object DFAny {
     override private[DFiant] lazy val __dev : __DevConnectable = ???
     import __dev._
 
-    final def <> [RDIR <: DFDir](right: TVal <~> RDIR)(implicit ctx : Connector.Context) : Unit = right.connectVal2Port(this)
+    final def <> [RDIR <: DFDir](right: TVal)(implicit ctx : Connector.Context) : Unit = self.connectWith(right)
   }
   object Connectable {
     implicit def fetchDev(from : Connectable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
