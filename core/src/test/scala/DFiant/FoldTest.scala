@@ -39,7 +39,7 @@ class Trans(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : 
 }
 
 class TransInt(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[TransInt]) extends DFDesign {
-  to <> ti
+  to <> ti//.bits.uint
 }
 
 object FoldApp extends App {

@@ -20,8 +20,8 @@ object DFUIntOps {
     implicit def evImpl[LW, RW, WCW] : `Func2Comp+`[LW, RW, WCW] => Unit = ifc => {
       import ifc._
       import basicLib.DFUIntOps._
-      if (inLeft.isConstant && inLeft.constLB.get.value == 0) outResult.connectPort2Port(inRight)
-      else if (inRight.isConstant && inRight.constLB.get.value == 0) outResult.connectPort2Port(inLeft)
+      if (inLeft.isConstant && inLeft.constLB.get.value == 0) outResult.connectWith(inRight)
+      else if (inRight.isConstant && inRight.constLB.get.value == 0) outResult.connectWith(inLeft)
       else {
         val opInst = new DFiant.BasicLib.DFUIntOps.`Comp+`(inLeft.width, inRight.width, outResult.width)
         opInst.inLeft <> inLeft

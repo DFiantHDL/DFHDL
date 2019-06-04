@@ -59,8 +59,8 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
   final val outResult = this.copyAsNewPort(OUT)
 
   atOwnerDo {
-    inLeft.connectVal2Port(leftArg)
-    inRight.connectVal2Port(rightArg)
+    inLeft.connectWith(leftArg)
+    inRight.connectWith(rightArg)
 //    outResult.connectVal2Port(this)
   }
 
