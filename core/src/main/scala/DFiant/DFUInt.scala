@@ -340,9 +340,9 @@ object DFUInt extends DFAny.Companion {
       def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
       def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
       def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-      def <> [RW, RDIR <: DFDir](port : DFUInt[RW] <~> RDIR)(
+      def <> [RW](port : DFAny.Connectable[DFUInt[RW]] with DFUInt[RW])(
         implicit op: `Op<>`.Builder[DFUInt[RW], L], ctx : DFAny.Connector.Context
-      ) = port.connectVal2Port(op(port, left))
+      ) = port.connectWith(op(port, left))
       def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
     }
     trait Implicits {

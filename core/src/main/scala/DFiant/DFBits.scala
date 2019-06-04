@@ -441,9 +441,9 @@ object DFBits extends DFAny.Companion {
       final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def <> [RW, RDIR <: DFDir](port : DFBits[RW] <~> RDIR)(
+      final def <> [RW](port : DFAny.Connectable[DFBits[RW]] with DFBits[RW])(
         implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFAny.Connector.Context
-      ) = port.connectVal2Port(op(port, left))
+      ) = port.connectWith(op(port, left))
     }
     trait Implicits {
       sealed class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)

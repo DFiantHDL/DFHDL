@@ -35,8 +35,10 @@ trait FoldTest extends DFDesign {
 }
 
 class Trans(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[Trans]) extends DFDesign {
-//  import internals._
-//  println(this.transparentPorts)
+  val transInst = new TransInt(ti, to)
+}
+
+class TransInt(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[TransInt]) extends DFDesign {
   to <> ti
 }
 

@@ -248,9 +248,9 @@ object DFBool extends DFAny.Companion {
       final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
-      final def <> [RDIR <: DFDir](port : DFBool <~> RDIR)(
+      final def <> (port : DFAny.Connectable[DFBool] with DFBool)(
         implicit op: `Op<>`.Builder[DFBool, L], ctx : DFAny.Connector.Context
-      ) = port.connectVal2Port(op(port, left))
+      ) = port.connectWith(op(port, left))
     }
     trait Implicits {
       sealed class DFBoolFrom0(left : 0) extends Able[0](left)
