@@ -1,6 +1,7 @@
 package DFiant
 
 import DFiant.BasicLib.DFBasicLib
+import DFiant.FunctionalLib.Func2Comp
 import DFiant.compiler.Backend
 import DFiant.internals._
 
@@ -47,7 +48,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     // Transparent Ports
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
-      if (cls == null || cls == classOf[DFDesign] || classOf[ConditionalBlock].isAssignableFrom(cls)) List()
+      if (cls == null || cls == classOf[DFDesign] ||
+        classOf[ConditionalBlock].isAssignableFrom(cls) || classOf[Func2Comp[_,_,_]].isAssignableFrom(cls)) List()
       else {
         val fields = cls.getDeclaredFields.toList
         fields.flatMap{f =>
