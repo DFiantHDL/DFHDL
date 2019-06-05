@@ -34,17 +34,9 @@ trait FoldTest extends DFDesign {
   o <> io.o
 }
 
-class Trans(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[Trans]) extends DFDesign {
-  val transInst = new TransInt(ti, to)
-}
-
-class TransInt(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[TransInt]) extends DFDesign {
-  to <> ti + ti//.bits.uint
-}
-
 object FoldApp extends App {
   val foldtest = new FoldTest {}
-//  println(foldtest.io.externals.named)
+  //  println(foldtest.io.externals.named)
   println("------------------------------")
   foldtest.io.unfold
   foldtest.printCodeString
@@ -54,6 +46,14 @@ object FoldApp extends App {
 }
 
 
+class Trans(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[Trans]) extends DFDesign {
+  val transInt = new TransInt(ti, to)
+}
+
+class TransInt(val ti : DFUInt[8] <> IN, val to : DFUInt[8] <> OUT)(implicit ctx : DFDesign.ContextOf[TransInt]) extends DFDesign {
+  to <> ti + ti//.bits.uint
+}
+
 trait TransTest extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
@@ -62,6 +62,7 @@ trait TransTest extends DFDesign {
   val io1 = new Trans(i, temp) {}
   val io2 = new Trans(temp, o) {}
 }
+
 
 object TransApp extends App {
   val transTest = new TransTest {}.printCodeString
