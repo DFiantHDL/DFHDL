@@ -99,15 +99,15 @@ object LazyBox {
     private var lbox : LazyBox[T] = LazyBox.Const(owner)(initialization)
     def getBox : LazyBox[T] = lbox
     final def valueFunc : ValueOrError[T] = lbox.getValueOrError
-    private var isset = false
-    final def isSet : Boolean = isset
+    private var _isSet = false
+    final def isSet : Boolean = _isSet
     def set(value : LazyBox[T]) : Unit = {
 //      clearValueDependencies()
       clearValue()
       addValueDependency(value)
       unlockValueDependencies()
       lbox = value
-      isset = true
+      _isSet = true
     }
     def set(value : => T) : Unit = set(Const(owner)(value))
   }
