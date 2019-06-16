@@ -23,7 +23,7 @@ nav:
     - About:
         - Release Notes: about/release-notes.md
         - Contributing: about/contributing.md
-        - License: about/license.md
+        - License: about/LICENSE.md
         - Acknowledgements: about/acknowledgements.md
 
 extra_css:
