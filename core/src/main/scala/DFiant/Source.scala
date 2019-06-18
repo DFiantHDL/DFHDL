@@ -52,12 +52,11 @@ private[DFiant] object AliasTag {
 private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, aliasTag : Option[AliasTag]) {
   val relWidth : Int = relBitHigh - relBitLow + 1
   def range : Range = if (reverseBits) relBitLow to relBitHigh else relBitHigh to relBitLow by -1
-  def reverse : SourceElement = SourceElement(relBitHigh, relBitLow, !reverseBits, aliasTag)
-  def invert : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, aliasTag.map(t => t.invert))
-  def prev(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, aliasTag.map(t => t.prev(step)))
-  def pipe(step : Int) : SourceElement = SourceElement(relBitHigh, relBitLow, reverseBits, aliasTag.map(t => t.pipe(step)))
-  def balanceTo(maxLatency : Option[Int]) : SourceElement =
-    SourceElement(relBitHigh, relBitLow, reverseBits, aliasTag.map(t => t.balanceTo(maxLatency)))
+  def reverse : SourceElement = copy(reverseBits = !reverseBits)
+  def invert : SourceElement = copy(aliasTag = aliasTag.map(t => t.invert))
+  def prev(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.prev(step)))
+  def pipe(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.pipe(step)))
+  def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
 
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = aliasTag match {
     case Some(t) =>
