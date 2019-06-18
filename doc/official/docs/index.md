@@ -23,11 +23,11 @@ Answers to these questions await you at section [Why...?][Why]
 
 ## Required Knowledge
 
-You are *not* required to know Scala
+You are *<u>not</u>* required to know Scala, yet we do expect you to know basic object oriented concepts.
 
-You are *not* required to be an FPGA/ASIC expert
+You are *<u>not</u>* required to be an FPGA/ASIC expert, yet we do expect you to understand general hardware description concepts found in languages such as Verilog and VHDL.
 
-You *are* required to have an open mind. Some of these concepts may seem strange at first, but 
+You *<u>are</u>* required to have an open mind. Some of these concepts may seem strange at first, but 
 
 
 
