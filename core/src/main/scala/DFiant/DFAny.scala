@@ -328,7 +328,7 @@ object DFAny {
         ////          println(s"$fullName ${x.maxPrevUse}")
         //      }
         fromVal.consume()
-        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
+//        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
         toVar.assign(toRelWidth, toRelBitLow, Source(fromVal))
         toVar.protAssignDependencies += Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
