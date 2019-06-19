@@ -15,25 +15,25 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.BasicLib
+package DFiant.targetlib
 
-trait DFBasicLib {
+trait TargetLib {
 
-  val DFUIntOps : DFBasicLib.DFUIntOps
-  val DFSIntOps : DFBasicLib.DFSIntOps
-  val DFBitsOps : DFBasicLib.DFBitsOps
-  val DFBoolOps : DFBasicLib.DFBoolOps
+  val DFUIntOps : TargetLib.DFUIntOps
+  val DFSIntOps : TargetLib.DFSIntOps
+  val DFBitsOps : TargetLib.DFBitsOps
+  val DFBoolOps : TargetLib.DFBoolOps
 
 }
 
 
-object DFBasicLib {
-  implicit val default : DFBasicLib = Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.basicLib
+object TargetLib {
+  implicit val default : TargetLib = Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.targetLib
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // DFUInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFUIntOps {
-    import DFiant.BasicLib.DFUIntOps._
+    import DFiant.targetlib.DFUIntOps._
     implicit val `Comp+`  : `Comp+` => Unit
     implicit val `Comp-`  : `Comp-` => Unit
     implicit val `Comp*`  : `Comp*` => Unit
@@ -52,7 +52,7 @@ object DFBasicLib {
   // DFSInt
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFSIntOps {
-    import DFiant.BasicLib.DFSIntOps._
+    import DFiant.targetlib.DFSIntOps._
     implicit val `Comp+`  : `Comp+` => Unit
     implicit val `Comp-`  : `Comp-` => Unit
     implicit val `Comp*`  : `Comp*` => Unit
@@ -74,7 +74,7 @@ object DFBasicLib {
   // DFBits
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBitsOps {
-    import DFiant.BasicLib.DFBitsOps._
+    import DFiant.targetlib.DFBitsOps._
     implicit val `Comp|`  : `Comp|` => Unit
     implicit val `Comp&`  : `Comp&` => Unit
     implicit val `Comp^`  : `Comp^` => Unit
@@ -92,7 +92,7 @@ object DFBasicLib {
   // DFBool
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait DFBoolOps {
-    import DFiant.BasicLib.DFBoolOps._
+    import DFiant.targetlib.DFBoolOps._
     implicit val `Comp||` : `Comp||` => Unit
     implicit val `Comp&&` : `Comp&&` => Unit
     implicit val `Comp^`  : `Comp^` => Unit

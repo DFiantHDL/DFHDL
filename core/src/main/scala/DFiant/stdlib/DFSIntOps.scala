@@ -15,7 +15,7 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.FunctionalLib
+package DFiant.stdlib
 
 import DFiant._
 import singleton.twoface._
@@ -35,8 +35,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW, WCW] : `Func2Comp+`[LW, RW, WCW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp+`(inLeft.width, inRight.width, outResult.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp+`(inLeft.width, inRight.width, outResult.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -57,8 +57,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW, WCW] : `Func2Comp-`[LW, RW, WCW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp-`(inLeft.width, inRight.width, outResult.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp-`(inLeft.width, inRight.width, outResult.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -79,8 +79,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW, WCW] : `Func2Comp*`[LW, RW, WCW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp*`(inLeft.width, inRight.width, outResult.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp*`(inLeft.width, inRight.width, outResult.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -101,8 +101,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW, OW] : `Func2Comp<<`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp<<`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp<<`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -122,8 +122,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW, OW] : `Func2Comp>>`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp>>`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp>>`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -141,8 +141,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW] : `Func2Comp==`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp==`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp==`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -160,8 +160,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW] : `Func2Comp!=`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp!=`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp!=`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -179,8 +179,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW] : `Func2Comp<`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp<`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp<`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -198,8 +198,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW] : `Func2Comp>`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp>`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp>`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -217,8 +217,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW] : `Func2Comp<=`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp<=`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp<=`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -236,8 +236,8 @@ object DFSIntOps {
 
     implicit def evImpl[LW, RW] : `Func2Comp>=`[LW, RW] => Unit = ifc => {
       import ifc._
-      import basicLib.DFSIntOps._
-      val opInst = new DFiant.BasicLib.DFSIntOps.`Comp>=`(inLeft.width, inRight.width)
+      import targetLib.DFSIntOps._
+      val opInst = new DFiant.targetlib.DFSIntOps.`Comp>=`(inLeft.width, inRight.width)
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult

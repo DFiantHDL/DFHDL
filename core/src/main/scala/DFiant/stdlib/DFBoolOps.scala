@@ -15,7 +15,7 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.FunctionalLib
+package DFiant.stdlib
 
 import DFiant._
 import singleton.ops._
@@ -33,8 +33,8 @@ object DFBoolOps {
 
     implicit def evImpl : `Func2Comp==` => Unit = ifc => {
       import ifc._
-      import basicLib.DFBoolOps._
-      val opInst = new DFiant.BasicLib.DFBoolOps.`Comp==`
+      import targetLib.DFBoolOps._
+      val opInst = new DFiant.targetlib.DFBoolOps.`Comp==`
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -52,8 +52,8 @@ object DFBoolOps {
 
     implicit def evImpl : `Func2Comp!=` => Unit = ifc => {
       import ifc._
-      import basicLib.DFBoolOps._
-      val opInst = new DFiant.BasicLib.DFBoolOps.`Comp!=`
+      import targetLib.DFBoolOps._
+      val opInst = new DFiant.targetlib.DFBoolOps.`Comp!=`
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -72,8 +72,8 @@ object DFBoolOps {
 
     implicit def evImpl : `Func2Comp&&` => Unit = ifc => {
       import ifc._
-      import basicLib.DFBoolOps._
-      val opInst = new DFiant.BasicLib.DFBoolOps.`Comp&&`
+      import targetLib.DFBoolOps._
+      val opInst = new DFiant.targetlib.DFBoolOps.`Comp&&`
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -91,8 +91,8 @@ object DFBoolOps {
 
     implicit def evImpl : `Func2Comp||` => Unit = ifc => {
       import ifc._
-      import basicLib.DFBoolOps._
-      val opInst = new DFiant.BasicLib.DFBoolOps.`Comp||`
+      import targetLib.DFBoolOps._
+      val opInst = new DFiant.targetlib.DFBoolOps.`Comp||`
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult
@@ -110,8 +110,8 @@ object DFBoolOps {
 
     implicit def evImpl : `Func2Comp^` => Unit = ifc => {
       import ifc._
-      import basicLib.DFBoolOps._
-      val opInst = new DFiant.BasicLib.DFBoolOps.`Comp^`
+      import targetLib.DFBoolOps._
+      val opInst = new DFiant.targetlib.DFBoolOps.`Comp^`
       opInst.inLeft <> inLeft
       opInst.inRight <> inRight
       opInst.outResult <> outResult

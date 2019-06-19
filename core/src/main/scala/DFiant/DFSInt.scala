@@ -17,8 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib._
-import DFiant.FunctionalLib.{CompAlias, Func2Comp}
+import DFiant.targetlib._
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -501,7 +500,7 @@ object DFSInt extends DFAny.Companion {
               new Builder[L, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import FunctionalLib.DFSIntOps._
+                  import stdlib.DFSIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
                   val opInst = kind match {
@@ -594,7 +593,7 @@ object DFSInt extends DFAny.Companion {
               new Builder[L, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import FunctionalLib.DFSIntOps._
+                  import stdlib.DFSIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
                   val ncWidth = ncW(left.width, right.width)
@@ -657,7 +656,7 @@ object DFSInt extends DFAny.Companion {
         new Builder[DFSInt[LW], DFUInt[RW]]{
           type Comp = DFSInt[LW] with CanBePiped
           def apply(left : DFSInt[LW], right : DFUInt[RW]) : DFSInt[LW] with CanBePiped = {
-            import FunctionalLib.DFSIntOps._
+            import stdlib.DFSIntOps._
             // Completing runtime checks
             checkLWvRW.unsafeCheck(left.width, right.width)
             // Constructing op
@@ -716,7 +715,7 @@ object DFSInt extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFSInt[LW], DFSInt[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import FunctionalLib.DFSIntOps._
+        import stdlib.DFSIntOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
           case DiSoOp.Kind.== => `Func2Comp==`(left, right)

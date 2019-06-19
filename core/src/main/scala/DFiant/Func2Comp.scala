@@ -2,6 +2,23 @@
  *     This file is part of DFiant.
  *
  *     DFiant is free software: you can redistribute it and/or modify
+ *     it under the terms of the Lesser GNU General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     any later version.
+ *
+ *     DFiant is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     Lesser GNU General Public License for more details.
+ *
+ *     You should have received a copy of the Lesser GNU General Public License
+ *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/*
+ *     This file is part of DFiant.
+ *
+ *     DFiant is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU Lesser General Public License as published by
  *     the Free Software Foundation, either version 3 of the License, or
  *     any later version.
@@ -15,10 +32,9 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.FunctionalLib
+package DFiant
 
-import DFiant._
-import internals._
+import DFiant.internals._
 import singleton.twoface._
 
 abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]

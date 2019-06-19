@@ -17,7 +17,6 @@
 
 package DFiant.compiler
 import DFiant.AliasTag
-import DFiant.FunctionalLib.{CompAlias, Func2Comp}
 import DFiant._
 import DFiant.internals._
 

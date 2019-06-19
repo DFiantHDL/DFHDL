@@ -15,7 +15,7 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.FunctionalLib
+package DFiant.stdlib
 
 import DFiant._
 import singleton.twoface._
@@ -32,7 +32,7 @@ object DFEnumOps {
 
     implicit def evImpl[E <: Enum] : `Func2Comp==`[E] => Unit = ifc => {
       import ifc._
-//      import basicLib.DFBitsOps._
+//      import targetLib.DFBitsOps._
 //      val opInst = new DFiant.BasicLib.DFBitsOps.`Comp==`(inLeft.width, inRight.width)
 //      opInst.inLeft <> inLeft
 //      opInst.inRight <> inRight
@@ -52,7 +52,7 @@ object DFEnumOps {
 
     implicit def evImpl[E <: Enum] : `Func2Comp!=`[E] => Unit = ifc => {
       import ifc._
-      //      import basicLib.DFBitsOps._
+      //      import targetLib.DFBitsOps._
       //      val opInst = new DFiant.BasicLib.DFBitsOps.`Comp!=`(inLeft.width, inRight.width)
       //      opInst.inLeft <> inLeft
       //      opInst.inRight <> inRight

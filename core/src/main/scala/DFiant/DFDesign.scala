@@ -17,8 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib.DFBasicLib
-import DFiant.FunctionalLib.Func2Comp
+import DFiant.targetlib.TargetLib
 import DFiant.compiler.Backend
 import DFiant.internals._
 
@@ -123,7 +122,7 @@ object DFDesign {
   private[DFiant] type Context = DFBlock.Context
   trait ContextOf[+T] extends DSLContext {
     val ownerOption : Option[DFBlock]
-    val basicLib: DFBasicLib
+    val targetLib: TargetLib
     val config : DFAnyConfiguration
     val n : NameIt
   }
@@ -131,13 +130,13 @@ object DFDesign {
     implicit def ev[T](
       implicit
       evOwner : DFBlock = null,
-      evBasicLib : DFBasicLib,
+      evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
       forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
-      val basicLib: DFBasicLib = evBasicLib
+      val targetLib: TargetLib = evBasicLib
       val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
     }

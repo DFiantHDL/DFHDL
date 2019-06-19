@@ -17,7 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib._
+import DFiant.targetlib._
 import DFiant.internals._
 
 object GlobalDesignName extends NameIt {
@@ -26,7 +26,7 @@ object GlobalDesignName extends NameIt {
 
 object GlobalContext extends DFDesign.Context {
   override val ownerOption : Option[DFBlock] = None
-  override val basicLib: DFBasicLib = Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.basicLib
+  override val targetLib: TargetLib = Xilinx.FPGAs.`XC7VX485T-2FFG1761C`.targetLib
   override val config: DFAnyConfiguration = DFAnyConfiguration.default
   override val n: NameIt = GlobalDesignName
 }

@@ -15,7 +15,7 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.BasicLib
+package DFiant.targetlib
 import DFiant._
 import internals._
 

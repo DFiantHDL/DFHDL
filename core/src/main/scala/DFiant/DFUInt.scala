@@ -17,8 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib._
-import DFiant.FunctionalLib.{CompAlias, Func2Comp}
+import DFiant.targetlib._
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -568,7 +567,7 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import FunctionalLib.DFUIntOps._
+                  import stdlib.DFUIntOps._
                   val (creationKind, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -684,7 +683,7 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Comp = Component[NCW, WCW, CW]
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import FunctionalLib.DFUIntOps._
+                  import stdlib.DFUIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -747,7 +746,7 @@ object DFUInt extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFUInt[LW], DFUInt[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import FunctionalLib.DFUIntOps._
+        import stdlib.DFUIntOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
           case DiSoOp.Kind.== => `Func2Comp==`(left, right)

@@ -17,7 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib.DiSoOp
+import DFiant.targetlib.DiSoOp
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
@@ -348,7 +348,7 @@ object DFBool extends DFAny.Companion {
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import FunctionalLib.DFBoolOps._
+        import stdlib.DFBoolOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = kind match {
           case DiSoOp.Kind.|| => `Func2Comp||`(left, right)

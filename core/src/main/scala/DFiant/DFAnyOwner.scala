@@ -16,7 +16,7 @@
  */
 
 package DFiant
-import DFiant.BasicLib.DFBasicLib
+import DFiant.targetlib.TargetLib
 import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
@@ -136,19 +136,19 @@ object DFAnyOwner {
   }
   type Context[+Owner <: DFAnyOwner] = ContextOf[Nothing, Owner]
   trait ContextWithLibOf[+T, +Owner <: DFAnyOwner] extends ContextOf[T, Owner] {
-    implicit val basicLib : DFBasicLib
+    implicit val targetLib : TargetLib
   }
   object ContextWithLibOf {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit
       evOwner : Owner,
-      evBasicLib : DFBasicLib,
+      evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
       forceNotVar : NameIt.ForceNotVar[ContextWithLibOf[_,_]]
     ) : ContextWithLibOf[T, Owner] = new ContextWithLibOf[T, Owner] {
       val ownerOption : Option[Owner] = Some(evOwner)
-      implicit val basicLib : DFBasicLib = evBasicLib
+      implicit val targetLib : TargetLib = evBasicLib
       implicit val config : DFAnyConfiguration = evConfig
       val n : NameIt = evNameIt
     }

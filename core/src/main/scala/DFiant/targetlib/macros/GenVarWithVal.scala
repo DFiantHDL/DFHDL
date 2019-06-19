@@ -15,7 +15,7 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package DFiant.BasicLib.macros
+package DFiant.targetlib.macros
 
 import DFiant.DFAny
 

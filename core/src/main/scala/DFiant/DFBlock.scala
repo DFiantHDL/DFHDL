@@ -17,7 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib.DFBasicLib
+import DFiant.targetlib.TargetLib
 import internals._
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
@@ -49,7 +49,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
   final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
   override implicit def __theOwnerToBe : DFBlock = mutableOwner.value
-  implicit val basicLib = ctx.basicLib
+  implicit val targetLib = ctx.targetLib
 
   final protected[DFiant] object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
   final protected[DFiant] object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
@@ -78,7 +78,7 @@ object DFBlock {
     self =>
     def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
       val ownerOption : Option[Owner0] = Some(owner0)
-      implicit val basicLib: DFBasicLib = self.basicLib
+      implicit val targetLib: TargetLib = self.targetLib
       implicit val config: DFAnyConfiguration = self.config
       val n: NameIt = n0
     }
@@ -88,13 +88,13 @@ object DFBlock {
       implicit
       lp : shapeless.LowPriority,
       evOwner : Owner = null,
-      evBasicLib : DFBasicLib,
+      evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
       forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Option(evOwner)
-      implicit val basicLib: DFBasicLib = evBasicLib
+      implicit val targetLib: TargetLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
     }
@@ -109,7 +109,7 @@ object DFBlock {
       forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
-      implicit val basicLib : DFBasicLib = evContext.basicLib
+      implicit val targetLib : TargetLib = evContext.targetLib
       implicit val config : DFAnyConfiguration = evContext.config
       val n : NameIt = evContext.n
     }

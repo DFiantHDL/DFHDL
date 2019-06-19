@@ -19,7 +19,7 @@ package DFiant
 
 import singleton.ops._
 import singleton.twoface._
-import DFiant.BasicLib._
+import DFiant.targetlib._
 import DFiant.internals._
 
 import scala.collection.mutable.LinkedHashMap
@@ -266,7 +266,7 @@ object DFEnum extends DFAny.Companion {
     object Builder {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import FunctionalLib.DFEnumOps._
+        import stdlib.DFEnumOps._
         val (left, right) = properLR(leftL, rightR)
 
         val result : DFBool with CanBePiped = kind match {

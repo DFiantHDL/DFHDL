@@ -20,7 +20,7 @@ package DFiant
 import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import DFiant.BasicLib._
+import DFiant.targetlib._
 
 object Zeros extends DFBits.SameBitsVector(false)
 object Ones extends DFBits.SameBitsVector(true)
@@ -607,7 +607,7 @@ object DFBits extends DFAny.Companion {
               new Builder[L, R] {
                 type Comp = DFBits[OW] with CanBePiped
                 def apply(leftL : L, rightR : R) : Comp = {
-                  import FunctionalLib.DFBitsOps._
+                  import stdlib.DFBitsOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
@@ -682,7 +682,7 @@ object DFBits extends DFAny.Companion {
         new Builder[DFBits[LW], DFUInt[RW]]{
           type Comp = DFBits[LW] with CanBePiped
           def apply(left : DFBits[LW], right : DFUInt[RW]) : DFBits[LW] with CanBePiped = {
-            import FunctionalLib.DFBitsOps._
+            import stdlib.DFBitsOps._
             // Completing runtime checks
             checkLWvRW.unsafeCheck(left.width, right.width)
             // Constructing op
@@ -817,7 +817,7 @@ object DFBits extends DFAny.Companion {
 
       def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(implicit ctx : DFAny.Op.Context)
       : Builder[L, R] = (leftL, rightR) => {
-        import FunctionalLib.DFBitsOps._
+        import stdlib.DFBitsOps._
         val (left, right) = properLR(leftL, rightR)
         val opInst = opKind match {
           case DiSoOp.Kind.== => new `Func2Comp==`(left, right)

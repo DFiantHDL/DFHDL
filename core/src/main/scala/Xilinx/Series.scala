@@ -17,16 +17,16 @@
 
 package Xilinx
 import DFiant._
-import DFiant.BasicLib.DFBasicLib
+import DFiant.targetlib.TargetLib
 import internals._
 
 trait Series {
-  implicit object basicLib extends DFiant.BasicLib.DFBasicLib {
+  implicit object targetLib extends DFiant.targetlib.TargetLib {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFUInt
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    object DFUIntOps extends DFBasicLib.DFUIntOps {
-      import DFiant.BasicLib.DFUIntOps._
+    object DFUIntOps extends TargetLib.DFUIntOps {
+      import DFiant.targetlib.DFUIntOps._
       class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFUInt(aWidth) <> IN
@@ -137,8 +137,8 @@ trait Series {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFSInt
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    object DFSIntOps extends DFBasicLib.DFSIntOps {
-      import DFiant.BasicLib.DFSIntOps._
+    object DFSIntOps extends TargetLib.DFSIntOps {
+      import DFiant.targetlib.DFSIntOps._
       class RTAdd(aWidth : Int, bWidth : Int, sWidth : Int)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFSInt(aWidth) <> IN
@@ -271,8 +271,8 @@ trait Series {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBits
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    object DFBitsOps extends DFBasicLib.DFBitsOps {
-      import DFiant.BasicLib.DFBitsOps._
+    object DFBitsOps extends TargetLib.DFBitsOps {
+      import DFiant.targetlib.DFBitsOps._
       class RTInfixBitwiseOp(opString : String)(aWidth : Int, bWidth : Int, sWidth : Int)
         (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBits.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {
@@ -353,8 +353,8 @@ trait Series {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // DFBool
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    object DFBoolOps extends DFBasicLib.DFBoolOps {
-      import DFiant.BasicLib.DFBoolOps._
+    object DFBoolOps extends TargetLib.DFBoolOps {
+      import DFiant.targetlib.DFBoolOps._
       class RTInfixBoolOp(opString : String)
         (initFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
         (implicit ctx : RTComponent.Context) extends RTComponent {

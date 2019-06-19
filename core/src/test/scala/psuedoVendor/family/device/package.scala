@@ -20,7 +20,7 @@
 //import DFiant._
 //import DFComponent.Implementation
 //package object device {
-//  implicit object basicLib extends DFiant.basiclib.DFBasicLib {
+//  implicit object targetLib extends DFiant.basiclib.DFBasicLib {
 //    implicit def `evU+U`(implicit ctx : Implementation.Context) : Implementation[`U+U`] = ifc => {
 //      import ifc._
 //    }

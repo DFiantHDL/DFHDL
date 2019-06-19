@@ -17,7 +17,7 @@
 
 package DFiant
 
-import DFiant.BasicLib.DFBasicLib
+import DFiant.targetlib.TargetLib
 import internals._
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
@@ -85,7 +85,7 @@ object DFComponent {
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val impl: Comp => Unit = evImpl
-      implicit val basicLib: DFBasicLib = evContext.basicLib
+      implicit val targetLib: TargetLib = evContext.targetLib
       implicit val config: DFAnyConfiguration = evContext.config
       val n: NameIt = evNameIt
       val compName = evCompName
@@ -96,7 +96,7 @@ object DFComponent {
       implicit
       evOwner : DFBlock,
       evImpl : Comp => Unit,
-      evBasicLib : DFBasicLib,
+      evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
       evCompName : sourcecode.Name.OfType[Comp],
@@ -104,7 +104,7 @@ object DFComponent {
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
       implicit val impl: Comp => Unit = evImpl
-      implicit val basicLib: DFBasicLib = evBasicLib
+      implicit val targetLib: TargetLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt
       val compName = evCompName
