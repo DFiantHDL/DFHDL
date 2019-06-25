@@ -14,7 +14,9 @@ theme:
 
 nav:
     - Introduction:
-        - Why Another HDL?: intro/why-another-hdl.md
+        - Why Another HDL?:
+            - Because: intro/why-another-hdl.md
+            - Of this: intro/why-another-hdl.md
         - What is a Dataflow HDL?: intro/what-is-a-datflow-hdl.md
 # Toolflow
 #        - DFiant for Software Developers: intro/dfiant-for-software-developers.md
@@ -24,11 +26,18 @@ nav:
         - Hello Hardware World: getting-started/hello-world.md
     - User Guide:
         - Connectivity: user-guide/connectivity.md
+        - Meta Hardware Programming: user-guide/meta.md
     - About:
         - Release Notes: about/release-notes.md
         - Contributing: about/contributing.md
         - License: about/LICENSE.md
         - Acknowledgements: about/acknowledgements.md
+
+extra_javascript:
+    - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
+  
+markdown_extensions:
+    - pymdownx.arithmatex
 
 extra_css:
     - css/extra.css
