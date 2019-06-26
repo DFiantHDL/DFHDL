@@ -24,5 +24,4 @@ This work focuses on applying dataflow principles through the DFiant language an
 
 ## References
 
-[[1\]]: https://ieeexplore.ieee.org/document/7577380	"Survey of domain-specific languages for FPGA computing"
-
+[Kapre2016]: https://ieeexplore.ieee.org/document/7577380	"Kapre, Nachiket, and Samuel Bayliss. &quot;Survey of domain-specific languages for FPGA computing.&quot; 2016 26th International Conference on Field Programmable Logic and Applications (FPL). IEEE, 2016."
