@@ -11,13 +11,14 @@ theme:
     hljs_style: googlecode
     hljs_languages:
         - scala
+        - vhdl
+        - verilog
 
 nav:
     - Introduction:
-        - Why Another HDL?:
-            - Because: intro/why-another-hdl.md
-            - Of this: intro/why-another-hdl.md
-        - What is a Dataflow HDL?: intro/what-is-a-datflow-hdl.md
+        - First Look: intro/first-look.md
+        - Motivation (Why Another HDL): intro/motivation.md
+        - A Dataflow Hardware Description Abstraction: intro/dataflow-hdl.md
 # Toolflow
 #        - DFiant for Software Developers: intro/dfiant-for-software-developers.md
 #        - DFiant for Hardware Developers: intro/dfiant-for-hardware-developers.md

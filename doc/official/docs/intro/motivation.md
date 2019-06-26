@@ -23,3 +23,6 @@ This work focuses on applying dataflow principles through the DFiant language an
 
 
 ## References
+
+[[1\]]: https://ieeexplore.ieee.org/document/7577380	"Survey of domain-specific languages for FPGA computing"
+
