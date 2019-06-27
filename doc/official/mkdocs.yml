@@ -26,7 +26,9 @@ nav:
         - Initial Setup: getting-started/initial-setup.md
         - Hello Hardware World: getting-started/hello-world.md
     - User Guide:
+        - Type System: user-guide/type-system.md
         - Connectivity: user-guide/connectivity.md
+        - State: user-guide/state.md
         - Meta Hardware Programming: user-guide/meta.md
     - About:
         - Release Notes: about/release-notes.md
