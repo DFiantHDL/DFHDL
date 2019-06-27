@@ -14,7 +14,6 @@ By this point you may already have some questions:
 
 * Why do we need yet another HDL? 
 * Why are high-level synthesis (HLS) tools not enough?
-
 * What is a dataflow HDL? 
 
 Answers to these questions await you at our [Introduction][Why] section.
