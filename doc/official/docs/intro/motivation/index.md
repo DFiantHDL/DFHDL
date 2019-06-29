@@ -12,8 +12,9 @@ Why do we need yet another HDL? Why high-level synthesis is not enough?
 
 &nbsp;&nbsp;&nbsp;&nbsp; Ongoing efforts to bridge this hardware programmability gap [[1]][Kapre2016], [[2]][Nane2016], [[3]][Windh2015] can be largely split into two classes: high-level synthesis (HLS) tools and high-level RTL (HL-RTL) languages. On the one hand, HLS tools (such as Vivado [[4]][Vivado2012], Catapult [[5]][graphics2008catapult], and others [[6]][Kavvadias2013], [[7]][synphony2015]) rely on programming languages like C and incorporate auto-pipelining and optimization mechanisms to make hardware accelerators accessible for non-hardware engineers. While this approach is successful in algorithmic acceleration domains, such languages carry von Neumann sequential semantics and thus hinder construction of parallel hardware, which is crucial for hardware design [[8]][Zhao2017]. Moreover, some trivial periodic hardware operations (like toggling a LED) are unbearably difficult to implement in HLS languages. On the other hand, HL-RTL languages (such as Chisel [[9]][Bachrach2012], Bluespec [[10]][nikhil2004bluespec], PyRTL [[11]][Clow2017], and others [[12]][Charles2016], [[13]][Liu2017], [[14]][jiang2018mamba], [[15]][decaluwe2004myhdl], [[16]][CxLang2014], [[17]][Lockhart2014]) aim to enhance productivity by introducing new hardware generation constructs and semantics but do not abstract away register-level description (even Bluespec, which uses concurrent guarded atomic actions, assumes rules complete within a single clock cycle). Therefore, HL-RTL designs are still subjected to the "*tyranny of the clock*" [[18]][Sutherland2012] and are bound to specific timing and target constraints.
 
-![motivation](graphics/motivation.gif)
+
 <p align="center">
+  <img src="../motivation/dfiant-bridges-the-gap.gif"><br>
   <b>Fig.1: DFiant bridges the gap between RTL and HLS languages</b><br>
 </p>
 

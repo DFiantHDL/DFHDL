@@ -16,20 +16,20 @@ theme:
 
 nav:
     - Introduction:
-        - First Look: intro/first-look.md
-        - Motivation (Why Another HDL): intro/motivation.md
-        - A Dataflow Hardware Description Abstraction: intro/dataflow-hdl.md
+        - 'DFiant: First Look': intro/first-look/index.md
+        - Motivation (Why Another HDL): intro/motivation/index.md
+        - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md
 # Toolflow
 #        - DFiant for Software Developers: intro/dfiant-for-software-developers.md
 #        - DFiant for Hardware Developers: intro/dfiant-for-hardware-developers.md
     - Getting Started:
-        - Initial Setup: getting-started/initial-setup.md
+        - Initial Setup: getting-started/initial-setup/index.md
         - Hello Hardware World: getting-started/hello-world.md
     - User Guide:
-        - Type System: user-guide/type-system.md
-        - Connectivity: user-guide/connectivity.md
-        - State: user-guide/state.md
-        - Meta Hardware Programming: user-guide/meta.md
+        - Type System: user-guide/type-system/index.md
+        - Connectivity: user-guide/connectivity/index.md
+        - State: user-guide/state/index.md
+        - Meta Hardware Programming: user-guide/meta/index.md
     - About:
         - Release Notes: about/release-notes.md
         - Contributing: about/contributing.md
