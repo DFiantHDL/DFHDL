@@ -1,39 +1,82 @@
+---
+typora-copy-images-to: ./
+---
+
 # DFiant: First Look
 
-&nbsp;
+Your first encounter with the DFiant syntax, semantics and language features
 
 ---
 
+In this section we provide a simple running example to demonstrate various DFiant syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the <u>Getting Started</u> chapter of this documentation. 
+
 ## Feature Overview
 
+TBD
 
 
-## Basic Example
 
-Let's begin with a basic example. In this example, the signed 16-bit  input, $x$ 
+## Basic Example: An Identity Function
 
- $y_k=x_k$
+Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit input port `x` and a signed 16-bit output port `y`. We implemented an identity function, meaning for an input series $x_k$, the output series shall be $y_k=x_k$. Fig. 1a depicts a functional drawing of the design and Fig. 1b the complete 
+
+<p align="center">
+  <img src="../first-look/id.png"><br>
+  <b>Fig. 1a: Functional drawing of the dataflow design 'ID' with an input port 'x' and an output port 'y'</b><br>
+</p>
 
 ```scala
-import DFiant._ //DFiant is a Scala library. This import statement summons all the 
-                //DFiant classes, types and objects into the current scope.
+import DFiant._ //Required in any DFiant compilation program
 
-//This basic Scala trait is extended from a DFDesign class and therefore
-//it is a dataflow design
-//The reason why this is a trait and not a class is given later on 
-trait Basic extends DFDesign {
-  val x   = DFSInt[16] <> IN  //The input signed 16-bit integer stream
-  val y   = DFSInt[16] <> OUT						//The output 16-bit singed
-  y := x
+trait ID extends DFDesign { //This our `ID` dataflow design
+  val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
+  val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
+  y := x //trivial direct input-to-output assignment
 }
 
-object BasicApp extends App {
-  val bsc = new Basic {} //Instantiate Basic as a top-level entity
-  bsc.compileToVHDL.toFile("bsc.vhdl") //Compile to a single VHDL file.
+object IDApp extends App { //The ID compilation program entry-point
+  val id = new ID {} //Instantiate ID as a top-level entity
+  id.compileToVHDL.toFile("id.vhdl") //Compile to a single VHDL file.
 }
 ```
 
+DFiant is a Scala library. This import statement summons all the DFiant classes, types and objects into the current scope. This basic Scala trait is extended from a DFDesign class and therefore it is a dataflow design. The reason why this is a trait and not a class is given later on 
 
+<p align="center">
+  <b>Fig. 1b: A DFiant implementation of the identity function as a toplevel design</b><br>
+</p>
+
+```vhdl
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.id_pkg.all;
+
+entity id is
+port (
+  X                    : in  signed(15 downto 0);
+  Y                    : out signed(15 downto 0)
+);
+end id;
+
+architecture id_arch of id is
+begin
+
+async_proc : process (all)
+begin
+  Y                    <= X;
+end process async_proc;
+
+end id_arch;
+```
+
+<p align="center">
+  <b>Fig. 1c: Contents of the generated id.vhdl</b><br>
+</p>
+
+---
+
+## Simple Moving Average
 
 We begin with a [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA) example. In this example, the signed 16-bit  input, $x$ 
 

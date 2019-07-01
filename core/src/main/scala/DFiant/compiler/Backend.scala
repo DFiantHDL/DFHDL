@@ -893,8 +893,7 @@ object Backend {
       object HelperFunctions{
         val bitReverseFunc : String =
           s"""
-             |--Taken from http://www.vlsiip.com/intel/vhdlf.html
-             |function bit_reverse(s1 : std_logic_vector) return std_logic_vector;
+             |function bit_reverse(s : std_logic_vector) return std_logic_vector;
          """.stripMargin
         val to_slFunc1 : String =
           s"""
@@ -922,14 +921,13 @@ object Backend {
       object HelperFunctionsBody{
         val bitReverseFunc : String =
           s"""
-             |--Taken from http://www.vlsiip.com/intel/vhdlf.html
-             |function bit_reverse(s1 : std_logic_vector) return std_logic_vector is
-             |   variable rr : std_logic_vector(s1'high downto s1'low);
+             |function bit_reverse(s : std_logic_vector) return std_logic_vector is
+             |   variable v_s : std_logic_vector(s'high downto s'low);
              |begin
-             |  for ii in s1'high downto s1'low loop
-             |    rr(ii) := s1(s1'high-ii);
+             |  for i in s'high downto s'low loop
+             |    v_s(i) := s(s'high - i);
              |  end loop;
-             |  return rr;
+             |  return v_s;
              |end bit_reverse;
          """.stripMargin
         val to_slFunc1 : String =
@@ -947,7 +945,7 @@ object Backend {
           s"""
              |function to_sl(arg : std_logic_vector) return std_logic is
              |begin
-             |  return arg(arg'LOW);
+             |  return arg(arg'low);
              |end to_sl;
          """.stripMargin
         val to_slvFunc1 : String =

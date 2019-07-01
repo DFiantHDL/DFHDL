@@ -103,6 +103,17 @@ lazy val sorted_networks = (project in file("examples/sorted_networks"))
     core
   )
 
+lazy val `first-look` = (project in file("examples/first-look"))
+  .settings(
+    name := "first-look",
+    settings,
+    assemblySettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    core
+  )
+
 lazy val examples = project
   .settings(settings)
   .aggregate(

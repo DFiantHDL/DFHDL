@@ -1,5 +1,6 @@
 language: python
 install:
+- pip install pygments
 - pip install mkdocs
 - pip install pymdown-extensions
 script:
