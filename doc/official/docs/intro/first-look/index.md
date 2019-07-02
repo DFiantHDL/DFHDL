@@ -25,7 +25,7 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
   <b>Fig. 1a: Functional drawing of the dataflow design 'ID' with an input port 'x' and an output port 'y'</b><br>
 </p>
 
-```scala
+``` scala tab="ID.scala"
 import DFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
@@ -40,13 +40,7 @@ object IDApp extends App { //The ID compilation program entry-point
 }
 ```
 
-DFiant is a Scala library. This import statement summons all the DFiant classes, types and objects into the current scope. This basic Scala trait is extended from a DFDesign class and therefore it is a dataflow design. The reason why this is a trait and not a class is given later on 
-
-<p align="center">
-  <b>Fig. 1b: A DFiant implementation of the identity function as a toplevel design</b><br>
-</p>
-
-```vhdl
+``` vhdl tab="id.vhdl"
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -70,9 +64,86 @@ end process async_proc;
 end id_arch;
 ```
 
+``` vhdl tab="id_pkg.vhdl"
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+package id_pkg is
+
+function bit_reverse(s : std_logic_vector) return std_logic_vector;
+         
+function to_sl(b : boolean) return std_logic;
+         
+function to_sl(arg : std_logic_vector) return std_logic;
+         
+function to_slv(arg : std_logic) return std_logic_vector;
+         
+function to_slv(arg : unsigned) return std_logic_vector;
+         
+function to_slv(arg : signed) return std_logic_vector;
+         
+
+end package id_pkg;
+
+package body id_pkg is
+
+function bit_reverse(s : std_logic_vector) return std_logic_vector is
+   variable v_s : std_logic_vector(s'high downto s'low);
+begin
+  for i in s'high downto s'low loop
+    v_s(i) := s(s'high - i);
+  end loop;
+  return v_s;
+end bit_reverse;
+         
+function to_sl(b : boolean) return std_logic is
+begin
+  if (b) then
+    return '1';
+  else
+    return '0';
+  end if;
+end to_sl;
+         
+function to_sl(arg : std_logic_vector) return std_logic is
+begin
+  return arg(arg'low);
+end to_sl;
+         
+function to_slv(arg : std_logic) return std_logic_vector is
+begin
+  if (arg = '1') then
+    return "1";
+  else
+    return "0";
+  end if;
+end to_slv;
+         
+function to_slv(arg : unsigned) return std_logic_vector is
+  variable slv : std_logic_vector(arg'length-1 downto 0);
+begin
+  slv := std_logic_vector(arg);
+  return slv;
+end to_slv;
+         
+function to_slv(arg : signed) return std_logic_vector is
+  variable slv : std_logic_vector(arg'length-1 downto 0);
+begin
+  slv := std_logic_vector(arg);
+  return slv;
+end to_slv;
+         
+end package body id_pkg;
+```
+
 <p align="center">
-  <b>Fig. 1c: Contents of the generated id.vhdl</b><br>
+  <b>Fig. 1b: A DFiant implementation of the identity function as a toplevel design and the generated VHDL files</b><br>
 </p>
+
+DFiant is a Scala library. This import statement summons all the DFiant classes, types and objects into the current scope. This basic Scala trait is extended from a DFDesign class and therefore it is a dataflow design. The reason why this is a trait and not a class is given later on 
+
+
 
 ---
 

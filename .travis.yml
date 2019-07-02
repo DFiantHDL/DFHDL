@@ -2,6 +2,7 @@ language: python
 install:
 - pip install pygments
 - pip install mkdocs
+- pip install mkdocs-material
 - pip install pymdown-extensions
 script:
 - cd doc/official

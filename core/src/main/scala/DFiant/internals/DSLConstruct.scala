@@ -217,20 +217,29 @@ object DSLOwnerConstruct {
     override def toString: String = getName
   }
   trait DB[Owner, Body <: Any] {
-    private case class Info(id : Int, owners : ListBuffer[Owner])
+    private case class Info(id : Int, order : Int, owners : ListBuffer[Owner])
     private val db = mutable.HashMap.empty[String, mutable.HashMap[Body, Info]]
-    private var dbString = ""
+//    private var dbString = ""
+    private var order = 0
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
       if (info.id == 0) ownerTypeName else ownerTypeName + Name.Separator + info.id
     def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
       var newBody : Boolean = false
       val csHM = db.getOrElseUpdate(ownerTypeName, {newBody = true; mutable.HashMap.empty[Body, Info]})
-      val info = csHM.getOrElseUpdate(ownerBody, {newBody = true; Info(csHM.size, ListBuffer.empty)})
+      val info = csHM.getOrElseUpdate(ownerBody, {newBody = true; Info(csHM.size, order, ListBuffer.empty)})
       info.owners += owner
       val atn = actualTypeName(ownerTypeName, info)
-      if (newBody) dbString += ownerToString(atn, ownerBody) + "\n"
+      if (newBody) {
+        order += 1
+//        dbString += ownerToString(atn, ownerBody) + "\n"
+      }
       atn
     }
+    final lazy val namedBodies : List[(String, String)] = db.toList.flatMap(e => e._2.toList.map(f => {
+      val atn = actualTypeName(e._1, f._2)
+      (f._2.order, atn, ownerToString(atn, f._1)) //unsorted tuple that includes the order count
+    })).sortBy(e => e._1).map(e => (e._2, e._3))
+    final lazy val dbString : String = namedBodies.map(e => e._2).mkString("\n")
     def ownerToString(ownerTypeName : String, ownerBody : Body) : String
     override def toString : String = dbString
   }

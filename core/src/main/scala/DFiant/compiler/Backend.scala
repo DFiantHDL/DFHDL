@@ -841,12 +841,15 @@ object Backend {
     override def toString: String = db.toString
     final def print() : this.type = {println(toString); this}
     final def toFile(fileName : String) : this.type = {
-      import java.io._
-      val pw = new FileWriter(new File(fileName))
-      pw.write(toString)
-      pw.close()
+      db.toFile(fileName)
       this
     }
+    final def toFolder(folderName : String) : this.type = {
+      db.toFolder(folderName)
+      this
+    }
+    final def getFiles : String = db.getFiles
+
 
     protected final lazy val hasSyncProcess : Boolean = design match {
       case x : RTComponent if x.resetList.nonEmpty || x.clockList.nonEmpty => true
@@ -1034,6 +1037,32 @@ object Backend {
         def architecture : String = s"\narchitecture ${ownerTypeName}_arch of $ownerTypeName is${ownerBody._2}\nend ${ownerTypeName}_arch;"
         s"$Library$SimLibrary$entity\n$architecture"
       }
+
+      private var _files : String = ""
+      final def toFile(fileName : String) : Unit = {
+        import java.io._
+        val pw = new FileWriter(new File(fileName))
+        pw.write(toString)
+        pw.close()
+        _files = fileName
+      }
+      final def toFolder(folderName : String) : Unit = {
+        import java.io._
+        new File(folderName).mkdirs()
+        val pkgPath = s"$folderName/${Package.name}.vhdl"
+        //writing package file
+        val pw = new FileWriter(new File(pkgPath))
+        pw.write(Package.toString)
+        pw.close()
+        //writing entity and architecture files
+        namedBodies.foreach{e =>
+          val pw = new FileWriter(new File(s"$folderName/${e._1}.vhdl"))
+          pw.write(e._2)
+          pw.close()
+        }
+        _files = (pkgPath :: namedBodies.map(e => s"$folderName/${e._1}.vhdl")).mkString(" ")
+      }
+      final def getFiles : String = _files
 
       override def toString : String = s"$Package\n${super.toString}"
     }

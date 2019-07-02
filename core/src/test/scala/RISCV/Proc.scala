@@ -85,12 +85,16 @@ class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) ext
 
 object ProcTest extends App {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(Program.fromFile("riscv-bmarks/towers.riscv.dump")).compileToVHDL.print().toFile("test.vhd")
+  val riscv_tb = new Proc_TB(Program.fromFile("riscv-bmarks/towers.riscv.dump")).compileToVHDL.print().toFolder("testProc")
+  new java.io.File("testProc/work").mkdirs()
+  val workDirFlag = "--workdir=testProc/work"
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
-    val flags = s"-P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
+    val flags = s"$workDirFlag -P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
   import sys.process._
   import scala.language.postfixOps
-  {s"ghdl -a $flags test.vhd" !!}
+
+  {s"ghdl --clean $workDirFlag" !!}
+  {s"ghdl -a $flags ${riscv_tb.getFiles}" !!}
   {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
   //spike -l --isa=RV32IMAFDC towers.riscv 2>&1 >/dev/null | awk '{print $3}' | tr a-z A-Z | sed -e 's/0XFFFFFFFF//g'
   //ghdl -r -P/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/ -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 --stop-time=5000ns | awk '{print $3}' | sed -e 's/PC=//g' | sed -e 's/,//g'
