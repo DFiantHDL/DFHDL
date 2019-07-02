@@ -15,4 +15,5 @@ doc/**/*.synctex.gz
 doc/fpga2018/fpga2018.pdf
 doc/fpl2019/fpl2019.pdf
 doc/official/site/*
+sandbox/
 

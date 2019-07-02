@@ -25,5 +25,5 @@ trait ID extends DFDesign { //This our `ID` dataflow design
 
 object IDApp extends App { //The ID compilation program entry-point
   val id = new ID {} //Instantiate ID as a top-level entity
-  id.compileToVHDL.toFile("id.vhdl") //Compile to a single VHDL file.
+  id.compileToVHDL.toFolder("./") //Compile to a single VHDL file.
 }
