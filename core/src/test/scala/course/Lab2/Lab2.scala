@@ -19,7 +19,7 @@ package course.Lab2
 import sys.process._
 import scala.language.postfixOps
 
-object Lab2 extends App {
+object Lab2 extends DFiant.DFApp {
   val ghdl = "ghdl"
   val vivado = "/opt/Xilinx/Vivado/2018.2/bin/vivado"
 

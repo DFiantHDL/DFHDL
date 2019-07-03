@@ -22,16 +22,22 @@ theme:
         code: 'Roboto Mono'    
     feature:
         tabs: true
+    logo:
+        icon: 'home'    
         
 # Customization
 extra:
   social:
-    - type: twitter
-      link: https://twitter.com/soronpo
+    - type: 'github'
+      link: 'https://www.github.com/soronpo/'
+    - type: 'researchgate'
+      link: 'https://www.researchgate.net/profile/Oron_Port'
+    - type: 'twitter'
+      link: 'https://twitter.com/soronpo'
         
 
 nav:
-    - Introduction:
+    - Introduction: 
         - 'DFiant: First Look': intro/first-look/index.md
         - Motivation (Why Another HDL): intro/motivation/index.md
         - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md
@@ -41,8 +47,10 @@ nav:
     - User Guide:
         - Type System: user-guide/type-system/index.md
         - Connectivity: user-guide/connectivity/index.md
-        - State: user-guide/state/index.md
+        - 'State & Memory': user-guide/state/index.md
         - Meta Hardware Programming: user-guide/meta/index.md
+        - Simulation: user-guide/simulation/index.md
+        - Synthesis: user-guide/synthesis/index.md
     - About:
         - Release Notes: about/release-notes.md
         - Contributing: about/contributing.md
@@ -53,6 +61,7 @@ extra_javascript:
     - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
   
 markdown_extensions:
+    - admonition
     - pymdownx.arithmatex
     - pymdownx.superfences
     - codehilite:

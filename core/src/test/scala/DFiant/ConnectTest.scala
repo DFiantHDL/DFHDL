@@ -152,6 +152,7 @@ class ConnectTest extends Properties("ConnectTest") {
 
 
   property("DFDesign.codeString") = {
+    import DFDesign.allowTop._
     val topIO = new DFDesign { //TODO: consider fixing name of anonymous DFDesign
       val i = DFUInt(8) <> IN init(1, 2)
       val o = DFUInt(8) <> OUT
@@ -171,6 +172,7 @@ class ConnectTest extends Properties("ConnectTest") {
   }
 
   property("ContainerConn3.codeString") = {
+    import DFDesign.allowTop._
     val top_containerConn3 = new ContainerConn3 {}
     val compare =
       """
@@ -261,6 +263,7 @@ class ConnectTest extends Properties("ConnectTest") {
 //  }
 
   property("IODesignIf.codeString default") = {
+    import DFDesign.allowTop._
     val top_ioDesignIf = new IODesignIf {}
     val compare =
       """
@@ -303,6 +306,7 @@ class ConnectTest extends Properties("ConnectTest") {
 
   property("IODesignConn2.codeString") = {
     implicit val config = DFAnyConfiguration.detailed
+    import DFDesign.allowTop._
     val top_ioDesignConn2 = new IODesignConn2 {}
     val compare =
       """
@@ -329,6 +333,7 @@ class ConnectTest extends Properties("ConnectTest") {
 
   property("IODesignConn5.codeString detailed") = {
     implicit val config = DFAnyConfiguration.detailed
+    import DFDesign.allowTop._
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
       """
@@ -363,6 +368,7 @@ class ConnectTest extends Properties("ConnectTest") {
   }
 
   property("IODesignConn5.codeString default") = {
+    import DFDesign.allowTop._
     val top_ioDesignConn5 = new IODesignConn5 {}
     val compare =
       """
@@ -469,6 +475,7 @@ class ConnectTest extends Properties("ConnectTest") {
 //  }
 
   property("IODesignMatch.codeString") = {
+    import DFDesign.allowTop._
     implicit val config = DFAnyConfiguration.detailed
     val top_ioDesignMatch = new IODesignMatch {}
     val compare =
@@ -522,6 +529,7 @@ class ConnectTest extends Properties("ConnectTest") {
   }
 
   property("ContainerConnLoop exception") = {
+    import DFDesign.allowTop._
     implicit val config = DFAnyConfiguration.detailed
     val topLoop = new ContainerConnLoop {}
     val expectedError =

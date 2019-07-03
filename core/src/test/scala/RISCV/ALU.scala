@@ -73,7 +73,7 @@ trait ALUTest extends DFDesign {
 
 
 
-object ALUTestApp extends App {
+object ALUTestApp extends DFApp {
   import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.foldedInit
 

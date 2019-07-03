@@ -21,6 +21,8 @@ import DFiant.targetlib.TargetLib
 import DFiant.compiler.Backend
 import DFiant.internals._
 
+import scala.annotation.implicitNotFound
+
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {self =>
   protected[DFiant] trait __DevDFDesign extends __DevDFBlock with __DevDFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,8 +120,13 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 }
 
 object DFDesign {
+  protected[DFiant] sealed trait AllowTOP
+  object allowTop {
+    implicit object __AllowTop extends AllowTOP
+  }
   implicit def fetchDev(from : DFDesign)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   private[DFiant] type Context = DFBlock.Context
+  @implicitNotFound("Missing DFDesign.Context")
   trait ContextOf[+T] extends DSLContext {
     val ownerOption : Option[DFBlock]
     val targetLib: TargetLib
@@ -129,13 +136,26 @@ object DFDesign {
   object ContextOf {
     implicit def ev[T](
       implicit
-      evOwner : DFBlock = null,
+      evOwner : DFBlock,
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
       forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
-      val ownerOption : Option[DFBlock] = Option(evOwner)
+      val ownerOption : Option[DFBlock] = Some(evOwner)
+      val targetLib: TargetLib = evBasicLib
+      val config: DFAnyConfiguration = evConfig
+      val n: NameIt = evNameIt
+    }
+    implicit def evTop[T](
+      implicit
+      evAllowTop : AllowTOP, //Must have an implicit AllowTOP in scope
+      evBasicLib : TargetLib,
+      evConfig : DFAnyConfiguration,
+      evNameIt : NameIt,
+      forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
+    ) : ContextOf[T] = new ContextOf[T] {
+      val ownerOption : Option[DFBlock] = None
       val targetLib: TargetLib = evBasicLib
       val config: DFAnyConfiguration = evConfig
       val n: NameIt = evNameIt

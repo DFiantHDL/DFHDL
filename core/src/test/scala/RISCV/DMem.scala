@@ -138,7 +138,7 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
   }
 }
 
-
+import DFDesign.allowTop._
 case class DMemInst(
   //IMem
   pc          : DFBits[32],

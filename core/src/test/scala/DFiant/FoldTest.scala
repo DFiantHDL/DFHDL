@@ -51,7 +51,7 @@ trait FoldTest extends DFDesign {
   o <> io.o
 }
 
-object FoldApp extends App {
+object FoldApp extends DFApp {
   val foldtest = new FoldTest {}
 //  println(foldtest.io.externals.named)
   println("------------------------------")

@@ -34,6 +34,6 @@ trait PortArgTest extends DFDesign {
   val io2 = new PortArgDesign(temp, o) {}
 }
 
-object PortArgApp extends App {
+object PortArgApp extends DFApp {
   val paTest = new PortArgTest {}.printCodeString
 }

@@ -62,6 +62,7 @@ class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DF
   }
 }
 
+import DFDesign.allowTop._
 case class IMemInst(
   pc      : DFBits[32],
   instRaw : DFBits[32]

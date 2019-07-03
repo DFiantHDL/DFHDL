@@ -20,6 +20,8 @@ package DFiant
 import DFiant.targetlib.TargetLib
 import internals._
 
+import scala.annotation.implicitNotFound
+
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
   final private[DFiant] lazy val ctx = ctx0
   protected[DFiant] trait __DevDFBlock extends __DevDFAnyOwner {
@@ -47,7 +49,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
 
   override protected[DFiant] type ThisOwner = DFBlock
   private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
-  final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext()
+  final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext
   override implicit def __theOwnerToBe : DFBlock = mutableOwner.value
   implicit val targetLib = ctx.targetLib
 
@@ -74,6 +76,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
 }
 object DFBlock {
   implicit def fetchDev(from : DFBlock)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  @implicitNotFound("Missing Context")
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
     def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
@@ -83,11 +86,27 @@ object DFBlock {
       val n: NameIt = n0
     }
   }
-  trait LowPriority {
+  trait LowestPriority {
+    implicit def evTop[T, Owner <: DFAnyOwner](
+      implicit
+      lp : shapeless.LowPriority,
+      evAllowTop : DFDesign.AllowTOP, //Must have an implicit AllowTOP in scope
+      evBasicLib : TargetLib,
+      evConfig : DFAnyConfiguration,
+      evNameIt : NameIt,
+      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+    ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
+      val ownerOption : Option[Owner] = None
+      implicit val targetLib: TargetLib = evBasicLib
+      implicit val config: DFAnyConfiguration = evConfig
+      val n: NameIt = evNameIt
+    }
+  }
+  trait LowPriority extends LowestPriority {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit
       lp : shapeless.LowPriority,
-      evOwner : Owner = null,
+      evOwner : Owner,
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evNameIt : NameIt,
@@ -99,7 +118,8 @@ object DFBlock {
       val n: NameIt = evNameIt
     }
   }
-  private[DFiant] case class InternalContext()
+  private[DFiant] sealed trait InternalContext
+  object InternalContext extends InternalContext
   object ContextOf extends LowPriority {
     implicit def evContext[T, T2](
       implicit
@@ -114,7 +134,7 @@ object DFBlock {
       val n : NameIt = evContext.n
     }
   }
-  type Context = ContextOf[Nothing, DFBlock]
+  type Context = ContextOf[Unit, DFBlock]
 }
 
 

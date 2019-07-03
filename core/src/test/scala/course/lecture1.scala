@@ -19,7 +19,7 @@ package course
 import DFiant._
 
 
-object TestFA extends App {
+object TestFA extends DFApp {
 //    implicit val a = DFAnyConfiguration.detailed
 //    val fa = new FA {}.printCodeString
 //    val fa = new FA {}.printVHDLString
@@ -134,19 +134,19 @@ class AddN(n : Int)(implicit ctx : DFDesign.ContextOf[AddN]) extends DFDesign {
 }
 
 
-class MyCounter(w : Int) extends DFDesign {
+class MyCounter(w : Int)(implicit ctx : DFDesign.ContextOf[MyCounter]) extends DFDesign {
   final val en  = DFBool() <> IN
   final val out = DFUInt(w) <> OUT init(0)
   final val isZero = DFBool() <> OUT
   ifdf (en) {out := out + 1}
   isZero := out.isZero
 }
-object Top extends DFDesign {
-  val out = DFUInt(8) <> OUT
-  val c8 = new MyCounter(8) {}
-  c8.en <> true
-  c8.out <> out
-}
+//object Top extends DFDesign {
+//  val out = DFUInt(8) <> OUT
+//  val c8 = new MyCounter(8) {}
+//  c8.en <> true
+//  c8.out <> out
+//}
 
 
 trait Mul32 extends DFDesign {

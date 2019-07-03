@@ -74,7 +74,7 @@ trait SampleFilterAccumulator extends DFDesign {
   }
 }
 
-class SlidingAvg(sample : DFSInt[16]) extends DFDesign {
+class SlidingAvg(sample : DFSInt[16])(implicit ctx : DFDesign.ContextOf[SlidingAvg]) extends DFDesign {
   val avg       = DFSInt(16) <> OUT
   val acc       = DFSInt(18) init 0
   acc := acc + sample - sample.prev(4)

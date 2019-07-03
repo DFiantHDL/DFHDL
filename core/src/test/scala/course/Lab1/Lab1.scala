@@ -85,7 +85,7 @@ trait RightShifter_TB extends DFSimulator {
 }
 
 
-object Lab1 extends App {
+object Lab1 extends DFApp {
   println("Hello world! I'm Lab #1")
   val rightShifter_tb = new RightShifter_TB {}.compileToVHDL.print().toFile("lab1.vhd")
 }

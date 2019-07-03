@@ -262,7 +262,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   }
 }
 
-
+import DFDesign.allowTop._
 case class DecodedInst(
   //IMem
   pc        : DFBits[32],

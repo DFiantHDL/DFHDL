@@ -78,7 +78,7 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
 }
 
 
-
+import DFDesign.allowTop._
 case class RegFileInst(
   //IMem
   pc        : DFBits[32],

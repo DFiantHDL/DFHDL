@@ -15,7 +15,7 @@
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-object UDCounterApp extends App {
+object UDCounterApp extends DFiant.DFApp {
   val udCounter = new SampleFilterAccumulator {}
   udCounter.compileToVHDL.print()
 }

@@ -72,6 +72,6 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
 }
 
 
-object Bla extends App {
+object Bla extends DFApp {
   val bla = new Cont {}.printCodeString.compileToVHDL.print().toFile("tour.vhd")
 }

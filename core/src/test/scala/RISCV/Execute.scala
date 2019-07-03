@@ -79,6 +79,7 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : DFDesign.ContextOf[Execut
   }
 }
 
+import DFDesign.allowTop._
 case class ExecuteInst(
   //IMem
   pc        : DFBits[32],

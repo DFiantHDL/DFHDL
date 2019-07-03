@@ -14,18 +14,27 @@
  *     You should have received a copy of the GNU Lesser General Public License
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-package example1
+package example2
 
 import DFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
   val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
   val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
-  y := x //trivial direct input-to-output assignment
+  y <> x //Trivial direct input-to-output connection
 }
 
-object IDApp extends DFApp { //The ID compilation program entry-point
-  val id = new ID {} //Instantiate ID as a top-level entity
-  id.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally.
+trait IDTop extends DFDesign { //This our `IDTop` dataflow design
+  val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
+  val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
+  val id1 = new ID {} //First instance of the `ID` design
+  val id2 = new ID {} //Second instance of the `ID` design
+  id1.x <> x      //Connecting parent input port to child input port
+  id1.y <> id2.x  //Connecting sibling instance ports
+  id2.y <> y      //Connecting parent output port to child output port
+}
+
+object IDTopApp extends DFApp { //The IDTop compilation program entry-point
+  val idTop = new IDTop {} //Instantiate IDTop as a top-level entity
+  idTop.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally
 }

@@ -70,7 +70,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 }
 
 object DFComponent {
-  trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Nothing, DFBlock] {
+  trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Unit, DFBlock] {
     implicit val impl : Comp => Unit
     val compName : sourcecode.Name.OfType[Comp]
   }
