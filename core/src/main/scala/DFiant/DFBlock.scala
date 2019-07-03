@@ -76,7 +76,8 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
 }
 object DFBlock {
   implicit def fetchDev(from : DFBlock)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
-  @implicitNotFound("Missing Context")
+  private final val s = "Missing an implicit dataflow context. There are some options to fix this:\n*If you're creating a class"
+  @implicitNotFound(s)
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
     def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {

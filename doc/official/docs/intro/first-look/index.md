@@ -21,7 +21,7 @@ In this section we provide a simple running example to demonstrate various DFian
 
 ## Basic Example: An Identity Function
 
-Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit input port `x` and a signed 16-bit output port `y`. We implemented an identity function, meaning for an input series $x_k$, the output series shall be $y_k=x_k$. Fig. 1a depicts a functional drawing of the design and Fig. 1b the complete 
+Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit input port `x` and a signed 16-bit output port `y`. We implemented an identity function between the input and output, meaning for an input series $x_k$, the output series shall be $y_k=x_k$. Fig. 1a depicts a functional drawing of the design and Fig. 1b the complete 
 
 <p align="center">
   <img src="../first-look/id.png"><br>
@@ -37,7 +37,7 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   y := x //Trivial direct input-to-output assignment
 }
 
-object IDApp extends App { //The ID compilation program entry-point
+object IDApp extends DFApp { //The ID compilation program entry-point
   val id = new ID {} //Instantiate ID as a top-level entity
   id.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally.
 }
@@ -152,7 +152,7 @@ The Scala code in Fig. 1b describes a program that runs the DFiant compiler on a
 
 | Line # | Description                                                  |
 | ------ | ------------------------------------------------------------ |
-| 1      | This import statement summons all the DFiant classes, types and objects into the current scope. This is a must in every DFiant codebase. |
+| 1      | This `import` statement summons all the DFiant classes, types and objects into the current scope. This is a must in every DFiant codebase. |
 | 3-7    | This `ID` Scala `trait` is extended from a `DFDesign` (abstract) class and therefore declares it as a dataflow design. The reason why this is a `trait` and not a `class` is discussed [later]() in this documentation. Currently, the *rule of thumb* to describe dataflow designs is to use traits that extend `DFDesign`. |
 | 4, 5   | Here we construct the input port `x` and output port `y`.  Both were set as a 16-bit signed integer dataflow variable via the `DFSInt[W]` constructor, where `W` is a width ***type*** argument that can accept any positive integer literal. It is also possible to use a width ***term*** argument via`DFSInt(width)`. The difference between type and term arguments will be discussed [later]() in this documentation. <br />The syntax `val <name> = <dataflow_variable_constructor>  <>  <direction>` is used to construct a port and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. For example |
 |        |                                                              |
@@ -194,7 +194,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.y <> y      //Connecting parent output port to child output port
 }
 
-object IDTopApp extends App { //The IDTop compilation program entry-point
+object IDTopApp extends DFApp { //The IDTop compilation program entry-point
   val idTop = new IDTop {} //Instantiate IDTop as a top-level entity
   idTop.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally
 }

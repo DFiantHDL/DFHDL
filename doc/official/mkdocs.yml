@@ -61,12 +61,14 @@ extra_javascript:
     - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
   
 markdown_extensions:
+    - toc:
+        permalink: true
     - admonition
     - pymdownx.arithmatex
     - pymdownx.superfences
     - codehilite:
-          guess_lang: false
-          linenums: true
+        guess_lang: false
+        linenums: true
         
 extra_css:
     - css/vs.css
