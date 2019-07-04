@@ -85,7 +85,7 @@ class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) ext
 
 object ProcTest extends DFApp {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(Program.fromFile("riscv-bmarks/towers.riscv.dump")).compileToVHDL.print().toFolder("testProc")
+  val riscv_tb = new Proc_TB(Program.fromFile("../riscv-bmarks/towers.riscv.dump")).compileToVHDL.print().toFolder("testProc")
   new java.io.File("testProc/work").mkdirs()
   val workDirFlag = "--workdir=testProc/work"
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"

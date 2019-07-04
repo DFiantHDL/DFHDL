@@ -18,8 +18,6 @@ By this point you may already have some questions:
 
 Answers to these questions await you at our [Introduction][Why] section.
 
-
-
 ## Required Knowledge
 
 <u>You are ***not*** required to know Scala</u>, yet you are expected to understand basic object oriented concepts. This documentation attempts to bridge over any syntactic gaps you may arrive at. Nonetheless, as you attempt to create more complex and generic designs, more Scala knowledge will be required of you.
@@ -33,5 +31,4 @@ Answers to these questions await you at our [Introduction][Why] section.
 
 
 ## First release and more info coming soon...
-
 
