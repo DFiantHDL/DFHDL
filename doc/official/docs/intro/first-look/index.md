@@ -358,11 +358,15 @@ trait SimpleMovingAverage extends DFDesign {
 }
 ```
 
-We begin with a [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA) example. In this example, the signed 16-bit  input, $x$ 
+We begin with a [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA) example. In this example, the signed 16-bit  input,
 
-$ a_0 = 0 $
-$ a_k = a_{k-1} - x_{k-4}+x_k $
-$ y_k = a_k/4$
+$ a_0 = 0;  a_k = a_{k-1} - x_{k-4}+x_k; y_k = a_k/4$
+
+
+
+
+
+something
 
 ```scala
 trait SimpleMovingAverage extends DFDesign {

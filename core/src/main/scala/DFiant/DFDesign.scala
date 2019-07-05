@@ -126,7 +126,7 @@ object DFDesign {
   }
   implicit def fetchDev(from : DFDesign)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   private[DFiant] type Context = DFBlock.Context
-  @implicitNotFound("Missing DFDesign.Context")
+  @implicitNotFound(errors.MissingContext.msg)
   trait ContextOf[+T] extends DSLContext {
     val ownerOption : Option[DFBlock]
     val targetLib: TargetLib

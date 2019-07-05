@@ -24,7 +24,7 @@ Answers to these questions await you at our [Introduction][Why] section.
 
 <u>You are ***not*** required to be an FPGA/ASIC expert</u>, yet you are expected to understand fundamental hardware description concepts found in languages such as Verilog and VHDL.  
 
-<u>You ***are*** required to keep an open mind</u>. Some of these concepts may seem strange at first, but they were set after careful thought and planning. However, we are not infallible so feel free to [file an issue](https://github.com/DFiantHDL/DFiant/issues) and even fix it yourself and [submit a PR](https://github.com/DFiantHDL/DFiant/pulls) ;).
+<u>You ***are*** required to keep an open mind</u>. Some of these concepts may seem strange at first, but they were set after careful thought and planning. However, we are not infallible so feel free to [file an issue](https://github.com/DFiantHDL/DFiant/issues) with questions and/or suggestions of different approaches we can take.
 
 
 

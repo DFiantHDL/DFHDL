@@ -52,6 +52,7 @@ nav:
     - Meta Hardware Description: user-guide/meta/index.md
     - Simulation: user-guide/simulation/index.md
     - Synthesis: user-guide/synthesis/index.md
+    - Errors: user-guide/errors/index.md
   - About:
     - Release Notes: about/release-notes.md
     - Contributing: about/contributing.md

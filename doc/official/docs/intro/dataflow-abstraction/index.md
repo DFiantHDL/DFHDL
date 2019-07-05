@@ -10,7 +10,7 @@
 <p align="center">
   <img src="../dataflow-abstraction/hdl-abstraction.svg"><br>
   <b>Fig.1: HDL abstraction layer summary (lowest=netlist, highest=dataflow)</b><br> 
-  <b>Each layer subsumes the capabilities of the layer below it. Dataflow constructs replace RTL registers with their true functionality (e.g., state) or inserts them implicitly (e.g., pipelining)</b><br>
+  <b>Each layer subsumes the capabilities of the layer below it. Dataflow constructs replace RTL registers with their true functionality (e.g., state) or insert them implicitly (e.g., pipelining)</b><br>
 </p>
 
 
