@@ -37,10 +37,7 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   y := x //Trivial direct input-to-output assignment
 }
 
-object IDApp extends DFApp { //The ID compilation program entry-point
-  val id = new ID {} //Instantiate ID as a top-level entity
-  id.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally.
-}
+object IDApp extends DFApp.VHDLCompiler[ID] //The ID compilation program entry-point
 ```
 
 ``` vhdl tab="id.vhdl"
@@ -146,26 +143,18 @@ end package body id_pkg;
 
 The Scala code in Fig. 1b describes a program that runs the DFiant compiler on an identity function dataflow design, `ID`. Since DFiant is a Scala library some if its compilation process is done statically via the Scala compiler and the rest during the Scala runtime execution. 
 
-<p align="center">
-   <u>Table 1: ID.scala code line breakdown</u><br>
-</p>
+!!! summary "Writing a DFiant compilation program – easy as 1-2-3!"
 
-| Line # | Description                                                  |
-| ------ | ------------------------------------------------------------ |
-| 1      | This `import` statement summons all the DFiant classes, types and objects into the current scope. This is a must in every DFiant codebase. |
-| 3-7    | This `ID` Scala `trait` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. The reason why this is a `trait` and not a `class` is discussed [later]() in this documentation. Currently, the *rule of thumb* to describe dataflow designs is to use traits that extend `DFDesign`. |
-| 4, 5   | Here we construct the input port `x` and output port `y`.  Both were set as a 16-bit signed integer dataflow variable via the `DFSInt[W]` constructor, where `W` is a width ***type*** argument that can accept any positive integer literal. It is also possible to use a width ***term*** argument via`DFSInt(width)`. DFiant also support various types such as `DFBits`, `DFUInt`, and `DFBool`. All these dataflow variable construction options and more are discussed [later](/getting-started/) in this documentation. <br />The syntax `val _name_ = _dataflow_variable_constructor_ <> _direction_` is used to construct a port and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. For example |
-|        |                                                              |
-|        |                                                              |
-|        |                                                              |
-|        |                                                              |
+	1. `#!scala import DFiant._` to import all the required namespace fields
+	2. `#!scala trait _design_name_ extends DFDesign {}` to define your dataflow design. Populate your design with the required dataflow functionality.
+	3. `#!scala object _program_name_ extends DFApp.VHDLCompiler[_design_name_]` to create your compilation program entry point.
 
-!!! summary "Every basic DFiant compilation program includes"
-
-	* `import DFiant._` to import all the required namespace fields
-	* `trait <design_name> extends DFDesign {}` to create a
-
-
+??? info "ID.scala line-by-line breakdown"
+	* Line 1: This `#!scala import` statement summons all the DFiant classes, types and objects into the current scope. This is a must in every DFiant codebase.
+	* Lines 3-7: This `ID` Scala `#!scala trait` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. The reason why this is a `#!scala trait` and not a `#!scala class` is discussed [later]() in this documentation. Currently, the *rule of thumb* to describe dataflow designs is to use traits that extend `DFDesign`.
+		* Lines 4-5: Here we construct the input port `x` and output port `y`.  Both were set as a 16-bit signed integer dataflow variable via the `DFSInt[W]` constructor, where `W` is a width ***type*** argument that can accept any positive integer literal. It is also possible to use a width ***term*** argument via`DFSInt(width)`. DFiant also support various types such as `DFBits`, `DFUInt`, and `DFBool`. All these dataflow variable construction options and more are discussed [later](/getting-started/) in this documentation. <br />The syntax `#!scala val _name_ = _dataflow_variable_constructor_ <> _direction_` is used to construct a port and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
+		* Line 6: The assignment operator `:=` set the dataflow output port to receive all tokens from the dataflow input port
+	* Lines
 
 ---
 
@@ -194,10 +183,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.y <> y      //Connecting parent output port to child output port
 }
 
-object IDTopApp extends DFApp { //The IDTop compilation program entry-point
-  val idTop = new IDTop {} //Instantiate IDTop as a top-level entity
-  idTop.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally
-}
+object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point
 ```
 
 ``` vhdl tab="idtop.vhdl"

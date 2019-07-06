@@ -34,7 +34,4 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.y <> y      //Connecting parent output port to child output port
 }
 
-object IDTopApp extends DFApp { //The IDTop compilation program entry-point
-  val idTop = new IDTop {} //Instantiate IDTop as a top-level entity
-  idTop.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally
-}
+object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

@@ -69,6 +69,8 @@ markdown_extensions:
     - admonition
     - pymdownx.arithmatex
     - pymdownx.superfences
+    - pymdownx.details
+    - pymdownx.inlinehilite 
     - codehilite:
         guess_lang: false
         linenums: true

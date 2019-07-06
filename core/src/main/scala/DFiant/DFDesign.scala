@@ -165,6 +165,30 @@ object DFDesign {
     def ownerToString(designTypeName : String, designBodyString : String) : String =
       s"\ntrait $designTypeName extends DFDesign {$designBodyString\n}"
   }
+
+  trait Gen[DFD <: DFDesign] {
+    def apply()(implicit ctx : DFBlock.Context) : DFD
+  }
+  object Gen {
+    import scala.reflect.macros.blackbox
+    import scala.language.experimental.macros
+    import allowTop.__AllowTop
+
+    def helper[DFD <: DFDesign : c.WeakTypeTag](c : blackbox.Context) : c.Tree = {
+      import c.universe._
+      val tpe = weakTypeOf[DFD]
+      val sym = symbolOf[DFD]
+      val genTree =
+        q"""
+            new DFiant.DFDesign.Gen[$tpe]{
+              def apply()(implicit n : DFiant.DFBlock.Context) : $tpe = new $sym {}
+            }
+          """
+      genTree
+    }
+    implicit def apply[DFD <: DFDesign] : Gen[DFD] = macro helper[DFD]
+  }
+
 }
 
 

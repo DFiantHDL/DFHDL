@@ -25,7 +25,4 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   y := x //trivial direct input-to-output assignment
 }
 
-object IDApp extends DFApp { //The ID compilation program entry-point
-  val id = new ID {} //Instantiate ID as a top-level entity
-  id.compileToVHDL.toFolder("./") //Compile to VHDL and write the files locally.
-}
+object IDApp extends DFApp.VHDLCompiler[ID] //The ID compilation program entry-point
