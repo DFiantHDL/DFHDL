@@ -12,11 +12,15 @@ DFiant is a dataflow HDL and is embedded as a library in the [Scala programming 
 
 By this point you may already have some questions: 
 
-* Why do we need yet another HDL? 
-* Why are high-level synthesis (HLS) tools not enough?
-* What is a dataflow HDL? 
+* [Why do we need yet another HDL?](intro/motivation) 
+* [Why are high-level synthesis (HLS) tools not enough?](intro/motivation)
+* [What is a dataflow HDL?](intro/dataflow-abstraction)
 
-Answers to these questions await you at our [Introduction][Why] section.
+Answers to these questions await you at the linked sections.
+
+**But**, if you're curious about the DFiant language, [checkout our first-look section](intro/first-look) first.
+
+
 
 ## Required Knowledge
 
@@ -25,8 +29,6 @@ Answers to these questions await you at our [Introduction][Why] section.
 <u>You are ***not*** required to be an FPGA/ASIC expert</u>, yet you are expected to understand fundamental hardware description concepts found in languages such as Verilog and VHDL.  
 
 <u>You ***are*** required to keep an open mind</u>. Some of these concepts may seem strange at first, but they were set after careful thought and planning. However, we are not infallible so feel free to [file an issue](https://github.com/DFiantHDL/DFiant/issues) with questions and/or suggestions of different approaches we can take.
-
-
 
 
 

@@ -10,6 +10,6 @@ object DFApp {
     implicit gen : DFDesign.Gen[DFD]
   ) extends DFApp {
     val top = gen() //Instantiate a top-level instance
-    top.setAutoName(top.typeName).compileToVHDL.print().toFolder(path) //Compile to VHDL and write the files to path.
+    top.setAutoName(top.typeName).compileToVHDL.toFolder(path) //Compile to VHDL and write the files to path.
   }
 }
