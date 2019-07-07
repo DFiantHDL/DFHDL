@@ -38,7 +38,7 @@ extra:
 
 nav:
   - Introduction:
-    - index.md
+    - DFDocs: index.md
     - 'DFiant: First Look': intro/first-look/index.md
     - Motivation (Why Another HDL): intro/motivation/index.md
     - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md

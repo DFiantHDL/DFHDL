@@ -855,7 +855,7 @@ object Backend {
       case x : RTComponent if x.resetList.nonEmpty || x.clockList.nonEmpty => true
       case x : DFBlock if x.hasSimMembers => true
       case _ =>
-        design.isTop ||
+//        design.isTop ||
           architecture.statements.components.list.map(e => e.hasSyncProcess)
             .foldLeft(architecture.statements.sync_process.exists)((l, r) => l || r)
     }

@@ -2,7 +2,7 @@ package DFiant
 import internals._
 
 trait DFApp extends App {
-  final protected implicit val __AllowTop = DFDesign.allowTop.__AllowTop
+  final protected implicit val _ = DFDesign.allowTop.__AllowTop
 }
 
 object DFApp {
