@@ -47,9 +47,10 @@ nav:
     - Hello Hardware World: getting-started/hello-world.md
   - User Guide:
     - Type System: user-guide/type-system/index.md
+    - State (Memory): user-guide/state/index.md
     - Connectivity: user-guide/connectivity/index.md
-    - 'State & Memory': user-guide/state/index.md
     - Meta Hardware Description: user-guide/meta/index.md
+    - Compilation: user-guide/compilation/index.md
     - Simulation: user-guide/simulation/index.md
     - Synthesis: user-guide/synthesis/index.md
     - Errors: user-guide/errors/index.md

@@ -10,13 +10,14 @@ Your first encounter with the DFiant syntax, semantics and language features
 
 In this section we provide simple examples to demonstrate various DFiant syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the <u>Getting Started</u> chapter of this documentation. 
 
-## Feature Overview
+## Main Feature Overview
 
+* Target and timing agnostic dataflow hardware description
 * Strong bit-accurate type-safety
-* Context-sensitive port connections
+* Simplified port connections
+* Automatic latency path balancing
+* Automatic/manual pipelining
 * Meta hardware description via rich Scala language constructs
-* 
-
 
 
 ## Basic Example: An Identity Function
@@ -328,6 +329,214 @@ end package body idtop_pkg;
 ```
 
 
+
+## Finite State Machine (FSM) Example
+
+``` scala tab="FSM.scala"
+import DFiant._ //Required in any DFiant compilation program
+
+object SeqState extends Enum.Auto { //State entry enumeration
+  val S0, S1, S10, S100, S1001 = Entry
+}
+
+trait FSM extends DFDesign { //This our `FSM` dataflow design
+  val x = DFBool() <> IN  //The input port is a boolean
+  val y = DFBool() <> OUT //The output port is a boolean
+  val ss = DFEnum(SeqState) init SeqState.S0 //The sequence state
+
+  matchdf(ss) //dataflow match on the state
+    .casedf(SeqState.S0) {
+      y := 0
+      ifdf (x == 0) {
+        ss := SeqState.S0
+      }.elsedf {
+        ss := SeqState.S1
+      }
+    }.casedf(SeqState.S1) {
+      y := 0
+      ifdf (x == 0) {
+        ss := SeqState.S10
+      }.elsedf {
+        ss := SeqState.S1
+      }
+    }.casedf(SeqState.S10) {
+      y := 0
+      ifdf (x == 0) {
+        ss := SeqState.S100
+      }.elsedf {
+        ss := SeqState.S1
+      }
+    }.casedf(SeqState.S100) {
+      y := 0
+      ifdf (x == 0) {
+        ss := SeqState.S0
+      }.elsedf {
+        ss := SeqState.S1001
+      }
+    }.casedf(SeqState.S1001) {
+      y := 1
+      ifdf (x == 0) {
+        ss := SeqState.S10
+      }.elsedf {
+        ss := SeqState.S1
+      }
+    }
+}
+
+object FSMApp extends DFApp.VHDLCompiler[FSM] //The FSM compilation program entry-point
+```
+
+``` vhdl tab="fsm.vhdl"
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.fsm_pkg.all;
+
+entity fsm is
+port (
+  CLK                  : in  std_logic;
+  RSTn                 : in  std_logic;
+  X                    : in  std_logic;
+  Y                    : out std_logic
+);
+end fsm;
+
+architecture fsm_arch of fsm is
+  signal ss            : SeqState_type;
+  signal ss_prev1      : SeqState_type;
+begin
+
+sync_proc : process (CLK, RSTn)
+begin
+  if RSTn = '0' then
+    ss_prev1           <= E_SEQSTATE_S0;
+  elsif rising_edge(CLK) then
+    ss_prev1           <= ss;
+  end if;
+end process sync_proc;
+
+async_proc : process (all)
+  variable v_Y         : std_logic;
+  variable v_ss        : SeqState_type;
+begin
+  v_ss                 := ss_prev1;
+  case v_ss is
+    when E_SEQSTATE_S0 =>
+      v_Y              := '0';
+      if X = '0' then
+        v_ss           := E_SEQSTATE_S0;
+      else
+        v_ss           := E_SEQSTATE_S1;
+      end if;
+    when E_SEQSTATE_S1 =>
+      v_Y              := '0';
+      if X = '0' then
+        v_ss           := E_SEQSTATE_S10;
+      else
+        v_ss           := E_SEQSTATE_S1;
+      end if;
+    when E_SEQSTATE_S10 =>
+      v_Y              := '0';
+      if X = '0' then
+        v_ss           := E_SEQSTATE_S100;
+      else
+        v_ss           := E_SEQSTATE_S1;
+      end if;
+    when E_SEQSTATE_S100 =>
+      v_Y              := '0';
+      if X = '0' then
+        v_ss           := E_SEQSTATE_S0;
+      else
+        v_ss           := E_SEQSTATE_S1001;
+      end if;
+    when E_SEQSTATE_S1001 =>
+      v_Y              := '1';
+      if X = '0' then
+        v_ss           := E_SEQSTATE_S10;
+      else
+        v_ss           := E_SEQSTATE_S1;
+      end if;
+    when others =>
+  end case;
+  Y                    <= v_Y;
+  ss                   <= v_ss;
+end process async_proc;
+
+end fsm_arch;
+```
+
+``` vhdl tab="fsm_pkg.vhdl" hl_lines="19"
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+package fsm_pkg is
+
+function bit_reverse(s : std_logic_vector) return std_logic_vector;
+         
+function to_sl(b : boolean) return std_logic;
+         
+function to_sl(arg : std_logic_vector) return std_logic;
+         
+function to_slv(arg : std_logic) return std_logic_vector;
+         
+function to_slv(arg : unsigned) return std_logic_vector;
+         
+function to_slv(arg : signed) return std_logic_vector;
+         
+type SeqState_type is (E_SEQSTATE_S0, E_SEQSTATE_S1, E_SEQSTATE_S10, E_SEQSTATE_S100, E_SEQSTATE_S1001);
+end package fsm_pkg;
+
+package body fsm_pkg is
+
+function bit_reverse(s : std_logic_vector) return std_logic_vector is
+   variable v_s : std_logic_vector(s'high downto s'low);
+begin
+  for i in s'high downto s'low loop
+    v_s(i) := s(s'high - i);
+  end loop;
+  return v_s;
+end bit_reverse;
+         
+function to_sl(b : boolean) return std_logic is
+begin
+  if (b) then
+    return '1';
+  else
+    return '0';
+  end if;
+end to_sl;
+         
+function to_sl(arg : std_logic_vector) return std_logic is
+begin
+  return arg(arg'low);
+end to_sl;
+         
+function to_slv(arg : std_logic) return std_logic_vector is
+begin
+  if (arg = '1') then
+    return "1";
+  else
+    return "0";
+  end if;
+end to_slv;
+         
+function to_slv(arg : unsigned) return std_logic_vector is
+  variable slv : std_logic_vector(arg'length-1 downto 0);
+begin
+  slv := std_logic_vector(arg);
+  return slv;
+end to_slv;
+         
+function to_slv(arg : signed) return std_logic_vector is
+  variable slv : std_logic_vector(arg'length-1 downto 0);
+begin
+  slv := std_logic_vector(arg);
+  return slv;
+end to_slv;
+         
+end package body fsm_pkg;
+```
 
 ---
 
