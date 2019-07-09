@@ -10,4 +10,12 @@ object errors {
       "More details at " + url
   }
 
+  object VarDFTypes {
+    private final val url = errorsURL + "#dont-use-var-with-dataflow-valuesvariables"
+    final val msg =
+      "Don't use `var` with dataflow values/variables.\n" +
+      "More details at " + url
+    type Msg = msg.type
+  }
+
 }

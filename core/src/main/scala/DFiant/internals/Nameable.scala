@@ -51,7 +51,7 @@ trait NameIt {
 }
 object NameIt {
   import singleton.ops._
-  type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], "Do not use `var` for DFiant values", Sym]
+  type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], errors.VarDFTypes.Msg, Sym]
   implicit def ev(implicit name : sourcecode.Name, ownerKind : sourcecode.OwnerKind)
   : NameIt = new NameIt {
     private val anonymous = ownerKind.value match {
