@@ -32,15 +32,9 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
 
   private val pcu = pc.uint
   private val pcPlus4U = pcu + 4
-  private val pcuSel = microArchitecture match {
-    case OneCycle => pcu
-    case TwoCycle => pcu.prev
-  }
+  private val pcuSel = pcu
   private val pcPlus4B = pcPlus4U.bits
-  private val pcPlus4Sel = microArchitecture match {
-    case OneCycle => pcPlus4B
-    case TwoCycle => pcPlus4B.prev
-  }
+  private val pcPlus4Sel = pcPlus4B
 
   pcPlus4 := pcPlus4Sel
 
@@ -70,18 +64,7 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
     .casedf(BranchSel.BLTU)                 {r1_LTU_r2}
     .casedf_                                {false}
 
-  private val pcNextU = microArchitecture match {
-    case OneCycle =>
-      DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
-    case TwoCycle =>
-      val prevPCPlus4U = pcPlus4U.prev()
-      val actualPC = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{prevPCPlus4U}
-      val predictedPC = pcPlus4U
-      mispredict := predictedPC.prev != actualPC
-      ifdf (mispredict.prev) {mispredict := false}
-      DFUInt[32].ifdf(mispredict){actualPC}.elsedf{predictedPC}
-  }
-
+  private val pcNextU = DFUInt[32].ifdf(brTaken){pcBrJmp}.elsedf{pcPlus4U}
   pcNext := pcNextU.bits
 
 //  sim.report(msg"PCGen~~>$branchSel, pcNext:$pcNext, imm: $imm, pcOrReg1: $pcOrReg1, pcBrJmp: $pcBrJmp, brTaken: $brTaken, rs1_data: $rs1_data, rs2_data: $rs2_data")

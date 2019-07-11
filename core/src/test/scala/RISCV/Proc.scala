@@ -19,62 +19,42 @@ package RISCV
 import DFiant._
 
 class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends DFDesign {
-  private val done = DFBool() <> OUT init false
   private val pc = DFBits[32] init program.imem.startAddress
   private val imem = new IMem(program.imem)(pc)
-  private val stall = DFBool() init true
-  private val imemInst = microArchitecture match {
-    case OneCycle =>
-      stall := false
-      imem.inst
-    case TwoCycle =>
-      val stalledInstRaw = DFBits[32].selectdf(stall)(NOPInst, imem.inst.instRaw)
-      imem.inst.copy(instRaw = stalledInstRaw)
-  }
-
-  private val decoder = new Decoder(imemInst)
+  private val decoder = new Decoder(imem.inst)
   private val regFile = new RegFile(decoder.inst)
   private val execute = new Execute(regFile.inst)
   private val dmem = new DMem(program.dmem)(execute.inst)
   regFile.writeBack(dmem.inst)
 
+
+
+
+
+
   ///////////////////////////////////////////////////////////////////////////////////////////////
   // Simulation Only
   ///////////////////////////////////////////////////////////////////////////////////////////////
-  private val stallCnt = DFUInt(24) init 0
-  private val ppc = microArchitecture match {
-    case OneCycle => pc.prev
-    case TwoCycle => pc.prev(2)
-  }
-  ifdf (stall) {
-//    sim.report(msg"stall")
-    stallCnt := stallCnt + 1
-  }.elsedf {
-    sim.report(msg"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
+  private val done = DFBool() <> OUT init false
+  private val ppc =  pc.prev
+  sim.report(msg"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
 
-    program.imem.failAddress match {
-      case Some(failPC) => ifdf(ppc == failPC){
-        sim.report(msg"Test failed")
-        sim.finish()
-        done := true
-      }
-      case None =>
-    }
-    ifdf (ppc == program.imem.finishAddress) {
-      sim.report(msg"Program execution finished with 0x$stallCnt stalls")
+  program.imem.failAddress match {
+    case Some(failPC) => ifdf(ppc == failPC){
+      sim.report(msg"Test failed")
       sim.finish()
       done := true
     }
-
-    sim.assert(decoder.inst.debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
+    case None =>
   }
+  ifdf (ppc == program.imem.finishAddress) {
+    sim.report(msg"Program execution finished")
+    sim.finish()
+    done := true
+  }
+
+  sim.assert(decoder.inst.debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
   ///////////////////////////////////////////////////////////////////////////////////////////////
-
-  microArchitecture match {
-    case OneCycle =>
-    case TwoCycle =>
-      stall := execute.mispredict
-  }
 
   pc := dmem.inst.pcNext
 }

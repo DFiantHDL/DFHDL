@@ -39,11 +39,7 @@ class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf
   private val temp = DFBits[32] init b0s
   temp := b0s
   programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
-  private val tempSel = microArchitecture match {
-    case OneCycle => temp
-    case TwoCycle => temp.prev
-  }
-  douta := tempSel
+  douta := temp
 }
 
 class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {

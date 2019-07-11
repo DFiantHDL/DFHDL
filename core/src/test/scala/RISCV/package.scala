@@ -26,7 +26,7 @@ package object RISCV {
   case object OneCycle extends MicroArchitecture
   case object TwoCycle extends MicroArchitecture
 
-  val microArchitecture : MicroArchitecture = TwoCycle
+  val microArchitecture : MicroArchitecture = OneCycle
 
   val caseIMem : Boolean = true //when true, implements the IMem for synthesis as a case statement
   val caseDMem : Boolean = true //when true, implements the DMem for synthesis as a case statement
