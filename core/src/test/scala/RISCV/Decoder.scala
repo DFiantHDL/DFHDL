@@ -43,11 +43,11 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) 
   private val opcode    = instRaw(6, 0)
   private val func7     = instRaw(31, 25)
   private val func3     = instRaw(14, 12)
-  private val immIType  = instRaw(31, 20).sint.extendTo(32).bits
-  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.extendTo(32).bits
-  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.extendTo(32).bits
+  private val immIType  = instRaw(31, 20).sint.toWidth(32).bits
+  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.toWidth(32).bits
+  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.toWidth(32).bits
   private val immUType  = instRaw(31, 12).extendRightTo(32).sint.bits
-  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.extendTo(32).bits
+  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.toWidth(32).bits
   private val notOpCode = instRaw(31, 7)
   rs1_addr := instRaw(19, 15)
   rs2_addr := instRaw(24, 20)

@@ -76,14 +76,11 @@ object DFUInt extends DFAny.Companion {
       new DFUInt.Alias[tfs.Out](DFAny.Alias.Reference.Concat(List(zeros, this), s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
     }
 
-    protected[DFiant] def protExtendTo[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFUInt[EW] = if (numOfBits !=  width) {
-      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
-      new DFUInt.Alias[EW](DFAny.Alias.Reference.Concat(List(zeros, this), s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
-    } else this.asInstanceOf[DFUInt[EW]]
+    protected[DFiant] def protToWidth[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = new DFUInt.Alias[EW](DFAny.Alias.Reference.Resize(this, toWidth))
 
-    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
-    : DFUInt[EW] = protExtendTo[EW](numOfBits)
+    final def toWidth[EW](toWidth : Positive.Checked[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = protToWidth(toWidth)
 
     final def pattern[R](right : Pattern.Able[R]*)(implicit bld : Pattern.Builder[TVal]) = bld(left, right)
 
@@ -492,7 +489,7 @@ object DFUInt extends DFAny.Companion {
       ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[LW]] =
         create[DFUInt[LW], DFUInt[RW], LW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          right.protExtendTo[LW](left.width)
+          right.protToWidth[LW](left.width)
         })
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](

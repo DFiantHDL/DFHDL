@@ -70,19 +70,11 @@ object DFSInt extends DFAny.Companion {
     final def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
 
-    final def extendBy[N](numOfBits : Positive.Checked[N])(
-      implicit
-      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFSInt[tfs.Out] = {
-      val extension = List.fill(numOfBits)(sign)
-      new DFSInt.Alias[tfs.Out](DFAny.Alias.Reference.Concat(extension :+ this, s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
-    }
+    protected[DFiant] def protToWidth[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = new DFSInt.Alias[EW](DFAny.Alias.Reference.Resize(this, toWidth))
 
-    protected[DFiant] def protExtendTo[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = new DFSInt.Alias[EW](DFAny.Alias.Reference.SignExtend(this, toWidth))
-
-    final def extendTo[EW](toWidth : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = protExtendTo(toWidth)
+    final def toWidth[EW](toWidth : Positive.Checked[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = protToWidth(toWidth)
 
     final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
       if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
@@ -433,7 +425,7 @@ object DFSInt extends DFAny.Companion {
       ) : Aux[DFSInt[LW], DFSInt[RW], DFSInt[LW]] =
         create[DFSInt[LW], DFSInt[RW], LW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          right.protExtendTo[LW](left.width)
+          right.protToWidth[LW](left.width)
         })
 
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](

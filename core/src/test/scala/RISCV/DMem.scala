@@ -66,15 +66,15 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
   matchdf(dmemSel)
     .casedf(DMemSel.LB) {
       matchdf(addr(1, 0))
-        .casedf(b"00")    {dataFromMem := bram.douta( 7,  0).sint.extendTo(32).bits}
-        .casedf(b"01")    {dataFromMem := bram.douta(15,  8).sint.extendTo(32).bits}
-        .casedf(b"10")    {dataFromMem := bram.douta(23, 16).sint.extendTo(32).bits}
-        .casedf(b"11")    {dataFromMem := bram.douta(31, 24).sint.extendTo(32).bits}
+        .casedf(b"00")    {dataFromMem := bram.douta( 7,  0).sint.toWidth(32).bits}
+        .casedf(b"01")    {dataFromMem := bram.douta(15,  8).sint.toWidth(32).bits}
+        .casedf(b"10")    {dataFromMem := bram.douta(23, 16).sint.toWidth(32).bits}
+        .casedf(b"11")    {dataFromMem := bram.douta(31, 24).sint.toWidth(32).bits}
     }
     .casedf(DMemSel.LH) {
       matchdf(addr(1, 1))
-        .casedf(b"0")     {dataFromMem := bram.douta(15,  0).sint.extendTo(32).bits}
-        .casedf(b"1")     {dataFromMem := bram.douta(31, 16).sint.extendTo(32).bits}
+        .casedf(b"0")     {dataFromMem := bram.douta(15,  0).sint.toWidth(32).bits}
+        .casedf(b"1")     {dataFromMem := bram.douta(31, 16).sint.toWidth(32).bits}
     }
     .casedf(DMemSel.LW)   {dataFromMem := bram.douta}
     .casedf(DMemSel.LBU) {

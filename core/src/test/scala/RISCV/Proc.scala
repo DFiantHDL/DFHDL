@@ -26,6 +26,17 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
   private val execute = new Execute(regFile.inst)
   private val dmem = new DMem(program.dmem)(execute.inst)
   regFile.writeBack(dmem.inst)
+  pc := dmem.inst.pcNext
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -55,8 +66,6 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
 
   sim.assert(decoder.inst.debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
   ///////////////////////////////////////////////////////////////////////////////////////////////
-
-  pc := dmem.inst.pcNext
 }
 
 class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) extends DFSimulator {
@@ -65,7 +74,8 @@ class Proc_TB(program : Program)(implicit ctx : DFDesign.ContextOf[Proc_TB]) ext
 
 object ProcTest extends DFApp {
 //  val riscv = new Proc {}.compileToVHDL.print().toFile("test.vhd")
-  val riscv_tb = new Proc_TB(Program.fromFile("../riscv-bmarks/towers.riscv.dump")).compileToVHDL.print().toFolder("testProc")
+  val riscv_tb = new Proc_TB(Program.fromFile("../riscv-bmarks/towers.riscv.dump")).printCodeString
+  val risc_tbv = riscv_tb.compileToVHDL.print().toFolder("testProc")
   new java.io.File("testProc/work").mkdirs()
   val workDirFlag = "--workdir=testProc/work"
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
@@ -73,9 +83,9 @@ object ProcTest extends DFApp {
   import sys.process._
   import scala.language.postfixOps
 
-  {s"ghdl --clean $workDirFlag" !!}
-  {s"ghdl -a $flags ${riscv_tb.getFiles}" !!}
-  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
+//  {s"ghdl --clean $workDirFlag" !!}
+//  {s"ghdl -a $flags ${risc_tbv.getFiles}" !!}
+//  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
   //spike -l --isa=RV32IMAFDC towers.riscv 2>&1 >/dev/null | awk '{print $3}' | tr a-z A-Z | sed -e 's/0XFFFFFFFF//g'
   //ghdl -r -P/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/ -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 --stop-time=5000ns | awk '{print $3}' | sed -e 's/PC=//g' | sed -e 's/,//g'
   //ghdl -r -frelaxed-rules --ieee=synopsys --std=08 riscv_tb --ieee-asserts=disable-at-0 | awk '{print $3}' | sed -e 's/PC=//g' | sed -e 's/,//g' > test.txt
