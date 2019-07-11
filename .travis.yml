@@ -14,4 +14,4 @@ deploy:
  local_dir: site
  target_branch: master
  on:
-   branch: master
+   branch: legato
