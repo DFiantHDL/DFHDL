@@ -4,8 +4,6 @@ Semantically, every DFiant dataflow variable references a token stream (TS).
 
 
 
-Formalism Brainstorming:
-
 * Unless stated otherwise, all dataflow variables are always consuming and always producing.
 
 * Previous token initialization:
@@ -18,10 +16,6 @@ Formalism Brainstorming:
 
   * `init` returns a reference to a new (initialized) dataflow variable, but maintains the *mutability* trait dataflow variable. 
 
-  * Partial bits initialization is possible for `DFBits`. E.g. :
-
-    `a.init(5,bits=(3,0))` Initializes only 
-
   * Initialization can be applied more than once. E.g. :
 
     `a.init(0).init(5,bits=(3,0))` Initializes all bits to 0 and then initializes a value of `5` to bits `3::0`
@@ -32,7 +26,7 @@ Formalism Brainstorming:
 
     | Code                                   | Init        | Token Stream          |
     | -------------------------------------- | ----------- | --------------------- |
-    | `in : DFUInt(32)`                      | `Φ`         | `2, 3, 1, 5, 9`       |
+    | `in : DFUInt[32]`                      | `Φ`         | `2, 3, 1, 5, 9`       |
     | `in.prev`                              | `Φ`         | `Φ, 2, 3, 1, 5, 9`    |
     | `in.prev(2)`                           | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
     | `in.prev.prev`                         | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
@@ -48,7 +42,7 @@ Formalism Brainstorming:
     | `ins78.prev(2)`                        | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
     | `in.init(7).prev.init(8, Φ).prev`      | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
 
-    ​
+    
 
   * Bubbles are like any regular-value tokens in terms of consumption and production rules.
 
@@ -78,7 +72,7 @@ Formalism Brainstorming:
     | `inL.init(1).prev + inR.init(3).prev` | `1` `+`<br />`3` `=`<br />`4`           | `1, 2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`4, 6, 3, 3` |
     | `(inL.init(1) + inR.init(3)).prev`    | `1` `+`<br />`3` `=`<br />`4`           | `(2, 3, 1, 5, 9` `+`<br />`4, 0, 2)` `.prev =`<br />`4, 6, 3, 3` |
 
-    ​
+    
 
   * We probably need to add `isBubble` and `produceBubble` to create unique control logic for Bubble tokens. 
 
