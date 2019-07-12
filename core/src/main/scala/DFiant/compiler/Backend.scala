@@ -399,8 +399,12 @@ object Backend {
             case DFAny.Alias.Reference.Pipe(aliasedVar, step) =>
               References(aliasedVar).ref(step)
             case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) =>
-              if (aliasedVar.width.getValue == toWidth) s"${Value(aliasedVar)}"
-              else s"resize(${Value(aliasedVar)}, $toWidth)"
+              aliasedVar match {
+                case x : Func2Comp[_,_,_] if !x.usedAsWide => s"${Value(aliasedVar)}"
+                case _ =>
+                  if (aliasedVar.width.getValue == toWidth) s"${Value(aliasedVar)}"
+                  else s"resize(${Value(aliasedVar)}, $toWidth)"
+              }
 //            case DFAny.Alias.Reference.LeftShift(aliasedVar, shift) =>
 //              val op : String = aliasedVar match {
 //                case a : DFBits[_] => "sll"
@@ -468,7 +472,7 @@ object Backend {
             else Value(tag.dfVal).value.applyBrackets()
           }
           val leftStrFixed = member.opString match {
-            case "+" | "-" | "*" => s"resize($leftStr, ${member.width})"
+            case "+" | "-" | "*" => if (member.usedAsWide) s"resize($leftStr, ${member.width})" else leftStr
             case _ => leftStr
           }
           val rightStr = {

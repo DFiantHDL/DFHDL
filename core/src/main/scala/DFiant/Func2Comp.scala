@@ -68,6 +68,7 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
       def rightInit = inRight.initLB.asInstanceOf[LazyBox[Seq[rightArg.TToken]]]
       LazyBox.Args2[Seq[TToken],Seq[leftArg.TToken],Seq[rightArg.TToken]](self)((l, r) => DFAny.TokenSeq(l, r)(tokenFunc), leftInit, rightInit)
     }
+    private[DFiant] var usedAsWide = false //TODO: remove this hack
 
     final lazy val constLB : LazyBox[TToken] = LazyBox.Args2(self)(tokenFunc, inLeft.constLB.asInstanceOf[LazyBox[leftArg.TToken]], inRight.constLB.asInstanceOf[LazyBox[rightArg.TToken]])
     //  private var extraPipe : Int = 0

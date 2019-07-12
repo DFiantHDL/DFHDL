@@ -510,8 +510,9 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    final class Component[NCW, WCW](val wc : Func2Comp[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.Resize(wc, wc.width-1)) with DFUInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
+    final class Component[NCW, WCW](_wc : Func2Comp[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFUInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
+      lazy val wc = {_wc.usedAsWide = true; _wc}
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       lazy val comp = wc
@@ -569,7 +570,7 @@ object DFUInt extends DFAny.Companion {
                     case `Ops+Or-`.+ => `Func2Comp+`[LW, RW, WCW](left, right)
                     case `Ops+Or-`.- => `Func2Comp-`[LW, RW, WCW](left, right)
                   }
-                  opInst.__dev.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(if (opInst.usedAsWide) s"${ctx}WC" else s"${ctx}")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](opInst)
                 }
