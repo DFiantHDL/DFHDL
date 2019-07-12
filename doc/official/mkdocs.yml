@@ -1,5 +1,6 @@
 # Project information
 site_name: DFDocs
+site_dir: site/LEGaTO
 site_url: https://dfianthdl.github.io/
 site_description: DFiant Hardware Description Language (HDL) Documentation
 site_author: Oron Port
