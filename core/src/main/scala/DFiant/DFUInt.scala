@@ -68,19 +68,14 @@ object DFUInt extends DFAny.Companion {
     final def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) : DFBool = op(left, right)
     final def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
-    final def extendBy[N](numOfBits : Positive.Checked[N])(
-      implicit
-      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFUInt[tfs.Out] = {
-      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
-      new DFUInt.Alias[tfs.Out](DFAny.Alias.Reference.Concat(List(zeros, this), s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
-    }
+    protected[DFiant] def protToWidth[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = if (numOfBits !=  width) {
+      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
+      new DFUInt.Alias[EW](DFAny.Alias.Reference.Concat(List(zeros, this), s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
+    } else this.asInstanceOf[DFUInt[EW]]
 
-    protected[DFiant] def protToWidth[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFUInt[EW] = new DFUInt.Alias[EW](DFAny.Alias.Reference.Resize(this, toWidth))
-
-    final def toWidth[EW](toWidth : Positive.Checked[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFUInt[EW] = protToWidth(toWidth)
+    final def toWidth[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = protToWidth[EW](numOfBits)
 
     final def pattern[R](right : Pattern.Able[R]*)(implicit bld : Pattern.Builder[TVal]) = bld(left, right)
 
@@ -516,7 +511,7 @@ object DFUInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     final class Component[NCW, WCW](val wc : Func2Comp[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.BitsWL(wc, wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] with CompAlias {
+      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.Resize(wc, wc.width-1)) with DFUInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       lazy val comp = wc

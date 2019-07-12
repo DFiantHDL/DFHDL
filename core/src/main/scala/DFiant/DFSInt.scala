@@ -452,7 +452,7 @@ object DFSInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     final class Component[NCW, WCW](val wc : Func2Comp[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.BitsWL(wc, wc.width-1, 0, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint")) with DFSInt[NCW] with CompAlias {
+      DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.Resize(wc, wc.width-1)) with DFSInt[NCW] with CompAlias { //, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint"
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
       lazy val comp = wc
@@ -661,19 +661,28 @@ object DFSInt extends DFAny.Companion {
             opInst
           }
         }
-      implicit def evDFSInt_op_XInt[LW, R <: Int](
+      implicit def evDFSInt_op_Const[LW, R <: Int, RW](
         implicit
-        ctx : DFAny.Alias.Context,
-        check : Natural.Int.CheckedShellSym[Builder[_,_], R]
+        ctx : DFAny.Op.Context,
+        check : Natural.Int.CheckedShellSym[Builder[_,_], R],
+        rConst : DFUInt.Const.PosNeg.Aux[R, RW]
       ) : Builder[DFSInt[LW], R]{type Comp = DFSInt[LW]} = new Builder[DFSInt[LW], R]{
         type Comp = DFSInt[LW]
         def apply(left : DFSInt[LW], right : R) : DFSInt[LW] = {
           check.unsafeCheck(right)
-          opKind match {
-            case DiSoOp.Kind.<< => left << right
-            case DiSoOp.Kind.>> => left >> right
+//          opKind match {
+//            case DiSoOp.Kind.<< => left << right
+//            case DiSoOp.Kind.>> => left >> right
+//            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+//          }
+          import stdlib.DFSIntOps._
+          val opInst = opKind match {
+            case DiSoOp.Kind.<< => `Func2Comp<<`(left, rConst(right)._1)
+            case DiSoOp.Kind.>> => `Func2Comp>>`(left, rConst(right)._1)
             case _ => throw new IllegalArgumentException("Unexpected logic operation")
           }
+          opInst.__dev.setAutoName(s"${ctx}")
+          opInst
         }
       }
     }
