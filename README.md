@@ -1,7 +1,5 @@
 # DFiant HDL
 
-The Official DFiant Hardware Description Language (HDL) Documentation
-
 ---
 
 [![Build Status](https://travis-ci.com/soronpo/DFiant.svg?token=dzwzuUsZuyhzAjyvw87v&branch=master)](https://travis-ci.com/soronpo/DFiant) [![Gitter](https://badges.gitter.im/DFiantHDL/DFiant.svg)](https://gitter.im/DFiantHDL/DFiant?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
