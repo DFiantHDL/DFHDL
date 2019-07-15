@@ -23,7 +23,7 @@ import singleton.twoface._
 object DFEnumOps {
   final class `Func2Comp==`[E <: Enum](leftArg : DFEnum[E], rightArg : DFEnum[E])(
     implicit ctx : DFComponent.Context[`Func2Comp==`[E]],
-  ) extends Func2Comp[`Func2Comp==`[E], DFEnum[E], DFEnum[E]](leftArg, "==", rightArg)(1)(ctx, DFBits) with DFBool {
+  ) extends DFFunc2[`Func2Comp==`[E], DFEnum[E], DFEnum[E]](leftArg, "==", rightArg)(1)(ctx, DFBits) with DFBool {
     final protected val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
@@ -43,7 +43,7 @@ object DFEnumOps {
 
   final class `Func2Comp!=`[E <: Enum](leftArg : DFEnum[E], rightArg : DFEnum[E])(
     implicit ctx : DFComponent.Context[`Func2Comp!=`[E]],
-  ) extends Func2Comp[`Func2Comp!=`[E], DFEnum[E], DFEnum[E]](leftArg, "!=", rightArg)(1)(ctx, DFBits) with DFBool {
+  ) extends DFFunc2[`Func2Comp!=`[E], DFEnum[E], DFEnum[E]](leftArg, "!=", rightArg)(1)(ctx, DFBits) with DFBool {
     final protected val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {

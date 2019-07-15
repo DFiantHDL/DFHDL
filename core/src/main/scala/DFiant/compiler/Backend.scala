@@ -400,7 +400,7 @@ object Backend {
               References(aliasedVar).ref(step)
             case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) =>
               aliasedVar match {
-                case x : Func2Comp[_,_,_] if !x.usedAsWide => s"${Value(aliasedVar)}"
+                case x : DFFunc2[_,_,_] if !x.usedAsWide => s"${Value(aliasedVar)}"
                 case _ =>
                   if (aliasedVar.width.getValue == toWidth) s"${Value(aliasedVar)}"
                   else s"resize(${Value(aliasedVar)}, $toWidth)"
@@ -463,7 +463,7 @@ object Backend {
         override def toString : String = s"$signals$components"
       }
       object statements {
-        def func2(member : Func2Comp[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
+        def func2(member : DFFunc2[_,_,_], leftReplace : Option[DFAny] = None) : Reference = {
 //          println(s"$member ===> ${member.leftArg.asInstanceOf[DFAny].fullName} ${member.opString} ${member.rightArg.asInstanceOf[DFAny].fullName}")
           val leftStr = {
 //            val left = Value(leftReplace.getOrElse(member.leftArg.asInstanceOf[DFAny]))
@@ -770,7 +770,7 @@ object Backend {
       case x : RTComponent =>
         architecture.declarations.component(x)
         architecture.statements.component_instance(x)
-      case x : Func2Comp[_,_,_] => architecture.statements.func2(x)
+      case x : DFFunc2[_,_,_] => architecture.statements.func2(x)
       case x : Assert => architecture.statements.async_process.assert(x.cond, x.msg, x.severity)
       case x : Finish => architecture.statements.async_process.finish()
 
@@ -841,7 +841,7 @@ object Backend {
         pass(x)
         architecture.statements.async_process.condBlock -= 1
       case x : DFDesign => architecture.statements.component_instance(x)
-      case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[Func2Comp[_,_,_]]) {
+      case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[DFFunc2[_,_,_]]) {
         val dstSig = References(x.toPort)
         val srcSig = Value(x.fromVal)
         dstSig.assign(srcSig)

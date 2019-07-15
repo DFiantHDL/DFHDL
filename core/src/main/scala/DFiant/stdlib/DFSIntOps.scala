@@ -23,7 +23,7 @@ import singleton.twoface._
 object DFSIntOps {
   final class `Func2Comp+`[LW, RW, WCW] private (leftArg : DFSInt[LW], rightArg : DFSInt[RW])(wcw : TwoFace.Int[WCW])(
     implicit ctx : DFComponent.Context[`Func2Comp+`[LW, RW, WCW]],
-  ) extends Func2Comp[`Func2Comp+`[LW, RW, WCW], DFSInt[LW], DFSInt[RW]](leftArg, "+", rightArg)(wcw)(ctx, DFSInt) with DFSInt[WCW] {
+  ) extends DFFunc2[`Func2Comp+`[LW, RW, WCW], DFSInt[LW], DFSInt[RW]](leftArg, "+", rightArg)(wcw)(ctx, DFSInt) with DFSInt[WCW] {
     final protected val tokenFunc = (a, b) => a + b
   }
   object `Func2Comp+` {
@@ -45,7 +45,7 @@ object DFSIntOps {
 
   final class `Func2Comp-`[LW, RW, WCW] private (leftArg : DFSInt[LW], rightArg : DFSInt[RW])(wcw : TwoFace.Int[WCW])(
     implicit ctx : DFComponent.Context[`Func2Comp-`[LW, RW, WCW]],
-  ) extends Func2Comp[`Func2Comp-`[LW, RW, WCW], DFSInt[LW], DFSInt[RW]](leftArg, "-", rightArg)(wcw)(ctx, DFSInt) with DFSInt[WCW] {
+  ) extends DFFunc2[`Func2Comp-`[LW, RW, WCW], DFSInt[LW], DFSInt[RW]](leftArg, "-", rightArg)(wcw)(ctx, DFSInt) with DFSInt[WCW] {
     final protected val tokenFunc = (a, b) => a - b
   }
   object `Func2Comp-` {
@@ -67,7 +67,7 @@ object DFSIntOps {
 
   final class `Func2Comp*`[LW, RW, WCW] private (leftArg : DFSInt[LW], rightArg : DFSInt[RW])(wcw : TwoFace.Int[WCW])(
     implicit ctx : DFComponent.Context[`Func2Comp*`[LW, RW, WCW]],
-  ) extends Func2Comp[`Func2Comp*`[LW, RW, WCW], DFSInt[LW], DFSInt[RW]](leftArg, "*", rightArg)(wcw)(ctx, DFSInt) with DFSInt[WCW] {
+  ) extends DFFunc2[`Func2Comp*`[LW, RW, WCW], DFSInt[LW], DFSInt[RW]](leftArg, "*", rightArg)(wcw)(ctx, DFSInt) with DFSInt[WCW] {
     final protected val tokenFunc = (a, b) => a * b
   }
   object `Func2Comp*` {
@@ -90,7 +90,7 @@ object DFSIntOps {
 
   final class `Func2Comp<<`[LW, RW] private (leftArg : DFSInt[LW], rightArg : DFUInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp<<`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp<<`[LW, RW], DFSInt[LW], DFUInt[RW]](leftArg, "<<", rightArg)(leftArg.width)(ctx, DFSInt) with DFSInt[LW] {
+  ) extends DFFunc2[`Func2Comp<<`[LW, RW], DFSInt[LW], DFUInt[RW]](leftArg, "<<", rightArg)(leftArg.width)(ctx, DFSInt) with DFSInt[LW] {
     final protected val tokenFunc = (a, b) => a << b
   }
   object `Func2Comp<<` {
@@ -111,7 +111,7 @@ object DFSIntOps {
 
   final class `Func2Comp>>`[LW, RW] private (leftArg : DFSInt[LW], rightArg : DFUInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp>>`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp>>`[LW, RW], DFSInt[LW], DFUInt[RW]](leftArg, ">>", rightArg)(leftArg.width)(ctx, DFSInt) with DFSInt[LW] {
+  ) extends DFFunc2[`Func2Comp>>`[LW, RW], DFSInt[LW], DFUInt[RW]](leftArg, ">>", rightArg)(leftArg.width)(ctx, DFSInt) with DFSInt[LW] {
     final protected val tokenFunc = (a, b) => a >> b
   }
   object `Func2Comp>>` {
@@ -132,7 +132,7 @@ object DFSIntOps {
 
   final class `Func2Comp==`[LW, RW](leftArg : DFSInt[LW], rightArg : DFSInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp==`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp==`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "==", rightArg)(1)(ctx, DFSInt) with DFBool {
+  ) extends DFFunc2[`Func2Comp==`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "==", rightArg)(1)(ctx, DFSInt) with DFBool {
     final protected val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
@@ -151,7 +151,7 @@ object DFSIntOps {
 
   final class `Func2Comp!=`[LW, RW](leftArg : DFSInt[LW], rightArg : DFSInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp!=`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp!=`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "!=", rightArg)(1)(ctx, DFSInt) with DFBool {
+  ) extends DFFunc2[`Func2Comp!=`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "!=", rightArg)(1)(ctx, DFSInt) with DFBool {
     final protected val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {
@@ -170,7 +170,7 @@ object DFSIntOps {
 
   final class `Func2Comp<`[LW, RW](leftArg : DFSInt[LW], rightArg : DFSInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp<`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp<`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "<", rightArg)(1)(ctx, DFSInt) with DFBool {
+  ) extends DFFunc2[`Func2Comp<`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "<", rightArg)(1)(ctx, DFSInt) with DFBool {
     final protected val tokenFunc = (a, b) => a < b
   }
   object `Func2Comp<` {
@@ -189,7 +189,7 @@ object DFSIntOps {
 
   final class `Func2Comp>`[LW, RW](leftArg : DFSInt[LW], rightArg : DFSInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp>`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp>`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, ">", rightArg)(1)(ctx, DFSInt) with DFBool {
+  ) extends DFFunc2[`Func2Comp>`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, ">", rightArg)(1)(ctx, DFSInt) with DFBool {
     final protected val tokenFunc = (a, b) => a > b
   }
   object `Func2Comp>` {
@@ -208,7 +208,7 @@ object DFSIntOps {
 
   final class `Func2Comp<=`[LW, RW](leftArg : DFSInt[LW], rightArg : DFSInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp<=`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp<=`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "<=", rightArg)(1)(ctx, DFSInt) with DFBool {
+  ) extends DFFunc2[`Func2Comp<=`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, "<=", rightArg)(1)(ctx, DFSInt) with DFBool {
     final protected val tokenFunc = (a, b) => a <= b
   }
   object `Func2Comp<=` {
@@ -227,7 +227,7 @@ object DFSIntOps {
 
   final class `Func2Comp>=`[LW, RW](leftArg : DFSInt[LW], rightArg : DFSInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp>=`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp>=`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, ">=", rightArg)(1)(ctx, DFSInt) with DFBool {
+  ) extends DFFunc2[`Func2Comp>=`[LW, RW], DFSInt[LW], DFSInt[RW]](leftArg, ">=", rightArg)(1)(ctx, DFSInt) with DFBool {
     final protected val tokenFunc = (a, b) => a >= b
   }
   object `Func2Comp>=` {

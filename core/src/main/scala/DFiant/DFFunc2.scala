@@ -2,23 +2,6 @@
  *     This file is part of DFiant.
  *
  *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the Lesser GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     any later version.
- *
- *     DFiant is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     Lesser GNU General Public License for more details.
- *
- *     You should have received a copy of the Lesser GNU General Public License
- *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-/*
- *     This file is part of DFiant.
- *
- *     DFiant is free software: you can redistribute it and/or modify
  *     it under the terms of the GNU Lesser General Public License as published by
  *     the Free Software Foundation, either version 3 of the License, or
  *     any later version.
@@ -37,7 +20,7 @@ package DFiant
 import DFiant.internals._
 import singleton.twoface._
 
-abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
+abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
 (L : L, val opString : String, R : R)(_width : Int) (
   implicit ctx: DFComponent.Context[Comp], cmp: DFAny.Companion
 ) extends DFComponent[Comp] with DSLSelfConnectedFoldableOwnerConstruct with CanBePiped {self : Comp =>
@@ -106,12 +89,12 @@ abstract class Func2Comp[Comp <: Func2Comp[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
 }
-object Func2Comp {
-  implicit def fetchDev(from : Func2Comp[_,_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+object DFFunc2 {
+  implicit def fetchDev(from : DFFunc2[_,_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
 }
 
 trait CompAlias extends CanBePiped {
-  val comp : Func2Comp[_,_,_]
+  val comp : DFFunc2[_,_,_]
   lazy val unextendedLeft : DFAny = comp.leftArg.asInstanceOf[DFAny]
   final val alias = this.asInstanceOf[DFAny.Alias[_]]
   val bypassAlias : Boolean

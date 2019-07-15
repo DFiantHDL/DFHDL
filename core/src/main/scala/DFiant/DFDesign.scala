@@ -67,7 +67,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
       if (cls == null || cls == classOf[DFDesign] ||
-        classOf[ConditionalBlock].isAssignableFrom(cls) || classOf[Func2Comp[_,_,_]].isAssignableFrom(cls)) List()
+        classOf[ConditionalBlock].isAssignableFrom(cls) || classOf[DFFunc2[_,_,_]].isAssignableFrom(cls)) List()
       else {
         val fields = cls.getDeclaredFields.toList
         fields.flatMap{f =>

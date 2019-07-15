@@ -23,7 +23,7 @@ import singleton.twoface._
 object DFBitsOps {
   final class `Func2Comp&`[LW, RW, OW] private (leftArg : DFBits[LW], rightArg : DFBits[RW])(wcw : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[`Func2Comp&`[LW, RW, OW]],
-  ) extends Func2Comp[`Func2Comp&`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "&", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
+  ) extends DFFunc2[`Func2Comp&`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "&", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
     final protected val tokenFunc = (a, b) => a & b
   }
   object `Func2Comp&` {
@@ -45,7 +45,7 @@ object DFBitsOps {
 
   final class `Func2Comp|`[LW, RW, OW] private (leftArg : DFBits[LW], rightArg : DFBits[RW])(wcw : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[`Func2Comp|`[LW, RW, OW]],
-  ) extends Func2Comp[`Func2Comp|`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "|", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
+  ) extends DFFunc2[`Func2Comp|`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "|", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
     final protected val tokenFunc = (a, b) => a | b
   }
   object `Func2Comp|` {
@@ -67,7 +67,7 @@ object DFBitsOps {
 
   final class `Func2Comp^`[LW, RW, OW] private (leftArg : DFBits[LW], rightArg : DFBits[RW])(wcw : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[`Func2Comp^`[LW, RW, OW]],
-  ) extends Func2Comp[`Func2Comp^`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "^", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
+  ) extends DFFunc2[`Func2Comp^`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "^", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
     final protected val tokenFunc = (a, b) => a ^ b
   }
   object `Func2Comp^` {
@@ -89,7 +89,7 @@ object DFBitsOps {
 
   final class `Func2Comp<<`[LW, RW] private (leftArg : DFBits[LW], rightArg : DFUInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp<<`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp<<`[LW, RW], DFBits[LW], DFUInt[RW]](leftArg, "<<", rightArg)(leftArg.width)(ctx, DFBits) with DFBits[LW] {
+  ) extends DFFunc2[`Func2Comp<<`[LW, RW], DFBits[LW], DFUInt[RW]](leftArg, "<<", rightArg)(leftArg.width)(ctx, DFBits) with DFBits[LW] {
     final protected val tokenFunc = (a, b) => a << b
   }
   object `Func2Comp<<` {
@@ -110,7 +110,7 @@ object DFBitsOps {
 
   final class `Func2Comp>>`[LW, RW] private (leftArg : DFBits[LW], rightArg : DFUInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp>>`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp>>`[LW, RW], DFBits[LW], DFUInt[RW]](leftArg, ">>", rightArg)(leftArg.width)(ctx, DFBits) with DFBits[LW] {
+  ) extends DFFunc2[`Func2Comp>>`[LW, RW], DFBits[LW], DFUInt[RW]](leftArg, ">>", rightArg)(leftArg.width)(ctx, DFBits) with DFBits[LW] {
     final protected val tokenFunc = (a, b) => a >> b
   }
   object `Func2Comp>>` {
@@ -131,7 +131,7 @@ object DFBitsOps {
 
   final class `Func2Comp==`[LW, RW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp==`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp==`[LW, RW], DFBits[LW], DFBits[RW]](leftArg, "==", rightArg)(1)(ctx, DFBits) with DFBool {
+  ) extends DFFunc2[`Func2Comp==`[LW, RW], DFBits[LW], DFBits[RW]](leftArg, "==", rightArg)(1)(ctx, DFBits) with DFBool {
     final protected val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
@@ -150,7 +150,7 @@ object DFBitsOps {
 
   final class `Func2Comp!=`[LW, RW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp!=`[LW, RW]],
-  ) extends Func2Comp[`Func2Comp!=`[LW, RW], DFBits[LW], DFBits[RW]](leftArg, "!=", rightArg)(1)(ctx, DFBits) with DFBool {
+  ) extends DFFunc2[`Func2Comp!=`[LW, RW], DFBits[LW], DFBits[RW]](leftArg, "!=", rightArg)(1)(ctx, DFBits) with DFBool {
     final protected val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {

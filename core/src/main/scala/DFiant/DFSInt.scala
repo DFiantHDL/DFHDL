@@ -451,7 +451,7 @@ object DFSInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`(kind : DiSoOp.Kind) {
     //NCW = No-carry width
     //WCW = With-carry width
-    final class Component[NCW, WCW](_wc : Func2Comp[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+    final class Component[NCW, WCW](_wc : DFFunc2[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
       DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFSInt[NCW] with CompAlias { //, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint"
       lazy val wc = {_wc.usedAsWide = true;  _wc}
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
@@ -541,7 +541,7 @@ object DFSInt extends DFAny.Companion {
     //NCW = No-carry width
     //WCW = With-carry width
     //CW = Carry width
-    final class Component[NCW, WCW, CW](val wc : Func2Comp[_,_,_] with DFSInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
+    final class Component[NCW, WCW, CW](val wc : DFFunc2[_,_,_] with DFSInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
       implicit ctx : DFAny.Alias.Context
     ) extends DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.BitsWL(wc, ncW, 0, if (wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).sint")) with DFSInt[NCW] with CompAlias {
       lazy val c = new DFBits.Alias[CW](DFAny.Alias.Reference.BitsWL(wc, cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx}C")
