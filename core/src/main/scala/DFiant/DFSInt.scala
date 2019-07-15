@@ -70,19 +70,11 @@ object DFSInt extends DFAny.Companion {
     final def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
 
-    final def extendBy[N](numOfBits : Positive.Checked[N])(
-      implicit
-      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFSInt[tfs.Out] = {
-      val extension = List.fill(numOfBits)(sign)
-      new DFSInt.Alias[tfs.Out](DFAny.Alias.Reference.Concat(extension :+ this, s".bits.sint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
-    }
+    protected[DFiant] def protToWidth[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = new DFSInt.Alias[EW](DFAny.Alias.Reference.Resize(this, toWidth))
 
-    protected[DFiant] def protExtendTo[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = new DFSInt.Alias[EW](DFAny.Alias.Reference.SignExtend(this, toWidth))
-
-    final def extendTo[EW](toWidth : ExtWidth.Checked[EW,Width])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = protExtendTo(toWidth)
+    final def toWidth[EW](toWidth : Positive.Checked[EW])(implicit ctx : DFAny.Alias.Context)
+    : DFSInt[EW] = protToWidth(toWidth)
 
     final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
       if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
@@ -433,7 +425,7 @@ object DFSInt extends DFAny.Companion {
       ) : Aux[DFSInt[LW], DFSInt[RW], DFSInt[LW]] =
         create[DFSInt[LW], DFSInt[RW], LW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          right.protExtendTo[LW](left.width)
+          right.protToWidth[LW](left.width)
         })
 
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
@@ -459,8 +451,9 @@ object DFSInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`(kind : DiSoOp.Kind) {
     //NCW = No-carry width
     //WCW = With-carry width
-    final class Component[NCW, WCW](val wc : Func2Comp[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.BitsWL(wc, wc.width-1, 0, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint")) with DFSInt[NCW] with CompAlias {
+    final class Component[NCW, WCW](_wc : Func2Comp[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+      DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFSInt[NCW] with CompAlias { //, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint"
+      lazy val wc = {_wc.usedAsWide = true;  _wc}
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
       lazy val comp = wc
@@ -508,7 +501,7 @@ object DFSInt extends DFAny.Companion {
                     case DiSoOp.Kind.- => `Func2Comp-`[LW, RW, WCW](left, right)
                     case _ => throw new IllegalArgumentException("Unexpected operation")
                   }
-                  opInst.__dev.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(if (opInst.usedAsWide) s"${ctx}WC" else s"${ctx}")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](opInst)
                 }
@@ -669,19 +662,28 @@ object DFSInt extends DFAny.Companion {
             opInst
           }
         }
-      implicit def evDFSInt_op_XInt[LW, R <: Int](
+      implicit def evDFSInt_op_Const[LW, R <: Int, RW](
         implicit
-        ctx : DFAny.Alias.Context,
-        check : Natural.Int.CheckedShellSym[Builder[_,_], R]
+        ctx : DFAny.Op.Context,
+        check : Natural.Int.CheckedShellSym[Builder[_,_], R],
+        rConst : DFUInt.Const.PosNeg.Aux[R, RW]
       ) : Builder[DFSInt[LW], R]{type Comp = DFSInt[LW]} = new Builder[DFSInt[LW], R]{
         type Comp = DFSInt[LW]
         def apply(left : DFSInt[LW], right : R) : DFSInt[LW] = {
           check.unsafeCheck(right)
-          opKind match {
-            case DiSoOp.Kind.<< => left << right
-            case DiSoOp.Kind.>> => left >> right
+//          opKind match {
+//            case DiSoOp.Kind.<< => left << right
+//            case DiSoOp.Kind.>> => left >> right
+//            case _ => throw new IllegalArgumentException("Unexpected logic operation")
+//          }
+          import stdlib.DFSIntOps._
+          val opInst = opKind match {
+            case DiSoOp.Kind.<< => `Func2Comp<<`(left, rConst(right)._1)
+            case DiSoOp.Kind.>> => `Func2Comp>>`(left, rConst(right)._1)
             case _ => throw new IllegalArgumentException("Unexpected logic operation")
           }
+          opInst.__dev.setAutoName(s"${ctx}")
+          opInst
         }
       }
     }

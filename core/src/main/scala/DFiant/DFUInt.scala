@@ -68,22 +68,14 @@ object DFUInt extends DFAny.Companion {
     final def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) : DFBool = op(left, right)
     final def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
 
-    final def extendBy[N](numOfBits : Positive.Checked[N])(
-      implicit
-      tfs : TwoFace.Int.Shell2[+, Width, Int, N, Int], ctx : DFAny.Alias.Context
-    ) : DFUInt[tfs.Out] = {
-      val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits, 0))
-      new DFUInt.Alias[tfs.Out](DFAny.Alias.Reference.Concat(List(zeros, this), s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendBy($numOfBits)")
-    }
-
-    protected[DFiant] def protExtendTo[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
+    protected[DFiant] def protToWidth[EW](numOfBits : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
     : DFUInt[EW] = if (numOfBits !=  width) {
       val zeros = new DFBits.Const[Width](DFBits.Token(numOfBits - width, 0))
       new DFUInt.Alias[EW](DFAny.Alias.Reference.Concat(List(zeros, this), s".bits.uint")).setAutoConstructCodeString(s"$refCodeString.extendTo($numOfBits)")
     } else this.asInstanceOf[DFUInt[EW]]
 
-    final def extendTo[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
-    : DFUInt[EW] = protExtendTo[EW](numOfBits)
+    final def toWidth[EW](numOfBits : ExtWidth.Checked[EW, Width])(implicit ctx : DFAny.Alias.Context)
+    : DFUInt[EW] = protToWidth[EW](numOfBits)
 
     final def pattern[R](right : Pattern.Able[R]*)(implicit bld : Pattern.Builder[TVal]) = bld(left, right)
 
@@ -492,7 +484,7 @@ object DFUInt extends DFAny.Companion {
       ) : Aux[DFUInt[LW], DFUInt[RW], DFUInt[LW]] =
         create[DFUInt[LW], DFUInt[RW], LW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
-          right.protExtendTo[LW](left.width)
+          right.protToWidth[LW](left.width)
         })
 
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
@@ -518,8 +510,9 @@ object DFUInt extends DFAny.Companion {
   protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
     //NCW = No-carry width
     //WCW = With-carry width
-    final class Component[NCW, WCW](val wc : Func2Comp[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.BitsWL(wc, wc.width-1, 0,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint")) with DFUInt[NCW] with CompAlias {
+    final class Component[NCW, WCW](_wc : Func2Comp[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
+      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFUInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
+      lazy val wc = {_wc.usedAsWide = true; _wc}
       lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
       protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
       lazy val comp = wc
@@ -577,7 +570,7 @@ object DFUInt extends DFAny.Companion {
                     case `Ops+Or-`.+ => `Func2Comp+`[LW, RW, WCW](left, right)
                     case `Ops+Or-`.- => `Func2Comp-`[LW, RW, WCW](left, right)
                   }
-                  opInst.__dev.setAutoName(s"${ctx}WC")
+                  opInst.__dev.setAutoName(if (opInst.usedAsWide) s"${ctx}WC" else s"${ctx}")
                   // Creating extended component aliasing the op
                   new Component[NCW, WCW](opInst)
                 }

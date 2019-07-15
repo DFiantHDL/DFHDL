@@ -115,9 +115,15 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def invert : Source = Source(elements.map(e => e.invert))
   def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
   def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
-  def signExtend(toWidth : Int) : Source = {
-    assert(toWidth >= width)
-    Source(List.fill(toWidth - width)(bitsWL(1, width-1).elements.head) ++ elements)
+  def resize(toWidth : Int) : Source = {
+    if (toWidth > width) {
+      Source(List.fill(toWidth - width)(bitsWL(1, width-1).elements.head) ++ elements)
+    } else if (toWidth < width) {
+      bitsWL(toWidth, 0)
+    } else {
+      this
+    }
+
   }
 //  def zeroExtend(toWidth : Int) : Source = {
 //    assert(toWidth >= width)

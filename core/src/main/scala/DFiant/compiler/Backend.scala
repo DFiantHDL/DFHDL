@@ -100,9 +100,13 @@ object Backend {
       case class signed(width : Int) extends Type {
         override def toString: String = s"signed(${width-1} downto 0)"
       }
-      case class std_logic() extends Type {
+      case object std_logic extends Type {
         val width = 1
         override def toString: String = s"std_logic"
+      }
+      case object boolean extends Type {
+        val width = 1
+        override def toString: String = s"boolean"
       }
 //      case class boolean() extends Type {
 //        val width = 1
@@ -117,7 +121,7 @@ object Backend {
         case x : DFBits[_] => std_logic_vector(x.width)
         case x : DFUInt[_] => unsigned(x.width)
         case x : DFSInt[_] => signed(x.width)
-        case x : DFBool => std_logic()
+        case x : DFBool => std_logic
         case x : DFEnum[_] => enumeration(x.enum)
         case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
       }
@@ -136,7 +140,8 @@ object Backend {
         case t : Type.std_logic_vector => ValueBits(value, t.width)
         case t : Type.unsigned => ValueBits(s"to_slv($value)", t.width)
         case t : Type.signed => ValueBits(s"to_slv($value)", t.width)
-        case t : Type.std_logic => ValueBits(s"to_slv($value)", 1)
+        case Type.std_logic => ValueBits(s"to_slv($value)", 1)
+        case Type.boolean => ValueBits(s"to_slv($value)", 1)
         case Type.enumeration(enum) =>
           ValueBits(s"to_slv(to_unsigned(${db.Package.declarations.enums(enum).name}'POS($value), ${enum.width}))", enum.width)
       }
@@ -153,7 +158,10 @@ object Backend {
         case (dstTpe : Type.signed, srcTpe : Type.signed) =>
           if (dstTpe.width == srcTpe.width) this
           else Value(s"resize($value, ${dstTpe.width})", dstTpe)
-        case (dstTpe : Type.std_logic, srcTpe : Type.std_logic) => this
+        case (Type.std_logic, Type.std_logic) => this
+        case (Type.boolean, Type.boolean) => this
+        case (Type.std_logic, Type.boolean) => Value(s"to_sl($value)", Type.std_logic)
+        case (Type.boolean, Type.std_logic) => Value(s"($value = '1')", Type.boolean)
         case (dstTpe : Type.enumeration, srcTpe : Type.enumeration) if dstTpe.enum == srcTpe.enum => this
         case _ => this.bits.to(that)
       }
@@ -171,7 +179,8 @@ object Backend {
         case t : Type.signed =>
           if (t.width == width) Value(s"signed($this)", that)
           else Value(s"resize(signed($this), ${t.width})", that)
-        case t : Type.std_logic => Value(s"to_sl($this)", that)
+        case Type.std_logic => Value(s"to_sl($this)", that)
+        case Type.boolean => Value(s"($this = '1')", that)
         case Type.enumeration(enum) =>
           Value(s"${db.Package.declarations.enums(enum)}'VAL($this)", that)
       }
@@ -346,7 +355,7 @@ object Backend {
                 References(aliasedVar).assign(Value(s"(not $src)", src.typeS))
               case DFAny.Alias.Reference.AsIs(aliasedVar) =>
                   References(aliasedVar).assign(src)
-              case DFAny.Alias.Reference.SignExtend(aliasedBar, toWidth) =>
+              case DFAny.Alias.Reference.Resize(aliasedBar, toWidth) =>
                 ???
               case DFAny.Alias.Reference.Concat(aliasedVars) =>
                   var pos : Int = member.width-1
@@ -389,8 +398,13 @@ object Backend {
               s"${refName}_prev$step"
             case DFAny.Alias.Reference.Pipe(aliasedVar, step) =>
               References(aliasedVar).ref(step)
-            case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) =>
-              s"resize(${Value(aliasedVar)}, $toWidth)"
+            case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) =>
+              aliasedVar match {
+                case x : Func2Comp[_,_,_] if !x.usedAsWide => s"${Value(aliasedVar)}"
+                case _ =>
+                  if (aliasedVar.width.getValue == toWidth) s"${Value(aliasedVar)}"
+                  else s"resize(${Value(aliasedVar)}, $toWidth)"
+              }
 //            case DFAny.Alias.Reference.LeftShift(aliasedVar, shift) =>
 //              val op : String = aliasedVar match {
 //                case a : DFBits[_] => "sll"
@@ -407,7 +421,7 @@ object Backend {
                 case m : DFBits[_] => cast
                 case m : DFUInt[_] => s"unsigned($cast)"
                 case m : DFSInt[_] => s"signed($cast)"
-                case m : DFBool => s"to_sl($cast)"
+                case m : DFBool => cast //s"to_sl($cast)"
                 case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($cast)"
                 case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
@@ -421,7 +435,7 @@ object Backend {
                 case m : DFBits[_] => concat
                 case m : DFUInt[_] => s"unsigned($concat)"
                 case m : DFSInt[_] => s"signed($concat)"
-                case m : DFBool => s"to_sl($concat)"
+                case m : DFBool => concat //s"to_sl($concat)"
                 case m : DFEnum[_] => s"${db.Package.declarations.enums(m.enum)}'VAL($concat)"
                 case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
               }
@@ -458,7 +472,7 @@ object Backend {
             else Value(tag.dfVal).value.applyBrackets()
           }
           val leftStrFixed = member.opString match {
-            case "+" | "-" | "*" => s"resize($leftStr, ${member.width})"
+            case "+" | "-" | "*" => if (member.usedAsWide) s"resize($leftStr, ${member.width})" else leftStr
             case _ => leftStr
           }
           val rightStr = {
@@ -483,13 +497,13 @@ object Backend {
             case ">>" => if (member.leftArg.isInstanceOf[DFSInt[_]]) "sra" else "srl"
             case others => others
           }
-          val infixOpStr = op match {
-            case "<" | ">" | "<=" | ">=" | "=" | "/=" => s"to_sl($leftStrFixed $op $rightStr)"
-            case "sla" | "sll" | "sra" | "srl" => s"$leftStrFixed $op to_integer($rightStr)"
-            case _ => s"$leftStrFixed $op $rightStr"
+          val (infixOpStr, tpe) = op match {
+            case "<" | ">" | "<=" | ">=" | "=" | "/=" => (s"$leftStrFixed $op $rightStr", Type.boolean)
+            case "sla" | "sll" | "sra" | "srl" => (s"$leftStrFixed $op to_integer($rightStr)", Type(member))
+            case _ => (s"$leftStrFixed $op $rightStr", Type(member))
           }
           val result = architecture.declarations.signal(member)
-          result.assign(Value(infixOpStr, Type(member)))
+          result.assign(Value(infixOpStr, tpe))
           result
         }
 
@@ -585,10 +599,10 @@ object Backend {
           }
           object ifStatement {
             case class ifBegin(condMember : DFAny) extends statement {
-              override def toString: String = s"\n${currentDelim}if ${Value(condMember).value.applyBrackets()} = '1' then"
+              override def toString: String = s"\n${currentDelim}if ${Value(condMember)} then"
             }
             case class elseIfBegin(condMember : DFAny) extends statement {
-              override def toString: String = s"\n${currentDelim}elsif ${Value(condMember).value.applyBrackets()} = '1' then"
+              override def toString: String = s"\n${currentDelim}elsif ${Value(condMember)} then"
             }
             case class elseBegin() extends statement {
               override def toString: String = s"\n${currentDelim}else"
@@ -605,7 +619,8 @@ object Backend {
                   case x : Type.std_logic_vector => s"$ref"
                   case x : Type.unsigned => s"to_integer($ref)"
                   case x : Type.signed => s"to_integer($ref)"
-                  case x : Type.std_logic => s"$ref"
+                  case Type.std_logic => s"$ref"
+                  case Type.boolean => s"$ref"
                   case x : Type.enumeration => s"$ref"
                 }
               }
@@ -646,7 +661,7 @@ object Backend {
               case Some(c) =>
                 s"""
                    |${currentDelim}if rising_edge($clkName) then
-                   |$delim${currentDelim}assert (${Value(c).value.applyBrackets()} = '1') report $msgString severity $severityStr;
+                   |$delim${currentDelim}assert (${Value(c)}) report $msgString severity $severityStr;
                    |${currentDelim}end if;""".stripMargin
               case None =>
                 s"""
@@ -918,8 +933,12 @@ object Backend {
           s"""
              |function to_slv(arg : signed) return std_logic_vector;
          """.stripMargin
+        val to_slvFunc4 : String =
+          s"""
+             |function to_slv(arg : boolean) return std_logic_vector;
+         """.stripMargin
 
-        override def toString: String = bitReverseFunc + to_slFunc1 + to_slFunc2 + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
+        override def toString: String = bitReverseFunc + to_slFunc1 + to_slFunc2 + to_slvFunc1 + to_slvFunc2 + to_slvFunc3 + to_slvFunc4
       }
       object HelperFunctionsBody{
         val bitReverseFunc : String =
@@ -980,8 +999,19 @@ object Backend {
              |  return slv;
              |end to_slv;
          """.stripMargin
+        val to_slvFunc4 : String =
+          s"""
+             |function to_slv(arg : boolean) return std_logic_vector is
+             |begin
+             |  if (arg) then
+             |    return "1";
+             |  else
+             |    return "0";
+             |  end if;
+             |end to_slv;
+         """.stripMargin
 
-        override def toString: String = bitReverseFunc + to_slFunc1 + to_slFunc2 + to_slvFunc1 + to_slvFunc2 + to_slvFunc3
+        override def toString: String = bitReverseFunc + to_slFunc1 + to_slFunc2 + to_slvFunc1 + to_slvFunc2 + to_slvFunc3 + to_slvFunc4
       }
       //////////////////////////////////////////////////////////////////////////////////
       // Package

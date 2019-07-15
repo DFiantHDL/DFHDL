@@ -702,7 +702,7 @@ object DFAny {
             toVar.assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
           case DFAny.Alias.Reference.Invert(aliasedVar) => ???
-          case DFAny.Alias.Reference.SignExtend(aliasedVar, toWidth) => ???
+          case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
           case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
         }
         toVar.protAssignDependencies += Assignment(toVar, fromVal)
@@ -815,15 +815,15 @@ object DFAny {
 //        def apply(aliasedVar : DFAny, shift : Int) = new LeftShift(aliasedVar, shift)
 //        def unapply(arg: LeftShift): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.shift)
 //      }
-      class SignExtend private (aliasedVar : DFAny, val toWidth : Int)(implicit ctx : Alias.Context)
-        extends SingleReference(aliasedVar, if (toWidth == 0) "" else s".extendTo($toWidth)") {
+      class Resize private (aliasedVar : DFAny, val toWidth : Int)(implicit ctx : Alias.Context)
+        extends SingleReference(aliasedVar, if (toWidth == aliasedVar.width.getValue) "" else s".toWidth($toWidth)") {
         override val width: Int = toWidth
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.signExtend(toWidth), aliasedVar.thisSourceLB)
+          s => s.resize(toWidth), aliasedVar.thisSourceLB)
       }
-      object SignExtend {
-        def apply(aliasedVar : DFAny, toWidth : Int)(implicit ctx : Alias.Context) = new SignExtend(aliasedVar, toWidth)
-        def unapply(arg: SignExtend): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.toWidth)
+      object Resize {
+        def apply(aliasedVar : DFAny, toWidth : Int)(implicit ctx : Alias.Context) = new Resize(aliasedVar, toWidth)
+        def unapply(arg: Resize): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.toWidth)
       }
       class BitReverse private (aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(aliasedVar, aliasCodeString) {
