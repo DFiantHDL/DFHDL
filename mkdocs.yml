@@ -7,7 +7,7 @@ site_author: Oron Port
 
 # Repository
 repo_name: 'DFiantHDL/DFiant'
-repo_url: 'https://github.com/DFiantHDL/DFiant/tree/legato'
+repo_url: 'https://github.com/DFiantHDL/DFiant'
 
 # Copyright
 copyright: Copyright &copy; 2019 <a href="https://www.researchgate.net/profile/Oron_Port">Oron Port</a> and <a href="https://yoav.net.technion.ac.il">Yoav Etsion</a>
