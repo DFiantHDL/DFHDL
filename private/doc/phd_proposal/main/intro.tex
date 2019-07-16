@@ -1,0 +1,43 @@
+\chapter{Introduction}
+\label{chap:intro}
+\paragraph{}Low-level hardware description languages (HDLs) such as Verilog and VHDL have been dominating the field-programmable gate array (FPGA) and application-specific integrated circuit (ASIC) domains for decades.
+These languages burden designers with explicitly clocked constructs that do not distinguish between design functionality and implementation constraints (e.g., timing, target device).
+For example, the register-transfer language (RTL) constructs of both Verilog and VHDL require designers to explicitly state the behavior of each register, regardless if it is part of the core functionality (e.g., a state-machine state register), an artifact of the timing constraints (e.g, a pipeline register), or an artifact of the target interface (e.g., a synchronous protocol cycle delay).
+%
+These semantics narrow design correctness to specific timing restrictions, while vendor library component instances couple the design to a given target device. Evidently, formulating complex portable designs is difficult, if not impossible.
+%
+Finally, these older languages do not support modern programming features that enhance productivity and correctness such as polymorphism and type safety.
+   
+
+\paragraph{}Emerging high-level synthesis (HLSs) tools such as Vivado HLS~\cite{Vivado2012}, Bluespec SystemVerilog~\cite{nikhil2004bluespec}, and Chisel~\cite{Bachrach2012} have been introduced in an attempt to bridge the programmability gap.
+While HLSs tend to incorporate modern programming features, they still mix functionality with timing and device constraints, or lack hardware construction and timed synchronization control. For example, designs must be explicitly pipelined in Chisel or Bluespec, while a simple task as toggling a led at a given rate is impossible to describe with C++ constructs in Vivado HLS.
+Emerging HLSs, therefore, still fail~\cite{martin2009high}~\cite{Bacon2013} to deliver a clean separation between functionality and implementation that can yield portable code, while providing general purpose HDL constructs. We explore these gaps further in Chapter~\ref{chap:relwork}.
+  
+
+\paragraph{}In this research, we introduce DFiant, a modern HDL whose goal is to allow designers to express portable hardware designs.
+DFiant decouples functionality from timing constraints (in an effort to end the \emph{"tyranny of the clock"}~\cite{Sutherland2012}), and offers a clean model for hardware construction, based on its core characteristics:
+\begin{enumerate*}[label=(\roman*)]
+	\item
+	a clock-agnostic dataflow model enables implicit parallel data and computation scheduling. 
+	\item
+	functional register/state constructs, accompanied by an automatic pipelining process, eliminate all explicit register placements along with their direct clock dependency.
+\end{enumerate*} DFiant borrows and combines constructs and semantics from software, hardware and dataflow languages. Consequently, the DFiant programming model accommodates a middle-ground approach between low-level hardware description and high-level sequential programming. 
+      
+
+\paragraph{}DFiant is implemented as a Scala library, and relies on Scala's strong, extensible, and polymorphic type system to provide its own hardware-focused type system (e.g., bit-accurate dataflow types, and input/output port types). Interactions between DFiant dataflow types create a dependency graph that can be simulated in the Scala integrated development environment (IDE), or compiled to an RTL top design file and a TCL constraints file, followed by a hardware synthesis process using vendor tools.
+
+\paragraph{}DFiant is a direct continuation of our previous work~\cite{Port2015}, and although we already established its many benefits, DFiant is still missing a few key milestones before it becomes a viable HDL candidate and research tool. In the scope of this research, we plan to explore the trajectories laid herein, in an effort to close this gap. We believe DFiant can be an invaluable tool for computer architecture research. 
+      
+%
+%\paragraph{}In this thesis we present the main limitations behind modern HDL tools and languages. These limitations lead to deficiencies in hardware implementations, forcing FPGA designers to constantly redesign their work when changing devices or when matching new performance requirements for the same function. The resulting code is verbose and complicated to test even the very basic functionality.
+%
+%\paragraph{}Our work also presents a highly intuitive HDL language, transferring Java's "Write Once, Run Anywhere" concept into the hardware design world. Constructible for Any FPGA, Expressed Once (\cfns) HDL and compiler is a new Scala-based HLS tool. \cfns's front-end enables functional bit accurate dataflow programming, while maintaining a complete timing-agnostic and device-agnostic code. \cf also integrates constraints programming (CP) into its syntax, allowing the designer a way to provide relationship between design constraints (throughput, latency, etc...) and functional requirements.     
+%
+%\paragraph{}This work makes the following contributions: 
+%\begin{enumerate}
+%\item Characterizes a high-level HDL language and present common HDL limitations.
+%\item Introduces \cfns, a functional, bit accurate, dataflow (DF) and constraints HLS programming tool.
+%\item Demonstrates dual view software and hardware DF programming paradigm. 
+%\end{enumerate}
+%
+%\paragraph{}This thesis is organized as follows: the next chapter presents the core motivation of our work, followed by a related work chapter. Chapters \ref{chap:CAFEO} and \ref{chap:Compiler} outline the \cf language and compiler respectively, while in \autoref{chap:eval} we discuss our evaluation. Finally, \autoref{chap:conclusion} states our conclusions and possible future work. 

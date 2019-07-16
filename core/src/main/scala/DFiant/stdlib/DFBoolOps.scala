@@ -24,7 +24,7 @@ import singleton.twoface._
 object DFBoolOps {
   final class `Func2Comp==`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp==`],
-  ) extends Func2Comp[`Func2Comp==`, DFBool, DFBool](leftArg, "==", rightArg)(1)(ctx, DFBool) with DFBool {
+  ) extends DFFunc2[`Func2Comp==`, DFBool, DFBool](leftArg, "==", rightArg)(1)(ctx, DFBool) with DFBool {
     final protected val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
@@ -43,7 +43,7 @@ object DFBoolOps {
 
   final class `Func2Comp!=`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp!=`],
-  ) extends Func2Comp[`Func2Comp!=`, DFBool, DFBool](leftArg, "!=", rightArg)(1)(ctx, DFBool) with DFBool {
+  ) extends DFFunc2[`Func2Comp!=`, DFBool, DFBool](leftArg, "!=", rightArg)(1)(ctx, DFBool) with DFBool {
     final protected val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {
@@ -63,7 +63,7 @@ object DFBoolOps {
 
   final class `Func2Comp&&`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp&&`],
-  ) extends Func2Comp[`Func2Comp&&`, DFBool, DFBool](leftArg, "&&", rightArg)(1)(ctx, DFBool) with DFBool {
+  ) extends DFFunc2[`Func2Comp&&`, DFBool, DFBool](leftArg, "&&", rightArg)(1)(ctx, DFBool) with DFBool {
     final protected val tokenFunc = (a, b) => a && b
   }
   object `Func2Comp&&` {
@@ -82,7 +82,7 @@ object DFBoolOps {
 
   final class `Func2Comp||`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp||`],
-  ) extends Func2Comp[`Func2Comp||`, DFBool, DFBool](leftArg, "||", rightArg)(1)(ctx, DFBool) with DFBool {
+  ) extends DFFunc2[`Func2Comp||`, DFBool, DFBool](leftArg, "||", rightArg)(1)(ctx, DFBool) with DFBool {
     final protected val tokenFunc = (a, b) => a || b
   }
   object `Func2Comp||` {
@@ -101,7 +101,7 @@ object DFBoolOps {
 
   final class `Func2Comp^`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp^`],
-  ) extends Func2Comp[`Func2Comp^`, DFBool, DFBool](leftArg, "^", rightArg)(1)(ctx, DFBool) with DFBool {
+  ) extends DFFunc2[`Func2Comp^`, DFBool, DFBool](leftArg, "^", rightArg)(1)(ctx, DFBool) with DFBool {
     final protected val tokenFunc = (a, b) => a ^ b
   }
   object `Func2Comp^` {

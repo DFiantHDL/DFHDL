@@ -54,7 +54,7 @@ class DFEnumAutoTest extends Properties("DFEnumAutoTest") {
   }
 
   property("MyDesign") = {
-    import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+    import UnofficialXilinx.FPGAs.`XC7VX485T-2FFG1761C`._
     import DFDesign.allowTop._
     val myDesign = new MyDesign {}
     true
@@ -140,7 +140,7 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
   }
 
   property("MyDesign") = {
-    import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+    import UnofficialXilinx.FPGAs.`XC7VX485T-2FFG1761C`._
     import DFDesign.allowTop._
     val myDesign = new MyDesign {}
     true

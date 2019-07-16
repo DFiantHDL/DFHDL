@@ -301,7 +301,7 @@ trait IOTest extends DFSimulator {
 }
 
 object BasicTest extends DFApp {
-  import Xilinx.FPGAs.`XC7VX485T-2FFG1761C`._
+  import UnofficialXilinx.FPGAs.`XC7VX485T-2FFG1761C`._
   implicit val a = DFAnyConfiguration.foldedLatency
 //  val top_ioDesignConn1 = new IODesignConn1 {}.printVHDLString
 

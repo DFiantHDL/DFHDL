@@ -1,0 +1,167 @@
+% !TeX document-id = {612e9a85-cc42-4184-aff3-32683cbba82e}
+% !TeX TXS-program:compile = txs:///pdflatex/[--shell-escape]
+%
+% You may wish to use some of the following options of the iitthesis
+% package:
+%
+% fullpageDraft      avoid the margins necessary for proper binding and
+%   just view or print a draft.
+% beforeExam         makes the personal acknowledgements invisible; use
+%   this to print the copies you submit initially to the grad school
+%   for sending to the examiners (who shouldn't see these). For the
+%   final submission, drop this option.
+% noabbrevs          no notation & abbreviations list will be included
+%   in the thesis.
+%
+% Additionally, you must specify the degree for which you're writing
+% your thesis (MSc/PhD/MArch etc.)
+%
+\documentclass[MSc,beforeExam, noabbrevs]{misc/iitthesis}
+
+
+% Definitions of info fields for the thesis - subject, advisor,
+% faculty, acknowledgements, etc. etc. This file must contain Hebrew
+% text, so the question of its character set encoding is significant.
+% This templated uses the iso-8859-8-i charset (i.e. single-byte logical 
+% Hebrew; it's about the same as the windows-1255 codepage, but not the
+% same as UTF-8) - and this works with MikTeX 2.9 and using pdfelatex.
+% With your TeX distribution you might need to create files in the
+% UTF-8 charset.
+\include{misc/thesis-fields}
+
+% Personal acknowledgements (are only used for the post-exam
+% version)
+\include{front/personal-acks}
+
+% The abstract in Hebrew and in English should have its own file.
+%
+% Notes:
+% - You can split this one, and have separate files for the English
+%   and the Hebrew abstract
+% - regulations require the English abstract contain between 200 and
+%   500 words, and the Hebrew abstract contain between 1,000 and 2,000
+%   words (making it something between an abstract and an introduction
+%   with an overview of results).
+% - Be careful with links in Hebrew text (wrap them in \L{}).
+\include{front/abstract}
+\include{front/abbrevs}
+
+% Additional machinery relevant to any thesis
+% (it's not part of the document class because it's not absolutely
+% necessary and not everyone might like it)
+\usepackage{misc/iitthesis-extra}
+
+% Definitions useful for anything you write, which you also
+% include in any articles, presentations, HW assignments and other
+% documents. May contains macros for notation algebra, logic,
+% calculus and other fields, as well as general shorthands and
+% LaTeX tricks, and package use commands
+\include{misc/my-general}
+
+% Definitions, settings and tweaks for this thesis specifically
+\include{misc/my-thesis-specific}
+
+% If you are using WinEdt, and using a publication list on the the
+% acknowledgements page, and are having problems getting your document
+% to compile with the 'PDFLaTeXify' button, try uncommenting the
+% following two lines;
+% Also, you will need to PDFLaTeXify at least twice, as WinEdt misses
+% an extra run. See also:
+% http://tex.stackexchange.com/q/41727/5640
+\usepackage{multibib}
+\newcites{pubinfo}{Acknowledgement page references}
+\def\iitthesisextramultibibdefs{}
+
+\begin{document}
+\let\subsectionautorefname\sectionautorefname
+\let\subsubsectionautorefname\sectionautorefname
+
+% Front Matter
+% ------------
+
+% The following command will typeset the outer cover page, the
+% inner title page, the acknowledgements page, etc. - everything
+% up to but not including the introduction
+\makefrontmatter
+
+% Main Matter
+% ------------
+%
+% To conform to Technion regulations, the main matter should begin
+% with an introduction (including a survey of relevant past work):
+%
+\include{main/intro}
+
+%
+% and then cover:
+% - The methods used in the research
+% - The research results
+% - Discussion and conclusions from the results
+%
+% but not necessarily with a specific chapter for each of them.
+%
+% Then you have your main chapters (although these might still
+% include an initial chapter on technical preliminaries, experimental
+% system setup, and/or a final chapter with summary, discussion and further
+% research direction or questions)
+
+%\include{main/prelims}
+%\include{main/mainchap1}
+\include{main/relwork}
+\include{main/DFiant}
+\include{main/type_system}
+\include{main/evaluation}
+\include{main/trajectory_state}
+\include{main/trajectory_dataflow}
+\include{main/trajectory_dsexplore}
+\include{main/trajectory_backend}
+%\include{main/future_research}
+%
+% Add any appendices here; they must come _before_ the bibliography
+%
+\appendix
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% References
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\bibliographystyle{abbrv}
+%\small
+\onecolumn
+\bibliographystyle{misc/iitthesis}
+\bibliography{bib/macros,bib/references}
+%\nocite{*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\afterpage{\blankpage}
+%\afterpage{\blankpage}
+%\includepdf[pages=last-1]{heb/thesis_heb.pdf}
+%\includepdf[pages=last-1]{heb/thesis_heb_first.pdf}
+%\noappendicestocpagenum
+%\addappheadtotoc
+%\include{main/appendix1}
+
+% Back Matter
+% ------------
+
+% The following command will typeset the bibliography,
+% then typeset the Hebrew part of the thesis:
+% - Cover page
+% - Title page
+% - Acknowledgements page
+%  (NO table of contents or list of figures in Hebrew)
+% - (Extended) abstract (1000-2000 words)
+%
+% based on information you've provided in the thesis-fields file
+% (including the relative paths to your bib files). The Hebrew
+% content will be typeset in _reverse_page_order_, i.e. first
+% in the file will be the last page of the abstract, and the
+% Hebrew cover page will be the last page of the file.
+%
+%\makebackmatter
+
+% The resulting PDF can be printed and taken straight to binding,
+% i.e. you do not need to flip any pages anywhere. Of course,
+% mind the LaTeX error and warning messages, overfull hboxes etc.
+
+\end{document}
+

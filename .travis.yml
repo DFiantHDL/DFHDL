@@ -5,15 +5,13 @@ install:
 - pip install mkdocs-material
 - pip install pymdown-extensions
 script:
-- cd doc/official
 - mkdocs build --verbose --clean #--strict
-- cd ../../
 deploy:
  provider: pages
  repo: DFiantHDL/DFiantHDL.github.io
  skip_cleanup: true
  github_token: $GITHUB_TOKEN # Set in travis-ci.org dashboard
- local_dir: doc/official/site
+ local_dir: site
  target_branch: master
  on:
-   branch: master
+   branch: legato
