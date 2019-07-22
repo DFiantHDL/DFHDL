@@ -87,7 +87,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private[internals] var keepFlag : Boolean = false
+    final lazy val keepFlag = StateDerived(dslMemberInfo)(t => t.keep)((t, r) => t.keep(r))
     final lazy val discovered = StateDerived(dslMemberInfo)(t => t.discovered)((t, r) => t.discovered(r))
     override protected def preDiscoveryRun() : Unit = {
       //Touching the name lazy val to set the final names bottom up.
@@ -176,7 +176,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final private def getKeepMembers : List[Discoverable] = members.filter(m => m.keepFlag)
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
-      member.keepFlag = true
+      member.keepFlag.set(true)
       elaborateReq = true
       keep //also keep the owner chain
     }
