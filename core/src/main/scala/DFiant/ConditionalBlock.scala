@@ -312,7 +312,7 @@ object ConditionalBlock {
       : Unit = new DFCase_Block[MV](matchHeader)(Some(this), block)
 
       private var nextCase : Option[DFCasePatternBlock[MV]] = None
-      final def isLastCase : Boolean = nextCase.isEmpty || nextCase.get.isNotDiscovered
+      final def isLastCase : Boolean = nextCase.isEmpty //|| nextCase.get.isNotDiscovered
       prevCase.foreach(pc => pc.nextCase = Some(this))
 
       private val originalOwner = mutableOwner.value

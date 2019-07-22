@@ -1,9 +1,10 @@
+package DFiant.internals
+
 class StateFull[T](default : T) {
   private var value : T = default
   @inline def set(newValue : T) : Unit = value = newValue
   @inline def get : T = value
-
-  override def toString: String = value.toString
+  @inline override def toString: String = value.toString
 }
 object StateFull {
   implicit def toValue[T](sf : StateFull[T]) : T = sf.get
@@ -32,21 +33,3 @@ case class StateDerived[T, R](st : StateFull[T])(t2r : T => R)(r2t : (T, R) => T
     }
   }
 }
-
-val x : StateFull[collection.immutable.HashMap[Int, String]] = StateFull(collection.immutable.HashMap())
-
-val y1 = StateDerived(x)(t => t.getOrElse(1,""))((t, r) => t + (1 -> r))
-
-val y2 = StateDerived(x)(t => t.getOrElse(2,""))((t, r) => t + (2 -> r))
-
-y1.set("11")
-
-y2.set("222")
-
-println(x)
-y2.set("333")
-y2.set("444")
-y2.set("555")
-println(x)
-y1.set(y2.get)
-println(x)
