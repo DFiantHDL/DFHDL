@@ -159,19 +159,33 @@ object DSLMemberConstruct {
 trait DSLOwnerInfo[+T <: DSLInfo] extends DSLMemberInfo[T] {
   val elaborateReq : Boolean
   def elaborateReq(value : Boolean) : T
+  val members : List[DSLMemberConstruct]
+  def members(value : List[DSLMemberConstruct]) : T
+  val nameTable : immutable.HashMap[String, Int]
+  def nameTable(value : immutable.HashMap[String, Int]) : T
 }
 
 case class DSLOwnerInfoCC(
   keep : Boolean,
   discovered : Boolean,
-  elaborateReq : Boolean
+  elaborateReq : Boolean,
+  members : List[DSLMemberConstruct],
+  nameTable : immutable.HashMap[String, Int]
 ) extends DSLOwnerInfo[DSLOwnerInfoCC] {
   @inline def keep(value : Boolean) : DSLOwnerInfoCC = copy(keep = value)
   @inline def discovered(value : Boolean) : DSLOwnerInfoCC = copy(discovered = value)
   @inline def elaborateReq(value : Boolean) : DSLOwnerInfoCC = copy(elaborateReq = value)
+  @inline def members(value : List[DSLMemberConstruct]) : DSLOwnerInfoCC = copy(members = value)
+  @inline def nameTable(value : immutable.HashMap[String, Int]) : DSLOwnerInfoCC = copy(nameTable = value)
 }
 object DSLOwnerInfoCC {
-  lazy val empty = DSLOwnerInfoCC(keep = false, discovered = false, elaborateReq = true)
+  lazy val empty = DSLOwnerInfoCC(
+    keep = false,
+    discovered = false,
+    elaborateReq = true,
+    members = List(),
+    nameTable = immutable.HashMap()
+  )
 }
 
 
@@ -186,31 +200,33 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
 
-    final private[internals] var nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
-    final private[internals] def getUniqueMemberName(suggestedName : String) : String =
-      nameTable.get(suggestedName) match {
+    final lazy val nameTable = StateDerivedRW(dslMemberInfo)(t => t.nameTable)((t, r) => t.nameTable(r))
+    final private[internals] def getUniqueMemberName(suggestedName : String) : String = {
+      val nt = nameTable.get
+      nt.get(suggestedName) match {
         case Some(v) =>
-          nameTable.update(suggestedName, v + 1)
+          nameTable.set(nt + (suggestedName -> (v + 1)))
           s"${Name.AnonStart}${suggestedName}_$v"
         case _ =>
-          nameTable.update(suggestedName, 1)
+          nameTable.set(nt + (suggestedName-> 1))
           suggestedName
       }
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private def getKeepMembers : List[Discoverable] = members.filter(m => m.keepFlag)
+    final private lazy val keepMembers = StateDerivedRO(members)(t => t.filter(m => m.keepFlag))
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
       member.keepFlag.set(true)
       elaborateReq.set(true)
       keep //also keep the owner chain
     }
-    override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ getKeepMembers
-    final def getDiscoveredMembers : List[DSLMemberConstruct] = {
+    override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepMembers
+    final lazy val discoveredMembers = StateDerivedRO(members)(t => {
       discover()
-      members.filterNot(o => o.isNotDiscovered)
-    }
+      t.filterNot(o => o.isNotDiscovered)
+    })
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
@@ -222,13 +238,12 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final private[internals] var mutableMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
-    @inline final def members : List[DSLMemberConstruct] = mutableMemberList.toList
+    final lazy val members = StateDerivedRW(dslMemberInfo)(t => t.members)((t, r) => t.members(r))
     private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
-      mutableMemberList += item
+      members.set(members :+ item)
       elaborateReq.set(true)
       //    println(s"newItemGetID ${item.fullName}")
-      mutableMemberList.size
+      members.size
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -316,23 +331,23 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private var foldedNameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
-    private var foldedMemberList : ListBuffer[DSLMemberConstruct] = ListBuffer.empty[DSLMemberConstruct]
+    private var foldedNameTable : immutable.HashMap[String, Int] = immutable.HashMap()
+    private var foldedMemberList : List[DSLMemberConstruct] = List()
 
     private var folded : Boolean = false
     final def isFolded : Boolean = folded
     private[DFiant] def unfoldedRun : Unit = {}
 
     private lazy val firstFold : Unit = {
-      foldedNameTable = nameTable.clone()
-      foldedMemberList = mutableMemberList.clone()
+      foldedNameTable = nameTable
+      foldedMemberList = members
       foldedRun
       folded = true
 //      foldRequest = __config.foldComponents
     }
     private[DFiant] def preFoldUnfold() : Unit = {
-      nameTable = foldedNameTable.clone()
-      mutableMemberList = foldedMemberList.clone()
+      nameTable.set(foldedNameTable)
+      members.set(foldedMemberList)
     }
     override def elaborate(): Unit = {
       firstFold
