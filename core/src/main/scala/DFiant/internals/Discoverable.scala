@@ -20,7 +20,7 @@ package DFiant.internals
 trait Discoverable {
   protected[DFiant] trait __DevDiscoverable {
     final protected[DFiant] def isNotDiscovered : Boolean = !discovered
-    val discovered : StateFull[Boolean]
+    val discovered : StateBoxRW[Boolean]
     protected def discoveryDependencies : List[Discoverable] = List()
     protected def preDiscoveryRun() : Unit = {}
     protected def postDiscoveryRun() : Unit = {}

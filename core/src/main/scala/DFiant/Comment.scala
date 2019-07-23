@@ -19,13 +19,14 @@ package DFiant
 
 import internals._
 
-case class Comment(comment : String)(implicit ctx0 : DFDesign.Context) extends DSLMemberConstruct {
+case class Comment(comment : String)(implicit ctx0 : DFDesign.Context) extends DFAnyMember {
   final private[DFiant] lazy val ctx = ctx0
-  protected[DFiant] trait __DevComment extends __DevDSLMemberConstruct {
+  protected[DFiant] trait __DevComment extends __DevDFAnyMember {
     def codeString : String = s"\n//$comment"
 
   }
   override private[DFiant] lazy val __dev : __DevComment = new __DevComment {}
   import __dev._
+  protected[DFiant] type ThisInfo = DSLMemberInfoCC
   keep
 }

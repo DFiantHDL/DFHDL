@@ -382,6 +382,7 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : __DevConstructor = ???
     import __dev._
+    protected[DFiant] type ThisInfo = DSLMemberInfoCC
     final lazy val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -587,6 +588,7 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : __DevConnector = new __DevConnector {}
     import __dev._
+    protected[DFiant] type ThisInfo = DSLMemberInfoCC
   }
   object Connector {
     type Context = DFAnyOwner.Context[DFBlock]
@@ -603,6 +605,7 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : __DevAssignment = new __DevAssignment {}
     import __dev._
+    protected[DFiant] type ThisInfo = DSLMemberInfoCC
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

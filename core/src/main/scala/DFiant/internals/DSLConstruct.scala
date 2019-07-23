@@ -32,18 +32,20 @@ trait HasOwner {
   }
 }
 
-trait DSLMemberInfo extends Product with Serializable {
+trait DSLInfo extends Product with Serializable
+
+trait DSLMemberInfo[+T <: DSLInfo] extends DSLInfo {
   val keep : Boolean
-  def keep(value : Boolean) : DSLMemberInfo
+  def keep(value : Boolean) : T
   val discovered : Boolean
-  def discovered(value : Boolean) : DSLMemberInfo
+  def discovered(value : Boolean) : T
 }
 case class DSLMemberInfoCC(
   keep : Boolean,
   discovered : Boolean
-) extends DSLMemberInfo {
-  @inline def keep(value : Boolean) : DSLMemberInfo = copy(keep = value)
-  @inline def discovered(value : Boolean) : DSLMemberInfo = copy(discovered = value)
+) extends DSLMemberInfo[DSLMemberInfoCC] {
+  @inline def keep(value : Boolean) : DSLMemberInfoCC = copy(keep = value)
+  @inline def discovered(value : Boolean) : DSLMemberInfoCC = copy(discovered = value)
 }
 object DSLMemberInfoCC {
   lazy val empty = DSLMemberInfoCC(keep = false, discovered = false)
@@ -87,8 +89,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val keepFlag = StateDerived(dslMemberInfo)(t => t.keep)((t, r) => t.keep(r))
-    final lazy val discovered = StateDerived(dslMemberInfo)(t => t.discovered)((t, r) => t.discovered(r))
+    final lazy val keepFlag = StateDerivedRW(dslMemberInfo)(t => t.keep)((t, r) => t.keep(r))
+    final lazy val discovered = StateDerivedRW(dslMemberInfo)(t => t.discovered)((t, r) => t.discovered(r))
     override protected def preDiscoveryRun() : Unit = {
       //Touching the name lazy val to set the final names bottom up.
       //It is important to do so to invalidate name duplicate of anonymous values.
@@ -107,8 +109,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
     final lazy val topOwner : DSLOwnerConstruct =
       ownerOption.map(o => o.topOwner).getOrElse(self.asInstanceOf[DSLOwnerConstruct])
-    final lazy val dslMemberInfo =
-      StateDerived(topOwner.allInfo)(t => t.getOrElse(self, DSLMemberInfoCC.empty))((t, r) => t + (self -> r))
+    lazy val defaultInfo : ThisInfo = DSLMemberInfoCC.empty.asInstanceOf[ThisInfo]
+    final lazy val dslMemberInfo : StateBoxRW[ThisInfo] =
+      StateDerivedRW(topOwner.allInfo)(t => t.getOrElse(self, defaultInfo).asInstanceOf[ThisInfo])((t, r) => t + (self -> r))
+
     def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
     final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
     final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
@@ -136,6 +140,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
   private[DFiant] val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration]
   protected[DFiant] type ThisOwner <: DSLOwnerConstruct
+  protected[DFiant] type ThisInfo <: DSLMemberInfo[ThisInfo]
   final def keep : this.type = {
     ownerOption.foreach {
       o => o.keepMember(this)
@@ -150,16 +155,37 @@ object DSLMemberConstruct {
   implicit def fetchDev(from : DSLMemberConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
 }
 
+
+trait DSLOwnerInfo[+T <: DSLInfo] extends DSLMemberInfo[T] {
+  val elaborateReq : Boolean
+  def elaborateReq(value : Boolean) : T
+}
+
+case class DSLOwnerInfoCC(
+  keep : Boolean,
+  discovered : Boolean,
+  elaborateReq : Boolean
+) extends DSLOwnerInfo[DSLOwnerInfoCC] {
+  @inline def keep(value : Boolean) : DSLOwnerInfoCC = copy(keep = value)
+  @inline def discovered(value : Boolean) : DSLOwnerInfoCC = copy(discovered = value)
+  @inline def elaborateReq(value : Boolean) : DSLOwnerInfoCC = copy(elaborateReq = value)
+}
+object DSLOwnerInfoCC {
+  lazy val empty = DSLOwnerInfoCC(keep = false, discovered = false, elaborateReq = true)
+}
+
+
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   protected[DFiant] trait __DevDSLOwnerConstruct extends __DevDSLMemberConstruct {
-    lazy val allInfo : StateFull[immutable.HashMap[DSLMemberConstruct, DSLMemberInfo]] =
-      if (isTop) StateFull(immutable.HashMap()) else topOwner.allInfo
+    lazy val allInfo : StateBoxRW[immutable.HashMap[DSLMemberConstruct, DSLInfo]] =
+      if (isTop) StateBoxRW(immutable.HashMap()) else topOwner.allInfo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
+
     final private[internals] var nameTable : mutable.HashMap[String, Int] = mutable.HashMap.empty[String, Int]
     final private[internals] def getUniqueMemberName(suggestedName : String) : String =
       nameTable.get(suggestedName) match {
@@ -177,7 +203,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     final private def getKeepMembers : List[Discoverable] = members.filter(m => m.keepFlag)
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
       member.keepFlag.set(true)
-      elaborateReq = true
+      elaborateReq.set(true)
       keep //also keep the owner chain
     }
     override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ getKeepMembers
@@ -190,6 +216,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final lazy val isTop : Boolean = ownerOption.isEmpty
+    override lazy val defaultInfo : ThisInfo = DSLOwnerInfoCC.empty.asInstanceOf[ThisInfo]
     lazy val nonTransparent : DSLOwnerConstruct = self
     final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
       if (self.nonTransparent eq member.nonTransparentOwner) true
@@ -199,7 +226,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     @inline final def members : List[DSLMemberConstruct] = mutableMemberList.toList
     private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
       mutableMemberList += item
-      elaborateReq = true
+      elaborateReq.set(true)
       //    println(s"newItemGetID ${item.fullName}")
       mutableMemberList.size
     }
@@ -207,14 +234,14 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Elaboration
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private var elaborateReq : Boolean = true
+    final lazy val elaborateReq = StateDerivedRW(dslMemberInfo)(t => t.elaborateReq)((t, r) => t.elaborateReq(r))
     def reelaborateReq() : Unit = {
-      elaborateReq = true
+      elaborateReq.set(true)
       ownerOption.foreach(o => o.reelaborateReq())
     }
     def elaborate() : Unit = if (elaborateReq) {
       members.collect{case m : DSLOwnerConstruct => m.elaborate()} //elaborates all members that are also owners
-      elaborateReq = false
+      elaborateReq.set(false)
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLOwnerConstruct = ???
@@ -222,6 +249,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
   protected implicit def __theOwnerToBe : DSLOwnerConstruct = this
   val __config : DSLConfiguration
+  protected[DFiant] type ThisInfo <: DSLOwnerInfo[ThisInfo]
+
 }
 
 trait DSLContext {

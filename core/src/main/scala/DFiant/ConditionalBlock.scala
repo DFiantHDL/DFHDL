@@ -238,9 +238,10 @@ object ConditionalBlock {
   class MatchNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DSLMemberConstruct {
+    ) extends DFAnyMember {
+      protected[DFiant] type ThisInfo = DSLMemberInfoCC
       final private[DFiant] lazy val ctx = ctx0
-      protected[DFiant] trait __DevDFMatchHeader extends __DevDSLMemberConstruct {
+      protected[DFiant] trait __DevDFMatchHeader extends __DevDFAnyMember {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -345,9 +346,10 @@ object ConditionalBlock {
   class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DSLMemberConstruct {
+    ) extends DFAnyMember {
+      protected[DFiant] type ThisInfo = DSLMemberInfoCC
       final private[DFiant] lazy val ctx = ctx0
-      protected[DFiant] trait __DevMatchWithRetVal extends __DevDSLMemberConstruct {
+      protected[DFiant] trait __DevMatchWithRetVal extends __DevDFAnyMember {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
