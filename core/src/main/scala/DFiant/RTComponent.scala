@@ -27,7 +27,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final override protected def nameDefault: String = ctx.getName
+    final override protected lazy val nameScala: String = ctx.getName
     override def codeString: String = {
       s"\nval $name = new $typeName {}"
     }

@@ -58,7 +58,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final override protected def nameDefault: String = ctx.getName
+    final override protected lazy val nameScala: String = ctx.getName
 
     final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
     private var autoConstructCodeStringFunc : () => String = () => ""
@@ -579,7 +579,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override protected def nameDefault = s"${Name.Separator}connect"
+      override protected lazy val nameScala = s"${Name.Separator}connect"
       private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
       def codeString : String = toPort.owner match {
         case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
@@ -600,7 +600,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override protected def nameDefault = s"${Name.Separator}assign"
+      override protected lazy val nameScala = s"${Name.Separator}assign"
       def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     }
     override private[DFiant] lazy val __dev : __DevAssignment = new __DevAssignment {}

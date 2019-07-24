@@ -39,16 +39,24 @@ trait DSLMemberInfo[+T <: DSLInfo] extends DSLInfo {
   def keep(value : Boolean) : T
   val discovered : Boolean
   def discovered(value : Boolean) : T
+  val nameManual : String
+  def nameManual(value : String) : T
+  val nameAutoFunc : Option[StateBoxRO[String]]
+  def nameAutoFunc(value : Option[StateBoxRO[String]]) : T
 }
 case class DSLMemberInfoCC(
   keep : Boolean,
-  discovered : Boolean
+  discovered : Boolean,
+  nameManual : String,
+  nameAutoFunc : Option[StateBoxRO[String]]
 ) extends DSLMemberInfo[DSLMemberInfoCC] {
   @inline def keep(value : Boolean) : DSLMemberInfoCC = copy(keep = value)
   @inline def discovered(value : Boolean) : DSLMemberInfoCC = copy(discovered = value)
+  @inline def nameManual(value : String) : DSLMemberInfoCC = copy(nameManual = value)
+  @inline def nameAutoFunc(value : Option[StateBoxRO[String]]) : DSLMemberInfoCC = copy(nameAutoFunc = value)
 }
 object DSLMemberInfoCC {
-  lazy val empty = DSLMemberInfoCC(keep = false, discovered = false)
+  lazy val empty = DSLMemberInfoCC(keep = false, discovered = false, "", None)
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
@@ -57,6 +65,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final private[internals] lazy val nameManual = StateDerivedRW(dslMemberInfo)(t => t.nameManual)((t, r) => t.nameManual(r))
+    final private[internals] lazy val nameAutoFunc = StateDerivedRW(dslMemberInfo)(t => t.nameAutoFunc)((t, r) => t.nameAutoFunc(r))
     final private[internals] def getUniqueName(suggestedName : String) : String =
       ownerOption.map(o => o.getUniqueMemberName(suggestedName)).getOrElse(suggestedName)
     final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
@@ -168,12 +178,16 @@ trait DSLOwnerInfo[+T <: DSLInfo] extends DSLMemberInfo[T] {
 case class DSLOwnerInfoCC(
   keep : Boolean,
   discovered : Boolean,
+  nameManual : String,
+  nameAutoFunc : Option[StateBoxRO[String]],
   elaborateReq : Boolean,
   members : List[DSLMemberConstruct],
   nameTable : immutable.HashMap[String, Int]
 ) extends DSLOwnerInfo[DSLOwnerInfoCC] {
   @inline def keep(value : Boolean) : DSLOwnerInfoCC = copy(keep = value)
   @inline def discovered(value : Boolean) : DSLOwnerInfoCC = copy(discovered = value)
+  @inline def nameManual(value : String) : DSLOwnerInfoCC = copy(nameManual = value)
+  @inline def nameAutoFunc(value : Option[StateBoxRO[String]]) : DSLOwnerInfoCC = copy(nameAutoFunc = value)
   @inline def elaborateReq(value : Boolean) : DSLOwnerInfoCC = copy(elaborateReq = value)
   @inline def members(value : List[DSLMemberConstruct]) : DSLOwnerInfoCC = copy(members = value)
   @inline def nameTable(value : immutable.HashMap[String, Int]) : DSLOwnerInfoCC = copy(nameTable = value)
@@ -182,6 +196,8 @@ object DSLOwnerInfoCC {
   lazy val empty = DSLOwnerInfoCC(
     keep = false,
     discovered = false,
+    nameManual = "",
+    nameAutoFunc = None,
     elaborateReq = true,
     members = List(),
     nameTable = immutable.HashMap()

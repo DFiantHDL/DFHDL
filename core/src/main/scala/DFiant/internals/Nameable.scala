@@ -19,20 +19,27 @@ package DFiant.internals
 
 trait Nameable {self =>
   protected[DFiant] trait __DevNameable {
-    protected def nameDefault : String = "???"
-    private[Nameable] var nameManual : String = ""
-    private var nameAutoFunc : () => String = () => ""
-    private lazy val nameAuto : String = nameAutoFunc()
+    protected lazy val nameScala : String = "???"
+    private[internals] val nameManual : StateBoxRW[String]
+    private[internals] val nameAutoFunc : StateBoxRW[Option[StateBoxRO[String]]]
+    private lazy val nameAuto : String = nameAutoFunc.map(x => x.get).getOrElse("")
     final lazy val name : String = getUniqueName (
       if (!nameManual.isEmpty) nameManual
       else if (!nameAuto.isEmpty) nameAuto
-      else nameDefault
+      else nameScala
     )
     private[internals] def getUniqueName(suggestedName : String) : String
-    final def setAutoName(name : => String) : self.type = {nameAutoFunc = () => name; self}
+    final def setAutoName(name : => String) : self.type = {
+      nameAutoFunc.set(Some(StateConst(name)))
+      self
+    }
+    final def setAutoName[T](watch : => T, name : T => String) : self.type = {
+      nameAutoFunc.set(Some(StateDerivedRO(watch)(name)))
+      self
+    }
   }
   private[DFiant] lazy val __dev : __DevNameable = ???
-  final def setName(name : String) : self.type = {__dev.nameManual = name; self}
+  final def setName(name : String) : self.type = {__dev.nameManual.set(name); self}
   override def toString : String = __dev.name
 }
 
