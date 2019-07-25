@@ -7,9 +7,10 @@ class StateBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.HashSet[StateBoxRO[_]] = mutable.HashSet()
   protected[this] var value : Option[T] = None
   @inline final protected def valueSnoop : Option[T] = value
+  @inline final protected def valueClear() : Unit = value = None
   @tailrec private def dirty(current : StateBoxRO[_], remainingDeps : List[StateBoxRO[_]]) : Unit = {
     val updatedDeps = if (current.valueSnoop.isDefined) {
-      value = None
+      current.valueClear()
       remainingDeps ++ current.deps
     } else remainingDeps
     updatedDeps match {
@@ -24,7 +25,7 @@ class StateBoxRO[+T](updateFunc : => T) {
     updateValue
   }
   @inline final override def toString: String = get.toString
-  @inline final def dirty() : Unit = dirty(this, List())
+  @inline final protected def dirty() : Unit = dirty(this, List())
   final protected def dirtyDeps() : Unit = deps.foreach{d => d.dirty()}
   final def addDependency(st : StateBoxRO[_]) : Unit = deps += st
   final def removeDependency(st : StateBoxRO[_]) : Unit = deps -= st
@@ -73,7 +74,7 @@ class StateDerivedRO[+T](stList : List[StateBoxRO[_]])(updateFunc : => T) extend
 
 class StateDerivedROList[+T](stBoxList : StateBoxRO[List[StateBoxRO[_]]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
   var stList : Option[List[StateBoxRO[_]]] = None
-  @inline override def get : T = value.getOrElse {
+  @inline override def get : T = valueSnoop.getOrElse {
     val updateList = Some(stBoxList.get)
     if (updateList != stList) {
       stList.foreach{t => t.foreach {x => x.removeDependency(this)}}
