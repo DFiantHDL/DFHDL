@@ -1,20 +1,30 @@
 package DFiant.internals
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 class StateBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.HashSet[StateBoxRO[_]] = mutable.HashSet()
   protected[this] var value : Option[T] = None
-  @inline final protected def dirty() : Unit = value.foreach {_ =>
-    value = None
-    dirtyDeps()
+  @inline final protected def valueSnoop : Option[T] = value
+  @tailrec private def dirty(current : StateBoxRO[_], remainingDeps : List[StateBoxRO[_]]) : Unit = {
+    val updatedDeps = if (current.valueSnoop.isDefined) {
+      value = None
+      remainingDeps ++ current.deps
+    } else remainingDeps
+    updatedDeps match {
+      case Nil =>
+      case x :: xs => dirty(x, xs)
+    }
   }
+
   @inline def get : T = value.getOrElse {
     val updateValue = updateFunc
     value = Some(updateValue)
     updateValue
   }
   @inline final override def toString: String = get.toString
+  @inline final def dirty() : Unit = dirty(this, List())
   final protected def dirtyDeps() : Unit = deps.foreach{d => d.dirty()}
   final def addDependency(st : StateBoxRO[_]) : Unit = deps += st
   final def removeDependency(st : StateBoxRO[_]) : Unit = deps -= st
