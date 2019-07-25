@@ -878,7 +878,7 @@ object Backend {
     val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.typeName.toLowerCase) else {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
-      val topOrElseName = if (design.isTop) design.name else design.typeName
+      val topOrElseName = if (design.isTop) design.name.get else design.typeName
       Name(db.addOwnerBody(topOrElseName.toLowerCase, body, this))
     }
     val archName : Name = Name(s"${entityName}_arch")

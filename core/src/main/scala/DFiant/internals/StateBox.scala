@@ -17,8 +17,16 @@ object StateConst {
 
 class StateBoxRW[T](default : T) extends StateBoxRO[T] {
   private var value : T = default
-  @inline def set(newValue : T) : Unit = value = newValue
-  @inline def get : T = value
+  private var dirty : Option[() => T] = None
+  @inline def dirtyset(newValue : => T) : Unit = dirty = Some(() => newValue)
+  @inline def set(newValue : T) : Unit = {
+    dirty = None
+    value = newValue
+  }
+  @inline def get : T = {
+    dirty.foreach(d => set(d()))
+    value
+  }
 }
 object StateBoxRW {
   def apply[T](t : T) : StateBoxRW[T] = new StateBoxRW[T](t)

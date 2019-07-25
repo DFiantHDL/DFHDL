@@ -54,7 +54,7 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected lazy val nameScala = s"${Name.Separator}assert"
+    override lazy val nameScala = s"${Name.Separator}assert"
     def codeString : String = cond match {
       case Some(c) =>
         s"""
@@ -98,7 +98,7 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected lazy val nameScala = s"${Name.Separator}finish"
+    override lazy val nameScala = s"${Name.Separator}finish"
     def codeString : String =
       s"""
          |sim.finish()""".stripMargin

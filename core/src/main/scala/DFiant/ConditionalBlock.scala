@@ -48,14 +48,14 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}if"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}if"
         override def codeString: String = s"\nifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def preDiscoveryRun() : Unit = {
-          returnVar.name //return value should get the name first then internals of the conditional block
+//          returnVar.name //return value should get the name first then internals of the conditional block
           super.preDiscoveryRun()
         }
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
@@ -89,6 +89,7 @@ object ConditionalBlock {
         LazyBox.Args3[Seq[RV#TToken], Seq[DFBool.Token], Seq[RV#TToken], Seq[RV#TToken]](this)(
           DFBool.Token.select, cond.initLB, returnValue.initLB, nextIf.get.initLB
         )
+      returnVar.nameFirst = true
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
@@ -98,7 +99,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}elseif"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}elseif"
         override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -120,7 +121,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}else"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}else"
         override def codeString: String = s".elsedf {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,7 +160,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = ctx.getName
+        override lazy val nameScala: String = ctx.getName
         override def codeString: String = s"\nifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,7 +197,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}elseif"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}elseif"
         override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +218,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}else"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}else"
         override def codeString: String = s".elsedf {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -245,7 +246,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = ctx.getName
+        override lazy val nameScala: String = ctx.getName
         private def matchConfigCodeString : String =
           if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
         override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
@@ -289,7 +290,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}case"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}case"
         override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -330,7 +331,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}case_"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}case_"
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       }
       override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
@@ -353,7 +354,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}match"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}match"
         private def matchConfigCodeString : String =
           if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
         override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
@@ -362,7 +363,7 @@ object ConditionalBlock {
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override protected def preDiscoveryRun() : Unit = {
-          returnVar.name //return value should get the name first then internals of the conditional block
+//          returnVar.name //return value should get the name first then internals of the conditional block
           super.preDiscoveryRun()
         }
         override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies :+ matchVal
@@ -395,6 +396,7 @@ object ConditionalBlock {
       def hasOverlappingCases : Boolean = privHasOverlappingCases
       private[DFiant] lazy val nameIt = ctx.n
       matchVal.consume()
+      returnVar.nameFirst = true
     }
 
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
@@ -404,7 +406,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}case"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}case"
         override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -449,7 +451,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected lazy val nameScala: String = s"$ctx${Name.Separator}case_"
+        override lazy val nameScala: String = s"$ctx${Name.Separator}case_"
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
       }
       override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}

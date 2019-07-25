@@ -32,7 +32,9 @@ trait HasOwner {
   }
 }
 
-trait DSLInfo extends Product with Serializable
+trait DSLInfo extends Product with Serializable {
+  override lazy val hashCode : Int = super.hashCode()
+}
 
 trait DSLMemberInfo[+T <: DSLInfo] extends DSLInfo {
   val keep : Boolean
@@ -67,8 +69,9 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final private[internals] lazy val nameManual = StateDerivedRW(dslMemberInfo)(t => t.nameManual)((t, r) => t.nameManual(r))
     final private[internals] lazy val nameAutoFunc = StateDerivedRW(dslMemberInfo)(t => t.nameAutoFunc)((t, r) => t.nameAutoFunc(r))
-    final private[internals] def getUniqueName(suggestedName : String) : String =
-      ownerOption.map(o => o.getUniqueMemberName(suggestedName)).getOrElse(suggestedName)
+    final lazy val name : StateBoxRO[String] =
+      ownerOption.map(o => StateDerivedRO(o.nameTable)(t => t(self))).getOrElse(StateConst(nameTemp))
+
     final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
     final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
 
@@ -107,7 +110,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
       //For example: val result = if (someConst) new Box else new OtherBox
       //In the example we both Box and OtherBox will potentially get the name `result`,
       //but don't want to invalidate the result name for `Box` if it's in use.
-      name
+//      name
       //    println(s"discovered $fullName")
     }
     override protected def discoveryDependencies : List[Discoverable] = ownerOption.toList
@@ -171,8 +174,6 @@ trait DSLOwnerInfo[+T <: DSLInfo] extends DSLMemberInfo[T] {
   def elaborateReq(value : Boolean) : T
   val members : List[DSLMemberConstruct]
   def members(value : List[DSLMemberConstruct]) : T
-  val nameTable : immutable.HashMap[String, Int]
-  def nameTable(value : immutable.HashMap[String, Int]) : T
 }
 
 case class DSLOwnerInfoCC(
@@ -182,7 +183,6 @@ case class DSLOwnerInfoCC(
   nameAutoFunc : Option[StateBoxRO[String]],
   elaborateReq : Boolean,
   members : List[DSLMemberConstruct],
-  nameTable : immutable.HashMap[String, Int]
 ) extends DSLOwnerInfo[DSLOwnerInfoCC] {
   @inline def keep(value : Boolean) : DSLOwnerInfoCC = copy(keep = value)
   @inline def discovered(value : Boolean) : DSLOwnerInfoCC = copy(discovered = value)
@@ -190,7 +190,6 @@ case class DSLOwnerInfoCC(
   @inline def nameAutoFunc(value : Option[StateBoxRO[String]]) : DSLOwnerInfoCC = copy(nameAutoFunc = value)
   @inline def elaborateReq(value : Boolean) : DSLOwnerInfoCC = copy(elaborateReq = value)
   @inline def members(value : List[DSLMemberConstruct]) : DSLOwnerInfoCC = copy(members = value)
-  @inline def nameTable(value : immutable.HashMap[String, Int]) : DSLOwnerInfoCC = copy(nameTable = value)
 }
 object DSLOwnerInfoCC {
   lazy val empty = DSLOwnerInfoCC(
@@ -200,7 +199,6 @@ object DSLOwnerInfoCC {
     nameAutoFunc = None,
     elaborateReq = true,
     members = List(),
-    nameTable = immutable.HashMap()
   )
 }
 
@@ -215,19 +213,37 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
+    private lazy val membersNamesTemp = StateDerivedRO(discoveredMembers)(m => m.map(x => x.nameTemp))
+    final lazy val nameTable : StateBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
+      StateDerivedRO(membersNamesTemp) {_ =>
+        val nt = mutable.HashMap[String, Int]()
+        def getUniqueMemberName(suggestedName : String) : String = {
+          nt.get(suggestedName) match {
+            case Some(v) =>
+              nt += (suggestedName -> (v + 1))
+              s"${Name.AnonStart}${suggestedName}_$v"
+            case _ =>
+              nt += (suggestedName-> 1)
+              suggestedName
+          }
+        }
+        val priorityNamedMembers =
+          discoveredMembers.filter(x => x.nameFirst) ++ discoveredMembers.filterNot(x => x.nameFirst).reverse
 
-    final lazy val nameTable = StateDerivedRW(dslMemberInfo)(t => t.nameTable)((t, r) => t.nameTable(r))
-    final private[internals] def getUniqueMemberName(suggestedName : String) : String = {
-      val nt = nameTable.get
-      nt.get(suggestedName) match {
-        case Some(v) =>
-          nameTable.set(nt + (suggestedName -> (v + 1)))
-          s"${Name.AnonStart}${suggestedName}_$v"
-        case _ =>
-          nameTable.set(nt + (suggestedName-> 1))
-          suggestedName
+        immutable.HashMap(priorityNamedMembers.map(m => (m -> getUniqueMemberName(m.nameTemp))) : _*)
       }
-    }
+//    final lazy val nameTable = StateDerivedRW(dslMemberInfo)(t => t.nameTable)((t, r) => t.nameTable(r))
+//    final private[internals] def getUniqueMemberName(suggestedName : String) : String = {
+//      val nt = nameTable.get
+//      nt.get(suggestedName) match {
+//        case Some(v) =>
+//          nameTable.set(nt + (suggestedName -> (v + 1)))
+//          s"${Name.AnonStart}${suggestedName}_$v"
+//        case _ =>
+//          nameTable.set(nt + (suggestedName-> 1))
+//          suggestedName
+//      }
+//    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
@@ -347,7 +363,6 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private var foldedNameTable : immutable.HashMap[String, Int] = immutable.HashMap()
     private var foldedMemberList : List[DSLMemberConstruct] = List()
 
     private var folded : Boolean = false
@@ -355,14 +370,12 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     private[DFiant] def unfoldedRun : Unit = {}
 
     private lazy val firstFold : Unit = {
-      foldedNameTable = nameTable
       foldedMemberList = members
       foldedRun
       folded = true
 //      foldRequest = __config.foldComponents
     }
     private[DFiant] def preFoldUnfold() : Unit = {
-      nameTable.set(foldedNameTable)
       members.set(foldedMemberList)
     }
     override def elaborate(): Unit = {
