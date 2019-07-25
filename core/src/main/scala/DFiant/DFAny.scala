@@ -84,10 +84,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Consumption
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private var inLetValid : Option[DFBool.NewVar] = None
-    private var inLetReady : Option[DFBool.NewVar] = None
-    private var outLetValid : Option[DFBool.NewVar] = None
-    private var outLetReady : Option[DFBool.NewVar] = None
     def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
       //Do Nothing
       //TODO: consider adding stuff here
@@ -97,7 +93,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Init (for use with Prev)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     val initLB : LazyBox[Seq[TToken]]
-    var privRefCount : Int = 0
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constant
