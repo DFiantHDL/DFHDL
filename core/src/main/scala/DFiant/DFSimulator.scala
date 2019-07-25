@@ -45,7 +45,6 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 }
 
 trait DFAnySimMember extends DFAnyMember {
-  protected[DFiant] type ThisInfo = DSLMemberInfoCC
 }
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {

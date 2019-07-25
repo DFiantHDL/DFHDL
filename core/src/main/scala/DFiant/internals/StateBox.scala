@@ -1,74 +1,82 @@
 package DFiant.internals
 
-trait StateBoxRO[T] {
-  @inline def get : T
+import scala.collection.mutable
+
+class StateBoxRO[+T](updateFunc : => T) {
+  private val deps : mutable.HashSet[StateBoxRO[_]] = mutable.HashSet()
+  protected[this] var value : Option[T] = None
+  @inline final protected def dirty() : Unit = value.foreach {_ =>
+    value = None
+    dirtyDeps()
+  }
+  @inline def get : T = value.getOrElse {
+    val updateValue = updateFunc
+    value = Some(updateValue)
+    updateValue
+  }
   @inline final override def toString: String = get.toString
+  final protected def dirtyDeps() : Unit = deps.foreach{d => d.dirty()}
+  final def addDependency(st : StateBoxRO[_]) : Unit = deps += st
+  final def removeDependency(st : StateBoxRO[_]) : Unit = deps -= st
 }
 object StateBoxRO {
+  def apply[T](updateFunc : => T) : StateBoxRO[T] = new StateBoxRO[T](updateFunc)
   implicit def toValue[T](sf : StateBoxRO[T]) : T = sf.get
 }
 
-class StateConst[T](default : => T) extends StateBoxRO[T] {
-  @inline def get : T = default
-}
-object StateConst {
-  def apply[T](default : => T) : StateConst[T] = new StateConst[T](default)
-}
-
-class StateBoxRW[T](default : T) extends StateBoxRO[T] {
-  private var value : T = default
-  private var dirty : Option[() => T] = None
-  @inline def dirtyset(newValue : => T) : Unit = dirty = Some(() => newValue)
+class StateBoxRW[T](default : T) extends StateBoxRO[T](default) {
   @inline def set(newValue : T) : Unit = {
-    dirty = None
-    value = newValue
-  }
-  @inline def get : T = {
-    dirty.foreach(d => set(d()))
-    value
+    value = Some(newValue)
+    dirtyDeps()
   }
 }
 object StateBoxRW {
   def apply[T](t : T) : StateBoxRW[T] = new StateBoxRW[T](t)
 }
 
-case class StateDerivedRW[T, R](st : StateBoxRW[T])(t2r : T => R)(r2t : (T, R) => T) extends StateBoxRW[R](t2r(st)) {
-  private var oldT : T = st
-  @inline override def set(newValue : R) : Unit = {
-    val oldR = super.get
-    if (newValue != oldR) {
-      super.set(newValue)
-      val newT = r2t(st.get, newValue)
-      st.set(newT)
-      oldT = newT
-    }
-  }
-  @inline override def get : R = {
-    val newT = st.get
-    if (oldT == newT) super.get
-    else {
-      oldT = newT
-      val newR = t2r(newT)
-      super.set(newR)
-      newR
-    }
-  }
+//case class StateDerivedRW[T, R](st : StateBoxRW[T])(t2r : T => R)(r2t : (T, R) => T) extends StateBoxRW[R](t2r(st)) {
+//  private var oldT : T = st
+//  @inline override def set(newValue : R) : Unit = {
+//    val oldR = super.get
+//    if (newValue != oldR) {
+//      super.set(newValue)
+//      val newT = r2t(st.get, newValue)
+//      st.set(newT)
+//      oldT = newT
+//    }
+//  }
+//  @inline override def get : R = {
+//    val newT = st.get
+//    if (oldT == newT) super.get
+//    else {
+//      oldT = newT
+//      val newR = t2r(newT)
+//      super.set(newR)
+//      newR
+//    }
+//  }
+//}
+
+class StateDerivedRO[+T](stList : List[StateBoxRO[_]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
+  stList.foreach{s => s.addDependency(this)}
 }
 
-class StateDerivedRO[T, R](ft : => T)(t2r : T => R) extends StateBoxRO[R] {
-  private var oldTR : Option[(T, R)] = None
-  @inline override def get : R = {
-    val newT = ft
-    oldTR match {
-      case Some((t, r)) if t == newT => r
-      case _ =>
-        val newR = t2r(newT)
-        oldTR = Some((newT, newR))
-        newR
+class StateDerivedROList[+T](stBoxList : StateBoxRO[List[StateBoxRO[_]]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
+  var stList : Option[List[StateBoxRO[_]]] = None
+  @inline override def get : T = value.getOrElse {
+    val updateList = Some(stBoxList.get)
+    if (updateList != stList) {
+      stList.foreach{t => t.foreach {x => x.removeDependency(this)}}
+      updateList.foreach{t => t.foreach {x => x.addDependency(this)}}
+      dirty()
     }
+    super.get
   }
+  stBoxList.addDependency(this)
 }
+
 object StateDerivedRO {
-  def apply[T, R](st : StateBoxRO[T])(t2r : T => R) : StateDerivedRO[T, R] = new StateDerivedRO(st.get)(t2r)
-  def apply[T, R](st : => T)(t2r : T => R) : StateDerivedRO[T, R] = new StateDerivedRO(st)(t2r)
+  def apply[T](st : StateBoxRO[_]*)(updateFunc : => T) : StateBoxRO[T] = new StateDerivedRO(st.toList)(updateFunc)
+  def list[T](stBoxList : StateBoxRO[List[StateBoxRO[_]]])(updateFunc : => T) : StateBoxRO[T] = new StateDerivedROList(stBoxList)(updateFunc)
 }
+

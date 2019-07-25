@@ -46,7 +46,6 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   }
   override private[DFiant] lazy val __dev : __DevDFAnyOwner = ???
   import __dev._
-  protected[DFiant] type ThisInfo = DSLOwnerInfoCC
 
   override implicit def __theOwnerToBe : DFAnyOwner = this
 

@@ -23,7 +23,7 @@ trait Nameable {self =>
     private[internals] val nameManual : StateBoxRW[String]
     private[DFiant] var nameFirst : Boolean = false //hack
     private[internals] val nameAutoFunc : StateBoxRW[Option[StateBoxRO[String]]]
-    final lazy val nameTemp : StateBoxRO[String] = StateDerivedRO((nameManual.get, nameAutoFunc.get)){_ =>
+    final lazy val nameTemp : StateBoxRO[String] = StateDerivedRO(nameManual, nameAutoFunc){
       if (!nameManual.isEmpty) nameManual
       else {
         val nameAuto : String = nameAutoFunc.map(x => x.get).getOrElse("")
@@ -33,13 +33,13 @@ trait Nameable {self =>
     }
     val name : StateBoxRO[String]
     final def setAutoName(name : => String) : self.type = {
-      nameAutoFunc.set(Some(StateConst(name)))
+      nameAutoFunc.set(Some(StateBoxRO(name)))
       self
     }
-    final def setAutoName[T](watch : => T, name : T => String) : self.type = {
-      nameAutoFunc.set(Some(StateDerivedRO(watch)(name)))
-      self
-    }
+//    final def setAutoName[T](watch : => T, name : T => String) : self.type = {
+//      nameAutoFunc.set(Some(StateDerivedRO(watch)(name)))
+//      self
+//    }
   }
   private[DFiant] lazy val __dev : __DevNameable = ???
   final def setName(name : String) : self.type = {__dev.nameManual.set(name); self}
