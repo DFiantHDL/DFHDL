@@ -38,10 +38,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private[internals] lazy val nameManual = StateBoxRW("")
-    final private[internals] lazy val nameAutoFunc = StateBoxRW(None)
-    final lazy val name : StateBoxRO[String] =
-      ownerOption.map(o => StateDerivedRO(o.nameTable)(o.nameTable(self))).getOrElse(StateBoxRO(nameTemp))
+    final private[internals] lazy val nameManual = CacheBoxRW("")
+    final private[internals] lazy val nameAutoFunc = CacheBoxRW(None)
+    final lazy val name : CacheBoxRO[String] =
+      ownerOption.map(o => CacheDerivedRO(o.nameTable)(o.nameTable(self))).getOrElse(CacheBoxRO(nameTemp))
 
     final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
     final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
@@ -73,8 +73,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val kept = StateBoxRW(false)
-    final lazy val discovered = StateBoxRW(false)
+    final lazy val kept = CacheBoxRW(false)
+    final lazy val discovered = CacheBoxRW(false)
     override protected def discoveryDependencies : List[Discoverable] = ownerOption.toList
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,9 +135,9 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
 
-    private lazy val membersNamesTemp = StateDerivedRO(discoveredMembers)(discoveredMembers.map(x => x.nameTemp))
-    final lazy val nameTable : StateBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
-      StateDerivedRO.list(membersNamesTemp) {
+    private lazy val membersNamesTemp = CacheDerivedRO(discoveredMembers)(discoveredMembers.map(x => x.nameTemp))
+    final lazy val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
+      CacheDerivedRO.list(membersNamesTemp) {
         val nt = mutable.HashMap[String, Int]()
         def getUniqueMemberName(suggestedName : String) : String = {
           nt.get(suggestedName) match {
@@ -158,16 +158,16 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private lazy val keepMemberStates = StateDerivedRO(members)(members.map(m => m.kept))
-    final private lazy val keepMembers = StateDerivedRO.list(keepMemberStates)(members.filter(m => m.kept))
+    final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
+    final private lazy val keepMembers = CacheDerivedRO.list(keepMemberStates)(members.filter(m => m.kept))
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
       member.kept.set(true)
       elaborateReq.set(true)
       keep //also keep the owner chain
     }
     override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepMembers
-    final private lazy val discoveredMemberStates = StateDerivedRO(members)(members.map(m => m.discovered))
-    final lazy val discoveredMembers = StateDerivedRO.list(discoveredMemberStates){
+    final private lazy val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
+    final lazy val discoveredMembers = CacheDerivedRO.list(discoveredMemberStates){
       discover()
       members.filterNot(o => o.isNotDiscovered)
     }
@@ -181,7 +181,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final lazy val members = StateBoxRW(List[DSLMemberConstruct]())
+    final lazy val members = CacheBoxRW(List[DSLMemberConstruct]())
     private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
       members.set(members :+ item)
       elaborateReq.set(true)
@@ -192,7 +192,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Elaboration
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val elaborateReq = StateBoxRW(false)
+    final lazy val elaborateReq = CacheBoxRW(false)
     def reelaborateReq() : Unit = {
       elaborateReq.set(true)
       ownerOption.foreach(o => o.reelaborateReq())
