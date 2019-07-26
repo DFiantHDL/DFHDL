@@ -20,7 +20,7 @@ sealed class StateBoxRO[+T](updateFunc : => T) {
       case x :: xs => dirty(x, xs)
     }
   }
-  @tailrec final protected def updateSrcValues(curDeps : List[StateBoxRO[_]], curSrcs : List[StateBoxRO[_]]) : Unit = curSrcs match {
+  @tailrec private def updateSrcValues(curDeps : List[StateBoxRO[_]], curSrcs : List[StateBoxRO[_]]) : Unit = curSrcs match {
     case Nil => curDeps.foreach(x => x.valueUpdate())
     case x :: xs =>
       if (x.valueIsEmpty) {
