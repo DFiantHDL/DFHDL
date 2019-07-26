@@ -3,13 +3,15 @@ package DFiant.internals
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-class StateBoxRO[+T](updateFunc : => T) {
+sealed class StateBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.HashSet[StateBoxRO[_]] = mutable.HashSet()
   protected[this] var value : Option[T] = None
-  @inline final protected def valueSnoop : Option[T] = value
+  @inline final protected def valueIsEmpty : Boolean = value.isEmpty
   @inline final protected def valueClear() : Unit = value = None
+  @inline final protected def valueUpdate() : Unit = value = Some(updateFunc)
+  @inline protected def emptyValueUpdate() : Unit = if (value.isEmpty) updateSrcValues()
   @tailrec private def dirty(current : StateBoxRO[_], remainingDeps : List[StateBoxRO[_]]) : Unit = {
-    val updatedDeps = if (current.valueSnoop.isDefined) {
+    val updatedDeps = if (!current.valueIsEmpty) {
       current.valueClear()
       remainingDeps ++ current.deps
     } else remainingDeps
@@ -18,24 +20,35 @@ class StateBoxRO[+T](updateFunc : => T) {
       case x :: xs => dirty(x, xs)
     }
   }
-
-  @inline def get : T = value.getOrElse {
-    val updateValue = updateFunc
-    value = Some(updateValue)
-    updateValue
+  @tailrec final protected def updateSrcValues(curDeps : List[StateBoxRO[_]], curSrcs : List[StateBoxRO[_]]) : Unit = curSrcs match {
+    case Nil => curDeps.foreach(x => x.valueUpdate())
+    case x :: xs =>
+      if (x.valueIsEmpty) {
+        val updatedDeps = x +: curDeps //adding in reverse to updated empty values in topological dependency order
+        x match {
+          case sd : StateDerivedRO[_] => updateSrcValues(updatedDeps, xs ++ sd.sources)
+          case sd : StateDerivedROList[_] => updateSrcValues(updatedDeps, xs ++ sd.sources)
+          case _ => updateSrcValues(updatedDeps, xs)
+        }
+      } else updateSrcValues(curDeps, xs)
+  }
+  @inline final protected def updateSrcValues() : Unit = updateSrcValues(List(), List(this))
+  @inline final def get : T = {
+    emptyValueUpdate()
+    value.get
   }
   @inline final override def toString: String = get.toString
   @inline final protected def dirty() : Unit = dirty(this, List())
-  final protected def dirtyDeps() : Unit = deps.foreach{d => d.dirty()}
-  final def addDependency(st : StateBoxRO[_]) : Unit = deps += st
-  final def removeDependency(st : StateBoxRO[_]) : Unit = deps -= st
+  @inline final protected def dirtyDeps() : Unit = deps.foreach{d => d.dirty()}
+  @inline final def addDependency(st : StateBoxRO[_]) : Unit = deps += st
+  @inline final def removeDependency(st : StateBoxRO[_]) : Unit = deps -= st
 }
 object StateBoxRO {
-  def apply[T](updateFunc : => T) : StateBoxRO[T] = new StateBoxRO[T](updateFunc)
-  implicit def toValue[T](sf : StateBoxRO[T]) : T = sf.get
+  @inline def apply[T](updateFunc : => T) : StateBoxRO[T] = new StateBoxRO[T](updateFunc)
+  @inline implicit def toValue[T](sf : StateBoxRO[T]) : T = sf.get
 }
 
-class StateBoxRW[T](default : T) extends StateBoxRO[T](default) {
+final class StateBoxRW[T](default : T) extends StateBoxRO[T](default) {
   @inline def set(newValue : T) : Unit = {
     value = Some(newValue)
     dirtyDeps()
@@ -68,20 +81,21 @@ object StateBoxRW {
 //  }
 //}
 
-class StateDerivedRO[+T](stList : List[StateBoxRO[_]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
-  stList.foreach{s => s.addDependency(this)}
+final class StateDerivedRO[+T](val sources : List[StateBoxRO[_]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
+  sources.foreach{s => s.addDependency(this)}
 }
 
-class StateDerivedROList[+T](stBoxList : StateBoxRO[List[StateBoxRO[_]]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
+final class StateDerivedROList[+T](stBoxList : StateBoxRO[List[StateBoxRO[_]]])(updateFunc : => T) extends StateBoxRO[T](updateFunc) {
   var stList : Option[List[StateBoxRO[_]]] = None
-  @inline override def get : T = valueSnoop.getOrElse {
+  def sources : List[StateBoxRO[_]] = stBoxList.get
+  @inline override def emptyValueUpdate() : Unit = if (value.isEmpty) {
     val updateList = Some(stBoxList.get)
     if (updateList != stList) {
       stList.foreach{t => t.foreach {x => x.removeDependency(this)}}
       updateList.foreach{t => t.foreach {x => x.addDependency(this)}}
       dirty()
     }
-    super.get
+    updateSrcValues()
   }
   stBoxList.addDependency(this)
 }
