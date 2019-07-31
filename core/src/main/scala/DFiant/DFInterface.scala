@@ -39,14 +39,17 @@ trait DFInterface extends DFAnyOwner { self =>
   import __dev._
   override implicit def __theOwnerToBe : DFInterface = this
 
-  final lazy val ports : List[DFAny.Port[DFAny, DFDir]] =
+  final lazy val ports = CacheDerivedRO(members) {
     members.collect{case o : DFAny.Port[_,_] => o}.asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
+  }
 
-  final lazy val portsIn : List[DFAny.Port[DFAny, IN]] =
+  final lazy val portsIn = CacheDerivedRO(ports) {
     ports.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
+  }
 
-  final lazy val portsOut : List[DFAny.Port[DFAny, OUT]] =
+  final lazy val portsOut = CacheDerivedRO(ports) {
     ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
+  }
 
   override def toString: String = s"$name : $typeName"
 }
