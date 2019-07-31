@@ -48,9 +48,9 @@ trait Nameable {self =>
 
 trait TypeNameable {
   protected[DFiant] trait __DevTypeNameable {
-    private var typeNameAuto : String = "???"
-    lazy val typeName : String = typeNameAuto
-    final def setAutoTypeName(name : String) : this.type = {typeNameAuto = name; this}
+    private var typeNameAuto : () => String = () => "???"
+    lazy val typeName : String = typeNameAuto()
+    final def setAutoTypeName(name : => String) : this.type = {typeNameAuto = () => name; this}
   }
   private[DFiant] lazy val __dev : __DevTypeNameable = new __DevTypeNameable {}
 }

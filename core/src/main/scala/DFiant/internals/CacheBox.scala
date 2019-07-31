@@ -102,6 +102,6 @@ final class CacheDerivedROList[+T](stBoxList : CacheBoxRO[List[CacheBoxRO[_]]])(
 
 object CacheDerivedRO {
   def apply[T](cb : CacheBoxRO[_]*)(updateFunc : => T) : CacheBoxRO[T] = new CacheDerivedRO(cb.toList)(updateFunc)
-  def list[T](cbList : CacheBoxRO[List[CacheBoxRO[_]]])(updateFunc : => T) : CacheBoxRO[T] = new CacheDerivedROList(cbList)(updateFunc)
+  def apply[T](cbList : CacheBoxRO[List[CacheBoxRO[_]]])(updateFunc : => T) : CacheBoxRO[T] = new CacheDerivedROList(cbList)(updateFunc)
 }
 

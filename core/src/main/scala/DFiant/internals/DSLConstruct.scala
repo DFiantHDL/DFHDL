@@ -137,7 +137,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
     private lazy val membersNamesTemp = CacheDerivedRO(discoveredMembers)(discoveredMembers.map(x => x.nameTemp))
     final lazy val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
-      CacheDerivedRO.list(membersNamesTemp) {
+      CacheDerivedRO(membersNamesTemp) {
         val nt = mutable.HashMap[String, Int]()
         def getUniqueMemberName(suggestedName : String) : String = {
           nt.get(suggestedName) match {
@@ -159,7 +159,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
-    final private lazy val keepMembers = CacheDerivedRO.list(keepMemberStates)(members.filter(m => m.kept))
+    final private lazy val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept))
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
       member.kept.set(true)
       elaborateReq.set(true)
@@ -167,7 +167,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     }
     override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepMembers
     final private lazy val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
-    final lazy val discoveredMembers = CacheDerivedRO.list(discoveredMemberStates){
+    final lazy val discoveredMembers = CacheDerivedRO(discoveredMemberStates){
       discover()
       members.filterNot(o => o.isNotDiscovered)
     }
