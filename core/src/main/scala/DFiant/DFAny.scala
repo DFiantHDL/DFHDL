@@ -100,10 +100,10 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final def replacement()(implicit ctx : DSLContext) : TAlias = ctx.ownerOption match {
-      case Some(o) => o.nonTransparent.asInstanceOf[DFDesign].transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
-      case None => self.asInstanceOf[TAlias]
-    }
+    final def replacement()(implicit ctx : DSLContext) : TAlias =
+      if (self.nonTransparentOwner ne ctx.owner.nonTransparent)
+        ctx.owner.nonTransparent.asInstanceOf[DFDesign].transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
+      else self.asInstanceOf[TAlias]
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Source
