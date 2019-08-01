@@ -58,9 +58,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final override lazy val nameScala: String = ctx.getName
-
-    final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
     private var autoConstructCodeStringFunc : Option[() => String] = None
     private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc.map(x => x()).getOrElse("")
     final private[DFiant] def setAutoConstructCodeString(cs : => String) : self.type = {autoConstructCodeStringFunc = Some(() => cs); self}

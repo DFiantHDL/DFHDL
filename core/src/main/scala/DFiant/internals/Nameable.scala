@@ -36,6 +36,7 @@ trait Nameable {self =>
       nameAutoFunc.set(Some(CacheBoxRO(name)))
       self
     }
+    final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
 //    final def setAutoName[T](watch : => T, name : T => String) : self.type = {
 //      nameAutoFunc.set(Some(StateDerivedRO(watch)(name)))
 //      self

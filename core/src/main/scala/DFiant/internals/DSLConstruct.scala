@@ -38,6 +38,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override lazy val nameScala: String = ctx.getName
     final private[internals] lazy val nameManual = CacheBoxRW("")
     final private[internals] lazy val nameAutoFunc = CacheBoxRW(None)
     final lazy val name : CacheBoxRO[String] =
