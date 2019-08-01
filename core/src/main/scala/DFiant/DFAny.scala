@@ -289,7 +289,7 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final def isAssigned : Boolean = !assignedSource.isEmpty
-      final var assignedSource : Source = Source.none(width)
+      final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
         implicit ctx : DFAny.Op.Context
@@ -299,7 +299,7 @@ object DFAny {
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(
         implicit ctx : DFAny.Op.Context
       ) : Unit = {
-        assignedSource = assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource)
+        assignedSource.set(assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource))
       }
       def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
         val toVar = self
@@ -327,7 +327,7 @@ object DFAny {
       }
       def assignClear() : Unit = {
         assignedSourceLB.set(Source.none(width))
-        assignedSource = Source.none(width)
+        assignedSource.set(Source.none(width))
         protAssignDependencies.clear()
       }
 
