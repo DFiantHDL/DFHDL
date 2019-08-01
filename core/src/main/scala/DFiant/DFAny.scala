@@ -61,9 +61,9 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     final override lazy val nameScala: String = ctx.getName
 
     final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
-    private var autoConstructCodeStringFunc : () => String = () => ""
-    private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc()
-    final private[DFiant] def setAutoConstructCodeString(cs : => String) : self.type = {autoConstructCodeStringFunc = () => cs; self}
+    private var autoConstructCodeStringFunc : Option[() => String] = None
+    private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc.map(x => x()).getOrElse("")
+    final private[DFiant] def setAutoConstructCodeString(cs : => String) : self.type = {autoConstructCodeStringFunc = Some(() => cs); self}
     private[DFiant] def constructCodeStringDefault : String
     private[DFiant] def showAnonymous : Boolean = __config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
     private def constructCodeString : String =
@@ -103,13 +103,8 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private val replacementRefs : mutable.Map[DSLOwnerConstruct, DFAny] = mutable.Map.empty[DSLOwnerConstruct, DFAny]
-    final def replaceWith(replacement : DFAny)(implicit ctx : DSLContext) : Unit = ctx.ownerOption.foreach{o =>
-//      println(s"replaced ${self.fullName} with ${replacement.fullName} at ${ctx.owner.fullName}")
-      replacementRefs.update(o, replacement)
-    }
     final def replacement()(implicit ctx : DSLContext) : TAlias = ctx.ownerOption match {
-      case Some(o) => replacementRefs.getOrElse(o, self).asInstanceOf[TAlias]
+      case Some(o) => o.nonTransparent.asInstanceOf[DFDesign].transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
       case None => self.asInstanceOf[TAlias]
     }
 

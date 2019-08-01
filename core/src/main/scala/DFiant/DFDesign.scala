@@ -81,7 +81,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
                 case d : IN  => port.connectFrom(ref)
                 case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)
               }
-              ref.replaceWith(port)(ctx.updateOwner(self))
               Some((ref, port))
             case _ => None
           }
