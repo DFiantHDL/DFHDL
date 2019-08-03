@@ -431,7 +431,7 @@ object DFAny {
       def connectClear() : Unit = {
         connectedSourceLB.set(Source.none(width))
       }
-      final private[DFiant] def isConnected : Boolean = owner.connectionsTo.get.get(self).isDefined
+      final private[DFiant] def isConnected : Boolean = owner.connectionsTo.contains(self)
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
