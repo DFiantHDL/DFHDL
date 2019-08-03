@@ -103,7 +103,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
       implicit callOwner : DSLOwnerConstruct
     ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
-    final protected def getID : Int = ownerOption.map(o => o.newItemGetID(self)).getOrElse(0)
+    final protected def getID : Int = ownerOption.map(o => o.addMember(self)).getOrElse(0)
     final protected lazy val id : Int = getID
     id //touch id. We only need the lazyness for initialization order
   }
@@ -182,9 +182,9 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    lazy val members : CacheBoxRW[List[DSLMemberConstruct]] = CacheBoxRW(List[DSLMemberConstruct]())
-    private[internals] def newItemGetID(item : DSLMemberConstruct) : Int = {
-      members.set(members :+ item)
+    final lazy val members = CacheListRW(List[DSLMemberConstruct]())
+    protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
+      members.inc(member)
       elaborateReq.set(true)
       //    println(s"newItemGetID ${item.fullName}")
       members.size

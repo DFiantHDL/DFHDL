@@ -2,6 +2,7 @@ package DFiant.internals
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.collection.immutable
 
 sealed class CacheBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.HashSet[CacheBoxRO[_]] = mutable.HashSet()
@@ -48,7 +49,7 @@ object CacheBoxRO {
   @inline implicit def toValue[T](sf : CacheBoxRO[T]) : T = sf.get
 }
 
-final class CacheBoxRW[T](default : T) extends CacheBoxRO[T](default) {
+sealed class CacheBoxRW[T](default : T) extends CacheBoxRO[T](default) {
   @inline def set(newValue : T) : Unit = {
     value = Some(newValue)
     dirtyDeps()
@@ -57,6 +58,45 @@ final class CacheBoxRW[T](default : T) extends CacheBoxRO[T](default) {
 object CacheBoxRW {
   def apply[T](t : T) : CacheBoxRW[T] = new CacheBoxRW[T](t)
 }
+
+final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](default) {
+  private val deps : mutable.ListBuffer[CacheDerivedHashMapRO[_,_,_]] = mutable.ListBuffer()
+  @inline def inc(deltaValue : T) : Unit = {
+    super.set(get :+ deltaValue)
+    pushIncUpdates()
+  }
+  @inline override def set(newValue : List[T]) : Unit = {
+    super.set(newValue)
+    pushSetUpdates()
+  }
+  @inline private def pushIncUpdates() : Unit = deps.foreach(x => x.inc())
+  @inline private def pushSetUpdates() : Unit = deps.foreach(x => x.set())
+
+  @inline protected[internals] def addFolderDependency(st : CacheDerivedHashMapRO[_,_,_]) : Unit = deps += st
+}
+
+final case class CacheDerivedHashMapRO[A, B, T]
+  (source : CacheListRW[T])(default : immutable.HashMap[A, B])
+  (op : (immutable.HashMap[A, B], T) => immutable.HashMap[A, B]) extends CacheBoxRO(default) {
+  @inline protected[internals] def inc() : Unit =  {
+    value = Some(op(get, source.get.last))
+    dirtyDeps()
+  }
+  @inline protected[internals] def set() : Unit = {
+    value = Some(source.get.foldLeft(default)(op))
+    dirtyDeps()
+  }
+  source.addFolderDependency(this)
+}
+//object CacheDerivedFolderRO {
+//  def apply[T, TR <: immutable.Iterable[T], ST, STR[ST0] <: immutable.Iterable[ST0], SR]
+//  (source: CacheFolderRO[ST, STR[ST], SR])(default: TR)(op: (TR, ST) => TR)
+//  : CacheDerivedFolderRO[T, TR, ST, STR[ST], SR] = new CacheDerivedFolderRO[T, TR, ST, STR[ST], SR](source)(default)(op)
+//}
+
+//sealed class CacheListDerivedRO[+T](default : List[T])(source : CacheListRO[T]) extends CacheListRO[T](default)
+
+
 
 //case class StateDerivedRW[T, R](st : StateBoxRW[T])(t2r : T => R)(r2t : (T, R) => T) extends StateBoxRW[R](t2r(st)) {
 //  private var oldT : T = st

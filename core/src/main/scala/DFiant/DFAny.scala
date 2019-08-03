@@ -388,7 +388,7 @@ object DFAny {
         val toVar = self
         val fromVal = that
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-        if (toVar.connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        if (toVar.isConnected) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
       }
 
@@ -403,12 +403,11 @@ object DFAny {
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName} at ${ctx.owner.fullName}")
         if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
-        if (toVar.connectedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}")
+        if (toVar.isConnected) throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}")
         if (toVar.assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${toVar.assignedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
         fromVal.consume()
         toVar.connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), toVar.connectedSourceLB.getBox, fromVal.thisSourceLB))
-        toVar.connectedSource = toVar.connectedSource.replaceWL(toRelWidth, toRelBitLow, Source(fromVal))
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
       def connectFrom(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
@@ -432,9 +431,8 @@ object DFAny {
       }
       def connectClear() : Unit = {
         connectedSourceLB.set(Source.none(width))
-        connectedSource = Source.none(width)
       }
-      final private[DFiant] def isConnected : Boolean = !connectedSource.isEmpty
+      final private[DFiant] def isConnected : Boolean = owner.connectionsTo.get.get(self).isDefined
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
