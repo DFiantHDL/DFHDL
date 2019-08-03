@@ -61,15 +61,15 @@ object CacheBoxRW {
 
 final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](default) {
   private val deps : mutable.ListBuffer[CacheDerivedHashMapRO[_,_,_]] = mutable.ListBuffer()
-  @inline def inc(deltaValue : T) : Unit = {
+  @inline def add(deltaValue : T) : Unit = {
     super.set(get :+ deltaValue)
-    pushIncUpdates()
+    pushAddUpdates()
   }
   @inline override def set(newValue : List[T]) : Unit = {
     super.set(newValue)
     pushSetUpdates()
   }
-  @inline private def pushIncUpdates() : Unit = deps.foreach(x => x.inc())
+  @inline private def pushAddUpdates() : Unit = deps.foreach(x => x.add())
   @inline private def pushSetUpdates() : Unit = deps.foreach(x => x.set())
 
   @inline protected[internals] def addFolderDependency(st : CacheDerivedHashMapRO[_,_,_]) : Unit = deps += st
@@ -78,7 +78,7 @@ final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](d
 final case class CacheDerivedHashMapRO[A, B, T]
   (source : CacheListRW[T])(default : immutable.HashMap[A, B])
   (op : (immutable.HashMap[A, B], T) => immutable.HashMap[A, B]) extends CacheBoxRO(default) {
-  @inline protected[internals] def inc() : Unit =  {
+  @inline protected[internals] def add() : Unit =  {
     value = Some(op(get, source.get.last))
     dirtyDeps()
   }

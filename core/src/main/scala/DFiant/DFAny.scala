@@ -396,7 +396,6 @@ object DFAny {
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final lazy val connectedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
-      final var connectedSource : Source = Source.none(width)
       private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : Connector.Context) : Unit = {
         val toVar = self
         val fromVal = that
