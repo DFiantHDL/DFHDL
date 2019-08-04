@@ -76,10 +76,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       case (hm, _) => hm
     }
 
-    final lazy val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, immutable.HashSet[DFAny.Connector]]()) {
+    final lazy val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Connector]]()) {
       case (hm, c : DFAny.Connector) => hm.get(c.fromVal) match {
-        case Some(ec) => hm + (c.fromVal -> (ec + c))
-        case None => hm + (c.fromVal -> immutable.HashSet(c))
+        case Some(lc) => hm + (c.fromVal -> (lc :+ c))
+        case None => hm + (c.fromVal -> List(c))
       }
       case (hm, _) => hm
     }

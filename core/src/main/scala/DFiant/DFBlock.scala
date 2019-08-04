@@ -21,15 +21,35 @@ import DFiant.targetlib.TargetLib
 import internals._
 
 import scala.annotation.implicitNotFound
+import scala.collection.immutable
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
   final private[DFiant] lazy val ctx = ctx0
   protected[DFiant] trait __DevDFBlock extends __DevDFAnyOwner {
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////// //////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final val topDsn : DFDesign =
       ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(self.asInstanceOf[DFDesign])
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Assignments
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final lazy val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
+      case (hm, a : DFAny.Assignment) => hm.get(a.toVar) match {
+        case Some(la) => hm + (a.toVar -> (la :+ a))
+        case None => hm + (a.toVar -> List(a))
+      }
+      case (hm, _) => hm
+    }
+
+    final lazy val assignmentsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
+      case (hm, a : DFAny.Assignment) => hm.get(a.fromVal) match {
+        case Some(la) => hm + (a.fromVal -> (la :+ a))
+        case None => hm + (a.fromVal -> List(a))
+      }
+      case (hm, _) => hm
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Simulation
