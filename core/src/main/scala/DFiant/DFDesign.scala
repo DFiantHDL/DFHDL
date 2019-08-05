@@ -123,6 +123,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
           val ref = f.get(self)
           ref match {
             case ref : DFAny if (ref ne null) && (ref.owner ne self) =>
+              nameFirst = true //Arguments may lead to new names, so we name the owner first
               val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Connectable[_]])) OUT else IN
               val port = ref.copyAsNewPort(dir).setName(f.getName).asInstanceOf[DFAny.Port[DFAny, DFDir]]
               dir match {
@@ -164,7 +165,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   def compileToVHDL : Backend.VHDL = {elaborate(); new Backend.VHDL(this)}
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
   transparentPorts //force transparent ports to be added as regular ports before all other members
-  nameFirst = true
 }
 
 object DFDesign {
