@@ -136,7 +136,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
 
-    private lazy val membersNamesTemp = CacheDerivedRO(discoveredMembers)(discoveredMembers.map(x => x.nameTemp))
+    private lazy val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
     final lazy val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
       CacheDerivedRO(membersNamesTemp) {
         val nt = mutable.HashMap[String, Int]()
@@ -151,7 +151,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
           }
         }
         val priorityNamedMembers =
-          discoveredMembers.filter(x => x.nameFirst) ++ discoveredMembers.filterNot(x => x.nameFirst).reverse
+          members.filter(x => x.nameFirst) ++ members.filterNot(x => x.nameFirst).reverse
 
         immutable.HashMap(priorityNamedMembers.map(m => (m -> getUniqueMemberName(m.nameTemp))) : _*)
       }
