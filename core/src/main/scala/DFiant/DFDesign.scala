@@ -68,32 +68,44 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     private def throwConnectionError(toVar : DFAny, fromVal : DFAny, msg : String) =
       throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName} at ${ctx.owner.fullName}")
 
-    final lazy val connectionsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, DFAny.Connector]()) {
-      case (hm, c : DFAny.Connector) => hm.get(c.toPort) match {
-        case Some(ec) => throwConnectionError(c.toPort, c.fromVal, s"Target ${c.toPort.fullName} already has a connection: ${ec.fromVal}")
-        case None => hm + (c.toPort -> c)
-      }
+    final val connectionsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, Source]()) {
+      case (hm, c : DFAny.Connector) =>
+        var bitH : Int = c.toPort.width-1
+        val cons = c.toPort.source.elements.collect {
+          case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
+            val relWidth = relBitHigh - relBitLow + 1
+            val bitL = bitH-relWidth+1
+            val partial = c.fromVal.source.bitsHL(bitH, bitL).reverse(reverseBits)
+            val current = hm.getOrElse(t.dfVal, Source.none(t.dfVal.width))
+            if (current.nonEmptyAtHL(relBitHigh, relBitLow))
+              throwConnectionError(c.toPort, c.fromVal, s"Target ${c.toPort.fullName} already has a connection: $current")
+            val full = current.replaceHL(relBitHigh, relBitLow, partial)
+            bitH = bitH-relWidth
+            t.dfVal -> full
+        }
+        hm ++ cons
       case (hm, _) => hm
     }
-//    final lazy val connectionsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, (DFAny.Connector, Source)]()) {
-//      case (hm, c : DFAny.Connector) => c.toPort match {
-//        case (a : DFAny.Alias[_]) => a.reference match {
-//          case DFAny.Alias.Reference.AsIs(x) => a
-//        }
-//        case _ =>
-//      }
-//        hm.get(c.toPort) match {
-//          case Some(ec) => throwConnectionError(c.toPort, c.fromVal, s"Target ${c.toPort.fullName} already has a connection: ${ec.fromVal}")
-//          case None => hm + (c.toPort -> c)
-//        }
-//      case (hm, _) => hm
-//    }
 
-    final lazy val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Connector]]()) {
-      case (hm, c : DFAny.Connector) => hm.get(c.fromVal) match {
-        case Some(lc) => hm + (c.fromVal -> (lc :+ c))
-        case None => hm + (c.fromVal -> List(c))
-      }
+    final val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
+      case (hm, c : DFAny.Connector) =>
+        var bitH : Int = c.toPort.width-1
+        val cons = c.fromVal.source.elements.collect {
+          case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
+            val relWidth = relBitHigh - relBitLow + 1
+            val bitL = bitH-relWidth+1
+            val partial = c.toPort.source.bitsHL(bitH, bitL).reverse(reverseBits)
+            val current = hm.getOrElse(t.dfVal, List(Source.none(t.dfVal.width)))
+            val full = current match {
+              case x :+ xs if (xs.nonEmptyAtHL(relBitHigh, relBitLow)) =>
+                current :+ Source.none(t.dfVal.width).replaceHL(relBitHigh, relBitLow, partial)
+              case x :+ xs =>
+                x :+ xs.replaceHL(relBitHigh, relBitLow, partial)
+            }
+            bitH = bitH-relWidth
+            t.dfVal -> full
+        }
+        hm ++ cons
       case (hm, _) => hm
     }
 

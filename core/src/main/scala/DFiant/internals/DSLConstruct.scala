@@ -182,7 +182,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final lazy val members = CacheListRW(List[DSLMemberConstruct]())
+    final val members = CacheListRW(List[DSLMemberConstruct]())
     protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
       members.add(member)
       elaborateReq.set(true)

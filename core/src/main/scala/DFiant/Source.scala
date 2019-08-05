@@ -103,15 +103,22 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   })
   private def reverseIndex(idx : Int) : Int = width-1-idx
   def bitsWL(relWidth : Int, relBitLow : Int) : Source =
-    Source(separate.elements.slice(reverseIndex(relBitLow + relWidth-1), reverseIndex(relBitLow-1))).coalesce
-  def replaceWL(relWidth : Int, relBitLow : Int, thatSource : Source) : Source = {
-    val elms = separate.elements
-    val left = elms.take(reverseIndex(relBitLow + relWidth-1))
-    val right = elms.takeRight(relBitLow)
-    assert(width - left.length - right.length == thatSource.width, s"$width - ${left.length} - ${right.length} != ${thatSource.width}")
-    Source(left ++ thatSource.elements ++ right).coalesce
-  }
+    if (relWidth == width) {assert(relBitLow == 0); this}
+    else Source(separate.elements.slice(reverseIndex(relBitLow + relWidth-1), reverseIndex(relBitLow-1))).coalesce
+  def bitsHL(relBitHigh : Int, relBitLow : Int) : Source = bitsWL(relBitHigh - relBitLow + 1, relBitLow)
+  def replaceWL(relWidth : Int, relBitLow : Int, thatSource : Source) : Source =
+    if (relWidth == width) {assert(relBitLow == 0); thatSource}
+    else {
+      val elms = separate.elements
+      val left = elms.take(reverseIndex(relBitLow + relWidth-1))
+      val right = elms.takeRight(relBitLow)
+      assert(width - left.length - right.length == thatSource.width, s"$width - ${left.length} - ${right.length} != ${thatSource.width}")
+      Source(left ++ thatSource.elements ++ right).coalesce
+    }
+  def replaceHL(relBitHigh : Int, relBitLow : Int, thatSource : Source) : Source =
+    replaceWL(relBitHigh - relBitLow + 1, relBitLow, thatSource)
   def reverse : Source = Source(elements.reverse.map(e => e.reverse))
+  def reverse(cond : Boolean) : Source = if (cond) reverse else this
   def invert : Source = Source(elements.map(e => e.invert))
   def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
   def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
@@ -156,6 +163,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
     }).coalesce
   def isEmpty : Boolean = elements.length == 1 && elements.head.aliasTag.isEmpty
   def nonEmptyAtWL(relWidth : Int, relBitLow : Int) : Boolean = !bitsWL(relWidth, relBitLow).isEmpty
+  def nonEmptyAtHL(relBitHigh : Int, relBitLow : Int) : Boolean = nonEmptyAtWL(relBitHigh - relBitLow + 1, relBitLow)
   def isCompletelyAllocated : Boolean = !elements.map(e => e.aliasTag.isEmpty).reduce((l, r) => l | r)
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
     if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
