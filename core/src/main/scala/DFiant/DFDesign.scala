@@ -75,6 +75,19 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       }
       case (hm, _) => hm
     }
+//    final lazy val connectionsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, (DFAny.Connector, Source)]()) {
+//      case (hm, c : DFAny.Connector) => c.toPort match {
+//        case (a : DFAny.Alias[_]) => a.reference match {
+//          case DFAny.Alias.Reference.AsIs(x) => a
+//        }
+//        case _ =>
+//      }
+//        hm.get(c.toPort) match {
+//          case Some(ec) => throwConnectionError(c.toPort, c.fromVal, s"Target ${c.toPort.fullName} already has a connection: ${ec.fromVal}")
+//          case None => hm + (c.toPort -> c)
+//        }
+//      case (hm, _) => hm
+//    }
 
     final lazy val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Connector]]()) {
       case (hm, c : DFAny.Connector) => hm.get(c.fromVal) match {
