@@ -9,7 +9,7 @@ sealed class CacheBoxRO[+T](updateFunc : => T) {
   protected[this] var value : Option[T] = None
   @inline final protected def valueIsEmpty : Boolean = value.isEmpty
   @inline final protected def valueClear() : Unit = value = None
-  @inline final protected def valueUpdate() : Unit = value = Some(updateFunc)
+  @inline final protected[internals] def valueUpdate() : Unit = value = Some(updateFunc)
   @inline protected def emptyValueUpdate() : Unit = if (value.isEmpty) updateSrcValues()
   @tailrec private def dirty(current : CacheBoxRO[_], remainingDeps : List[CacheBoxRO[_]]) : Unit = {
     val updatedDeps = if (!current.valueIsEmpty) {
@@ -65,12 +65,15 @@ final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](d
     super.set(get :+ deltaValue)
     pushAddUpdates()
   }
+  @inline def setDefault() : Unit = {
+    valueUpdate()
+    deps.foreach(x => x.valueUpdate())
+  }
   @inline override def set(newValue : List[T]) : Unit = {
-    super.set(newValue)
-    pushSetUpdates()
+    setDefault()
+    newValue.foreach(x => add(x))
   }
   @inline private def pushAddUpdates() : Unit = deps.foreach(x => x.add())
-  @inline private def pushSetUpdates() : Unit = deps.foreach(x => x.set())
 
   @inline protected[internals] def addFolderDependency(st : CacheDerivedHashMapRO[_,_,_]) : Unit = deps += st
 }
@@ -80,10 +83,6 @@ final case class CacheDerivedHashMapRO[A, B, T]
   (op : (immutable.HashMap[A, B], T) => immutable.HashMap[A, B]) extends CacheBoxRO(default) {
   @inline protected[internals] def add() : Unit =  {
     value = Some(op(get, source.get.last))
-    dirtyDeps()
-  }
-  @inline protected[internals] def set() : Unit = {
-    value = Some(source.get.foldLeft(default)(op))
     dirtyDeps()
   }
   source.addFolderDependency(this)

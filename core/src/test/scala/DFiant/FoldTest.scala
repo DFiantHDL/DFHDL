@@ -53,7 +53,7 @@ trait FoldTest extends DFDesign {
 
 object FoldApp extends DFApp {
   val foldtest = new FoldTest {}
-//  println(foldtest.io.externals.named)
+  foldtest.printCodeString
   println("------------------------------")
   foldtest.io.unfold
   foldtest.printCodeString
