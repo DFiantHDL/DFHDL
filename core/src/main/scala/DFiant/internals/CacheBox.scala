@@ -66,14 +66,15 @@ final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](d
     pushAddUpdates()
   }
   @inline def setDefault() : Unit = {
-    valueUpdate()
-    deps.foreach(x => x.valueUpdate())
+    super.set(default)
+    pushSetDefault()
   }
   @inline override def set(newValue : List[T]) : Unit = {
     setDefault()
     newValue.foreach(x => add(x))
   }
   @inline private def pushAddUpdates() : Unit = deps.foreach(x => x.add())
+  @inline private def pushSetDefault() : Unit = deps.foreach(x => x.setDefault())
 
   @inline protected[internals] def addFolderDependency(st : CacheDerivedHashMapRO[_,_,_]) : Unit = deps += st
 }
@@ -83,6 +84,10 @@ final case class CacheDerivedHashMapRO[A, B, T]
   (op : (immutable.HashMap[A, B], T) => immutable.HashMap[A, B]) extends CacheBoxRO(default) {
   @inline protected[internals] def add() : Unit =  {
     value = Some(op(get, source.get.last))
+    dirtyDeps()
+  }
+  @inline protected[internals] def setDefault() : Unit = {
+    value = Some(default)
     dirtyDeps()
   }
   source.addFolderDependency(this)
