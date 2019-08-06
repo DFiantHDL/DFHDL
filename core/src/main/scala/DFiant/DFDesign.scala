@@ -89,7 +89,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
     final val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
       case (hm, c : DFAny.Connector) =>
-        var bitH : Int = c.toPort.width-1
+        var bitH : Int = c.fromVal.width-1
         val cons = c.fromVal.source.elements.collect {
           case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
             val relWidth = relBitHigh - relBitLow + 1

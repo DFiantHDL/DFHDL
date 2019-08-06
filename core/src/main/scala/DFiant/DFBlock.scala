@@ -35,7 +35,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Assignments
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
+    final val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
       case (hm, a : DFAny.Assignment) => hm.get(a.toVar) match {
         case Some(la) => hm + (a.toVar -> (la :+ a))
         case None => hm + (a.toVar -> List(a))
@@ -43,7 +43,29 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
       case (hm, _) => hm
     }
 
-    final lazy val assignmentsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
+//    final val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
+//      case (hm, c : DFAny.Assignment) =>
+//        var bitH : Int = c.toVar.width-1
+//        val cons = c.fromVal.source.elements.collect {
+//          case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
+//            val relWidth = relBitHigh - relBitLow + 1
+//            val bitL = bitH-relWidth+1
+//            val partial = c.toVar.source.bitsHL(bitH, bitL).reverse(reverseBits)
+//            val current = hm.getOrElse(t.dfVal, List(Source.none(t.dfVal.width)))
+//            val full = current match {
+//              case x :+ xs if (xs.nonEmptyAtHL(relBitHigh, relBitLow)) =>
+//                current :+ Source.none(t.dfVal.width).replaceHL(relBitHigh, relBitLow, partial)
+//              case x :+ xs =>
+//                x :+ xs.replaceHL(relBitHigh, relBitLow, partial)
+//            }
+//            bitH = bitH-relWidth
+//            t.dfVal -> full
+//        }
+//        hm ++ cons
+//      case (hm, _) => hm
+//    }
+
+    final val assignmentsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
       case (hm, a : DFAny.Assignment) => hm.get(a.fromVal) match {
         case Some(la) => hm + (a.fromVal -> (la :+ a))
         case None => hm + (a.fromVal -> List(a))
