@@ -24,30 +24,24 @@ import internals._
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 case class SourceVersion()
 private[DFiant] case class PropTag(init : Seq[DFAny.Token], const : DFAny.Token, latency : Option[Int])
-private[DFiant] case class AliasTag(dfVal : DFAny, prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
-  def invert : AliasTag = AliasTag(dfVal, prevStep, !inverted, latency, pipeStep)
-  def prev(step : Int) : AliasTag = AliasTag(dfVal, prevStep + step, inverted, latency, pipeStep)
+private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : Int, prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
+  def invert : AliasTag = copy(inverted = !inverted)
+  def prev(step : Int) : AliasTag = copy(prevStep = prevStep + step)
   private def addPipeToLatency(p : Int) : Option[Int] = latency match {
     case Some(lat) => Some(lat + p)
     case None => None
   }
-  def pipe(step : Int) : AliasTag = AliasTag(dfVal, prevStep, inverted, addPipeToLatency(step), pipeStep + step)
+  def pipe(step : Int) : AliasTag = copy(latency = addPipeToLatency(step), pipeStep = pipeStep + step)
   def balanceTo(maxLatency : Option[Int]) : AliasTag = (maxLatency, latency) match {
     case (Some(maxLat), Some(lat)) => pipe(maxLat - lat)
     case _ => this
   }
-
-  override def equals(that: Any): Boolean = that match {
-    case AliasTag(dfVal2, prevStep2, inverted2, latency2, pipeStep2) =>
-      dfVal.fullName == dfVal2.fullName && prevStep == prevStep2 && inverted == inverted2 &&
-        latency == latency2 && pipeStep == pipeStep2
-    case _ =>
-      false
-  }
 }
 private[DFiant] object AliasTag {
-  def apply(dfVal : DFAny) : AliasTag = AliasTag(dfVal, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
-  def withLatency(dfVal : DFAny, latency : Option[Int]) : AliasTag = AliasTag(dfVal, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
+  def apply(dfVal : DFAny) : AliasTag =
+    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = 0, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
+  def withLatency(dfVal : DFAny, latency : Option[Int]) : AliasTag =
+    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = 0, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
 }
 private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, aliasTag : Option[AliasTag]) {
   val relWidth : Int = relBitHigh - relBitLow + 1
@@ -69,7 +63,7 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
     case None => "NA"
   }
   def latencyString : String = aliasTag match {
-    case Some(AliasTag(_,_,_,Some(lat),_)) => lat.toString
+    case Some(AliasTag(_,_,_,_,_,Some(lat),_)) => lat.toString
     case _ => s"NA"
   }
 
@@ -168,7 +162,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
     if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
   def latencyString : String = {
-    val cf = elements.collectFirst{case SourceElement(_,_,_,Some(AliasTag(d, _,_,_,_))) => d}
+    val cf = elements.collectFirst{case SourceElement(_,_,_,Some(t)) => t.dfVal}
     if (cf.isEmpty) "NA"
     else {
       val coalesedLatency = Source(separate.elements.zipWithIndex.collect { case (e, i) =>
