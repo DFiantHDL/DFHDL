@@ -22,7 +22,7 @@ import internals._
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Source Aggregator
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+case class SourceVersion()
 private[DFiant] case class PropTag(init : Seq[DFAny.Token], const : DFAny.Token, latency : Option[Int])
 private[DFiant] case class AliasTag(dfVal : DFAny, prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
   def invert : AliasTag = AliasTag(dfVal, prevStep, !inverted, latency, pipeStep)
