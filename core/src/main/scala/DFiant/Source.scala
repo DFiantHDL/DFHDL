@@ -38,8 +38,8 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : 
   }
 }
 private[DFiant] object AliasTag {
-  def apply(dfVal : DFAny) : AliasTag =
-    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = 0, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
+  def apply(dfVal : DFAny, context : DFBlock) : AliasTag =
+    AliasTag(dfVal = dfVal, context = context, version = 0, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
   def withLatency(dfVal : DFAny, latency : Option[Int]) : AliasTag =
     AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = 0, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
 }
@@ -180,7 +180,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   override def toString: String = elements.mkString(" ## ")
 }
 object Source {
-  def apply(value : DFAny) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(AliasTag(value)))))
+  def apply(value : DFAny, context : DFBlock) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(AliasTag(value, context)))))
   def withLatency(value : DFAny, latency : Option[Int]) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(AliasTag.withLatency(value, latency)))))
   def zeroLatency(value : DFAny) : Source = withLatency(value, Some(0))
   def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))

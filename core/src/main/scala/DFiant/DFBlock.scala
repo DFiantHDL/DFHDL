@@ -35,16 +35,17 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Assignments
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
-      case (hm, a : DFAny.Assignment) => hm.get(a.toVar) match {
-        case Some(la) => hm + (a.toVar -> (la :+ a))
-        case None => hm + (a.toVar -> List(a))
-      }
-      case (hm, _) => hm
-    }
-
-//    final val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
+//    final val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
+//      case (hm, a : DFAny.Assignment) => hm.get(a.toVar) match {
+//        case Some(la) => hm + (a.toVar -> (la :+ a))
+//        case None => hm + (a.toVar -> List(a))
+//      }
+//      case (hm, _) => hm
+//    }
+//
+//    final val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, immutable.HashMap[DFBlock, List[Source]]]()) {
 //      case (hm, c : DFAny.Assignment) =>
+//
 //        var bitH : Int = c.toVar.width-1
 //        val cons = c.fromVal.source.elements.collect {
 //          case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>

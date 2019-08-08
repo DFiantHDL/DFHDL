@@ -108,7 +108,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Source
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    lazy val source : Source = Source(self)
+    lazy val source : Source = Source(self, owner.asInstanceOf[DFBlock])
     def thisSourceLB : LazyBox[Source] =
       LazyBox.Args1[Source, Source](self)(f => f.copyWithNewDFVal(self), inletSourceLB)
     lazy val prevSourceLB : LazyBox[Source] =
@@ -317,7 +317,7 @@ object DFAny {
         //      }
         fromVal.consume()
 //        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
-        toVar.assign(toRelWidth, toRelBitLow, Source(fromVal))
+        toVar.assign(toRelWidth, toRelBitLow, Source(fromVal, ctx.owner))
         toVar.protAssignDependencies += Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
