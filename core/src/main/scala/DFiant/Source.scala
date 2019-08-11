@@ -24,13 +24,15 @@ import internals._
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 case class SourceVersion()
 private[DFiant] case class PropTag(init : Seq[DFAny.Token], const : DFAny.Token, latency : Option[Int])
-private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : Int, prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
+private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : Option[Int], prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
   def invert : AliasTag = copy(inverted = !inverted)
   def prev(step : Int) : AliasTag = copy(prevStep = prevStep + step)
   private def addPipeToLatency(p : Int) : Option[Int] = latency match {
     case Some(lat) => Some(lat + p)
     case None => None
   }
+  def atContext(newContext : DFBlock) : AliasTag = copy(context = newContext)
+  def atVersion(num : Int) : AliasTag = copy(version = Some(num))
   def pipe(step : Int) : AliasTag = copy(latency = addPipeToLatency(step), pipeStep = pipeStep + step)
   def balanceTo(maxLatency : Option[Int]) : AliasTag = (maxLatency, latency) match {
     case (Some(maxLat), Some(lat)) => pipe(maxLat - lat)
@@ -39,9 +41,9 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : 
 }
 private[DFiant] object AliasTag {
   def apply(dfVal : DFAny, context : DFBlock) : AliasTag =
-    AliasTag(dfVal = dfVal, context = context, version = 0, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
+    AliasTag(dfVal = dfVal, context = context, version = None, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
   def withLatency(dfVal : DFAny, latency : Option[Int]) : AliasTag =
-    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = 0, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
+    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = None, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
 }
 private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, aliasTag : Option[AliasTag]) {
   val relWidth : Int = relBitHigh - relBitLow + 1
@@ -51,6 +53,11 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
   def prev(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.prev(step)))
   def pipe(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.pipe(step)))
   def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
+  def versioned(context : DFBlock) : Source = aliasTag match {
+    case Some(t) if t.version.isEmpty && t.dfVal.isInstanceOf[DFAny.Var] =>
+      context.getAssignedSource(t.dfVal).bitsHL(relBitHigh, relBitLow).reverse(reverseBits)
+    case _ => Source(List(this))
+  }
 
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = aliasTag match {
     case Some(t) =>
@@ -116,7 +123,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def invert : Source = Source(elements.map(e => e.invert))
   def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
   def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
-  def resize(toWidth : Int) : Source = {
+  def resize(toWidth : Int) : Source =
     if (toWidth > width) {
       Source(List.fill(toWidth - width)(bitsWL(1, width-1).elements.head) ++ elements)
     } else if (toWidth < width) {
@@ -125,11 +132,6 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
       this
     }
 
-  }
-//  def zeroExtend(toWidth : Int) : Source = {
-//    assert(toWidth >= width)
-//    Source(List.fill(toWidth - width)(SourceElement(0, 0, false, AliasTag.apply())) ++ elements)
-//  }
   def getMaxLatency : Option[Int] = {
     val list = elements.flatMap(e => e.aliasTag).flatMap(t => t.latency)
     if (list.isEmpty) None else Some(list.max)
@@ -159,6 +161,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def nonEmptyAtWL(relWidth : Int, relBitLow : Int) : Boolean = !bitsWL(relWidth, relBitLow).isEmpty
   def nonEmptyAtHL(relBitHigh : Int, relBitLow : Int) : Boolean = nonEmptyAtWL(relBitHigh - relBitLow + 1, relBitLow)
   def isCompletelyAllocated : Boolean = !elements.map(e => e.aliasTag.isEmpty).reduce((l, r) => l | r)
+  def versioned(context : DFBlock) : Source = Source(elements.flatMap(e => e.versioned(context).elements))
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String =
     if (elements.length > 1) elements.map(e => e.refCodeString).mkString("(", ", ", ")") else elements.head.refCodeString
   def latencyString : String = {
