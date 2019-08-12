@@ -131,13 +131,29 @@ object DSLMemberConstruct {
 trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
   protected[DFiant] trait __DevDSLOwnerConstruct extends __DevDSLMemberConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final lazy val isTop : Boolean = ownerOption.isEmpty
+    lazy val nonTransparent : DSLOwnerConstruct = self
+    final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
+      if (self.nonTransparent eq member.nonTransparentOwner) true
+      else if (self.nonTransparentOwnerOption.isEmpty) false
+      else false
+    final val members = CacheListRW(List[DSLMemberConstruct]())
+    protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
+      members.add(member)
+      elaborateReq.set(true)
+      //      println(s"newItemGetID ${member.fullName}")
+      members.size
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-
-    private lazy val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
-    final lazy val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
+    private val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
+    final val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
       CacheDerivedRO(membersNamesTemp) {
         val nt = mutable.HashMap[String, Int]()
         def getUniqueMemberName(suggestedName : String) : String = {
@@ -159,35 +175,18 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
-    final private lazy val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept))
+    final private val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
+    final private val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept))
     private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
       member.kept.set(true)
       elaborateReq.set(true)
       keep //also keep the owner chain
     }
     override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepMembers
-    final private lazy val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
-    final lazy val discoveredMembers = CacheDerivedRO(discoveredMemberStates){
+    final private val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
+    final val discoveredMembers = CacheDerivedRO(discoveredMemberStates){
       discover()
       members.filterNot(o => o.isNotDiscovered)
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Ownership
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val isTop : Boolean = ownerOption.isEmpty
-    lazy val nonTransparent : DSLOwnerConstruct = self
-    final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
-      if (self.nonTransparent eq member.nonTransparentOwner) true
-      else if (self.nonTransparentOwnerOption.isEmpty) false
-      else false
-    final val members = CacheListRW(List[DSLMemberConstruct]())
-    protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
-      members.add(member)
-      elaborateReq.set(true)
-//      println(s"newItemGetID ${member.fullName}")
-      members.size
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
