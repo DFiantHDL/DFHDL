@@ -22,7 +22,7 @@ import DFiant.internals._
 import scala.collection.mutable.ListBuffer
 
 abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
-  final private[DFiant] lazy val ctx = ctx0
+  final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevRTComponent extends __DevDFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming

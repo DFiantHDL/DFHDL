@@ -570,7 +570,7 @@ object DFAny {
   // Connections and Assignments
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
-    final private[DFiant] lazy val ctx = ctx0
+    final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevConnector extends __DevDFAnyMember {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -590,7 +590,7 @@ object DFAny {
   }
 
   case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
-    final private[DFiant] lazy val ctx = ctx0
+    final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevAssignment extends __DevDFAnyMember {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -610,7 +610,7 @@ object DFAny {
   abstract class NewVar[DF <: DFAny](width : Int, newVarCodeString : String)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Initializable[DF](width) {
-    final private[DFiant] lazy val ctx = ctx0
+    final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevNewVar extends __DevInitializable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -640,7 +640,7 @@ object DFAny {
   abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Connectable[DF](reference.width) {self =>
-    final private[DFiant] lazy val ctx = ctx0
+    final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevAlias extends __DevConnectable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -866,7 +866,7 @@ object DFAny {
   abstract class Const[DF <: DFAny](val token : Token)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {self =>
-    final private[DFiant] lazy val ctx = ctx0
+    final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevConst extends __DevConstructor {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
@@ -915,7 +915,7 @@ object DFAny {
   ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {self : DF <~> Dir =>
     type TPostInit = TVal <~> Dir
     type TDir = Dir
-    final private[DFiant] lazy val ctx = ctx0
+    final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevPort extends __DevInitializable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming

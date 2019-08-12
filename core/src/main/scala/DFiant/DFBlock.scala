@@ -24,7 +24,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
-  final private[DFiant] lazy val ctx = ctx0
+  final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevDFBlock extends __DevDFAnyOwner {
     ////////////////////////////////////////////////////////////////////////// //////////////////////////////
     // Ownership

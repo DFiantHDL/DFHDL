@@ -21,7 +21,7 @@
 //
 //abstract class DFFields()(implicit ctx0 : DFFields.Context) extends DFAnyOwner {
 //  import __dev._
-//  final private[DFiant] lazy val ctx = ctx0
+//  final private[DFiant] override lazy val ctx = ctx0
 //  final def codeString : String = {
 //    s"\ntrait $name extends DFFields {$bodyCodeString\n}"
 //  }

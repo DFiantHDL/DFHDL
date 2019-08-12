@@ -239,7 +239,7 @@ object ConditionalBlock {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DFAnyMember {
-      final private[DFiant] lazy val ctx = ctx0
+      final private[DFiant] override lazy val ctx = ctx0
       protected[DFiant] trait __DevDFMatchHeader extends __DevDFAnyMember {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -345,7 +345,7 @@ object ConditionalBlock {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
     ) extends DFAnyMember {
-      final private[DFiant] lazy val ctx = ctx0
+      final private[DFiant] override lazy val ctx = ctx0
       protected[DFiant] trait __DevMatchWithRetVal extends __DevDFAnyMember {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming

@@ -20,7 +20,7 @@ package DFiant
 import internals._
 
 case class Comment(comment : String)(implicit ctx0 : DFDesign.Context) extends DFAnyMember {
-  final private[DFiant] lazy val ctx = ctx0
+  final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevComment extends __DevDFAnyMember {
     def codeString : String = s"\n//$comment"
 

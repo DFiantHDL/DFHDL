@@ -48,7 +48,7 @@ trait DFAnySimMember extends DFAnyMember {
 }
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-  final private[DFiant] lazy val ctx = ctx0
+  final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevAssert extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -92,7 +92,7 @@ object Severity {
 }
 
 protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-  final private[DFiant] lazy val ctx = ctx0
+  final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevFinish extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
