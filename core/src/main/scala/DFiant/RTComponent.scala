@@ -60,6 +60,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     val name : String = n.value
     resetList += this
   }
+  id
 }
 
 object RTComponent {

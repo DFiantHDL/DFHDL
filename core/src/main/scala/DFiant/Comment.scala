@@ -28,4 +28,5 @@ case class Comment(comment : String)(implicit ctx0 : DFDesign.Context) extends D
   override private[DFiant] lazy val __dev : __DevComment = new __DevComment {}
   import __dev._
   keep
+  id
 }

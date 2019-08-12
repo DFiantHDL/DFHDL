@@ -65,6 +65,7 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
   }
   override private[DFiant] lazy val __dev : __DevAssert = new __DevAssert {}
   import __dev._
+  id
 
   if (cond.isDefined) {
     cond.get.keep
@@ -104,6 +105,7 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
   }
   override private[DFiant] lazy val __dev : __DevFinish = new __DevFinish {}
   import __dev._
+  id
   keep
 }
 

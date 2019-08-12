@@ -90,6 +90,7 @@ object ConditionalBlock {
           DFBool.Token.select, cond.initLB, returnValue.initLB, nextIf.get.initLB
         )
       returnVar.nameFirst = true
+      id
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
@@ -187,6 +188,7 @@ object ConditionalBlock {
       block
       mutableOwner.value = originalOwner
       if (cond != null) cond.consume()
+      id
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
@@ -279,6 +281,7 @@ object ConditionalBlock {
       def hasOverlappingCases : Boolean = privHasOverlappingCases
       private[DFiant] lazy val nameIt = ctx.n
       matchVal.consume()
+      id
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
@@ -319,6 +322,7 @@ object ConditionalBlock {
       block
       mutableOwner.value = originalOwner
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
+      id
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
@@ -393,6 +397,7 @@ object ConditionalBlock {
       private[DFiant] lazy val nameIt = ctx.n
       matchVal.consume()
       returnVar.nameFirst = true
+      id
     }
 
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
@@ -438,6 +443,7 @@ object ConditionalBlock {
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
       private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = LazyBox.Args1C(this)(DFAny.Token.patternMatch[matchVal.TToken, matchVal.TToken#TPattern], matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
       protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](this)(DFBool.Token.select, patternLB, returnValue.initLB, nextCase.get.initLB)
+      id
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(

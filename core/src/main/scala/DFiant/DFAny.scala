@@ -584,6 +584,7 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : __DevConnector = new __DevConnector {}
     import __dev._
+    id
   }
   object Connector {
     type Context = DFAnyOwner.Context[DFBlock]
@@ -600,6 +601,7 @@ object DFAny {
     }
     override private[DFiant] lazy val __dev : __DevAssignment = new __DevAssignment {}
     import __dev._
+    id
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -632,6 +634,7 @@ object DFAny {
 
 //    def selectdf[T, E](cond : DFBool)(thenSel : protComp.Op.Able[T], elseSel : protComp.Op.Able[E]) : TVal = ???
 //    def selectdf[SW, T](sel : DFUInt[SW], default : => Option[TVal] = None)(args : protComp.Op.Able[T]*) : TVal = ???
+    id
   }
   object NewVar {
     type Context = DFAnyOwner.Context[DFAnyOwner]
@@ -731,7 +734,7 @@ object DFAny {
       }
       this.asInstanceOf[TAlias]
     }
-
+    id
   }
   object Alias {
     trait Tag
@@ -900,6 +903,7 @@ object DFAny {
     override private[DFiant] lazy val __dev : __DevConst = new __DevConst {}
     import __dev._
     override def toString: String = token.toString
+    id
   }
   object Const {
     type Context = DFAnyOwner.Context[DFAnyOwner]
@@ -1080,6 +1084,7 @@ object DFAny {
     //* For OUT ports, supported only TVar and TOP
 
     override def toString : String = s"$fullName : $typeName <> $dir"
+    id
   }
   object Port {
     implicit def fetchDev(from : Port[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev

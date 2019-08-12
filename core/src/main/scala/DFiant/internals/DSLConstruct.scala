@@ -98,7 +98,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   }
   override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
   __dev //touch dev. We only need the lazyness for initialization order
-  __dev.id
   import __dev._
 
   final val topOwner : DSLOwnerConstruct =
@@ -143,7 +142,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
       members.add(member)
       elaborateReq.set(true)
-            println(s"newItemGetID ${member.fullName}")
+//            println(s"newItemGetID ${member.fullName} : ${member.typeName}")
       members.size
     }
 
