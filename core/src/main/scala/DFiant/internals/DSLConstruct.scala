@@ -104,11 +104,11 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
       implicit callOwner : DSLOwnerConstruct
     ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
     final protected def getID : Int = ownerOption.map(o => o.addMember(self)).getOrElse(0)
-    final protected lazy val id : Int = getID
-    id //touch id. We only need the lazyness for initialization order
+    final lazy val id : Int = getID
   }
   override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
   __dev //touch dev. We only need the lazyness for initialization order
+  __dev.id
   import __dev._
 
   private[DFiant] val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration]
