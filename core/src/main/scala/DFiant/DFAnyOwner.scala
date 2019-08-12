@@ -21,7 +21,7 @@ import DFiant.internals._
 
 trait DFAnyMember extends DSLMemberConstruct {
   protected[DFiant] trait __DevDFAnyMember extends __DevDSLMemberConstruct {
-    final override lazy val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
+    final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
   import __dev._

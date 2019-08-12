@@ -36,17 +36,34 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
   trait __DevDSLMemberConstruct extends __DevNameable with __DevTypeNameable with __DevDiscoverable with __DevHasOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Ownership
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
+    final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
+    def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
+    final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
+    final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
+    final def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
+      nonTransparentOwnerOption == that.nonTransparentOwnerOption
+    final def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
+      (nonTransparentOwnerOption, that) match {
+        case (None, _) => false
+        case (Some(a), b) if a == b => true
+        case (Some(a), b) => a.isDownstreamMemberOf(that)
+      }
+    final def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
+      implicit callOwner : DSLOwnerConstruct
+    ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)
+    final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
+      implicit callOwner : DSLOwnerConstruct
+    ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
+    final protected def getID : Int = ownerOption.map(o => o.addMember(self)).getOrElse(0)
+    final lazy val id : Int = getID
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override lazy val nameScala: String = ctx.getName
-    final private[internals] lazy val nameManual = CacheBoxRW("")
-    final private[internals] lazy val nameAutoFunc = CacheBoxRW(None)
-    final lazy val name : CacheBoxRO[String] =
-      ownerOption.map(o => CacheDerivedRO(o.nameTable)(o.nameTable(self))).getOrElse(CacheBoxRO(nameTemp))
-
-    final lazy val fullPath : String = ownerOption.map(o => s"${o.fullName}").getOrElse("")
-    final lazy val fullName : String = if (fullPath == "") name else s"$fullPath.$name"
-
+    override val nameScala: String = ctx.getName
     final private def relativePath(refFullPath : String, callFullPath : String) : String = {
       val c = callFullPath.split('.')
       val r = refFullPath.split('.')
@@ -74,42 +91,25 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val kept = CacheBoxRW(false)
-    final lazy val discovered = CacheBoxRW(false)
+    final val kept = CacheBoxRW(false)
+    final val discovered = CacheBoxRW(false)
     override protected def discoveryDependencies : List[Discoverable] = ownerOption.toList
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Ownership
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    lazy val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
-    final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
-    final lazy val topOwner : DSLOwnerConstruct =
-      ownerOption.map(o => o.topOwner).getOrElse(self.asInstanceOf[DSLOwnerConstruct])
-
-    def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
-    final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
-    final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
-    final def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
-      nonTransparentOwnerOption == that.nonTransparentOwnerOption
-    final def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
-      (nonTransparentOwnerOption, that) match {
-        case (None, _) => false
-        case (Some(a), b) if a == b => true
-        case (Some(a), b) => a.isDownstreamMemberOf(that)
-      }
-    final def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
-      implicit callOwner : DSLOwnerConstruct
-    ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)
-    final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
-      implicit callOwner : DSLOwnerConstruct
-    ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
-    final protected def getID : Int = ownerOption.map(o => o.addMember(self)).getOrElse(0)
-    final lazy val id : Int = getID
   }
   override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
   __dev //touch dev. We only need the lazyness for initialization order
   __dev.id
   import __dev._
+
+  final val topOwner : DSLOwnerConstruct =
+    ownerOption.map(o => o.topOwner).getOrElse(self.asInstanceOf[DSLOwnerConstruct])
+
+  final val name : CacheBoxRO[String] =
+    ownerOption.map(o => CacheDerivedRO(o.nameTable)(o.nameTable(self))).getOrElse(CacheBoxRO(nameTemp))
+  final val fullPath : CacheBoxRO[String] =
+    ownerOption.map(o => CacheDerivedRO(o.fullName)(s"${o.fullName}")).getOrElse(CacheBoxRO(""))
+  final val fullName : CacheBoxRO[String] =
+    CacheDerivedRO(name, fullPath)(if (fullPath.isEmpty) name else s"$fullPath.$name")
 
   private[DFiant] lazy val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration] = ???
   protected[DFiant] type ThisOwner <: DSLOwnerConstruct

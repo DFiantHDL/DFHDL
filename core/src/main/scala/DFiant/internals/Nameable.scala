@@ -19,11 +19,11 @@ package DFiant.internals
 
 trait Nameable {self =>
   protected[DFiant] trait __DevNameable {
-    lazy val nameScala : String = "???"
-    private[internals] val nameManual : CacheBoxRW[String]
+    val nameScala : String = "???"
+    final private[Nameable] val nameManual : CacheBoxRW[String] = CacheBoxRW("")
     private[DFiant] var nameFirst : Boolean = false //hack
-    private[internals] val nameAutoFunc : CacheBoxRW[Option[CacheBoxRO[String]]]
-    final lazy val nameTemp : CacheBoxRO[String] = CacheDerivedRO(nameManual, nameAutoFunc){
+    private val nameAutoFunc : CacheBoxRW[Option[CacheBoxRO[String]]] = CacheBoxRW(None)
+    final val nameTemp : CacheBoxRO[String] = CacheDerivedRO(nameManual, nameAutoFunc){
       if (!nameManual.isEmpty) nameManual
       else {
         val nameAuto : String = nameAutoFunc.map(x => x.get).getOrElse("")
@@ -31,7 +31,6 @@ trait Nameable {self =>
         else nameScala
       }
     }
-    val name : CacheBoxRO[String]
     final def setAutoName(name : => String) : self.type = {
       nameAutoFunc.set(Some(CacheBoxRO(name)))
       self
@@ -43,8 +42,9 @@ trait Nameable {self =>
 //    }
   }
   private[DFiant] lazy val __dev : __DevNameable = ???
+  val name : CacheBoxRO[String]
   final def setName(name : String) : self.type = {__dev.nameManual.set(name); self}
-  override def toString : String = __dev.name
+  override def toString : String = name
 }
 
 trait TypeNameable {

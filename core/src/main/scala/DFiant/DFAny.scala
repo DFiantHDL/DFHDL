@@ -534,8 +534,8 @@ object DFAny {
       private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
       def isInitialized : Boolean = initExternalLB.isSet
       final def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
-        if (isInitialized) throw new IllegalArgumentException(s"${this.fullName} already initialized")
-        if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${this.fullName}) is not at the same design as this call (${owner.fullName})")
+        if (isInitialized) throw new IllegalArgumentException(s"${self.fullName} already initialized")
+        if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${self.fullName}) is not at the same design as this call (${owner.fullName})")
         updatedInit = () => updatedInitLB.get
         initExternalLB.set(updatedInitLB)
       }
@@ -575,7 +575,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override lazy val nameScala = s"${Name.Separator}connect"
+      override val nameScala = s"${Name.Separator}connect"
       private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
       def codeString : String = toPort.owner match {
         case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
@@ -595,7 +595,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override lazy val nameScala = s"${Name.Separator}assign"
+      override val nameScala = s"${Name.Separator}assign"
       def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
     }
     override private[DFiant] lazy val __dev : __DevAssignment = new __DevAssignment {}
@@ -669,7 +669,7 @@ object DFAny {
         //      println(f"${s"$fullName($toRelBitHigh, $toRelBitLow)"}%-30s := ") //${fromVal.fullName}@${fromVal.width}
         assignableAbsolutes.foreach {
           case absolute(alias : DFAny.Port[_,_], high, low) if alias.dir.isIn =>
-            throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
+            throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
           case absolute(alias : DFAny.Var, high, low) =>
             val partHigh = scala.math.min(high, toRelBitHigh)
             val partLow = scala.math.max(low, toRelBitLow)
@@ -679,7 +679,7 @@ object DFAny {
             //          println(s"Boom ${alias.fullName}(${fromWidth+fromLow-1}, $fromLow) := ")
             alias.assign(fromWidth, fromLow, fromSourceLB)
           case absolute(alias, high, low) =>
-            throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
+            throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
         }
       }
       final override def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
@@ -701,7 +701,7 @@ object DFAny {
           case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
           case DFAny.Alias.Reference.Invert(aliasedVar) => ???
           case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
-          case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${this.fullName}) is an immutable alias and shouldn't be assigned")
+          case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
         }
         toVar.protAssignDependencies += Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal

@@ -51,6 +51,7 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   val i = DFBool() <> IN
   val o = DFUInt(8) <> OUT
   val temp = DFUInt(8) init 0
+
   ifdf (i) {
     temp := 1
   }
