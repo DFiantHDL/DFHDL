@@ -46,7 +46,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     final val assignmentsTo : CacheBoxRO[immutable.HashMap[DFAny, List[Source]]] =
       CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
         case (hm, c : ConditionalBlock with DFBlock) =>
-//          println(c.members)
+          println(c.members)
 //          val childCons = c.assignmentsTo.map {
 //            case (dfVal, sources) => dfVal -> (hm.getOrElse(dfVal, List()) ++ sources)
 //          }

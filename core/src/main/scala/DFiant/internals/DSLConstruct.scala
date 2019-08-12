@@ -104,11 +104,11 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
   final val topOwner : DSLOwnerConstruct =
     ownerOption.map(o => o.topOwner).getOrElse(self.asInstanceOf[DSLOwnerConstruct])
 
-  final val name : CacheBoxRO[String] =
-    ownerOption.map(o => CacheDerivedRO(o.nameTable)(o.nameTable(self))).getOrElse(CacheBoxRO(nameTemp))
-  final val fullPath : CacheBoxRO[String] =
+  final lazy val name : CacheBoxRO[String] =
+    ownerOption.map(o => CacheDerivedRO(o.nameTable)(o.nameTable(self))).getOrElse(nameTemp)
+  final lazy val fullPath : CacheBoxRO[String] =
     ownerOption.map(o => CacheDerivedRO(o.fullName)(s"${o.fullName}")).getOrElse(CacheBoxRO(""))
-  final val fullName : CacheBoxRO[String] =
+  final lazy val fullName : CacheBoxRO[String] =
     CacheDerivedRO(name, fullPath)(if (fullPath.isEmpty) name else s"$fullPath.$name")
 
   private[DFiant] lazy val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration] = ???
@@ -143,7 +143,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
       members.add(member)
       elaborateReq.set(true)
-      //      println(s"newItemGetID ${member.fullName}")
+            println(s"newItemGetID ${member.fullName}")
       members.size
     }
 
