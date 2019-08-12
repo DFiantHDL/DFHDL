@@ -48,30 +48,21 @@ trait Inst extends DFDesign {
 
 
 class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
-//  final val addraP = DFBits(12) <> IN
-//  final val doutaP = DFBits(32) <> OUT
-////  val imem = new IMem()
-////  imem.addra <> addraP
-////  imem.douta <> doutaP
-//  matchdf(addraP)
-//    .casedf(b"11111111111") {doutaP := b0s}
-//    .casedf(b"01111111111") {}
-//    .casedf_{doutaP := b1s}
   val i = DFBool() <> IN
-  val i2 = DFUInt(2) <> IN
-  val o = DFBool() <> OUT
-  val list = (0 until 4).map(ri => DFBool().init(false).setName(s"r$ri"))
-  ifdf(i) {
-    list.foreachdf(i2){case r => o := r}
-  }.setName("theIf")
-  list.foreachdf(i2){case r => o := r}
-//  val cc = DFUInt(8) <> OUT
-//  val cnt = DFUInt(8)
-//  sim.report(msg"$cnt")
-//  cc := cnt
+  val o = DFUInt(8) <> OUT
+  val temp = DFUInt(8) init 0
+  ifdf (i) {
+    temp := 1
+  }
+//  temp := temp.prev(5)
+//  temp.bits(3,0) := b"1111"
+//  temp.bits(7,4) := b"0110"
+  o := temp
 }
 
 
 object Bla extends DFApp {
-  val bla = new Cont {}.printCodeString.compileToVHDL.print().toFile("tour.vhd")
+  val bla = new Cont {}.printCodeString
+  import internals._
+  println(bla.assignmentsTo)
 }

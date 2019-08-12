@@ -186,7 +186,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
       members.add(member)
       elaborateReq.set(true)
-      //    println(s"newItemGetID ${item.fullName}")
+//      println(s"newItemGetID ${member.fullName}")
       members.size
     }
 

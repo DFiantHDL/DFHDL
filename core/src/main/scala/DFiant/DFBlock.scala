@@ -20,7 +20,7 @@ package DFiant
 import DFiant.targetlib.TargetLib
 import internals._
 
-import scala.annotation.implicitNotFound
+import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
@@ -45,12 +45,18 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
 //
     final val assignmentsTo : CacheBoxRO[immutable.HashMap[DFAny, List[Source]]] =
       CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
+        case (hm, c : ConditionalBlock with DFBlock) =>
+//          println(c.members)
+//          val childCons = c.assignmentsTo.map {
+//            case (dfVal, sources) => dfVal -> (hm.getOrElse(dfVal, List()) ++ sources)
+//          }
+          hm// ++ childCons
         case (hm, c : DFAny.Assignment) =>
           def versioned(source : Source) : Source = Source(source.elements.map {
             case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) => t match {
               case AliasTag(dfVal, context, version, prevStep, inverted, latency, pipeStep) if dfVal.isAssignable =>
                 val defaultContext = dfVal.owner.asInstanceOf[DFBlock]
-                def getAssignedSource(currentContext : DFBlock) : AliasTag = currentContext.assignmentsTo.get.get(dfVal) match {
+                @tailrec def getAssignedSource(currentContext : DFBlock) : AliasTag = currentContext.assignmentsTo.get.get(dfVal) match {
                   case Some(x) => AliasTag(dfVal, currentContext, Some(x.length), prevStep, inverted, latency, pipeStep)
                   case None => currentContext match {
                     case x : DFBlock with ConditionalBlock => getAssignedSource(x.owner)
