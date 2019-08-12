@@ -79,6 +79,11 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Assignment
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    val isAssignable : Boolean = false
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Consumption
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
@@ -289,6 +294,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override val isAssignable : Boolean = true
       final def isAssigned : Boolean = !assignedSource.isEmpty
       final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
@@ -649,6 +655,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override val isAssignable : Boolean = reference.isAssignable
       override def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
         val toVar = self
         val toRelBitHigh = toRelBitLow + toRelWidth-1
@@ -733,6 +740,7 @@ object DFAny {
     sealed abstract class Reference(aliasCodeString_ : => String)(implicit ctx : Alias.Context) {
       val aliasedVars : List[DFAny]
       val width : Int
+      val isAssignable : Boolean
       lazy val aliasCodeString : String = aliasCodeString_
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String
       val source : Source
@@ -749,6 +757,7 @@ object DFAny {
     object Reference {
       class AsIs private (refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
+        val isAssignable : Boolean = refVar.isAssignable
         lazy val source : Source = aliasedVar.source
         lazy val sourceLB: LazyBox[Source] = aliasedVar.thisSourceLB
       }
@@ -759,6 +768,7 @@ object DFAny {
       class Concat private (concatVars : List[DFAny], aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends Reference(aliasCodeString) {
         val aliasedVars : List[DFAny] = concatVars.map(c => c.replacement())
+        val isAssignable : Boolean = concatVars.collectFirst{case x if !x.isAssignable => false}.getOrElse(true)
         val width : Int = aliasedVars.map(a => a.width.getValue).sum
         def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
           s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}$aliasCodeString"
@@ -775,6 +785,7 @@ object DFAny {
       class BitsWL private (refVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
         override val width: Int = relWidth
+        val isAssignable : Boolean = refVar.isAssignable
         lazy val source : Source = aliasedVar.source.bitsWL(relWidth, relBitLow)
         lazy val sourceLB : LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.bitsWL(relWidth, relBitLow), aliasedVar.thisSourceLB)
@@ -786,6 +797,7 @@ object DFAny {
       }
       class Prev private (refVar : DFAny, val step : Int)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
+        val isAssignable : Boolean = false
         lazy val source : Source = aliasedVar.source.prev(step)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.prev(step), aliasedVar.thisSourceLB)
@@ -796,6 +808,7 @@ object DFAny {
       }
       class Pipe private (refVar : DFAny, val step : Int)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
+        val isAssignable : Boolean = false
         lazy val source : Source = aliasedVar.source.pipe(step)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.pipe(step), aliasedVar.thisSourceLB)
@@ -816,6 +829,7 @@ object DFAny {
       class Resize private (refVar : DFAny, val toWidth : Int)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, if (toWidth == refVar.width.getValue) "" else s".toWidth($toWidth)") {
         override val width: Int = toWidth
+        val isAssignable : Boolean = false
         lazy val source : Source = aliasedVar.source.resize(toWidth)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.resize(toWidth), aliasedVar.thisSourceLB)
@@ -826,6 +840,7 @@ object DFAny {
       }
       class BitReverse private (refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
+        val isAssignable : Boolean = refVar.isAssignable
         lazy val source : Source = aliasedVar.source.reverse
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.reverse, aliasedVar.thisSourceLB)
@@ -836,6 +851,7 @@ object DFAny {
       }
       class Invert private (refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
+        val isAssignable : Boolean = refVar.isAssignable
         lazy val source : Source = aliasedVar.source.invert
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
           s => s.invert, aliasedVar.thisSourceLB)
@@ -847,7 +863,7 @@ object DFAny {
     }
   }
 
-  abstract class Const[DF <: DFAny](token : Token)(
+  abstract class Const[DF <: DFAny](val token : Token)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {self =>
     final private[DFiant] lazy val ctx = ctx0
@@ -879,9 +895,11 @@ object DFAny {
         LazyBox.Const(self)(Source.withLatency(self, None))
       override lazy val prevSourceLB : LazyBox[Source] =
         LazyBox.Const[Source](self)(Source.withLatency(self, None))
+
     }
     override private[DFiant] lazy val __dev : __DevConst = new __DevConst {}
     import __dev._
+    override def toString: String = token.toString
   }
   object Const {
     type Context = DFAnyOwner.Context[DFAnyOwner]
@@ -1012,6 +1030,11 @@ object DFAny {
       def injectDependencies(dependencies : List[Discoverable]) : Unit =
         protAssignDependencies ++= dependencies
       final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Assignment
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override val isAssignable : Boolean = dir.isOut
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Consumption

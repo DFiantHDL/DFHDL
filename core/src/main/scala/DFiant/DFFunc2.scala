@@ -40,6 +40,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override val isAssignable: Boolean = false
     override def discoveryDependencies: List[Discoverable] = super.discoveryDependencies :+ outResult :+ leftArg :+ rightArg
 
     override def inletSourceLB : LazyBox[Source] = {

@@ -43,42 +43,44 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
 //      case (hm, _) => hm
 //    }
 //
-    final lazy val assignmentsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
+    final val assignmentsTo : CacheBoxRO[immutable.HashMap[DFAny, List[Source]]] =
+      CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
         case (hm, c : DFAny.Assignment) =>
-//          def getSource(dfVal : DFAny, context : DFBlock, version : Option[Int]) : Source = {
-//            val defaultContext = dfVal.owner.asInstanceOf[DFBlock]
-//            val contextHM = hm.getOrElse(dfVal, immutable.HashMap[DFBlock, List[Source]](defaultContext, List(Source(dfVal, defaultContext).prev(1))))
-//            def getVersionList(currentContext : DFBlock) : List[Source] =
-//              contextHM.getOrElse(currentContext, getVersionList(currentContext.owner))
-//            val versionList = getVersionList(context)
-//            version match {
-//              case Some(v) => versionList(v)
-//              case None => versionList.last
-//            }
-//          }
+          def versioned(source : Source) : Source = Source(source.elements.map {
+            case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) => t match {
+              case AliasTag(dfVal, context, version, prevStep, inverted, latency, pipeStep) if dfVal.isAssignable =>
+                val defaultContext = dfVal.owner.asInstanceOf[DFBlock]
+                def getAssignedSource(currentContext : DFBlock) : AliasTag = currentContext.assignmentsTo.get.get(dfVal) match {
+                  case Some(x) => AliasTag(dfVal, currentContext, Some(x.length), prevStep, inverted, latency, pipeStep)
+                  case None => currentContext match {
+                    case x : DFBlock with ConditionalBlock => getAssignedSource(x.owner)
+                    case _ => AliasTag(dfVal, currentContext, Some(0), prevStep, inverted, latency, pipeStep)
+                  }
+                }
+                SourceElement(relBitHigh, relBitLow, reverseBits, Some(getAssignedSource(defaultContext)))
+              case _ => SourceElement(relBitHigh, relBitLow, reverseBits, Some(t))
+            }
+            case e => e
+          })
 
           var bitH : Int = c.toVar.width-1
-          val cons = c.fromVal.source.elements.collect {
+          val fromValSourceVersioned = versioned(c.fromVal.source)
+          val cons = c.toVar.source.elements.collect {
             case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
               val relWidth = relBitHigh - relBitLow + 1
               val bitL = bitH-relWidth+1
-              val partial = c.toVar.source.bitsHL(bitH, bitL).reverse(reverseBits)
-              val current = hm.getOrElse(t.dfVal, List(Source.none(t.dfVal.width)))
+              val partial = fromValSourceVersioned.bitsHL(bitH, bitL).reverse(reverseBits)
+              val current = hm.getOrElse(t.dfVal, List())
               val full = current match {
-                case x :+ xs if (xs.nonEmptyAtHL(relBitHigh, relBitLow)) =>
-                  current :+ Source.none(t.dfVal.width).replaceHL(relBitHigh, relBitLow, partial)
-                case x :+ xs =>
-                  x :+ xs.replaceHL(relBitHigh, relBitLow, partial)
+                case x :+ xs => current :+ xs.replaceHL(relBitHigh, relBitLow, partial)
+                case Nil => List(Source.none(t.dfVal.width).replaceHL(relBitHigh, relBitLow, partial))
               }
               bitH = bitH-relWidth
               t.dfVal -> full
           }
           hm ++ cons
-          ???
         case (hm, _) => hm
       }
-    final def getAssignedSource(dfVal : DFAny) : Source =
-      assignmentsTo.getOrElse(dfVal, List(Source(dfVal, dfVal.owner.asInstanceOf[DFBlock]).prev(1))).last
 
     final val assignmentsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
       case (hm, a : DFAny.Assignment) => hm.get(a.fromVal) match {
