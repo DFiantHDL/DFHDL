@@ -53,7 +53,7 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   val temp = DFUInt(8) init 0
 
   ifdf (i) {
-    temp := 1
+    temp := temp
   }
 //  temp := temp.prev(5)
 //  temp.bits(3,0) := b"1111"

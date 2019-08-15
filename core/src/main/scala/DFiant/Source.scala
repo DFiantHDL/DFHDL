@@ -19,6 +19,8 @@ package DFiant
 
 import internals._
 
+import scala.annotation.tailrec
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Source Aggregator
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,6 +33,15 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : 
     case Some(lat) => Some(lat + p)
     case None => None
   }
+  @tailrec private def versioned(currentContext : DFBlock) : AliasTag =
+    currentContext.assignmentsTo.get.get(dfVal) match {
+      case Some(x) => copy(version = Some(x.length), context = currentContext)
+      case None => currentContext match {
+        case x : DFBlock with ConditionalBlock => versioned(x.owner)
+        case _ => copy(version = Some(0), context = currentContext)
+      }
+    }
+  final def versioned : AliasTag = if (dfVal.isAssignable) versioned(dfVal.owner.asInstanceOf[DFBlock]) else this
   def atContext(newContext : DFBlock) : AliasTag = copy(context = newContext)
   def atVersion(num : Int) : AliasTag = copy(version = Some(num))
   def pipe(step : Int) : AliasTag = copy(latency = addPipeToLatency(step), pipeStep = pipeStep + step)
@@ -53,7 +64,7 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
   def prev(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.prev(step)))
   def pipe(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.pipe(step)))
   def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
-
+  def versioned : SourceElement = copy(aliasTag = aliasTag.map(t => t.versioned))
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = aliasTag match {
     case Some(t) =>
       val reverseStr = if (reverseBits) ".reverse" else ""
@@ -132,6 +143,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
     } else {
       this
     }
+  def versioned : Source = Source(elements.map(e => e.versioned))
 
   def getMaxLatency : Option[Int] = {
     val list = elements.flatMap(e => e.aliasTag).flatMap(t => t.latency)

@@ -35,45 +35,26 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Assignments
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val assignmentsTo : CacheBoxRO[immutable.HashMap[DFAny, List[Source]]] =
-      CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
-        case (hm, c : ConditionalBlock with DFBlock) =>
+    final val assignmentsTo : CacheBoxRO[immutable.HashMap[DFAny, List[Either[Source, DFBlock]]]] =
+      CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Either[Source, DFBlock]]]()) {
+        case (hm, c : ConditionalBlock with DFBlock) => //For child conditional DFBlocks we just add a placeholder
           val childCons = c.assignmentsTo.map {
-            case (dfVal, sources) => dfVal -> (hm.getOrElse(dfVal, List()) ++ sources)
+            case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
           }
           hm ++ childCons
         case (hm, c : DFAny.Assignment) =>
-          def versioned(source : Source) : Source = Source(source.elements.map {
-            case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) => t match {
-              case AliasTag(dfVal, context, version, prevStep, inverted, latency, pipeStep) if dfVal.isAssignable =>
-                val defaultContext = dfVal.owner.asInstanceOf[DFBlock]
-                @tailrec def getAssignedSource(currentContext : DFBlock) : AliasTag = currentContext.assignmentsTo.get.get(dfVal) match {
-                  case Some(x) => AliasTag(dfVal, currentContext, Some(x.length), prevStep, inverted, latency, pipeStep)
-                  case None => currentContext match {
-                    case x : DFBlock with ConditionalBlock => getAssignedSource(x.owner)
-                    case _ => AliasTag(dfVal, currentContext, Some(0), prevStep, inverted, latency, pipeStep)
-                  }
-                }
-                SourceElement(relBitHigh, relBitLow, reverseBits, Some(getAssignedSource(defaultContext)))
-              case _ => SourceElement(relBitHigh, relBitLow, reverseBits, Some(t))
-            }
-            case e => e
-          })
-
           var bitH : Int = c.toVar.width-1
-          val fromValSourceVersioned = versioned(c.fromVal.source)
+          val fromValSourceVersioned = c.fromVal.source.versioned
           val cons = c.toVar.source.elements.collect {
             case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
               val relWidth = relBitHigh - relBitLow + 1
               val bitL = bitH-relWidth+1
               val partial = fromValSourceVersioned.bitsHL(bitH, bitL).reverse(reverseBits)
               val current = hm.getOrElse(t.dfVal, List())
-              val full = current match {
-                case x :+ xs => current :+ xs.replaceHL(relBitHigh, relBitLow, partial)
-                case Nil => List(Source.none(t.dfVal.width).replaceHL(relBitHigh, relBitLow, partial))
-              }
+              val empty = Source.none(t.dfVal.width)
+              val list = current :+ Left(empty.replaceHL(relBitHigh, relBitLow, partial))
               bitH = bitH-relWidth
-              t.dfVal -> full
+              t.dfVal -> list
           }
           hm ++ cons
         case (hm, _) => hm
