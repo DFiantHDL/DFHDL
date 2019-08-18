@@ -17,10 +17,25 @@
 
 package DFiant.internals
 
+import scala.annotation.tailrec
+import scala.collection.immutable
+
 trait Discoverable {
   protected[DFiant] trait __DevDiscoverable {
     final protected[DFiant] def isNotDiscovered : Boolean = !discovered
     val discovered : CacheBoxRW[Boolean]
+    @tailrec private def discover(
+      discoveredSet : immutable.HashSet[Discoverable],
+      exploreList : List[Discoverable]
+    ) : List[Discoverable] = exploreList match {
+      case current :: remaining if !discoveredSet.contains(current) =>
+//        val extraExploreList : List[Discoverable] = current match {
+//          case x : DFAny.Port[_,_] =>
+//          case _ => List()
+//        }
+        discover(discoveredSet + current, remaining ++ current.__dev.discoveryDependencies)
+      case Nil => discoveredSet.toList
+    }
     protected def discoveryDependencies : List[Discoverable] = List()
     protected def preDiscoveryRun() : Unit = {}
     protected def postDiscoveryRun() : Unit = {}

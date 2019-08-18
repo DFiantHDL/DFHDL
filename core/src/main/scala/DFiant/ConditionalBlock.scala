@@ -54,10 +54,6 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def preDiscoveryRun() : Unit = {
-//          returnVar.name //return value should get the name first then internals of the conditional block
-          super.preDiscoveryRun()
-        }
         private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
         final override protected def discoveryDependencies : List[Discoverable] =
           super.discoveryDependencies ++ ifDiscoveryDepenencies
@@ -362,10 +358,6 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def preDiscoveryRun() : Unit = {
-//          returnVar.name //return value should get the name first then internals of the conditional block
-          super.preDiscoveryRun()
-        }
         override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies :+ matchVal
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////

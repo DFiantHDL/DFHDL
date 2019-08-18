@@ -20,8 +20,9 @@ package DFiant
 import DFiant.targetlib.TargetLib
 import DFiant.compiler.Backend
 import DFiant.internals._
+
 import scala.collection.immutable
-import scala.annotation.implicitNotFound
+import scala.annotation.{implicitNotFound, tailrec}
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {self =>
   protected[DFiant] trait __DevDFDesign extends __DevDFBlock with __DevDFInterface {
@@ -71,11 +72,12 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     final val connectionsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, Source]()) {
       case (hm, c : DFAny.Connector) =>
         var bitH : Int = c.toPort.width-1
+        val versionedSource = c.fromVal.source.versioned
         val cons = c.toPort.source.elements.collect {
           case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
             val relWidth = relBitHigh - relBitLow + 1
             val bitL = bitH-relWidth+1
-            val partial = c.fromVal.source.bitsHL(bitH, bitL).reverse(reverseBits)
+            val partial = versionedSource.bitsHL(bitH, bitL).reverse(reverseBits)
             val current = hm.getOrElse(t.dfVal, Source.none(t.dfVal.width))
             if (current.nonEmptyAtHL(relBitHigh, relBitLow))
               throwConnectionError(c.toPort, c.fromVal, s"Target ${c.toPort.fullName} already has a connection: $current")
@@ -109,6 +111,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       case (hm, _) => hm
     }
 
+//    val dm : CacheBoxRO[List[DSLMemberConstruct]] = CacheDerivedRO(portsOut, assignmentsTo, connectionsTo) {
+//
+//
+//    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Ports
