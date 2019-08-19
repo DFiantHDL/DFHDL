@@ -277,8 +277,8 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final val protAssignDependencies : ListBuffer[Discoverable] = ListBuffer.empty[Discoverable]
-      override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ protAssignDependencies.toList
+      final val protAssignDependencies : ListBuffer[DFAnyMember] = ListBuffer.empty[DFAnyMember]
+      override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ protAssignDependencies.toList
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Consumption
@@ -653,7 +653,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ reference.aliasedVars
+      final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ reference.aliasedVars
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
@@ -1031,9 +1031,9 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      def injectDependencies(dependencies : List[Discoverable]) : Unit =
+      def injectDependencies(dependencies : List[DFAnyMember]) : Unit =
         protAssignDependencies ++= dependencies
-      final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies
+      final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment

@@ -19,8 +19,14 @@ package DFiant
 import DFiant.targetlib.TargetLib
 import DFiant.internals._
 
-trait DFAnyMember extends DSLMemberConstruct {
+import scala.annotation.tailrec
+import scala.collection.immutable
+
+trait DFAnyMember extends DSLMemberConstruct {self =>
   protected[DFiant] trait __DevDFAnyMember extends __DevDSLMemberConstruct {
+    protected[DFiant] def isNotDiscovered : Boolean = owner.discoveredMembers.contains(self)
+    protected def discoveryDependencies : List[DFAnyMember] = ownerOption.toList
+    final private[DFiant] def justAHack = discoveryDependencies
     final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
@@ -30,10 +36,48 @@ trait DFAnyMember extends DSLMemberConstruct {
   private[DFiant] override lazy val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner] = ???
   implicit def __theOwnerToBe : DFAnyOwner = ownerOption.get
   final implicit lazy val __config : DFAnyConfiguration = ctx.config
+
+  final def keep : this.type = {
+    ownerOption.foreach {
+      o => o.__dev.keepMember(this)
+    }
+    this
+  }
 }
 
-trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
+trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
   protected[DFiant] trait __DevDFAnyOwner extends __DevDFAnyMember with __DevDSLOwnerConstruct {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    @tailrec final def discover(
+      discoveredSet : immutable.HashSet[DFAnyMember],
+      exploreList : List[DFAnyMember]
+    ) : immutable.HashSet[DFAnyMember] = exploreList match {
+      case current :: remaining =>
+        if (discoveredSet.contains(current))
+          discover(discoveredSet, remaining)
+        else
+          discover(discoveredSet + current, remaining ++ current.__dev.justAHack)
+      case Nil => discoveredSet
+    }
+
+    final private val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
+    final val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept).asInstanceOf[List[DFAnyMember]])
+    def keepMember(member : DSLMemberConstruct) : Unit = {
+      member.kept.set(true)
+      elaborateReq.set(true)
+      keep //also keep the owner chain
+    }
+    override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ keepMembers
+//    final private val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
+    //    final val discoveredMembers = CacheDerivedRO(discoveredMemberStates){
+    //      discover()
+    //      members.filterNot(o => o.isNotDiscovered)
+    //    }
+    val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]]
+    final override protected[DFiant] def isNotDiscovered : Boolean = discoveredMembers.contains(self)
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +90,10 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct {
   }
   override private[DFiant] lazy val __dev : __DevDFAnyOwner = ???
   import __dev._
+
+  final lazy val discoveredMembers = CacheDerivedRO(discoveredSet){
+    members.filter(m => discoveredSet.contains(m.asInstanceOf[DFAnyMember]))
+  }
 
   override implicit def __theOwnerToBe : DFAnyOwner = this
 

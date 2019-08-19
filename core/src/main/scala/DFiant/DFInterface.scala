@@ -19,6 +19,8 @@ package DFiant
 
 import DFiant.internals._
 
+import scala.collection.immutable
+
 trait DFInterface extends DFAnyOwner { self =>
   protected[DFiant] trait __DevDFInterface extends __DevDFAnyOwner {
     override lazy val typeName: String = {
@@ -34,6 +36,17 @@ trait DFInterface extends DFAnyOwner { self =>
         else clsSimpleName
       }
     }
+    private lazy val discoveredOutputs : CacheBoxRO[List[DFAny.Port[DFAny, OUT]]] = ownerOption match {
+      case Some(o : DFInterface) => CacheDerivedRO(portsOut, o.__dev.discoveredSet)(portsOut.filter(o.__dev.discoveredSet.contains))
+      case _ => portsOut
+    }
+    lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] = ownerOption match {
+      case Some(o : DFInterface) if !self.isInstanceOf[DFComponent[_]] => o.__dev.discoveredSet
+      case _ =>
+        CacheDerivedRO(keepMembers, discoveredOutputs) {
+          discover(immutable.HashSet(), discoveredOutputs)
+        }
+    }
   }
   override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._
@@ -44,11 +57,11 @@ trait DFInterface extends DFAnyOwner { self =>
   }
 
   final lazy val portsIn = CacheDerivedRO(ports) {
-    ports.filter(p => p.dir.isIn).map(p => p.asInstanceOf[DFAny.Port[DFAny, IN]])
+    ports.filter(p => p.dir.isIn).asInstanceOf[List[DFAny.Port[DFAny, IN]]]
   }
 
   final lazy val portsOut = CacheDerivedRO(ports) {
-    ports.filter(p => p.dir.isOut).map(p => p.asInstanceOf[DFAny.Port[DFAny, OUT]])
+    ports.filter(p => p.dir.isOut).asInstanceOf[List[DFAny.Port[DFAny, OUT]]]
   }
 
   override def toString: String = s"$name : $typeName"

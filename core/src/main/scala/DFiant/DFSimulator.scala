@@ -126,7 +126,7 @@ trait DFSimulator extends DFDesign {
     private[DFSimulator] def keepAll() : Unit =
       members.collect {
         case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
-        case m => m.keep
+        case m : DFAnyMember => m.keep
       } //for simulations we keep all
   }
   override private[DFiant] lazy val __dev : __DevDFSimulator = new __DevDFSimulator {}

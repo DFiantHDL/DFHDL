@@ -41,7 +41,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override val isAssignable: Boolean = false
-    override def discoveryDependencies: List[Discoverable] = super.discoveryDependencies :+ outResult :+ leftArg :+ rightArg
+    override def discoveryDependencies: List[DFAnyMember] = super.discoveryDependencies :+ outResult :+ leftArg :+ rightArg
 
     override def inletSourceLB : LazyBox[Source] = {
       LazyBox.Args1[Source, Option[Int]](self)(l => Source.withLatency(self, l)/*.pipe(extraPipe)*/, maxLatency)

@@ -20,9 +20,8 @@ import internals._
 
 import scala.collection.mutable.ListBuffer
 
-protected[DFiant] trait ConditionalBlock extends DSLTransparentOwnerConstruct {
-  protected[DFiant] trait __DevConditionalBlock extends __DevDSLTransparentOwnerConstruct {
-
+protected[DFiant] trait ConditionalBlock extends DFDesign with DSLTransparentOwnerConstruct {
+  protected[DFiant] trait __DevConditionalBlock extends __DevDFDesign with __DevDSLTransparentOwnerConstruct {
   }
   override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
   import __dev._
@@ -43,7 +42,7 @@ object ConditionalBlock {
   type Context = DFAny.Op.Context
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
-      extends DFDesign with ConditionalBlock {
+      extends ConditionalBlock {
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -54,8 +53,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
-        final override protected def discoveryDependencies : List[Discoverable] =
+        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond)
+        final override protected def discoveryDependencies : List[DFAnyMember] =
           super.discoveryDependencies ++ ifDiscoveryDepenencies
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
@@ -102,7 +101,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
+        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond, prevIfBlock)
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
@@ -124,7 +123,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
+        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(prevIfBlock)
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
@@ -152,7 +151,7 @@ object ConditionalBlock {
   class IfNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFDesign with ConditionalBlock {
+    ) extends ConditionalBlock {
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -162,8 +161,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond)
-        final override protected def discoveryDependencies : List[Discoverable] =
+        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond)
+        final override protected def discoveryDependencies : List[DFAnyMember] =
           super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
@@ -200,7 +199,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(cond, prevIfBlock)
+        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond, prevIfBlock)
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
@@ -221,7 +220,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] = List(prevIfBlock)
+        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(prevIfBlock)
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
@@ -249,7 +248,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies :+ matchVal
+        override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies :+ matchVal
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Ownership
@@ -281,7 +280,7 @@ object ConditionalBlock {
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DFDesign with ConditionalBlock {
+    ) extends ConditionalBlock {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -292,10 +291,10 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
+        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
-        final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
+        final override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._
@@ -358,7 +357,7 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies :+ matchVal
+        override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies :+ matchVal
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Ownership
@@ -394,7 +393,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFDesign with ConditionalBlock {
+    ) extends ConditionalBlock {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -405,10 +404,10 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[Discoverable] =
+        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
           if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
-        final override protected def discoveryDependencies : List[Discoverable] =super.discoveryDependencies ++ ifDiscoveryDepenencies
+        final override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies ++ ifDiscoveryDepenencies
       }
       override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._

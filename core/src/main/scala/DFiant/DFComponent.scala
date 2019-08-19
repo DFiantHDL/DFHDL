@@ -37,10 +37,10 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
-      out.injectDependencies(inList)
-      out.rediscoverDependencies()
-    }
+//    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
+//      out.injectDependencies(inList)
+//      out.rediscoverDependencies()
+//    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
@@ -51,7 +51,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     }
     final override private[DFiant] def unfoldedRun : Unit = {
       ctx.impl(self)
-      portsOut.foreach(p => p.rediscoverDependencies())
+//      portsOut.foreach(p => p.rediscoverDependencies())
     }
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}

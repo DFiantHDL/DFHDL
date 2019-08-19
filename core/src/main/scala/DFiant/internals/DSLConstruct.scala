@@ -17,6 +17,7 @@
 
 package DFiant.internals
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.collection._
 
@@ -33,8 +34,8 @@ trait HasOwner {
 }
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
-  with Nameable with TypeNameable with Discoverable with HasPostConstructionOnlyDefs with HasOwner {self =>
-  trait __DevDSLMemberConstruct extends __DevNameable with __DevTypeNameable with __DevDiscoverable with __DevHasOwner {
+  with Nameable with TypeNameable with HasPostConstructionOnlyDefs with HasOwner {self =>
+  trait __DevDSLMemberConstruct extends __DevNameable with __DevTypeNameable with __DevHasOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +94,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final val kept = CacheBoxRW(false)
     final val discovered = CacheBoxRW(false)
-    override protected def discoveryDependencies : List[Discoverable] = ownerOption.toList
 
   }
   override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
@@ -112,12 +112,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
   private[DFiant] lazy val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration] = ???
   protected[DFiant] type ThisOwner <: DSLOwnerConstruct
-  final def keep : this.type = {
-    ownerOption.foreach {
-      o => o.keepMember(this)
-    }
-    this
-  }
 
   override def toString: String = s"$fullName : $typeName"
 }
@@ -170,23 +164,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
         immutable.HashMap(priorityNamedMembers.map(m => (m -> getUniqueMemberName(m.nameTemp))) : _*)
       }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Member discovery
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final private val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
-    final private val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept))
-    private[internals] def keepMember(member : DSLMemberConstruct) : Unit = {
-      member.kept.set(true)
-      elaborateReq.set(true)
-      keep //also keep the owner chain
-    }
-    override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ keepMembers
-    final private val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
-    final val discoveredMembers = CacheDerivedRO(discoveredMemberStates){
-      discover()
-      members.filterNot(o => o.isNotDiscovered)
-    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Elaboration

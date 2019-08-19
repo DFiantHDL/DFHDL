@@ -48,7 +48,7 @@
 //  inSel.connectVal2Port(sel)
 //  inArgs.zip(args).foreach{case (inArg, arg) => inArg.connectVal2Port(arg)}
 //
-//  override def discoveryDependencies: List[Discoverable] = super.discoveryDependencies :+ outResult
+//  override def discoveryDependencies: List[DFAnyMember] = super.discoveryDependencies :+ outResult
 //  override protected def foldedRun: Unit = {
 //    outResult.setInitFunc.forced(initLB)
 //  }

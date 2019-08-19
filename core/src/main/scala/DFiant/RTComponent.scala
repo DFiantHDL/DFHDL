@@ -34,7 +34,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final override protected def discoveryDependencies : List[Discoverable] = super.discoveryDependencies ++ portsIn
+    final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ portsIn
   }
   override private[DFiant] lazy val __dev : __DevRTComponent = new __DevRTComponent {}
   import __dev._

@@ -20,9 +20,8 @@ package DFiant
 import DFiant.targetlib.TargetLib
 import DFiant.compiler.Backend
 import DFiant.internals._
-
 import scala.collection.immutable
-import scala.annotation.{implicitNotFound, tailrec}
+import scala.annotation.implicitNotFound
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DFInterface {self =>
   protected[DFiant] trait __DevDFDesign extends __DevDFBlock with __DevDFInterface {
@@ -60,7 +59,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected def discoveryDependencies : List[Discoverable] =
+    override protected def discoveryDependencies : List[DFAnyMember] =
       if (isTop) portsOut ++ super.discoveryDependencies else super.discoveryDependencies
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,10 +110,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       case (hm, _) => hm
     }
 
-//    val dm : CacheBoxRO[List[DSLMemberConstruct]] = CacheDerivedRO(portsOut, assignmentsTo, connectionsTo) {
-//
-//
-//    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Ports

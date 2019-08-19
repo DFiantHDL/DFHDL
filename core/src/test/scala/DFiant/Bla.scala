@@ -65,5 +65,5 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
 object Bla extends DFApp {
   val bla = new Cont {}.printCodeString
   import internals._
-  println(bla.assignmentsTo)
+//  println(bla.discoveredSet)
 }
