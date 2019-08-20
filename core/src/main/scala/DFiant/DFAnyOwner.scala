@@ -62,11 +62,10 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
       case Nil => discoveredSet
     }
 
-    final private val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
-    final val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept).asInstanceOf[List[DFAnyMember]])
+    final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
+    final lazy val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept).asInstanceOf[List[DFAnyMember]])
     def keepMember(member : DSLMemberConstruct) : Unit = {
       member.kept.set(true)
-      elaborateReq.set(true)
       keep //also keep the owner chain
     }
     override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ keepMembers

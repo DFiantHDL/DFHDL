@@ -37,6 +37,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ portsIn
 //    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
 //      out.injectDependencies(inList)
 //      out.rediscoverDependencies()
@@ -70,6 +71,8 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 }
 
 object DFComponent {
+  implicit def fetchDev[Comp <: DFComponent[Comp]](from : DFComponent[Comp])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+
   trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Unit, DFBlock] {
     implicit val impl : Comp => Unit
     val compName : sourcecode.Name.OfType[Comp]

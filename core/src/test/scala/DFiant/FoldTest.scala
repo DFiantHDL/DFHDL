@@ -23,7 +23,7 @@ class FoldRTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTCompon
 //  setInitFunc(O)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(I), getInit(I)))
 }
 
-abstract class FoldComp(val ii : DFUInt[8] <> IN)(implicit ctx : DFComponent.Context[FoldComp]) extends DFComponent[FoldComp] {
+abstract class FoldComp(implicit ctx : DFComponent.Context[FoldComp]) extends DFComponent[FoldComp] {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
   final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
@@ -31,13 +31,15 @@ abstract class FoldComp(val ii : DFUInt[8] <> IN)(implicit ctx : DFComponent.Con
 object FoldComp {
   implicit val ev : FoldComp => Unit = ifc => {
     import ifc._
-    if (i.isConstant) o := 0
-    else {
-      RTOp2.+(o, i, ii)
+    o := i
+    println("Unfolding")
+//    if (i.isConstant) o := 0
+//    else {
+//      RTOp2.+(o, i, i)
 //      val rt = new FoldRTx2(8)
 //      rt.I <> i
 //      rt.O <> o
-    }
+//    }
   }
 }
 
@@ -45,20 +47,23 @@ trait FoldTest extends DFDesign {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
 
-  val io = new FoldComp(i) {}
+  val io = new FoldComp {}
 //  io.i <> 0
   i <> io.i
   o <> io.o
 }
 
 object FoldApp extends DFApp {
+  import internals._
   val foldtest = new FoldTest {}
   foldtest.printCodeString
   println("------------------------------")
   foldtest.io.unfold
-  foldtest.printCodeString
-  println("------------------------------")
-  foldtest.io.fold
-  foldtest.printCodeString
+//  println(foldtest.io.members)
+  foldtest.io.printCodeString
+  println(foldtest.io.members)
+//  println("------------------------------")
+//  foldtest.io.fold
+//  foldtest.printCodeString
 }
 

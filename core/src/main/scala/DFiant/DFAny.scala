@@ -277,6 +277,16 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+//      private def allSources(dfVal : DFAny, block : DFBlock) : List[DFAnyMember] = {
+//        val assignments = block.assignmentsTo.getOrElse(dfVal, List())
+//        assignments.flatMap {
+//          case Left(source) => source.elements.collect {
+//            case SourceElement(_,_,_,Some(t)) => t.dfVal
+//          }
+//          case Right(nestedBlock) => allSources(dfVal, nestedBlock)
+//        }
+//      }
+//      protected def protAssignDependencies : List[DFAnyMember] = allSources(self, owner)
       final val protAssignDependencies : ListBuffer[DFAnyMember] = ListBuffer.empty[DFAnyMember]
       override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ protAssignDependencies.toList
 
@@ -1031,8 +1041,6 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      def injectDependencies(dependencies : List[DFAnyMember]) : Unit =
-        protAssignDependencies ++= dependencies
       final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////

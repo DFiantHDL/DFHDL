@@ -6,11 +6,14 @@ import scala.collection.immutable
 
 sealed class CacheBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.HashSet[CacheBoxRO[_]] = mutable.HashSet()
+  private var leaveDirtyFlag : Boolean = false
   protected[this] var value : Option[T] = None
+  @inline final def leaveDirty() : Unit = leaveDirtyFlag = true
   @inline final protected def valueIsEmpty : Boolean = value.isEmpty
   @inline final protected def valueClear() : Unit = value = None
-  @inline final protected[internals] def valueUpdate() : Unit = value = Some(updateFunc)
-  @inline protected def emptyValueUpdate() : Unit = if (value.isEmpty) updateSrcValues()
+  @inline final protected[internals] def valueUpdate() : Unit =
+    if (leaveDirtyFlag) leaveDirtyFlag = false else value = Some(updateFunc)
+  @inline protected def emptyValueUpdate() : Unit = while (value.isEmpty) updateSrcValues()
   @tailrec private def dirty(current : CacheBoxRO[_], remainingDeps : List[CacheBoxRO[_]]) : Unit = {
     val updatedDeps = if (!current.valueIsEmpty) {
       current.valueClear()

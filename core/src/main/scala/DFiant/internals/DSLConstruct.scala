@@ -132,12 +132,12 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final val members = CacheListRW(List[DSLMemberConstruct]())
+    final val addedMembers = CacheListRW(List[DSLMemberConstruct]())
+    lazy val members : CacheBoxRO[List[DSLMemberConstruct]] = addedMembers//CacheDerivedRO(addedMembers)(addedMembers.get)
     protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
-      members.add(member)
-      elaborateReq.set(true)
+      addedMembers.add(member)
 //            println(s"newItemGetID ${member.fullName} : ${member.typeName}")
-      members.size
+      addedMembers.size
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -164,19 +164,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
         immutable.HashMap(priorityNamedMembers.map(m => (m -> getUniqueMemberName(m.nameTemp))) : _*)
       }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Elaboration
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final lazy val elaborateReq = CacheBoxRW(false)
-    def reelaborateReq() : Unit = {
-      elaborateReq.set(true)
-      ownerOption.foreach(o => o.reelaborateReq())
-    }
-    def elaborate() : Unit = if (elaborateReq) {
-      members.collect{case m : DSLOwnerConstruct => m.elaborate()} //elaborates all members that are also owners
-      elaborateReq.set(false)
-    }
   }
   override private[DFiant] lazy val __dev : __DevDSLOwnerConstruct = ???
   import __dev._
@@ -255,25 +242,27 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     private[DFiant] def unfoldedRun : Unit = {}
 
     private lazy val firstFold : Unit = {
-      foldedMemberList = members
+      foldedMemberList = addedMembers
       foldedRun
       folded = true
 //      foldRequest = __config.foldComponents
     }
     private[DFiant] def preFoldUnfold() : Unit = {
-      members.set(foldedMemberList)
-    }
-    override def elaborate(): Unit = {
-      firstFold
-      if (folded != foldRequest) {
-        preFoldUnfold()
-        if (foldRequest) foldedRun else unfoldedRun
-        folded = foldRequest
-      }
-      super.elaborate()
+      addedMembers.set(foldedMemberList)
     }
 
-    private[DSLFoldableOwnerConstruct] var foldRequest : Boolean = true
+    final private[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
+    final override lazy val members : CacheBoxRO[List[DSLMemberConstruct]] = CacheDerivedRO(addedMembers, foldRequest) {
+      firstFold
+      val foldReq = foldRequest.get
+      if (folded != foldReq) {
+        preFoldUnfold()
+        if (foldReq) foldedRun else unfoldedRun
+        folded = foldReq
+        members.leaveDirty()
+      }
+      addedMembers.get
+    }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
@@ -281,13 +270,11 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   protected def foldedRun : Unit = {}
 
   def fold : this.type = {
-    foldRequest = true
-    reelaborateReq()
+    foldRequest.set(true)
     this
   }
   def unfold : this.type = {
-    foldRequest = false
-    reelaborateReq()
+    foldRequest.set(false)
     this
   }
 

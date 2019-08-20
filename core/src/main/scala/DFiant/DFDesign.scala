@@ -50,7 +50,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
     override def codeString: String = {
-      elaborate()
       _designDB = Some(new DFDesign.DB)
       val valCode = valCodeString
       if (isTop) s"$designDB\n$valCode" else valCode
@@ -68,7 +67,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     private def throwConnectionError(toVar : DFAny, fromVal : DFAny, msg : String) =
       throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName} at ${ctx.owner.fullName}")
 
-    final val connectionsTo = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, Source]()) {
+    final val connectionsTo = CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, Source]()) {
       case (hm, c : DFAny.Connector) =>
         var bitH : Int = c.toPort.width-1
         val versionedSource = c.fromVal.source.versioned
@@ -88,7 +87,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       case (hm, _) => hm
     }
 
-    final val connectionsFrom = CacheDerivedHashMapRO(members)(immutable.HashMap[DFAny, List[Source]]()) {
+    final val connectionsFrom = CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, List[Source]]()) {
       case (hm, c : DFAny.Connector) =>
         var bitH : Int = c.fromVal.width-1
         val cons = c.fromVal.source.elements.collect {
@@ -159,11 +158,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       throw new IllegalArgumentException(s"\nFound an uninitialized open input port: ${p.fullName}")
   }
   private lazy val init : Unit = {
-    elaborate()
     openInputsCheck()
   }
   final def printCodeString : this.type = {println(codeString); this}
-  def compileToVHDL : Backend.VHDL = {elaborate(); new Backend.VHDL(this)}
+  def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
   transparentPorts //force transparent ports to be added as regular ports before all other members
   if (!self.isInstanceOf[ConditionalBlock]) id
