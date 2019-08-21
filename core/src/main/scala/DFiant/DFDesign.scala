@@ -50,6 +50,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
     override def codeString: String = {
+      println(s"codeString of $nameScala")
       _designDB = Some(new DFDesign.DB)
       val valCode = valCodeString
       if (isTop) s"$designDB\n$valCode" else valCode

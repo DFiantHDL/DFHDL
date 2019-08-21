@@ -20,6 +20,8 @@ package DFiant
 import DFiant.targetlib.TargetLib
 import internals._
 
+import scala.collection.immutable
+
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
   extends DFDesign with DSLFoldableOwnerConstruct { self : Comp =>
 
@@ -38,6 +40,11 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ portsIn
+    override lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] =
+      CacheDerivedRO(keepMembers, discoveredOutputs, foldRequest) {
+        println("discoveredSet")
+        discover(immutable.HashSet(), discoveredOutputs)
+      }
 //    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
 //      out.injectDependencies(inList)
 //      out.rediscoverDependencies()

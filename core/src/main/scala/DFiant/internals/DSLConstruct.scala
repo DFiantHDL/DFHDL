@@ -251,7 +251,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
       addedMembers.set(foldedMemberList)
     }
 
-    final private[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
+    final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
     final override lazy val members : CacheBoxRO[List[DSLMemberConstruct]] = CacheDerivedRO(addedMembers, foldRequest) {
       firstFold
       val foldReq = foldRequest.get
@@ -261,6 +261,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
         folded = foldReq
         members.leaveDirty()
       }
+      println(s"members of $nameScala")
       addedMembers.get
     }
   }

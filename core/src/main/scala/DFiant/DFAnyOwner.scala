@@ -81,6 +81,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private[DFiant] def bodyCodeString : String = {
+      println(s"bodyCodeString of $nameScala")
       val delim = "  "
       val noConst = discoveredMembers.filterNot(e => e.isInstanceOf[DFAny.Const[_]])
       val noAnonymous = noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous && !e.asInstanceOf[DFAny].showAnonymous)
@@ -90,7 +91,8 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
   override private[DFiant] lazy val __dev : __DevDFAnyOwner = ???
   import __dev._
 
-  final lazy val discoveredMembers = CacheDerivedRO(discoveredSet){
+  final val discoveredMembers = CacheDerivedRO(discoveredSet, members){
+    println(s"discoveredMembers of ${nameScala}")
     members.filter(m => discoveredSet.contains(m.asInstanceOf[DFAnyMember]))
   }
 
