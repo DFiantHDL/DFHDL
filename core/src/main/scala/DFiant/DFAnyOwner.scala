@@ -23,16 +23,27 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 
 trait DFAnyMember extends DSLMemberConstruct {self =>
+  protected[DFiant] type ThisMember = DFAnyMember
+  protected[DFiant] type ThisOwner <: DFAnyOwner
+
   protected[DFiant] trait __DevDFAnyMember extends __DevDSLMemberConstruct {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     protected[DFiant] def isNotDiscovered : Boolean = owner.discoveredMembers.contains(self)
     protected def discoveryDependencies : List[DFAnyMember] = ownerOption.toList
     final private[DFiant] def justAHack = discoveryDependencies
     final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
+    final val kept = CacheBoxRW(false)
+    final var simulationKept = false
+    def simulationKeep : self.type = { //force keeping this construct but only during simulation
+      simulationKept = true
+      self
+    }
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
   import __dev._
 
-  protected[DFiant] type ThisOwner <: DFAnyOwner
   private[DFiant] override lazy val ctx : DFAnyOwner.ContextOf[Any, DFAnyOwner] = ???
   implicit def __theOwnerToBe : DFAnyOwner = ownerOption.get
   final implicit lazy val __config : DFAnyConfiguration = ctx.config
@@ -62,10 +73,12 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
       case Nil => discoveredSet
     }
 
-    final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.kept))
-    final lazy val keepMembers = CacheDerivedRO(keepMemberStates)(members.filter(m => m.kept).asInstanceOf[List[DFAnyMember]])
-    def keepMember(member : DSLMemberConstruct) : Unit = {
-      member.kept.set(true)
+    final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.__dev.kept))
+    final lazy val keepMembers = CacheDerivedRO(keepMemberStates){
+      members.filter(m => m.__dev.kept || (m.__dev.simulationKept && inSimulation))
+    }
+    def keepMember(member : ThisMember) : Unit = {
+      member.__dev.kept.set(true)
       keep //also keep the owner chain
     }
     override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ keepMembers
@@ -81,10 +94,12 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private[DFiant] def bodyCodeString : String = {
-      println(s"bodyCodeString of $nameScala")
       val delim = "  "
-      val noConst = discoveredMembers.filterNot(e => e.isInstanceOf[DFAny.Const[_]])
-      val noAnonymous = noConst.filterNot(e => e.isInstanceOf[DFAny] && e.asInstanceOf[DFAny].isAnonymous && !e.asInstanceOf[DFAny].showAnonymous)
+      val noAnonymous : List[ThisMember] = discoveredMembers.collect {
+        case _ : DFAny.Const[_] => None
+        case e : DFAny if e.isAnonymous && !e.showAnonymous => None
+        case e => Some(e)
+      }.flatten
       noAnonymous.codeString.delimRowsBy(delim)
     }
   }
@@ -92,8 +107,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
   import __dev._
 
   final val discoveredMembers = CacheDerivedRO(discoveredSet, members){
-    println(s"discoveredMembers of ${nameScala}")
-    members.filter(m => discoveredSet.contains(m.asInstanceOf[DFAnyMember]))
+    members.filter(m => discoveredSet.contains(m))
   }
 
   override implicit def __theOwnerToBe : DFAnyOwner = this

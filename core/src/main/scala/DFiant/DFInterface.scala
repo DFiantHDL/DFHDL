@@ -45,8 +45,7 @@ trait DFInterface extends DFAnyOwner { self =>
       case Some(o : DFInterface) => o.__dev.discoveredSet
       case _ =>
         CacheDerivedRO(keepMembers, discoveredOutputs) {
-          println("discoveredSet")
-          discover(immutable.HashSet(), discoveredOutputs)
+          discover(immutable.HashSet(), discoveredOutputs ++ keepMembers)
         }
     }
   }

@@ -34,7 +34,9 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
       ctx.compName.value + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
     }
     private[DFiant] override def constructCodeString : String = if (isFolded) foldedConstructCodeString else super.constructCodeString
-    override def codeString : String = valCodeString
+    override def codeString : String = {
+      valCodeString
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
@@ -42,7 +44,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ portsIn
     override lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] =
       CacheDerivedRO(keepMembers, discoveredOutputs, foldRequest) {
-        println("discoveredSet")
         discover(immutable.HashSet(), discoveredOutputs)
       }
 //    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>

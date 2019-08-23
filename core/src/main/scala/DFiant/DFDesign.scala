@@ -46,11 +46,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     protected[DFDesign] def designDB : DFDesign.DB = if (isTop) _designDB.get else topDsn.__dev.designDB
     private[DFiant] def constructCodeString : String = designDB.addOwnerBody(designType, bodyCodeString, self)
 
-    private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
+    final private[DFiant] def valCodeString : String = s"\nval $name = new $constructCodeString {}"
     //  final override def refCodeString(implicit callOwner: DSLOwnerConstruct): String = super.refCodeString
 
     override def codeString: String = {
-      println(s"codeString of $nameScala")
       _designDB = Some(new DFDesign.DB)
       val valCode = valCodeString
       if (isTop) s"$designDB\n$valCode" else valCode

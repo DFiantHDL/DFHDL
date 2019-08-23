@@ -35,6 +35,8 @@ trait HasOwner {
 
 trait DSLMemberConstruct extends DSLConstruct with HasProperties
   with Nameable with TypeNameable with HasPostConstructionOnlyDefs with HasOwner {self =>
+  protected[DFiant] type ThisMember <: DSLMemberConstruct
+  protected[DFiant] type ThisOwner <: DSLOwnerConstruct
   trait __DevDSLMemberConstruct extends __DevNameable with __DevTypeNameable with __DevHasOwner {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
@@ -58,7 +60,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
       implicit callOwner : DSLOwnerConstruct
     ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
-    final protected def getID : Int = ownerOption.map(o => o.addMember(self)).getOrElse(0)
+    final protected def getID : Int = ownerOption.map(o => o.addMember(self.asInstanceOf[o.ThisMember])).getOrElse(0)
     final lazy val id : Int = getID
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +94,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val kept = CacheBoxRW(false)
     final val discovered = CacheBoxRW(false)
 
   }
@@ -111,7 +112,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     CacheDerivedRO(name, fullPath)(if (fullPath.isEmpty) name else s"$fullPath.$name")
 
   private[DFiant] lazy val ctx : DSLOwnerConstruct.Context[DSLOwnerConstruct, DSLConfiguration] = ???
-  protected[DFiant] type ThisOwner <: DSLOwnerConstruct
 
   override def toString: String = s"$fullName : $typeName"
 }
@@ -132,9 +132,9 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    final val addedMembers = CacheListRW(List[DSLMemberConstruct]())
-    lazy val members : CacheBoxRO[List[DSLMemberConstruct]] = addedMembers//CacheDerivedRO(addedMembers)(addedMembers.get)
-    protected[internals] def addMember(member : DSLMemberConstruct) : Int = {
+    final val addedMembers = CacheListRW(List[ThisMember]())
+    lazy val members : CacheBoxRO[List[ThisMember]] = addedMembers
+    def addMember(member : ThisMember) : Int = {
       addedMembers.add(member)
 //            println(s"newItemGetID ${member.fullName} : ${member.typeName}")
       addedMembers.size
@@ -235,10 +235,13 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private var foldedMemberList : List[DSLMemberConstruct] = List()
+    private var foldedMemberList : List[ThisMember] = List()
 
     private var folded : Boolean = false
-    final def isFolded : Boolean = folded
+    final def isFolded : Boolean = {
+      members.get //since members affect the state of folded, we must first make sure it's updated
+      folded
+    }
     private[DFiant] def unfoldedRun : Unit = {}
 
     private lazy val firstFold : Unit = {
@@ -252,16 +255,15 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     }
 
     final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
-    final override lazy val members : CacheBoxRO[List[DSLMemberConstruct]] = CacheDerivedRO(addedMembers, foldRequest) {
+    final override lazy val members : CacheBoxRO[List[ThisMember]] = CacheDerivedRO(addedMembers, foldRequest) {
       firstFold
       val foldReq = foldRequest.get
       if (folded != foldReq) {
         preFoldUnfold()
         if (foldReq) foldedRun else unfoldedRun
         folded = foldReq
-        members.leaveDirty()
+//        members.leaveDirty()
       }
-      println(s"members of $nameScala")
       addedMembers.get
     }
   }

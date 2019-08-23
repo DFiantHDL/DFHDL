@@ -31,7 +31,6 @@ abstract class FoldComp(implicit ctx : DFComponent.Context[FoldComp]) extends DF
 object FoldComp {
   implicit val ev : FoldComp => Unit = ifc => {
     import ifc._
-    println("Unfolding")
     if (i.isConstant) o := 0
     else {
       RTOp2.+(o, i, i)
@@ -58,12 +57,9 @@ object FoldApp extends DFApp {
   foldtest.printCodeString
   println("------------------------------")
   foldtest.io.unfold
-//  println(foldtest.io.discoveredMembers)
   foldtest.printCodeString
-  println(foldtest.io.members)
-  println(foldtest.io.discoveredMembers)
-//  println("------------------------------")
-//  foldtest.io.fold
-//  foldtest.printCodeString
+  println("------------------------------")
+  foldtest.io.fold
+  foldtest.printCodeString
 }
 

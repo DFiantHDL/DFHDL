@@ -52,6 +52,7 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   val o = DFUInt(8) <> OUT
   val temp = DFUInt(8) init 0
 
+
   ifdf (i) {
     temp := temp
   }
@@ -61,9 +62,13 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   o := temp
 }
 
+trait Simy extends DFSimulator {
+  val cont = new Cont()
+
+}
 
 object Bla extends DFApp {
-  val bla = new Cont {}.printCodeString
+  val bla = new Simy {}.printCodeString
   import internals._
 //  println(bla.discoveredSet)
 }

@@ -34,8 +34,8 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
     case x : DFAny => s"$${${x.refCodeString}}"
     case x => x.toString
   }.mkString + "\""
-  final def keep() : Unit = value_.foreach {
-    case x : DFAny => x.keep
+  final def simulationKeep() : Unit = value_.foreach {
+    case x : DFAny => x.simulationKeep
     case _ =>
   }
   final def consume() : Unit = value_.foreach {
@@ -45,6 +45,7 @@ protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwne
 }
 
 trait DFAnySimMember extends DFAnyMember {
+  __dev.simulationKeep
 }
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
@@ -68,12 +69,11 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
   id
 
   if (cond.isDefined) {
-    cond.get.keep
+    cond.get.simulationKeep
     cond.get.consume()
   }
-  msg.keep()
+  msg.simulationKeep()
   msg.consume()
-  keep
 }
 
 protected sealed trait Severity extends HasCodeString
@@ -106,28 +106,25 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
   override private[DFiant] lazy val __dev : __DevFinish = new __DevFinish {}
   import __dev._
   id
-  keep
 }
 
 
 trait DFSimulator extends DFDesign {
   protected[DFiant] trait __DevDFSimulator extends __DevDFDesign {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Naming
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override def codeString: String = {
-      keepAll()
-      super.codeString
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFSimulator] def keepAll() : Unit =
-      members.collect {
-        case m : DFDesign => m.keep.portsOut.foreach(p => p.keep)
-        case m : DFAnyMember => m.keep
-      } //for simulations we keep all
+    override def addMember(member : ThisMember) : Int = { //for simulations we keep all
+      super.addMember(member match {
+        case m : DFDesign => m.simulationKeep.portsOut.foreach(p => p.simulationKeep); m
+        case m => m.__dev.simulationKeep
+      })
+    }
+//    private[DFSimulator] def keepAll() : Unit =
+//      members.collect {
+//        case m : DFDesign => m.simulationKeep.portsOut.foreach(p => p.simulationKeep)
+//        case m : DFAnyMember => m.keep
+//      }
   }
   override private[DFiant] lazy val __dev : __DevDFSimulator = new __DevDFSimulator {}
   import __dev._
@@ -136,7 +133,7 @@ trait DFSimulator extends DFDesign {
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
   override protected[DFiant] lazy val inSimulation : Boolean = true
   override def compileToVHDL : Backend.VHDL = {
-    keepAll()
+//    keepAll()
     new Backend.VHDL(this, null, Some(clkFreqKHz))
   }
 }
