@@ -515,7 +515,7 @@ object Backend {
             override def toString: String = emitConnection(port.name.toUpperCase, signal.name.toString) //TODO: use actual port name
           }
           object ports_map {
-            lazy val list : List[connection] = member.ports.filterNot(p => p.isNotDiscovered).map(p => {
+            lazy val list : List[connection] = member.ports.filter(p => p.isUsed).map(p => {
               connection(p, architecture.declarations.signal(p))
             })
             private val clkConns : List[String] = member match {
@@ -646,7 +646,7 @@ object Backend {
               case Severity.Error => "error"
               case Severity.Failure => "failure"
             }
-            val msgString : String = msg.value.collect {
+            val msgString : String = msg.__dev.value.collect {
               case x : AliasTag =>
                 val convFuncStr : String = x.dfVal match {
                   case d : DFBits[_] if d.width % 8 == 0 => "to_hstring"
@@ -848,6 +848,7 @@ object Backend {
       }
       case x : DFAny.Assignment =>
         References(x.toVar).assign(Value(x.fromVal))
+      case x : Message =>
       case x =>
         throw new IllegalArgumentException(s"\nunsupported construct: $x")
     }

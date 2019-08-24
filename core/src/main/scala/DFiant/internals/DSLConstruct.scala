@@ -134,7 +134,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       else false
     final val addedMembers = CacheListRW(List[ThisMember]())
     lazy val members : CacheBoxRO[List[ThisMember]] = addedMembers
-    def addMember(member : ThisMember) : Int = {
+    final def addMember(member : ThisMember) : Int = {
       addedMembers.add(member)
 //            println(s"newItemGetID ${member.fullName} : ${member.typeName}")
       addedMembers.size

@@ -55,16 +55,20 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
 
   ifdf (i) {
     temp := temp
+    o := 1
   }
 //  temp := temp.prev(5)
 //  temp.bits(3,0) := b"1111"
 //  temp.bits(7,4) := b"0110"
-  o := temp
+//  o := temp
 }
 
 trait Simy extends DFSimulator {
+//  val i = DFBool()
+//  val o = DFUInt(8)
   val cont = new Cont()
-
+//  cont.i <> i
+//  cont.o <> o
 }
 
 object Bla extends DFApp {

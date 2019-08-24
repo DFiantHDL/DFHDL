@@ -30,16 +30,11 @@ trait DFAnyMember extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected[DFiant] def isNotDiscovered : Boolean = owner.discoveredMembers.contains(self)
+    protected[DFiant] def isUsed : Boolean = owner.discoveredMembers.contains(self)
     protected def discoveryDependencies : List[DFAnyMember] = ownerOption.toList
     final private[DFiant] def justAHack = discoveryDependencies
     final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
     final val kept = CacheBoxRW(false)
-    final var simulationKept = false
-    def simulationKeep : self.type = { //force keeping this construct but only during simulation
-      simulationKept = true
-      self
-    }
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
   import __dev._
@@ -75,7 +70,10 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
 
     final private lazy val keepMemberStates = CacheDerivedRO(members)(members.map(m => m.__dev.kept))
     final lazy val keepMembers = CacheDerivedRO(keepMemberStates){
-      members.filter(m => m.__dev.kept || (m.__dev.simulationKept && inSimulation))
+      members.collect {
+        case m : DFAnySimMember if inSimulation => m
+        case m if m.__dev.kept => m
+      }
     }
     def keepMember(member : ThisMember) : Unit = {
       member.__dev.kept.set(true)
@@ -88,7 +86,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
     //      members.filterNot(o => o.isNotDiscovered)
     //    }
     val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]]
-    final override protected[DFiant] def isNotDiscovered : Boolean = discoveredMembers.contains(self)
+    final override protected[DFiant] def isUsed : Boolean = discoveredMembers.contains(self)
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming

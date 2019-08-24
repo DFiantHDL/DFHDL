@@ -20,37 +20,57 @@ package DFiant
 import internals._
 import DFiant.compiler.Backend
 
-protected[DFiant] class Message(value_ : List[Any])(implicit callOwner : DSLOwnerConstruct) extends HasCodeString {
-  private def maxLatency : Option[Int] = value_.collect{case x : DFAny => x.thisSourceLB.get.getMaxLatency}.max
-  val value : List[Any] = value_.collect {
-    case x : DFAny =>
-      val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
-      //TODO: fix this
-//      assert(elms.length == 1, s"Full handling of split pipeline in a message is not yet supported (${x.fullName})")
-      elms.head.aliasTag.get
-    case x => x
-  }
-  def codeString: String = "msg\"" + value_.collect {
-    case x : DFAny => s"$${${x.refCodeString}}"
-    case x => x.toString
-  }.mkString + "\""
-  final def simulationKeep() : Unit = value_.foreach {
-    case x : DFAny => x.simulationKeep
-    case _ =>
-  }
-  final def consume() : Unit = value_.foreach {
-    case x : DFAny => x.consume()
-    case _ =>
-  }
-}
+import scala.collection.immutable
 
-trait DFAnySimMember extends DFAnyMember {
-  __dev.simulationKeep
+trait DFAnySimMember extends DFAnyMember
+
+protected[DFiant] class Message(value_ : List[Any])(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+  final private[DFiant] override lazy val ctx = ctx0
+  protected[DFiant] trait __DevMessage extends __DevDFAnyMember {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override protected def discoveryDependencies : List[DFAnyMember] =
+      super.discoveryDependencies ++ value_.collect{case v : DFAny => v}
+
+    private def maxLatency: Option[Int] = value_.collect { case x: DFAny => x.thisSourceLB.get.getMaxLatency }.max
+
+    val value: List[Any] = value_.collect {
+      case x: DFAny =>
+        val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
+        //TODO: fix this
+        //      assert(elms.length == 1, s"Full handling of split pipeline in a message is not yet supported (${x.fullName})")
+        elms.head.aliasTag.get
+      case x => x
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Naming
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override val nameScala = s"${Name.Separator}message"
+    def codeString: String = "msg\"" + value_.collect {
+      case x: DFAny => s"$${${x.refCodeString}}"
+      case x => x.toString
+    }.mkString + "\""
+
+    final def consume(): Unit = value_.foreach {
+      case x: DFAny => x.consume()
+      case _ =>
+    }
+  }
+  override private[DFiant] lazy val __dev : __DevMessage = new __DevMessage {}
+  import __dev._
+  id
 }
 
 protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevAssert extends __DevDFAnyMember {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ cond.toList
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,11 +89,9 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
   id
 
   if (cond.isDefined) {
-    cond.get.simulationKeep
     cond.get.consume()
   }
-  msg.simulationKeep()
-  msg.consume()
+  msg.__dev.consume()
 }
 
 protected sealed trait Severity extends HasCodeString
@@ -114,17 +132,11 @@ trait DFSimulator extends DFDesign {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override def addMember(member : ThisMember) : Int = { //for simulations we keep all
-      super.addMember(member match {
-        case m : DFDesign => m.simulationKeep.portsOut.foreach(p => p.simulationKeep); m
-        case m => m.__dev.simulationKeep
-      })
-    }
-//    private[DFSimulator] def keepAll() : Unit =
-//      members.collect {
-//        case m : DFDesign => m.simulationKeep.portsOut.foreach(p => p.simulationKeep)
-//        case m : DFAnyMember => m.keep
-//      }
+    //for simulation we discover all direct members and the top modules output ports
+    override lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] =
+      CacheDerivedRO(members) {
+        discover(immutable.HashSet(), members ++ members.flatMap{case m : DFDesign => m.portsOut})
+      }
   }
   override private[DFiant] lazy val __dev : __DevDFSimulator = new __DevDFSimulator {}
   import __dev._
@@ -132,8 +144,5 @@ trait DFSimulator extends DFDesign {
   private var clkFreqKHz : Int = 100000
   def setClkFreqKHz(clkFreqKHz : Int) : this.type = {this.clkFreqKHz = clkFreqKHz; this}
   override protected[DFiant] lazy val inSimulation : Boolean = true
-  override def compileToVHDL : Backend.VHDL = {
-//    keepAll()
-    new Backend.VHDL(this, null, Some(clkFreqKHz))
-  }
+  override def compileToVHDL : Backend.VHDL = new Backend.VHDL(this, null, Some(clkFreqKHz))
 }

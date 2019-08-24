@@ -98,7 +98,7 @@ trait CompAlias extends CanBePiped {
   val comp : DFFunc2[_,_,_]
   lazy val unextendedLeft : DFAny = comp.leftArg.asInstanceOf[DFAny]
   final val alias = this.asInstanceOf[DFAny.Alias[_]]
-  val bypassAlias : Boolean
+//  val bypassAlias : Boolean
 //  def pipe() : this.type = pipe(1)
 //  private[DFiant] override def pipeGet : Int = comp.pipeGet
 //  def pipe(p : Int) : this.type = {comp.pipe(p); this}
