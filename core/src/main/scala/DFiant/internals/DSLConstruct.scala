@@ -148,21 +148,34 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     private val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
     final val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
       CacheDerivedRO(membersNamesTemp) {
-        val nt = mutable.HashMap[String, Int]()
-        def getUniqueMemberName(suggestedName : String) : String = {
-          nt.get(suggestedName) match {
+        case class Info(usages : Int, idx : Int){
+          override def toString : String = {
+            val max_digits = usages.toString.length
+            val digits = idx.toString.length
+            val addedZeros = "0" * (max_digits-digits)
+            s"$addedZeros$idx"
+          }
+          def incUsages : Info = copy(usages = usages + 1)
+          def incIdx : Info = copy(idx = idx + 1)
+        }
+        val nt = mutable.HashMap[String, Info]()
+        members.foreach {m =>
+          nt.get(m.nameTemp) match {
             case Some(v) =>
-              nt += (suggestedName -> (v + 1))
-              s"${Name.AnonStart}${suggestedName}_$v"
-            case _ =>
-              nt += (suggestedName-> 1)
-              suggestedName
+              nt += (m.nameTemp.get -> v.incUsages)
+            case None =>
+              nt += (m.nameTemp.get -> Info(1, 0))
           }
         }
-        val priorityNamedMembers =
-          members.filter(x => x.nameFirst) ++ members.filterNot(x => x.nameFirst).reverse
-
-        immutable.HashMap(priorityNamedMembers.map(m => (m -> getUniqueMemberName(m.nameTemp))) : _*)
+        //priority-named members are placed last, so they receive the non-indexed name
+        val priorityNamedMembers = members.filterNot(x => x.nameFirst) ++ members.filter(x => x.nameFirst)
+        val nameMap = priorityNamedMembers.map {m =>
+          val info = nt(m.nameTemp)
+          val finalName = if (info.idx == info.usages-1) m.nameTemp.get else s"${Name.AnonStart}${m.nameTemp}_$info"
+          nt += (m.nameTemp.get -> info.incIdx)
+          m -> finalName
+        }
+        immutable.HashMap(nameMap : _*)
       }
   }
   override private[DFiant] lazy val __dev : __DevDSLOwnerConstruct = ???
