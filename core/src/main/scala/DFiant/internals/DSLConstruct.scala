@@ -90,12 +90,6 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 
     def codeString : String
     def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = relativeName
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Member discovery
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val discovered = CacheBoxRW(false)
-
   }
   override private[DFiant] lazy val __dev : __DevDSLMemberConstruct = ???
   __dev //touch dev. We only need the lazyness for initialization order
@@ -275,7 +269,6 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
         preFoldUnfold()
         if (foldReq) foldedRun else unfoldedRun
         folded = foldReq
-//        members.leaveDirty()
       }
       addedMembers.get
     }
