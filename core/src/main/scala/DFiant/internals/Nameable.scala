@@ -59,6 +59,9 @@ trait TypeNameable {
 
 trait Meta {
   val name : String
+  val file : String
+  val line : Int
+  val column : Int
 }
 object Meta {
   import singleton.ops._
@@ -78,11 +81,14 @@ object Meta {
       case sourcecode.OwnerKind.Obj => false
       case _ => true
     }
-    lazy val name: String = {
+    val name: String = {
       if (anonymous) s"${Name.AnonStart}anon" else nameSC.value
     }
+    val file : String = fileSC.value
+    val line : Int = lineSC.value
+    val column : Int = columnSC.value
 
-//    println(s"${name.value}, ${ownerKind.value}, $value")
+//    println(s"$name, ${ownerKind.value}, $file, $line, $column")
   }
 }
 
