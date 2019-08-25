@@ -20,7 +20,7 @@ package DFiant
 import DFiant.targetlib._
 import DFiant.internals._
 
-object GlobalDesignName extends Meta {
+object GlobalDesignMeta extends Meta {
   override val name: String = "GlobalDesign"
   override val column: Int = 0
   override val file: String = "_"
@@ -31,7 +31,7 @@ object GlobalContext extends DFDesign.Context {
   override val ownerOption : Option[DFBlock] = None
   override val targetLib: TargetLib = UnofficialXilinx.FPGAs.`XC7VX485T-2FFG1761C`.targetLib
   override val config: DFAnyConfiguration = DFAnyConfiguration.default
-  override val meta: Meta = GlobalDesignName
+  override val meta: Meta = GlobalDesignMeta
 }
 
 object GlobalDesign extends DFDesign()(GlobalContext) {
