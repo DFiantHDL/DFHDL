@@ -34,7 +34,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private val temp : CacheBoxRO[Set[DFAnyMember]] =
+    private lazy val temp : CacheBoxRO[Set[DFAnyMember]] =
       CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
     @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
   }

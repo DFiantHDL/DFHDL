@@ -54,7 +54,8 @@ object ConditionalBlock {
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + cond
+          if (cond == null) super.discoveryDependenciesStatic
+          else super.discoveryDependenciesStatic + cond
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
       override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
@@ -101,7 +102,7 @@ object ConditionalBlock {
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + cond + prevIfBlock
+          super.discoveryDependenciesStatic + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
@@ -119,12 +120,6 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override val nameScala: String = s"$ctx${Name.Separator}else"
         override def codeString: String = s".elsedf {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
@@ -163,7 +158,8 @@ object ConditionalBlock {
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + cond
+          if (cond == null) super.discoveryDependenciesStatic
+          else super.discoveryDependenciesStatic + cond
       }
       override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
       import __dev._
@@ -200,7 +196,7 @@ object ConditionalBlock {
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + cond + prevIfBlock
+          super.discoveryDependenciesStatic + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
@@ -217,12 +213,6 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override val nameScala: String = s"$ctx${Name.Separator}else"
         override def codeString: String = s".elsedf {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
