@@ -176,25 +176,17 @@ object DFAnyConfiguration {
 
 object DFAnyOwner {
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
-//  trait LowPriority {
-//    implicit def evContext[T, Owner <: DFAnyOwner, T2](implicit evContext : ContextOf[T2, Owner], evNameIt : NameIt)
-//    : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-//      val ownerOption : Option[Owner] = evContext.ownerOption
-//      implicit val config : DFAnyConfiguration = evContext.config
-//      val n : NameIt = evNameIt
-//    }
-//  }
   object ContextOf {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit
       evOwner : Owner,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+      evMeta : Meta,
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Some(evOwner)
       implicit val config : DFAnyConfiguration = evConfig
-      val n : NameIt = evNameIt
+      val meta : Meta = evMeta
     }
   }
   type Context[+Owner <: DFAnyOwner] = ContextOf[Unit, Owner]
@@ -207,13 +199,13 @@ object DFAnyOwner {
       evOwner : Owner,
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextWithLibOf[_,_]]
+      evMeta : Meta,
+      forceNotVar : Meta.ForceNotVar[ContextWithLibOf[_,_]]
     ) : ContextWithLibOf[T, Owner] = new ContextWithLibOf[T, Owner] {
       val ownerOption : Option[Owner] = Some(evOwner)
       implicit val targetLib : TargetLib = evBasicLib
       implicit val config : DFAnyConfiguration = evConfig
-      val n : NameIt = evNameIt
+      val meta : Meta = evMeta
     }
   }
   type ContextWithLib[+Owner <: DFAnyOwner] = ContextWithLibOf[Unit, Owner]

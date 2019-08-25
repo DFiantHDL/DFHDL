@@ -20,15 +20,15 @@ package DFiant
 import DFiant.targetlib._
 import DFiant.internals._
 
-object GlobalDesignName extends NameIt {
-  override val value: String = "GlobalDesign"
+object GlobalDesignName extends Meta {
+  override val name: String = "GlobalDesign"
 }
 
 object GlobalContext extends DFDesign.Context {
   override val ownerOption : Option[DFBlock] = None
   override val targetLib: TargetLib = UnofficialXilinx.FPGAs.`XC7VX485T-2FFG1761C`.targetLib
   override val config: DFAnyConfiguration = DFAnyConfiguration.default
-  override val n: NameIt = GlobalDesignName
+  override val meta: Meta = GlobalDesignName
 }
 
 object GlobalDesign extends DFDesign()(GlobalContext) {

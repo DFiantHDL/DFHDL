@@ -297,7 +297,7 @@ object DFEnum extends DFAny.Companion {
 
 
 
-sealed abstract class Enum(implicit n : NameIt) extends HasCodeString {
+sealed abstract class Enum(implicit meta : Meta) extends HasCodeString {
   private[DFiant] val entries : LinkedHashMap[BigInt, Enum.Entry] = LinkedHashMap.empty[BigInt, Enum.Entry]
   private[DFiant] def update(entry : Enum.Entry) : Unit = {
     entries.get(entry.value) match {
@@ -309,7 +309,7 @@ sealed abstract class Enum(implicit n : NameIt) extends HasCodeString {
   type Entry <: Enum.Entry
   type EntryWidth
   val width : TwoFace.Int[EntryWidth]
-  final val name : String = n.value
+  final val name : String = meta.name
   override def toString: String = name
 }
 
@@ -351,22 +351,22 @@ object Enum {
     }
   }
 
-  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(implicit n : NameIt) extends Enum {
+  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(implicit meta : Meta) extends Enum {
     type EntryWidth = Int
     final lazy val width : TwoFace.Int[EntryWidth] = encoding.calcWidth(entries.size)
     private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry()  //${e._1.codeString}").mkString
     private def encodingCodeString : String = if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
     final def codeString : String = s"\nobject $name extends Enum.Auto$encodingCodeString {$entriesCodeString\n}"
 
-    class Entry private[DFiant] (implicit val enumOwner : Enum, n : NameIt) extends Enum.Entry {
+    class Entry private[DFiant] (implicit val enumOwner : Enum, meta : Meta) extends Enum.Entry {
       val value : BigInt = encoding.func(entries.size)
-      val name : String = n.value
+      val name : String = meta.name
       enumOwner.update(this)
     }
-    def Entry()(implicit n : NameIt) : Entry = new Entry
+    def Entry()(implicit meta : Meta) : Entry = new Entry
   }
 
-  abstract class Manual[Width <: Int with Singleton](val width : TwoFace.Int[Width])(implicit n : NameIt) extends Enum {
+  abstract class Manual[Width <: Int with Singleton](val width : TwoFace.Int[Width])(implicit meta : Meta) extends Enum {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     private var latestEntryValue : Option[BigInt] = None
@@ -379,33 +379,33 @@ object Enum {
     }
 
     def Entry[T <: Int with Singleton](t : T)(
-      implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : Enum, n : NameIt
-    ) : Entry = new Entry(t, enumOwner, n.value)
+      implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : Enum, meta : Meta
+    ) : Entry = new Entry(t, enumOwner, meta.name)
 
     def Entry[T <: Long with Singleton](t : T)(
-      implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]], enumOwner : Enum, n : NameIt
-    ) : Entry = new Entry(t, enumOwner, n.value)
+      implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]], enumOwner : Enum, meta : Meta
+    ) : Entry = new Entry(t, enumOwner, meta.name)
 
     def Entry(t : BigInt)(
-      implicit enumOwner : Enum, n : NameIt
+      implicit enumOwner : Enum, meta : Meta
     ) : Entry = {
-      require(t.bitsWidth <= width, s"`${n.value}` entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
-      new Entry(t, enumOwner, n.value)
+      require(t.bitsWidth <= width, s"`${meta.name}` entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
+      new Entry(t, enumOwner, meta.name)
     }
 
     private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
     def Entry[W](t : XBitVector[W])(
-      implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : Enum, n : NameIt
-    ) : Entry = new Entry(t.toBigInt, enumOwner, n.value)
+      implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : Enum, meta : Meta
+    ) : Entry = new Entry(t.toBigInt, enumOwner, meta.name)
 
     def Entry(t : BitVector)(
-      implicit enumOwner : Enum, n : NameIt
+      implicit enumOwner : Enum, meta : Meta
     ) : Entry = {
-      require(t.length.toInt == width.getValue, s"`${n.value}` entry value width (${t.length}) is different than the enumeration width ($width)")
-      new Entry(t.toBigInt, enumOwner, n.value)
+      require(t.length.toInt == width.getValue, s"`${meta.name}` entry value width (${t.length}) is different than the enumeration width ($width)")
+      new Entry(t.toBigInt, enumOwner, meta.name)
     }
 
-    def EntryDelta(t : BigInt = BigInt(1))(implicit n : NameIt) : Entry = Entry(latestEntryValue match {
+    def EntryDelta(t : BigInt = BigInt(1))(implicit meta : Meta) : Entry = Entry(latestEntryValue match {
       case Some(value) => value + 1
       case None => BigInt(0)
     })

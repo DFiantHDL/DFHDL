@@ -57,14 +57,20 @@ trait TypeNameable {
 }
 
 
-trait NameIt {
-  val value : String
+trait Meta {
+  val name : String
 }
-object NameIt {
+object Meta {
   import singleton.ops._
   type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], errors.VarDFTypes.Msg, Sym]
-  implicit def ev(implicit name : sourcecode.Name, ownerKind : sourcecode.OwnerKind)
-  : NameIt = new NameIt {
+  implicit def ev(
+    implicit
+    nameSC : sourcecode.Name,
+    ownerKind : sourcecode.OwnerKind,
+    fileSC : sourcecode.File,
+    lineSC : sourcecode.Line,
+    columnSC : sourcecode.Column
+  ) : Meta = new Meta {
     private val anonymous = ownerKind.value match {
       case sourcecode.OwnerKind.Lzy => false
       case sourcecode.OwnerKind.Val => false
@@ -72,9 +78,10 @@ object NameIt {
       case sourcecode.OwnerKind.Obj => false
       case _ => true
     }
-    lazy val value: String = {
-      if (anonymous) s"${Name.AnonStart}anon" else name.value
+    lazy val name: String = {
+      if (anonymous) s"${Name.AnonStart}anon" else nameSC.value
     }
+
 //    println(s"${name.value}, ${ownerKind.value}, $value")
   }
 }

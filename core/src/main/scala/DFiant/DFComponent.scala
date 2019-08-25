@@ -92,15 +92,15 @@ object DFComponent {
       implicit
       evContext : DFAny.Op.Context,
       evImpl : Comp => Unit,
-      evNameIt : NameIt,
+      evMeta : Meta,
       evCompName : sourcecode.Name.OfType[Comp],
-      forceNotVar : NameIt.ForceNotVar[Context[_]]
+      forceNotVar : Meta.ForceNotVar[Context[_]]
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val impl: Comp => Unit = evImpl
       implicit val targetLib: TargetLib = evContext.targetLib
       implicit val config: DFAnyConfiguration = evContext.config
-      val n: NameIt = evNameIt
+      val meta: Meta = evMeta
       val compName = evCompName
     }
   }
@@ -111,15 +111,15 @@ object DFComponent {
       evImpl : Comp => Unit,
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
+      evMeta : Meta,
       evCompName : sourcecode.Name.OfType[Comp],
-      forceNotVar : NameIt.ForceNotVar[Context[_]]
+      forceNotVar : Meta.ForceNotVar[Context[_]]
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
       implicit val impl: Comp => Unit = evImpl
       implicit val targetLib: TargetLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
+      val meta: Meta = evMeta
       val compName = evCompName
     }
   }

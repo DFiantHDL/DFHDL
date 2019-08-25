@@ -198,8 +198,8 @@ object DSLOwnerConstruct {
     override implicit lazy val owner : Owner =
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
-    val n : NameIt
-    def getName : String = n.value
+    val meta : Meta
+    def getName : String = meta.name
     override def toString: String = getName
   }
   trait DB[Owner, Body <: Any] {

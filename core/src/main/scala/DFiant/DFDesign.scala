@@ -173,7 +173,7 @@ object DFDesign {
     val ownerOption : Option[DFBlock]
     val targetLib: TargetLib
     val config : DFAnyConfiguration
-    val n : NameIt
+    val meta : Meta
   }
   object ContextOf {
     implicit def ev[T](
@@ -181,26 +181,26 @@ object DFDesign {
       evOwner : DFBlock,
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
+      evMeta : Meta,
+      forceNotVar : Meta.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = Some(evOwner)
       val targetLib: TargetLib = evBasicLib
       val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
+      val meta: Meta = evMeta
     }
     implicit def evTop[T](
       implicit
       evAllowTop : AllowTOP, //Must have an implicit AllowTOP in scope
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_]]
+      evMeta : Meta,
+      forceNotVar : Meta.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = None
       val targetLib: TargetLib = evBasicLib
       val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
+      val meta: Meta = evMeta
     }
   }
   private[DFiant] class DB extends DSLOwnerConstruct.DB[DFDesign, String] {

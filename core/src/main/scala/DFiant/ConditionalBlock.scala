@@ -267,7 +267,7 @@ object ConditionalBlock {
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
-      private[DFiant] lazy val nameIt = ctx.n
+      private[DFiant] lazy val nameIt = ctx.meta
       matchVal.consume()
       id
     }
@@ -380,7 +380,7 @@ object ConditionalBlock {
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
-      private[DFiant] lazy val nameIt = ctx.n
+      private[DFiant] lazy val nameIt = ctx.meta
       matchVal.consume()
       returnVar.nameFirst = true
       id

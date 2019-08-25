@@ -111,11 +111,11 @@ object DFBlock {
   @implicitNotFound(errors.MissingContext.msg)
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
-    def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
+    def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : Meta) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
       val ownerOption : Option[Owner0] = Some(owner0)
       implicit val targetLib: TargetLib = self.targetLib
       implicit val config: DFAnyConfiguration = self.config
-      val n: NameIt = n0
+      val meta: Meta = n0
     }
   }
   trait LowestPriority {
@@ -125,13 +125,13 @@ object DFBlock {
       evAllowTop : DFDesign.AllowTOP, //Must have an implicit AllowTOP in scope
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+      evMeta : Meta,
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = None
       implicit val targetLib: TargetLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
+      val meta: Meta = evMeta
     }
   }
   trait LowPriority extends LowestPriority {
@@ -141,13 +141,13 @@ object DFBlock {
       evOwner : Owner,
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+      evMeta : Meta,
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Option(evOwner)
       implicit val targetLib: TargetLib = evBasicLib
       implicit val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
+      val meta: Meta = evMeta
     }
   }
   private[DFiant] sealed trait InternalContext
@@ -158,12 +158,12 @@ object DFBlock {
       lp : shapeless.LowPriority,
       evContext : DFDesign.ContextOf[T2],
       external : shapeless.Refute[InternalContext],
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val targetLib : TargetLib = evContext.targetLib
       implicit val config : DFAnyConfiguration = evContext.config
-      val n : NameIt = evContext.n
+      val meta : Meta = evContext.meta
     }
   }
   type Context = ContextOf[Unit, DFBlock]
