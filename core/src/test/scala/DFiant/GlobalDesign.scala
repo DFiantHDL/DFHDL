@@ -22,6 +22,9 @@ import DFiant.internals._
 
 object GlobalDesignName extends Meta {
   override val name: String = "GlobalDesign"
+  override val column: Int = 0
+  override val file: String = "_"
+  override val line: Int = 0
 }
 
 object GlobalContext extends DFDesign.Context {
