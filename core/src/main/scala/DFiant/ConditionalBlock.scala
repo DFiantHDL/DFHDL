@@ -53,9 +53,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond)
-        final override protected def discoveryDependencies : List[DFAnyMember] =
-          super.discoveryDependencies ++ ifDiscoveryDepenencies
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + cond
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
       }
       override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
@@ -101,7 +100,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond, prevIfBlock)
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + cond + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
@@ -123,7 +123,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(prevIfBlock)
+        @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
@@ -161,9 +162,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond)
-        final override protected def discoveryDependencies : List[DFAnyMember] =
-          super.discoveryDependencies ++ ifDiscoveryDepenencies
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + cond
       }
       override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
       import __dev._
@@ -199,7 +199,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(cond, prevIfBlock)
+        @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + cond + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
@@ -220,7 +221,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        final override private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] = List(prevIfBlock)
+        @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + prevIfBlock
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
@@ -248,7 +250,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies :+ matchVal
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + matchVal
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Ownership
@@ -291,10 +294,11 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
-          if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
-        final override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies ++ ifDiscoveryDepenencies
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          if (prevCase.isDefined && matchHeader.hasOverlappingCases)
+            super.discoveryDependenciesStatic +  matchHeader + prevCase.get
+          else super.discoveryDependenciesStatic + matchHeader
       }
       override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._
@@ -357,7 +361,8 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies :+ matchVal
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          super.discoveryDependenciesStatic + matchVal
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Ownership
@@ -404,10 +409,11 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Member discovery
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private[DFiant] def ifDiscoveryDepenencies : List[DFAnyMember] =
         //each case is independent unless there are overlapping cases (which must be enabled by the designer)
-          if (prevCase.isDefined && matchHeader.hasOverlappingCases) List(matchHeader, prevCase.get) else List(matchHeader)
-        final override protected def discoveryDependencies : List[DFAnyMember] =super.discoveryDependencies ++ ifDiscoveryDepenencies
+        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+          if (prevCase.isDefined && matchHeader.hasOverlappingCases)
+            super.discoveryDependenciesStatic +  matchHeader + prevCase.get
+          else super.discoveryDependenciesStatic + matchHeader
       }
       override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._

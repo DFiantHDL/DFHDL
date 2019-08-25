@@ -287,8 +287,9 @@ object DFAny {
 //        }
 //      }
 //      protected def protAssignDependencies : List[DFAnyMember] = allSources(self, owner)
-      final val protAssignDependencies : ListBuffer[DFAnyMember] = ListBuffer.empty[DFAnyMember]
-      override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ protAssignDependencies.toList
+      final val protAssignDependencies : CacheListRW[DFAnyMember] = CacheListRW(List())
+      override private[DFiant] val discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
+        CacheDerivedRO(protAssignDependencies)(discoveryDependenciesStatic ++ protAssignDependencies.get)
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Consumption
@@ -345,7 +346,7 @@ object DFAny {
       def assignClear() : Unit = {
         assignedSourceLB.set(Source.none(width))
         assignedSource.set(Source.none(width))
-        protAssignDependencies.clear()
+        protAssignDependencies.setDefault()
       }
 
     }
@@ -663,7 +664,8 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ reference.aliasedVars
+      @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+        super.discoveryDependenciesStatic ++ reference.aliasedVars
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
@@ -699,7 +701,8 @@ object DFAny {
         val toVar = self.replacement().asInstanceOf[Alias[DF]]
         val fromVal = that.replacement()
         reference.aliasedVars.foreach{case a : DFAny.Var =>
-          a.__dev.protAssignDependencies ++= List(toVar, fromVal)
+          a.__dev.protAssignDependencies += toVar
+          a.__dev.protAssignDependencies += fromVal
         } //TODO: fix dependency to bit accurate dependency?
         reference match {
           case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
@@ -1037,11 +1040,6 @@ object DFAny {
             else throwConnectionError(s"Unsupported connection between a non-port and a port, ${ctx.owner.fullName}")
         }
       }
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Member discovery
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment

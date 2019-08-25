@@ -31,9 +31,10 @@ trait DFAnyMember extends DSLMemberConstruct {self =>
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     protected[DFiant] def isUsed : Boolean = owner.discoveredMembers.contains(self)
-    protected def discoveryDependencies : List[DFAnyMember] = ownerOption.toList
-    final private[DFiant] def justAHack = discoveryDependencies
     final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
+    @inline private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] = ownerOption.toSet
+    private val temp : CacheBoxRO[Set[DFAnyMember]] = CacheBoxRO(discoveryDependenciesStatic)
+    @inline private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
     final val kept = CacheBoxRW(false)
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
@@ -64,7 +65,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
         if (discoveredSet.contains(current))
           discover(discoveredSet, remaining)
         else
-          discover(discoveredSet + current, remaining ++ current.__dev.justAHack)
+          discover(discoveredSet + current, remaining ++ current.__dev.discoveryDependencies)
       case Nil => discoveredSet
     }
 
@@ -79,12 +80,9 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
       member.__dev.kept.set(true)
       keep //also keep the owner chain
     }
-    override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ keepMembers
-//    final private val discoveredMemberStates = CacheDerivedRO(members)(members.map(m => m.discovered))
-    //    final val discoveredMembers = CacheDerivedRO(discoveredMemberStates){
-    //      discover()
-    //      members.filterNot(o => o.isNotDiscovered)
-    //    }
+    private val temp : CacheBoxRO[Set[DFAnyMember]] =
+      CacheDerivedRO(keepMembers, super.discoveryDependencies)(super.discoveryDependencies ++ keepMembers)
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
     val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]]
     final override protected[DFiant] def isUsed : Boolean = discoveredMembers.contains(self)
 

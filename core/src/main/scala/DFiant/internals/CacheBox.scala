@@ -64,7 +64,7 @@ object CacheBoxRW {
 
 final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](default) {
   private val deps : mutable.ListBuffer[CacheDerivedHashMapRO[_,_,_]] = mutable.ListBuffer()
-  @inline def add(deltaValue : T) : Unit = {
+  @inline def += (deltaValue : T) : Unit = {
     super.set(get :+ deltaValue)
     pushAddUpdates()
   }
@@ -74,7 +74,7 @@ final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](d
   }
   @inline override def set(newValue : List[T]) : Unit = {
     setDefault()
-    newValue.foreach(x => add(x))
+    newValue.foreach(x => this += x)
   }
   @inline private def pushAddUpdates() : Unit = deps.foreach(x => x.add())
   @inline private def pushSetDefault() : Unit = deps.foreach(x => x.setDefault())

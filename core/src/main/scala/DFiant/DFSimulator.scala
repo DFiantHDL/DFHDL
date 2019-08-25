@@ -30,8 +30,8 @@ protected[DFiant] class Message(value_ : List[Any])(implicit ctx0 : DFAny.Op.Con
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected def discoveryDependencies : List[DFAnyMember] =
-      super.discoveryDependencies ++ value_.collect{case v : DFAny => v}
+    @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+      super.discoveryDependenciesStatic ++ value_.collect{case v : DFAny => v}
 
     private def maxLatency: Option[Int] = value_.collect { case x: DFAny => x.thisSourceLB.get.getMaxLatency }.max
 
@@ -69,7 +69,8 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected def discoveryDependencies : List[DFAnyMember] = super.discoveryDependencies ++ cond.toList
+    @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
+      super.discoveryDependenciesStatic ++ cond.toList
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -133,10 +134,15 @@ trait DFSimulator extends DFDesign {
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //for simulation we discover all direct members and the top modules output ports
-    override lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] =
-      CacheDerivedRO(members) {
-        discover(immutable.HashSet(), members ++ members.flatMap{case m : DFDesign => m.portsOut})
-      }
+    private val temp : CacheBoxRO[Set[DFAnyMember]] =
+      CacheDerivedRO(members, super.discoveryDependencies)(
+        super.discoveryDependencies ++ members ++ members.flatMap{case m : DFDesign => m.portsOut}
+      )
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
+//    override lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] =
+//      CacheDerivedRO(members) {
+//        discover(immutable.HashSet(), members ++ members.flatMap{case m : DFDesign => m.portsOut})
+//      }
   }
   override private[DFiant] lazy val __dev : __DevDFSimulator = new __DevDFSimulator {}
   import __dev._

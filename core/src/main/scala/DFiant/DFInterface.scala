@@ -41,6 +41,9 @@ trait DFInterface extends DFAnyOwner { self =>
         CacheDerivedRO(portsOut, o.__dev.discoveredSet)(portsOut.filter(o.__dev.discoveredSet.contains))
       case _ => portsOut
     }
+//    private val temp = CacheDerivedRO(discoveredOutputs, super.discoveryDependencies)(super.discoveryDependencies ++ discoveredOutputs)
+//    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
+
     lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] = ownerOption match {
       case Some(o : DFInterface) => o.__dev.discoveredSet
       case _ =>
