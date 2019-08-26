@@ -459,7 +459,7 @@ object DFBits extends DFAny.Companion {
       final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
       final def <> [RW](port : DFAny.Connectable[DFBits[RW]] with DFBits[RW])(
-        implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFAny.Connector.Context
+        implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFNet.Context
       ) = port.connectWith(op(port, left))
     }
     trait Implicits {
@@ -561,8 +561,8 @@ object DFBits extends DFAny.Companion {
       })
     }
   }
-  object `Op:=` extends `Ops:=,<>`[DFAny.Op.Context]
-  object `Op<>` extends `Ops:=,<>`[DFAny.Connector.Context]
+  object `Op:=` extends `Ops:=,<>`[DFNet.Context]
+  object `Op<>` extends `Ops:=,<>`[DFNet.Context]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

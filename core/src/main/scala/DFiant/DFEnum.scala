@@ -211,7 +211,7 @@ object DFEnum extends DFAny.Companion {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       val left = value
       def <> [E <: Enum](port : DFAny.Connectable[DFEnum[E]] with DFEnum[E])(
-        implicit op: `Op<>`.Builder[DFEnum[E], L], ctx : DFAny.Connector.Context
+        implicit op: `Op<>`.Builder[DFEnum[E], L], ctx : DFNet.Context
       ) = port.connectWith(op(port, left))
     }
     trait Implicits {

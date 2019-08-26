@@ -62,7 +62,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName} at ${ctx.owner.fullName}")
 
     final val connectionsTo = CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, Source]()) {
-      case (hm, c : DFAny.Connector) =>
+      case (hm, c : DFNet.Connection) =>
         var bitH : Int = c.toPort.width-1
         val versionedSource = c.fromVal.source.versioned
         val cons = c.toPort.source.elements.collect {
@@ -82,7 +82,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     }
 
     final val connectionsFrom = CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, List[Source]]()) {
-      case (hm, c : DFAny.Connector) =>
+      case (hm, c : DFNet.Connection) =>
         var bitH : Int = c.fromVal.width-1
         val cons = c.fromVal.source.elements.collect {
           case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>

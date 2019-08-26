@@ -266,7 +266,7 @@ object DFBool extends DFAny.Companion {
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
       final def <> (port : DFAny.Connectable[DFBool] with DFBool)(
-        implicit op: `Op<>`.Builder[DFBool, L], ctx : DFAny.Connector.Context
+        implicit op: `Op<>`.Builder[DFBool, L], ctx : DFNet.Context
       ) = port.connectWith(op(port, left))
     }
     trait Implicits {

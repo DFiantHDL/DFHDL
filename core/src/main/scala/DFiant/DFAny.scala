@@ -310,16 +310,16 @@ object DFAny {
       final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
-        implicit ctx : DFAny.Op.Context
+        implicit ctx : DFNet.Context
       ) : Unit = {
         assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
       }
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(
-        implicit ctx : DFAny.Op.Context
+        implicit ctx : DFNet.Context
       ) : Unit = {
         assignedSource.set(assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource))
       }
-      def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+      def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -335,10 +335,10 @@ object DFAny {
         fromVal.consume()
 //        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
         toVar.assign(toRelWidth, toRelBitLow, Source(fromVal, ctx.owner))
-        toVar.protAssignDependencies += Assignment(toVar, fromVal)
+        toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
-      def assign(that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+      def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self.replacement().asInstanceOf[Var]
         val fromVal = that.replacement()
         toVar.assign(width, 0, fromVal)
@@ -365,7 +365,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     private[DFiant] type MustBeOut = RequireMsg[![ImplicitFound[TDir <:< IN]], "Cannot assign to an input port"]
     final def := [R](right: OpAble[R])(
-      implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFAny.Op.Context
+      implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFNet.Context
     ) = assign(op(left, right))
 
 
@@ -402,7 +402,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFAny.Op.Context) : Unit = {
+      override def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
@@ -414,7 +414,7 @@ object DFAny {
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final lazy val connectedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
-      private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
@@ -428,15 +428,15 @@ object DFAny {
         toVar.connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), toVar.connectedSourceLB.getBox, fromVal.thisSourceLB))
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
-      def connectFrom(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      def connectFrom(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self.replacement().asInstanceOf[Connectable[DF]]
         val fromVal = that.replacement()
         toVar.connectFrom(width, 0, fromVal)
         //All is well. We can now connect fromVal->toVar
-        toVar.protAssignDependencies += Connector(toVar, fromVal)
+        toVar.protAssignDependencies += DFNet.Connection(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
-      def connectWith(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      def connectWith(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val left = self.replacement()
         val right = that.replacement()
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
@@ -506,7 +506,7 @@ object DFAny {
     override private[DFiant] lazy val __dev : __DevConnectable = ???
     import __dev._
 
-    final def <> [RDIR <: DFDir](right: TVal)(implicit ctx : Connector.Context) : Unit = self.connectWith(right)
+    final def <> [RDIR <: DFDir](right: TVal)(implicit ctx : DFNet.Context) : Unit = self.connectWith(right)
   }
   object Connectable {
     implicit def fetchDev(from : Connectable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
@@ -578,46 +578,6 @@ object DFAny {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Connections and Assignments
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Connector(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Connector.Context) extends DFAnyMember {
-    final private[DFiant] override lazy val ctx = ctx0
-    protected[DFiant] trait __DevConnector extends __DevDFAnyMember {
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Naming
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override val nameScala = s"${Name.Separator}connect"
-      private def connectCodeString : String = s"\n${toPort.refCodeString} <> ${fromVal.refCodeString}"
-      def codeString : String = toPort.owner match {
-        case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
-        case _ => connectCodeString
-      }
-    }
-    override private[DFiant] lazy val __dev : __DevConnector = new __DevConnector {}
-    import __dev._
-    id
-  }
-  object Connector {
-    type Context = DFAnyOwner.Context[DFBlock]
-  }
-
-  case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : DFAny.Op.Context) extends DFAnyMember {
-    final private[DFiant] override lazy val ctx = ctx0
-    protected[DFiant] trait __DevAssignment extends __DevDFAnyMember {
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Naming
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override val nameScala = s"${Name.Separator}assign"
-      def codeString : String = s"\n${toVar.refCodeString} := ${fromVal.refCodeString}"
-    }
-    override private[DFiant] lazy val __dev : __DevAssignment = new __DevAssignment {}
-    import __dev._
-    id
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Abstract Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar[DF <: DFAny](width : Int, newVarCodeString : String)(
@@ -671,7 +631,7 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override val isAssignable : Boolean = reference.isAssignable
-      override def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFAny.Op.Context) : Unit = {
+      override def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val toRelBitHigh = toRelBitLow + toRelWidth-1
         case class absolute(alias : DFAny, high : Int, low : Int)
@@ -697,7 +657,7 @@ object DFAny {
             throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
         }
       }
-      final override def assign(that: DFAny)(implicit ctx: DFAny.Op.Context): Unit = {
+      final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
         val toVar = self.replacement().asInstanceOf[Alias[DF]]
         val fromVal = that.replacement()
         reference.aliasedVars.foreach{case a : DFAny.Var =>
@@ -719,7 +679,7 @@ object DFAny {
           case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
           case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
         }
-        toVar.protAssignDependencies += Assignment(toVar, fromVal)
+        toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
 
@@ -944,7 +904,7 @@ object DFAny {
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = self.dir == right.dir
-      private[DFiant] def connectPort2Port(that : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : Connector.Context) : Unit = {
+      private[DFiant] def connectPort2Port(that : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : DFNet.Context) : Unit = {
         implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
         val left = self
         val right = that
@@ -1007,7 +967,7 @@ object DFAny {
 
         toPort.connectFrom(fromPort)
       }
-      final private[DFiant] def connectVal2Port(that : DFAny)(implicit ctx : Connector.Context) : Unit = {
+      final private[DFiant] def connectVal2Port(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
         val port = self
         val dfVal = that
@@ -1083,7 +1043,7 @@ object DFAny {
 //    final def pipe(p : Int) : this.type = {extraPipe = p; this}
 
     final def <> [R](right: OpAble[R])(
-      implicit ctx : DFAny.Connector.Context, op: `Op<>Builder`[R]
+      implicit ctx : DFNet.Context, op: `Op<>Builder`[R]
     ) : Unit = connectWith(op(left, right))
     //Connection should be constrained accordingly:
     //* For IN ports, supported: All Op:= operations, and TOP

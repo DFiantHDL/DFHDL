@@ -249,7 +249,7 @@
 //    class Able[L](val value : L) extends DFAny.Op.Able[L] {
 //      val left = value
 //      def <> [SF <: Fields, RDIR <: DFDir](port : DFStruct[SF] <> RDIR)(
-//        implicit op: `Op<>`.Builder[DFStruct[SF], L], ctx : DFAny.Connector.Context
+//        implicit op: `Op<>`.Builder[DFStruct[SF], L], ctx : DFVia.Context
 //      ) = port.connectVal2Port(op(port, left))
 //    }
 //    trait Implicits {

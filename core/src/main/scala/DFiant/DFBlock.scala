@@ -42,7 +42,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
             case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
           }
           hm ++ childCons
-        case (hm, c : DFAny.Assignment) =>
+        case (hm, c : DFNet.Assignment) =>
           var bitH : Int = c.toVar.width-1
           val fromValSourceVersioned = c.fromVal.source.versioned
           val cons = c.toVar.source.elements.collect {
@@ -60,8 +60,8 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
         case (hm, _) => hm
       }
 
-    final val assignmentsFrom = CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, List[DFAny.Assignment]]()) {
-      case (hm, a : DFAny.Assignment) => hm.get(a.fromVal) match {
+    final val assignmentsFrom = CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, List[DFNet.Assignment]]()) {
+      case (hm, a : DFNet.Assignment) => hm.get(a.fromVal) match {
         case Some(la) => hm + (a.fromVal -> (la :+ a))
         case None => hm + (a.fromVal -> List(a))
       }

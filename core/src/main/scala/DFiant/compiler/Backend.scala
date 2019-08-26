@@ -841,12 +841,12 @@ object Backend {
         pass(x)
         architecture.statements.async_process.condBlock -= 1
       case x : DFDesign => architecture.statements.component_instance(x)
-      case x : DFAny.Connector => if (!x.toPort.owner.isInstanceOf[DFFunc2[_,_,_]]) {
+      case x : DFNet.Connection => if (!x.toPort.owner.isInstanceOf[DFFunc2[_,_,_]]) {
         val dstSig = References(x.toPort)
         val srcSig = Value(x.fromVal)
         dstSig.assign(srcSig)
       }
-      case x : DFAny.Assignment =>
+      case x : DFNet.Assignment =>
         References(x.toVar).assign(Value(x.fromVal))
       case x : Message =>
       case x =>
