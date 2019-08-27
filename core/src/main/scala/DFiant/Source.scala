@@ -37,7 +37,7 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : 
     currentContext.assignmentsTo.get.get(dfVal) match {
       case Some(x) => copy(version = Some(x.length), context = currentContext)
       case None => currentContext match {
-        case x : DFBlock with ConditionalBlock => versioned(x.owner)
+        case x : ConditionalBlock => versioned(x.owner)
         case _ => copy(version = Some(0), context = currentContext)
       }
     }

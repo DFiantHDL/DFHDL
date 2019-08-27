@@ -37,7 +37,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final val assignmentsTo : CacheBoxRO[immutable.HashMap[DFAny, List[Either[Source, DFBlock]]]] =
       CacheDerivedHashMapRO(addedMembers)(immutable.HashMap[DFAny, List[Either[Source, DFBlock]]]()) {
-        case (hm, c : ConditionalBlock with DFBlock) => //For child conditional DFBlocks we just add a placeholder
+        case (hm, c : ConditionalBlock) => //For child conditional DFBlocks we just add a placeholder
           val childCons = c.assignmentsTo.map {
             case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
           }
