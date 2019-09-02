@@ -26,7 +26,7 @@ import scala.annotation.tailrec
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 case class SourceVersion()
 private[DFiant] case class PropTag(init : Seq[DFAny.Token], const : DFAny.Token, latency : Option[Int])
-private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : Option[Int], prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
+private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, dfNet : Option[DFNet], version : Option[Int], prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
   def invert : AliasTag = copy(inverted = !inverted)
   def prev(step : Int) : AliasTag = copy(prevStep = prevStep + step)
   private def addPipeToLatency(p : Int) : Option[Int] = latency match {
@@ -44,6 +44,7 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : 
   final def versioned : AliasTag = if (dfVal.isAssignable) versioned(dfVal.owner.asInstanceOf[DFBlock]) else this
   def atContext(newContext : DFBlock) : AliasTag = copy(context = newContext)
   def atVersion(num : Int) : AliasTag = copy(version = Some(num))
+  def via(viaNet : DFNet) : AliasTag = copy(dfNet = Some(viaNet))
   def pipe(step : Int) : AliasTag = copy(latency = addPipeToLatency(step), pipeStep = pipeStep + step)
   def balanceTo(maxLatency : Option[Int]) : AliasTag = (maxLatency, latency) match {
     case (Some(maxLat), Some(lat)) => pipe(maxLat - lat)
@@ -52,9 +53,9 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, version : 
 }
 private[DFiant] object AliasTag {
   def apply(dfVal : DFAny, context : DFBlock) : AliasTag =
-    AliasTag(dfVal = dfVal, context = context, version = None, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
+    AliasTag(dfVal = dfVal, context = context, dfNet = None, version = None, prevStep = 0, inverted = false, latency = None, pipeStep = 0)
   def withLatency(dfVal : DFAny, latency : Option[Int]) : AliasTag =
-    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = None, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
+    AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], dfNet = None, version = None, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
 }
 private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, aliasTag : Option[AliasTag]) {
   val relWidth : Int = relBitHigh - relBitLow + 1
@@ -63,6 +64,7 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
   def invert : SourceElement = copy(aliasTag = aliasTag.map(t => t.invert))
   def prev(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.prev(step)))
   def pipe(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.pipe(step)))
+  def via(viaNet : DFNet) : SourceElement = copy(aliasTag = aliasTag.map(t => t.via(viaNet)))
   def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
   def versioned : SourceElement = copy(aliasTag = aliasTag.map(t => t.versioned))
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = aliasTag match {
@@ -76,7 +78,7 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
     case None => "NA"
   }
   def latencyString : String = aliasTag match {
-    case Some(AliasTag(_,_,_,_,_,Some(lat),_)) => lat.toString
+    case Some(AliasTag(_,_,_,_,_,_,Some(lat),_)) => lat.toString
     case _ => s"NA"
   }
 
@@ -135,6 +137,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def invert(cond : Boolean) : Source = if (cond) invert else this
   def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
   def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
+  def via(viaNet : DFNet) : Source = Source(elements.map(e => e.via(viaNet)))
   def resize(toWidth : Int) : Source =
     if (toWidth > width) {
       Source(List.fill(toWidth - width)(bitsWL(1, width-1).elements.head) ++ elements)
@@ -199,9 +202,9 @@ object Source {
   def withLatency(value : DFAny, latency : Option[Int]) : Source = Source(List(SourceElement(value.width-1, 0, reverseBits = false, Some(AliasTag.withLatency(value, latency)))))
   def zeroLatency(value : DFAny) : Source = withLatency(value, Some(0))
   def none(width : Int) : Source = Source(List(SourceElement(width-1, 0, reverseBits = false, None)))
-  def selfPrevAssignment(dfVal : DFAny) : Source =
-    Source(List(SourceElement(dfVal.width-1, 0, reverseBits = false,
-      Some(AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = Some(0), prevStep = 1, inverted = false, latency = None, pipeStep = 0)))))
+//  def selfPrevAssignment(dfVal : DFAny) : Source =
+//    Source(List(SourceElement(dfVal.width-1, 0, reverseBits = false,
+//      Some(AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], version = Some(0), prevStep = 1, inverted = false, latency = None, pipeStep = 0)))))
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

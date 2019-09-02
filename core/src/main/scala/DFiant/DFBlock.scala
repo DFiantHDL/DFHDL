@@ -44,7 +44,7 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
           hm ++ childCons
         case (hm, c : DFNet.Assignment) =>
           var bitH : Int = c.toVar.width-1
-          val fromValSourceVersioned = c.fromVal.source.versioned
+          val fromValSourceVersioned = c.fromVal.source.versioned.via(c)
           val cons = c.toVar.source.elements.collect {
             case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
               val relWidth = relBitHigh - relBitLow + 1
