@@ -20,7 +20,6 @@ import DFiant.AliasTag
 import DFiant._
 import DFiant.internals._
 
-import scala.collection.immutable.HashSet
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -61,7 +60,7 @@ object Backend {
       case p : DFAny.Port[_,_] => Name(member.name.toUpperCase)
       case _ => Name(member.name)
     }
-    val reservedKeywords : HashSet[String] = HashSet (
+    val reservedKeywords : Set[String] = Set (
       "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin",
       "block", "body", "buffer", "bus", "case", "component", "configuration", "constant", "disconnect", "downto",
       "else", "elsif", "end", "entity", "exit", "file", "for", "function", "generate", "generic", "group",

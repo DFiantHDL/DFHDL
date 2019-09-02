@@ -140,8 +140,8 @@ trait DFSimulator extends DFDesign {
     @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
 
     //for simulation we discover all direct members and the top modules output ports
-    override lazy val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]] = CacheDerivedRO(members) {
-      discover(immutable.HashSet(), members)
+    override lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(members) {
+      discover(Set(), members)
     }
   }
   override private[DFiant] lazy val __dev : __DevDFSimulator = new __DevDFSimulator {}

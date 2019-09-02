@@ -58,9 +58,9 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     @tailrec final def discover(
-      discoveredSet : immutable.HashSet[DFAnyMember],
+      discoveredSet : Set[DFAnyMember],
       exploreList : List[DFAnyMember]
-    ) : immutable.HashSet[DFAnyMember] = exploreList match {
+    ) : Set[DFAnyMember] = exploreList match {
       case current :: remaining =>
         if (discoveredSet.contains(current))
           discover(discoveredSet, remaining)
@@ -84,7 +84,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
     private lazy val temp : CacheBoxRO[Set[DFAnyMember]] =
       CacheDerivedRO(keepMembers, super.discoveryDependencies)(super.discoveryDependencies ++ keepMembers)
     @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
-    val discoveredSet : CacheBoxRO[immutable.HashSet[DFAnyMember]]
+    val discoveredSet : CacheBoxRO[Set[DFAnyMember]]
     final override protected[DFiant] def isUsed : Boolean = ownerOption match {
       case Some(o) => super.isUsed
       case None => true

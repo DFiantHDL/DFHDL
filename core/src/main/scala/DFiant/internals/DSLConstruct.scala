@@ -140,7 +140,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
     private val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
-    final val nameTable : CacheBoxRO[immutable.HashMap[DSLMemberConstruct, String]] =
+    final val nameTable : CacheBoxRO[Map[DSLMemberConstruct, String]] =
       CacheDerivedRO(membersNamesTemp) {
         case class Info(usages : Int, idx : Int){
           override def toString : String = {
@@ -169,7 +169,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
           nt += (m.nameTemp.get -> info.incIdx)
           m -> finalName
         }
-        immutable.HashMap(nameMap : _*)
+        Map(nameMap : _*)
       }
   }
   override private[DFiant] lazy val __dev : __DevDSLOwnerConstruct = ???

@@ -83,8 +83,8 @@ final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](d
 }
 
 final case class CacheDerivedHashMapRO[A, B, T]
-  (source : CacheListRW[T])(default : immutable.HashMap[A, B])
-  (op : (immutable.HashMap[A, B], T) => immutable.HashMap[A, B]) extends CacheBoxRO(default) {
+  (source : CacheListRW[T])(default : Map[A, B])
+  (op : (Map[A, B], T) => Map[A, B]) extends CacheBoxRO(default) {
   @inline protected[internals] def add() : Unit =  {
     value = Some(op(get, source.get.last))
     dirtyDeps()
