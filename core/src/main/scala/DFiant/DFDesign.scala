@@ -56,55 +56,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Connections
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private def throwConnectionError(toVar : DFAny, fromVal : DFAny, msg : String) =
-      throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName} at ${ctx.owner.fullName}")
-
-    final val connectionsTo = CacheDerivedHashMapRO(addedMembers)(Map[DFAny, Source]()) {
-      case (hm, c : DFNet.Connection) =>
-        var bitH : Int = c.toVal.width-1
-        val versionedSource = c.fromVal.source.versioned
-        val cons = c.toVal.source.elements.collect {
-          case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
-            val relWidth = relBitHigh - relBitLow + 1
-            val bitL = bitH-relWidth+1
-            val partial = versionedSource.bitsHL(bitH, bitL).reverse(reverseBits)
-            val current = hm.getOrElse(t.dfVal, Source.none(t.dfVal.width))
-            if (current.nonEmptyAtHL(relBitHigh, relBitLow))
-              throwConnectionError(c.toVal, c.fromVal, s"Target ${c.toVal.fullName} already has a connection: $current")
-            val full = current.replaceHL(relBitHigh, relBitLow, partial)
-            bitH = bitH-relWidth
-            t.dfVal -> full
-        }
-        hm ++ cons
-      case (hm, _) => hm
-    }
-
-    final val connectionsFrom = CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Source]]()) {
-      case (hm, c : DFNet.Connection) =>
-        var bitH : Int = c.fromVal.width-1
-        val cons = c.fromVal.source.elements.collect {
-          case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
-            val relWidth = relBitHigh - relBitLow + 1
-            val bitL = bitH-relWidth+1
-            val partial = c.toVal.source.bitsHL(bitH, bitL).reverse(reverseBits)
-            val current = hm.getOrElse(t.dfVal, List(Source.none(t.dfVal.width)))
-            val full = current match {
-              case x :+ xs if (xs.nonEmptyAtHL(relBitHigh, relBitLow)) =>
-                current :+ Source.none(t.dfVal.width).replaceHL(relBitHigh, relBitLow, partial)
-              case x :+ xs =>
-                x :+ xs.replaceHL(relBitHigh, relBitLow, partial)
-            }
-            bitH = bitH-relWidth
-            t.dfVal -> full
-        }
-        hm ++ cons
-      case (hm, _) => hm
-    }
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Ports
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =

@@ -109,7 +109,9 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
     case (ls, right) =>
       val left = ls.last
       val coupled : List[SourceElement] =
-        if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.relWidth == 1))
+        if (left.aliasTag.isEmpty && right.aliasTag.isEmpty)
+          List(SourceElement(left.relWidth + right.relWidth - 1, 0, reverseBits = false, None))
+        else if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.relWidth == 1))
           List(SourceElement(left.relBitHigh, right.relBitLow, left.reverseBits, left.aliasTag))
         else if (left.relBitHigh == right.relBitLow - 1 && ((left.reverseBits && right.reverseBits) || right.relWidth == 1))
           List(SourceElement(right.relBitHigh, left.relBitLow, left.reverseBits, left.aliasTag))

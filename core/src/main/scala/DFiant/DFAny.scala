@@ -406,10 +406,8 @@ object DFAny {
         val toVar = self
         val fromVal = that
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-        if (toVar.isConnected) {
-          println(width, toVar.connectionsAt(width, 0))
-          throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
-        }
+        val cons = toVar.connectionsAt(toRelWidth, toRelBitLow)
+        if (!cons.isEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: $cons.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
       }
 
@@ -423,8 +421,9 @@ object DFAny {
         //TODO: Check that the connection does not take place inside an ifdf (or casedf/matchdf)
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${toVar.fullName} <> ${fromVal.fullName} at ${ctx.owner.fullName}")
         if (fromVal.width != toVar.width) throwConnectionError(s"Target width (${toVar.width}) is different than source width (${fromVal.width}).")
-        if (toVar.isConnectedAt(toRelWidth, toRelBitLow))
-          throwConnectionError(s"Target ${toVar.fullName} already has a connection: ${owner.connectionsTo(self)}")
+        val cons = toVar.connectionsAt(toRelWidth, toRelBitLow)
+        if (!cons.isEmpty)
+          throwConnectionError(s"Target ${toVar.fullName} already has a connection: $cons")
         if (toVar.assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${toVar.assignedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
         fromVal.consume()

@@ -53,11 +53,11 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   val temp = DFUInt(8) init 0
 
 
-//  ifdf (i) {
-//    temp := temp
-//    o := 1
-//  }
-  o <> temp
+  ifdf (i) {
+    temp := temp
+    o := 1
+  }
+//  o := temp
 //  temp := temp.prev(5)
 //  temp.bits(3,0) := b"1111"
 //  temp.bits(7,4) := b"0110"
@@ -75,5 +75,5 @@ trait Simy extends DFSimulator {
 object Bla extends DFApp {
   val bla = new Simy {}.printCodeString
   import internals._
-  println(bla.cont.o.connectionsAt(8, 0))
+//  println(bla.cont.o.connectionsAt(8, 0))
 }
