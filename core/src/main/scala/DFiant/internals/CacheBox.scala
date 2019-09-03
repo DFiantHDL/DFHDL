@@ -2,10 +2,9 @@ package DFiant.internals
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.collection.immutable
 
 sealed class CacheBoxRO[+T](updateFunc : => T) {
-  private val deps : mutable.HashSet[CacheBoxRO[_]] = mutable.HashSet()
+  private val deps : mutable.Set[CacheBoxRO[_]] = mutable.Set()
   private var leaveDirtyFlag : Boolean = false
   protected[this] var value : Option[T] = None
   @inline final def leaveDirty() : Unit = leaveDirtyFlag = true
