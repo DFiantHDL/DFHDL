@@ -63,16 +63,16 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
 
     final val connectionsTo = CacheDerivedHashMapRO(addedMembers)(Map[DFAny, Source]()) {
       case (hm, c : DFNet.Connection) =>
-        var bitH : Int = c.toPort.width-1
+        var bitH : Int = c.toVal.width-1
         val versionedSource = c.fromVal.source.versioned
-        val cons = c.toPort.source.elements.collect {
+        val cons = c.toVal.source.elements.collect {
           case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
             val relWidth = relBitHigh - relBitLow + 1
             val bitL = bitH-relWidth+1
             val partial = versionedSource.bitsHL(bitH, bitL).reverse(reverseBits)
             val current = hm.getOrElse(t.dfVal, Source.none(t.dfVal.width))
             if (current.nonEmptyAtHL(relBitHigh, relBitLow))
-              throwConnectionError(c.toPort, c.fromVal, s"Target ${c.toPort.fullName} already has a connection: $current")
+              throwConnectionError(c.toVal, c.fromVal, s"Target ${c.toVal.fullName} already has a connection: $current")
             val full = current.replaceHL(relBitHigh, relBitLow, partial)
             bitH = bitH-relWidth
             t.dfVal -> full
@@ -88,7 +88,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
           case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
             val relWidth = relBitHigh - relBitLow + 1
             val bitL = bitH-relWidth+1
-            val partial = c.toPort.source.bitsHL(bitH, bitL).reverse(reverseBits)
+            val partial = c.toVal.source.bitsHL(bitH, bitL).reverse(reverseBits)
             val current = hm.getOrElse(t.dfVal, List(Source.none(t.dfVal.width)))
             val full = current match {
               case x :+ xs if (xs.nonEmptyAtHL(relBitHigh, relBitLow)) =>

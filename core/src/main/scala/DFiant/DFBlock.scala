@@ -21,7 +21,6 @@ import DFiant.targetlib.TargetLib
 import internals._
 
 import scala.annotation.{implicitNotFound, tailrec}
-import scala.collection.immutable
 
 abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
   final private[DFiant] override lazy val ctx = ctx0
@@ -43,9 +42,9 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
           }
           hm ++ childCons
         case (hm, c : DFNet.Assignment) =>
-          var bitH : Int = c.toVar.width-1
+          var bitH : Int = c.toVal.width-1
           val fromValSourceVersioned = c.fromVal.source.versioned.via(c)
-          val cons = c.toVar.source.elements.collect {
+          val cons = c.toVal.source.elements.collect {
             case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
               val relWidth = relBitHigh - relBitLow + 1
               val bitL = bitH-relWidth+1
@@ -60,13 +59,30 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
         case (hm, _) => hm
       }
 
-    final val assignmentsFrom = CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[DFNet.Assignment]]()) {
-      case (hm, a : DFNet.Assignment) => hm.get(a.fromVal) match {
-        case Some(la) => hm + (a.fromVal -> (la :+ a))
-        case None => hm + (a.fromVal -> List(a))
+    final val netsTo : CacheBoxRO[Map[DFAny, List[Either[Source, DFBlock]]]] =
+      CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Either[Source, DFBlock]]]()) {
+        case (hm, c : ConditionalBlock) => //For child conditional DFBlocks we just add a placeholder
+          val childCons = c.netsTo.map {
+            case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
+          }
+          hm ++ childCons
+        case (hm, c : DFNet) =>
+          var bitH : Int = c.toVal.width-1
+          val fromValSourceVersioned = c.fromVal.source.versioned.via(c)
+          val cons = c.toVal.source.elements.collect {
+            case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
+              val relWidth = relBitHigh - relBitLow + 1
+              val bitL = bitH-relWidth+1
+              val partial = fromValSourceVersioned.bitsHL(bitH, bitL).reverse(reverseBits)
+              val current = hm.getOrElse(t.dfVal, List())
+              val empty = Source.none(t.dfVal.width)
+              val list = current :+ Left(empty.replaceHL(relBitHigh, relBitLow, partial))
+              bitH = bitH-relWidth
+              t.dfVal -> list
+          }
+          hm ++ cons
+        case (hm, _) => hm
       }
-      case (hm, _) => hm
-    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Simulation

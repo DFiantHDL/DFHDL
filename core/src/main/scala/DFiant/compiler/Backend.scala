@@ -840,13 +840,13 @@ object Backend {
         pass(x)
         architecture.statements.async_process.condBlock -= 1
       case x : DFDesign => architecture.statements.component_instance(x)
-      case x : DFNet.Connection => if (!x.toPort.owner.isInstanceOf[DFFunc2[_,_,_]]) {
-        val dstSig = References(x.toPort)
+      case x : DFNet.Connection => if (!x.toVal.owner.isInstanceOf[DFFunc2[_,_,_]]) {
+        val dstSig = References(x.toVal)
         val srcSig = Value(x.fromVal)
         dstSig.assign(srcSig)
       }
       case x : DFNet.Assignment =>
-        References(x.toVar).assign(Value(x.fromVal))
+        References(x.toVal).assign(Value(x.fromVal))
       case x : Message =>
       case x =>
         throw new IllegalArgumentException(s"\nunsupported construct: $x")
@@ -878,7 +878,7 @@ object Backend {
     val entityName : Name = if (design.isInstanceOf[RTComponent]) Name(design.typeName.toLowerCase) else {
       pass(design)
       architecture.statements.async_process.variables.toSigPorts
-      val topOrElseName = if (design.isTop) design.name.get else design.typeName
+      val topOrElseName = if (design.isTop) design.name.unbox else design.typeName
       Name(db.addOwnerBody(topOrElseName.toLowerCase, body, this))
     }
     val archName : Name = Name(s"${entityName}_arch")

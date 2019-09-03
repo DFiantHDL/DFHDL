@@ -26,7 +26,7 @@ trait Nameable {self =>
     final val nameTemp : CacheBoxRO[String] = CacheDerivedRO(nameManual, nameAutoFunc){
       if (!nameManual.isEmpty) nameManual
       else {
-        val nameAuto : String = nameAutoFunc.map(x => x.get).getOrElse("")
+        val nameAuto : String = nameAutoFunc.map(x => x.unbox).getOrElse("")
         if (!nameAuto.isEmpty) nameAuto
         else nameScala
       }

@@ -18,14 +18,16 @@
 package DFiant
 import internals._
 
-sealed abstract class DFNet(netSymbol : String, netName : String)(dst : DFAny, src : DFAny)(implicit ctx0 : DFNet.Context) extends DFAnyMember {
+sealed abstract class DFNet(netSymbol : String, netName : String)(implicit ctx0 : DFNet.Context) extends DFAnyMember {
   final private[DFiant] override lazy val ctx = ctx0
+  val toVal : DFAny
+  val fromVal : DFAny
   protected[DFiant] trait __DevDFNet extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override val nameScala = s"${Name.Separator}$netName"
-    def codeString : String = s"\n${dst.refCodeString} $netSymbol ${src.refCodeString}"
+    def codeString : String = s"\n${toVal.refCodeString} $netSymbol ${fromVal.refCodeString}"
   }
   override private[DFiant] lazy val __dev : __DevDFNet = new __DevDFNet {}
   import __dev._
@@ -34,12 +36,12 @@ sealed abstract class DFNet(netSymbol : String, netName : String)(dst : DFAny, s
 
 object DFNet {
   type Context = DFAnyOwner.Context[DFBlock]
-  final case class Connection(toPort : DFAny, fromVal : DFAny)(implicit ctx0 : Context) extends DFNet("<>", "connect")(toPort, fromVal) {
+  final case class Connection(toVal : DFAny, fromVal : DFAny)(implicit ctx0 : Context) extends DFNet("<>", "connect") {
     protected[DFiant] trait __DevConnection extends __DevDFNet {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def codeString : String = toPort.owner match {
+      override def codeString : String = toVal.owner match {
         case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
         case _ => super.codeString
       }
@@ -47,6 +49,6 @@ object DFNet {
     override private[DFiant] lazy val __dev : __DevConnection = new __DevConnection {}
   }
 
-  final case class Assignment(toVar : DFAny, fromVal : DFAny)(implicit ctx0 : Context) extends DFNet(":=", "assign")(toVar, fromVal)
+  final case class Assignment(toVal : DFAny, fromVal : DFAny)(implicit ctx0 : Context) extends DFNet(":=", "assign")
 }
 

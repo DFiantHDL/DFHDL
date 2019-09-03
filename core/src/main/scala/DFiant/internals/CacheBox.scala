@@ -37,11 +37,11 @@ sealed class CacheBoxRO[+T](updateFunc : => T) {
       } else updateSrcValues(curDeps, xs)
   }
   @inline final protected def updateSrcValues() : Unit = updateSrcValues(List(), List(this))
-  @inline final def get : T = {
+  @inline final def unbox : T = {
     emptyValueUpdate()
     value.get
   }
-  @inline final override def toString: String = get.toString
+  @inline final override def toString: String = unbox.toString
   @inline final protected def dirty() : Unit = dirty(this, List())
   @inline final protected def dirtyDeps() : Unit = deps.foreach{d => d.dirty()}
   @inline final def addDependency(st : CacheBoxRO[_]) : Unit = deps += st
@@ -49,7 +49,7 @@ sealed class CacheBoxRO[+T](updateFunc : => T) {
 }
 object CacheBoxRO {
   @inline def apply[T](updateFunc : => T) : CacheBoxRO[T] = new CacheBoxRO[T](updateFunc)
-  @inline implicit def toValue[T](sf : CacheBoxRO[T]) : T = sf.get
+  @inline implicit def toValue[T](sf : CacheBoxRO[T]) : T = sf.unbox
 }
 
 sealed class CacheBoxRW[T](default : T) extends CacheBoxRO[T](default) {
@@ -65,7 +65,7 @@ object CacheBoxRW {
 final case class CacheListRW[T](default : List[T]) extends CacheBoxRW[List[T]](default) {
   private val deps : mutable.ListBuffer[CacheDerivedHashMapRO[_,_,_]] = mutable.ListBuffer()
   @inline def += (deltaValue : T) : Unit = {
-    super.set(get :+ deltaValue)
+    super.set(unbox :+ deltaValue)
     pushAddUpdates()
   }
   @inline def setDefault() : Unit = {
@@ -86,7 +86,7 @@ final case class CacheDerivedHashMapRO[A, B, T]
   (source : CacheListRW[T])(default : Map[A, B])
   (op : (Map[A, B], T) => Map[A, B]) extends CacheBoxRO(default) {
   @inline protected[internals] def add() : Unit =  {
-    value = Some(op(get, source.get.last))
+    value = Some(op(unbox, source.unbox.last))
     dirtyDeps()
   }
   @inline protected[internals] def setDefault() : Unit = {
@@ -134,9 +134,9 @@ final class CacheDerivedRO[+T](val sources : List[CacheBoxRO[_]])(updateFunc : =
 
 final class CacheDerivedROList[+T](stBoxList : CacheBoxRO[List[CacheBoxRO[_]]])(updateFunc : => T) extends CacheBoxRO[T](updateFunc) {
   var stList : Option[List[CacheBoxRO[_]]] = None
-  def sources : List[CacheBoxRO[_]] = stBoxList.get
+  def sources : List[CacheBoxRO[_]] = stBoxList.unbox
   @inline override def emptyValueUpdate() : Unit = if (value.isEmpty) {
-    val updateList = Some(stBoxList.get)
+    val updateList = Some(stBoxList.unbox)
     if (updateList != stList) {
       stList.foreach{t => t.foreach {x => x.removeDependency(this)}}
       updateList.foreach{t => t.foreach {x => x.addDependency(this)}}

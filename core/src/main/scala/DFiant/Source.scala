@@ -34,7 +34,7 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, dfNet : Op
     case None => None
   }
   @tailrec private def versioned(currentContext : DFBlock) : AliasTag =
-    currentContext.assignmentsTo.get.get(dfVal) match {
+    currentContext.assignmentsTo.unbox.get(dfVal) match {
       case Some(x) => copy(version = Some(x.length), context = currentContext)
       case None => currentContext match {
         case x : ConditionalBlock => versioned(x.owner)
@@ -65,6 +65,10 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
   def prev(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.prev(step)))
   def pipe(step : Int) : SourceElement = copy(aliasTag = aliasTag.map(t => t.pipe(step)))
   def via(viaNet : DFNet) : SourceElement = copy(aliasTag = aliasTag.map(t => t.via(viaNet)))
+  def connectionsOnly : SourceElement = aliasTag match {
+    case Some(AliasTag(_,_,Some(DFNet.Connection(_,_)),_,_,_,_,_)) => this
+    case _ => copy(aliasTag = None)
+  }
   def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
   def versioned : SourceElement = copy(aliasTag = aliasTag.map(t => t.versioned))
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = aliasTag match {
@@ -138,6 +142,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
   def prev(step : Int) : Source = Source(elements.map(e => e.prev(step)))
   def pipe(step : Int) : Source = Source(elements.map(e => e.pipe(step)))
   def via(viaNet : DFNet) : Source = Source(elements.map(e => e.via(viaNet)))
+  def connectionsOnly : Source = Source(elements.map(e => e.connectionsOnly)).coalesce
   def resize(toWidth : Int) : Source =
     if (toWidth > width) {
       Source(List.fill(toWidth - width)(bitsWL(1, width-1).elements.head) ++ elements)

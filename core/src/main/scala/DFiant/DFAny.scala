@@ -289,7 +289,7 @@ object DFAny {
 //      protected def protAssignDependencies : List[DFAnyMember] = allSources(self, owner)
       final val protAssignDependencies : CacheListRW[DFAnyMember] = CacheListRW(List())
       override private[DFiant] val discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-        CacheDerivedRO(protAssignDependencies)(discoveryDependenciesStatic ++ protAssignDependencies.get)
+        CacheDerivedRO(protAssignDependencies)(discoveryDependenciesStatic ++ protAssignDependencies.unbox)
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Consumption
@@ -406,7 +406,10 @@ object DFAny {
         val toVar = self
         val fromVal = that
         def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
-        if (toVar.isConnected) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        if (toVar.isConnected) {
+          println(width, toVar.connectionsAt(width, 0))
+          throwAssignmentError(s"Target ${toVar.fullName} already has a connection: ${toVar.connectedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        }
         super.assign(toRelWidth, toRelBitLow, fromVal)
       }
 
@@ -450,12 +453,16 @@ object DFAny {
       def connectClear() : Unit = {
         connectedSourceLB.set(Source.none(width))
       }
-      final private[DFiant] def isConnected : Boolean = owner.connectionsTo.contains(self)
-      final private[DFiant] def isConnectedAt(toRelWidth : Int, toRelBitLow : Int) : Boolean =
-        owner.connectionsTo.get.get(self) match {
-          case Some(s) => !s.bitsWL(toRelWidth, toRelBitLow).isEmpty
-          case _ => false
+      final private[DFiant] def connectionsAt(toRelWidth : Int, toRelBitLow : Int) : Source =
+        owner.netsTo.get(self) match {
+          case Some(n) => n.collect{
+            case Left(src) => src.bitsWL(toRelWidth, toRelBitLow).connectionsOnly
+          }.foldLeft(Source.none(toRelWidth))((l, r) => l.orElse(r))
+          case None => Source.none(toRelWidth)
         }
+      final private[DFiant] def isConnectedAt(toRelWidth : Int, toRelBitLow : Int) : Boolean =
+        !connectionsAt(toRelWidth, toRelBitLow).isEmpty
+      final private[DFiant] def isConnected : Boolean = isConnectedAt(width, 0)
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init

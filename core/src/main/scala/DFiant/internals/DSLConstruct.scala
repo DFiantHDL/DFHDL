@@ -156,17 +156,17 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
         members.foreach {m =>
           nt.get(m.nameTemp) match {
             case Some(v) =>
-              nt += (m.nameTemp.get -> v.incUsages)
+              nt += (m.nameTemp.unbox -> v.incUsages)
             case None =>
-              nt += (m.nameTemp.get -> Info(1, 0))
+              nt += (m.nameTemp.unbox -> Info(1, 0))
           }
         }
         //priority-named members are placed last, so they receive the non-indexed name
         val priorityNamedMembers = members.filterNot(x => x.nameFirst) ++ members.filter(x => x.nameFirst)
         val nameMap = priorityNamedMembers.map {m =>
           val info = nt(m.nameTemp)
-          val finalName = if (info.idx == info.usages-1) m.nameTemp.get else s"${Name.AnonStart}${m.nameTemp}_$info"
-          nt += (m.nameTemp.get -> info.incIdx)
+          val finalName = if (info.idx == info.usages-1) m.nameTemp.unbox else s"${Name.AnonStart}${m.nameTemp}_$info"
+          nt += (m.nameTemp.unbox -> info.incIdx)
           m -> finalName
         }
         Map(nameMap : _*)
@@ -246,7 +246,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
 
     private var folded : Boolean = false
     final def isFolded : Boolean = {
-      members.get //since members affect the state of folded, we must first make sure it's updated
+      members.unbox //since members affect the state of folded, we must first make sure it's updated
       folded
     }
     private[DFiant] def unfoldedRun : Unit = {}
@@ -264,13 +264,13 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
     final override lazy val members : CacheBoxRO[List[ThisMember]] = CacheDerivedRO(addedMembers, foldRequest) {
       firstFold
-      val foldReq = foldRequest.get
+      val foldReq = foldRequest.unbox
       if (folded != foldReq) {
         preFoldUnfold()
         if (foldReq) foldedRun else unfoldedRun
         folded = foldReq
       }
-      addedMembers.get
+      addedMembers.unbox
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
