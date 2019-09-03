@@ -34,31 +34,6 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Assignments
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val assignmentsTo : CacheBoxRO[Map[DFAny, List[Either[Source, DFBlock]]]] =
-      CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Either[Source, DFBlock]]]()) {
-        case (hm, c : ConditionalBlock) => //For child conditional DFBlocks we just add a placeholder
-          val childCons = c.assignmentsTo.map {
-            case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
-          }
-          hm ++ childCons
-        case (hm, c : DFNet.Assignment) =>
-          var bitH : Int = c.toVal.width-1
-          val fromValSourceVersioned = c.fromVal.source.versioned.via(c)
-          val cons = c.toVal.source.elements.collect {
-            case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
-              val relWidth = relBitHigh - relBitLow + 1
-              val bitL = bitH-relWidth+1
-              val partial = fromValSourceVersioned.bitsHL(bitH, bitL).reverse(reverseBits)
-              val current = hm.getOrElse(t.dfVal, List())
-              val empty = Source.none(t.dfVal.width)
-              val list = current :+ Left(empty.replaceHL(relBitHigh, relBitLow, partial))
-              bitH = bitH-relWidth
-              t.dfVal -> list
-          }
-          hm ++ cons
-        case (hm, _) => hm
-      }
-
     final val netsTo : CacheBoxRO[Map[DFAny, List[Either[Source, DFBlock]]]] =
       CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Either[Source, DFBlock]]]()) {
         case (hm, c : ConditionalBlock) => //For child conditional DFBlocks we just add a placeholder
