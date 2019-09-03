@@ -34,7 +34,7 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, dfNet : Op
     case None => None
   }
   @tailrec private def versioned(currentContext : DFBlock) : AliasTag =
-    currentContext.assignmentsTo.unbox.get(dfVal) match {
+    currentContext.assignmentsTo.get(dfVal) match {
       case Some(x) => copy(version = Some(x.length), context = currentContext)
       case None => currentContext match {
         case x : ConditionalBlock => versioned(x.owner)
