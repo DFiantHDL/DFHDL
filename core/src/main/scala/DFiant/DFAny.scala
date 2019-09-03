@@ -306,9 +306,15 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override val isAssignable : Boolean = true
-      final def isAssigned : Boolean = !assignedSource.isEmpty
+      final def isAssigned : Boolean = assignmentsAt(width, 0).nonEmpty
       final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
+      final private[DFiant] def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] =
+        owner.netsToAt(self, toRelWidth, toRelBitLow).map {
+          case Left(src) => Left(src.assignmentsOnly)
+          case r => r
+        }
+
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
         implicit ctx : DFNet.Context
       ) : Unit = {
@@ -424,7 +430,8 @@ object DFAny {
         val cons = toVar.connectionsAt(toRelWidth, toRelBitLow)
         if (!cons.isEmpty)
           throwConnectionError(s"Target ${toVar.fullName} already has a connection: $cons")
-        if (toVar.assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${toVar.assignedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
+        val assigns = toVar.assignmentsAt(toRelWidth, toRelBitLow)
+        if (assigns.nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $assigns.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
         fromVal.consume()
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")

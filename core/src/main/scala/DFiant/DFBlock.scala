@@ -58,6 +58,20 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
           hm ++ cons
         case (hm, _) => hm
       }
+    def netsToAt(dfVal : DFAny, relBitWidth : Int, relBitLow : Int) : List[Either[Source, DFBlock]] = {
+      val complete = netsTo.getOrElse(dfVal, List())
+      if (dfVal.width.getValue == relBitWidth) complete
+      else complete.flatMap {
+        case Left(src) =>
+          val partial = src.bitsWL(relBitWidth, relBitLow)
+          if (partial.isEmpty) None
+          else Some(Left(partial))
+        case Right(block) =>
+          val partial = block.netsToAt(dfVal, relBitWidth, relBitLow)
+          if (partial.isEmpty) None
+          else Some(Right(block))
+      }
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Simulation
