@@ -414,7 +414,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final lazy val connectedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
+      final lazy val connectedSourceLB = LazyBox.Const[Source](self)(connectionsAt(width, 0))
       private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
@@ -427,7 +427,6 @@ object DFAny {
         if (toVar.assignedSource.nonEmptyAtWL(toRelWidth, toRelBitLow)) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: ${toVar.assignedSourceLB.get}.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
         fromVal.consume()
-        toVar.connectedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), toVar.connectedSourceLB.getBox, fromVal.thisSourceLB))
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
       def connectFrom(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
@@ -448,9 +447,6 @@ object DFAny {
           case (v, p : Port[_,_]) => p.connectVal2Port(v)
           case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
         }
-      }
-      def connectClear() : Unit = {
-        connectedSourceLB.set(Source.none(width))
       }
       final private[DFiant] def connectionsAt(toRelWidth : Int, toRelBitLow : Int) : Source =
         owner.netsTo.get(self) match {
@@ -1035,7 +1031,6 @@ object DFAny {
       // Folding/Unfolding
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final private[DFiant] def preFoldUnfold() : Unit = {
-        connectClear()
         assignClear()
       }
     }
