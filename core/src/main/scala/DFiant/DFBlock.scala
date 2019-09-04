@@ -34,8 +34,8 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Assignments
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val netsTo : CacheBoxRO[Map[DFAny, List[Either[Source, DFBlock]]]] =
-      CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Either[Source, DFBlock]]]()) {
+    final val netsTo : CacheBoxRO[Map[DFAny, List[Either[Source, ConditionalBlock]]]] =
+      CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Either[Source, ConditionalBlock]]]()) {
         case (hm, c : ConditionalBlock) => //For child conditional DFBlocks we just add a placeholder
           val childCons = c.netsTo.map {
             case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
@@ -58,6 +58,30 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
           hm ++ cons
         case (hm, _) => hm
       }
+//    final val netsFrom : CacheBoxRO[Map[DFAny, List[Either[Source, ConditionalBlock]]]] =
+//      CacheDerivedHashMapRO(addedMembers)(Map[DFAny, List[Either[Source, ConditionalBlock]]]()) {
+//        case (hm, c : ConditionalBlock) => //For child conditional DFBlocks we just add a placeholder
+//          val childCons = c.netsFrom.map {
+//            case (dfVal, _) => dfVal -> (hm.getOrElse(dfVal, List()) :+ Right(c))
+//          }
+//          hm ++ childCons
+//        case (hm, c : DFNet) =>
+//          var bitH : Int = c.toVal.width-1
+//          val fromValSourceVersioned = c.fromVal.source.versioned.via(c)
+//          val cons = c.toVal.source.elements.collect {
+//            case SourceElement(relBitHigh, relBitLow, reverseBits, Some(t)) =>
+//              val relWidth = relBitHigh - relBitLow + 1
+//              val bitL = bitH-relWidth+1
+//              val partial = fromValSourceVersioned.bitsHL(bitH, bitL).reverse(reverseBits)
+//              val current = hm.getOrElse(t.dfVal, List())
+//              val empty = Source.none(t.dfVal.width)
+//              val list = current :+ Left(empty.replaceHL(relBitHigh, relBitLow, partial))
+//              bitH = bitH-relWidth
+//              t.dfVal -> list
+//          }
+//          hm ++ cons
+//        case (hm, _) => hm
+//      }
     def netsToAt(dfVal : DFAny, relBitWidth : Int, relBitLow : Int) : List[Either[Source, DFBlock]] = {
       val complete = netsTo.getOrElse(dfVal, List())
       if (dfVal.width.getValue == relBitWidth) complete

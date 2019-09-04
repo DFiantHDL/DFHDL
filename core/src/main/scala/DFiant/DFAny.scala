@@ -298,6 +298,7 @@ object DFAny {
         val fromRelBitHigh = fromRelBitLow + fromRelWidth - 1
         val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
 
+
         if (!assignedSource.isCompletelyAllocated) //not all used bits are assigned to
           maxPrevUse = scala.math.max(maxPrevUse, 1)
       }
@@ -314,7 +315,11 @@ object DFAny {
           case Left(src) => Left(src.assignmentsOnly)
           case r => r
         }
-
+//      final val netsFrom : CacheBoxRO[Vector[List[Source]]] = CacheDerivedRO(owner.netsTo) {
+//        owner.netsTo.flatMap {
+//          case Tuple2(toVal, list) =>
+//        }
+//      }
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
         implicit ctx : DFNet.Context
       ) : Unit = {

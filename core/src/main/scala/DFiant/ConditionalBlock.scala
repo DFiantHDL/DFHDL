@@ -44,6 +44,7 @@ object ConditionalBlock {
     protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends ConditionalBlock {
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
+        final val condVersionedSource = if (cond == null) None else Some(cond.source.versioned)
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,6 +150,7 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends ConditionalBlock {
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
+        final val condVersionedSource = if (cond == null) None else Some(cond.source.versioned)
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
