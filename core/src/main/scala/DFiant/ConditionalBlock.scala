@@ -232,6 +232,7 @@ object ConditionalBlock {
     ) extends DFAnyMember {
       final private[DFiant] override lazy val ctx = ctx0
       protected[DFiant] trait __DevDFMatchHeader extends __DevDFAnyMember {
+        final val matchValVersionedSource = matchVal.source.versioned
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -342,6 +343,7 @@ object ConditionalBlock {
     ) extends DFAnyMember {
       final private[DFiant] override lazy val ctx = ctx0
       protected[DFiant] trait __DevMatchWithRetVal extends __DevDFAnyMember {
+        final val matchValVersionedSource = matchVal.source.versioned
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
