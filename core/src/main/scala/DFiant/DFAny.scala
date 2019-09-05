@@ -21,8 +21,10 @@ import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable
+import scala.collection.immutable
 
 trait DFAny extends DFAnyMember with HasWidth {self =>
   protected[DFiant] type TUnbounded <: DFAny
@@ -215,6 +217,44 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Future Stuff
   //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
+  final def usedBitSet(version : Option[Int], context : DFBlock) : immutable.BitSet = {
+    val prevList = context.netsTo.get(self) match {
+      case Some(list) => version match {
+        case Some(v) => list.splitAt(v)._1
+        case None => list
+      }
+      case None => List()
+    }
+    prevList.foldLeft(immutable.BitSet()){
+      case (onBits, Left(src)) => onBits ++ src.toUsedBitSet
+      case (onBits, Right(block)) => onBits ++ usedBitSet(None, block)
+    }
+//    val usesPrev = if (version == 0) true else context.netsTo.get(self) match {
+//      case Some(list) => list.apply(version - 1) match {
+//        case Left(src) => !src.bitsWL(relWidth, relBitLow).isCompletelyAllocated
+//        case Right(block) => true
+//      }
+//      case None => throw new IllegalArgumentException("unexpected")
+//    }
+//    if (usesPrev) {
+//      //      println("boom")
+//      maxPrevUse = scala.math.max(maxPrevUse, 1)
+//    }
+  }
+
+  def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
+//    val usesPrev = if (version == 0) true else context.netsTo.get(self) match {
+//      case Some(list) => list.apply(version - 1) match {
+//        case Left(src) => !src.bitsWL(relWidth, relBitLow).isCompletelyAllocated
+//        case Right(block) => true
+//      }
+//      case None => throw new IllegalArgumentException("unexpected")
+//    }
+//    if (usesPrev) {
+////      println("boom")
+//      maxPrevUse = scala.math.max(maxPrevUse, 1)
+//    }
+  }
   def consume() : TAlias = {
     consume(width.getValue, 0)
     this.asInstanceOf[TAlias]

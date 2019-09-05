@@ -20,6 +20,7 @@ package DFiant
 import internals._
 
 import scala.annotation.tailrec
+import scala.collection.immutable
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Source Aggregator
@@ -74,7 +75,14 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
     case _ => copy(aliasTag = None)
   }
   def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
-  def versioned : SourceElement = copy(aliasTag = aliasTag.map(t => t.versioned))
+  def versioned : SourceElement = {
+    val versionedTag = aliasTag.map(t => t.versioned)
+    versionedTag.foreach {
+      case v if v.version.isDefined => v.dfVal.consumeAt(relWidth, relBitLow, v.version.get, v.context)
+      case _ =>
+    }
+    copy(aliasTag = versionedTag)
+  }
   def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = aliasTag match {
     case Some(t) =>
       val reverseStr = if (reverseBits) ".reverse" else ""
@@ -205,6 +213,18 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
         val low = pos + 1
         if (high - low + 1 == width) e.latencyString else s"${e.latencyString}@($high, $low)"
       }).mkString(", ")
+    }
+  }
+  def toUsedBitSet : immutable.BitSet = {
+    var bitHi = width-1
+    elements.foldLeft(immutable.BitSet()){
+      case (usedBits, e) =>
+        val extra = e.aliasTag match {
+          case Some(t) => usedBits ++ ((bitHi-e.relWidth+1) to bitHi)
+          case None => usedBits
+        }
+        bitHi = bitHi - e.relWidth
+        extra
     }
   }
   override def toString: String = elements.mkString(" ## ")
