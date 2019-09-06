@@ -20,8 +20,8 @@ import internals._
 
 import scala.collection.mutable.ListBuffer
 
-protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB]](prevBlock : Option[CB])(
-  implicit ctx : ConditionalBlock.Context
+protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV], RV <: Any](returnVar : Option[DFAny.Var])(prevBlock : Option[CB], block : => RV)(
+  implicit ctx : ConditionalBlock.Context, mutableOwner: MutableOwner
 ) extends DFDesign with DSLTransparentOwnerConstruct {self : CB =>
   protected[DFiant] trait __DevConditionalBlock extends __DevDFDesign with __DevDSLTransparentOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +46,16 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB]](pr
   protected[DFiant] type ThisOwner <: DFBlock
 
   prevBlock.foreach{pb =>pb.__dev._nextBlock = Some(self)}
+
+  private val originalOwner = mutableOwner.value
+  mutableOwner.value = this
+  protected final val returnValue : RV = block
+  returnVar.foreach(rv => {
+    rv.nameFirst = true
+    rv.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(mutableOwner.value))
+  })
+  mutableOwner.value = originalOwner
+  id
 }
 
 sealed trait MatchConfig
@@ -56,15 +66,14 @@ object MatchConfig {
 
 object ConditionalBlock {
   type Context = DFAny.Op.Context
-  implicit def fetchDev(from : ConditionalBlock[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : ConditionalBlock[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
-      extends ConditionalBlock[DFIfBlock](prevBlock) {self =>
+      extends ConditionalBlock[DFIfBlock, RV](Some(returnVar))(prevBlock, block) {self =>
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        type CB = DFIfBlock
         lazy val isExhaustive : Boolean = nextBlock match {
           case Some(ni) => ni.__dev.isExhaustive
           case None => false //a single if statement cannot be exhaustive unless condition is always true
@@ -99,19 +108,10 @@ object ConditionalBlock {
         returnVar.asInstanceOf[RV]
       }
 
-      private val originalOwner = mutableOwner.value
-      mutableOwner.value = this
-      final val returnValue : RV = block
-      returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
-      mutableOwner.value = originalOwner
-      if (cond != null) cond.consume()
-
       protected lazy val initLB : LazyBox[Seq[RV#TToken]] =
         LazyBox.Args3[Seq[RV#TToken], Seq[DFBool.Token], Seq[RV#TToken], Seq[RV#TToken]](this)(
           DFBool.Token.select, cond.initLB, returnValue.initLB, nextBlock.get.initLB
         )
-      returnVar.nameFirst = true
-      id
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
@@ -173,12 +173,11 @@ object ConditionalBlock {
   class IfNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFIfBlock](prevBlock) {
+    ) extends ConditionalBlock[DFIfBlock, Unit](None)(prevBlock, block) {
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        type CB = DFIfBlock
         lazy val isExhaustive : Boolean = nextBlock match {
           case Some(ni) => ni.__dev.isExhaustive
           case None => false //a single if statement cannot be exhaustive unless condition is always true
@@ -205,12 +204,7 @@ object ConditionalBlock {
       def elsedf(elseBlock: => Unit)(implicit ctx : Context)
       : Unit = new DFElseBlock(this, elseBlock)
 
-      private val originalOwner = mutableOwner.value
-      mutableOwner.value = this
-      block
-      mutableOwner.value = originalOwner
       if (cond != null) cond.consume()
-      id
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
@@ -306,7 +300,7 @@ object ConditionalBlock {
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFCasePatternBlock[MV]](prevCase) {
+    ) extends ConditionalBlock[DFCasePatternBlock[MV], Unit](None)(prevCase, block) {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -345,12 +339,7 @@ object ConditionalBlock {
 
       def enddf : Unit = {}
 
-      private val originalOwner = mutableOwner.value
-      mutableOwner.value = this
-      block
-      mutableOwner.value = originalOwner
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
-      id
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
@@ -433,12 +422,11 @@ object ConditionalBlock {
 
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFCasePatternBlock[MV]](prevCase) {
+    ) extends ConditionalBlock[DFCasePatternBlock[MV], RV](Some(returnVar))(prevCase, block) {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        type CB = DFCasePatternBlock[MV]
         lazy val hasCase_ : Boolean = nextBlock match {
           case Some(nc) => nc.__dev.hasCase_
           case None => false
@@ -477,16 +465,9 @@ object ConditionalBlock {
         returnVar.asInstanceOf[RV]
       }
 
-      private val originalOwner = mutableOwner.value
-      mutableOwner.value = this
-      final val returnValue : RV = block
-      returnVar.assign(returnValue)(ctx.updateOwner(mutableOwner.value))
-      mutableOwner.value = originalOwner
-
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
       private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = LazyBox.Args1C(this)(DFAny.Token.patternMatch[matchVal.TToken, matchVal.TToken#TPattern], matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
       protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](this)(DFBool.Token.select, patternLB, returnValue.initLB, nextBlock.get.initLB)
-      id
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(

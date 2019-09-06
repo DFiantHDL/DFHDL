@@ -60,7 +60,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
       if (cls == null || cls == classOf[DFDesign] ||
-        classOf[ConditionalBlock[_]].isAssignableFrom(cls) || classOf[DFFunc2[_,_,_]].isAssignableFrom(cls)) List()
+        classOf[ConditionalBlock[_,_]].isAssignableFrom(cls) || classOf[DFFunc2[_,_,_]].isAssignableFrom(cls)) List()
       else {
         val fields = cls.getDeclaredFields.toList
         fields.flatMap{f =>
@@ -109,7 +109,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
   transparentPorts //force transparent ports to be added as regular ports before all other members
-  if (!self.isInstanceOf[ConditionalBlock[_]]) id
+  if (!self.isInstanceOf[ConditionalBlock[_,_]]) id
 }
 
 object DFDesign {
