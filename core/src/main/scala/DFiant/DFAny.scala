@@ -217,7 +217,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Future Stuff
   //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
-  final def usedBitSet(version : Option[Int], context : DFBlock) : immutable.BitSet = {
+  final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
     val prevList = context.netsTo.get(self) match {
       case Some(list) => version match {
         case Some(v) => list.splitAt(v)._1
@@ -225,21 +225,23 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
       }
       case None => List()
     }
+    var prevCondOption : Option[(DFBlock, immutable.BitSet)] = None
     prevList.foldLeft(immutable.BitSet()){
-      case (onBits, Left(src)) => onBits ++ src.toUsedBitSet
-      case (onBits, Right(block)) => onBits ++ usedBitSet(None, block)
+      case (onBits, Left(src)) => prevCondOption match {
+        case Some(Tuple2(_, bitSet)) =>
+          prevCondOption = None
+          onBits ++ src.toUsedBitSet ++ bitSet
+        case _ => onBits ++ src.toUsedBitSet
+      }
+      case (onBits, Right(block)) => prevCondOption match {
+        case Some(Tuple2(prevBlock, bitSet)) =>
+          prevCondOption = Some(block, assignedAt(None, block).intersect(bitSet))
+          onBits
+        case _ =>
+          prevCondOption = Some(block, assignedAt(None, block))
+          onBits
+      }
     }
-//    val usesPrev = if (version == 0) true else context.netsTo.get(self) match {
-//      case Some(list) => list.apply(version - 1) match {
-//        case Left(src) => !src.bitsWL(relWidth, relBitLow).isCompletelyAllocated
-//        case Right(block) => true
-//      }
-//      case None => throw new IllegalArgumentException("unexpected")
-//    }
-//    if (usesPrev) {
-//      //      println("boom")
-//      maxPrevUse = scala.math.max(maxPrevUse, 1)
-//    }
   }
 
   def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
