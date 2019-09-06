@@ -55,8 +55,12 @@ class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   temp.bits(3,0) := b"1111"
   temp.bits(7,4) := b"0000"
 
-  ifdf (i) {
+  val a = DFBool().ifdf (i) {
     o := temp
+    true
+  }.elsedf {
+    o := o + 1
+    false
   }
 //  o := temp
 //  o := temp

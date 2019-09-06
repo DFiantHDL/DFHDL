@@ -20,17 +20,33 @@ import internals._
 
 import scala.collection.mutable.ListBuffer
 
-protected[DFiant] trait ConditionalBlock extends DFDesign with DSLTransparentOwnerConstruct {
+protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB]](prevBlock : Option[CB])(
+  implicit ctx : ConditionalBlock.Context
+) extends DFDesign with DSLTransparentOwnerConstruct {self : CB =>
   protected[DFiant] trait __DevConditionalBlock extends __DevDFDesign with __DevDSLTransparentOwnerConstruct {
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Conditional Blocks
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    protected[ConditionalBlock] var _nextBlock : Option[CB] = None
+    final lazy val nextBlock : Option[CB] = _nextBlock
+    final lazy val firstBlock : CB = prevBlock match {
+      case Some(b) => b.firstBlock
+      case None => self
+    }
+    final lazy val lastBlock : CB = nextBlock match {
+      case Some(b) => b.lastBlock
+      case None => self
+    }
+    final lazy val isFirstCondBlock : Boolean = firstBlock == self
+    final lazy val isLastCondBlock : Boolean = lastBlock == self
+    val isExhaustive : Boolean
   }
   override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
   import __dev._
   protected[DFiant] type ThisOwner <: DFBlock
-}
 
-//protected case class Select[RV](cond : Boolean)(thenSel : RV, elseSel : RV)(implicit ctx : Context) {
-//  def getValue : RV = ???
-//}
+  prevBlock.foreach{pb =>pb.__dev._nextBlock = Some(self)}
+}
 
 sealed trait MatchConfig
 object MatchConfig {
@@ -40,11 +56,21 @@ object MatchConfig {
 
 object ConditionalBlock {
   type Context = DFAny.Op.Context
+  implicit def fetchDev(from : ConditionalBlock[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
-    protected[DFiant] class DFIfBlock(val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
-      extends ConditionalBlock {
+    protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
+      extends ConditionalBlock[DFIfBlock](prevBlock) {self =>
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        type CB = DFIfBlock
+        lazy val isExhaustive : Boolean = nextBlock match {
+          case Some(ni) => ni.__dev.isExhaustive
+          case None => false //a single if statement cannot be exhaustive unless condition is always true
+        }
         final val condVersionedSource = if (cond == null) None else Some(cond.source.versioned)
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,11 +94,10 @@ object ConditionalBlock {
       def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[R])
       : RV = {
         val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-        returnVar.initialize(firstIf.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
+
+        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
-      private[DFiant] val firstIf : DFIfBlock = this
-      private[DFiant] var nextIf : Option[DFIfBlock] = None
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -83,7 +108,7 @@ object ConditionalBlock {
 
       protected lazy val initLB : LazyBox[Seq[RV#TToken]] =
         LazyBox.Args3[Seq[RV#TToken], Seq[DFBool.Token], Seq[RV#TToken], Seq[RV#TToken]](this)(
-          DFBool.Token.select, cond.initLB, returnValue.initLB, nextIf.get.initLB
+          DFBool.Token.select, cond.initLB, returnValue.initLB, nextBlock.get.initLB
         )
       returnVar.nameFirst = true
       id
@@ -91,7 +116,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(cond, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), cond, block) {
       protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -107,15 +132,17 @@ object ConditionalBlock {
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
-
-      override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
-      prevIfBlock.nextIf = Some(this)
     }
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(null, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), null, block) {
       protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        override lazy val isExhaustive : Boolean = true
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,13 +153,11 @@ object ConditionalBlock {
       import __dev._
 
       override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
-      override private[DFiant] val firstIf : DFIfBlock = prevIfBlock.firstIf
-      prevIfBlock.nextIf = Some(this)
     }
 
     def apply[R](cond: DFBool)(block: => Able[R])(
       implicit ctx : Context, op : Builder[R]
-    ) : DFIfBlock = new DFIfBlock(cond.replacement(), op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
+    ) : DFIfBlock = new DFIfBlock(None, cond.replacement(), op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
 
   class SelectWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
@@ -146,10 +171,18 @@ object ConditionalBlock {
   }
 
   class IfNoRetVal(mutableOwner: MutableOwner) {
-    protected[DFiant] class DFIfBlock(val cond : DFBool, block : => Unit)(
+    protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock {
+    ) extends ConditionalBlock[DFIfBlock](prevBlock) {
       protected[DFiant] trait __DevDFIfBlock extends __DevDFDesign with __DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        type CB = DFIfBlock
+        lazy val isExhaustive : Boolean = nextBlock match {
+          case Some(ni) => ni.__dev.isExhaustive
+          case None => false //a single if statement cannot be exhaustive unless condition is always true
+        }
         final val condVersionedSource = if (cond == null) None else Some(cond.source.versioned)
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -172,10 +205,6 @@ object ConditionalBlock {
       def elsedf(elseBlock: => Unit)(implicit ctx : Context)
       : Unit = new DFElseBlock(this, elseBlock)
 
-      private[DFiant] var _nextIfBlockOption : Option[DFIfBlock] = None
-      final lazy val nextIfBlockOption = _nextIfBlockOption
-      final def isFinalBlock : Boolean = nextIfBlockOption.isEmpty
-
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
       block
@@ -186,7 +215,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(cond, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), cond, block) {
       protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -202,14 +231,17 @@ object ConditionalBlock {
       }
       override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
       import __dev._
-
-      prevIfBlock._nextIfBlockOption = Some(this)
     }
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(null, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), null, block) {
       protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        override lazy val isExhaustive : Boolean = true
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -218,12 +250,10 @@ object ConditionalBlock {
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
-
-      prevIfBlock._nextIfBlockOption = Some(this)
     }
 
     def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
-      new DFIfBlock(cond.replacement(), block)(ctx, mutableOwner)
+      new DFIfBlock(None, cond.replacement(), block)(ctx, mutableOwner)
   }
 
   class MatchNoRetVal(mutableOwner: MutableOwner) {
@@ -276,8 +306,16 @@ object ConditionalBlock {
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock {
+    ) extends ConditionalBlock[DFCasePatternBlock[MV]](prevCase) {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        lazy val hasCase_ : Boolean = nextBlock match {
+          case Some(nc) => nc.__dev.hasCase_
+          case None => false
+        }
+        lazy val isExhaustive: Boolean = hasCase_ // || TODO: check that the pattern check is exhaustive
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -305,9 +343,7 @@ object ConditionalBlock {
       def casedf_(block : => Unit)(implicit ctx0 : Context)
       : Unit = new DFCase_Block[MV](matchHeader)(Some(this), block)
 
-      private var nextCase : Option[DFCasePatternBlock[MV]] = None
-      final def isLastCase : Boolean = nextCase.isEmpty //|| nextCase.get.isNotDiscovered
-      prevCase.foreach(pc => pc.nextCase = Some(this))
+      def enddf : Unit = {}
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -321,6 +357,11 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) {
       protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        override lazy val hasCase_ : Boolean = true
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -392,8 +433,18 @@ object ConditionalBlock {
 
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock {
+    ) extends ConditionalBlock[DFCasePatternBlock[MV]](prevCase) {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevDFDesign with __DevConditionalBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        type CB = DFCasePatternBlock[MV]
+        lazy val hasCase_ : Boolean = nextBlock match {
+          case Some(nc) => nc.__dev.hasCase_
+          case None => false
+        }
+        lazy val isExhaustive: Boolean = hasCase_ // || TODO: check that the pattern check is exhaustive
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -418,12 +469,13 @@ object ConditionalBlock {
       def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[R])
       : RV = {
         val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-        returnVar.initialize(firstCase.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
+        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
-      private var nextCase : Option[DFCasePatternBlock[MV]] = None
-      private val firstCase : DFCasePatternBlock[MV] = if (prevCase.isDefined) prevCase.get.firstCase else this
-      if (prevCase.isDefined) prevCase.get.nextCase = Some(this)
+      def enddf(implicit ctx : Context) : RV = {
+        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
+        returnVar.asInstanceOf[RV]
+      }
 
       private val originalOwner = mutableOwner.value
       mutableOwner.value = this
@@ -433,7 +485,7 @@ object ConditionalBlock {
 
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
       private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = LazyBox.Args1C(this)(DFAny.Token.patternMatch[matchVal.TToken, matchVal.TToken#TPattern], matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
-      protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](this)(DFBool.Token.select, patternLB, returnValue.initLB, nextCase.get.initLB)
+      protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](this)(DFBool.Token.select, patternLB, returnValue.initLB, nextBlock.get.initLB)
       id
     }
 
@@ -441,6 +493,11 @@ object ConditionalBlock {
       implicit ctx : Context, mutableOwner: MutableOwner
     ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) {
       protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Conditional Blocks
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        override lazy val hasCase_ : Boolean = true
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
         /////////////////////////////////////////////////////////////////////////////////////////////////////////

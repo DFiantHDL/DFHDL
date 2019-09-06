@@ -785,7 +785,7 @@ object Backend {
         architecture.statements.async_process.condBlock += 1
         pass(x)
         architecture.statements.async_process.condBlock -= 1
-        if (x.isFinalBlock) architecture.statements.async_process.ifStatement.ifEnd()
+        if (x.__dev.isLastCondBlock) architecture.statements.async_process.ifStatement.ifEnd()
 
       case x : ConditionalBlock.IfWithRetVal[_,_,_]#DFIfBlock =>
         x match {
@@ -819,7 +819,7 @@ object Backend {
         architecture.statements.async_process.condBlock += 1
         pass(x)
         architecture.statements.async_process.condBlock -= 1
-        if (x.isLastCase) {
+        if (x.__dev.isLastCondBlock) {
           architecture.statements.async_process.caseStatement.whenOthers() //TODO consider removing default others
           architecture.statements.async_process.condBlock -= 1
           architecture.statements.async_process.caseStatement.caseEnd()

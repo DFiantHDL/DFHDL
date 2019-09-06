@@ -217,32 +217,33 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Future Stuff
   //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
-  final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
-    val prevList = context.netsTo.get(self) match {
-      case Some(list) => version match {
-        case Some(v) => list.splitAt(v)._1
-        case None => list
-      }
-      case None => List()
-    }
-    var prevCondOption : Option[(DFBlock, immutable.BitSet)] = None
-    prevList.foldLeft(immutable.BitSet()){
-      case (onBits, Left(src)) => prevCondOption match {
-        case Some(Tuple2(_, bitSet)) =>
-          prevCondOption = None
-          onBits ++ src.toUsedBitSet ++ bitSet
-        case _ => onBits ++ src.toUsedBitSet
-      }
-      case (onBits, Right(block)) => prevCondOption match {
-        case Some(Tuple2(prevBlock, bitSet)) =>
-          prevCondOption = Some(block, assignedAt(None, block).intersect(bitSet))
-          onBits
-        case _ =>
-          prevCondOption = Some(block, assignedAt(None, block))
-          onBits
-      }
-    }
-  }
+//  final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
+//    val prevList = context.netsTo.get(self) match {
+//      case Some(list) => version match {
+//        case Some(v) => list.splitAt(v)._1
+//        case None => list
+//      }
+//      case None => List()
+//    }
+//    var prevCondOption : Option[(DFBlock, immutable.BitSet)] = None
+//    prevList.foldLeft(immutable.BitSet()){
+//      case (onBits, Left(src)) => prevCondOption match {
+//        case Some(Tuple2(_, bitSet)) =>
+//          prevCondOption = None
+//          onBits ++ src.toUsedBitSet ++ bitSet
+//        case _ => onBits ++ src.toUsedBitSet
+//      }
+//      case (onBits, Right(block : ConditionalBlock)) if block.__dev.isExhaustive => prevCondOption match {
+//        case Some(Tuple2(prevBlock, bitSet)) =>
+//          prevCondOption = Some(block, assignedAt(None, block).intersect(bitSet))
+//          onBits
+//        case _ =>
+//          prevCondOption = Some(block, assignedAt(None, block))
+//          onBits
+//      }
+//      case (onBits, _) => onBits
+//    }
+//  }
 
   def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
 //    val usesPrev = if (version == 0) true else context.netsTo.get(self) match {
