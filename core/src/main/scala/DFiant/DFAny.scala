@@ -189,7 +189,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   final def prev()(implicit ctx : DFAny.Alias.Context) : TVal = protPrev(1)
   final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Alias.Context) : TVal =
     protPrev(step)
-  private[DFiant] var maxPrevUse = 0 //TODO: hack. Remove this
+  private[DFiant] var prevImplicitlyUsed : Boolean = false //TODO: hack. Remove this
   //////////////////////////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////
@@ -241,9 +241,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     val at = assignedAt(Some(version), context)
     val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
     val masked = mask -- at
-    if (masked.nonEmpty) {
-      maxPrevUse = scala.math.max(maxPrevUse, 1)
-    }
+    if (masked.nonEmpty) prevImplicitlyUsed = true
   }
   def consume() : TAlias = ???
   final def dontConsume() : TAlias = ???

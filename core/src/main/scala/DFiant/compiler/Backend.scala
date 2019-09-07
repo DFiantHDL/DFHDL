@@ -734,7 +734,7 @@ object Backend {
         val dstSig = entity.port(x)
         if (x.isAssigned) {
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
-          if (x.maxPrevUse > 0) {
+          if (x.prevImplicitlyUsed) {
             val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
             dstSig.maxPrevUse = 1
             architecture.statements.async_process.assignment(dstVar, dstSigP1)
@@ -748,7 +748,7 @@ object Backend {
 //        println(s"${x.fullName}, ${x.maxPrevUse}")
           val dstSig = architecture.declarations.signal(x)
           val dstVar = architecture.statements.async_process.variable(x, Name(s"v_${dstSig.name}"), dstSig)
-          if (x.maxPrevUse > 0) {
+          if (x.prevImplicitlyUsed) {
             val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
             dstSig.maxPrevUse = 1
             architecture.statements.async_process.assignment(dstVar, dstSigP1)
