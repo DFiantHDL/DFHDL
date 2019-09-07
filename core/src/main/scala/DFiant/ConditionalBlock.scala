@@ -208,8 +208,6 @@ object ConditionalBlock {
 
       def elsedf(elseBlock: => Unit)(implicit ctx : Context)
       : Unit = new DFElseBlock(this, elseBlock)
-
-      if (cond != null) cond.consume()
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
@@ -300,7 +298,6 @@ object ConditionalBlock {
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
       private[DFiant] lazy val nameIt = ctx.meta
-      matchVal.consume()
       id
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
@@ -420,8 +417,6 @@ object ConditionalBlock {
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
       private[DFiant] lazy val nameIt = ctx.meta
-      matchVal.consume()
-      returnVar.nameFirst = true
       id
     }
 

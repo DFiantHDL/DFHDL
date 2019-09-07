@@ -86,14 +86,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     val isAssignable : Boolean = false
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Consumption
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
-      //Do Nothing
-      //TODO: consider adding stuff here
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Init (for use with Prev)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     val initLB : LazyBox[Seq[TToken]]
@@ -228,16 +220,20 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     val prevBits = (version, context) match {
       case (Some(_), block : ConditionalBlock[_,_]) =>
         val ownerVersions = block.owner.netsTo.apply(self)
-        val v : Int = ownerVersions.length
+        var v : Int = ownerVersions.length
+        while (v > 0 && ownerVersions(v).isRight) v = v - 1
         if (v > 0) assignedAt(Some(v), block.owner)
         else immutable.BitSet()
       case _ => immutable.BitSet()
     }
     prevList.foldLeft(prevBits){
-      case (onBits, Left(src)) => onBits ++ src.toUsedBitSet
+      case (onBits, Left(src)) =>
+        onBits ++ src.toUsedBitSet
       case (onBits, Right(condBlock : ConditionalBlock[_,_])) if condBlock.isExhaustive && condBlock.isLastCondBlock =>
-        onBits ++ condBlock.allBlocks.map(e => assignedAt(None, e)).reduce((l, r) => l.intersect(r))
-      case (onBits, _) => onBits
+        val bbb = condBlock.allBlocks.map(e => assignedAt(None, e))
+        onBits ++ bbb.reduce((l, r) => l.intersect(r))
+      case (onBits, _) =>
+        onBits
     }
   }
 
@@ -246,14 +242,10 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
     val masked = mask -- at
     if (masked.nonEmpty) {
-//      println(at, mask)
       maxPrevUse = scala.math.max(maxPrevUse, 1)
     }
   }
-  def consume() : TAlias = {
-    consume(width.getValue, 0)
-    this.asInstanceOf[TAlias]
-  }
+  def consume() : TAlias = ???
   final def dontConsume() : TAlias = ???
   final def isNotEmpty : DFBool = ???
   //////////////////////////////////////////////////////////////////////////
@@ -327,18 +319,6 @@ object DFAny {
         CacheDerivedRO(protAssignDependencies)(discoveryDependenciesStatic ++ protAssignDependencies.unbox)
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Consumption
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
-        val fromRelBitHigh = fromRelBitLow + fromRelWidth - 1
-        val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
-
-
-//        if (!assignedSource.isCompletelyAllocated) //not all used bits are assigned to
-//          maxPrevUse = scala.math.max(maxPrevUse, 1)
-      }
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override val isAssignable : Boolean = true
@@ -346,15 +326,14 @@ object DFAny {
       final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       final private[DFiant] def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] =
-        owner.netsToAt(self, toRelWidth, toRelBitLow).map {
-          case Left(src) => Left(src.assignmentsOnly)
-          case r => r
+        owner.netsToAt(self, toRelWidth, toRelBitLow).flatMap {
+          case Left(src) =>
+            val assignments = src.assignmentsOnly
+            if (assignments.isEmpty) None
+            else Some(Left(assignments))
+          case r => Some(r)
         }
-//      final val netsFrom : CacheBoxRO[Vector[List[Source]]] = CacheDerivedRO(owner.netsTo) {
-//        owner.netsTo.flatMap {
-//          case Tuple2(toVal, list) =>
-//        }
-//      }
+
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
         implicit ctx : DFNet.Context
       ) : Unit = {
@@ -378,7 +357,6 @@ object DFAny {
         //          x.maxPrevUse = scala.math.max(x.maxPrevUse, 1)
         ////          println(s"$fullName ${x.maxPrevUse}")
         //      }
-        fromVal.consume()
 //        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
         toVar.assign(toRelWidth, toRelBitLow, Source(fromVal, ctx.owner))
         toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
@@ -473,7 +451,6 @@ object DFAny {
         val assigns = toVar.assignmentsAt(toRelWidth, toRelBitLow)
         if (assigns.nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $assigns.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
-        fromVal.consume()
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
       def connectFrom(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
@@ -715,13 +692,10 @@ object DFAny {
         } //TODO: fix dependency to bit accurate dependency?
         reference match {
           case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
-            fromVal.consume()
             toVar.assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
           case DFAny.Alias.Reference.AsIs(aliasedVar) =>
-            fromVal.consume()
             toVar.assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.Concat(aliasedVars) =>
-            fromVal.consume()
             toVar.assign(width, 0, fromVal.inletSourceLB)
           case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
           case DFAny.Alias.Reference.Invert(aliasedVar) => ???
@@ -743,19 +717,6 @@ object DFAny {
     import __dev._
 
     final lazy val isAliasOfPort : Boolean = ???
-
-    override def consume(): TAlias = {
-      reference match {
-        case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
-          aliasedVar.consume(relWidth, relBitLow)
-        case DFAny.Alias.Reference.Prev(aliasedVar, step) =>
-          aliasedVar.maxPrevUse = scala.math.max(step, aliasedVar.maxPrevUse)
-        case DFAny.Alias.Reference.Pipe(aliasedVar, step) =>
-          //Do nothing
-        case _ => reference.aliasedVars.map(a => a.consume())
-      }
-      this.asInstanceOf[TAlias]
-    }
     id
   }
   object Alias {
@@ -1054,14 +1015,6 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override val isAssignable : Boolean = dir.isOut
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Consumption
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def consume(fromRelWidth : Int, fromRelBitLow : Int) : Unit = {
-        //Nothing happens when consuming an input port
-        if (dir.isOut) super.consume(fromRelWidth, fromRelBitLow)
-      }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source

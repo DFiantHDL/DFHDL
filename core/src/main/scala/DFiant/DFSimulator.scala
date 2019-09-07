@@ -35,6 +35,11 @@ protected[DFiant] class Message(value_ : List[Any])(implicit ctx0 : DFAny.Op.Con
 
     private def maxLatency: Option[Int] = value_.collect { case x: DFAny => x.thisSourceLB.get.getMaxLatency }.max
 
+    val versioned : List[Either[Source, Any]] = value_.map {
+      case x : DFAny => Left(x.source.versioned)
+      case x => Right(x)
+    }
+
     val value: List[Any] = value_.collect {
       case x: DFAny =>
         val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
@@ -52,11 +57,6 @@ protected[DFiant] class Message(value_ : List[Any])(implicit ctx0 : DFAny.Op.Con
       case x: DFAny => s"$${${x.refCodeString}}"
       case x => x.toString
     }.mkString + "\""
-
-    final def consume(): Unit = value_.foreach {
-      case x: DFAny => x.consume()
-      case _ =>
-    }
   }
   override private[DFiant] lazy val __dev : __DevMessage = new __DevMessage {}
   import __dev._
@@ -71,6 +71,8 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
       super.discoveryDependenciesStatic ++ cond.toList
+
+    final val condVersionedSource = cond.map(c => c.source.versioned)
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
@@ -88,11 +90,6 @@ protected case class Assert(cond : Option[DFAny], msg : Message, severity : Seve
   override private[DFiant] lazy val __dev : __DevAssert = new __DevAssert {}
   import __dev._
   id
-
-  if (cond.isDefined) {
-    cond.get.consume()
-  }
-  msg.__dev.consume()
 }
 
 protected sealed trait Severity extends HasCodeString

@@ -34,15 +34,6 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, dfNet : Op
     case Some(lat) => Some(lat + p)
     case None => None
   }
-  @tailrec private def versioned(currentNets : Map[DFAny, List[Either[Source, DFBlock]]], currentContext : DFBlock) : AliasTag = {
-    currentNets.get(dfVal) match {
-      case Some(x) => copy(version = Some(x.length), context = currentContext)
-      case None => currentContext match {
-        case x : ConditionalBlock[_,_] => versioned(x.owner.netsTo, currentContext)
-        case _ => copy(version = Some(0), context = currentContext)
-      }
-    }
-  }
   @tailrec private def versioned(currentContext : DFBlock) : AliasTag =
     currentContext.netsTo.get(dfVal) match {
       case Some(x) => copy(version = Some(x.length), context = currentContext)
@@ -52,10 +43,9 @@ private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, dfNet : Op
       }
     }
 
-  final def versioned(currentNets : Map[DFAny, List[Either[Source, DFBlock]]])
-  : AliasTag = if (dfVal.isAssignable) versioned(currentNets, context) else this
-  final def versioned
-  : AliasTag = if (dfVal.isAssignable) versioned(context) else this
+  final def versioned : AliasTag =
+    if (dfVal.isAssignable && (dfVal.nonTransparentOwner eq context.nonTransparent)) versioned(context) else this
+
   def atContext(newContext : DFBlock) : AliasTag = copy(context = newContext)
   def atVersion(num : Int) : AliasTag = copy(version = Some(num))
   def via(viaNet : DFNet) : AliasTag = copy(dfNet = Some(viaNet), context = viaNet.owner.asInstanceOf[DFBlock])
@@ -88,14 +78,6 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
     case _ => copy(aliasTag = None)
   }
   def balanceTo(maxLatency : Option[Int]) : SourceElement = copy(aliasTag = aliasTag.map(t => t.balanceTo(maxLatency)))
-  def versioned(currentNets : Map[DFAny, List[Either[Source, DFBlock]]]) : SourceElement = {
-    val versionedTag = aliasTag.map(t => t.versioned(currentNets))
-    versionedTag.foreach {
-      case v if v.version.isDefined => v.dfVal.consumeAt(relWidth, relBitLow, v.version.get, v.context)
-      case _ =>
-    }
-    copy(aliasTag = versionedTag)
-  }
   def versioned : SourceElement = {
     val versionedTag = aliasTag.map(t => t.versioned)
     versionedTag.foreach {
@@ -187,7 +169,6 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
     } else {
       this
     }
-  def versioned(currentNets : Map[DFAny, List[Either[Source, DFBlock]]]) : Source = Source(elements.map(e => e.versioned(currentNets)))
   def versioned : Source = Source(elements.map(e => e.versioned))
 
   def getMaxLatency : Option[Int] = {
