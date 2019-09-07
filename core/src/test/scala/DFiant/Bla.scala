@@ -50,18 +50,16 @@ trait Inst extends DFDesign {
 class Cont()(implicit ctx : DFDesign.ContextOf[Cont]) extends DFDesign {
   val i = DFBool() <> IN
   val o = DFUInt(8) <> OUT
-  val temp = DFUInt(8) init 0
+  val temp = DFUInt(8) <> IN
 
-  temp.bits(3,0) := b"1111"
-  temp.bits(7,4) := b"0000"
+//  temp.bits(3,0) := b"1111"
+//  temp.bits(7,4) := b"0000"
 
-  val a = DFBool().ifdf (i) {
-    o := temp
-    true
-  }.elsedf {
-    o := o + 1
-    false
-  }
+//  ifdf (i) {
+//    temp.bits(7,4) := b"1111"
+//    o := temp
+//  }
+  o <> temp
 //  o := temp
 //  o := temp
 //  temp := temp.prev(5)
@@ -79,7 +77,8 @@ trait Simy extends DFSimulator {
 }
 
 object Bla extends DFApp {
-  val bla = new Cont {}.printCodeString
+  val bla = new Cont {}.printVHDLString
   import internals._
   println(bla.netsTo)
+  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }

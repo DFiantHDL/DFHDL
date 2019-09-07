@@ -217,46 +217,38 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Future Stuff
   //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
-//  final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
-//    val prevList = context.netsTo.get(self) match {
-//      case Some(list) => version match {
-//        case Some(v) => list.splitAt(v)._1
-//        case None => list
-//      }
-//      case None => List()
-//    }
-//    var prevCondOption : Option[(DFBlock, immutable.BitSet)] = None
-//    prevList.foldLeft(immutable.BitSet()){
-//      case (onBits, Left(src)) => prevCondOption match {
-//        case Some(Tuple2(_, bitSet)) =>
-//          prevCondOption = None
-//          onBits ++ src.toUsedBitSet ++ bitSet
-//        case _ => onBits ++ src.toUsedBitSet
-//      }
-//      case (onBits, Right(block : ConditionalBlock)) if block.__dev.isExhaustive => prevCondOption match {
-//        case Some(Tuple2(prevBlock, bitSet)) =>
-//          prevCondOption = Some(block, assignedAt(None, block).intersect(bitSet))
-//          onBits
-//        case _ =>
-//          prevCondOption = Some(block, assignedAt(None, block))
-//          onBits
-//      }
-//      case (onBits, _) => onBits
-//    }
-//  }
+  final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
+    val prevList = context.netsTo.get(self) match {
+      case Some(list) => version match {
+        case Some(v) => list.splitAt(v)._1
+        case None => list
+      }
+      case None => List()
+    }
+    val prevBits = (version, context) match {
+      case (Some(_), block : ConditionalBlock[_,_]) =>
+        val ownerVersions = block.owner.netsTo.apply(self)
+        val v : Int = ownerVersions.length
+        if (v > 0) assignedAt(Some(v), block.owner)
+        else immutable.BitSet()
+      case _ => immutable.BitSet()
+    }
+    prevList.foldLeft(prevBits){
+      case (onBits, Left(src)) => onBits ++ src.toUsedBitSet
+      case (onBits, Right(condBlock : ConditionalBlock[_,_])) if condBlock.isExhaustive && condBlock.isLastCondBlock =>
+        onBits ++ condBlock.allBlocks.map(e => assignedAt(None, e)).reduce((l, r) => l.intersect(r))
+      case (onBits, _) => onBits
+    }
+  }
 
   def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
-//    val usesPrev = if (version == 0) true else context.netsTo.get(self) match {
-//      case Some(list) => list.apply(version - 1) match {
-//        case Left(src) => !src.bitsWL(relWidth, relBitLow).isCompletelyAllocated
-//        case Right(block) => true
-//      }
-//      case None => throw new IllegalArgumentException("unexpected")
-//    }
-//    if (usesPrev) {
-////      println("boom")
-//      maxPrevUse = scala.math.max(maxPrevUse, 1)
-//    }
+    val at = assignedAt(Some(version), context)
+    val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
+    val masked = mask -- at
+    if (masked.nonEmpty) {
+//      println(at, mask)
+      maxPrevUse = scala.math.max(maxPrevUse, 1)
+    }
   }
   def consume() : TAlias = {
     consume(width.getValue, 0)
@@ -342,8 +334,8 @@ object DFAny {
         val fromBitSet = collection.immutable.BitSet.empty ++ (fromRelBitLow to fromRelBitHigh)
 
 
-        if (!assignedSource.isCompletelyAllocated) //not all used bits are assigned to
-          maxPrevUse = scala.math.max(maxPrevUse, 1)
+//        if (!assignedSource.isCompletelyAllocated) //not all used bits are assigned to
+//          maxPrevUse = scala.math.max(maxPrevUse, 1)
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////

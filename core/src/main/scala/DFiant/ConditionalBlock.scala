@@ -29,7 +29,7 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV]
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     protected[ConditionalBlock] var _nextBlock : Option[CB] = None
     final lazy val nextBlock : Option[CB] = _nextBlock
-    final lazy val firstBlock : CB = prevBlock match {
+    final val firstBlock : CB = prevBlock match {
       case Some(b) => b.firstBlock
       case None => self
     }
@@ -37,6 +37,11 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV]
       case Some(b) => b.lastBlock
       case None => self
     }
+    final protected val prevBlocks : List[CB] = prevBlock match {
+      case Some(b) => b.prevBlocks :+ self
+      case None => List(self)
+    }
+    final lazy val allBlocks : List[CB] = lastBlock.prevBlocks
     final lazy val isFirstCondBlock : Boolean = firstBlock == self
     final lazy val isLastCondBlock : Boolean = lastBlock == self
     val isExhaustive : Boolean
