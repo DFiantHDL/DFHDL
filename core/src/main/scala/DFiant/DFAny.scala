@@ -84,10 +84,44 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Assignment
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     val isAssignable : Boolean = false
+    final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
+      val prevList = context.netsTo.get(self) match {
+        case Some(list) => version match {
+          case Some(v) => list.splitAt(v)._1
+          case None => list
+        }
+        case None => List()
+      }
+      val prevBits = (version, context) match {
+        case (Some(_), block : ConditionalBlock[_,_]) =>
+          val ownerVersions = block.owner.netsTo.apply(self)
+          var v : Int = ownerVersions.length
+          while (v > 0 && ownerVersions(v).isRight) v = v - 1
+          if (v > 0) assignedAt(Some(v), block.owner)
+          else immutable.BitSet()
+        case _ => immutable.BitSet()
+      }
+      prevList.foldLeft(prevBits){
+        case (onBits, Left(src)) =>
+          onBits ++ src.toUsedBitSet
+        case (onBits, Right(condBlock : ConditionalBlock[_,_])) if condBlock.isExhaustive && condBlock.isLastCondBlock =>
+          val bbb = condBlock.allBlocks.map(e => assignedAt(None, e))
+          onBits ++ bbb.reduce((l, r) => l.intersect(r))
+        case (onBits, _) =>
+          onBits
+      }
+    }
+    def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
+      val at = assignedAt(Some(version), context)
+      val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
+      val masked = mask -- at
+      if (masked.nonEmpty) prevImplicitlyUsed = true
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Init (for use with Prev)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    lazy val initCB : CacheBoxRO[Seq[TToken]] = ???
     val initLB : LazyBox[Seq[TToken]]
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -209,40 +243,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Future Stuff
   //////////////////////////////////////////////////////////////////////////
   final def next(step : Int = 1) : TVal = ???
-  final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
-    val prevList = context.netsTo.get(self) match {
-      case Some(list) => version match {
-        case Some(v) => list.splitAt(v)._1
-        case None => list
-      }
-      case None => List()
-    }
-    val prevBits = (version, context) match {
-      case (Some(_), block : ConditionalBlock[_,_]) =>
-        val ownerVersions = block.owner.netsTo.apply(self)
-        var v : Int = ownerVersions.length
-        while (v > 0 && ownerVersions(v).isRight) v = v - 1
-        if (v > 0) assignedAt(Some(v), block.owner)
-        else immutable.BitSet()
-      case _ => immutable.BitSet()
-    }
-    prevList.foldLeft(prevBits){
-      case (onBits, Left(src)) =>
-        onBits ++ src.toUsedBitSet
-      case (onBits, Right(condBlock : ConditionalBlock[_,_])) if condBlock.isExhaustive && condBlock.isLastCondBlock =>
-        val bbb = condBlock.allBlocks.map(e => assignedAt(None, e))
-        onBits ++ bbb.reduce((l, r) => l.intersect(r))
-      case (onBits, _) =>
-        onBits
-    }
-  }
-
-  def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
-    val at = assignedAt(Some(version), context)
-    val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
-    val masked = mask -- at
-    if (masked.nonEmpty) prevImplicitlyUsed = true
-  }
   def consume() : TAlias = ???
   final def dontConsume() : TAlias = ???
   final def isNotEmpty : DFBool = ???
@@ -319,11 +319,21 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final lazy val netsTo = CacheDerivedRO(owner.netsTo)(owner.netsTo.getOrElse(self, List()))
+      final lazy val assignments = CacheDerivedRO(netsTo) {
+        netsTo.flatMap {
+          case Left(src) =>
+            val assignments = src.assignmentsOnly
+            if (assignments.isEmpty) None
+            else Some(Left(assignments))
+          case r => Some(r)
+        }
+      }
       override val isAssignable : Boolean = true
-      final def isAssigned : Boolean = assignmentsAt(width, 0).nonEmpty
+      final def isAssigned : Boolean = assignments.nonEmpty
       final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
-      final private[DFiant] def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] =
+      final def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] =
         owner.netsToAt(self, toRelWidth, toRelBitLow).flatMap {
           case Left(src) =>
             val assignments = src.assignmentsOnly
@@ -436,6 +446,13 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final lazy val connections = CacheDerivedRO(netsTo) {
+        netsTo.foldLeft(Source.none(width)) {
+          case (cons, Left(src)) =>  cons.orElse(src.connectionsOnly)
+          case (cons, _) => cons
+        }
+      }
+
       final lazy val connectedSourceLB = LazyBox.Const[Source](self)(connectionsAt(width, 0))
       private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
@@ -471,12 +488,7 @@ object DFAny {
         }
       }
       final private[DFiant] def connectionsAt(toRelWidth : Int, toRelBitLow : Int) : Source =
-        owner.netsTo.get(self) match {
-          case Some(n) => n.collect{
-            case Left(src) => src.bitsWL(toRelWidth, toRelBitLow).connectionsOnly
-          }.foldLeft(Source.none(toRelWidth))((l, r) => l.orElse(r))
-          case None => Source.none(toRelWidth)
-        }
+        connections.bitsWL(toRelWidth, toRelBitLow)
       final private[DFiant] def isConnectedAt(toRelWidth : Int, toRelBitLow : Int) : Boolean =
         !connectionsAt(toRelWidth, toRelBitLow).isEmpty
       final private[DFiant] def isConnected : Boolean = isConnectedAt(width, 0)
@@ -548,6 +560,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+//      override lazy val initCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO()
       override lazy val initLB : LazyBox[Seq[TToken]] =
         LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](self)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
       private val initExternalLB = LazyBox.Mutable[Seq[TToken]](self)(Seq())
@@ -861,6 +874,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override lazy val initCB : CacheBoxRO[Seq[TToken]] = CacheBoxRO(Seq(token).asInstanceOf[Seq[TToken]])
       final lazy val initLB : LazyBox[Seq[TToken]] =
         LazyBox.Const(self)(Seq(token).asInstanceOf[Seq[TToken]])
 
