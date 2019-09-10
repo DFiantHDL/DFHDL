@@ -270,16 +270,6 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//      private def allSources(dfVal : DFAny, block : DFBlock) : List[DFAnyMember] = {
-//        val assignments = block.assignmentsTo.getOrElse(dfVal, List())
-//        assignments.flatMap {
-//          case Left(source) => source.elements.collect {
-//            case SourceElement(_,_,_,Some(t)) => t.dfVal
-//          }
-//          case Right(nestedBlock) => allSources(dfVal, nestedBlock)
-//        }
-//      }
-//      protected def protAssignDependencies : List[DFAnyMember] = allSources(self, owner)
       final val protAssignDependencies : CacheListRW[DFAnyMember] = CacheListRW(List())
       override private[DFiant] val discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
         CacheDerivedRO(protAssignDependencies)(discoveryDependenciesStatic ++ protAssignDependencies.unbox)
@@ -287,7 +277,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private lazy val _netsTo = CacheDerivedRO(owner.netsTo)(owner.netsTo.getOrElse(self, List()))
+      private val _netsTo = CacheDerivedRO(owner.netsTo)(owner.netsTo.getOrElse(self, List()))
       @inline def netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = _netsTo
 
       final lazy val assignments = CacheDerivedRO(netsTo) {
@@ -965,10 +955,10 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private lazy val _netsTo =
+      private val _netsTo =
         if (dir.isIn) {
           if (owner.isTop) CacheBoxRO(List())
-          else CacheDerivedRO(owner.owner.netsTo)(owner.owner.netsTo.getOrElse(self, List()))
+          else CacheDerivedRO(owner.owner.__dev.netsTo)(owner.owner.__dev.netsTo.getOrElse(self, List()))
         } else super.netsTo
       @inline override def netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = _netsTo
 
