@@ -331,7 +331,6 @@ object DFAny {
       }
       override val isAssignable : Boolean = true
       final def isAssigned : Boolean = assignments.nonEmpty
-      final val assignedSource : CacheBoxRW[Source] = CacheBoxRW(Source.none(width))
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       final def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] =
         owner.netsToAt(self, toRelWidth, toRelBitLow).flatMap {
@@ -347,11 +346,6 @@ object DFAny {
       ) : Unit = {
         assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
       }
-      def assign(toRelWidth : Int, toRelBitLow : Int, fromSource : Source)(
-        implicit ctx : DFNet.Context
-      ) : Unit = {
-        assignedSource.set(assignedSource.replaceWL(toRelWidth, toRelBitLow, fromSource))
-      }
       def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
@@ -360,13 +354,6 @@ object DFAny {
           throw new IllegalArgumentException(s"\nTarget assignment variable (${toVar.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
         if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
-        //      fromVal match {
-        //        case x : Var  if ((collection.immutable.BitSet.empty ++ (0 until toRelWidth)) &~ x.assignedIndication).nonEmpty =>
-        //          x.maxPrevUse = scala.math.max(x.maxPrevUse, 1)
-        ////          println(s"$fullName ${x.maxPrevUse}")
-        //      }
-//        toVar.assign(toRelWidth, toRelBitLow, fromVal.thisSourceLB)
-        toVar.assign(toRelWidth, toRelBitLow, Source(fromVal, ctx.owner))
         toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
@@ -377,7 +364,6 @@ object DFAny {
       }
       def assignClear() : Unit = {
         assignedSourceLB.set(Source.none(width))
-        assignedSource.set(Source.none(width))
         protAssignDependencies.setDefault()
       }
 
@@ -487,11 +473,11 @@ object DFAny {
           case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
         }
       }
-      final private[DFiant] def connectionsAt(toRelWidth : Int, toRelBitLow : Int) : Source =
+      final def connectionsAt(toRelWidth : Int, toRelBitLow : Int) : Source =
         connections.bitsWL(toRelWidth, toRelBitLow)
-      final private[DFiant] def isConnectedAt(toRelWidth : Int, toRelBitLow : Int) : Boolean =
+      final def isConnectedAt(toRelWidth : Int, toRelBitLow : Int) : Boolean =
         !connectionsAt(toRelWidth, toRelBitLow).isEmpty
-      final private[DFiant] def isConnected : Boolean = isConnectedAt(width, 0)
+      final def isConnected : Boolean = isConnectedAt(width, 0)
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
@@ -662,7 +648,7 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-        super.discoveryDependenciesStatic ++ reference.aliasedVars
+        super.discoveryDependenciesStatic ++ reference.aliasedVals
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
@@ -673,7 +659,7 @@ object DFAny {
         val toRelBitHigh = toRelBitLow + toRelWidth-1
         case class absolute(alias : DFAny, high : Int, low : Int)
         //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
-        val absolutes = reference.aliasedVars.foldLeft[List[absolute]](List()) {
+        val absolutes = reference.aliasedVals.foldLeft[List[absolute]](List()) {
           case (list, alias) if list.isEmpty => List(absolute(alias, reference.width - 1, reference.width - alias.width))
           case (list, alias) => list :+ absolute(alias, list.last.low - 1, list.last.low - alias.width)
         }
@@ -697,7 +683,7 @@ object DFAny {
       final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
         val toVar = self.replacement().asInstanceOf[Alias[DF]]
         val fromVal = that.replacement()
-        reference.aliasedVars.foreach{case a : DFAny.Var =>
+        reference.aliasedVals.foreach{case a : DFAny.Var =>
           a.__dev.protAssignDependencies += toVar
           a.__dev.protAssignDependencies += fromVal
         } //TODO: fix dependency to bit accurate dependency?
@@ -734,85 +720,117 @@ object DFAny {
     trait Tag
     type Context = DFAnyOwner.Context[DFAnyOwner]
 
+//    final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
+//      val toVar = self.replacement().asInstanceOf[Alias[DF]]
+//      val fromVal = that.replacement()
+//      reference.aliasedVars.foreach{case a : DFAny.Var =>
+//        a.__dev.protAssignDependencies += toVar
+//        a.__dev.protAssignDependencies += fromVal
+//      } //TODO: fix dependency to bit accurate dependency?
+//      reference match {
+//        case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
+//          toVar.assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
+//        case DFAny.Alias.Reference.AsIs(aliasedVar) =>
+//          toVar.assign(width, 0, fromVal.inletSourceLB)
+//        case DFAny.Alias.Reference.Concat(aliasedVars) =>
+//          toVar.assign(width, 0, fromVal.inletSourceLB)
+//        case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
+//        case DFAny.Alias.Reference.Invert(aliasedVar) => ???
+//        case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
+//        case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
+//      }
+//      toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
+//      toVar.protAssignDependencies += fromVal
+//    }
+
     sealed abstract class Reference(aliasCodeString_ : => String)(implicit ctx : Alias.Context) {
-      val aliasedVars : List[DFAny]
+      val aliasedVals : List[DFAny]
       val width : Int
       val isAssignable : Boolean
       lazy val aliasCodeString : String = aliasCodeString_
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String
+      def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit
       val source : Source
       val sourceLB : LazyBox[Source]
     }
     sealed abstract class SingleReference(refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
       extends Reference(aliasCodeString) {
-      val aliasedVar : DFAny = refVar.replacement()
-      val aliasedVars : List[DFAny] = List(aliasedVar)
-      val width : Int = aliasedVars.head.width
+      val aliasedVal : DFAny = refVar.replacement()
+      final protected def aliasedVar = aliasedVal.asInstanceOf[DFAny.Connectable[_]]
+      val aliasedVals : List[DFAny] = List(aliasedVal)
+      val width : Int = aliasedVals.head.width
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
-        s"${aliasedVar.refCodeString}$aliasCodeString"
+        s"${aliasedVal.refCodeString}$aliasCodeString"
     }
     object Reference {
       class AsIs private (refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
         val isAssignable : Boolean = refVar.isAssignable
-        lazy val source : Source = aliasedVar.source
-        lazy val sourceLB: LazyBox[Source] = aliasedVar.thisSourceLB
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
+          aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
+        lazy val source : Source = aliasedVal.source
+        lazy val sourceLB: LazyBox[Source] = aliasedVal.thisSourceLB
       }
       object AsIs {
         def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new AsIs(aliasedVar, aliasCodeString)
-        def unapply(arg: AsIs): Option[DFAny] = Some(arg.aliasedVar)
+        def unapply(arg: AsIs): Option[DFAny] = Some(arg.aliasedVal)
       }
       class Concat private (concatVars : List[DFAny], aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends Reference(aliasCodeString) {
-        val aliasedVars : List[DFAny] = concatVars.map(c => c.replacement())
+        val aliasedVals : List[DFAny] = concatVars.map(c => c.replacement())
+        final protected def aliasedVars = aliasedVals.asInstanceOf[List[DFAny.Connectable[_]]]
         val isAssignable : Boolean = concatVars.collectFirst{case x if !x.isAssignable => false}.getOrElse(true)
-        val width : Int = aliasedVars.map(a => a.width.getValue).sum
+        val width : Int = aliasedVals.map(a => a.width.getValue).sum
         def constructCodeString(implicit owner : DSLOwnerConstruct) : String =
-          s"${aliasedVars.map(a => a.refCodeString).mkString("(",", ",")")}$aliasCodeString"
+          s"${aliasedVals.map(a => a.refCodeString).mkString("(",", ",")")}$aliasCodeString"
         //TODO: something with balancing upon reading a complete value
         //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
-        lazy val source : Source = Source(aliasedVars.flatMap(a => a.source.elements)).coalesce
-        lazy val sourceLB: LazyBox[Source] = LazyBox.ArgList[Source, Source](aliasedVars.head)(
-          s => Source(s.flatMap(a => a.elements)).coalesce, aliasedVars.map(a => a.thisSourceLB))
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val source : Source = Source(aliasedVals.flatMap(a => a.source.elements)).coalesce
+        lazy val sourceLB: LazyBox[Source] = LazyBox.ArgList[Source, Source](aliasedVals.head)(
+          s => Source(s.flatMap(a => a.elements)).coalesce, aliasedVals.map(a => a.thisSourceLB))
       }
       object Concat {
         def apply(aliasedVars : List[DFAny], aliasCodeString : => String)(implicit ctx : Alias.Context) = new Concat(aliasedVars, aliasCodeString)
-        def unapply(arg: Concat): Option[List[DFAny]] = Some(arg.aliasedVars)
+        def unapply(arg: Concat): Option[List[DFAny]] = Some(arg.aliasedVals)
       }
       class BitsWL private (refVar : DFAny, val relWidth : Int, val relBitLow : Int, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
         override val width: Int = relWidth
         val isAssignable : Boolean = refVar.isAssignable
-        lazy val source : Source = aliasedVar.source.bitsWL(relWidth, relBitLow)
-        lazy val sourceLB : LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.bitsWL(relWidth, relBitLow), aliasedVar.thisSourceLB)
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val source : Source = aliasedVal.source.bitsWL(relWidth, relBitLow)
+        lazy val sourceLB : LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
+          s => s.bitsWL(relWidth, relBitLow), aliasedVal.thisSourceLB)
       }
       object BitsWL {
         def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String)(implicit ctx : Alias.Context) =
           new BitsWL(aliasedVar, relWidth, relBitLow, aliasCodeString)
-        def unapply(arg : BitsWL): Option[(DFAny, Int, Int)] = Some((arg.aliasedVar, arg.relWidth, arg.relBitLow))
+        def unapply(arg : BitsWL): Option[(DFAny, Int, Int)] = Some((arg.aliasedVal, arg.relWidth, arg.relBitLow))
       }
       class Prev private (refVar : DFAny, val step : Int)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
         val isAssignable : Boolean = false
-        lazy val source : Source = aliasedVar.source.prev(step)
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.prev(step), aliasedVar.thisSourceLB)
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val source : Source = aliasedVal.source.prev(step)
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
+          s => s.prev(step), aliasedVal.thisSourceLB)
       }
       object Prev {
         def apply(aliasedVar : DFAny, step : Int)(implicit ctx : Alias.Context) = new Prev(aliasedVar, step)
-        def unapply(arg: Prev): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
+        def unapply(arg: Prev): Option[(DFAny, Int)] = Some(arg.aliasedVal, arg.step)
       }
       class Pipe private (refVar : DFAny, val step : Int)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
         val isAssignable : Boolean = false
-        lazy val source : Source = aliasedVar.source.pipe(step)
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.pipe(step), aliasedVar.thisSourceLB)
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val source : Source = aliasedVal.source.pipe(step)
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
+          s => s.pipe(step), aliasedVal.thisSourceLB)
       }
       object Pipe {
         def apply(aliasedVar : DFAny, step : Int)(implicit ctx : Alias.Context) = new Pipe(aliasedVar, step)
-        def unapply(arg: Pipe): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.step)
+        def unapply(arg: Pipe): Option[(DFAny, Int)] = Some(arg.aliasedVal, arg.step)
       }
 //      class LeftShift(aliasedVar : DFAny, val shift : Int)
 //        extends SingleReference(aliasedVar, if (shift == 0) "" else s"$shift") {
@@ -827,35 +845,39 @@ object DFAny {
         extends SingleReference(refVar, if (toWidth == refVar.width.getValue) "" else s".toWidth($toWidth)") {
         override val width: Int = toWidth
         val isAssignable : Boolean = false
-        lazy val source : Source = aliasedVar.source.resize(toWidth)
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.resize(toWidth), aliasedVar.thisSourceLB)
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val source : Source = aliasedVal.source.resize(toWidth)
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
+          s => s.resize(toWidth), aliasedVal.thisSourceLB)
       }
       object Resize {
         def apply(aliasedVar : DFAny, toWidth : Int)(implicit ctx : Alias.Context) = new Resize(aliasedVar, toWidth)
-        def unapply(arg: Resize): Option[(DFAny, Int)] = Some(arg.aliasedVar, arg.toWidth)
+        def unapply(arg: Resize): Option[(DFAny, Int)] = Some(arg.aliasedVal, arg.toWidth)
       }
       class BitReverse private (refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
         val isAssignable : Boolean = refVar.isAssignable
-        lazy val source : Source = aliasedVar.source.reverse
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.reverse, aliasedVar.thisSourceLB)
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
+          aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
+        lazy val source : Source = aliasedVal.source.reverse
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
+          s => s.reverse, aliasedVal.thisSourceLB)
       }
       object BitReverse {
         def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new BitReverse(aliasedVar, aliasCodeString)
-        def unapply(arg: BitReverse): Option[DFAny] = Some(arg.aliasedVar)
+        def unapply(arg: BitReverse): Option[DFAny] = Some(arg.aliasedVal)
       }
       class Invert private (refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
         extends SingleReference(refVar, aliasCodeString) {
         val isAssignable : Boolean = refVar.isAssignable
-        lazy val source : Source = aliasedVar.source.invert
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-          s => s.invert, aliasedVar.thisSourceLB)
+        def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val source : Source = aliasedVal.source.invert
+        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
+          s => s.invert, aliasedVal.thisSourceLB)
       }
       object Invert {
         def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new Invert(aliasedVar, aliasCodeString)
-        def unapply(arg: Invert): Option[DFAny] = Some(arg.aliasedVar)
+        def unapply(arg: Invert): Option[DFAny] = Some(arg.aliasedVal)
       }
     }
   }
