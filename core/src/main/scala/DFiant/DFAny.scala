@@ -84,39 +84,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Assignment
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     val isAssignable : Boolean = false
-    final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
-      val prevList = context.netsTo.get(self) match {
-        case Some(list) => version match {
-          case Some(v) => list.splitAt(v)._1
-          case None => list
-        }
-        case None => List()
-      }
-      val prevBits = (version, context) match {
-        case (Some(_), block : ConditionalBlock[_,_]) =>
-          val ownerVersions = block.owner.netsTo.apply(self)
-          var v : Int = ownerVersions.length
-          while (v > 0 && ownerVersions(v).isRight) v = v - 1
-          if (v > 0) assignedAt(Some(v), block.owner)
-          else immutable.BitSet()
-        case _ => immutable.BitSet()
-      }
-      prevList.foldLeft(prevBits){
-        case (onBits, Left(src)) =>
-          onBits ++ src.toUsedBitSet
-        case (onBits, Right(condBlock : ConditionalBlock[_,_])) if condBlock.isExhaustive && condBlock.isLastCondBlock =>
-          val bbb = condBlock.allBlocks.map(e => assignedAt(None, e))
-          onBits ++ bbb.reduce((l, r) => l.intersect(r))
-        case (onBits, _) =>
-          onBits
-      }
-    }
-    def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
-      val at = assignedAt(Some(version), context)
-      val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
-      val masked = mask -- at
-      if (masked.nonEmpty) prevImplicitlyUsed = true
-    }
+    def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {}
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Init (for use with Prev)
@@ -319,7 +287,9 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final lazy val netsTo = CacheDerivedRO(owner.netsTo)(owner.netsTo.getOrElse(self, List()))
+      private lazy val _netsTo = CacheDerivedRO(owner.netsTo)(owner.netsTo.getOrElse(self, List()))
+      @inline def netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = _netsTo
+
       final lazy val assignments = CacheDerivedRO(netsTo) {
         netsTo.flatMap {
           case Left(src) =>
@@ -328,6 +298,39 @@ object DFAny {
             else Some(Left(assignments))
           case r => Some(r)
         }
+      }
+      final def assignedAt(version : Option[Int], context : DFBlock) : immutable.BitSet = {
+        val prevList = context.netsTo.get(self) match {
+          case Some(list) => version match {
+            case Some(v) => list.splitAt(v)._1
+            case None => list
+          }
+          case None => List()
+        }
+        val prevBits = (version, context) match {
+          case (Some(_), block : ConditionalBlock[_,_]) =>
+            val ownerVersions = block.owner.netsTo.apply(self)
+            var v : Int = ownerVersions.length
+            while (v > 0 && ownerVersions(v).isRight) v = v - 1
+            if (v > 0) assignedAt(Some(v), block.owner)
+            else immutable.BitSet()
+          case _ => immutable.BitSet()
+        }
+        prevList.foldLeft(prevBits){
+          case (onBits, Left(src)) =>
+            onBits ++ src.toUsedBitSet
+          case (onBits, Right(condBlock : ConditionalBlock[_,_])) if condBlock.isExhaustive && condBlock.isLastCondBlock =>
+            val bbb = condBlock.allBlocks.map(e => assignedAt(None, e))
+            onBits ++ bbb.reduce((l, r) => l.intersect(r))
+          case (onBits, _) =>
+            onBits
+        }
+      }
+      final override def consumeAt(relWidth : Int, relBitLow : Int, version : Int, context : DFBlock) : Unit = {
+        val at = assignedAt(Some(version), context)
+        val mask = immutable.BitSet() ++ (relBitLow until (relBitLow + relWidth))
+        val masked = mask -- at
+        if (masked.nonEmpty) prevImplicitlyUsed = true
       }
       override val isAssignable : Boolean = true
       final def isAssigned : Boolean = assignments.nonEmpty
@@ -487,6 +490,21 @@ object DFAny {
           x.aliasTag match {
             case Some(t) =>
               val selBits = t.dfVal.initLB.get.bitsWL(x.relWidth, x.relBitLow)
+              val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
+              val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
+              if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
+            case None => Seq()
+          }).reduce(DFBits.Token.concat)
+        bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
+      }
+      private lazy val connectionConstants = CacheDerivedRO(connections)(connections.elements.collect {
+        case e if e.aliasTag.isDefined => e.aliasTag.get.dfVal.initCB
+      })
+      lazy val initConnectedCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO(connectionConstants) {
+        val bitsTokenSeq : Seq[DFBits.Token] = connections.elements.map(x =>
+          x.aliasTag match {
+            case Some(t) =>
+              val selBits = t.dfVal.initCB.unbox.bitsWL(x.relWidth, x.relBitLow)
               val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
               val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
               if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
@@ -947,6 +965,13 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      private lazy val _netsTo =
+        if (dir.isIn) {
+          if (owner.isTop) CacheBoxRO(List())
+          else CacheDerivedRO(owner.owner.netsTo)(owner.owner.netsTo.getOrElse(self, List()))
+        } else super.netsTo
+      @inline override def netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = _netsTo
+
       private def sameDirectionAs(right : Port[_ <: DFAny,_ <: DFDir]) : Boolean = self.dir == right.dir
       private[DFiant] def connectPort2Port(that : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : DFNet.Context) : Unit = {
         implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
