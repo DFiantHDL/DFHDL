@@ -64,9 +64,32 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
       ctx.impl(self)
 //      portsOut.foreach(p => p.rediscoverDependencies())
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Initialization
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
+      val ff = foldedFunctions(dfVal)
+      val inputConsts = ff.inputs.map(i => i.initCB)
+
+      CacheDerivedRO(inputConsts) {
+        ff.init.asInstanceOf[Seq[dfVal.TToken]]
+      }
+    }
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
 
+  abstract class FoldedFunction[O <: DFAny] private (val output : O)(val inputs : List[DFAny]) {
+    def init : Seq[output.TToken]
+
+  }
+  object FoldedFunction {
+    def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (l.TToken, r.TToken) => o.TToken) =
+      new FoldedFunction(o)(List(l, r)) {
+        def init: Seq[output.TToken] = DFAny.TokenSeq(l.initCB.unbox, r.initCB.unbox)(func).asInstanceOf[Seq[output.TToken]]
+      }
+  }
+  protected val foldedFunctions : Map[DFAny, FoldedFunction[_]] = Map()
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
 
   final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
@@ -81,7 +104,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 }
 
 object DFComponent {
-  implicit def fetchDev[Comp <: DFComponent[Comp]](from : DFComponent[Comp])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFComponent[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
 
   trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Unit, DFBlock] {
     implicit val impl : Comp => Unit

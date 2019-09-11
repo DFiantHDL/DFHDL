@@ -47,6 +47,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
       LazyBox.Args1[Source, Option[Int]](self)(l => Source.withLatency(self, l)/*.pipe(extraPipe)*/, maxLatency)
     }
 
+    override lazy val initCB: CacheBoxRO[Seq[TToken]] = initOf(self)
     final lazy val initLB: LazyBox[Seq[TToken]] = {
       def leftInit = inLeft.initLB.asInstanceOf[LazyBox[Seq[leftArg.TToken]]]
       def rightInit = inRight.initLB.asInstanceOf[LazyBox[Seq[rightArg.TToken]]]
@@ -72,6 +73,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
+  override protected val foldedFunctions : Map[DFAny, FoldedFunction[_]] = Map(self -> FoldedFunction(self)(leftArg, rightArg)(tokenFunc))
 
   final val inLeft = leftArg.copyAsNewPort(IN)
   final val inRight = rightArg.copyAsNewPort(IN)

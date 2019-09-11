@@ -89,7 +89,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Init (for use with Prev)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    lazy val initCB : CacheBoxRO[Seq[TToken]] = ???
+    val initCB : CacheBoxRO[Seq[TToken]]
     val initLB : LazyBox[Seq[TToken]]
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -502,6 +502,7 @@ object DFAny {
           }).reduce(DFBits.Token.concat)
         bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
       }
+      lazy val initCB : CacheBoxRO[Seq[TToken]] = initConnectedCB
       lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
       lazy val initConnectedLB : LazyBox[Seq[TToken]] =
         LazyBox.Args1[Seq[TToken], Source](self)(initFunc, initSourceLB)
@@ -554,7 +555,6 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//      override lazy val initCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO()
       override lazy val initLB : LazyBox[Seq[TToken]] =
         LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](self)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
       private val initExternalLB = LazyBox.Mutable[Seq[TToken]](self)(Seq())
@@ -904,7 +904,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override lazy val initCB : CacheBoxRO[Seq[TToken]] = CacheBoxRO(Seq(token).asInstanceOf[Seq[TToken]])
+      lazy val initCB : CacheBoxRO[Seq[TToken]] = CacheBoxRO(Seq(token).asInstanceOf[Seq[TToken]])
       final lazy val initLB : LazyBox[Seq[TToken]] =
         LazyBox.Const(self)(Seq(token).asInstanceOf[Seq[TToken]])
 
@@ -1064,6 +1064,14 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override val isAssignable : Boolean = dir.isOut
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Initialization
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      override lazy val initCB : CacheBoxRO[Seq[TToken]] = owner match {
+        case x : DFComponent[_] if dir.isOut => x.initOf(self)
+        case _ => initConnectedCB
+      }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source

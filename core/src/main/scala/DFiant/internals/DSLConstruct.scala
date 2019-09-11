@@ -245,8 +245,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     private var foldedMemberList : List[ThisMember] = List()
 
     private var folded : Boolean = false
-    final def isFolded : Boolean = {
-      members.unbox //since members affect the state of folded, we must first make sure it's updated
+    final val isFolded = CacheDerivedRO(members){
       folded
     }
     private[DFiant] def unfoldedRun : Unit = {}
