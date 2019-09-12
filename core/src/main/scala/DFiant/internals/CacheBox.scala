@@ -5,7 +5,6 @@ import scala.collection.mutable
 
 sealed class CacheBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.Set[CacheBoxRO[_]] = mutable.Set()
-  private var leaveDirtyFlag : Boolean = false
   protected[this] var value : Option[T] = None
   @inline final protected def valueIsEmpty : Boolean = value.isEmpty
   @inline final protected def valueClear() : Unit = value = None
