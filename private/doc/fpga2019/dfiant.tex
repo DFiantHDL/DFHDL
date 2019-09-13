@@ -103,7 +103,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 
 
 \subsection{Hello DFiant world!}
-The MA4 DFiant code in \fig{fig:MADFiant} demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-21), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (lines 29-32). 
+The MA4 DFiant code in \fig{fig:MADFiant} demonstrates the basics of any DFiant compilation program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} library trait (lines 3-21), and creates a runnable application that instantiates the top design trait and compiles it into a VHDL file (line 32). 
 
 The MA4 design is fairly straightforward. Lines 4-8 generate the signed dataflow ports and include a \code{0} value initialization (see Section~\ref{sec:state_constructs}). 
 Lines 10-14 define the function \code{ma} that generates a single four-sample moving average, while lines 15-16 define the function \code{avg2} that generates a two-input average unit. Finally, lines 18-20 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.
@@ -150,20 +150,75 @@ For example, in line 12 we used \code{acc - ...} and not \code{acc.prev - ...}, 
 One advantage is that the DFiant code resembles its RTL counterparts, but is also very concise since state elements are automatically constructed when a stream history is accessed. Another advantage is portability, because state elements are not registers and any type of state component is applicable. Our first synchronous backend indeed maps state elements to registers, but even an asynchronous backend can compile the same code and apply the Muller C-element\cite{muller1957theory} as a state element. 
 
 
-\subsection{Automatic Pipelining, Path-Balancing and Flow-Control}
-
-The dataflow abstraction enables designers to describe hardware without explicitly pipelining the design. The DFiant backend compiler automatically pipelines the design and places registers to split long combinational paths. The compiler has a propagation delay (PD) estimation database that can be tailored for any target device and technology. With this information and a target clock constraint the compiler tags the dataflow graph with the additional pipe stages required before producing the RTL code. One possible tagging is depicted in \fig{fig:MADraw}, in which two pipe stages were added between the large operations. Depending on the availability of DSP blocks in the target device, it is also possible to break the basic operations to multiple cycles by instantiating the proper vendor IP (e.g., a long multiplication operation should require several cycles). All of these target-specific adaptations are done without designer intervention and thus make any DFiant design highly portable.
-
-To maintain design correctness the compiler adds path-balancing registers when pipeline registers are added and different-latency paths converge. Since these two features are separate, we can allow designers to explicitly place pipe stages in critical junctions should our PD estimation fail. The \code{.pipe} construct adds a pipe stage at a specific node and the compiler will balance the rest of the converging paths. While both \code{.pipe} and \code{.prev} constructs appear similar, the \code{.prev} construct does affect the path-balancing mechanism. For example, \code{x - x.prev} create a derivation circuit while \code{x - x.pipe} will result in a constant zero since path-balancing applied at the subtraction input arguments results in a \code{x.pipe - x.pipe} operation.
-
-The asynchronous nature of DFiant means the compiler can adapt the design to any FIFO ready-valid signaling for automatic flow-control. For example, the MA4 RTL interface can have ready-valid signaling to each of its input and output ports to allow backpressure. To achieve this manually in RTL is extremely error-prone, while the DFiant generated RTL code stays true to the original dataflow description, and therefore, correct.
-
-In Section~\ref{sec:motivation} we discussed the problem when attempting to pipeline a feedback state. The \code{ma} function creates the feedback state referenced via the \code{acc} variable. The \code{ma} blowout in \fig{fig:MADraw} exposes this problem by having a circular feedback that updates the \code{acc} state. This feedback cannot be pipelined as-is because path-balancing will never be able to satisfy the balancing rule due to circular path dependency. It is only possible to increase the clock rate in feedback circuitry by applying multi-cycle or speculative logic (e.g., a RISC-V processor core contains several feedback junctions like the PC update and therefore has single-clock, multi-cycle and speculation-based pipelined implementations). 
+\subsection{Hierarchy and Connectivity}
 
 
 \subsection{Structural Composition and Generation}
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). 
 
+%\begin{figure}[h]
+%  \centering
+%  \includegraphics[width=\linewidth]{graphics/connectivity.pdf}
+%  \captionof{figure}{LZCS IR graph for an 8-bit input}
+%  \label{fig:LZC_Dataflow}
+%\end{figure}
+
+\begin{table*}[t!]
+  \centering
+  \begin{minipage}[t][9cm][t]{0.34\linewidth}
+    \centering
+    \captionsetup{justification=centering}    
+    \begin{minted}[xleftmargin=1em,linenos,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
+      trait Box extends DFDesign {
+        val iT = DFSInt[16] <> IN
+        val iB = DFSInt[16] <> IN
+        val oT = DFSInt[16] <> OUT
+        val oB = DFSInt[16] <> OUT
+        iT.prev <> oT //connection
+        oB := iB.prev //assignment
+      }
+      
+      
+      
+      
+      trait BoxTop extends DFDesign {
+        val iT = DFSInt[16] <> IN init(5, 7)
+        val iB = DFSInt[16] <> IN init(2, 6)
+        val oT = DFSInt[16] <> OUT
+        val oB = DFSInt[16] <> OUT
+        val boxL = new Box {}
+        val boxR = new Box {}
+        boxL.iT <> iT      
+        boxL.iB <> iB
+        boxL.oT <> boxR.iT 
+        boxL.oB <> boxR.iB
+        boxR.oT <> oT      
+        boxR.oB <> oB
+      }
+    \end{minted}
+    \vfill
+    \captionof{figure}{Bla Bla \\ What we see}
+    \label{fig:BoxTopCode}
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[t][9cm][b]{0.64\linewidth}
+    \centering
+    \captionsetup{justification=centering}
+    \includegraphics[width=\linewidth]{graphics/connectivity.pdf}
+    \captionof{figure}{
+      Bla Bla \\ 
+      As can be seen
+    }
+    \vfill
+    \label{fig:BoxTopDraw}
+    \includegraphics[width=0.8\linewidth]{graphics/connectivityTokens.pdf}
+    \captionof{figure}{
+      Bla Bla \\ 
+      As can be seen
+    }
+    \label{fig:BoxTopTokens}
+  \end{minipage}
+\end{table*}
 %\subsection{IO Ports}
 %\label{sec:io_ports}
 %The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
