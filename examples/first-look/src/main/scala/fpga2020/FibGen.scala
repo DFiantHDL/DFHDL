@@ -14,32 +14,12 @@
  *     You should have received a copy of the Lesser GNU General Public License
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-package fpga2019
+package fpga2020
 import DFiant._
 
-trait Box extends DFDesign {
-  val iT = DFSInt[16] <> IN
-  val iB = DFSInt[16] <> IN
-  val oT = DFSInt[16] <> OUT
-  val oB = DFSInt[16] <> OUT
-  iT.prev <> oT
-  oB := iB.prev
+trait FibGen extends DFDesign {
+  val o = DFUInt[64] <> OUT
+  val f = DFUInt[64] init (1, 0)
+  f := f.prev + f.prev(2)
+  o := f.prev(2)
 }
-
-trait BoxTop extends DFDesign {
-  val iT = DFSInt[16] <> IN init (5, 7)
-  val iB = DFSInt[16] <> IN init (2, 6)
-  val oT = DFSInt[16] <> OUT
-  val oB = DFSInt[16] <> OUT
-  val boxL = new Box {}
-  val boxR = new Box {}
-  boxL.iT <> iT
-  boxL.iB <> iB
-  boxL.oT <> boxR.iT
-  boxL.oB <> boxR.iB
-  boxR.oT <> oT
-  boxR.oB <> oB
-}
-
-object BoxTopApp extends DFApp.VHDLCompiler[BoxTop]

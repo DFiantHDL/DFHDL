@@ -135,8 +135,11 @@ In contrary to RTL languages, DFiant does not directly expose register and wire 
 
 \subsubsection{Initialization} The \code{.init} construct is accompanied by one or more token values and only sets the initial state history. For example, line 11 constructs a dataflow variable and initializes all of its history zero value tokens. 
 
-\subsubsection{History Access} The \code{.prev} construct reuses the previous state token. The very first "reused" token is the one set via \code{.init}. It is also possible to call \code{.prev(step)} with a step number argument to reuse older stream values. For example, in line 12 we reuse a \code{src} token from four steps ago. If the \code{src} token stream is "$1,2,3,4,...$" with a $0$ initialization, then the \code{src.prev(4)} token stream is "$0,0,0,0,1,2,3,...$".
+\subsubsection{History Access} The \code{.prev} construct reuses the previous state token. The very first "reused" token is the one set via \code{.init}. It is also possible to call \code{.prev(step)} with a step number argument to reuse older stream values. For any dataflow value \code{a} and a given positive integer \code{step}, a call to \code{a.prev(step)} is equivalent to repeated $step$ applications of \code{a.prev.prev...prev}.
+For example, in line 12 we reuse a \code{src} token from four steps ago. If the \code{src} token stream is "$1,2,3,4,...$" with a $0$ initialization, then the \code{src.prev(4)} token stream is "$0,0,0,0,1,2,3,...$".
 
+\subsubsection{Distributive Property} The history access via \code{.prev} is distributive over all basic operations supported by DFiant. For example, \code{a.prev + b.prev} is equivalent to \code{(a + b).prev}. 
+ 
 \subsubsection{Stall Bubbles} Invoking \code{.prev} on an uninitialized dataflow variable generates a stall bubble. Stall bubbles are consumed and produced like any other token, yet a basic operation with a stall bubble token must produce a stall bubble token. Additionally, stall bubbles do not affect a feedback state. The backend compiler is responsible to generate the additional logic required for existing design stalls. 
 
 \subsubsection{State Update Scheduling} The new updated token is pushed into a dataflow stream by using the \code{:=} assignment construct. There can be more then one assignment to same variable, however only the last assignment updates the state and occurs when all dependent dataflow firing rules are satisfied. This rule is similar to signal update semantics in VHDL processes.
@@ -146,12 +149,30 @@ For example, in line 12 we used \code{acc - ...} and not \code{acc.prev - ...}, 
 
 \vspace{2ex}
 
-\fig{fig:MAVHDL} emphasizes the advantages of DFiant state constructs over RTL registers and wires.
+Another example that illustrates the benefits of the DFiant state constructs is a 32-bit Fibonacci series generator implementation provided in \fig{fig:FibGen}. Notice how similar 
+
+\begin{figure}[h]
+  \centering
+  \captionsetup{justification=centering}    
+
+  \begin{minted}[xleftmargin=0.15\linewidth, xrightmargin=0.15\linewidth,frame=single,autogobble,tabsize=2,fontfamily=courier,fontsize=\fontsize{8}{9}\selectfont]{scala}
+    trait FibGen extends DFDesign {
+      val o = DFUInt[32] <> OUT
+      val f = DFUInt[32] init (1, 0)
+      f := f.prev + f.prev(2)
+      o := f.prev(2)
+    }
+  \end{minted}
+  \captionof{figure}{The DFiant 64-bit Fibonacci series generator \\ Great resemblance to the formal Fibonacci definition}
+  \label{fig:FibGen}
+\end{figure}
+
+Both \fig{fig:MAVHDL} and \fig{fig:FibGen} emphasize the advantages of DFiant state constructs over RTL registers and wires.
 One advantage is that the DFiant code resembles its RTL counterparts, but is also very concise since state elements are automatically constructed when a stream history is accessed. Another advantage is portability, because state elements are not registers and any type of state component is applicable. Our first synchronous backend indeed maps state elements to registers, but even an asynchronous backend can compile the same code and apply the Muller C-element\cite{muller1957theory} as a state element. 
 
 
 \subsection{Hierarchy and Connectivity}
-
+\input{connectivity_table}
 
 \subsection{Structural Composition and Generation}
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). 
@@ -163,62 +184,6 @@ DFiant expands traditional structural composition capabilities by utilizing Scal
 %  \label{fig:LZC_Dataflow}
 %\end{figure}
 
-\begin{table*}[t!]
-  \centering
-  \begin{minipage}[t][9cm][t]{0.34\linewidth}
-    \centering
-    \captionsetup{justification=centering}    
-    \begin{minted}[xleftmargin=1em,linenos,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
-      trait Box extends DFDesign {
-        val iT = DFSInt[16] <> IN
-        val iB = DFSInt[16] <> IN
-        val oT = DFSInt[16] <> OUT
-        val oB = DFSInt[16] <> OUT
-        iT.prev <> oT //connection
-        oB := iB.prev //assignment
-      }
-      
-      
-      
-      
-      trait BoxTop extends DFDesign {
-        val iT = DFSInt[16] <> IN init(5, 7)
-        val iB = DFSInt[16] <> IN init(2, 6)
-        val oT = DFSInt[16] <> OUT
-        val oB = DFSInt[16] <> OUT
-        val boxL = new Box {}
-        val boxR = new Box {}
-        boxL.iT <> iT      
-        boxL.iB <> iB
-        boxL.oT <> boxR.iT 
-        boxL.oB <> boxR.iB
-        boxR.oT <> oT      
-        boxR.oB <> oB
-      }
-    \end{minted}
-    \vfill
-    \captionof{figure}{Bla Bla \\ What we see}
-    \label{fig:BoxTopCode}
-  \end{minipage}%
-  \hfill
-  \begin{minipage}[t][9cm][b]{0.64\linewidth}
-    \centering
-    \captionsetup{justification=centering}
-    \includegraphics[width=\linewidth]{graphics/connectivity.pdf}
-    \captionof{figure}{
-      Bla Bla \\ 
-      As can be seen
-    }
-    \vfill
-    \label{fig:BoxTopDraw}
-    \includegraphics[width=0.8\linewidth]{graphics/connectivityTokens.pdf}
-    \captionof{figure}{
-      Bla Bla \\ 
-      As can be seen
-    }
-    \label{fig:BoxTopTokens}
-  \end{minipage}
-\end{table*}
 %\subsection{IO Ports}
 %\label{sec:io_ports}
 %The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
