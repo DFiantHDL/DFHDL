@@ -23,3 +23,8 @@ trait FibGen extends DFDesign {
   f := f.prev + f.prev(2)
   o := f.prev(2)
 }
+
+trait FibTest extends DFSimulator {
+  val fibGen = new FibGen {}
+  sim.report(msg"fib: ${fibGen.o}")
+}

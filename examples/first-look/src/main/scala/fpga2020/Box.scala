@@ -23,23 +23,35 @@ trait Box extends DFDesign {
   val iB = DFSInt[16] <> IN
   val oT = DFSInt[16] <> OUT
   val oB = DFSInt[16] <> OUT
+}
+trait BoxLeft extends Box {
   iT.prev <> oT
+  oB := iB
+}
+trait BoxRight extends Box {
+  iT <> oT
   oB := iB.prev
 }
-
-trait BoxTop extends DFDesign {
-  val iT = DFSInt[16] <> IN init (5, 7)
-  val iB = DFSInt[16] <> IN init (2, 6)
-  val oT = DFSInt[16] <> OUT
-  val oB = DFSInt[16] <> OUT
-  val boxL = new Box {}
-  val boxR = new Box {}
+trait BoxParent extends Box {
+  iT init (5, 7)
+  iB init (2, 6)
+  val boxL = new BoxLeft {}
+  val boxR = new BoxRight {}
   boxL.iT <> iT
   boxL.iB <> iB
-  boxL.oT <> boxR.iT
-  boxL.oB <> boxR.iB
   boxR.oT <> oT
   boxR.oB <> oB
 }
+trait BoxParDirect extends BoxParent {
+  boxL.oT <> boxR.iT
+  boxL.oB <> boxR.iB
+}
+trait BoxParCross extends BoxParent {
+  boxL.oT <> boxR.iB
+  boxL.oB <> boxR.iT
+}
 
-object BoxTopApp extends DFApp.VHDLCompiler[BoxTop]
+object BoxTopApp extends DFApp {
+  val boxDirect = new BoxParDirect {}.printVHDLString
+  val boxCross = new BoxParCross {}.printVHDLString
+}
