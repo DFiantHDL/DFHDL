@@ -1,6 +1,6 @@
 \begin{table*}[t]
   \small
-  \begin{minipage}[t][9cm][t]{0.34\linewidth}
+  \begin{minipage}[t][9cm][t]{0.343\linewidth}
     \centering
     \captionsetup{justification=centering}
     \begin{minted}[xleftmargin=1em,linenos,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
@@ -13,18 +13,18 @@
       }
       //State in Top Connection
       trait BoxLeft extends Box {
-        iT.prev <> oT
-        oB := iB
+        iT.prev <> oT //Connection
+        oB := iB      //Assignment  
       }
       //State in Bottom Assignment
       trait BoxRight extends Box {
-        iT <> oT
-        oB := iB.prev
+        iT <> oT      //Connection
+        oB := iB.prev //Assignment
       }
       //Parent box includes two sibling boxes 
       trait BoxParent extends Box {
-        iT init (5, 7) //Initializing
-        iB init (2, 6) //Initializing
+        iT init (5, 7) //Initializing history
+        iB init (2, 6) //Initializing history
         val boxL = new BoxLeft {}
         val boxR = new BoxRight {}
         boxL.iT <> iT 
