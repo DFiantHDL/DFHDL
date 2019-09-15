@@ -109,7 +109,7 @@ The MA4 design is fairly straightforward. Lines 4-8 generate the signed dataflow
 Lines 10-14 define the function \code{ma} that generates a single four-sample moving average, while lines 15-16 define the function \code{avg2} that generates a two-input average unit. Finally, lines 18-20 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.
 
 
-\subsection{Dataflow Semantics}
+\subsection{Dataflow Variable Semantics}
 DFiant code is expressed in a sequential manner yet employs an asynchronous dataflow programming model to enable an intuitive concurrent hardware description. For this purpose, DFiant applies the following rules:
 
 \subsubsection{Concurrency and Execution Order} 
@@ -129,12 +129,72 @@ Any Scala primitive value is considered as a constant when applied as an argumen
 \subsubsection{Pruning}
 Unused nodes always consume tokens and are discarded during compilation. 
 
+\subsubsection{Bit-Accurate Operations and Type Inference}
+%DFiant supports various basic dataflow types such as \code{DFBool}, \code{DFBits}, \code{DFUInt}, and \code{DFSInt}.
+%All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., \code{DFBits[5]} is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (\code{DFUInt[5]}) and a signed 10-bit variable (\code{DFSInt[10]}) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking \code{.wc} from the addition. DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between \code{DFSInt} and \code{Int} variables). 
+
+\subsubsection{Assignment \code{:=} and Mutability}
+\label{sec:mutability}
+%`:=` used to set update the state.
+%DFiant supports dataflow variables mutability via the \code{:=} operator. Do not confuse with Scala-level mutability which is enabled by using \code{var} instead of \code{val}. Each dataflow class has two variations: an immutable class, which inherits from \code{DFAny\textbf{Val}} and a mutable class, which inherits from \code{DFAny\textbf{Var}} and accepts \code{:=}. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. Consider, for instance, the DFiant implementation of \code{g} in Table \ref{tbl:StateExDefImpl}: \code{a} is immutable because it is a RHS addition between the dataflow variable \code{i} and a literal value \code{5}. Contrarily, \code{c} is mutable, since it is a dataflow variable constructor (\code{.init} constructs a new initialized variable, while preserving the mutability trait). 
+%
+%Fig.~\ref{fig:Inherit} demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, \code{DFBits} and \code{DFBits.Var} are immutable and mutable classes, respectively. Constructing a new variable via \code{DFBits} (e.g, \code{val a = DFBits[5]}) returns the mutable \code{DFBits.Var[5]}. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref{sec:io_ports}).
+%
+%DFiant's code safety is enforced by maintaining the 'DF-mutability' trait while aliasing (accepting the ':=' operator). This means that an alias of a \textbf{Var}, is still a \textbf{Var}, and can be assigned, while an alias of a \textbf{Val} cannot. This concept is illustrated in ???, and further explained in ???:
+
+
+\subsubsection{Bit Aliasing and Casting}
+%Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking \code{.bits(hiIdx, loIdx)}, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as \code{DFBits}, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable variable is immutable, while an alias of a mutable variable is mutable. 
+%
+%
+%Fig.~\ref{fig:Aliasing} demonstrates aliasing code and its effect on the contents of a dataflow variable (\code{bits128}). Each line code does as follows:
+%\begin{enumerate}
+%  \item Constructs a new 128-bit vector, \code{bits128}, and clears it.
+%  \item Creates a new alias, \code{alias64}, which references the most significant 64 bits of \code{bits128}. Since \code{bits128} is a \code{DFBits} variable, there is no need to invoke \code{.bits()}, and we can apply the required indexes directly.
+%  \item Creates a new alias, \code{alias32}, which references the least significant 32 bits of \code{alias64}, which reference bits 64 to 95 of \code{bits128}.
+%  \item Constructs a new double precision floating point dataflow variable, \code{dbl}, and initialize its value as \code{1.0} (hexadecimal value of \code{0x3FF00...0}).
+%  \item Modifies the least significant byte of \code{dbl}.
+%  \item Sets the most significant bit of \code{bits128}.
+%  \item Assigns \code{dbl} to the least significant 64 bits of \code{bits128} through casting. All the bits of \code{dbl} are selected because \code{.bits()} is invoked without index parameters.
+%  \item Modifies a byte of \code{bits128}.
+%  
+%\end{enumerate}
+%
+%\begin{figure}[h]
+%  \centering
+%  \begin{minipage}[b][3cm][b]{0.57\linewidth}
+%    \vfill
+%    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
+%    val bits128 = DFBits[128] := 0
+%    val alias64 = bits128(127, 64)
+%    val alias32 = alias64(31, 0)
+%    val dbl = DFDouble() := 1.0
+%    dbl.bits(7,0) := 0x28
+%    bits128(127) := 1
+%    bits128(63, 0) := dbl.bits()
+%    alias32(16, 8) := 0x57		    
+%    \end{minted}
+%    \vfill
+%    \subcaption{DFiant code}
+%  \end{minipage}%
+%  \hfill
+%  \begin{minipage}[b][3cm][b]{0.42\linewidth}
+%    \centering
+%    \vfill
+%    \includegraphics[width=\linewidth]{graphics/Aliasing.pdf} 
+%    \vfill
+%    \subcaption{Contents of \code{bits128}}
+%  \end{minipage}
+%  \captionof{figure}{Bit aliasing and casting example}
+%  \label{fig:Aliasing}
+%\end{figure}
+
 
 \subsection{State Constructs and Semantics}
 \label{sec:state_constructs}
 In contrary to RTL languages, DFiant does not directly expose register and wire constructs. Instead, DFiant assumes every dataflow variable is a stream and provides constructs to initialize the token history via the \code{.init} construct, reuse tokens via the \code{.prev} construct, and update the state via the \code{:=} construct. Lines 11-12 in \fig{fig:MADFiant} along with their compiled VHDL representation in \fig{fig:MAVHDL} demonstrate the state semantics as follows:
 
-\subsubsection{Initialization} The \code{.init} construct is accompanied by one or more token values and only sets the initial state history. For example, line 11 constructs a dataflow variable and initializes all of its history as zero value tokens. The history sequence written from left to right sets tokens from newest to oldest, respectively. If the sequence is accessed beyond the oldest token than the oldest token is repeatedly produced. If the history is empty (not initialized) then stall bubble tokens are produced when accessed (see \sect{sec:stall_bubbles}). It is also possible to directly place bubble tokens in the history by writing either $\phi$ or \code{Bubble}.  
+\subsubsection{Initialization} The \code{.init} construct is accompanied by one or more token values and only sets the initial state history. For example, line 11 constructs a dataflow variable and initializes all of its history to zero value tokens. The history sequence is written from left to right and sets tokens from newest to oldest, respectively. If the sequence is accessed beyond the oldest token then the oldest token is repeatedly produced. If the history is empty (not initialized) then stall bubble tokens are produced when accessed (see \sect{sec:stall_bubbles}). It is also possible to directly place bubble tokens in the history by writing either $\phi$ or \code{Bubble}.  
 
 \subsubsection{History Access} The \code{.prev} construct reuses the previous state token. The very first "reused" token is the one set via \code{.init}. It is also possible to call \code{.prev(step)} with a step number argument to reuse older stream values. For any dataflow value \code{a} and a given positive integer \code{step}, a call to \code{a.prev(step)} is equivalent to repeated $step$ applications of \code{a.prev.prev...prev}.
 For example, in line 12 we reuse a \code{src} token from four steps ago. If the \code{src} token stream is "$1,2,3,4,...$" with a $0$ initialization, then the \code{src.prev(4)} token stream is "$0,0,0,0,1,2,3,...$".
@@ -179,7 +239,7 @@ One advantage is that the DFiant code resembles its RTL counterparts, but is als
 DFiant has \code{ifdf} and \code{matchdf} conditional constructs which logically resemble the Scala \code{if} and \code{match}, respectively. These dataflow conditional constructs are also very similar to their RTL counterparts and yield multiplexer hardware. However, their semantics follow the same dataflow \emph{join} and \emph{fork} rules we described in Sections \ref{sec:basic_ops} and \ref{sec:path_div}, and therefore all dataflow values used within the conditional constructs are joined together and all modified dataflow variables which are referenced outside the conditional constructs are forked as well. Of course, the default compiler yields a simple combinational structure if there is no need for this additional flow control logic.
 
 \fig{fig:SeqDet} demonstrates a simple DFiant finite state-match (FSM) design that detects the sequence "1001". The VHDL~\cite{seqdetvhdl} implementation is very similar but is mainly longer because the split between the sequential and combination parts is automatically done by the DFiant compiler.
-Note we did not need to directly refer to \code{state.prev} at line 7, thanks to the default self generation described in \sect{sec:default_self_gen}.
+Note we did not need to directly refer to \code{state.prev} at line 8, thanks to the default self generation described in \sect{sec:default_self_gen}.
 
 \begin{figure}[t]
   \centering
@@ -222,87 +282,55 @@ Note we did not need to directly refer to \code{state.prev} at line 7, thanks to
 \end{figure}
 
 
-%\subsection{Mutability}
-%\label{sec:mutability}
-%`:=` used to set update the state.
-%DFiant supports dataflow variables mutability via the \code{:=} operator. Do not confuse with Scala-level mutability which is enabled by using \code{var} instead of \code{val}. Each dataflow class has two variations: an immutable class, which inherits from \code{DFAny\textbf{Val}} and a mutable class, which inherits from \code{DFAny\textbf{Var}} and accepts \code{:=}. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. Consider, for instance, the DFiant implementation of \code{g} in Table \ref{tbl:StateExDefImpl}: \code{a} is immutable because it is a RHS addition between the dataflow variable \code{i} and a literal value \code{5}. Contrarily, \code{c} is mutable, since it is a dataflow variable constructor (\code{.init} constructs a new initialized variable, while preserving the mutability trait). 
-%
-%Fig.~\ref{fig:Inherit} demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, \code{DFBits} and \code{DFBits.Var} are immutable and mutable classes, respectively. Constructing a new variable via \code{DFBits} (e.g, \code{val a = DFBits[5]}) returns the mutable \code{DFBits.Var[5]}. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref{sec:io_ports}).
-%
-%DFiant's code safety is enforced by maintaining the 'DF-mutability' trait while aliasing (accepting the ':=' operator). This means that an alias of a \textbf{Var}, is still a \textbf{Var}, and can be assigned, while an alias of a \textbf{Val} cannot. This concept is illustrated in ???, and further explained in ???:
 
 
 \subsection{Hierarchy and Connectivity}
 So far, all examples demonstrated a single dataflow design without any hierarchies. The MA4 design managed to create structural encapsulations and composition via Scala definitions. Earlier, in \sect{sec:motivation}, we stressed the importance of any HDL to support hierarchies via constructs that describe components, ports and their connections. For this purpose DFiant utilizes the symbols \code{<>} to both construct dataflow ports and create connections between them.
-when applied between a dataflow variable constructor 
 
-\input{connectivity_table}
-
+\subsubsection{Dataflow IO Ports}
 %\subsection{IO Ports}
 %\label{sec:io_ports}
+%when applied between a dataflow variable constructor 
 %The class \textit{Box} from Table~\ref{tbl:Box} can also be coded as demonstrated in Fig.~\ref{fig:IOBox}. The annotation \code{DFVar $<>$ Dir} controls \textit{DFVar}'s access by encapsulating the variable with the dataflow port class, \code{DFPort}: an \code{IN} port can only be read (immutable), while an \code{OUT} port can only be modified (unreadable). DFiant has implicit conversions in place that selectively converts between \code{DFPort} and \code{DFAny} instances, without breaking mutability rules and type safety. The port annotations match the capabilities of traditional HDLs, and are noticeably absent from HLS languages such as C++. 
 
-\subsection{Structural Composition and Generation}
+\subsubsection{Dataflow Designs}
+\subsubsection{Dataflow Components (Grayboxes)}
+\subsubsection{Realtime Components (Blackboxes)}
+\subsubsection{Dataflow Designs}
+
+\subsubsection{Structural Composition and Generation}
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). 
 
-
-\subsection{Bit-Accurate Operations and Type Inference}
-DFiant supports various basic dataflow types such as \code{DFBool}, \code{DFBits}, \code{DFUInt}, and \code{DFSInt}.
-All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., \code{DFBits[5]} is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (\code{DFUInt[5]}) and a signed 10-bit variable (\code{DFSInt[10]}) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking \code{.wc} from the addition. DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between \code{DFSInt} and \code{Int} variables). 
-
-
-\subsection{Bit Aliasing and Casting}
-Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking \code{.bits(hiIdx, loIdx)}, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as \code{DFBits}, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable variable is immutable, while an alias of a mutable variable is mutable. 
-
-
-Fig.~\ref{fig:Aliasing} demonstrates aliasing code and its effect on the contents of a dataflow variable (\code{bits128}). Each line code does as follows:
-\begin{enumerate}
-  \item Constructs a new 128-bit vector, \code{bits128}, and clears it.
-  \item Creates a new alias, \code{alias64}, which references the most significant 64 bits of \code{bits128}. Since \code{bits128} is a \code{DFBits} variable, there is no need to invoke \code{.bits()}, and we can apply the required indexes directly.
-  \item Creates a new alias, \code{alias32}, which references the least significant 32 bits of \code{alias64}, which reference bits 64 to 95 of \code{bits128}.
-  \item Constructs a new double precision floating point dataflow variable, \code{dbl}, and initialize its value as \code{1.0} (hexadecimal value of \code{0x3FF00...0}).
-  \item Modifies the least significant byte of \code{dbl}.
-  \item Sets the most significant bit of \code{bits128}.
-  \item Assigns \code{dbl} to the least significant 64 bits of \code{bits128} through casting. All the bits of \code{dbl} are selected because \code{.bits()} is invoked without index parameters.
-  \item Modifies a byte of \code{bits128}.
-  
-\end{enumerate}
-
-\begin{figure}[h]
-  \centering
-  \begin{minipage}[b][3cm][b]{0.57\linewidth}
-    \vfill
-    \begin{minted}[xleftmargin=1.5em,linenos,autogobble,tabsize=2,framesep=1pt, frame=single,fontsize=\fontsize{8}{8}\selectfont]{scala}
-      val bits128 = DFBits[128] := 0
-      val alias64 = bits128(127, 64)
-      val alias32 = alias64(31, 0)
-      val dbl = DFDouble() := 1.0
-      dbl.bits(7,0) := 0x28
-      bits128(127) := 1
-      bits128(63, 0) := dbl.bits()
-      alias32(16, 8) := 0x57		    
-    \end{minted}
-    \vfill
-    \subcaption{DFiant code}
-  \end{minipage}%
-  \hfill
-  \begin{minipage}[b][3cm][b]{0.42\linewidth}
-    \centering
-    \vfill
-		\includegraphics[width=\linewidth]{graphics/Aliasing.pdf} 
-    \vfill
-    \subcaption{Contents of \code{bits128}}
-  \end{minipage}
-  \captionof{figure}{Bit aliasing and casting example}
-  \label{fig:Aliasing}
-\end{figure}
+\input{connectivity_table}
 
 
 \subsection{Simulation Constructs}
 \label{sec:simulation}
-Unlike VHDL and Verilog which were developed for simulation and only later were adapted for synthesis, DFiant was developed with focus on being a synthesizable language. Nonetheless, to test our designs we added some basic simulation-only constructs. To clearly separate pure simulation constructs from the rest of the language, we placed them under a separate name space -- \code{sim}. Additionally, all simulation constructs exist only within a simulation context. A simulation context is formed within a derivative of a dataflow design called \code{DFSimulation}. The \code{DFSimulation} construct is typically a toplevel instance that holds both our device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs:
+Unlike VHDL and Verilog which were developed for simulation and only later were adapted for synthesis, DFiant was developed with a synthesizable language focus in mind. Nonetheless, to test our designs we added some basic simulation-only constructs. To clearly separate pure simulation constructs from the rest of the language, we placed them under a separate name space -- \code{sim}. Additionally, all simulation constructs exist only within a simulation context. A simulation context is formed within a derivative of a dataflow design called \code{DFSimulation}. The \code{DFSimulation} construct is typically a toplevel design that holds both our device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs:
 \code{sim.assert} to print errors if a condition is not satisfied; \code{sim.report} for printing messages; and finally \code{sim.finish} to finish the simulation. 
 %All these constructs are very similar to their VHDL counterparts and in fact are
+
+
+\begin{figure}[h]
+  \centering
+  \captionsetup{justification=centering}    
+  
+  \begin{minted}[xleftmargin=0.03\linewidth, xrightmargin=0.03\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{8}{9}\selectfont]{scala}
+  trait SeqDetTest extends DFSimulator {
+  val TestSeq = Seq(1, 1, 0, 1, 0, 0, 1, 0, 1)
+  val seqIn = DFBool() init TestSeq.reverse
+  val dut = new SeqDet {}
+  dut.seqIn <> seqIn.prev(TestSeq.length)
+  sim.report(msg"det: ${dut.detOut}")
+  }
+  \end{minted}
+  \captionof{figure}{A DFiant 32-bit Fibonacci series generator \\ Great resemblance to the formal Fibonacci definition}
+  \label{fig:FibTest}
+\end{figure}
+
+
+
+
 
 
 

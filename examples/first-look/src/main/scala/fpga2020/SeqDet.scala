@@ -47,3 +47,11 @@ trait SeqDet extends DFDesign {
       .elsedf      {state := State.S10}
     }
 }
+
+trait SeqDetTest extends DFSimulator {
+  val TestSeq = Seq(1, 1, 0, 1, 0, 0, 1, 0, 1)
+  val seqIn = DFBool() init TestSeq.reverse
+  val dut = new SeqDet {}
+  dut.seqIn <> seqIn.prev(TestSeq.length)
+  sim.report(msg"det: ${dut.detOut}")
+}
