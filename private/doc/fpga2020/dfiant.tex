@@ -300,14 +300,16 @@ A dataflow port can be either \code{IN} or \code{OUT} as seen at lines 7--8 of \
 There are various connectivity rules and there are important differences between a connection \code{<>} and an assignment \code{:=}. See \tbl{tbl:Box} for a brief comparison.
 
 \subsubsection{Dataflow Designs} 
-Dataflow designs makeup the basic hierarchy blocks in DFiant. By extending the abstract class \code{DFDesign} the designer populates it with IO ports that makeup its interface and dataflow variables and logic that makeup its implementation.
+Dataflow designs are the basic hierarchy abstraction in DFiant. By extending the abstract class \code{DFDesign} the designer populates it with IO ports that makeup its interface and dataflow variables and logic that makeup its implementation.
+DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The difference between a Scala hierarchy and a DFiant hierarchy itself is that pure Scala constructs are transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. 
 
-\subsubsection{Dataflow Foldable Components (Grayboxes)}TBD
+%\subsubsection{Dataflow Foldable Components (Grayboxes)}TBD
 
-\subsubsection{Realtime Components (Blackboxes)}
-Realtime components
+%\subsubsection{Realtime Components (Blackboxes)}
+%Realtime components
 
-DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The difference between a Scala hierarchy and a DFiant hierarchy itself is transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. Therefore, hierarchies in DFiant are synthesizable, highly reusable, and do not affect the design performance (may affect compilation time). 
+Figures \ref{fig:BoxTopCode}, \ref{fig:BoxTopDraw}, and \ref{fig:BoxTopTokens} showcase the flexibility when applying both DFiant hierarchies and Scala inheritance. Indeed these capabilities are no strangers to HL-RTLs such as Chisel, and may even be expressible by native RTLs in some cumbersome fashion, but all these languages still couple the design to its specific timing and target constraints. For example,  \code{NWParCross} should have larger PD than \code{NWPArDirect}. On the one hand, pipelining inside the \code{NWLeft} and \code{NWRight} may result in over-pipelining. while on the other hand, pipelining outside in their parent designs may cause the same. DFiant helps us describe a truly agnostic network and \emph{optionally} leave the hard work to the compiler. 
+%Additionally, these figures highlight some of the differences between connections and assignments and how they affect the initialization throughout the design.
 
 \input{connectivity_table}
 
@@ -316,8 +318,7 @@ DFiant expands traditional structural composition capabilities by utilizing Scal
 \label{sec:simulation}
 Unlike VHDL and Verilog which were developed for simulation and only later adopted for synthesis, DFiant was developed with a synthesizable language focus in mind. Nonetheless, to test our designs we added some basic simulation-only constructs, and to clearly separate them from the rest of the language, we placed them under a separate name space -- \code{sim}. Furthermore, all simulation constructs exist only within a simulation context. A simulation context is formed only if the toplevel design is actually a simulation design, \code{DFSimulation}. The \code{DFSimulation} construct typically holds both the device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs:
 \code{sim.assert} to print errors if a condition is not satisfied; \code{sim.report} for printing messages; and finally \code{sim.finish} to finish the simulation. 
-%All these constructs are very similar to their VHDL counterparts and in fact are
-
+\fig{fig:FibTest} demonstrates basic testing methods in DFiant, like using `.prev` to inject token sequences(lines 2,3,5) and easily constructing strings via string interpolation (line 6).
 
 \begin{figure}[h]
   \centering
@@ -335,7 +336,6 @@ Unlike VHDL and Verilog which were developed for simulation and only later adopt
   \captionof{figure}{Simulation wrapper for our sequence detector \\ }
   \label{fig:FibTest}
 \end{figure}
-
 
 
 

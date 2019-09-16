@@ -19,31 +19,35 @@ import DFiant._
 
 trait SeqDet extends DFDesign {
   val seqIn  = DFBool() <> IN
+  val seq  = DFBool()
+  seq := seqIn.pipe()
+  val det = DFBool()
   val detOut = DFBool() <> OUT
+  detOut := det.pipe()
   object State extends Enum.Auto {
     val S0, S1, S10, S100, S1001 = Entry
   }
   val state = DFEnum(State) init State.S0
   matchdf(state)
     .casedf(State.S0) {
-      detOut := 0
-      ifdf (seqIn) {state := State.S1}
+      det := 0
+      ifdf (seq) {state := State.S1}
       .elsedf      {state := State.S0}
     }.casedf(State.S1) {
-      detOut := 0
-      ifdf (seqIn) {state := State.S1}
+      det := 0
+      ifdf (seq) {state := State.S1}
       .elsedf      {state := State.S10}
     }.casedf(State.S10) {
-      detOut := 0
-      ifdf (seqIn) {state := State.S1}
+      det := 0
+      ifdf (seq) {state := State.S1}
       .elsedf      {state := State.S100}
     }.casedf(State.S100) {
-      detOut := 0
-      ifdf (seqIn) {state := State.S1001}
+      det := 0
+      ifdf (seq) {state := State.S1001}
       .elsedf      {state := State.S0}
     }.casedf(State.S1001) {
-      detOut := 1
-      ifdf (seqIn) {state := State.S1}
+      det := 1
+      ifdf (seq) {state := State.S1}
       .elsedf      {state := State.S10}
     }
 }
@@ -52,6 +56,8 @@ trait SeqDetTest extends DFSimulator {
   val TestSeq = Seq(1, 1, 0, 1, 0, 0, 1, 0, 1)
   val seqIn = DFBool() init TestSeq.reverse
   val dut = new SeqDet {}
-  dut.seqIn <> seqIn.prev(TestSeq.length)
-  sim.report(dfs"det: ${dut.detOut}")
+  dut.seq <> seqIn.prev(TestSeq.length)
+  sim.report(dfs"det: ${dut.det}")
 }
+
+object SeqDetApp extends DFApp.VHDLCompiler[SeqDet]

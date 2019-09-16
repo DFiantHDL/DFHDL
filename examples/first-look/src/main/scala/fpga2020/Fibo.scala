@@ -17,14 +17,16 @@
 package fpga2020
 import DFiant._
 
-trait FibGen extends DFDesign {
-  val o = DFUInt[64] <> OUT
-  val f = DFUInt[64] init (1, 0)
+trait Fibo extends DFDesign {
+  val o = DFUInt[32] <> OUT
+  val f = DFUInt[32] init (1, 0)
   f := f.prev + f.prev(2)
   o := f.prev(2)
 }
 
 trait FibTest extends DFSimulator {
-  val fibGen = new FibGen {}
+  val fibGen = new Fibo {}
   sim.report(dfs"fib: ${fibGen.o}")
 }
+
+object FiboApp extends DFApp.VHDLCompiler[Fibo]

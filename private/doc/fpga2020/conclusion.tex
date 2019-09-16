@@ -1,5 +1,11 @@
 \section{Conclusion}
 \label{sec:conclusion}
-TBD
-%In this paper we proposed new dataflow hardware description constructs that abstract away registers and wires to achieve device-agnostic and timing-agnostic designs. We also presented DFiant, a dataflow HDL, and exposed its advantageous semantics and constructs when compared to RTL HDLs. DFiant provides a seamless concurrent programming approach, and yet it still facilitates a versatile compositional and hierarchical expressiveness. 
+In this paper we proposed a new dataflow hardware description abstraction layer that goes beyond RTL to free designs from being coupled to specific device or timing constraints. This abstraction layer tosses aside the register and wire RTL foundation blocks in favor of dataflow principles instead. We also evolved the DFiant HDL and compiler to support dataflow state and many other useful constructs. DFiant provides a seamless concurrent programming approach, and yet it still facilitates a versatile compositional and hierarchical expressiveness. 
+
+To evaluate the DFiant language and compiler, we reimplemented various RTL designs in DFiant and compared their performance, utilization, and LoCs. We demonstrated that most DFiant designs have equivalent performance and utilization to their RTL counterparts, yet manage to save between a third to half LoCs. Evidently, the potential to increase designer productivity is significant, but notwithstanding, the greatest potential of DFiant is laid not in its concise syntax, but in its agnostic hardware description.  
+
+
+%, we constructs that abstract away registers and wires to achieve device-agnostic and timing-agnostic designs. We also presented DFiant, a dataflow HDL, and exposed its advantageous semantics and constructs when compared to RTL HDLs. 
+
+
 %Future work may explore expanding the dataflow language constructs to simplify resource sharing by merging and splitting dataflow paths (e.g., using the same multiplier for different paths) as well as upsampling (e.g., duplicate each token) downsampling (e.g., drop every third token) a dataflow path. 
