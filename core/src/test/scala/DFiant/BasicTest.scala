@@ -295,7 +295,7 @@ trait IOTest extends DFSimulator {
   val i = DFUInt(8) init 0
   io.i <> i
   ifdf (i == 10) {
-    sim.report(msg"i reached 10", sim.Error)
+    sim.report(dfs"i reached 10", sim.Error)
   }
   i := i + 1
 }

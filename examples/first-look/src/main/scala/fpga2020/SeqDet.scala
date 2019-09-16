@@ -53,5 +53,5 @@ trait SeqDetTest extends DFSimulator {
   val seqIn = DFBool() init TestSeq.reverse
   val dut = new SeqDet {}
   dut.seqIn <> seqIn.prev(TestSeq.length)
-  sim.report(msg"det: ${dut.detOut}")
+  sim.report(dfs"det: ${dut.detOut}")
 }

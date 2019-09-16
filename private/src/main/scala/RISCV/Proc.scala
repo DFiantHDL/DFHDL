@@ -33,23 +33,23 @@ class Proc(program : Program)(implicit ctx : DFDesign.ContextOf[Proc]) extends D
   ///////////////////////////////////////////////////////////////////////////////////////////////
   private val done = DFBool() <> OUT init false
   private val ppc =  pc.prev
-  sim.report(msg"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
+  sim.report(dfs"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
 
   program.imem.failAddress match {
     case Some(failPC) => ifdf(ppc == failPC){
-      sim.report(msg"Test failed")
+      sim.report(dfs"Test failed")
       sim.finish()
       done := true
     }
     case None =>
   }
   ifdf (ppc == program.imem.finishAddress) {
-    sim.report(msg"Program execution finished")
+    sim.report(dfs"Program execution finished")
     sim.finish()
     done := true
   }
 
-  sim.assert(decoder.inst.debugOp != DebugOp.Unsupported, msg"Unsupported instruction", severity = Severity.Failure)
+  sim.assert(decoder.inst.debugOp != DebugOp.Unsupported, dfs"Unsupported instruction", severity = Severity.Failure)
   ///////////////////////////////////////////////////////////////////////////////////////////////
 }
 

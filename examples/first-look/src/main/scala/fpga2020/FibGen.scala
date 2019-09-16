@@ -26,5 +26,5 @@ trait FibGen extends DFDesign {
 
 trait FibTest extends DFSimulator {
   val fibGen = new FibGen {}
-  sim.report(msg"fib: ${fibGen.o}")
+  sim.report(dfs"fib: ${fibGen.o}")
 }

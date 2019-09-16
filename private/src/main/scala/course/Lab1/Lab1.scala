@@ -81,7 +81,7 @@ trait RightShifter_TB extends DFSimulator {
 
   rightShifter.vec <> vec
   rightShifter.shift <> shift
-  sim.assert(rightShifter.res == expected, msg"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
+  sim.assert(rightShifter.res == expected, dfs"expected $vec >> $shift = $expected, but got ${rightShifter.res}")
 }
 
 

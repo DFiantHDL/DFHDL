@@ -183,8 +183,8 @@ package object DFiant extends {
       */
     def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
 
-    def msg(args : Any*)(implicit ctx0 : DFAny.Op.Context) : Message =
-      new Message(List(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
+    def dfs(args : Any*)(implicit ctx0 : DFAny.Op.Context) : DFString =
+      new DFString(List(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
         case x: String => x.nonEmpty
         case x => true
       }))

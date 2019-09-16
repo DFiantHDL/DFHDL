@@ -638,7 +638,7 @@ object Backend {
               override def toString: String = s"\n${currentDelim}end case;"
             }
           }
-          case class assert(condMember : Option[DFAny], msg : Message, severity : Severity) extends statement {
+          case class assert(condMember : Option[DFAny], msg : DFString, severity : Severity) extends statement {
             val severityStr : String = severity match {
               case Severity.Note => "note"
               case Severity.Warning => "warning"
@@ -847,7 +847,7 @@ object Backend {
       }
       case x : DFNet.Assignment =>
         References(x.toVal).assign(Value(x.fromVal))
-      case x : Message =>
+      case x : DFString =>
       case x =>
         throw new IllegalArgumentException(s"\nunsupported construct: $x")
     }

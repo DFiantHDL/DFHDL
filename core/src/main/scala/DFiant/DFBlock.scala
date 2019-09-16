@@ -102,10 +102,10 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
     final val Warning = Severity.Warning
     final val Error = Severity.Error
     final val Failure = Severity.Failure
-    def assert(cond : DFBool, msg : Message, severity : Severity = Warning) : Unit = {
+    def assert(cond : DFBool, msg : DFString, severity : Severity = Warning) : Unit = {
       if (inSimulation) Assert(Some(cond.replacement()), msg, severity)(ctx.updateOwner(__theOwnerToBe))
     }
-    def report(msg : Message, severity : Severity = Note) : Unit = {
+    def report(msg : DFString, severity : Severity = Note) : Unit = {
       if (inSimulation) Assert(None, msg, severity)(ctx.updateOwner(__theOwnerToBe))
     }
     def finish() : Unit = {

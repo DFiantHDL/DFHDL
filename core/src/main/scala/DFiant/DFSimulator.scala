@@ -24,7 +24,8 @@ import scala.collection.immutable
 
 trait DFAnySimMember extends DFAnyMember
 
-protected[DFiant] class Message(value_ : List[Any])(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+//TODO: change DFString to a synthesizable dataflow variable
+protected[DFiant] class DFString(value_ : List[Any])(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevMessage extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +64,7 @@ protected[DFiant] class Message(value_ : List[Any])(implicit ctx0 : DFAny.Op.Con
   id
 }
 
-protected case class Assert(cond : Option[DFAny], msg : Message, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
+protected case class Assert(cond : Option[DFAny], msg : DFString, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
   final private[DFiant] override lazy val ctx = ctx0
   protected[DFiant] trait __DevAssert extends __DevDFAnyMember {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
