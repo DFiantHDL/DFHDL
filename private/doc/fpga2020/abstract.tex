@@ -7,7 +7,7 @@ Emerging high-level synthesis (HLS) tools decouple functionality from timing and
 In this paper we propose to use constructs from dataflow programming languages as basis for hardware design. We present DFiant, a Scala-embedded HDL that leverages dataflow semantics to decouple functionality from implementation constraints.
 DFiant enables the timing-agnostic and device-agnostic hardware description by using the dataflow firing rule as a logical construct, coupled with modern software language features (e.g., inheritance, polymorphism) and classic HDL traits (e.g., bit-accuracy, input/output ports). Using DFiant we demonstrate how dataflow constructs can be used to write code that is substantially more portable and more compact than the equivalent design in RTL and HLS languages.
 
-We implemented a compiler for DFiant that transforms DFiant code into a dataflow graph, auto-pipelines the design to meet the target performance and device requirements, and maps the graph into synthesizable VHDL code. 
+We implemented a compiler for DFiant that transforms DFiant code into a dataflow graph, optionally auto-pipelines the design to meet the target performance and device requirements, and maps the graph into synthesizable VHDL code. 
 \end{abstract}
 
 

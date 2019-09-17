@@ -1,12 +1,12 @@
 \section{The DFiant Compiler}
 \label{sec:compiler}
-TBD
+Like many compilers, the DFiant compiler is built from a frontend compiler and a backend compiler. The frontend compiler applies all language rules and semantics to produce a workable context that represents the design. This context can then be used by the backend compiler for various purposes. Currently we implemented only two backend compilers. One recompiles the context into DFiant code, for debugging purposes, and the other compiles the context into VHDL code.
 
-\subsection{Frontend Compiler}
-%The DFiant frontend compiler relies mostly on the Scala compiler since DFiant is embedded as Scala library, and therefore has strong type-safe protection. DFiant is an early-adopter of new Scala features such as literal types~\cite{TypeLevelScala} and operations~\cite{singleton-ops}, which further improve type safety (e.g., a \code{DFBits[5].bits(Hi,Lo)} bit selection is compile-time-constrained within the 5-bits vector width confines). 
+\subsection{The Frontend Compiler}
+The DFiant frontend compiler relies mostly on the Scala compiler since DFiant is embedded as Scala library, and therefore has strong type-safe protection. DFiant is an early-adopter of new Scala features such as literal types~\cite{TypeLevelScala} and operations~\cite{singleton-ops}, which further improve type safety (e.g., a \code{DFBits[5].bits(Hi,Lo)} bit selection is compile-time-constrained within the 5-bits vector width confines). After the Scala compiler finishes compilation and produces a runnable executable, the main program loads the DFiant compiler to continue the rest of the compilation process (e.g., connectivity rules are enforced during this phase). After this process DFiant holds the top-level design context and is ready to initiate a backend compilation phase. 
 
-\subsection{Backend Compiler}
-\subsubsection{Automatic Pipelining, Path-Balancing and Flow-Control}
+\subsection{The Backend Compiler}
+%\subsubsection{Automatic Pipelining, Path-Balancing and Flow-Control}
 
 The dataflow abstraction enables designers to describe hardware without explicitly pipelining the design. The DFiant backend compiler automatically pipelines the design and places registers to split long combinational paths. The compiler works with a propagation delay (PD) estimation database that can be tailored for any target device and technology. With this information and a target clock constraint the compiler tags the dataflow graph with the additional pipe stages required before producing the RTL code. One possible tagging is depicted in \fig{fig:MADraw}, in which two pipe stages were added between the large operations. Depending on the availability of DSP blocks in the target device, it is also possible to break the basic operations to multiple cycles by instantiating the proper vendor IP (e.g., a long multiplication operation should require several cycles). All of these target-specific adaptations are done without designer intervention and thus make any DFiant design highly portable.
 
@@ -16,12 +16,12 @@ The asynchronous nature of DFiant means the compiler can adapt the design to any
  
 In \sect{sec:motivation} we discussed the problem when attempting to pipeline a feedback state. The \code{ma} function creates the feedback state referenced via the \code{acc} variable. The \code{ma} blowout in \fig{fig:MADraw} exposes this problem by having a circular feedback that updates the \code{acc} state. This feedback cannot be pipelined as-is because path-balancing will never be able to satisfy the balancing rule due to circular path dependency. It is only possible to increase the clock rate in feedback circuitry by applying multi-cycle or speculative logic (e.g., a RISC-V processor core contains several feedback junctions like the PC update and therefore has single-clock, multi-cycle and speculation-based pipelined implementations). 
 
-\subsubsection{Resource Optimizations} 
-TBD
+%\subsubsection{Resource Optimizations} 
+%TBD
 %Resource optimizations can be target agnostic or target specific.
 %We experimented with a handful of target agnostic optimization techniques: pruning of unconnected pathways and variants of constant propagation. The greatest potential for optimization is re
 
 
-\subsubsection{Legible RTL Generation} TBD
+%\subsubsection{Legible RTL Generation} TBD
 
-\subsubsection{Simulation Generation} TBD
+%\subsubsection{Simulation Generation} TBD

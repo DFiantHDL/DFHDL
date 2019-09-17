@@ -140,7 +140,7 @@ DFiant supports dataflow variable "mutation" via the \code{:=} operator. This no
 Dataflow variables can be either mutable (accept \code{:=}) or immutable (compiler error for \code{:=}). The mutability trait depends on the type and sometimes also on the context within they are applied. For example, we cannot assign to a the dataflow stream returned at line 13 of \code{MA4}. The only mutable variables are the ones explicitly constructed or output ports as seen at lines 11 and 8 of \code{MA4}. Mutation must be local to the context of assignment operation (e.g., cannot assign to variable outside its design).
 Note: do not confuse with Scala-level mutation which is enabled by using \code{\textbf{var}} instead of \code{\textbf{val}} (the DFiant compiler disallows constructing DFiant objects under a \code{\textbf{var}} reference). 
 
-\subsubsection{Readability}
+\subsubsection{Read Access}
 All dataflow values can be read (yes, even output ports). The only exception exist in an output port that is neither assigned or initialized because in this situation the reader will only consume stall bubble tokens and possibly lead to a system deadlock.
 
 \subsubsection{Bit Aliasing and Casting} 
@@ -194,7 +194,7 @@ In general, aliasing is a mechanism to reference a cluster of one or more datafl
 \label{sec:state_constructs}
 In contrary to RTL languages, DFiant does not directly expose register and wire constructs. Instead, DFiant assumes every dataflow variable is a stream and provides constructs to initialize the token history via the \code{.init} construct, reuse tokens via the \code{.prev} construct, and update the state via the \code{:=} construct. Lines 11-12 in \fig{fig:MADFiant} along with their compiled VHDL representation in \fig{fig:MAVHDL} demonstrate the state semantics as follows:
 
-\subsubsection{Initialization} The \code{.init} construct is accompanied by one or more token values and only sets the initial state history. For example, line 11 constructs a dataflow variable and initializes all of its history to zero value tokens. The history sequence is written from left to right and sets tokens from newest to oldest, respectively. If the sequence is accessed beyond the oldest token then the oldest token is repeatedly produced. If the history is empty (not initialized) then stall bubble tokens are produced when accessed (see \sect{sec:stall_bubbles}). It is also possible to directly place bubble tokens in the history by writing either $\phi$ or \code{Bubble}.  
+\subsubsection{Initialization} The \code{.init} construct is accompanied by one or more token values and only sets the initial state history. For example, line 11 constructs a dataflow variable and initializes all of its history to zero value tokens. The history sequence is typed from left to right and sets tokens from newest to oldest, respectively. If the sequence is accessed beyond the oldest token then the oldest token is repeatedly produced. If the history is empty (not initialized) then stall bubble tokens are produced when accessed (see \sect{sec:stall_bubbles}). It is also possible to directly place bubble tokens in the history by writing either $\phi$ or \code{Bubble}.  
 
 \subsubsection{History Access} The \code{.prev} construct reuses the previous state token. The very first "reused" token is the one set via \code{.init}. It is also possible to call \code{.prev(step)} with a step number argument to reuse older stream values. For any dataflow value \code{a} and a given positive integer \code{step}, a call to \code{a.prev(step)} is equivalent to repeated <step> applications of \code{a.prev.prev...prev}.
 For example, in line 12 we reuse a \code{src} token from four steps ago. If the \code{src} token stream is "$1,2,3,4,...$" with a $0$ initialization, then the \code{src.prev(4)} token stream is "$0,0,0,0,1,2,3,...$".
@@ -211,12 +211,12 @@ The new updated token is pushed into a dataflow stream by using the \code{:=} as
 
 \subsubsection{Default Self-Generation} 
 \label{sec:default_self_gen}
-Any dataflow \code{a} variable has an implicit self-assignment \code{a := a.prev} that comes immediately after the variable construction. This creates an equivalent reference between \code{a} and \code{a.prev} which leads to a more intuitive programming.
+Any dataflow variable \code{a} has an implicit self-assignment \code{a := a.prev} that comes immediately after the variable construction. This creates an equivalent reference between \code{a} and \code{a.prev} which leads to a more intuitive programming.
 For example, in line 12 we used \code{acc - ...} and not \code{acc.prev - ...}, since both expressions are equivalent.
 
 \vspace{2ex}
 
-Another example that illustrates the benefits of the DFiant state constructs is a 32-bit Fibonacci series generator implementation provided in \fig{fig:FibGen}. The dataflow version is shorter than its VHDL counterpart~\cite{fibgenvhdl} and greatly resembles the formal Fibonacci definition: $F_0 = 0$, $F_1 = 1$, $F_n = F_{n-1} + F_{n-2}$ for $n > 1$. 
+Another example that illustrates the benefits of the DFiant state constructs is the 32-bit Fibonacci series generator in \fig{fig:FibGen}. The dataflow version is shorter than its VHDL counterpart~\cite{fibgenvhdl} and greatly resembles the formal Fibonacci definition: $F_0 = 0$, $F_1 = 1$, $F_n = F_{n-1} + F_{n-2}$ for $n > 1$. 
 
 \begin{figure}[h]
   \centering
@@ -239,9 +239,9 @@ One advantage is that the DFiant code resembles its RTL counterparts, but is als
 
 \subsection{Conditional Constructs and Semantics}
 \label{sec:conditional}
-DFiant has \code{ifdf} and \code{matchdf} conditional constructs which logically resemble the Scala \code{if} and \code{match}, respectively. These dataflow conditional constructs are also very similar to their RTL counterparts and yield multiplexer hardware. However, their semantics follow the same dataflow \emph{join} and \emph{fork} rules we described in Sections \ref{sec:basic_ops} and \ref{sec:path_div}, and therefore all dataflow values used within the conditional constructs are joined together and all modified dataflow variables which are referenced outside the conditional constructs are forked as well. Of course, if there is no need for this additional flow control logic, the default compiler yields a simple combinational structure.
+DFiant has \code{ifdf} and \code{matchdf} conditional constructs which logically resemble the Scala \code{\textbf{if}} and \code{\textbf{match}}, respectively. These dataflow conditional constructs are also very similar to their RTL counterparts and yield multiplexer hardware. However, their semantics follow the same dataflow \emph{join} and \emph{fork} rules we described in Sections \ref{sec:basic_ops} and \ref{sec:path_div}, and therefore all dataflow values used within the conditional constructs are joined together and all modified dataflow variables which are referenced outside the conditional constructs are forked as well. Of course, if there is no need for this additional flow control logic, the default compiler yields a simple combinational structure.
 
-\fig{fig:SeqDet} demonstrates a simple DFiant finite state-match (FSM) design that detects the sequence "1001". The VHDL~\cite{seqdetvhdl} implementation is very similar but is mainly longer because the split between the sequential and combination parts is automatically done by the DFiant compiler.
+\fig{fig:SeqDet} demonstrates a simple DFiant finite state-match (FSM) that utilizes these conditional constructs to detect the sequence "1001". The VHDL~\cite{seqdetvhdl} implementation is very similar but also a bit longer due to the split between the sequential and combination parts, which is applied automatically by the DFiant compiler.
 Note we did not need to directly refer to \code{state.prev} at line 8, thanks to the default self generation described in \sect{sec:default_self_gen}.
 
 \begin{figure}[t]
@@ -295,12 +295,12 @@ So far, all examples demonstrated a single dataflow design without any hierarchi
 \label{sec:io_ports}
 Dataflow IO ports act in many ways just like dataflow variables. 
 %The main difference is that only ports can be referenced outside the design in which they are constructed (this limitation may change in the future). 
-Ports are used either to connect a parent design to its child or connect two child sibling designs. The operator \code{<>} is used both to construct dataflow ports (from dataflow variables) and create connections between them. 
-A dataflow port can be either \code{IN} or \code{OUT} as seen at lines 7--8 of \code{MA4} and they can also be initialized via \code{.init}. Input ports are immutable. Output ports are mutable, but only within the context of their owner design.  
+Ports are used either to connect a parent design to its child or connect two child sibling designs. The operator \code{<>} is used both to construct dataflow ports (from dataflow variables) and create connections between ports. 
+Dataflow ports can be either \code{IN} or \code{OUT} as seen at lines 7--8 of \code{MA4} and can also be initialized via \code{.init}. Input ports are immutable. Output ports are mutable, but only within the context of their owner design.  
 There are various connectivity rules and there are important differences between a connection \code{<>} and an assignment \code{:=}. See \tbl{tbl:Box} for a brief comparison.
 
 \subsubsection{Dataflow Designs} 
-Dataflow designs are the basic hierarchy abstraction in DFiant. By extending the abstract class \code{DFDesign} the designer populates it with IO ports that makeup its interface and dataflow variables and logic that makeup its implementation.
+Dataflow designs are the basic hierarchy abstraction in DFiant. By extending the abstract class \code{DFDesign} the designer populates it with IO ports that makeup its interface and with dataflow variables and operations that makeup its implementation.
 DFiant expands traditional structural composition capabilities by utilizing Scala's object oriented features such as inheritance and polymorphism, as well as finite loops and recursive composition. The hierarchical compositions provide the scope and dependencies for the dataflow variables. The difference between a Scala hierarchy and a DFiant hierarchy itself is that pure Scala constructs are transparent to the dataflow graph, as if the entire design is flattened, inlined, and unrolled. 
 
 %\subsubsection{Dataflow Foldable Components (Grayboxes)}TBD
@@ -308,7 +308,7 @@ DFiant expands traditional structural composition capabilities by utilizing Scal
 %\subsubsection{Realtime Components (Blackboxes)}
 %Realtime components
 
-Figures \ref{fig:BoxTopCode}, \ref{fig:BoxTopDraw}, and \ref{fig:BoxTopTokens} showcase the flexibility when applying both DFiant hierarchies and Scala inheritance. Indeed these capabilities are no strangers to HL-RTLs such as Chisel, and may even be expressible by native RTLs in some cumbersome fashion, but all these languages still couple the design to its specific timing and target constraints. For example,  \code{NWParCross} should have larger PD than \code{NWPArDirect}. On the one hand, pipelining inside the \code{NWLeft} and \code{NWRight} may result in over-pipelining. while on the other hand, pipelining outside in their parent designs may cause the same. DFiant helps us describe a truly agnostic network and \emph{optionally} leave the hard work to the compiler. 
+Figures \ref{fig:BoxTopCode}, \ref{fig:BoxTopDraw}, and \ref{fig:BoxTopTokens} showcase the flexibility when applying both DFiant hierarchies and Scala inheritance. Indeed these capabilities are no strangers to HL-RTLs such as Chisel, and may even be expressible by native RTLs in some cumbersome fashion, but all these languages still couple the design to its specific timing and target constraints. For example,  \code{NWParCross} should have larger PD than \code{NWPArDirect}. On the one hand, pipelining inside the \code{NWLeft} and \code{NWRight} may result in over-pipelining. while on the other hand, pipelining outside, in their parent designs, may cause the same. DFiant helps us describe a truly agnostic network and \emph{optionally} leave the hard work to the compiler. 
 %Additionally, these figures highlight some of the differences between connections and assignments and how they affect the initialization throughout the design.
 
 \input{connectivity_table}
@@ -316,9 +316,9 @@ Figures \ref{fig:BoxTopCode}, \ref{fig:BoxTopDraw}, and \ref{fig:BoxTopTokens} s
 
 \subsection{Simulation Constructs}
 \label{sec:simulation}
-Unlike VHDL and Verilog which were developed for simulation and only later adopted for synthesis, DFiant was developed with a synthesizable language focus in mind. Nonetheless, to test our designs we added some basic simulation-only constructs, and to clearly separate them from the rest of the language, we placed them under a separate name space -- \code{sim}. Furthermore, all simulation constructs exist only within a simulation context. A simulation context is formed only if the toplevel design is actually a simulation design, \code{DFSimulation}. The \code{DFSimulation} construct typically holds both the device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs:
-\code{sim.assert} to print errors if a condition is not satisfied; \code{sim.report} for printing messages; and finally \code{sim.finish} to finish the simulation. 
-\fig{fig:FibTest} demonstrates basic testing methods in DFiant, like using `.prev` to inject token sequences(lines 2,3,5) and easily constructing strings via string interpolation (line 6).
+Unlike VHDL and Verilog which were developed for simulation and only later adopted for synthesis, DFiant was developed with a synthesizable language focus in mind. Nonetheless, to test our designs we added some basic simulation-only constructs, and to clearly separate them from the rest of the language, we placed them under a separate name space -- \code{sim}. Furthermore, all simulation constructs exist only within a simulation context which is formed only if the toplevel design is actually a simulation design, \code{DFSimulation}. The \code{DFSimulation} construct typically holds both the device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs.
+%\code{sim.assert} to print errors if a condition is not satisfied; \code{sim.report} for printing messages; and finally \code{sim.finish} to finish the simulation. 
+\fig{fig:FibTest} demonstrates basic testing methods in DFiant, like using \code{.prev} to inject token sequences(lines 2,3,5) and easily constructing strings via string interpolation (line 6).
 
 \begin{figure}[h]
   \centering
