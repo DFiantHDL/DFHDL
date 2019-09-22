@@ -48,10 +48,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 //      CacheDerivedRO(keepMembers, discoveredOutputs, foldRequest) {
 //        discover(Set(), discoveredOutputs)
 //      }
-//    override def postDiscoveryRun() : Unit = foldedDiscoveryDependencyList.collect {case Tuple2(out, inList) =>
-//      out.injectDependencies(inList)
-//      out.rediscoverDependencies()
-//    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
@@ -70,9 +66,9 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
       val ff = foldedFunctions(dfVal)
-      val inputConsts = ff.inputs.map(i => i.initCB)
+      val inputInits = ff.inputs.map(i => i.initCB)
 
-      CacheDerivedRO(inputConsts) {
+      CacheDerivedRO(inputInits) {
         ff.init.asInstanceOf[Seq[dfVal.TToken]]
       }
     }

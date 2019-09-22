@@ -487,10 +487,10 @@ object DFAny {
           }).reduce(DFBits.Token.concat)
         bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
       }
-      private lazy val connectionConstants = CacheDerivedRO(connections)(connections.elements.collect {
+      private lazy val connectionInits = CacheDerivedRO(connections)(connections.elements.collect {
         case e if e.aliasTag.isDefined => e.aliasTag.get.dfVal.initCB
       })
-      lazy val initConnectedCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO(connectionConstants) {
+      lazy val initConnectedCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO(connectionInits) {
         val bitsTokenSeq : Seq[DFBits.Token] = connections.elements.map(x =>
           x.aliasTag match {
             case Some(t) =>
