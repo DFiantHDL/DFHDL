@@ -555,11 +555,20 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final val conditionalBlockDriver = CacheBoxRW[Option[ConditionalBlock[_,_]]](None)
-//      final val conditionalBlockInit = CacheBoxRO(conditionalBlockDriver) {
-//        conditionalBlockDriver.getOrElse()
-//      }
-      private val initExternalCB = CacheBoxRW[Seq[TToken]](Seq())
+      final val conditionalBlockDriver = CacheBoxRW[Option[ConditionalRetBlock[_,_]]](None)
+      private val initExternalCB = CacheBoxRW[Option[Seq[TToken]]](None)
+      private lazy val initDeps = CacheDerivedRO(conditionalBlockDriver, initExternalCB, initConnectedCB) {
+        conditionalBlockDriver.map(c => c.__dev.initCB).toList :+ initExternalCB :+ initConnectedCB
+      }
+      override lazy val initCB: CacheBoxRO[Seq[TToken]] = CacheDerivedRO(initDeps){
+        conditionalBlockDriver.unbox match {
+          case Some(c) => c.__dev.initCB.unbox.asInstanceOf[Seq[TToken]]
+          case None => initExternalCB.unbox match {
+            case Some(e) => e
+            case None => initConnectedCB.unbox
+          }
+        }
+      }
 
       override lazy val initLB : LazyBox[Seq[TToken]] =
         LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](self)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
@@ -579,21 +588,17 @@ object DFAny {
         bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
       }
 
-      private var updatedInit : () => Seq[TToken] = () => Seq() //just for codeString
-      def isInitialized : Boolean = initExternalLB.isSet
-      final def initialize(updatedInitLB : LazyBox[Seq[TToken]], owner : DFAnyOwner) : Unit = {
+      def isInitialized : Boolean = initExternalCB.isDefined
+      final def initialize(updatedInit : Seq[TToken], owner : DFAnyOwner) : Unit = {
         if (isInitialized) throw new IllegalArgumentException(s"${self.fullName} already initialized")
         if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${self.fullName}) is not at the same design as this call (${owner.fullName})")
-        updatedInit = () => updatedInitLB.get
-        initExternalLB.set(updatedInitLB)
+        initExternalLB.set(updatedInit)
+        initExternalCB.set(Some(updatedInit))
       }
       object setInitFunc {
         def forced(value : LazyBox[Seq[Token]]) : Unit = initExternalLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
       }
-      final def initCodeString : String = {
-        val init = updatedInit()
-        if (initExternalLB.isSet && init.nonEmpty) s" init${init.codeString}" else ""
-      }
+      final def initCodeString : String = if (isInitialized) s" init${initExternalCB.get.codeString}" else ""
     }
     override private[DFiant] lazy val __dev : __DevInitializable = ???
     import __dev._
@@ -603,7 +608,7 @@ object DFAny {
     final def init(that : InitAble[TVal]*)(
       implicit op : InitBuilder, ctx : Alias.Context
     ) : TPostInit = {
-      initialize(LazyBox.Const(self)(op(left, that)), ctx.owner)
+      initialize(op(left, that), ctx.owner)
       this.asInstanceOf[TPostInit]
     }
     //    final def reInit(cond : DFBool) : Unit = ???

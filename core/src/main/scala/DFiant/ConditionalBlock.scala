@@ -68,11 +68,13 @@ protected[DFiant] abstract class ConditionalRetBlock[CB <: ConditionalRetBlock[C
 ) extends ConditionalBlock[CB, RV](Some(returnVar))(prevBlock, block) {self : CB =>
   protected[DFiant] trait __DevConditionalRetBlock extends __DevConditionalBlock {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Conditional Blocks
+    // Initialization
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    val initCB : CacheBoxRO[Seq[RV#TToken]]
   }
   override private[DFiant] lazy val __dev : __DevConditionalRetBlock = ???
   import __dev._
+  returnVar.conditionalBlockDriver.set(Some(self))
 }
 
 
@@ -110,7 +112,13 @@ object ConditionalBlock {
         @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
           if (cond == null) super.discoveryDependenciesStatic
           else super.discoveryDependenciesStatic + cond
+
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Initialization
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = CacheDerivedRO(cond.initCB, returnValue.initCB, nextBlock.get.__dev.initCB) {
+          DFBool.Token.select(cond.initCB, returnValue.initCB, nextBlock.get.__dev.initCB)
+        }
       }
       override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
       import __dev._
@@ -122,7 +130,7 @@ object ConditionalBlock {
       : RV = {
         val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
 
-        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
+//        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
 
@@ -166,6 +174,11 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override val nameScala: String = s"$ctx${Name.Separator}else"
         override def codeString: String = s".elsedf {$bodyCodeString\n}"
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Initialization
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        override lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = returnValue.initCB
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
@@ -460,6 +473,14 @@ object ConditionalBlock {
           if (prevCase.isDefined && matchHeader.hasOverlappingCases)
             super.discoveryDependenciesStatic +  matchHeader + prevCase.get
           else super.discoveryDependenciesStatic + matchHeader
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Initialization
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        private lazy val patternLB = CacheDerivedRO(matchVal.initCB)(DFAny.Token.patternMatch(matchVal.initCB, pattern))
+        lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = CacheDerivedRO(patternLB, returnValue.initCB, nextBlock.get.__dev.initCB){
+          DFBool.Token.select(patternLB, returnValue.initCB, nextBlock.get.__dev.initCB)
+        }
       }
       override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
       import __dev._
@@ -470,11 +491,11 @@ object ConditionalBlock {
       def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[R])
       : RV = {
         val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
+//        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
       def enddf(implicit ctx : Context) : RV = {
-        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
+//        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
 
@@ -497,6 +518,11 @@ object ConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         override val nameScala: String = s"$ctx${Name.Separator}case_"
         override def codeString: String = s".casedf_ {$bodyCodeString\n}"
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Initialization
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        override lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = returnValue.initCB
       }
       override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
       import __dev._
