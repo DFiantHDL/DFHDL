@@ -555,6 +555,12 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final val conditionalBlockDriver = CacheBoxRW[Option[ConditionalBlock[_,_]]](None)
+//      final val conditionalBlockInit = CacheBoxRO(conditionalBlockDriver) {
+//        conditionalBlockDriver.getOrElse()
+//      }
+      private val initExternalCB = CacheBoxRW[Seq[TToken]](Seq())
+
       override lazy val initLB : LazyBox[Seq[TToken]] =
         LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](self)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
       private val initExternalLB = LazyBox.Mutable[Seq[TToken]](self)(Seq())
