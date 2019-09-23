@@ -544,7 +544,7 @@ object DFAny {
       private lazy val initDeps = CacheDerivedRO(conditionalBlockDriver, initExternalCB, initConnectedCB) {
         conditionalBlockDriver.map(c => c.__dev.initCB).toList :+ initExternalCB :+ initConnectedCB
       }
-      override lazy val initCB: CacheBoxRO[Seq[TToken]] = CacheDerivedRO(initDeps){
+      lazy val initExternalOrInternalCB: CacheBoxRO[Seq[TToken]] = CacheDerivedRO(initDeps){
         conditionalBlockDriver.unbox match {
           case Some(c) => c.__dev.initCB.unbox.asInstanceOf[Seq[TToken]]
           case None => initExternalCB.unbox match {
@@ -553,6 +553,7 @@ object DFAny {
           }
         }
       }
+      override lazy val initCB: CacheBoxRO[Seq[TToken]] = initExternalOrInternalCB
 
       //If there is a connection to the specific bits, then the initialization uses that connection.
       //Otherwise, the initialization uses the initialization set externally (via init or initialize)
@@ -1055,7 +1056,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override lazy val initCB : CacheBoxRO[Seq[TToken]] = owner match {
         case x : DFBlackBox if dir.isOut => x.initOf(self)
-        case _ => initConnectedCB
+        case _ => initExternalOrInternalCB
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
