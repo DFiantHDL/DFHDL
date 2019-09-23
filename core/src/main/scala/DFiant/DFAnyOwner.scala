@@ -33,8 +33,8 @@ trait DFAnyMember extends DSLMemberConstruct {self =>
     protected[DFiant] def isUsed : Boolean = owner.discoveredMembers.contains(self)
     final override val ownerOption : Option[DFAnyOwner] = ctx.ownerOption
     @inline private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] = ownerOption.toSet
-    private lazy val temp : CacheBoxRO[Set[DFAnyMember]] = CacheBoxRO(discoveryDependenciesStatic)
-    @inline private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
+    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = CacheBoxRO(discoveryDependenciesStatic)
+    @inline private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
     final val kept = CacheBoxRW(false)
   }
   override private[DFiant] lazy val __dev : __DevDFAnyMember = ???
@@ -81,9 +81,9 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
       member.__dev.kept.set(true)
       keep //also keep the owner chain
     }
-    private lazy val temp : CacheBoxRO[Set[DFAnyMember]] =
+    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
       CacheDerivedRO(keepMembers, super.discoveryDependencies)(super.discoveryDependencies ++ keepMembers)
-    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
     val discoveredSet : CacheBoxRO[Set[DFAnyMember]]
     final override protected[DFiant] def isUsed : Boolean = ownerOption match {
       case Some(o) => super.isUsed

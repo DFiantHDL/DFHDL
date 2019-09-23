@@ -132,10 +132,10 @@ trait DFSimulator extends DFDesign {
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //for simulation we discover all top design output ports
-    private lazy val temp : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(members, super.discoveryDependencies)(
+    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(members, super.discoveryDependencies)(
       super.discoveryDependencies ++ members.flatMap{case m : DFDesign => m.portsOut}
     )
-    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
 
     //for simulation we discover all direct members and the top modules output ports
     override lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(members) {

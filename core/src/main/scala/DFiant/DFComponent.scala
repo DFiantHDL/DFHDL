@@ -41,9 +41,9 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private lazy val temp : CacheBoxRO[Set[DFAnyMember]] =
+    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
       CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
-    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = temp
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
 //    override lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] =
 //      CacheDerivedRO(keepMembers, discoveredOutputs, foldRequest) {
 //        discover(Set(), discoveredOutputs)
