@@ -84,13 +84,6 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
     inRight.connectWith(rightArg)
 //    outResult.connectVal2Port(this)
   }
-
-  //TODO: leftArg, rightArg
-  override protected def foldedRun: Unit = {
-    outResult.setInitFunc.forced(initLB)
-  }
-
-  final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
 }
 object DFFunc2 {
   implicit def fetchDev(from : DFFunc2[_,_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev

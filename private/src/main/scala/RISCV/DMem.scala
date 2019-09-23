@@ -47,7 +47,7 @@ class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : DFDesign.ContextOf
 
 class DMem_Bram(programDMem : ProgramDMem)(implicit ctx : RTComponent.Context) extends RTComponent with DMem_Bram_Ifc {
   final val clka  = Clock()
-  //  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
+
 }
 
 class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : DFDesign.ContextOf[DMem]) extends DFDesign {

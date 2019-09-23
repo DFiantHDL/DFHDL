@@ -595,9 +595,6 @@ object DFAny {
         initExternalLB.set(updatedInit)
         initExternalCB.set(Some(updatedInit))
       }
-      object setInitFunc {
-        def forced(value : LazyBox[Seq[Token]]) : Unit = initExternalLB.set(value.asInstanceOf[LazyBox[Seq[TToken]]])
-      }
       final def initCodeString : String = if (isInitialized) s" init${initExternalCB.get.codeString}" else ""
     }
     override private[DFiant] lazy val __dev : __DevInitializable = ???

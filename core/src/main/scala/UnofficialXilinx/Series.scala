@@ -32,7 +32,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)((l, r) => l + r))
       }
 
       class RTSub(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -40,7 +40,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.-, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)((l, r) => l - r))
       }
 
       class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -48,7 +48,7 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFUInt(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.*, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)((l, r) => l * r))
       }
 
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
@@ -56,14 +56,16 @@ trait Series {
         final val A = DFUInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFBool() <> OUT
-        opString match {
-          case "==" => setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.==, getInit(A), getInit(B)))
-          case "!=" => setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.!=, getInit(A), getInit(B)))
-          case "<"  => setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.<, getInit(A), getInit(B)))
-          case ">"  => setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.>, getInit(A), getInit(B)))
-          case "<=" => setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.<=, getInit(A), getInit(B)))
-          case ">=" => setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.>=, getInit(A), getInit(B)))
-        }
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B){
+          opString match {
+            case "==" => (l, r) => l == r
+            case "!=" => (l, r) => l != r
+            case "<"  => (l, r) => l <  r
+            case ">"  => (l, r) => l >  r
+            case "<=" => (l, r) => l <= r
+            case ">=" => (l, r) => l >= r
+          }
+        })
       }
 
       implicit val `Comp+` : `Comp+` => Unit = comp => {
@@ -144,7 +146,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFSInt(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.+, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)((l, r) => l + r))
       }
 
       class RTSub(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -152,7 +154,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFSInt(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.-, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)((l, r) => l - r))
       }
 
       class RTMul(aWidth : Int, bWidth : Int, sWidth : Int)
@@ -160,7 +162,7 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFSInt(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.*, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)((l, r) => l * r))
       }
 
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
@@ -168,14 +170,16 @@ trait Series {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFSInt(bWidth) <> IN
         final val S = DFBool() <> OUT
-        opString match {
-          case "==" => setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.==, getInit(A), getInit(B)))
-          case "!=" => setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.!=, getInit(A), getInit(B)))
-          case "<"  => setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.<, getInit(A), getInit(B)))
-          case ">"  => setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.>, getInit(A), getInit(B)))
-          case "<=" => setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.<=, getInit(A), getInit(B)))
-          case ">=" => setInitFunc(S)(LazyBox.Args2(this)(DFSInt.Token.>=, getInit(A), getInit(B)))
-        }
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B){
+          opString match {
+            case "==" => (l, r) => l == r
+            case "!=" => (l, r) => l != r
+            case "<"  => (l, r) => l <  r
+            case ">"  => (l, r) => l >  r
+            case "<=" => (l, r) => l <= r
+            case ">=" => (l, r) => l >= r
+          }
+        })
       }
 
       implicit val `Comp+` : `Comp+` => Unit = comp => {
@@ -243,23 +247,23 @@ trait Series {
         rtInst.S <> outResult
       }
       class RTInfixShiftOp(opString : String)(aWidth : Int, bWidth : Int)
-        (initFunc : (Seq[DFSInt.Token], Seq[DFUInt.Token]) => Seq[DFSInt.Token])
+        (func : (DFSInt.Token, DFUInt.Token) => DFSInt.Token)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFSInt(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFSInt(aWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(initFunc, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)(func))
       }
       implicit val `Comp<<` : `Comp<<` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixShiftOp("<<")(leftWidth, rightWidth)(DFSInt.Token.<<)
+        val rtInst = new RTInfixShiftOp("<<")(leftWidth, rightWidth)((l, r) => l << r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp>>` : `Comp>>` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixShiftOp(">>")(leftWidth, rightWidth)(DFSInt.Token.>>)
+        val rtInst = new RTInfixShiftOp(">>")(leftWidth, rightWidth)((l, r) => l >> r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
@@ -274,74 +278,74 @@ trait Series {
     object DFBitsOps extends TargetLib.DFBitsOps {
       import DFiant.targetlib.DFBitsOps._
       class RTInfixBitwiseOp(opString : String)(aWidth : Int, bWidth : Int, sWidth : Int)
-        (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBits.Token])
+        (func : (DFBits.Token, DFBits.Token) => DFBits.Token)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBits(sWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(initFunc, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)(func))
       }
       class RTInfixRelationalOp(opString : String)(aWidth : Int, bWidth : Int)
-        (initFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token])
+        (func : (DFBits.Token, DFBits.Token) => DFBool.Token)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFBits(aWidth) <> IN
         final val B = DFBits(bWidth) <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(initFunc, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)(func))
       }
       implicit val `Comp|` : `Comp|` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBitwiseOp("|")(leftWidth, rightWidth, resultWidth)(DFBits.Token.|)
+        val rtInst = new RTInfixBitwiseOp("|")(leftWidth, rightWidth, resultWidth)((l, r) => l | r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp&` : `Comp&` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBitwiseOp("&")(leftWidth, rightWidth, resultWidth)(DFBits.Token.&)
+        val rtInst = new RTInfixBitwiseOp("&")(leftWidth, rightWidth, resultWidth)((l, r) => l & r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp^` : `Comp^` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBitwiseOp("^")(leftWidth, rightWidth, resultWidth)(DFBits.Token.^)
+        val rtInst = new RTInfixBitwiseOp("^")(leftWidth, rightWidth, resultWidth)((l, r) => l ^ r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp==` : `Comp==` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)(DFBits.Token.==)
+        val rtInst = new RTInfixRelationalOp("==")(leftWidth, rightWidth)((l, r) => l == r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp!=` : `Comp!=` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)(DFBits.Token.!=)
+        val rtInst = new RTInfixRelationalOp("!=")(leftWidth, rightWidth)((l, r) => l != r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       class RTInfixShiftOp(opString : String)(aWidth : Int, bWidth : Int)
-        (initFunc : (Seq[DFBits.Token], Seq[DFUInt.Token]) => Seq[DFBits.Token])
+        (func : (DFBits.Token, DFUInt.Token) => DFBits.Token)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFBits(aWidth) <> IN
         final val B = DFUInt(bWidth) <> IN
         final val S = DFBits(aWidth) <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(initFunc, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)(func))
       }
       implicit val `Comp<<` : `Comp<<` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixShiftOp("<<")(leftWidth, rightWidth)(DFBits.Token.<<)
+        val rtInst = new RTInfixShiftOp("<<")(leftWidth, rightWidth)((l, r) => l << r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp>>` : `Comp>>` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixShiftOp(">>")(leftWidth, rightWidth)(DFBits.Token.>>)
+        val rtInst = new RTInfixShiftOp(">>")(leftWidth, rightWidth)((l, r) => l >> r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
@@ -356,44 +360,44 @@ trait Series {
     object DFBoolOps extends TargetLib.DFBoolOps {
       import DFiant.targetlib.DFBoolOps._
       class RTInfixBoolOp(opString : String)
-        (initFunc : (Seq[DFBool.Token], Seq[DFBool.Token]) => Seq[DFBool.Token])
+        (func : (DFBool.Token, DFBool.Token) => DFBool.Token)
         (implicit ctx : RTComponent.Context) extends RTComponent {
         final val A = DFBool() <> IN
         final val B = DFBool() <> IN
         final val S = DFBool() <> OUT
-        setInitFunc(S)(LazyBox.Args2(this)(initFunc, getInit(A), getInit(B)))
+        final override protected val blackBoxFunctions = Map(S -> BlackBoxFunction(S)(A, B)(func))
       }
       implicit val `Comp||` : `Comp||` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBoolOp("||")(DFBool.Token.||)
+        val rtInst = new RTInfixBoolOp("||")((l, r) => l || r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp&&` : `Comp&&` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBoolOp("&&")(DFBool.Token.&&)
+        val rtInst = new RTInfixBoolOp("&&")((l, r) => l && r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp^`  : `Comp^` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBoolOp("^")(DFBool.Token.^)
+        val rtInst = new RTInfixBoolOp("^")((l, r) => l ^ r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp==` : `Comp==` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBoolOp("==")(DFBool.Token.==)
+        val rtInst = new RTInfixBoolOp("==")((l, r) => l == r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult
       }
       implicit val `Comp!=` : `Comp!=` => Unit = comp => {
         import comp._
-        val rtInst = new RTInfixBoolOp("!=")(DFBool.Token.!=)
+        val rtInst = new RTInfixBoolOp("!=")((l, r) => l != r)
         rtInst.A <> inLeft
         rtInst.B <> inRight
         rtInst.S <> outResult

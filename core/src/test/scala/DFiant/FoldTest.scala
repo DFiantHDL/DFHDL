@@ -20,13 +20,13 @@ import DFiant._
 class FoldRTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
   final val I = DFUInt(width) <> IN
   final val O = DFUInt(width) <> OUT
-//  setInitFunc(O)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(I), getInit(I)))
+  final override protected val blackBoxFunctions = Map(O -> BlackBoxFunction(O)(I, I)((l, r) => l + r))
 }
 
 abstract class FoldComp(implicit ctx : DFComponent.Context[FoldComp]) extends DFComponent[FoldComp] {
   val i = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
-  final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
+  final override protected val blackBoxFunctions = Map(o -> BlackBoxFunction(o)(i, i)((l, r) => l + r))
 }
 object FoldComp {
   implicit val ev : FoldComp => Unit = ifc => {

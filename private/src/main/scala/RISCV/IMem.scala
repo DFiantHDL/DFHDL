@@ -31,7 +31,6 @@ trait IMem_Bram_Ifc extends DFInterface {
 
 class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : RTComponent.Context) extends RTComponent with IMem_Bram_Ifc {
   final val clka = Clock()
-  //  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
   //need to generate COE file
 }
 

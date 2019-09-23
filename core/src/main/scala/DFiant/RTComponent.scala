@@ -37,12 +37,6 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
   override implicit def __theOwnerToBe : RTComponent = this
   protected def newGeneric() : Unit = {}
 
-  //final protected def discovery : Unit = {}
-
-  final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[DFVal#TToken]])
-  : Unit = dfVal.setInitFunc.forced(value)
-  final protected def getInit[DFVal <: DFAny](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
-
 //  override lazy val typeName: String =
 //    getClass.getName + args.value.dropRight(1).map(e => e.map(f => f.value).mkString("(",", ",")")).mkString
 
@@ -66,7 +60,6 @@ object RTComponent {
 //class RTOp2[L <: DFAny, R <: DFAny, O <: DFAny.Initializable[_]](val O : O, val L : L, val R : R)
 //  (func : (Seq[L#TToken], Seq[R#TToken]) => Seq[O#TToken])
 //  (implicit ctx : RTComponent.Context) extends RTComponent {
-//  setInitFunc(O)(LazyBox.Args2[Seq[O#TToken], Seq[L#TToken], Seq[R#TToken]](this)(func, getInit(L), getInit(R)))
 //}
 
 sealed abstract class RTOp2(implicit ctx : RTComponent.Context) extends RTComponent { self =>

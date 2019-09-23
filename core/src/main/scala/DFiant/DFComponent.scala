@@ -52,12 +52,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
 
-  protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
-
-  final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])
-  : Unit = dfVal.setInitFunc.forced(value)
-  final protected def getInit[DFVal <: DFAny.Initializable[_]](dfVal : DFVal) : LazyBox[Seq[dfVal.TToken]] = dfVal.initLB
-
   final class InPortExtended(dfVal : DFAny.Port[_ <: DFAny, _ <: IN]) {
     def isOpen : Boolean = !dfVal.isConnected
     def isConstant : Boolean = dfVal.__dev.isConstant

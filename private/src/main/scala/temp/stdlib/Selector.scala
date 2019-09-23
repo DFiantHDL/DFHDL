@@ -49,11 +49,7 @@
 //  inArgs.zip(args).foreach{case (inArg, arg) => inArg.connectVal2Port(arg)}
 //
 //  override def discoveryDependencies: List[DFAnyMember] = super.discoveryDependencies :+ outResult
-//  override protected def foldedRun: Unit = {
-//    outResult.setInitFunc.forced(initLB)
-//  }
 //
-//  final protected val foldedDiscoveryDependencyList = (outResult -> (inArgs :+ inSel)) :: Nil
 //  final val isPort = false
 //
 //  override def refCodeString(implicit callOwner: DSLOwnerConstruct): String =

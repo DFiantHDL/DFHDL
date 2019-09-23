@@ -72,13 +72,13 @@ class ConnectTest extends Properties("ConnectTest") {
   class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
     final val I = DFUInt(width) <> IN
     final val O = DFUInt(width) <> OUT
-    setInitFunc(O)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(I), getInit(I)))
+    final override protected val blackBoxFunctions = Map(O -> BlackBoxFunction(O)(I, I)((l, r) => l + r))
   }
 
   trait Comp extends DFComponent[Comp] {
     val i = DFUInt(8) <> IN
     val o = DFUInt(8) <> OUT
-    final protected val foldedDiscoveryDependencyList = (o -> (i :: Nil)) :: Nil
+    final override protected val blackBoxFunctions = Map(o -> BlackBoxFunction(o)(i, i)((l, r) => l + r))
   }
   object Comp {
     implicit val ev : Comp => Unit = ifc => {

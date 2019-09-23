@@ -35,7 +35,6 @@ trait Bug1 extends DFDesign {
 //  final val clka = Clock()
 //  final val addra = DFBits(12) <> IN
 //  final val douta = DFBits(32) <> OUT
-////  setInitFunc(S)(LazyBox.Args2(this)(DFUInt.Token.+, getInit(A), getInit(B)))
 //}
 
 trait Inst extends DFDesign {

@@ -28,16 +28,14 @@ object DFSIntOps {
     final val inLeft = DFSInt(leftWidth) <> IN
     final val inRight = DFSInt(rightWidth) <> IN
     final val outResult = DFSInt(resultWidth) <> OUT
-    override protected def foldedRun: Unit = {
-      val func = kind match {
-        case _: DiSoOp.Kind.+ => DFSInt.Token.+
-        case _: DiSoOp.Kind.- => DFSInt.Token.-
-        case _: DiSoOp.Kind.* => DFSInt.Token.*
+    final override protected val blackBoxFunctions = Map(outResult -> BlackBoxFunction(outResult)(inLeft, inRight){
+      (l, r) => kind match {
+        case _: DiSoOp.Kind.+ => l + r
+        case _: DiSoOp.Kind.- => l - r
+        case _: DiSoOp.Kind.* => l * r
         case _ => throw new IllegalArgumentException("Unexptected operation")
       }
-      setInitFunc(outResult)(LazyBox.Args2(this)(func, getInit(inLeft), getInit(inRight)))
-    }
-    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
+    })
   }
 
   type `Comp+` = Arithmetic[DiSoOp.Kind.+]
@@ -51,7 +49,17 @@ object DFSIntOps {
     final val inLeft = DFSInt(leftWidth) <> IN
     final val inRight = DFSInt(rightWidth) <> IN
     final val outResult = DFBool() <> OUT
-    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
+    final override protected val blackBoxFunctions = Map(outResult -> BlackBoxFunction(outResult)(inLeft, inRight){
+      (l, r) => kind match {
+        case _: DiSoOp.Kind.== => l == r
+        case _: DiSoOp.Kind.!= => l != r
+        case _: DiSoOp.Kind.<  => l <  r
+        case _: DiSoOp.Kind.>  => l >  r
+        case _: DiSoOp.Kind.<= => l <= r
+        case _: DiSoOp.Kind.>= => l >= r
+        case _ => throw new IllegalArgumentException("Unexptected operation")
+      }
+    })
   }
 
   type `Comp==` = Relational[DiSoOp.Kind.==]
@@ -68,15 +76,13 @@ object DFSIntOps {
     final val inLeft = DFSInt(leftWidth) <> IN
     final val inRight = DFUInt(rightWidth) <> IN
     final val outResult = DFSInt(leftWidth) <> OUT
-    override protected def foldedRun: Unit = {
-      val func = kind match {
-        case _: DiSoOp.Kind.<< => DFSInt.Token.<<
-        case _: DiSoOp.Kind.>> => DFSInt.Token.>>
+    final override protected val blackBoxFunctions = Map(outResult -> BlackBoxFunction(outResult)(inLeft, inRight){
+      (l, r) => kind match {
+        case _: DiSoOp.Kind.<< => l << r
+        case _: DiSoOp.Kind.>> => l >> r
         case _ => throw new IllegalArgumentException("Unexptected operation")
       }
-      setInitFunc(outResult)(LazyBox.Args2(this)(func, getInit(inLeft), getInit(inRight)))
-    }
-    final protected val foldedDiscoveryDependencyList = (outResult -> (inLeft :: inRight :: Nil)) :: Nil
+    })
   }
 
   type `Comp<<` = BitShift[DiSoOp.Kind.<<]
