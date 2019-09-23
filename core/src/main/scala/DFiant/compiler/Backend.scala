@@ -381,7 +381,7 @@ object Backend {
             case DFAny.Alias.Reference.Prev(aliasedVar, step) =>
               val ref = References(aliasedVar).sigport
               val refName = ref.name
-              val initSeq = ref.member.initLB.get
+              val initSeq = ref.member.initCB.unbox
               if (step > ref.maxPrevUse) {
                 for (i <- ref.maxPrevUse+1 to step) {
                   val sig = new architecture.declarations.signal(ref.member, Name(s"${refName}_prev$i"))
@@ -738,8 +738,8 @@ object Backend {
             val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
             dstSig.maxPrevUse = 1
             architecture.statements.async_process.assignment(dstVar, dstSigP1)
-            if (x.initLB.get.nonEmpty)
-              architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
+            if (x.initCB.nonEmpty)
+              architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initCB.head))
             architecture.statements.sync_process.assignment(dstSigP1, dstSig)
           }
         }
@@ -752,8 +752,8 @@ object Backend {
             val dstSigP1 = new architecture.declarations.signal(x, Name(s"${dstSig.name}_prev1"))
             dstSig.maxPrevUse = 1
             architecture.statements.async_process.assignment(dstVar, dstSigP1)
-            if (x.initLB.get.nonEmpty)
-              architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initLB.get.head))
+            if (x.initCB.nonEmpty)
+              architecture.statements.sync_process.resetStatement(dstSigP1, Value(x, x.initCB.head))
             //          else throw new IllegalArgumentException(s"\nUninitialized state variable ${x.fullName} may lead to deadlocks")
             architecture.statements.sync_process.assignment(dstSigP1, dstSig)
           }

@@ -72,7 +72,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
       ref.applyBrackets() //TODO: consider other way instead of this hack
     }
     private def initCommentString : String =
-      if (__config.commentInitValues || owner.privShowInits) s"//init = ${initLB.get.codeString}" else ""
+      if (__config.commentInitValues || owner.privShowInits) s"//init = ${initCB.unbox.codeString}" else ""
     private def latencyCommentString : String =
       if (__config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${thisSourceLB.get.latencyString}" else ""
     private def connCommentString : String =
@@ -90,7 +90,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Init (for use with Prev)
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     val initCB : CacheBoxRO[Seq[TToken]]
-    val initLB : LazyBox[Seq[TToken]]
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constant
@@ -475,18 +474,6 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private def initFunc(source : Source) : Seq[TToken] = {
-        val bitsTokenSeq : Seq[DFBits.Token] = source.elements.map(x =>
-          x.aliasTag match {
-            case Some(t) =>
-              val selBits = t.dfVal.initLB.get.bitsWL(x.relWidth, x.relBitLow)
-              val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
-              val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
-              if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
-            case None => Seq()
-          }).reduce(DFBits.Token.concat)
-        bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
-      }
       private lazy val connectionInits = CacheDerivedRO(connections)(connections.elements.collect {
         case e if e.aliasTag.isDefined => e.aliasTag.get.dfVal.initCB
       })
@@ -504,9 +491,6 @@ object DFAny {
       }
       lazy val initCB : CacheBoxRO[Seq[TToken]] = initConnectedCB
       lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
-      lazy val initConnectedLB : LazyBox[Seq[TToken]] =
-        LazyBox.Args1[Seq[TToken], Source](self)(initFunc, initSourceLB)
-      lazy val initLB : LazyBox[Seq[TToken]] = initConnectedLB
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Constant
@@ -570,10 +554,6 @@ object DFAny {
         }
       }
 
-      override lazy val initLB : LazyBox[Seq[TToken]] =
-        LazyBox.Args3[Seq[TToken], Source, Seq[TToken], Seq[TToken]](self)(initFunc, initSourceLB, initConnectedLB, initExternalLB)
-      private val initExternalLB = LazyBox.Mutable[Seq[TToken]](self)(Seq())
-
       //If there is a connection to the specific bits, then the initialization uses that connection.
       //Otherwise, the initialization uses the initialization set externally (via init or initialize)
       private def initFunc(connectedSource : Source, initConnected : Seq[TToken], initExternal : Seq[TToken]) : Seq[TToken] = {
@@ -592,7 +572,6 @@ object DFAny {
       final def initialize(updatedInit : Seq[TToken], owner : DFAnyOwner) : Unit = {
         if (isInitialized) throw new IllegalArgumentException(s"${self.fullName} already initialized")
         if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${self.fullName}) is not at the same design as this call (${owner.fullName})")
-        initExternalLB.set(updatedInit)
         initExternalCB.set(Some(updatedInit))
       }
       final def initCodeString : String = if (isInitialized) s" init${initExternalCB.get.codeString}" else ""
@@ -913,8 +892,6 @@ object DFAny {
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       lazy val initCB : CacheBoxRO[Seq[TToken]] = CacheBoxRO(Seq(token).asInstanceOf[Seq[TToken]])
-      final lazy val initLB : LazyBox[Seq[TToken]] =
-        LazyBox.Const(self)(Seq(token).asInstanceOf[Seq[TToken]])
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Constant

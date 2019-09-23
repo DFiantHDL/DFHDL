@@ -129,15 +129,9 @@ object ConditionalBlock {
       def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[R])
       : RV = {
         val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-
-//        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
 
-      protected lazy val initLB : LazyBox[Seq[RV#TToken]] =
-        LazyBox.Args3[Seq[RV#TToken], Seq[DFBool.Token], Seq[RV#TToken], Seq[RV#TToken]](this)(
-          DFBool.Token.select, cond.initLB, returnValue.initLB, nextBlock.get.initLB
-        )
     }
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
@@ -182,8 +176,6 @@ object ConditionalBlock {
       }
       override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
       import __dev._
-
-      override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
     }
 
     def apply[R](cond: DFBool)(block: => Able[R])(
@@ -491,17 +483,13 @@ object ConditionalBlock {
       def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[R])
       : RV = {
         val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-//        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
       def enddf(implicit ctx : Context) : RV = {
-//        returnVar.initialize(firstBlock.initLB.asInstanceOf[LazyBox[Seq[returnVar.TToken]]], ctx.owner)
         returnVar.asInstanceOf[RV]
       }
 
       protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
-      private lazy val patternLB : LazyBox[Seq[DFBool.Token]] = LazyBox.Args1C(this)(DFAny.Token.patternMatch[matchVal.TToken, matchVal.TToken#TPattern], matchVal.initLB, pattern.asInstanceOf[matchVal.TToken#TPattern])
-      protected lazy val initLB : LazyBox[Seq[RV#TToken]] = LazyBox.Args3[Seq[RV#TToken],Seq[DFBool.Token],Seq[RV#TToken],Seq[RV#TToken]](this)(DFBool.Token.select, patternLB, returnValue.initLB, nextBlock.get.initLB)
     }
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
@@ -526,8 +514,6 @@ object ConditionalBlock {
       }
       override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
       import __dev._
-
-      override lazy val initLB : LazyBox[Seq[RV#TToken]] = returnValue.initLB
     }
 
     def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
