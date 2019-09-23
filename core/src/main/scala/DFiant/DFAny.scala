@@ -1069,7 +1069,7 @@ object DFAny {
       // Initialization
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override lazy val initCB : CacheBoxRO[Seq[TToken]] = owner match {
-        case x : DFComponent[_] if dir.isOut => x.initOf(self)
+        case x : DFBlackBox if dir.isOut => x.initOf(self)
         case _ => initConnectedCB
       }
 

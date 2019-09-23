@@ -21,28 +21,22 @@ import DFiant.internals._
 
 import scala.collection.mutable.ListBuffer
 
-abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFInterface {
+abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecode.Args) extends DFBlackBox {
   final private[DFiant] override lazy val ctx = ctx0
-  protected[DFiant] trait __DevRTComponent extends __DevDFInterface {
+  protected[DFiant] trait __DevRTComponent extends __DevDFBlackBox {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def codeString: String = {
       s"\nval $name = new $typeName {}"
     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Member discovery
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-      CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
-    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
   }
   override private[DFiant] lazy val __dev : __DevRTComponent = new __DevRTComponent {}
   import __dev._
 
   override implicit def __theOwnerToBe : RTComponent = this
   protected def newGeneric() : Unit = {}
+
   //final protected def discovery : Unit = {}
 
   final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[DFVal#TToken]])

@@ -23,9 +23,9 @@ import internals._
 import scala.collection.immutable
 
 abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent.Context[Comp], args : sourcecode.Args)
-  extends DFDesign with DSLFoldableOwnerConstruct { self : Comp =>
+  extends DFDesign with DFBlackBox with DSLFoldableOwnerConstruct { self : Comp =>
 
-  protected[DFiant] trait __DevDFComponent extends __DevDFDesign with __DevDSLFoldableOwnerConstruct {
+  protected[DFiant] trait __DevDFComponent extends __DevDFDesign with __DevDFBlackBox with __DevDSLFoldableOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,17 +39,6 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Member discovery
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-      CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
-    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
-//    override lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] =
-//      CacheDerivedRO(keepMembers, discoveredOutputs, foldRequest) {
-//        discover(Set(), discoveredOutputs)
-//      }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final override private[DFiant] def preFoldUnfold(): Unit = {
@@ -60,32 +49,9 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
       ctx.impl(self)
 //      portsOut.foreach(p => p.rediscoverDependencies())
     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Initialization
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
-      val ff = foldedFunctions(dfVal)
-      val inputInits = ff.inputs.map(i => i.initCB)
-
-      CacheDerivedRO(inputInits) {
-        ff.init.asInstanceOf[Seq[dfVal.TToken]]
-      }
-    }
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
 
-  abstract class FoldedFunction[O <: DFAny] private (val output : O)(val inputs : List[DFAny]) {
-    def init : Seq[output.TToken]
-
-  }
-  object FoldedFunction {
-    def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (l.TToken, r.TToken) => o.TToken) =
-      new FoldedFunction(o)(List(l, r)) {
-        def init: Seq[output.TToken] = DFAny.TokenSeq(l.initCB.unbox, r.initCB.unbox)(func).asInstanceOf[Seq[output.TToken]]
-      }
-  }
-  protected val foldedFunctions : Map[DFAny, FoldedFunction[_]] = Map()
   protected val foldedDiscoveryDependencyList : List[Tuple2[DFAny.Port[_ <: DFAny, _ <: OUT],List[DFAny.Port[_ <: DFAny, _ <: IN]]]]
 
   final protected def setInitFunc[DFVal <: DFAny.Initializable[_]](dfVal : DFVal)(value : LazyBox[Seq[dfVal.TToken]])

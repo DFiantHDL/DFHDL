@@ -73,7 +73,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
 
   final val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](_width)
   protected val tokenFunc : (L#TToken, R#TToken) => TToken
-  override protected val foldedFunctions : Map[DFAny, FoldedFunction[_]] = Map(self -> FoldedFunction(self)(leftArg, rightArg)(tokenFunc))
+  override protected val blackBoxFunctions : Map[DFAny, BlackBoxFunction[_]] = Map(self -> BlackBoxFunction(self)(leftArg, rightArg)(tokenFunc))
 
   final val inLeft = leftArg.copyAsNewPort(IN)
   final val inRight = rightArg.copyAsNewPort(IN)
