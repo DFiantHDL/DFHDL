@@ -30,7 +30,7 @@ protected trait DFBlackBox extends DFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Initialization
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
+    private[DFiant] final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
       val ff = blackBoxFunctions(dfVal)
       val inputInits = ff.inputs.map(i => i.initCB)
 
@@ -42,11 +42,11 @@ protected trait DFBlackBox extends DFInterface {
   override private[DFiant] lazy val __dev : __DevDFBlackBox = ???
   import __dev._
 
-  abstract class BlackBoxFunction[O <: DFAny] private (val output : O)(val inputs : List[DFAny]) {
+  protected abstract class BlackBoxFunction[O <: DFAny] private (val output : O)(val inputs : List[DFAny]) {
     def init : Seq[output.TToken]
 
   }
-  object BlackBoxFunction {
+  protected object BlackBoxFunction {
     def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (l.TToken, r.TToken) => o.TToken) =
       new BlackBoxFunction(o)(List(l, r)) {
         def init: Seq[output.TToken] = DFAny.TokenSeq(l.initCB.unbox, r.initCB.unbox)(func).asInstanceOf[Seq[output.TToken]]
