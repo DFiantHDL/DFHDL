@@ -555,20 +555,6 @@ object DFAny {
       }
       override lazy val initCB: CacheBoxRO[Seq[TToken]] = initExternalOrInternalCB
 
-      //If there is a connection to the specific bits, then the initialization uses that connection.
-      //Otherwise, the initialization uses the initialization set externally (via init or initialize)
-      private def initFunc(connectedSource : Source, initConnected : Seq[TToken], initExternal : Seq[TToken]) : Seq[TToken] = {
-        var lsbitPos : Int = width
-        val bitsTokenSeq : Seq[DFBits.Token] = connectedSource.elements.map(x => {
-          lsbitPos -= x.relWidth
-          x.aliasTag match {
-            case Some(t) => initConnected.bitsWL(x.relWidth, lsbitPos)
-            case None => initExternal.bitsWL(x.relWidth, lsbitPos)
-          }
-        }).reduce(DFBits.Token.concat)
-        bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
-      }
-
       def isInitialized : Boolean = initExternalCB.isDefined
       final def initialize(updatedInit : Seq[TToken], owner : DFAnyOwner) : Unit = {
         if (isInitialized) throw new IllegalArgumentException(s"${self.fullName} already initialized")
@@ -698,6 +684,12 @@ object DFAny {
         toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
         toVar.protAssignDependencies += fromVal
       }
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Initialization
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      private val initDeps = CacheDerivedRO()()
+      override lazy val initCB: CacheBoxRO[Seq[TToken]] = ???
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source

@@ -75,9 +75,18 @@ trait Simy extends DFSimulator {
 //  cont.o <> o
 }
 
+
+trait IODesignConn1 extends DFDesign {
+  val i = DFUInt(8) <> IN init(1,2)
+  val o = DFUInt(8) <> OUT
+  val ip = i.prev
+  o <> ip
+}
+
 object Bla extends DFApp {
-  val bla = new Cont {}.printVHDLString
-  import internals._
-  println(bla.netsTo)
-  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
+  implicit val config = DFAnyConfiguration.detailed
+  val bla = new IODesignConn1 {}.printCodeString
+//  import internals._
+//  println(bla.i.initCB)
+//  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }
