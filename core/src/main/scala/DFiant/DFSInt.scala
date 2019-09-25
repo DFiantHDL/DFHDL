@@ -161,7 +161,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Token private[DFiant] (width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, Pattern] {
+  case class Token private[DFiant] (width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, Pattern] with DFAny.Token.Resizable {
     protected[DFiant] type TToken = Token
     lazy val valueBits : BitVector = value.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
@@ -184,6 +184,11 @@ object DFSInt extends DFAny.Companion {
     final def != (that : Token) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
     final def << (that : DFUInt.Token) : Token = mkTokenS(that, this.value << that.value.toInt, this.width)
     final def >> (that : DFUInt.Token) : Token = mkTokenS(that, this.value >> that.value.toInt, this.width)
+    def resize(toWidth : Int) : Token = {
+      if (toWidth > width) Token(toWidth, value, bubble)
+      else if (toWidth < width) bits.resize(toWidth).toSInt
+      else this
+    }
   }
 
   object Token extends TokenCO {
@@ -201,6 +206,7 @@ object DFSInt extends DFAny.Companion {
     val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
     val << : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l << r)
     val >> : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
+    def resize(left : Seq[Token], toWidth : Int) : Seq[Token] = TokenSeq(left)(t => t.resize(toWidth))
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))

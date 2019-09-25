@@ -688,8 +688,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Initialization
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private val initDeps = CacheDerivedRO()()
-      override lazy val initCB: CacheBoxRO[Seq[TToken]] = ???
+      override lazy val initCB: CacheBoxRO[Seq[TToken]] = reference.initCB.asInstanceOf[CacheBoxRO[Seq[TToken]]]
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
@@ -738,6 +737,7 @@ object DFAny {
       lazy val aliasCodeString : String = aliasCodeString_
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String
       def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit
+      val initCB : CacheBoxRO[Seq[Token]]
       val source : Source
       val sourceLB : LazyBox[Source]
     }
@@ -756,6 +756,7 @@ object DFAny {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
           aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
+        lazy val initCB : CacheBoxRO[Seq[Token]] = aliasedVal.initCB
         lazy val source : Source = aliasedVal.source
         lazy val sourceLB: LazyBox[Source] = aliasedVal.thisSourceLB
       }
@@ -774,6 +775,10 @@ object DFAny {
         //TODO: something with balancing upon reading a complete value
         //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        private lazy val initDeps = aliasedVars.map(a => a.initCB)
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(initDeps){
+          initDeps.map(i => i.unbox.asInstanceOf[Seq[DFBits.Token]]).reduce(DFBits.Token.concat)
+        }
         lazy val source : Source = Source(aliasedVals.flatMap(a => a.source.elements)).coalesce
         lazy val sourceLB: LazyBox[Source] = LazyBox.ArgList[Source, Source](aliasedVals.head)(
           s => Source(s.flatMap(a => a.elements)).coalesce, aliasedVals.map(a => a.thisSourceLB))
@@ -787,6 +792,9 @@ object DFAny {
         override val width: Int = relWidth
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          aliasedVal.initCB.unbox.bitsWL(relWidth, relBitLow)
+        }
         lazy val source : Source = aliasedVal.source.bitsWL(relWidth, relBitLow)
         lazy val sourceLB : LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
           s => s.bitsWL(relWidth, relBitLow), aliasedVal.thisSourceLB)
@@ -800,6 +808,9 @@ object DFAny {
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
         val isAssignable : Boolean = false
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val initCB : CacheBoxRO[Seq[Token]] = CacheDerivedRO(aliasedVal.initCB){
+          aliasedVal.initCB.unbox.prevInit(step)
+        }
         lazy val source : Source = aliasedVal.source.prev(step)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
           s => s.prev(step), aliasedVal.thisSourceLB)
@@ -812,6 +823,9 @@ object DFAny {
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
         val isAssignable : Boolean = false
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val initCB : CacheBoxRO[Seq[Token]] = CacheDerivedRO(aliasedVal.initCB){
+          aliasedVal.initCB.unbox.prevInit(step)
+        }
         lazy val source : Source = aliasedVal.source.pipe(step)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
           s => s.pipe(step), aliasedVal.thisSourceLB)
@@ -834,6 +848,9 @@ object DFAny {
         override val width: Int = toWidth
         val isAssignable : Boolean = false
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val initCB : CacheBoxRO[Seq[Token]] = CacheDerivedRO(aliasedVal.initCB){
+          TokenSeq(aliasedVal.initCB.unbox.asInstanceOf[Seq[Token.Resizable]])(t => t.resize(toWidth))
+        }
         lazy val source : Source = aliasedVal.source.resize(toWidth)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
           s => s.resize(toWidth), aliasedVal.thisSourceLB)
@@ -847,6 +864,9 @@ object DFAny {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
           aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          DFBits.Token.reverse(aliasedVal.initCB.unbox.asInstanceOf[Seq[DFBits.Token]])
+        }
         lazy val source : Source = aliasedVal.source.reverse
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
           s => s.reverse, aliasedVal.thisSourceLB)
@@ -859,6 +879,9 @@ object DFAny {
         extends SingleReference(refVar, aliasCodeString) {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          DFBits.Token.unary_~(aliasedVal.initCB.unbox.asInstanceOf[Seq[DFBits.Token]])
+        }
         lazy val source : Source = aliasedVal.source.invert
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
           s => s.invert, aliasedVal.thisSourceLB)
@@ -1155,6 +1178,9 @@ object DFAny {
   }
 
   object Token {
+    trait Resizable extends Token {
+      def resize(toWidth : Int) : TToken
+    }
     abstract class Of[V, P <: DFAny.Pattern[P]{type TValue = V}](implicit codeStringOf : CodeStringOf[V]) extends Token {
       type TValue = V
       protected[DFiant] type TPattern = P

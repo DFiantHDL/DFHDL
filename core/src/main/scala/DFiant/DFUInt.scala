@@ -166,7 +166,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Token private[DFiant] (width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, Pattern] {
+  case class Token private[DFiant] (width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, Pattern] with DFAny.Token.Resizable {
     protected[DFiant] type TToken = Token
     lazy val valueBits : BitVector = value.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
@@ -187,6 +187,7 @@ object DFUInt extends DFAny.Companion {
     final def >= (that : Token) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
     final def == (that : Token) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     final def != (that : Token) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def resize(toWidth : Int) : Token = bits.resize(toWidth).toUInt
     def select[ST <: DFAny.Token](list : List[ST]) : ST = {
       if (this.isBubble) list.head.toBubbleToken.asInstanceOf[ST]
       else list(this.value.toInt)
@@ -206,12 +207,13 @@ object DFUInt extends DFAny.Companion {
     val >= : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l >= r)
     val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
     val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
+    def resize(left : Seq[Token], toWidth : Int) : Seq[Token] = TokenSeq(left)(t => t.resize(toWidth))
     def select[ST <: DFAny.Token](sel : Seq[Token], list : List[Seq[ST]]) : Seq[ST] = TokenSeq(sel, list)((s, l) => s.select(l))
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : BigInt) : Token = {
-      if (value < 0 ) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
+      if (value < 0) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
       assert(value.bitsWidth <= width, s"\nThe init value $value width must smaller or equal to $width")
       new Token(width, value, false)
     }

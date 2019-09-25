@@ -263,62 +263,67 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Token private[DFiant] (width : Int, valueBits : BitVector, bubbleMask : BitVector) extends DFAny.Token.Of[BitVector, Pattern] {
+  final case class Token private[DFiant] (width : Int, valueBits : BitVector, bubbleMask : BitVector) extends DFAny.Token.Of[BitVector, Pattern] with DFAny.Token.Resizable {
     protected[DFiant] type TToken = Token
     final val value = valueBits
     def toBubbleToken : Token = Token(width, Bubble)
-    final def | (that : Token) : Token = {
+    def | (that : Token) : Token = {
       val outWidth = scala.math.max(this.width, that.width)
       val outBitsValue = this.valueBits | that.valueBits
       val outBubbleMask = this.bubbleMask | that.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def & (that : Token) : Token = {
+    def & (that : Token) : Token = {
       val outWidth = scala.math.max(this.width, that.width)
       val outBitsValue = this.valueBits & that.valueBits
       val outBubbleMask = this.bubbleMask | that.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def ^ (that : Token) : Token = {
+    def ^ (that : Token) : Token = {
       val outWidth = scala.math.max(this.width, that.width)
       val outBitsValue = this.valueBits ^ that.valueBits
       val outBubbleMask = this.bubbleMask | that.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def ## (that : Token) : Token = {
+    def ## (that : Token) : Token = {
       val outWidth = this.width + that.width
       val outBitsValue = this.valueBits ++ that.valueBits
       val outBubbleMask = this.bubbleMask ++ that.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def << (that : DFUInt.Token) : Token = {
+    def << (that : DFUInt.Token) : Token = {
       val shift = that.value.toInt
       val outWidth = this.width
       val outBitsValue = this.valueBits << shift
       val outBubbleMask = this.bubbleMask << shift
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def >> (that : DFUInt.Token) : Token = {
+    def >> (that : DFUInt.Token) : Token = {
       val shift = that.value.toInt
       val outWidth = this.width
       val outBitsValue = this.valueBits >>> shift
       val outBubbleMask = this.bubbleMask >>> shift
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def unary_~ : Token = {
+    def unary_~ : Token = {
       val outWidth = this.width
       val outBitsValue = ~this.valueBits
       val outBubbleMask = this.bubbleMask
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def reverse : Token = {
+    def reverse : Token = {
       val outWidth = this.width
       val outBitsValue = this.valueBits.reverseBitOrder
       val outBubbleMask = this.bubbleMask.reverseBitOrder
       new Token(outWidth, outBitsValue, outBubbleMask)
     }
-    final def == (that : Token) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
-    final def != (that : Token) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
+    def resize(toWidth : Int) : Token = {
+      if (toWidth < width) bitsWL(toWidth, 0)
+      else if (toWidth > width) Token(toWidth - width, 0) ## this
+      else this
+    }
+    def == (that : Token) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
+    def != (that : Token) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
     def toUInt : DFUInt.Token = {
       val outWidth = this.width
       val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
@@ -343,8 +348,9 @@ object DFBits extends DFAny.Companion {
     val >> : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
     val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
     val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
-    def unary_~ (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => ~t)
-    def reverse (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => t.reverse)
+    def unary_~(left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => ~t)
+    def reverse(left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => t.reverse)
+    def resize(left : Seq[Token], toWidth : Int) : Seq[Token] = TokenSeq(left)(t => t.resize(toWidth))
     def toUInt(left : Seq[Token]) : Seq[DFUInt.Token] = TokenSeq(left)(t => t.toUInt)
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value).toBitVector(width))
