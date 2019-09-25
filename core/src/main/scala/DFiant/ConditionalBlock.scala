@@ -42,7 +42,7 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV]
       case None => List(self)
     }
     final lazy val allBlocks : List[CB] = lastBlock.prevBlocks
-    final lazy val isFirstCondBlock : Boolean = firstBlock == self
+    final val isFirstCondBlock : Boolean = firstBlock == self
     final lazy val isLastCondBlock : Boolean = lastBlock == self
     val isExhaustive : Boolean
   }
@@ -74,7 +74,7 @@ protected[DFiant] abstract class ConditionalRetBlock[CB <: ConditionalRetBlock[C
   }
   override private[DFiant] lazy val __dev : __DevConditionalRetBlock = ???
   import __dev._
-  returnVar.conditionalBlockDriver.set(Some(self))
+  if (isFirstCondBlock) returnVar.conditionalBlockDriver.set(Some(self))
 }
 
 

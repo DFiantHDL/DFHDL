@@ -555,13 +555,13 @@ object DFAny {
       }
       override lazy val initCB: CacheBoxRO[Seq[TToken]] = initExternalOrInternalCB
 
-      def isInitialized : Boolean = initExternalCB.isDefined
+      def isInitialized : Boolean = initExternalCB.isDefined || conditionalBlockDriver.isDefined
       final def initialize(updatedInit : Seq[TToken], owner : DFAnyOwner) : Unit = {
         if (isInitialized) throw new IllegalArgumentException(s"${self.fullName} already initialized")
         if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${self.fullName}) is not at the same design as this call (${owner.fullName})")
         initExternalCB.set(Some(updatedInit))
       }
-      final def initCodeString : String = if (isInitialized) s" init${initExternalCB.get.codeString}" else ""
+      final def initCodeString : String = if (isInitialized) s" init${initCB.unbox.codeString}" else ""
     }
     override private[DFiant] lazy val __dev : __DevInitializable = ???
     import __dev._
