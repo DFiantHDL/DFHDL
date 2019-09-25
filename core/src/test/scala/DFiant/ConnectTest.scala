@@ -520,25 +520,25 @@ class ConnectTest extends Properties("ConnectTest") {
     top_ioDesignMatch.codeString =@= compare
   }
 
-  trait ContainerConnLoop extends DFDesign {
-    val i = DFUInt(8) <> IN
-    val o = DFUInt(8) <> OUT
-    val io = new IODesignConn1 {}
-    io.i <> io.o
-    o <> io.o
-  }
-
-  property("ContainerConnLoop exception") = {
-    import DFDesign.allowTop._
-    implicit val config = DFAnyConfiguration.detailed
-    val topLoop = new ContainerConnLoop {}
-    val expectedError =
-      """
-        |Contradiction in circular dependency topLoop.io.i(7, 0) != None(7, 0) at topLoop.o.initLB <- topLoop.o.connectFrom <- topLoop.io.o.thisSourceLB <- topLoop.io.o.inletSourceLB <- topLoop.io.o.connectedSourceLB
-      """.stripMargin
-    illRunCompare(expectedError) {
-      topLoop.codeString
-    }
-  }
+//  trait ContainerConnLoop extends DFDesign {
+//    val i = DFUInt(8) <> IN
+//    val o = DFUInt(8) <> OUT
+//    val io = new IODesignConn1 {}
+//    io.i <> io.o
+//    o <> io.o
+//  }
+//
+//  property("ContainerConnLoop exception") = {
+//    import DFDesign.allowTop._
+//    implicit val config = DFAnyConfiguration.detailed
+//    val topLoop = new ContainerConnLoop {}
+//    val expectedError =
+//      """
+//        |Contradiction in circular dependency topLoop.io.i(7, 0) != None(7, 0) at topLoop.o.initLB <- topLoop.o.connectFrom <- topLoop.io.o.thisSourceLB <- topLoop.io.o.inletSourceLB <- topLoop.io.o.connectedSourceLB
+//      """.stripMargin
+//    illRunCompare(expectedError) {
+//      topLoop.codeString
+//    }
+//  }
 
 }
