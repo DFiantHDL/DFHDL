@@ -773,13 +773,13 @@ object Backend {
       case x : Assert => architecture.statements.async_process.assert(x.cond, x.msg, x.severity)
       case x : Finish => architecture.statements.async_process.finish()
 
-      case x : ConditionalBlock.IfNoRetVal#DFIfBlock =>
+      case x : ConditionalBlock[_,_] with ConditionalBlock.IfBlock with ConditionalBlock.NoRetVal =>
         x match {
-          case ifBlock : ConditionalBlock.IfNoRetVal#DFElseIfBlock =>
-            architecture.statements.async_process.ifStatement.elseIfBegin(x.cond)
-          case ifBlock : ConditionalBlock.IfNoRetVal#DFElseBlock =>
+          case _ : ConditionalBlock.ElseBlock =>
             architecture.statements.async_process.ifStatement.elseBegin()
-          case ifBlock =>
+          case _ : ConditionalBlock.ElseIfBlock =>
+            architecture.statements.async_process.ifStatement.elseIfBegin(x.cond)
+          case _ : ConditionalBlock.IfBlock =>
             architecture.statements.async_process.ifStatement.ifBegin(x.cond)
         }
         architecture.statements.async_process.condBlock += 1
@@ -787,34 +787,34 @@ object Backend {
         architecture.statements.async_process.condBlock -= 1
         if (x.__dev.isLastCondBlock) architecture.statements.async_process.ifStatement.ifEnd()
 
-      case x : ConditionalBlock.IfWithRetVal[_,_,_]#DFIfBlock =>
+      case x : ConditionalBlock[_,_] with ConditionalBlock.IfBlock with ConditionalBlock.WithRetVal =>
         x match {
-          case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseIfBlock =>
-            architecture.statements.async_process.ifStatement.elseIfBegin(x.cond)
-          case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseBlock =>
+          case _ : ConditionalBlock.ElseBlock =>
             architecture.statements.async_process.ifStatement.elseBegin()
-          case ifBlock =>
+          case _ : ConditionalBlock.ElseIfBlock =>
+            architecture.statements.async_process.ifStatement.elseIfBegin(x.cond)
+          case _ : ConditionalBlock.IfBlock =>
             architecture.statements.async_process.ifStatement.ifBegin(x.cond)
         }
         architecture.statements.async_process.condBlock += 1
         pass(x)
         architecture.statements.async_process.condBlock -= 1
         x match {
-          case ifBlock : ConditionalBlock.IfWithRetVal[_,_,_]#DFElseBlock =>
+          case _ : ConditionalBlock.ElseBlock =>
             architecture.statements.async_process.ifStatement.ifEnd()
           case _ =>
         }
-      case x : ConditionalBlock.MatchNoRetVal#DFMatchHeader[_] =>
+      case x : ConditionalBlock.MatchHeader[_] =>
         architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
         architecture.statements.async_process.condBlock += 1
-      case x : ConditionalBlock.MatchNoRetVal#DFCase_Block[_] =>
+      case x : ConditionalBlock[_,_] with ConditionalBlock.Case_Block =>
         architecture.statements.async_process.caseStatement.whenOthers()
         architecture.statements.async_process.condBlock += 1
         pass(x)
         architecture.statements.async_process.condBlock -= 1
         architecture.statements.async_process.condBlock -= 1
         architecture.statements.async_process.caseStatement.caseEnd()
-      case x : ConditionalBlock.MatchNoRetVal#DFCasePatternBlock[_] =>
+      case x : ConditionalBlock[_,_] with ConditionalBlock.CasePatternBlock with ConditionalBlock.NoRetVal =>
         architecture.statements.async_process.caseStatement.when(x.pattern)
         architecture.statements.async_process.condBlock += 1
         pass(x)
@@ -824,17 +824,7 @@ object Backend {
           architecture.statements.async_process.condBlock -= 1
           architecture.statements.async_process.caseStatement.caseEnd()
         }
-      case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFMatchHeader[_] =>
-        architecture.statements.async_process.caseStatement.caseBegin(x.matchVal)
-        architecture.statements.async_process.condBlock += 1
-      case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFCase_Block[_] =>
-        architecture.statements.async_process.caseStatement.whenOthers()
-        architecture.statements.async_process.condBlock += 1
-        pass(x)
-        architecture.statements.async_process.condBlock -= 1
-        architecture.statements.async_process.condBlock -= 1
-        architecture.statements.async_process.caseStatement.caseEnd()
-      case x : ConditionalBlock.MatchWithRetVal[_,_,_]#DFCasePatternBlock[_] =>
+      case x : ConditionalBlock[_,_] with ConditionalBlock.CasePatternBlock with ConditionalBlock.WithRetVal =>
         architecture.statements.async_process.caseStatement.when(x.pattern)
         architecture.statements.async_process.condBlock += 1
         pass(x)

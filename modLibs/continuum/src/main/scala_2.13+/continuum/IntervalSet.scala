@@ -23,6 +23,9 @@ class IntervalSet[T](tree: RB.Tree[Interval[T], Unit])(implicit conv: T=>Ordered
   extends SortedSet[Interval[T]] with SortedSetOps[Interval[T], SortedSet, IntervalSet[T]]
   with Serializable {
 
+  override protected def fromSpecific(coll: IterableOnce[Interval[T]]): IntervalSet[T] = IntervalSet.create[T](coll.iterator.to(Seq))
+  override protected def newSpecificBuilder : mutable.Builder[Interval[T], IntervalSet[T]] = ???
+
   def this()(implicit conv: T=>Ordered[T]) = this(null)
 
   override def ordering: Ordering[Interval[T]] = Ordering.ordered

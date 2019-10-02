@@ -561,7 +561,10 @@ object DFAny {
         if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${self.fullName}) is not at the same design as this call (${owner.fullName})")
         initExternalCB.set(Some(updatedInit))
       }
-      final def initCodeString : String = if (isInitialized) s" init${initCB.unbox.codeString}" else ""
+      final def initCodeString : String = {
+//        println(fullName, conditionalBlockDriver.isDefined, initExternalCB.isDefined)
+        "" //if (isInitialized) s" init${initCB.unbox.codeString}" else ""
+      }
     }
     override private[DFiant] lazy val __dev : __DevInitializable = ???
     import __dev._
@@ -775,7 +778,7 @@ object DFAny {
         //TODO: something with balancing upon reading a complete value
         //      val currentPipe: Pipe = aliasPipeBalance(pipeList.concat)
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
-        private lazy val initDeps = aliasedVars.map(a => a.initCB)
+        private lazy val initDeps = aliasedVals.map(a => a.initCB)
         lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(initDeps){
           initDeps.map(i => i.unbox.asInstanceOf[Seq[DFBits.Token]]).reduce(DFBits.Token.concat)
         }

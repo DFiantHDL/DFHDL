@@ -34,7 +34,7 @@ object BitonicSort {
 trait BitSort extends DFDesign {
   import BitonicSort._
 
-  val inList : List[DFSInt[8]] = (for (i <- 0 until 16) yield DFSInt[8] <> IN setName(s"i$i") pipe()).toList
+  val inList : List[DFSInt[8]] = (for (i <- 0 until 16) yield DFSInt[8] <> IN setName(s"i$i")).toList
   val outList = (for (i <- 0 until 16) yield DFSInt[8] <> OUT setName(s"o$i")).toList
   val res = inList.sortdf(true)
 

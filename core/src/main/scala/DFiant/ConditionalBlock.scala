@@ -86,10 +86,24 @@ object MatchConfig {
 
 object ConditionalBlock {
   type Context = DFAny.Op.Context
+  trait IfBlock {
+    val cond : DFBool
+  }
+  trait ElseIfBlock extends IfBlock
+  trait ElseBlock extends IfBlock
+  trait MatchHeader[MV <: DFAny] {
+    val matchVal : MV
+  }
+  trait CasePatternBlock {
+    val pattern : DFAny.Pattern[_]
+  }
+  trait Case_Block extends CasePatternBlock
+  trait WithRetVal
+  trait NoRetVal
   implicit def fetchDev(from : ConditionalBlock[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
-      extends ConditionalRetBlock[DFIfBlock, RV](returnVar)(prevBlock, block) {self =>
+      extends ConditionalRetBlock[DFIfBlock, RV](returnVar)(prevBlock, block) with IfBlock with WithRetVal {self =>
       protected[DFiant] trait __DevDFIfBlock extends __DevConditionalRetBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -136,7 +150,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), cond, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), cond, block) with ElseIfBlock {
       protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -156,7 +170,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), null, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), null, block) with ElseBlock {
       protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -196,7 +210,7 @@ object ConditionalBlock {
   class IfNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFIfBlock, Unit](None)(prevBlock, block) {
+    ) extends ConditionalBlock[DFIfBlock, Unit](None)(prevBlock, block) with IfBlock with NoRetVal {
       protected[DFiant] trait __DevDFIfBlock extends __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -230,7 +244,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), cond, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), cond, block) with ElseIfBlock {
       protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Naming
@@ -250,7 +264,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(
       implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), null, block) {
+    ) extends DFIfBlock(Some(prevIfBlock), null, block) with ElseBlock {
       protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -274,7 +288,7 @@ object ConditionalBlock {
   class MatchNoRetVal(mutableOwner: MutableOwner) {
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DFAnyMember {
+    ) extends DFAnyMember with MatchHeader[MV] with NoRetVal {
       final private[DFiant] override lazy val ctx = ctx0
       protected[DFiant] trait __DevDFMatchHeader extends __DevDFAnyMember {
         final val matchValVersionedSource = matchVal.source.versioned
@@ -320,7 +334,7 @@ object ConditionalBlock {
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFCasePatternBlock[MV], Unit](None)(prevCase, block) {
+    ) extends ConditionalBlock[DFCasePatternBlock[MV], Unit](None)(prevCase, block) with CasePatternBlock with NoRetVal {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevConditionalBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -364,7 +378,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) {
+    ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) with Case_Block {
       protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -390,7 +404,7 @@ object ConditionalBlock {
   class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
     protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
       implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DFAnyMember {
+    ) extends DFAnyMember with MatchHeader[MV] with WithRetVal {
       final private[DFiant] override lazy val ctx = ctx0
       protected[DFiant] trait __DevMatchWithRetVal extends __DevDFAnyMember {
         final val matchValVersionedSource = matchVal.source.versioned
@@ -440,7 +454,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalRetBlock[DFCasePatternBlock[MV], RV](returnVar)(prevCase, block) {
+    ) extends ConditionalRetBlock[DFCasePatternBlock[MV], RV](returnVar)(prevCase, block) with CasePatternBlock with WithRetVal {
       protected[DFiant] trait __DevDFCasePatternBlock extends __DevConditionalRetBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
@@ -494,7 +508,7 @@ object ConditionalBlock {
 
     protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
       implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) {
+    ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) with Case_Block {
       protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Conditional Blocks
