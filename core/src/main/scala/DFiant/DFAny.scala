@@ -561,10 +561,7 @@ object DFAny {
         if (this.nonTransparentOwner ne owner.nonTransparent) throw new IllegalArgumentException(s"\nInitialization of variable (${self.fullName}) is not at the same design as this call (${owner.fullName})")
         initExternalCB.set(Some(updatedInit))
       }
-      final def initCodeString : String = {
-//        println(fullName, conditionalBlockDriver.isDefined, initExternalCB.isDefined)
-        "" //if (isInitialized) s" init${initCB.unbox.codeString}" else ""
-      }
+      final def initCodeString : String = if (isInitialized) s" init${initCB.unbox.codeString}" else ""
     }
     override private[DFiant] lazy val __dev : __DevInitializable = ???
     import __dev._
@@ -691,7 +688,9 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Initialization
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override lazy val initCB: CacheBoxRO[Seq[TToken]] = reference.initCB.asInstanceOf[CacheBoxRO[Seq[TToken]]]
+      override lazy val initCB: CacheBoxRO[Seq[TToken]] = CacheDerivedRO(reference.initCB) {
+        TokenSeq(reference.initCB.unbox)(l => protTokenBitsToTToken(l).asInstanceOf[TToken])
+      }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
@@ -740,7 +739,7 @@ object DFAny {
       lazy val aliasCodeString : String = aliasCodeString_
       def constructCodeString(implicit owner : DSLOwnerConstruct) : String
       def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit
-      val initCB : CacheBoxRO[Seq[Token]]
+      val initCB : CacheBoxRO[Seq[DFBits.Token]]
       val source : Source
       val sourceLB : LazyBox[Source]
     }
@@ -759,7 +758,9 @@ object DFAny {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
           aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
-        lazy val initCB : CacheBoxRO[Seq[Token]] = aliasedVal.initCB
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          aliasedVal.initCB.unbox.bits
+        }
         lazy val source : Source = aliasedVal.source
         lazy val sourceLB: LazyBox[Source] = aliasedVal.thisSourceLB
       }
@@ -780,7 +781,7 @@ object DFAny {
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
         private lazy val initDeps = aliasedVals.map(a => a.initCB)
         lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(initDeps){
-          initDeps.map(i => i.unbox.asInstanceOf[Seq[DFBits.Token]]).reduce(DFBits.Token.concat)
+          initDeps.map(i => i.unbox.bits).reduce(DFBits.Token.concat)
         }
         lazy val source : Source = Source(aliasedVals.flatMap(a => a.source.elements)).coalesce
         lazy val sourceLB: LazyBox[Source] = LazyBox.ArgList[Source, Source](aliasedVals.head)(
@@ -811,8 +812,8 @@ object DFAny {
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".prev" else s".prev($step)") {
         val isAssignable : Boolean = false
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
-        lazy val initCB : CacheBoxRO[Seq[Token]] = CacheDerivedRO(aliasedVal.initCB){
-          aliasedVal.initCB.unbox.prevInit(step)
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          aliasedVal.initCB.unbox.bits.prevInit(step)
         }
         lazy val source : Source = aliasedVal.source.prev(step)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
@@ -826,8 +827,8 @@ object DFAny {
         extends SingleReference(refVar, if (step == 0) "" else if (step == 1) ".pipe" else s".pipe($step)") {
         val isAssignable : Boolean = false
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
-        lazy val initCB : CacheBoxRO[Seq[Token]] = CacheDerivedRO(aliasedVal.initCB){
-          aliasedVal.initCB.unbox.prevInit(step)
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          aliasedVal.initCB.unbox.bits.prevInit(step)
         }
         lazy val source : Source = aliasedVal.source.pipe(step)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
@@ -851,8 +852,8 @@ object DFAny {
         override val width: Int = toWidth
         val isAssignable : Boolean = false
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
-        lazy val initCB : CacheBoxRO[Seq[Token]] = CacheDerivedRO(aliasedVal.initCB){
-          TokenSeq(aliasedVal.initCB.unbox.asInstanceOf[Seq[Token.Resizable]])(t => t.resize(toWidth))
+        lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
+          TokenSeq(aliasedVal.initCB.unbox.asInstanceOf[Seq[Token.Resizable]])(t => t.resize(toWidth)).bits
         }
         lazy val source : Source = aliasedVal.source.resize(toWidth)
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
@@ -868,7 +869,7 @@ object DFAny {
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
           aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
         lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
-          DFBits.Token.reverse(aliasedVal.initCB.unbox.asInstanceOf[Seq[DFBits.Token]])
+          DFBits.Token.reverse(aliasedVal.initCB.unbox.bits)
         }
         lazy val source : Source = aliasedVal.source.reverse
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
@@ -883,7 +884,7 @@ object DFAny {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = ???
         lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
-          DFBits.Token.unary_~(aliasedVal.initCB.unbox.asInstanceOf[Seq[DFBits.Token]])
+          DFBits.Token.unary_~(aliasedVal.initCB.unbox.bits)
         }
         lazy val source : Source = aliasedVal.source.invert
         lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(

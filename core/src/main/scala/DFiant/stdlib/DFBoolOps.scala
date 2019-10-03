@@ -25,7 +25,7 @@ object DFBoolOps {
   final class `Func2Comp==`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp==`],
   ) extends DFFunc2[`Func2Comp==`, DFBool, DFBool](leftArg, "==", rightArg)(1)(ctx, DFBool) with DFBool {
-    final protected val tokenFunc = (a, b) => a == b
+    final protected lazy val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
     def apply(leftArg : DFBool, rightArg : DFBool)(implicit ctx : DFComponent.Context[`Func2Comp==`])
@@ -44,7 +44,7 @@ object DFBoolOps {
   final class `Func2Comp!=`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp!=`],
   ) extends DFFunc2[`Func2Comp!=`, DFBool, DFBool](leftArg, "!=", rightArg)(1)(ctx, DFBool) with DFBool {
-    final protected val tokenFunc = (a, b) => a != b
+    final protected lazy val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {
     def apply(leftArg : DFBool, rightArg : DFBool)(implicit ctx : DFComponent.Context[`Func2Comp!=`])
@@ -64,7 +64,7 @@ object DFBoolOps {
   final class `Func2Comp&&`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp&&`],
   ) extends DFFunc2[`Func2Comp&&`, DFBool, DFBool](leftArg, "&&", rightArg)(1)(ctx, DFBool) with DFBool {
-    final protected val tokenFunc = (a, b) => a && b
+    final protected lazy val tokenFunc = (a, b) => a && b
   }
   object `Func2Comp&&` {
     def apply(leftArg : DFBool, rightArg : DFBool)(implicit ctx : DFComponent.Context[`Func2Comp&&`])
@@ -83,7 +83,7 @@ object DFBoolOps {
   final class `Func2Comp||`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp||`],
   ) extends DFFunc2[`Func2Comp||`, DFBool, DFBool](leftArg, "||", rightArg)(1)(ctx, DFBool) with DFBool {
-    final protected val tokenFunc = (a, b) => a || b
+    final protected lazy val tokenFunc = (a, b) => a || b
   }
   object `Func2Comp||` {
     def apply(leftArg : DFBool, rightArg : DFBool)(implicit ctx : DFComponent.Context[`Func2Comp||`])
@@ -102,7 +102,7 @@ object DFBoolOps {
   final class `Func2Comp^`(leftArg : DFBool, rightArg : DFBool)(
     implicit ctx : DFComponent.Context[`Func2Comp^`],
   ) extends DFFunc2[`Func2Comp^`, DFBool, DFBool](leftArg, "^", rightArg)(1)(ctx, DFBool) with DFBool {
-    final protected val tokenFunc = (a, b) => a ^ b
+    final protected lazy val tokenFunc = (a, b) => a ^ b
   }
   object `Func2Comp^` {
     def apply(leftArg : DFBool, rightArg : DFBool)(implicit ctx : DFComponent.Context[`Func2Comp^`])

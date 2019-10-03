@@ -24,7 +24,7 @@ object DFEnumOps {
   final class `Func2Comp==`[E <: Enum](leftArg : DFEnum[E], rightArg : DFEnum[E])(
     implicit ctx : DFComponent.Context[`Func2Comp==`[E]],
   ) extends DFFunc2[`Func2Comp==`[E], DFEnum[E], DFEnum[E]](leftArg, "==", rightArg)(1)(ctx, DFBits) with DFBool {
-    final protected val tokenFunc = (a, b) => a == b
+    final protected lazy val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
     def apply[E <: Enum](leftArg : DFEnum[E], rightArg : DFEnum[E])(implicit ctx : DFComponent.Context[`Func2Comp==`[E]])
@@ -44,7 +44,7 @@ object DFEnumOps {
   final class `Func2Comp!=`[E <: Enum](leftArg : DFEnum[E], rightArg : DFEnum[E])(
     implicit ctx : DFComponent.Context[`Func2Comp!=`[E]],
   ) extends DFFunc2[`Func2Comp!=`[E], DFEnum[E], DFEnum[E]](leftArg, "!=", rightArg)(1)(ctx, DFBits) with DFBool {
-    final protected val tokenFunc = (a, b) => a != b
+    final protected lazy val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {
     def apply[E <: Enum](leftArg : DFEnum[E], rightArg : DFEnum[E])(implicit ctx : DFComponent.Context[`Func2Comp!=`[E]])

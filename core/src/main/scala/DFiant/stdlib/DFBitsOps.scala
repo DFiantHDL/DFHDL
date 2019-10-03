@@ -24,7 +24,7 @@ object DFBitsOps {
   final class `Func2Comp&`[LW, RW, OW] private (leftArg : DFBits[LW], rightArg : DFBits[RW])(wcw : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[`Func2Comp&`[LW, RW, OW]],
   ) extends DFFunc2[`Func2Comp&`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "&", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
-    final protected val tokenFunc = (a, b) => a & b
+    final protected lazy val tokenFunc = (a, b) => a & b
   }
   object `Func2Comp&` {
     def apply[LW, RW, OW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
@@ -46,7 +46,7 @@ object DFBitsOps {
   final class `Func2Comp|`[LW, RW, OW] private (leftArg : DFBits[LW], rightArg : DFBits[RW])(wcw : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[`Func2Comp|`[LW, RW, OW]],
   ) extends DFFunc2[`Func2Comp|`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "|", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
-    final protected val tokenFunc = (a, b) => a | b
+    final protected lazy val tokenFunc = (a, b) => a | b
   }
   object `Func2Comp|` {
     def apply[LW, RW, OW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
@@ -68,7 +68,7 @@ object DFBitsOps {
   final class `Func2Comp^`[LW, RW, OW] private (leftArg : DFBits[LW], rightArg : DFBits[RW])(wcw : TwoFace.Int[OW])(
     implicit ctx : DFComponent.Context[`Func2Comp^`[LW, RW, OW]],
   ) extends DFFunc2[`Func2Comp^`[LW, RW, OW], DFBits[LW], DFBits[RW]](leftArg, "^", rightArg)(wcw)(ctx, DFBits) with DFBits[OW] {
-    final protected val tokenFunc = (a, b) => a ^ b
+    final protected lazy val tokenFunc = (a, b) => a ^ b
   }
   object `Func2Comp^` {
     def apply[LW, RW, OW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
@@ -90,7 +90,7 @@ object DFBitsOps {
   final class `Func2Comp<<`[LW, RW] private (leftArg : DFBits[LW], rightArg : DFUInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp<<`[LW, RW]],
   ) extends DFFunc2[`Func2Comp<<`[LW, RW], DFBits[LW], DFUInt[RW]](leftArg, "<<", rightArg)(leftArg.width)(ctx, DFBits) with DFBits[LW] {
-    final protected val tokenFunc = (a, b) => a << b
+    final protected lazy val tokenFunc = (a, b) => a << b
   }
   object `Func2Comp<<` {
     def apply[LW, RW](leftArg : DFBits[LW], rightArg : DFUInt[RW])(
@@ -111,7 +111,7 @@ object DFBitsOps {
   final class `Func2Comp>>`[LW, RW] private (leftArg : DFBits[LW], rightArg : DFUInt[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp>>`[LW, RW]],
   ) extends DFFunc2[`Func2Comp>>`[LW, RW], DFBits[LW], DFUInt[RW]](leftArg, ">>", rightArg)(leftArg.width)(ctx, DFBits) with DFBits[LW] {
-    final protected val tokenFunc = (a, b) => a >> b
+    final protected lazy val tokenFunc = (a, b) => a >> b
   }
   object `Func2Comp>>` {
     def apply[LW, RW](leftArg : DFBits[LW], rightArg : DFUInt[RW])(
@@ -132,7 +132,7 @@ object DFBitsOps {
   final class `Func2Comp==`[LW, RW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp==`[LW, RW]],
   ) extends DFFunc2[`Func2Comp==`[LW, RW], DFBits[LW], DFBits[RW]](leftArg, "==", rightArg)(1)(ctx, DFBits) with DFBool {
-    final protected val tokenFunc = (a, b) => a == b
+    final protected lazy val tokenFunc = (a, b) => a == b
   }
   object `Func2Comp==` {
     def apply[LW, RW](leftArg : DFBits[LW], rightArg : DFBits[RW])(implicit ctx : DFComponent.Context[`Func2Comp==`[LW, RW]])
@@ -151,7 +151,7 @@ object DFBitsOps {
   final class `Func2Comp!=`[LW, RW](leftArg : DFBits[LW], rightArg : DFBits[RW])(
     implicit ctx : DFComponent.Context[`Func2Comp!=`[LW, RW]],
   ) extends DFFunc2[`Func2Comp!=`[LW, RW], DFBits[LW], DFBits[RW]](leftArg, "!=", rightArg)(1)(ctx, DFBits) with DFBool {
-    final protected val tokenFunc = (a, b) => a != b
+    final protected lazy val tokenFunc = (a, b) => a != b
   }
   object `Func2Comp!=` {
     def apply[LW, RW](leftArg : DFBits[LW], rightArg : DFBits[RW])(implicit ctx : DFComponent.Context[`Func2Comp!=`[LW, RW]])
