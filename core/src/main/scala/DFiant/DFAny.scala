@@ -407,7 +407,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Connectable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Constructor[DF](width) with DFAny.Var {self =>
+  ) extends Constructor[DF](width) with DFAny.Var {self : DF =>
     protected[DFiant] trait __DevConnectable extends __DevConstructor with __DevVar {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
@@ -510,7 +510,7 @@ object DFAny {
         protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
       }
       lazy val constLB : LazyBox[TToken] =
-        LazyBox.Args1[TToken, Source](self)(constFunc, inletSourceLB, Some(bubbleToken(self.asInstanceOf[DF]).asInstanceOf[TToken]))
+        LazyBox.Args1[TToken, Source](self)(constFunc, inletSourceLB, Some(bubbleToken(self).asInstanceOf[TToken]))
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
@@ -534,7 +534,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class Initializable[DF <: DFAny](width : Int)(
     implicit cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Connectable[DF](width) {self =>
+  ) extends Connectable[DF](width) {self : DF =>
     protected[DFiant] trait __DevInitializable extends __DevConnectable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
@@ -587,7 +587,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   abstract class NewVar[DF <: DFAny](width : Int, newVarCodeString : String)(
     implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Initializable[DF](width) {
+  ) extends Initializable[DF](width) {self : DF =>
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevNewVar extends __DevInitializable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -618,7 +618,7 @@ object DFAny {
 
   abstract class Alias[DF <: DFAny](val reference : DFAny.Alias.Reference)(
     implicit ctx0 : Alias.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
-  ) extends Connectable[DF](reference.width) {self =>
+  ) extends Connectable[DF](reference.width) {self : DF =>
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevAlias extends __DevConnectable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -131,7 +131,7 @@ final class CacheDerivedRO[+T](val sources : List[CacheBoxRO[_]])(updateFunc : =
 final class CacheDerivedROList[+T](stBoxList : CacheBoxRO[List[CacheBoxRO[_]]])(updateFunc : => T) extends CacheBoxRO[T](updateFunc) {
   var stList : Option[List[CacheBoxRO[_]]] = None
   def sources : List[CacheBoxRO[_]] = stBoxList.unbox
-  @inline override def emptyValueUpdate() : Unit = if (value.isEmpty) {
+  @inline override def emptyValueUpdate() : Unit = if (valueIsEmpty) {
     val updateList = Some(stBoxList.unbox)
     if (updateList != stList) {
       stList.foreach{t => t.foreach {x => x.removeDependency(this)}}
