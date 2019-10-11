@@ -25,6 +25,8 @@ object GlobalDesignMeta extends Meta {
   override val column: Int = 0
   override val file: String = "_"
   override val line: Int = 0
+  override val nameLine: Int = 0
+  override val nameColumn: Int = 0
 }
 
 object GlobalContext extends DFDesign.Context {

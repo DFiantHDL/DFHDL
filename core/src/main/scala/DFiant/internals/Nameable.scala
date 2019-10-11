@@ -62,6 +62,8 @@ trait Meta {
   val file : String
   val line : Int
   val column : Int
+  val nameLine : Int //the line from which the name is fetched
+  val nameColumn : Int //the column from which the name is fetched
 }
 object Meta {
   import singleton.ops._
@@ -72,13 +74,16 @@ object Meta {
     ownerKind : sourcecode.OwnerKind,
     fileSC : sourcecode.File,
     lineSC : sourcecode.Line,
-    columnSC : sourcecode.Column
+    columnSC : sourcecode.Column,
+    nameLineSC : sourcecode.Name.Line,
+    nameColumnSC : sourcecode.Name.Column
   ) : Meta = new Meta {
     private val anonymous = ownerKind.value match {
       case sourcecode.OwnerKind.Lzy => false
       case sourcecode.OwnerKind.Val => false
       case sourcecode.OwnerKind.Var => false
       case sourcecode.OwnerKind.Obj => false
+      case sourcecode.OwnerKind.Def => false
       case _ => true
     }
     val name: String = {
@@ -87,8 +92,10 @@ object Meta {
     val file : String = fileSC.value
     val line : Int = lineSC.value
     val column : Int = columnSC.value
+    val nameLine: Int = nameLineSC.value
+    val nameColumn: Int = nameColumnSC.value
 
-//    println(s"$name, ${ownerKind.value}, $file, $line, $column")
+//    println(s"$name, ${ownerKind.value}, $file, $line, $column, $nameLine, $nameColumn")
   }
 }
 

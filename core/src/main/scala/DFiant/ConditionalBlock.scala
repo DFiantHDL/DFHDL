@@ -329,7 +329,6 @@ object ConditionalBlock {
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
-      private[DFiant] lazy val nameIt = ctx.meta
       id
     }
     protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
@@ -448,7 +447,6 @@ object ConditionalBlock {
       }
       private var privHasOverlappingCases : Boolean = false
       def hasOverlappingCases : Boolean = privHasOverlappingCases
-      private[DFiant] lazy val nameIt = ctx.meta
       id
     }
 

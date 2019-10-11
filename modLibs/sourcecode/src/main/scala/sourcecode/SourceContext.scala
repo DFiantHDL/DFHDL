@@ -28,22 +28,13 @@ object Name extends SourceCompanion[String, Name](new Name(_)){
 //      println(c.enclosingPosition, owner.fullName, owner.owner.fullName)
       owner = owner.owner
     }
-    val kind = owner match {
-      case x if x.isPackage => q"sourcecode.OwnerKind.Pkg"
-      case x if x.isModuleClass => q"sourcecode.OwnerKind.Obj"
-      case x if x.isClass && x.asClass.isTrait => q"sourcecode.OwnerKind.Trt"
-      case x if x.isClass => q"sourcecode.OwnerKind.Cls"
-      case x if x.isTerm && x.asTerm.isVar => q"sourcecode.OwnerKind.Var"
-      case x if x.isTerm && x.asTerm.isLazy => q"sourcecode.OwnerKind.Lzy"
-      case x if x.isTerm && x.asTerm.isVal => q"sourcecode.OwnerKind.Val"
-      case x if x.isMethod => q"sourcecode.OwnerKind.Def"
-    }
 
 //    println(c.enclosingPosition, owner.fullName, kind.toString())
     val simpleName = Util.getName(c)(owner)
 
     c.Expr[sourcecode.Name](q"""${c.prefix}($simpleName)""")
   }
+  
   case class Machine(value: String) extends SourceValue[String]
   object Machine extends SourceCompanion[String, Machine](new Machine(_)){
     implicit def generate: Machine = macro impl
@@ -52,6 +43,30 @@ object Name extends SourceCompanion[String, Name](new Name(_)){
       val owner = Compat.enclosingOwner(c)
       val simpleName = Util.getName(c)(owner)
       c.Expr[Machine](q"""${c.prefix}($simpleName)""")
+    }
+  }
+  case class Line(value: Int) extends SourceValue[Int]
+  object Line extends SourceCompanion[Int, Line](new Line(_)){
+    implicit def generate: Line = macro impl
+    def impl(c: Compat.Context): c.Expr[Line] = {
+      import c.universe._
+      var owner = Compat.enclosingOwner(c)
+      while(Util.isSynthetic(c)(owner)) {
+        owner = owner.owner
+      }
+      c.Expr[Line](q"""${c.prefix}(${owner.pos.line})""")
+    }
+  }
+  case class Column(value: Int) extends SourceValue[Int]
+  object Column extends SourceCompanion[Int, Column](new Column(_)){
+    implicit def generate: Column = macro impl
+    def impl(c: Compat.Context): c.Expr[Column] = {
+      import c.universe._
+      var owner = Compat.enclosingOwner(c)
+      while(Util.isSynthetic(c)(owner)) {
+        owner = owner.owner
+      }
+      c.Expr[Column](q"""${c.prefix}(${owner.pos.column})""")
     }
   }
   case class OfType[T](value: String) extends SourceValue[String]
