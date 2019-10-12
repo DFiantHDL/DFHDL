@@ -10,6 +10,22 @@ object Util{
   }
   def getName(c: Compat.Context)(s: c.Symbol) = s.name.decodedName.toString.trim
 }
+
+case class Position(file : String, line : Int, column : Int) {
+  override def toString: String = s"$file:$line:$column"
+}
+
+object Position {
+  implicit def generate: sourcecode.Position = macro impl
+  def impl(c: Compat.Context): c.Expr[Position] = {
+    import c.universe._
+    val file = c.enclosingPosition.source.path
+    val line = c.enclosingPosition.line
+    val column = c.enclosingPosition.column
+    c.Expr[sourcecode.Position](q"""${c.prefix}($file, $line, $column)""")
+  }
+}
+
 abstract class SourceValue[T]{
   def value: T
 }

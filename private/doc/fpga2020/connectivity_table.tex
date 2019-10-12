@@ -14,11 +14,11 @@
       //State in Top Connection
       trait NWLeft extends Network {
         iT.prev <> oT //Connection
-        oB := iB + 5  //Assignment
+        oB := iB * 3  //Assignment
       }
       //State in Bottom Assignment
       trait NWRight extends Network {
-        iT <> oT * 3  //Connection
+        iT <> oT + 5  //Connection
         oB := iB.prev //Assignment
       }
       //Parent box includes two sibling boxes
@@ -160,7 +160,7 @@
     \end{minipage} 
     &  
     \begin{minipage}[c][0.5cm]{0.42\textwidth}
-      The same bit in a consumer can be assigned to 
+      The same bit in a consumer can be assigned to more than once.
     \end{minipage} 
     \\ 
     \hline

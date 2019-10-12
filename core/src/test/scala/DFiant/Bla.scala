@@ -88,14 +88,17 @@ object Foo extends Enum.Auto {
 }
 
 trait IODesignMatch extends DFDesign {
-  val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
-  val i2 = DFUInt(8) <> IN init (2, 8, 7, 11, 21)
-  val o1 = DFUInt(8) <> OUT
-  val myMatch = matchdf (i2, MatchConfig.AllowOverlappingCases)
-    .casedf(1 to 5, 10 to 20) {o1 := i1}
-    .casedf(7){o1 := i2}
-    .casedf(11){o1 := i2}
-    .casedf_{o1 := i2}
+  for (i <- 1 to 3) {
+    val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+    val i2 = DFUInt(8) <> IN init (2, 8, 7, 11, 21)
+    val o1 = DFUInt(8) <> OUT
+    val myMatch = matchdf (i2, MatchConfig.AllowOverlappingCases)
+      .casedf(1 to 5, 10 to 20) {o1 := i1}
+      .casedf(7){o1 := i2}
+      .casedf(11){o1 := i2}
+      .casedf_{o1 := i2}
+
+  }
 //
 //  val o2 = DFUInt(8) <> OUT
 //  val ret = DFUInt(8).matchdf(i2)
@@ -115,6 +118,8 @@ object Bla extends DFApp {
   implicit val config = DFAnyConfiguration.detailed
   val bla = new IODesignMatch {}.printCodeString
   import internals._
+  val a = implicitly[Meta2]
+  println(a)
 //  println(bla.ret.initCB)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }

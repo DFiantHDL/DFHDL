@@ -10,11 +10,6 @@ lazy val global = project
   .in(file("."))
   .settings(settings)
   .aggregate(
-//    sourcecode,
-//    `singleton-ops`,
-//    continuum,
-//    common,
-    macros,
     core,
     examples,
     `private`
@@ -60,13 +55,6 @@ lazy val continuum = (project in file("modLibs/continuum"))
   )
 //////////////////////////////////////////////////////////////////////////////////////
 
-lazy val common = project
-  .settings(settings)
-  .dependsOn(
-    sourcecode,
-    continuum
-  )
-
 lazy val macros = project
   .settings(
     name := "macros",
@@ -79,6 +67,18 @@ lazy val macros = project
     common
   )
 
+lazy val common = project
+  .settings(
+    name := "common",
+    settings,
+    assemblySettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    sourcecode,
+    continuum
+  )
+
 lazy val core = project
   .settings(
     name := "core",
@@ -87,7 +87,8 @@ lazy val core = project
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    common
+    common,
+    macros
   )
 
 //////////////////////////////////////////////////////////////////////////////////////

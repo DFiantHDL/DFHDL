@@ -35,7 +35,7 @@ trait Nameable {self =>
       nameAutoFunc.set(Some(CacheBoxRO(name)))
       self
     }
-    final def isAnonymous : Boolean = name.startsWith(Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
+    final def isAnonymous : Boolean = name.startsWith(Meta2.Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
 //    final def setAutoName[T](watch : => T, name : T => String) : self.type = {
 //      nameAutoFunc.set(Some(StateDerivedRO(watch)(name)))
 //      self
@@ -87,7 +87,7 @@ object Meta {
       case _ => true
     }
     val name: String = {
-      if (anonymous) s"${Name.AnonStart}anon" else nameSC.value
+      if (anonymous) s"${Meta2.Name.AnonStart}anon" else nameSC.value
     }
     val file : String = fileSC.value
     val line : Int = lineSC.value
@@ -97,9 +97,4 @@ object Meta {
 
 //    println(s"$name, ${ownerKind.value}, $file, $line, $column, $nameLine, $nameColumn")
   }
-}
-
-object Name {
-  final val AnonStart : String = "dFt_"
-  final val Separator : String = "_d_" //"ǂ"
 }

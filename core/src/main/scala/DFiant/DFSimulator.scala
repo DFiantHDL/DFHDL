@@ -53,7 +53,7 @@ protected[DFiant] class DFString(value_ : List[Any])(implicit ctx0 : DFAny.Op.Co
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override val nameScala = s"${Name.Separator}message"
+    override val nameScala = s"${Meta2.Name.Separator}message"
     def codeString: String = "msg\"" + value_.collect {
       case x: DFAny => s"$${${x.refCodeString}}"
       case x => x.toString
@@ -78,7 +78,7 @@ protected case class Assert(cond : Option[DFAny], msg : DFString, severity : Sev
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override val nameScala = s"${Name.Separator}assert"
+    override val nameScala = s"${Meta2.Name.Separator}assert"
     def codeString : String = cond match {
       case Some(c) =>
         s"""
@@ -115,7 +115,7 @@ protected case class Finish()(implicit ctx0 : DFAny.Op.Context) extends DFAnySim
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override val nameScala = s"${Name.Separator}finish"
+    override val nameScala = s"${Meta2.Name.Separator}finish"
     def codeString : String =
       s"""
          |sim.finish()""".stripMargin
