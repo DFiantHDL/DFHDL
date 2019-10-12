@@ -73,7 +73,7 @@ object DFComponent {
       evImpl : Comp => Unit,
       evMeta : Meta,
       evCompName : sourcecode.Name.OfType[Comp],
-      forceNotVar : Meta.ForceNotVar[Context[_]]
+      forceNotVar : Meta2.ForceNotVar[Context[_]]
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val impl: Comp => Unit = evImpl
@@ -92,7 +92,7 @@ object DFComponent {
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
       evCompName : sourcecode.Name.OfType[Comp],
-      forceNotVar : Meta.ForceNotVar[Context[_]]
+      forceNotVar : Meta2.ForceNotVar[Context[_]]
     ) : Context[Comp] = new Context[Comp] {
       val ownerOption : Option[DFBlock] = Option(evOwner)
       implicit val impl: Comp => Unit = evImpl

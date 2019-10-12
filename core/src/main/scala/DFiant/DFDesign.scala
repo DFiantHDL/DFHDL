@@ -133,7 +133,7 @@ object DFDesign {
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
-      forceNotVar : Meta.ForceNotVar[ContextOf[_]]
+      forceNotVar : Meta2.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = Some(evOwner)
       val targetLib: TargetLib = evBasicLib
@@ -146,7 +146,7 @@ object DFDesign {
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
-      forceNotVar : Meta.ForceNotVar[ContextOf[_]]
+      forceNotVar : Meta2.ForceNotVar[ContextOf[_]]
     ) : ContextOf[T] = new ContextOf[T] {
       val ownerOption : Option[DFBlock] = None
       val targetLib: TargetLib = evBasicLib

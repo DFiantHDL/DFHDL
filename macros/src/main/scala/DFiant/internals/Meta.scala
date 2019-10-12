@@ -18,10 +18,17 @@ object Meta2 {
   private def getValidOwner(c : blackbox.Context) = _getValidOwner(c)(c.internal.enclosingOwner)
   /////////////////////////////////////////////////////////
 
+  /////////////////////////////////////////////////////////
+  //Position
+  /////////////////////////////////////////////////////////
   case class Position(file : String, line : Int, column : Int) {
     override def toString: String = s"$file:$line:$column"
   }
+  /////////////////////////////////////////////////////////
 
+  /////////////////////////////////////////////////////////
+  //Name
+  /////////////////////////////////////////////////////////
   case class Name(value : String) {
     override def toString: String = value
   }
@@ -37,16 +44,7 @@ object Meta2 {
       c.Expr[Meta2.Name](q"""Meta2.Name($name)""")
     }
   }
-
-//  class Errors[EURL <: String with Singleton](errorsURL : EURL) {
-//    object VarDFTypes {
-//      private final val url = errorsURL + "#dont-use-var-with-dataflow-valuesvariables"
-//      final val msg =
-//        "Don't use `var` with dataflow values/variables.\n" +
-//          "More details at " + url
-//      type Msg = msg.type
-//    }
-//  }
+  /////////////////////////////////////////////////////////
 
   implicit def ev : Meta2 = macro evMacro
   def evMacro(c: blackbox.Context): c.Expr[Meta2] = {
@@ -60,5 +58,23 @@ object Meta2 {
     val anonName : String = if (anonymous) s"${Name.AnonStart}anon" else name
     c.Expr[Meta2](q"""Meta2(Meta2.Name($anonName), Meta2.Position($file, $line, $column), Meta2.Position($file, $line, $column))""")
   }
+
+  import singleton.ops._
+  case class IsVar()
+  object IsVar {
+    implicit def ev : IsVar = macro evMacro
+    def evMacro(c: blackbox.Context): c.Expr[IsVar] = {
+      import c.universe._
+      val owner = getValidOwner(c)
+      if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""Meta2.IsVar()""")
+      else c.abort(c.enclosingPosition, VarDFTypes.msg)
+    }
+  }
+
+  type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[IsVar]], VarDFTypes.Msg, Sym]
+  final object VarDFTypes extends ErrorMsg (
+    "Don't use `var` with dataflow values/variables.",
+    "dont-use-var-with-dataflow-valuesvariables"
+  ) {final val msg = getMsg}
 
 }

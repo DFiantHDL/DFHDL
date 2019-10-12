@@ -133,7 +133,7 @@ object DFBlock {
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
-      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta2.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = None
       implicit val targetLib: TargetLib = evBasicLib
@@ -149,7 +149,7 @@ object DFBlock {
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
-      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta2.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Option(evOwner)
       implicit val targetLib: TargetLib = evBasicLib
@@ -165,7 +165,7 @@ object DFBlock {
       lp : shapeless.LowPriority,
       evContext : DFDesign.ContextOf[T2],
       external : shapeless.Refute[InternalContext],
-      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta2.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val targetLib : TargetLib = evContext.targetLib
