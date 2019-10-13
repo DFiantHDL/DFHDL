@@ -22,6 +22,9 @@ import java.lang.Float._
 import singleton.ops._
 import singleton.twoface._
 import scala.math.{ceil, floor, log}
+import scodec.bits._
+import continuum._
+
 package object internals {
   implicit object devAccess extends dev.Access
   implicit class __DslMember[M <: DSLMemberConstruct](val member : M) {
@@ -221,7 +224,6 @@ package object internals {
     else s"${lower.codeString} to ${upper.codeString}"
   }
   implicit def csoBitVector : CodeStringOf[BitVector] = t => t.codeString
-  implicit def csoEnum[E <: Enum.Entry] : CodeStringOf[E] = t => t.codeString
 
   implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
     def codeString : String = codeStringOf(t)

@@ -322,6 +322,9 @@ object Enum {
     def codeString: String = fullName
     final override def toString: String = name
   }
+  object Entry {
+    implicit def csoEnum[E <: Entry] : CodeStringOf[E] = t => t.codeString
+  }
 
   trait Encoding extends HasCodeString {
     def calcWidth(entryCount : Int) : Int
