@@ -26,7 +26,8 @@ import scodec.bits._
 import continuum._
 
 package object internals {
-  implicit object devAccess extends dev.Access
+  trait DevAccess
+  implicit object devAccess extends DevAccess
   implicit class __DslMember[M <: DSLMemberConstruct](val member : M) {
     final lazy val __dev = member.__dev
   }

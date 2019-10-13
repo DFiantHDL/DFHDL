@@ -100,7 +100,7 @@ object ConditionalBlock {
   trait Case_Block extends CasePatternBlock
   trait WithRetVal
   trait NoRetVal
-  implicit def fetchDev(from : ConditionalBlock[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : ConditionalBlock[_,_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
     protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
       extends ConditionalRetBlock[DFIfBlock, RV](returnVar)(prevBlock, block) with IfBlock with WithRetVal {self =>

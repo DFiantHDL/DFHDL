@@ -114,8 +114,8 @@ abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with 
   }
 }
 object DFBlock {
-  implicit def fetchDev(from : DFBlock)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
-  @implicitNotFound(errors.MissingContext.msg)
+  implicit def fetchDev(from : DFBlock)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
+  @implicitNotFound(DSLContext.MissingContext.msg)
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
     def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit evMeta : Meta) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {

@@ -45,9 +45,9 @@ lazy val continuum = (project in file("modLibs/continuum"))
   )
 //////////////////////////////////////////////////////////////////////////////////////
 
-lazy val common = project
+lazy val internals = project
   .settings(
-    name := "common",
+    name := "internals",
     settings,
     macroSettings,
     assemblySettings,
@@ -65,7 +65,7 @@ lazy val core = project
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    common
+    internals
   )
 
 //////////////////////////////////////////////////////////////////////////////////////

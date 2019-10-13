@@ -60,7 +60,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 }
 
 object DFComponent {
-  implicit def fetchDev(from : DFComponent[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFComponent[_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 
   trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Unit, DFBlock] {
     implicit val impl : Comp => Unit

@@ -81,7 +81,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
   }
 }
 object DFFunc2 {
-  implicit def fetchDev(from : DFFunc2[_,_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFFunc2[_,_,_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 }
 
 trait CompAlias extends CanBePiped {

@@ -248,7 +248,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
 
 
 object DFAny {
-  implicit def fetchDev(from : DFAny)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFAny)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Head Types
@@ -383,7 +383,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
   object Var {
-    implicit def fetchDev(from : Var)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+    implicit def fetchDev(from : Var)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   }
 
 
@@ -525,7 +525,7 @@ object DFAny {
     final def <> [RDIR <: DFDir](right: TVal)(implicit ctx : DFNet.Context) : Unit = self.connectWith(right)
   }
   object Connectable {
-    implicit def fetchDev(from : Connectable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+    implicit def fetchDev(from : Connectable[_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -578,7 +578,7 @@ object DFAny {
     //    final def reInit(cond : DFBool) : Unit = ???
   }
   object Initializable {
-    implicit def fetchDev(from : Initializable[_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+    implicit def fetchDev(from : Initializable[_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1118,7 +1118,7 @@ object DFAny {
     id
   }
   object Port {
-    implicit def fetchDev(from : Port[_,_])(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+    implicit def fetchDev(from : Port[_,_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
     type Context = DFAnyOwner.Context[DFInterface]
     trait Builder[L <: DFAny, Dir <: DFDir] {
       def apply(right : L, dir : Dir) : L <~> Dir

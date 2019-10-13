@@ -111,7 +111,7 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
 }
 
 object DSLMemberConstruct {
-  implicit def fetchDev(from : DSLMemberConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DSLMemberConstruct)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 }
 
 
@@ -203,9 +203,15 @@ trait DSLContext {
   implicit lazy val owner : DSLOwnerConstruct =
     ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
 }
+object DSLContext {
+  final object MissingContext extends ErrorMsg (
+    "Missing an implicit DFDesign Context.",
+    "missing-context"
+  ) {final val msg = getMsg}
+}
 
 object DSLOwnerConstruct {
-  implicit def fetchDev(from : DSLOwnerConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DSLOwnerConstruct)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] extends DSLContext {
     val ownerOption : Option[Owner]
     override implicit lazy val owner : Owner =
@@ -308,7 +314,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
 }
 
 object DSLFoldableOwnerConstruct {
-  implicit def fetchDev(from : DSLFoldableOwnerConstruct)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DSLFoldableOwnerConstruct)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 }
 
 trait DSLSelfConnectedFoldableOwnerConstruct extends DSLFoldableOwnerConstruct

@@ -56,5 +56,5 @@ protected trait DFBlackBox extends DFInterface {
 }
 
 object DFBlackBox {
-  implicit def fetchDev(from : DFBlackBox)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFBlackBox)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 }

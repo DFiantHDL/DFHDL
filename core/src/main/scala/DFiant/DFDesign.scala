@@ -117,9 +117,9 @@ object DFDesign {
   object allowTop {
     implicit object __AllowTop extends AllowTOP
   }
-  implicit def fetchDev(from : DFDesign)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
+  implicit def fetchDev(from : DFDesign)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   private[DFiant] type Context = DFBlock.Context
-  @implicitNotFound(errors.MissingContext.msg)
+  @implicitNotFound(DSLContext.MissingContext.msg)
   trait ContextOf[+T] extends DSLContext {
     val ownerOption : Option[DFBlock]
     val targetLib: TargetLib
