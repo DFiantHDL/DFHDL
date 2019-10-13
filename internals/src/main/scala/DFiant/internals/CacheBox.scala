@@ -3,39 +3,56 @@ package DFiant.internals
 import scala.annotation.tailrec
 import scala.collection.mutable
 
+import CacheBoxRO.Boxed
 sealed class CacheBoxRO[+T](updateFunc : => T) {
   private val deps : mutable.Set[CacheBoxRO[_]] = mutable.Set()
-  protected[this] var value : Option[T] = None
-  @inline final protected def valueIsEmpty : Boolean = value.isEmpty
-  @inline final protected def valueClear() : Unit = value = None
-  @inline final protected[internals] def valueUpdate() : Unit = value = Some(updateFunc)
-  @inline protected def emptyValueUpdate() : Unit = if (value.isEmpty) updateSrcValues()
+  protected[this] var boxed : Boxed[T] = Boxed.Empty
+  @inline final protected def getBoxed : Boxed[T] = boxed
+  @inline final protected def boxIsEmpty : Boolean = boxed match {
+    case Boxed.Empty => true
+    case _ => false
+  }
+  @inline final protected def boxClear() : Unit = boxed = Boxed.Empty
+  @inline final protected[internals] def boxUpdate() : Unit = {
+    boxed = Boxed.Visited //marking the box as visited in case `updateFunc` causes a cyclic dependency
+    boxed = Boxed.ValidValue(updateFunc)
+  }
+  @inline protected def emptyBoxUpdate() : Unit = boxed match {
+    case Boxed.Empty => updateSrcBoxes()
+    case _ => //Do nothing
+  }
   @tailrec private def dirty(current : CacheBoxRO[_], remainingDeps : List[CacheBoxRO[_]]) : Unit = {
-    val updatedDeps = if (!current.valueIsEmpty) {
-      current.valueClear()
-      remainingDeps ++ current.deps
-    } else remainingDeps
+    val updatedDeps = current.getBoxed match {
+      case Boxed.Empty => remainingDeps
+      case _ =>
+        current.boxClear()
+        remainingDeps ++ current.deps
+    }
     updatedDeps match {
       case Nil =>
       case x :: xs => dirty(x, xs)
     }
   }
-  @tailrec private def updateSrcValues(curDeps : List[CacheBoxRO[_]], curSrcs : List[CacheBoxRO[_]]) : Unit = curSrcs match {
-    case Nil => curDeps.foreach(x => x.valueUpdate())
-    case x :: xs =>
-      if (x.valueIsEmpty) {
+  @tailrec private def updateSrcBoxes(curDeps : List[CacheBoxRO[_]], curSrcs : List[CacheBoxRO[_]]) : Unit = curSrcs match {
+    case Nil => curDeps.foreach(x => x.boxUpdate())
+    case x :: xs => x.getBoxed match {
+      case Boxed.Empty =>
         val updatedDeps = x +: curDeps //adding in reverse to updated empty values in topological dependency order
         x match {
-          case sd : CacheDerivedRO[_] => updateSrcValues(updatedDeps, xs ++ sd.sources)
-          case sd : CacheDerivedROList[_] => updateSrcValues(updatedDeps, xs ++ sd.sources)
-          case _ => updateSrcValues(updatedDeps, xs)
+          case sd : CacheDerivedRO[_] => updateSrcBoxes(updatedDeps, xs ++ sd.sources)
+          case sd : CacheDerivedROList[_] => updateSrcBoxes(updatedDeps, xs ++ sd.sources)
+          case _ => updateSrcBoxes(updatedDeps, xs)
         }
-      } else updateSrcValues(curDeps, xs)
+      case _ => updateSrcBoxes(curDeps, xs)
+    }
   }
-  @inline final protected def updateSrcValues() : Unit = updateSrcValues(List(), List(this))
+  @inline final protected def updateSrcBoxes() : Unit = updateSrcBoxes(List(), List(this))
   @inline final def unbox : T = {
-    emptyValueUpdate()
-    value.get
+    emptyBoxUpdate()
+    boxed match {
+      case b : Boxed.Value[T] => b.value
+      case _ => throw new IllegalArgumentException("shit")
+    }
   }
   @inline final override def toString: String = unbox.toString
   @inline final protected def dirty() : Unit = dirty(this, List())
@@ -44,13 +61,23 @@ sealed class CacheBoxRO[+T](updateFunc : => T) {
   @inline final def removeDependency(st : CacheBoxRO[_]) : Unit = deps -= st
 }
 object CacheBoxRO {
+  sealed abstract class Boxed[+T] extends Product with Serializable
+  object Boxed {
+    sealed abstract class Value[+T] extends Boxed[T] {val value : T}
+    case class ValidValue[+T](value : T) extends Value[T]
+    case class CircularValue[+T](value : T) extends Value[T]
+    case object Empty extends Boxed[Nothing]
+    case object CyclicError extends Boxed[Nothing]
+    case object Visited extends Boxed[Nothing]
+  }
+
   @inline def apply[T](updateFunc : => T) : CacheBoxRO[T] = new CacheBoxRO[T](updateFunc)
   @inline implicit def toValue[T](sf : CacheBoxRO[T]) : T = sf.unbox
 }
 
 sealed class CacheBoxRW[T](default : T) extends CacheBoxRO[T](default) {
   @inline def set(newValue : T) : Unit = {
-    value = Some(newValue)
+    boxed = Boxed.ValidValue(newValue)
     dirtyDeps()
   }
 }
@@ -82,11 +109,11 @@ final case class CacheDerivedHashMapRO[A, B, T]
   (source : CacheListRW[T])(default : Map[A, B])
   (op : (Map[A, B], T) => Map[A, B]) extends CacheBoxRO(default) {
   @inline protected[internals] def add() : Unit =  {
-    value = Some(op(unbox, source.unbox.last))
+    boxed = Boxed.ValidValue(op(unbox, source.unbox.last))
     dirtyDeps()
   }
   @inline protected[internals] def setDefault() : Unit = {
-    value = Some(default)
+    boxed = Boxed.ValidValue(default)
     dirtyDeps()
   }
   source.addFolderDependency(this)
@@ -131,14 +158,14 @@ final class CacheDerivedRO[+T](val sources : List[CacheBoxRO[_]])(updateFunc : =
 final class CacheDerivedROList[+T](stBoxList : CacheBoxRO[List[CacheBoxRO[_]]])(updateFunc : => T) extends CacheBoxRO[T](updateFunc) {
   var stList : Option[List[CacheBoxRO[_]]] = None
   def sources : List[CacheBoxRO[_]] = stBoxList.unbox
-  @inline override def emptyValueUpdate() : Unit = if (valueIsEmpty) {
+  @inline override def emptyBoxUpdate() : Unit = if (boxIsEmpty) {
     val updateList = Some(stBoxList.unbox)
     if (updateList != stList) {
       stList.foreach{t => t.foreach {x => x.removeDependency(this)}}
       updateList.foreach{t => t.foreach {x => x.addDependency(this)}}
       dirty()
     }
-    updateSrcValues()
+    updateSrcBoxes()
   }
   stBoxList.addDependency(this)
 }
