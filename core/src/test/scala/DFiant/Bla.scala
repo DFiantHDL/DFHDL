@@ -118,7 +118,7 @@ object Bla extends DFApp {
   implicit val config = DFAnyConfiguration.detailed
   val bla = new IODesignMatch {}.printCodeString
   import internals._
-  val a = implicitly[Meta2]
+  val a = implicitly[Meta]
   println(a)
 //  println(bla.ret.initCB)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})

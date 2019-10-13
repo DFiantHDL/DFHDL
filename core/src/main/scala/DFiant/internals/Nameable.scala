@@ -35,7 +35,7 @@ trait Nameable {self =>
       nameAutoFunc.set(Some(CacheBoxRO(name)))
       self
     }
-    final def isAnonymous : Boolean = name.startsWith(Meta2.Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
+    final def isAnonymous : Boolean = name.startsWith(Meta.Name.AnonStart) //|| isInstanceOf[DSLFoldableOwnerConstruct]
 //    final def setAutoName[T](watch : => T, name : T => String) : self.type = {
 //      nameAutoFunc.set(Some(StateDerivedRO(watch)(name)))
 //      self
@@ -57,44 +57,44 @@ trait TypeNameable {
 }
 
 
-trait Meta {
-  val name : String
-  val file : String
-  val line : Int
-  val column : Int
-  val nameLine : Int //the line from which the name is fetched
-  val nameColumn : Int //the column from which the name is fetched
-}
-object Meta {
-  import singleton.ops._
-  type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], errors.VarDFTypes.Msg, Sym]
-  implicit def ev(
-    implicit
-    nameSC : sourcecode.Name,
-    ownerKind : sourcecode.OwnerKind,
-    fileSC : sourcecode.File,
-    lineSC : sourcecode.Line,
-    columnSC : sourcecode.Column,
-    nameLineSC : sourcecode.Name.Line,
-    nameColumnSC : sourcecode.Name.Column
-  ) : Meta = new Meta {
-    private val anonymous = ownerKind.value match {
-      case sourcecode.OwnerKind.Lzy => false
-      case sourcecode.OwnerKind.Val => false
-      case sourcecode.OwnerKind.Var => false
-      case sourcecode.OwnerKind.Obj => false
-      case sourcecode.OwnerKind.Def => false
-      case _ => true
-    }
-    val name: String = {
-      if (anonymous) s"${Meta2.Name.AnonStart}anon" else nameSC.value
-    }
-    val file : String = fileSC.value
-    val line : Int = lineSC.value
-    val column : Int = columnSC.value
-    val nameLine: Int = nameLineSC.value
-    val nameColumn: Int = nameColumnSC.value
-
-//    println(s"$name, ${ownerKind.value}, $file, $line, $column, $nameLine, $nameColumn")
-  }
-}
+//trait Meta {
+//  val name : String
+//  val file : String
+//  val line : Int
+//  val column : Int
+//  val nameLine : Int //the line from which the name is fetched
+//  val nameColumn : Int //the column from which the name is fetched
+//}
+//object Meta {
+//  import singleton.ops._
+//  type ForceNotVar[Sym] = RequireMsgSym[![ImplicitFound[sourcecode.IsVar]], errors.VarDFTypes.Msg, Sym]
+//  implicit def ev(
+//    implicit
+//    nameSC : sourcecode.Name,
+//    ownerKind : sourcecode.OwnerKind,
+//    fileSC : sourcecode.File,
+//    lineSC : sourcecode.Line,
+//    columnSC : sourcecode.Column,
+//    nameLineSC : sourcecode.Name.Line,
+//    nameColumnSC : sourcecode.Name.Column
+//  ) : Meta = new Meta {
+//    private val anonymous = ownerKind.value match {
+//      case sourcecode.OwnerKind.Lzy => false
+//      case sourcecode.OwnerKind.Val => false
+//      case sourcecode.OwnerKind.Var => false
+//      case sourcecode.OwnerKind.Obj => false
+//      case sourcecode.OwnerKind.Def => false
+//      case _ => true
+//    }
+//    val name: String = {
+//      if (anonymous) s"${Meta.Name.AnonStart}anon" else nameSC.value
+//    }
+//    val file : String = fileSC.value
+//    val line : Int = lineSC.value
+//    val column : Int = columnSC.value
+//    val nameLine: Int = nameLineSC.value
+//    val nameColumn: Int = nameColumnSC.value
+//
+////    println(s"$name, ${ownerKind.value}, $file, $line, $column, $nameLine, $nameColumn")
+//  }
+//}

@@ -3,9 +3,9 @@ package DFiant.internals
 import scala.annotation.tailrec
 import scala.reflect.macros.blackbox
 
-case class Meta2(name : Meta2.Name, position : Meta2.Position, namePosition : Meta2.Position)
+case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position)
 
-object Meta2 {
+object Meta {
   /////////////////////////////////////////////////////////
   //Helper defs
   /////////////////////////////////////////////////////////
@@ -35,28 +35,55 @@ object Meta2 {
   object Name {
     final val AnonStart : String = "dFt_"
     final val Separator : String = "_d_" //"ǂ"
+    implicit def getString(name : Name) : String = name.value
 
     implicit def ev : Name = macro evMacro
     def evMacro(c: blackbox.Context): c.Expr[Name] = {
       import c.universe._
       val owner = getValidOwner(c)
       val name = getOwnerName(c)(owner)
-      c.Expr[Meta2.Name](q"""Meta2.Name($name)""")
+      c.Expr[Meta.Name](q"""DFiant.internals.Meta.Name($name)""")
     }
+
+    case class OfType[T](value: String)
+    object OfType {
+      implicit def ev[T]: OfType[T] = macro evMacro[T]
+      def evMacro[T](c: blackbox.Context)(implicit t : c.WeakTypeTag[T]): c.Expr[OfType[T]] = {
+        import c.universe._
+        val sym = weakTypeOf[T]
+        val name = sym.toString
+        c.Expr[OfType[T]](q"""${c.prefix}($name)""")
+      }
+    }
+
+    case class OfSymbol[T](value: String)
+    object OfSymbol {
+      implicit def ev[T]: OfSymbol[T] = macro evMacro[T]
+      def evMacro[T](c: blackbox.Context)(implicit t : c.WeakTypeTag[T]): c.Expr[OfSymbol[T]] = {
+        import c.universe._
+        val sym = symbolOf[T]
+        val name = sym.name.toString
+        c.Expr[OfSymbol[T]](q"""${c.prefix}($name)""")
+      }
+    }
+
   }
   /////////////////////////////////////////////////////////
 
-  implicit def ev : Meta2 = macro evMacro
-  def evMacro(c: blackbox.Context): c.Expr[Meta2] = {
+  implicit def ev : Meta = macro evMacro
+  def evMacro(c: blackbox.Context): c.Expr[Meta] = {
     import c.universe._
     val file = c.enclosingPosition.source.path
     val line = c.enclosingPosition.line
     val column = c.enclosingPosition.column
     val owner = getValidOwner(c)
     val name = getOwnerName(c)(owner)
+    val nameFile = owner.pos.source.path
+    val nameLine = owner.pos.line
+    val nameColumn = owner.pos.column
     val anonymous = !(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
     val anonName : String = if (anonymous) s"${Name.AnonStart}anon" else name
-    c.Expr[Meta2](q"""Meta2(Meta2.Name($anonName), Meta2.Position($file, $line, $column), Meta2.Position($file, $line, $column))""")
+    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($anonName), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn))""")
   }
 
   import singleton.ops._
@@ -66,8 +93,8 @@ object Meta2 {
     def evMacro(c: blackbox.Context): c.Expr[IsVar] = {
       import c.universe._
       val owner = getValidOwner(c)
-      if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""Meta2.IsVar()""")
-      else c.abort(c.enclosingPosition, VarDFTypes.msg)
+      if (owner.isTerm && owner.asTerm.isVar) c.Expr[IsVar](q"""${c.prefix}()""")
+      else c.abort(c.enclosingPosition, "var is not allowed")
     }
   }
 
@@ -75,6 +102,6 @@ object Meta2 {
   final object VarDFTypes extends ErrorMsg (
     "Don't use `var` with dataflow values/variables.",
     "dont-use-var-with-dataflow-valuesvariables"
-  ) {final val msg = getMsg}
+  )
 
 }

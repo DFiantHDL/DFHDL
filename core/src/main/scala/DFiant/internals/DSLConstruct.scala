@@ -184,7 +184,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
         val priorityNamedMembers = members.filterNot(x => x.nameFirst) ++ members.filter(x => x.nameFirst)
         val nameMap = priorityNamedMembers.map {m =>
           val info = nt(m.nameTemp)
-          val finalName = if (info.idx == info.usages-1) m.nameTemp.unbox else s"${Meta2.Name.AnonStart}${m.nameTemp}_$info"
+          val finalName = if (info.idx == info.usages-1) m.nameTemp.unbox else s"${Meta.Name.AnonStart}${m.nameTemp}_$info"
           nt += (m.nameTemp.unbox -> info.incIdx)
           m -> finalName
         }
@@ -212,7 +212,7 @@ object DSLOwnerConstruct {
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
     val meta : Meta
-    def getName : String = meta.name
+    def getName : String = meta.name.value
     override def toString: String = getName
   }
   trait DB[Owner, Body <: Any] {
@@ -221,7 +221,7 @@ object DSLOwnerConstruct {
 //    private var dbString = ""
     private var order = 0
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
-      if (info.id == 0) ownerTypeName else ownerTypeName + Meta2.Name.Separator + info.id
+      if (info.id == 0) ownerTypeName else ownerTypeName + Meta.Name.Separator + info.id
     def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
       var newBody : Boolean = false
       val csHM = db.getOrElseUpdate(ownerTypeName, {newBody = true; mutable.HashMap.empty[Body, Info]})

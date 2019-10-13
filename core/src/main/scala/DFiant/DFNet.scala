@@ -26,7 +26,7 @@ sealed abstract class DFNet(netSymbol : String, netName : String)(implicit ctx0 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override val nameScala = s"${Meta2.Name.Separator}$netName"
+    override val nameScala = s"${Meta.Name.Separator}$netName"
     def codeString : String = s"\n${toVal.refCodeString} $netSymbol ${fromVal.refCodeString}"
   }
   override private[DFiant] lazy val __dev : __DevDFNet = new __DevDFNet {}

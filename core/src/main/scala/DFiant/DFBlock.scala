@@ -118,11 +118,11 @@ object DFBlock {
   @implicitNotFound(errors.MissingContext.msg)
   trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
     self =>
-    def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : Meta) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
+    def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit evMeta : Meta) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
       val ownerOption : Option[Owner0] = Some(owner0)
       implicit val targetLib: TargetLib = self.targetLib
       implicit val config: DFAnyConfiguration = self.config
-      val meta: Meta = n0
+      val meta: Meta = evMeta
     }
   }
   trait LowestPriority {
@@ -133,7 +133,7 @@ object DFBlock {
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
-      forceNotVar : Meta2.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = None
       implicit val targetLib: TargetLib = evBasicLib
@@ -149,7 +149,7 @@ object DFBlock {
       evBasicLib : TargetLib,
       evConfig : DFAnyConfiguration,
       evMeta : Meta,
-      forceNotVar : Meta2.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
       val ownerOption : Option[Owner] = Option(evOwner)
       implicit val targetLib: TargetLib = evBasicLib
@@ -165,7 +165,7 @@ object DFBlock {
       lp : shapeless.LowPriority,
       evContext : DFDesign.ContextOf[T2],
       external : shapeless.Refute[InternalContext],
-      forceNotVar : Meta2.ForceNotVar[ContextOf[_,_]]
+      forceNotVar : Meta.ForceNotVar[ContextOf[_,_]]
     ) : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
       val ownerOption : Option[DFBlock] = evContext.ownerOption
       implicit val targetLib : TargetLib = evContext.targetLib

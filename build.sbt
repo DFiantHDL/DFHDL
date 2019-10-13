@@ -17,18 +17,8 @@ lazy val global = project
 
 //////////////////////////////////////////////////////////////////////////////////////
 // Temporary replacements for libraries until all changes are merged into the masters
-// * sourcecode
 // * continuum
 //////////////////////////////////////////////////////////////////////////////////////
-lazy val sourcecode = (project in file("modLibs/sourcecode"))
-  .settings(
-    name := "sourcecode",
-    settings,
-    macroSettings,
-    assemblySettings,
-    libraryDependencies ++= commonDependencies
-  )
-
 lazy val continuum = (project in file("modLibs/continuum"))
   .settings(
     name := "continuum",
@@ -75,7 +65,6 @@ lazy val common = project
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    sourcecode,
     continuum
   )
 
@@ -156,7 +145,7 @@ lazy val dependencies =
     val singletonOpsV   = "0.4.0"
     val shapelessV      = "2.3.3"
     val scodecV         = "1.1.9"
-    val sourcecodeV     = "0.1.5-SNAPSHOT"
+    val sourcecodeV     = "0.1.7"
     val continuumV      = "0.4-SNAPSHOT"
     val macroParadiseV  = "2.1.1"
     val macroCompatV    = "1.1.1"
@@ -180,7 +169,7 @@ lazy val dependencies =
 
 lazy val commonDependencies = Seq(
   dependencies.singletonOps,
-  //  dependencies.sourcecode,
+  dependencies.sourcecode,
   //  dependencies.continuum,
   dependencies.shapeless,
   dependencies.scodec,

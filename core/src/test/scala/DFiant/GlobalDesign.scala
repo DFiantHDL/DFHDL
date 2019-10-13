@@ -20,14 +20,7 @@ package DFiant
 import DFiant.targetlib._
 import DFiant.internals._
 
-object GlobalDesignMeta extends Meta {
-  override val name: String = "GlobalDesign"
-  override val column: Int = 0
-  override val file: String = "_"
-  override val line: Int = 0
-  override val nameLine: Int = 0
-  override val nameColumn: Int = 0
-}
+object GlobalDesignMeta extends Meta(Meta.Name("GlobalDesign"),Meta.Position("",0,0),Meta.Position("",0,0))
 
 object GlobalContext extends DFDesign.Context {
   override val ownerOption : Option[DFBlock] = None
