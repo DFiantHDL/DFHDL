@@ -10,17 +10,20 @@ sealed class CacheBoxRO[+T](updateFunc : => T) {
   @inline final protected def getBoxed : Boxed[T] = boxed
   @inline final protected def boxIsEmpty : Boolean = boxed match {
     case Boxed.Empty => true
+    case Boxed.Visited(_) => true
     case _ => false
   }
+  @inline final protected def boxVisit() : Unit = boxed match {
+    case Boxed.Empty => boxed = Boxed.Visited(1)
+    case Boxed.Visited(n) => boxed = Boxed.Visited(n + 1)
+    case _ => //Do not change
+  }
+  @inline final protected def boxCyclic() : Unit = boxed = Boxed.CyclicError
   @inline final protected def boxClear() : Unit = boxed = Boxed.Empty
   @inline final protected[internals] def boxUpdate() : Unit = {
-    boxed = Boxed.Visited //marking the box as visited in case `updateFunc` causes a cyclic dependency
     boxed = Boxed.ValidValue(updateFunc)
   }
-  @inline protected def emptyBoxUpdate() : Unit = boxed match {
-    case Boxed.Empty => updateSrcBoxes()
-    case _ => //Do nothing
-  }
+  @inline protected def emptyBoxUpdate() : Unit = if (boxIsEmpty) boxUpdate()
   @tailrec private def dirty(current : CacheBoxRO[_], remainingDeps : List[CacheBoxRO[_]]) : Unit = {
     val updatedDeps = current.getBoxed match {
       case Boxed.Empty => remainingDeps
@@ -35,23 +38,26 @@ sealed class CacheBoxRO[+T](updateFunc : => T) {
   }
   @tailrec private def updateSrcBoxes(curDeps : List[CacheBoxRO[_]], curSrcs : List[CacheBoxRO[_]]) : Unit = curSrcs match {
     case Nil => curDeps.foreach(x => x.boxUpdate())
-    case x :: xs => x.getBoxed match {
-      case Boxed.Empty =>
-        val updatedDeps = x +: curDeps //adding in reverse to updated empty values in topological dependency order
-        x match {
-          case sd : CacheDerivedRO[_] => updateSrcBoxes(updatedDeps, xs ++ sd.sources)
-          case sd : CacheDerivedROList[_] => updateSrcBoxes(updatedDeps, xs ++ sd.sources)
-          case _ => updateSrcBoxes(updatedDeps, xs)
-        }
-      case _ => updateSrcBoxes(curDeps, xs)
-    }
+    case x :: xs =>
+      val (updatedDeps, updatedSrcs) = x.getBoxed match {
+        case Boxed.Empty =>
+          //adding in reverse to updated empty values in topological dependency order
+          x match {
+            case sd : CacheDerivedRO[_] => (x +: curDeps, xs ++ sd.sources)
+            case sd : CacheDerivedROList[_] => (x +: curDeps, xs ++ sd.sources)
+            case _ => (x +: curDeps, xs)
+          }
+        case _ => (curDeps, xs)
+      }
+      x.boxVisit()
+      updateSrcBoxes(updatedDeps, updatedSrcs)
   }
   @inline final protected def updateSrcBoxes() : Unit = updateSrcBoxes(List(), List(this))
   @inline final def unbox : T = {
     emptyBoxUpdate()
     boxed match {
       case b : Boxed.Value[T] => b.value
-      case _ => throw new IllegalArgumentException("shit")
+      case b => throw new IllegalArgumentException(b.toString)
     }
   }
   @inline final override def toString: String = unbox.toString
@@ -68,7 +74,7 @@ object CacheBoxRO {
     case class CircularValue[+T](value : T) extends Value[T]
     case object Empty extends Boxed[Nothing]
     case object CyclicError extends Boxed[Nothing]
-    case object Visited extends Boxed[Nothing]
+    case class Visited(num : Int) extends Boxed[Nothing]
   }
 
   @inline def apply[T](updateFunc : => T) : CacheBoxRO[T] = new CacheBoxRO[T](updateFunc)
