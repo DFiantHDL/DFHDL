@@ -734,6 +734,7 @@ object DFAny {
 //    }
 
     sealed abstract class Reference(aliasCodeString_ : => String)(implicit ctx : Alias.Context) {
+      final protected implicit val cbOwner = CacheBox.Owner(ctx.owner)
       val aliasedVals : List[DFAny]
       val width : Int
       val isAssignable : Boolean

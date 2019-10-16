@@ -18,6 +18,7 @@
 package DFiant.internals
 
 trait Nameable {self =>
+  final protected implicit val cbOwner = CacheBox.Owner(self)
   protected[DFiant] trait __DevNameable {
     val nameScala : String = "???"
     final private[Nameable] val nameManual : CacheBoxRW[String] = CacheBoxRW("")
@@ -43,6 +44,7 @@ trait Nameable {self =>
   }
   private[DFiant] lazy val __dev : __DevNameable = ???
   val name : CacheBoxRO[String]
+  val fullName : CacheBoxRO[String]
   final def setName(name : String) : self.type = {__dev.nameManual.set(name); self}
   override def toString : String = name
 }
