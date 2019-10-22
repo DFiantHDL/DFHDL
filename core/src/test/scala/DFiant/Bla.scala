@@ -79,8 +79,7 @@ trait Simy extends DFSimulator {
 trait IODesignConn1 extends DFDesign {
   val i = DFUInt(8) <> IN init(1,2)
   val o = DFUInt(8) <> OUT
-  val ip = i.prev
-  o <> ip
+  o <> i
 }
 
 object Foo extends Enum.Auto {
@@ -114,12 +113,18 @@ trait IODesignMatch extends DFDesign {
 //    .casedf(Foo.Baz1) {o3 := 0}
 }
 
+  trait ContainerConnLoop extends DFDesign {
+    val i = DFUInt(8) <> IN
+    val o = DFUInt(8) <> OUT
+    val io = new IODesignConn1 {}
+    io.i <> io.o
+    o <> io.o
+  }
+
 object Bla extends DFApp {
   implicit val config = DFAnyConfiguration.detailed
-  val bla = new IODesignMatch {}.printCodeString
-  import internals._
-  val a = implicitly[Meta]
-  println(a)
+  val bla = new ContainerConnLoop {}.printCodeString
+//  import internals._
 //  println(bla.ret.initCB)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }
