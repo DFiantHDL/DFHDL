@@ -113,18 +113,11 @@ trait IODesignMatch extends DFDesign {
 //    .casedf(Foo.Baz1) {o3 := 0}
 }
 
-  trait ContainerConnLoop extends DFDesign {
-    val i = DFUInt(8) <> IN
-    val o = DFUInt(8) <> OUT
-    val io = new IODesignConn1 {}
-    io.i <> io.o
-    o <> io.o
-  }
 
 object Bla extends DFApp {
   implicit val config = DFAnyConfiguration.detailed
-  val bla = new ContainerConnLoop {}.printCodeString
-//  import internals._
-//  println(bla.ret.initCB)
+  val bla = new IODesignMatch {}.printCodeString
+  import internals._
+//  println(bla.o.connectionLoop)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }

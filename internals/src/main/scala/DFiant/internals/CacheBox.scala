@@ -21,10 +21,9 @@ sealed class CacheBoxRO[+T](updateFunc : => T)(implicit owner : CacheBox.Owner, 
   @inline final protected def boxed : Boxed[T] = _boxed
   @inline final protected[this] def boxed_=(that : Boxed[T]) : Unit = _boxed = that
 
-  protected[this] val cyclicFallBack : Option[T] = None
   @inline final protected def boxIsEmpty : Boolean = boxed match {
     case Boxed.Empty => true
-    case Boxed.Visited(_) => true
+    case Boxed.Visited => true
     case _ => false
   }
   @inline final protected def boxIsCyclicError : Boolean = boxed match {
@@ -33,20 +32,18 @@ sealed class CacheBoxRO[+T](updateFunc : => T)(implicit owner : CacheBox.Owner, 
   }
 
   @inline final protected def boxVisit() : Unit = boxed match {
-    case Boxed.Empty => boxed = Boxed.Visited(1)
-    case Boxed.Visited(n) => boxed = Boxed.Visited(n + 1)
+    case Boxed.Empty => boxed = Boxed.Visited
     case _ => //Do not change
   }
   @inline final protected def boxClear() : Unit = boxed = Boxed.Empty
   protected def boxUpdate() : Unit = {
-    val isCyclic = sources.map {
-      case s if (s.boxIsEmpty)  => true
-      case s if (s.boxIsCyclicError) => true
+    val isCyclic = sources.map(s => s.boxed).map {
+      case Boxed.Empty  => true
+      case Boxed.Visited => true
+      case Boxed.CyclicError => true
       case _ => false
     }.foldLeft(false)((l, r) => l || r)
-    if (isCyclic && cyclicFallBack.isEmpty) {
-      boxed = Boxed.CyclicError
-    }
+    if (isCyclic) boxed = Boxed.CyclicError
     else boxed = Boxed.ValidValue(updateFunc)
   }
   @tailrec private def dirty(current : CacheBoxRO[_], remainingDeps : List[CacheBoxRO[_]]) : Unit = {
@@ -69,8 +66,16 @@ sealed class CacheBoxRO[+T](updateFunc : => T)(implicit owner : CacheBox.Owner, 
       x.boxVisit()
       update(updatedDeps, updatedSrcs)
   }
-  @inline protected def update() : Unit = update(List(), List(this))
+  @inline protected def update() : Unit = boxed match {
+    case Boxed.Visited => boxed = Boxed.CyclicError
+    case Boxed.Empty => update(List(), List(this))
+    case _ => //Nothing to do
+  }
   @inline final protected def updateSrcs() : Unit = sources.foreach(s => s.update())
+  final def getBoxed : Boxed[T] = {
+    update()
+    boxed
+  }
   @inline final def unbox : T = {
     update()
     boxed match {
@@ -89,8 +94,7 @@ object CacheBoxRO {
     sealed abstract class Value[+T] extends Boxed[T] {val value : T}
     sealed abstract class NoValue extends Boxed[Nothing]
     case class ValidValue[+T](value : T) extends Value[T]
-    case class CircularValue[+T](value : T) extends Value[T]
-    case class Visited(num : Int) extends NoValue
+    case object Visited extends NoValue
     case object Empty extends NoValue
     case object CyclicError extends NoValue
   }

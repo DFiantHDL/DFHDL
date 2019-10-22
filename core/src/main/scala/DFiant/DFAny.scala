@@ -432,6 +432,16 @@ object DFAny {
         }
       }
 
+      final lazy val connectionLoop : CacheBoxRO[Option[List[DFAny.Connectable[_]]]] = CacheDerivedRO(connections) {
+        val cons = connections.elements.collect {
+          case e @ SourceElement(_,_,_,Some(AliasTag(v : DFAny.Connectable[_],_,_,_,_,_,_,_))) => (v, v.connectionLoop.getBoxed)
+        }
+        cons.collectFirst {
+          case (v, CacheBoxRO.Boxed.CyclicError) => List(v)
+          case (v, CacheBoxRO.Boxed.ValidValue(Some(e))) => v :: e
+        }
+      }
+
       final lazy val connectedSourceLB = LazyBox.Const[Source](self)(connectionsAt(width, 0))
       private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
@@ -475,9 +485,15 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Init
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private lazy val connectionInits = CacheDerivedRO(connections)(connections.elements.collect {
-        case e if e.aliasTag.isDefined => e.aliasTag.get.dfVal.initCB
-      })
+      private lazy val connectionInits = CacheDerivedRO(connections, connectionLoop) {
+        if (connectionLoop.isDefined) {
+          val loop = connectionLoop.get.map(e => e.fullName).mkString(" <> ")
+          throw new IllegalArgumentException(s"A cyclic connectivity loop detected\n$loop")
+        }
+        connections.elements.collect {
+          case e if e.aliasTag.isDefined => e.aliasTag.get.dfVal.initCB
+        }
+      }
       lazy val initConnectedCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO(connectionInits) {
         val bitsTokenSeq : Seq[DFBits.Token] = connections.elements.map(x =>
           x.aliasTag match {
