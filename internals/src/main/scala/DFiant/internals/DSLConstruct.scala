@@ -152,24 +152,17 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
           def incUsages : Info = copy(usages = usages + 1)
           def incIdx : Info = copy(idx = idx + 1)
         }
-//        case class NameWithPos(name : String, line : Int, column : Int) {
-//          def > (that : NameWithPos) : Boolean = line > that.line || (line == that.line && column > that.column)
-//        }
-//        object NameWithPos {
-//          def apply(member : DSLMemberConstruct) : NameWithPos = {
-//            val meta = member.ctx.meta
-//            NameWithPos(meta.name, meta.nameLine, meta.nameColumn)
-//          }
-//        }
-//        val nwp = mutable.HashMap[NameWithPos, Info]()
+//        val latestPosMap = mutable.HashMap[Meta.Position, Meta.Position]()
 //        members.foreach {m =>
-//          nt.get(m.nameTemp) match {
-//            case Some(v) =>
-//              nt += (m.nameTemp.unbox -> v.incUsages)
+//          latestPosMap.get(m.ctx.meta.namePosition) match {
+//            case Some(v) if m.ctx.meta.position > v =>
+//              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
 //            case None =>
-//              nt += (m.nameTemp.unbox -> Info(1, 0))
+//              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
 //          }
 //        }
+//        def isAnonymous(member : DSLMemberConstruct) : Boolean =
+//          latestPosMap(member.ctx.meta.namePosition) != member.ctx.meta.position
 
         val nt = mutable.HashMap[String, Info]()
         members.foreach {m =>

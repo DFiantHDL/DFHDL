@@ -20,7 +20,7 @@ package DFiant
 import DFiant.targetlib._
 import DFiant.internals._
 
-object GlobalDesignMeta extends Meta(Meta.Name("GlobalDesign"),Meta.Position("",0,0),Meta.Position("",0,0))
+object GlobalDesignMeta extends Meta(Meta.Name("GlobalDesign", true),Meta.Position("",0,0),Meta.Position("",0,0))
 
 object GlobalContext extends DFDesign.Context {
   override val ownerOption : Option[DFBlock] = None

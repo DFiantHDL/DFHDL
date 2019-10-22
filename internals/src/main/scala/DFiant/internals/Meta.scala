@@ -22,6 +22,10 @@ object Meta {
   //Position
   /////////////////////////////////////////////////////////
   case class Position(file : String, line : Int, column : Int) {
+    def > (that : Position) : Boolean = {
+      assert(file == that.file, "Can only compare positions within the same file")
+      line > that.line || (line == that.line && column > that.column)
+    }
     override def toString: String = s"$file:$line:$column"
   }
   /////////////////////////////////////////////////////////
@@ -29,13 +33,13 @@ object Meta {
   /////////////////////////////////////////////////////////
   //Name
   /////////////////////////////////////////////////////////
-  case class Name(value : String) {
-    override def toString: String = value
+  case class Name(value : String, anonymous : Boolean) {
+    override def toString: String = if (anonymous) s"${Name.AnonStart}$value" else value
   }
   object Name {
     final val AnonStart : String = "dFt_"
     final val Separator : String = "_d_" //"ǂ"
-    implicit def getString(name : Name) : String = name.value
+    implicit def getString(name : Name) : String = name.toString
 
     implicit def ev : Name = macro evMacro
     def evMacro(c: blackbox.Context): c.Expr[Name] = {
@@ -82,8 +86,7 @@ object Meta {
     val nameLine = owner.pos.line
     val nameColumn = owner.pos.column
     val anonymous = !(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
-    val anonName : String = if (anonymous) s"${Name.AnonStart}anon" else name
-    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($anonName), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn))""")
+    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn))""")
   }
 
   import singleton.ops._
