@@ -20,7 +20,7 @@ package DFiant.internals
 trait Nameable {self =>
   final protected implicit val cbOwner = CacheBox.Owner(self)
   protected[DFiant] trait __DevNameable {
-    val nameScala : String = "???"
+    lazy val nameScala : String = "???"
     final private[Nameable] val nameManual : CacheBoxRW[String] = CacheBoxRW("")
     private[DFiant] var nameFirst : Boolean = false //hack
     private val nameAutoFunc : CacheBoxRW[Option[CacheBoxRO[String]]] = CacheBoxRW(None)

@@ -33,21 +33,28 @@ object Meta {
   /////////////////////////////////////////////////////////
   //Name
   /////////////////////////////////////////////////////////
-  case class Name(value : String, anonymous : Boolean) {
-    override def toString: String = if (anonymous) s"${Name.AnonStart}$value" else value
+  case class Name(value : String, anonymous : Boolean, idx : Int, usages : Int) {
+    def suffix : String = if (usages > 1) {
+      val max_digits = usages.toString.length
+      val digits = idx.toString.length
+      val addedZeros = "0" * (max_digits-digits)
+      s"_$addedZeros$idx"
+    } else ""
+    def prefix : String = if (anonymous) Name.AnonStart else ""
+    override def toString: String = s"$prefix$value$suffix"
   }
   object Name {
     final val AnonStart : String = "dFt_"
     final val Separator : String = "_d_" //"ǂ"
     implicit def getString(name : Name) : String = name.toString
-
-    implicit def ev : Name = macro evMacro
-    def evMacro(c: blackbox.Context): c.Expr[Name] = {
-      import c.universe._
-      val owner = getValidOwner(c)
-      val name = getOwnerName(c)(owner)
-      c.Expr[Meta.Name](q"""DFiant.internals.Meta.Name($name)""")
-    }
+//
+//    implicit def ev : Name = macro evMacro
+//    def evMacro(c: blackbox.Context): c.Expr[Name] = {
+//      import c.universe._
+//      val owner = getValidOwner(c)
+//      val name = getOwnerName(c)(owner)
+//      c.Expr[Meta.Name](q"""DFiant.internals.Meta.Name($name)""")
+//    }
 
     case class OfType[T](value: String)
     object OfType {
@@ -86,7 +93,7 @@ object Meta {
     val nameLine = owner.pos.line
     val nameColumn = owner.pos.column
     val anonymous = !(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
-    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn))""")
+    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous, 0, 0), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn))""")
   }
 
   import singleton.ops._

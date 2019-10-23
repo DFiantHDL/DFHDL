@@ -66,7 +66,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override val nameScala: String = ctx.getName
+    override lazy val nameScala: String = ownerOption match {
+      case Some(o) => o.metaNameTable(self)
+      case None => ctx.meta.name
+    }
     final private def relativePath(refFullPath : String, callFullPath : String) : String = {
       val c = callFullPath.split('.')
       val r = refFullPath.split('.')
@@ -137,6 +140,42 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final val metaNameTable : CacheBoxRO[Map[DSLMemberConstruct, Meta.Name]] =
+      CacheDerivedRO(members) {
+        //Name-Position to Latest Call-Position Map
+        val latestPosMap = mutable.Map[Meta.Position, Meta.Position]()
+        members.foreach {m =>
+          latestPosMap.get(m.ctx.meta.namePosition) match {
+            case Some(v) if m.ctx.meta.position > v =>
+              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
+            case None =>
+              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
+            case _ => //Do nothing
+          }
+        }
+        def isAnonymous(member : DSLMemberConstruct) : Boolean =
+          latestPosMap(member.ctx.meta.namePosition) != member.ctx.meta.position || member.ctx.meta.name.anonymous
+
+        val usagesMap = mutable.Map[Meta.Position, Int]()
+        members.foreach {m =>
+          usagesMap.get(m.ctx.meta.position) match {
+            case Some(v) =>
+              usagesMap += (m.ctx.meta.position -> (v + 1))
+            case None =>
+              usagesMap += (m.ctx.meta.position -> 1)
+          }
+        }
+        def getUsages(member : DSLMemberConstruct) : Int = usagesMap(member.ctx.meta.position)
+
+        val idxMap = usagesMap.clone()
+        val nameMap = members.reverse.map {m =>
+          val idx = idxMap(m.ctx.meta.position) - 1
+          idxMap += m.ctx.meta.position -> idx
+          m -> m.ctx.meta.name.copy(anonymous = isAnonymous(m), idx = idx, usages = getUsages(m))
+        }
+        Map(nameMap : _*)
+      }
+
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
     private val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
@@ -152,17 +191,6 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
           def incUsages : Info = copy(usages = usages + 1)
           def incIdx : Info = copy(idx = idx + 1)
         }
-//        val latestPosMap = mutable.HashMap[Meta.Position, Meta.Position]()
-//        members.foreach {m =>
-//          latestPosMap.get(m.ctx.meta.namePosition) match {
-//            case Some(v) if m.ctx.meta.position > v =>
-//              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
-//            case None =>
-//              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
-//          }
-//        }
-//        def isAnonymous(member : DSLMemberConstruct) : Boolean =
-//          latestPosMap(member.ctx.meta.namePosition) != member.ctx.meta.position
 
         val nt = mutable.HashMap[String, Info]()
         members.foreach {m =>
@@ -211,8 +239,7 @@ object DSLOwnerConstruct {
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
     val meta : Meta
-    def getName : String = meta.name.value
-    override def toString: String = getName
+    override def toString: String = meta.name
   }
   trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, order : Int, owners : ListBuffer[Owner])
