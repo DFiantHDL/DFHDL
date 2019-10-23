@@ -22,7 +22,7 @@ trait Nameable {self =>
   protected[DFiant] trait __DevNameable {
     lazy val nameScala : String = "???"
     final private[Nameable] val nameManual : CacheBoxRW[String] = CacheBoxRW("")
-    private[DFiant] var nameFirst : Boolean = false //hack
+    var nameFirst : Boolean = false //hack
     private val nameAutoFunc : CacheBoxRW[Option[CacheBoxRO[String]]] = CacheBoxRW(None)
     final val nameTemp : CacheBoxRO[String] = CacheDerivedRO(nameManual, nameAutoFunc){
       if (!nameManual.isEmpty) nameManual

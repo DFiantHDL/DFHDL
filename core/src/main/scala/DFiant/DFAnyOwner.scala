@@ -97,6 +97,7 @@ trait DFAnyOwner extends DFAnyMember with DSLOwnerConstruct { self =>
       val delim = "  "
       val noAnonymous : List[ThisMember] = discoveredMembers.collect {
         case _ : DFAny.Const[_] => None
+        case _ : DFString => None //TODO: Revise when DFString will be properly defined
         case e : DFAny if e.isAnonymous && !e.showAnonymous => None
         case e => Some(e)
       }.flatten

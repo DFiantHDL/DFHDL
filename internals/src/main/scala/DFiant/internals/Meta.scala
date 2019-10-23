@@ -26,7 +26,10 @@ object Meta {
       assert(file == that.file, "Can only compare positions within the same file")
       line > that.line || (line == that.line && column > that.column)
     }
-    override def toString: String = s"$file:$line:$column"
+    def >= (that : Position) : Boolean = (this == that) || (this > that)
+    def < (that : Position) : Boolean = !(this >= that)
+    def <= (that : Position) : Boolean = !(this > that)
+    override def toString: String = s"$line:$column" //$file:
   }
   /////////////////////////////////////////////////////////
 

@@ -66,9 +66,10 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final lazy val meta = ctx.meta
     override lazy val nameScala: String = ownerOption match {
       case Some(o) => o.metaNameTable(self)
-      case None => ctx.meta.name
+      case None => meta.name
     }
     final private def relativePath(refFullPath : String, callFullPath : String) : String = {
       val c = callFullPath.split('.')
@@ -145,33 +146,39 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
         //Name-Position to Latest Call-Position Map
         val latestPosMap = mutable.Map[Meta.Position, Meta.Position]()
         members.foreach {m =>
-          latestPosMap.get(m.ctx.meta.namePosition) match {
-            case Some(v) if m.ctx.meta.position > v =>
-              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
-            case None =>
-              latestPosMap += (m.ctx.meta.namePosition -> m.ctx.meta.position)
+          latestPosMap.get(m.meta.namePosition) match {
+            case Some(v) if !m.meta.name.anonymous && m.meta.position <= m.meta.namePosition && m.meta.position > v =>
+              latestPosMap += (m.meta.namePosition -> m.meta.position)
+//            case Some(v) if m.meta.position > m.meta.namePosition && m.meta.position > v =>
+//              latestPosMap += (m.meta.namePosition -> m.meta.position)
+            case None if !m.meta.name.anonymous =>
+              latestPosMap += (m.meta.namePosition -> m.meta.position)
             case _ => //Do nothing
           }
         }
         def isAnonymous(member : DSLMemberConstruct) : Boolean =
-          latestPosMap(member.ctx.meta.namePosition) != member.ctx.meta.position || member.ctx.meta.name.anonymous
+          member.meta.name.anonymous ||
+          (member.meta.position > member.meta.namePosition && !member.nameFirst) ||
+          (latestPosMap(member.meta.namePosition) != member.meta.position) //&& !member.nameFirst
 
         val usagesMap = mutable.Map[Meta.Position, Int]()
         members.foreach {m =>
-          usagesMap.get(m.ctx.meta.position) match {
-            case Some(v) =>
-              usagesMap += (m.ctx.meta.position -> (v + 1))
-            case None =>
-              usagesMap += (m.ctx.meta.position -> 1)
+          usagesMap.get(m.meta.position) match {
+            case Some(v) if !isAnonymous(m) =>
+              usagesMap += (m.meta.position -> (v + 1))
+            case _ if !isAnonymous(m) =>
+              usagesMap += (m.meta.position -> 1)
+            case _ =>
+              usagesMap += (m.meta.position -> 0)
           }
         }
-        def getUsages(member : DSLMemberConstruct) : Int = usagesMap(member.ctx.meta.position)
+        def getUsages(member : DSLMemberConstruct) : Int = usagesMap(member.meta.position)
 
         val idxMap = usagesMap.clone()
         val nameMap = members.reverse.map {m =>
-          val idx = idxMap(m.ctx.meta.position) - 1
-          idxMap += m.ctx.meta.position -> idx
-          m -> m.ctx.meta.name.copy(anonymous = isAnonymous(m), idx = idx, usages = getUsages(m))
+          val idx = idxMap(m.meta.position) - 1
+          idxMap += m.meta.position -> idx
+          m -> m.meta.name.copy(anonymous = isAnonymous(m), idx = idx, usages = getUsages(m))
         }
         Map(nameMap : _*)
       }

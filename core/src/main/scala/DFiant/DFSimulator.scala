@@ -53,7 +53,7 @@ protected[DFiant] class DFString(value_ : List[Any])(implicit ctx0 : DFAny.Op.Co
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override lazy val nameScala = s"${Meta.Name.Separator}message"
+    override lazy val nameScala = s"${Meta.Name.AnonStart}message"
     def codeString: String = "msg\"" + value_.collect {
       case x: DFAny => s"$${${x.refCodeString}}"
       case x => x.toString
