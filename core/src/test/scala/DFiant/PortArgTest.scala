@@ -37,5 +37,4 @@ trait PortArgTest extends DFDesign {
 object PortArgApp extends DFApp {
   val paTest = new PortArgTest {}.printCodeString
   import internals._
-  println(paTest.members.map(m => (m.meta, m.nameFirst, m.nameScala)).mkString("\n"))
 }

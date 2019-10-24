@@ -29,7 +29,7 @@ object Meta {
     def >= (that : Position) : Boolean = (this == that) || (this > that)
     def < (that : Position) : Boolean = !(this >= that)
     def <= (that : Position) : Boolean = !(this > that)
-    override def toString: String = s"$line:$column" //$file:
+    override def toString: String = s"$file:$line:$column"
   }
   /////////////////////////////////////////////////////////
 
