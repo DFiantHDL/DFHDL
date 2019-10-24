@@ -212,7 +212,9 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
         val priorityNamedMembers = members.filterNot(x => x.nameFirst) ++ members.filter(x => x.nameFirst)
         val nameMap = priorityNamedMembers.map {m =>
           val info = nt(m.nameTemp)
-          val finalName = if (info.idx == info.usages-1) m.nameTemp.unbox else s"${Meta.Name.AnonStart}${m.nameTemp}_$info"
+          val finalName =
+            if (info.idx == info.usages-1 || m.nameTemp.startsWith(Meta.Name.AnonStart)) m.nameTemp.unbox
+            else s"${Meta.Name.AnonStart}${m.nameTemp}_$info"
           nt += (m.nameTemp.unbox -> info.incIdx)
           m -> finalName
         }

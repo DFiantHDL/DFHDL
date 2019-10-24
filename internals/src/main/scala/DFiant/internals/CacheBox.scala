@@ -131,6 +131,8 @@ final case class CacheListRW[T](default : List[T])(implicit owner : CacheBox.Own
   @inline private def pushSetDefault() : Unit = deps.foreach(x => x.setDefault())
 
   @inline protected[internals] def addFolderDependency(st : CacheDerivedHashMapRO[_,_,_]) : Unit = deps += st
+
+  super.set(default)
 }
 
 final case class CacheDerivedHashMapRO[A, B, T]
