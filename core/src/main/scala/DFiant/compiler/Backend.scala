@@ -729,7 +729,7 @@ object Backend {
     }
     //////////////////////////////////////////////////////////////////////////////////
 
-    protected def pass(dsn : DFInterface) : Unit = dsn.discoveredMembers.foreach {
+    protected def pass(dsn : DFAnyOwner) : Unit = dsn.discoveredMembers.foreach {
       case x : DFAny.Port[_,_] =>
         val dstSig = entity.port(x)
         if (x.isAssigned) {

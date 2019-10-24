@@ -85,8 +85,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   override private[DFiant] lazy val __dev : __DevDFDesign = new __DevDFDesign {}
   import __dev._
 
-  final override implicit def __theOwnerToBe : DFDesign = mutableOwner.value.asInstanceOf[DFDesign]
-
   protected def atOwnerDo[T](block : => T) : T = {
     val originalOwner = mutableOwner.value
     mutableOwner.value = owner.asInstanceOf[DFBlock]
@@ -108,11 +106,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
   transparentPorts //force transparent ports to be added as regular ports before all other members
-  nameFirst = self match {
-    case _ : ConditionalBlock[_,_] => false
-    case _ => true
-  }
-  if (!self.isInstanceOf[ConditionalBlock[_,_]]) id
+  nameFirst = true
+  id
 }
 
 object DFDesign {

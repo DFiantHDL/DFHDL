@@ -265,7 +265,6 @@ object DFAny {
     protected[DFiant] type TUInt[W2] = DFUInt.Var[W2]
     protected[DFiant] type TSInt[W2] = DFSInt.Var[W2]
     type TDir <: DFDir
-    protected[DFiant] type ThisOwner <: DFInterface
 
     protected[DFiant] trait __DevVar extends __DevDFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -975,6 +974,7 @@ object DFAny {
   ) extends DFAny.Initializable[DF](dfVar.width) with CanBePiped {self : DF <~> Dir =>
     type TPostInit = TVal <~> Dir
     type TDir = Dir
+    protected[DFiant] type ThisOwner <: DFInterface
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevPort extends __DevInitializable {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -991,7 +991,7 @@ object DFAny {
         if (dir.isIn) {
           if (owner.isTop) CacheBoxRO(List())
           else {
-            val grandfather = owner.owner.asInstanceOf[DFDesign]
+            val grandfather = owner.owner.asInstanceOf[DFBlock]
             CacheDerivedRO(grandfather.__dev.netsTo)(grandfather.__dev.netsTo.getOrElse(self, List()))
           }
         } else super.netsTo

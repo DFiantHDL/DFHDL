@@ -19,6 +19,7 @@ package DFiant
 import internals._
 
 sealed abstract class DFNet(netSymbol : String, netName : String)(implicit ctx0 : DFNet.Context) extends DFAnyMember {
+  protected[DFiant] type ThisOwner <: DFBlock
   final private[DFiant] override lazy val ctx = ctx0
   val toVal : DFAny
   val fromVal : DFAny

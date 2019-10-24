@@ -36,7 +36,7 @@ trait DFInterface extends DFAnyOwner { self =>
         else clsSimpleName
       }
     }
-    protected lazy val discoveredOutputs : CacheBoxRO[List[DFAny.Port[DFAny, OUT]]] = ownerOption match {
+    private lazy val discoveredOutputs : CacheBoxRO[List[DFAny.Port[DFAny, OUT]]] = ownerOption match {
       case Some(o : DFInterface) =>
         CacheDerivedRO(portsOut, o.__dev.discoveredSet)(portsOut.filter(o.__dev.discoveredSet.contains))
       case _ => portsOut
@@ -52,7 +52,7 @@ trait DFInterface extends DFAnyOwner { self =>
   }
   override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._
-  override implicit def __theOwnerToBe : DFInterface = this
+  protected implicit def __interfaceOwner(implicit lp : shapeless.LowPriority) : DFInterface = this
 
   final lazy val ports = CacheDerivedRO(addedMembers) {
     addedMembers.collect{case o : DFAny.Port[_,_] => o}.asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]

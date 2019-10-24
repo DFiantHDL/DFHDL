@@ -22,8 +22,8 @@ import scala.collection.mutable.ListBuffer
 
 protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV], RV <: Any](returnVar : Option[DFAny.Var])(prevBlock : Option[CB], block : => RV)(
   implicit ctx : ConditionalBlock.Context, mutableOwner: MutableOwner
-) extends DFDesign with DSLTransparentOwnerConstruct {self : CB =>
-  protected[DFiant] trait __DevConditionalBlock extends __DevDFDesign with __DevDSLTransparentOwnerConstruct {
+) extends DFBlock with DSLTransparentOwnerConstruct {self : CB =>
+  protected[DFiant] trait __DevConditionalBlock extends __DevDFBlock with __DevDSLTransparentOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Conditional Blocks
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,10 +45,11 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV]
     final val isFirstCondBlock : Boolean = firstBlock == self
     final lazy val isLastCondBlock : Boolean = lastBlock == self
     val isExhaustive : Boolean
+
+    lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = owner.discoveredSet
   }
   override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
   import __dev._
-  protected[DFiant] type ThisOwner <: DFBlock
 
   prevBlock.foreach{pb =>pb.__dev._nextBlock = Some(self)}
 
