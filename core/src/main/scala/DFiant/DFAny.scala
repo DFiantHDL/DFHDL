@@ -64,7 +64,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     private lazy val autoConstructCodeString : String = autoConstructCodeStringFunc.map(x => x()).getOrElse("")
     final private[DFiant] def setAutoConstructCodeString(cs : => String) : self.type = {autoConstructCodeStringFunc = Some(() => cs); self}
     private[DFiant] def constructCodeStringDefault : String
-    private[DFiant] def showAnonymous : Boolean = __config.showAnonymousEntries || this.isInstanceOf[DFAny.NewVar[_]]
+    private[DFiant] def showAnonymous : Boolean = __config.showAnonymousEntries
     private def constructCodeString : String =
       if (autoConstructCodeString.isEmpty || showAnonymous) constructCodeStringDefault else autoConstructCodeString
     override def refCodeString(implicit callOwner : DSLOwnerConstruct) : String = {
@@ -610,6 +610,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final override private[DFiant] def showAnonymous : Boolean = true
       final private[DFiant] def constructCodeStringDefault : String = s"$newVarCodeString$initCodeString"
     }
     override private[DFiant] lazy val __dev : __DevNewVar = new __DevNewVar {}
@@ -973,6 +974,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      final override private[DFiant] def showAnonymous : Boolean = true
       private[DFiant] def constructCodeStringDefault : String =
         s"${dfVar.__dev.constructCodeStringDefault} <> $dir$initCodeString"
 

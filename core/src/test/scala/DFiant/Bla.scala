@@ -102,13 +102,17 @@ trait IODesignMatch extends DFDesign {
   val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
   val i2 = DFUInt(8) <> IN init (2, 8, 7, 11, 21)
 
-//  val temp = i1 + i2 + i1
+  val temp = DFUInt[8]
+  temp := temp + 1
   val o2 = DFUInt(8) <> OUT
   val ret = DFUInt(8).matchdf(i2)
     .casedf(1 to 5, 10 to 20) {i1}
     .casedf(7){75}
     .casedf_{88}
   o2 <> ret
+  val o3 = DFUInt(8) <> OUT
+  temp := 0
+  o3 := temp
 //
 //  val i3 = DFEnum(Foo) <> IN init (Foo.Baz0, Foo.Baz3)
 //  val o3 = DFUInt(8) <> OUT
@@ -119,7 +123,7 @@ trait IODesignMatch extends DFDesign {
 
 
 object Bla extends DFApp {
-  implicit val config = DFAnyConfiguration.detailed
+//  implicit val config = DFAnyConfiguration.detailed
   val bla = new IODesignMatch {}.printCodeString
   import internals._
   println(bla.members.map(m => (m.meta, m.nameFirst)).mkString("\n"))
