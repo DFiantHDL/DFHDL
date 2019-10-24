@@ -61,5 +61,6 @@ object FoldApp extends DFApp {
   println("------------------------------")
   foldtest.io.fold
   foldtest.printCodeString
+  println(foldtest.members.map(m => (m.meta, m.nameFirst, m.nameScala)).mkString("\n"))
 }
 

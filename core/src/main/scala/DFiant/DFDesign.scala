@@ -108,7 +108,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
   transparentPorts //force transparent ports to be added as regular ports before all other members
-  nameFirst = true //Arguments may lead to new names, so we name the owner first
+  nameFirst = self match {
+    case _ : ConditionalBlock[_,_] => false
+    case _ => true
+  }
   if (!self.isInstanceOf[ConditionalBlock[_,_]]) id
 }
 

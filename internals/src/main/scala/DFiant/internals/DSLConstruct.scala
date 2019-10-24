@@ -143,42 +143,42 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final val metaNameTable : CacheBoxRO[Map[DSLMemberConstruct, Meta.Name]] =
       CacheDerivedRO(members) {
+        case class NamedGroup(position : Meta.Position, nameFirst : Boolean, memberSet : Set[DSLMemberConstruct])
         //Name-Position to Latest Call-Position Map
-        val latestPosMap = mutable.Map[Meta.Position, Meta.Position]()
-        members.foreach {m =>
-          latestPosMap.get(m.meta.namePosition) match {
-            case Some(v) if !m.meta.name.anonymous && m.meta.position <= m.meta.namePosition && m.meta.position > v =>
-              latestPosMap += (m.meta.namePosition -> m.meta.position)
-//            case Some(v) if m.meta.position > m.meta.namePosition && m.meta.position > v =>
-//              latestPosMap += (m.meta.namePosition -> m.meta.position)
-            case None if !m.meta.name.anonymous =>
-              latestPosMap += (m.meta.namePosition -> m.meta.position)
+        val namedAtPos = mutable.Map[Meta.Position, NamedGroup]()
+        members.foreach {
+          case m if !m.meta.name.anonymous => namedAtPos.get(m.meta.namePosition) match {
+            case Some(ng) if !ng.nameFirst && !m.nameFirst =>
+              if (m.meta.position > ng.position)
+                namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
+              else if (m.meta.position == ng.position)
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+            case Some(ng) if ng.nameFirst && m.nameFirst =>
+              if (m.meta.position == ng.position)
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+            case Some(ng) if m.nameFirst =>
+                namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
+            case None =>
+              namedAtPos += (m.meta.namePosition -> NamedGroup(m.meta.position, m.nameFirst, Set(m)))
             case _ => //Do nothing
           }
+          case _ => //Do nothing
         }
         def isAnonymous(member : DSLMemberConstruct) : Boolean =
-          member.meta.name.anonymous ||
-          (member.meta.position > member.meta.namePosition && !member.nameFirst) ||
-          (latestPosMap(member.meta.namePosition) != member.meta.position) //&& !member.nameFirst
+          member.meta.name.anonymous || !(namedAtPos(member.meta.namePosition).memberSet.contains(member))
 
-        val usagesMap = mutable.Map[Meta.Position, Int]()
-        members.foreach {m =>
-          usagesMap.get(m.meta.position) match {
-            case Some(v) if !isAnonymous(m) =>
-              usagesMap += (m.meta.position -> (v + 1))
-            case _ if !isAnonymous(m) =>
-              usagesMap += (m.meta.position -> 1)
-            case _ =>
-              usagesMap += (m.meta.position -> 0)
-          }
+        def getUsages(member : DSLMemberConstruct) : Int = namedAtPos.get(member.meta.namePosition) match {
+          case Some(ng) => ng.memberSet.size
+          case None => 0
         }
-        def getUsages(member : DSLMemberConstruct) : Int = usagesMap(member.meta.position)
 
-        val idxMap = usagesMap.clone()
-        val nameMap = members.reverse.map {m =>
-          val idx = idxMap(m.meta.position) - 1
-          idxMap += m.meta.position -> idx
-          m -> m.meta.name.copy(anonymous = isAnonymous(m), idx = idx, usages = getUsages(m))
+        val idxMap = mutable.Map[Meta.Position, Int]()
+        val nameMap = members.map {
+          case m if !isAnonymous(m) =>
+            val idx = idxMap.getOrElse(m.meta.namePosition, 0)
+            idxMap += m.meta.namePosition -> (idx + 1)
+            m -> m.meta.name.copy(anonymous = false, idx = idx, usages = getUsages(m))
+          case m => m -> m.meta.name.copy(anonymous = true)
         }
         Map(nameMap : _*)
       }
