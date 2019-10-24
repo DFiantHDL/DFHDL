@@ -102,9 +102,10 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final def replacement()(implicit ctx : DSLContext) : TAlias =
-      if (self.nonTransparentOwner ne ctx.owner.nonTransparent)
-        ctx.owner.nonTransparent.asInstanceOf[DFDesign].transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
-      else self.asInstanceOf[TAlias]
+      if (self.nonTransparentOwner ne ctx.owner.nonTransparent) ctx.owner.nonTransparent match {
+        case d : DFDesign => d.transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
+        case _ =>  self.asInstanceOf[TAlias]
+      } else self.asInstanceOf[TAlias]
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Source
@@ -264,7 +265,7 @@ object DFAny {
     protected[DFiant] type TUInt[W2] = DFUInt.Var[W2]
     protected[DFiant] type TSInt[W2] = DFSInt.Var[W2]
     type TDir <: DFDir
-    protected[DFiant] type ThisOwner <: DFDesign
+    protected[DFiant] type ThisOwner <: DFInterface
 
     protected[DFiant] trait __DevVar extends __DevDFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -277,7 +278,10 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private val _netsTo = CacheDerivedRO(owner.netsTo)(owner.netsTo.getOrElse(self, List()))
+      private val _netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = owner match {
+        case o : DFDesign => CacheDerivedRO(o.netsTo)(o.netsTo.getOrElse(self, List()))
+        case o => CacheBoxRO(List())
+      }
       @inline def netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = _netsTo
 
       final lazy val assignments = CacheDerivedRO(netsTo) {
@@ -325,14 +329,16 @@ object DFAny {
       override val isAssignable : Boolean = true
       final def isAssigned : Boolean = assignments.nonEmpty
       final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
-      final def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] =
-        owner.netsToAt(self, toRelWidth, toRelBitLow).flatMap {
+      final def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] = owner match {
+        case o : DFDesign => o.netsToAt(self, toRelWidth, toRelBitLow).flatMap {
           case Left(src) =>
             val assignments = src.assignmentsOnly
             if (assignments.isEmpty) None
             else Some(Left(assignments))
           case r => Some(r)
         }
+        case _ => List()
+      }
 
       def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
         implicit ctx : DFNet.Context
@@ -981,10 +987,13 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Connection
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private val _netsTo =
+      private val _netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] =
         if (dir.isIn) {
           if (owner.isTop) CacheBoxRO(List())
-          else CacheDerivedRO(owner.owner.__dev.netsTo)(owner.owner.__dev.netsTo.getOrElse(self, List()))
+          else {
+            val grandfather = owner.owner.asInstanceOf[DFDesign]
+            CacheDerivedRO(grandfather.__dev.netsTo)(grandfather.__dev.netsTo.getOrElse(self, List()))
+          }
         } else super.netsTo
       @inline override def netsTo : CacheBoxRO[List[Either[Source, DFBlock]]] = _netsTo
 

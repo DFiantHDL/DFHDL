@@ -121,10 +121,40 @@ trait IODesignMatch extends DFDesign {
 //    .casedf(Foo.Baz1) {o3 := 0}
 }
 
+class RTx2(width : Int)(implicit ctx : RTComponent.Context) extends RTComponent {
+  final val I = DFUInt(width) <> IN
+  final val O = DFUInt(width) <> OUT
+  final override protected val blackBoxFunctions = Map(O -> BlackBoxFunction(O)(I, I)((l, r) => l + r))
+}
+
+trait Comp extends DFComponent[Comp] {
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
+  final override protected val blackBoxFunctions = Map(o -> BlackBoxFunction(o)(i, i)((l, r) => l + r))
+}
+object Comp {
+  implicit val ev : Comp => Unit = ifc => {
+    import ifc._
+    val rt = new RTx2(8)
+    rt.I <> i
+    rt.O <> o
+  }
+}
+
+trait IODesignConn2 extends DFDesign{
+  val i = DFUInt(8) <> IN init 1
+  val o = DFUInt(8) <> OUT
+
+  val io = new Comp {}
+  i <> io.i
+  o <> io.o
+}
 
 object Bla extends DFApp {
-//  implicit val config = DFAnyConfiguration.detailed
-  val bla = new IODesignMatch {}.printCodeString
+  implicit val config = DFAnyConfiguration.detailed
+  val bla = new IODesignConn2 {}
+  bla.io.unfold
+  bla.printCodeString
   import internals._
 //  println(bla.members.map(m => (m.meta, m.nameFirst)).mkString("\n"))
 //  println(bla.o.connectionLoop)
