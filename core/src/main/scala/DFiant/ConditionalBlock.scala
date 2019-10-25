@@ -46,6 +46,9 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV]
     final lazy val isLastCondBlock : Boolean = lastBlock == self
     val isExhaustive : Boolean
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Member discovery
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = owner.discoveredSet
   }
   override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
