@@ -26,7 +26,6 @@ import scala.collection.immutable
 // Source Aggregator
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 case class SourceVersion()
-private[DFiant] case class PropTag(init : Seq[DFAny.Token], const : DFAny.Token, latency : Option[Int])
 private[DFiant] case class AliasTag(dfVal : DFAny, context : DFBlock, dfNet : Option[DFNet], version : Option[Int], prevStep : Int, inverted : Boolean, latency : Option[Int], pipeStep : Int) {
   def invert : AliasTag = copy(inverted = !inverted)
   def prev(step : Int) : AliasTag = copy(prevStep = prevStep + step)
