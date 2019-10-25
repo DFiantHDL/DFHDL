@@ -61,8 +61,9 @@ private[DFiant] object AliasTag {
   def withLatency(dfVal : DFAny, latency : Option[Int]) : AliasTag =
     AliasTag(dfVal = dfVal, context = dfVal.owner.asInstanceOf[DFBlock], dfNet = None, version = None, prevStep = 0, inverted = false, latency = latency, pipeStep = 0)
 }
+
 private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, reverseBits : Boolean, aliasTag : Option[AliasTag]) {
-  val relWidth : Int = relBitHigh - relBitLow + 1
+  val width : Int = relBitHigh - relBitLow + 1
   def range : Range = if (reverseBits) relBitLow to relBitHigh else relBitHigh to relBitLow by -1
   def reverse : SourceElement = copy(reverseBits = !reverseBits)
   def invert : SourceElement = copy(aliasTag = aliasTag.map(t => t.invert))
@@ -81,7 +82,7 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
   def versioned : SourceElement = {
     val versionedTag = aliasTag.map(t => t.versioned)
     versionedTag.foreach {
-      case v if v.version.isDefined => v.dfVal.consumeAt(relWidth, relBitLow, v.version.get, v.context)
+      case v if v.version.isDefined => v.dfVal.consumeAt(width, relBitLow, v.version.get, v.context)
       case _ =>
     }
     copy(aliasTag = versionedTag)
@@ -91,7 +92,7 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
       val reverseStr = if (reverseBits) ".reverse" else ""
       val invertStr = if (t.inverted) "~" else ""
       val prevStr = if (t.prevStep == 1) s".prev" else if (t.prevStep > 0) s".prev(${t.prevStep})" else ""
-      val selStr = if (t.dfVal.width.getValue != relWidth) s"($relBitHigh, $relBitLow)" else ""
+      val selStr = if (t.dfVal.width.getValue != width) s"($relBitHigh, $relBitLow)" else ""
       val pipeStr = if (t.pipeStep == 1) s".pipe" else if (t.pipeStep > 0) s".pipe(${t.pipeStep})" else ""
       s"$invertStr${t.dfVal.refCodeString}$selStr$prevStr$pipeStr$reverseStr"
     case None => "NA"
@@ -118,17 +119,17 @@ private[DFiant] case class SourceElement(relBitHigh: Int, relBitLow : Int, rever
 }
 
 private[DFiant] case class Source(elements : List[SourceElement]) {
-  val width : Int = elements.map(v => v.relWidth).sum
+  val width : Int = elements.map(v => v.width).sum
   def coalesce : Source = Source(elements.foldLeft(List[SourceElement]()) {
     case (ls, e) if ls.isEmpty || (ls.last.aliasTag != e.aliasTag)=> ls :+ e
     case (ls, right) =>
       val left = ls.last
       val coupled : List[SourceElement] =
         if (left.aliasTag.isEmpty && right.aliasTag.isEmpty)
-          List(SourceElement(left.relWidth + right.relWidth - 1, 0, reverseBits = false, None))
-        else if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.relWidth == 1))
+          List(SourceElement(left.width + right.width - 1, 0, reverseBits = false, None))
+        else if (left.relBitLow == right.relBitHigh + 1 && ((!left.reverseBits && !right.reverseBits) || right.width == 1))
           List(SourceElement(left.relBitHigh, right.relBitLow, left.reverseBits, left.aliasTag))
-        else if (left.relBitHigh == right.relBitLow - 1 && ((left.reverseBits && right.reverseBits) || right.relWidth == 1))
+        else if (left.relBitHigh == right.relBitLow - 1 && ((left.reverseBits && right.reverseBits) || right.width == 1))
           List(SourceElement(right.relBitHigh, left.relBitLow, left.reverseBits, left.aliasTag))
         else List(left, right)
       ls.dropRight(1) ++ coupled
@@ -186,8 +187,8 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
         case Some(t) => Some(AliasTag.withLatency(thatDFVal, t.latency))
         case None => None
       }
-      val se = SourceElement(pos, pos-e.relWidth+1, false, thatTag)
-      pos -= e.relWidth
+      val se = SourceElement(pos, pos-e.width+1, false, thatTag)
+      pos -= e.width
       se
     })).coalesce
   }
@@ -212,7 +213,7 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
       var pos = width - 1
       coalesedLatency.elements.map(e => {
         val high = pos
-        pos -= e.relWidth
+        pos -= e.width
         val low = pos + 1
         if (high - low + 1 == width) e.latencyString else s"${e.latencyString}@($high, $low)"
       }).mkString(", ")
@@ -223,10 +224,10 @@ private[DFiant] case class Source(elements : List[SourceElement]) {
     elements.foldLeft(immutable.BitSet()){
       case (usedBits, e) =>
         val extra = e.aliasTag match {
-          case Some(t) => usedBits ++ ((bitHi-e.relWidth+1) to bitHi)
+          case Some(t) => usedBits ++ ((bitHi-e.width+1) to bitHi)
           case None => usedBits
         }
-        bitHi = bitHi - e.relWidth
+        bitHi = bitHi - e.width
         extra
     }
   }
