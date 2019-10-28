@@ -110,7 +110,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Source
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    lazy val source : Source = Source(self, owner.asInstanceOf[DFBlock])
+    lazy val source : Source = Source(self)
     def thisSourceLB : LazyBox[Source] =
       LazyBox.Args1[Source, Source](self)(f => f.copyWithNewDFVal(self), inletSourceLB)
     lazy val prevSourceLB : LazyBox[Source] =
@@ -421,7 +421,7 @@ object DFAny {
       override def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
-        def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
+        def throwAssignmentError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal at ${ctx.meta.position}")
         val cons = toVar.connectionsAt(toRelWidth, toRelBitLow)
         if (!cons.isEmpty) throwAssignmentError(s"Target ${toVar.fullName} already has a connection: $cons.\nCannot apply both := and <> operators for the same target")
         super.assign(toRelWidth, toRelBitLow, fromVal)
@@ -432,14 +432,14 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final lazy val connections = CacheDerivedRO(netsTo) {
         netsTo.foldLeft(Source.none(width)) {
-          case (cons, Left(src)) =>  cons.orElse(src.connectionsOnly)
+          case (cons, Left(src)) => cons.orElse(src.connectionsOnly)
           case (cons, _) => cons
         }
       }
 
       final lazy val connectionLoop : CacheBoxRO[Option[List[DFAny.Connectable[_]]]] = CacheDerivedRO(connections) {
         val cons = connections.elements.collect {
-          case e @ SourceElement(_,_,_,Some(AliasTag(v : DFAny.Connectable[_],_,_,_,_,_,_,_))) => (v, v.connectionLoop.getBoxed)
+          case e @ SourceElement.Alias(v : DFAny.Connectable[_],_,_,_,_,_,_,_,_) => (v, v.connectionLoop.getBoxed)
         }
         cons.collectFirst {
           case (v, CacheBoxRO.Boxed.CyclicError) => List(v)
@@ -496,19 +496,21 @@ object DFAny {
           throw new IllegalArgumentException(s"A cyclic connectivity loop detected\n$loop")
         }
         connections.elements.collect {
-          case e if e.aliasTag.isDefined => e.aliasTag.get.dfVal.initCB
+          case e : SourceElement.Alias => e.dfVal.initCB
         }
       }
       lazy val initConnectedCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO(connectionInits) {
-        val bitsTokenSeq : Seq[DFBits.Token] = connections.elements.map(x =>
-          x.aliasTag match {
-            case Some(t) =>
-              val selBits = t.dfVal.initCB.unbox.bitsWL(x.width, x.relBitLow)
-              val revBits = if (x.reverseBits) DFBits.Token.reverse(selBits) else selBits
-              val invBits = if (t.inverted) DFBits.Token.unary_~(revBits) else revBits
-              if (t.prevStep > 0) invBits.prevInit(t.prevStep) else invBits
-            case None => Seq()
-          }).reduce(DFBits.Token.concat)
+        val bitsTokenSeq : Seq[DFBits.Token] = connections.elements.map {
+            case x : SourceElement.Alias =>
+              val selBits = x.dfVal.initCB.unbox.bitsWL(x.width, x.relBitLow)
+              val revBits = if (x.reversed) DFBits.Token.reverse(selBits) else selBits
+              val invBits = if (x.inverted) DFBits.Token.unary_~(revBits) else revBits
+              x.stage match {
+                case SourceStage.Prev(step) => invBits.prevInit(step)
+                case _ => invBits
+              }
+            case x : SourceElement.Empty => Seq()
+          }.reduce(DFBits.Token.concat)
         bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
       }
       lazy val initCB : CacheBoxRO[Seq[TToken]] = initConnectedCB
@@ -518,17 +520,18 @@ object DFAny {
       // Constant
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private def constFunc(source : Source) : TToken = {
-        val bitsToken : DFBits.Token = source.elements.map(x =>
-          x.aliasTag match {
-            case Some(t) =>
-              val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
-                if (t.prevStep > 0) DFBits.Token(t.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
-                else t.dfVal.constLB.get
-              val selBits = prvBits.bitsWL(x.width, x.relBitLow)
-              val revBits = if (x.reverseBits) selBits.reverse else selBits
-              if (t.inverted) ~revBits else revBits
-            case None => DFBits.Token(x.width, Bubble)
-          }).reduce((l, r) => l ## r)
+        val bitsToken : DFBits.Token = source.elements.map {
+          case x : SourceElement.Alias =>
+            val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
+              x.stage match {
+                case SourceStage.Prev(step) => DFBits.Token(x.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
+                case _ => x.dfVal.constLB.get
+              }
+            val selBits = prvBits.bitsWL(x.width, x.relBitLow)
+            val revBits = if (x.reversed) selBits.reverse else selBits
+            if (x.inverted) ~revBits else revBits
+          case x : SourceElement.Empty => DFBits.Token(x.width, Bubble)
+        }.reduce((l, r) => l ## r)
         protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
       }
       lazy val constLB : LazyBox[TToken] =

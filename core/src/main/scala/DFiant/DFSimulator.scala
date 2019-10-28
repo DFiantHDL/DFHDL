@@ -46,7 +46,7 @@ protected[DFiant] class DFString(value_ : List[Any])(implicit ctx0 : DFAny.Op.Co
         val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
         //TODO: fix this
         //      assert(elms.length == 1, s"Full handling of split pipeline in a message is not yet supported (${x.fullName})")
-        elms.head.aliasTag.get
+        elms.head
       case x => x
     }
 
