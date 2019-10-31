@@ -274,6 +274,12 @@ object DFAny {
       private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
         CacheDerivedRO(protAssignDependencySet)(discoveryDependenciesStatic ++ protAssignDependencySet)
       @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
+      @tailrec private def getDepList(block : DFBlock) : List[DFAnyMember] = block.netsTo(self).flatMap {
+        case Left(src) => src.elements.collect {
+          case a: SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
+        }.flatten
+        case Right(block) => getDepList(block)
+      }
       final lazy val protAssignDependencySet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
         netsTo.flatMap {
           case Left(src) => src.elements.collect {
