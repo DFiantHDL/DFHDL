@@ -271,8 +271,37 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final val protAssignDependencies : CacheListRW[DFAnyMember] = CacheListRW(List())
-      override private[DFiant] val discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-        CacheDerivedRO(protAssignDependencies)(discoveryDependenciesStatic ++ protAssignDependencies.unbox)
+      private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
+        CacheDerivedRO(protAssignDependencySet)(discoveryDependenciesStatic ++ protAssignDependencySet)
+      @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
+      final lazy val protAssignDependencySet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
+        netsTo.flatMap {
+          case Left(src) => src.elements.collect {
+            case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
+          }.flatten
+          case Right(block) => block :: block.netsTo(self).flatMap {
+            case Left(src) => src.elements.collect {
+              case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
+            }.flatten
+            case Right(block) => block :: block.netsTo(self).flatMap {
+              case Left(src) => src.elements.collect {
+                case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
+              }.flatten
+              case Right(block) => block :: block.netsTo(self).flatMap {
+                case Left(src) => src.elements.collect {
+                  case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
+                }.flatten
+                case Right(block) => block :: block.netsTo(self).flatMap {
+                  case Left(src) => src.elements.collect {
+                    case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
+                  }.flatten
+                  case Right(block) => List(block)
+                }
+              }
+            }
+          }
+        }.toSet
+      }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Assignment
@@ -384,6 +413,7 @@ object DFAny {
       implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFNet.Context
     ) = assign(op(left, right))
 
+    @inline final def lala = netsTo
 
     //////////////////////////////////////////////////////////////////////////
   }
