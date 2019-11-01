@@ -274,39 +274,18 @@ object DFAny {
       private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
         CacheDerivedRO(protAssignDependencySet)(discoveryDependenciesStatic ++ protAssignDependencySet)
       @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
-      @tailrec private def getDepList(block : DFBlock) : List[DFAnyMember] = block.netsTo(self).flatMap {
-        case Left(src) => src.elements.collect {
-          case a: SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
-        }.flatten
-        case Right(block) => getDepList(block)
+      @tailrec private def getDepSet(set : Set[DFAnyMember], list : List[Either[Source, DFBlock]]) : Set[DFAnyMember] = list match {
+        case Left(src) :: xs =>
+          val updatedSet = src.elements.foldLeft(set) {
+            case (s, a : SourceElement.Alias) => s + a.dfVal ++ a.dfNet.toList
+            case (s, _) => s
+          }
+          getDepSet(updatedSet, xs)
+        case Right(block) :: xs => getDepSet(set + block, xs ++ block.netsTo(self))
+        case Nil => set
       }
       final lazy val protAssignDependencySet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
-        netsTo.flatMap {
-          case Left(src) => src.elements.collect {
-            case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
-          }.flatten
-          case Right(block) => block :: block.netsTo(self).flatMap {
-            case Left(src) => src.elements.collect {
-              case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
-            }.flatten
-            case Right(block) => block :: block.netsTo(self).flatMap {
-              case Left(src) => src.elements.collect {
-                case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
-              }.flatten
-              case Right(block) => block :: block.netsTo(self).flatMap {
-                case Left(src) => src.elements.collect {
-                  case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
-                }.flatten
-                case Right(block) => block :: block.netsTo(self).flatMap {
-                  case Left(src) => src.elements.collect {
-                    case a : SourceElement.Alias => List(a.dfVal) ++ a.dfNet.toList
-                  }.flatten
-                  case Right(block) => List(block)
-                }
-              }
-            }
-          }
-        }.toSet
+        getDepSet(Set(), netsTo)
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
