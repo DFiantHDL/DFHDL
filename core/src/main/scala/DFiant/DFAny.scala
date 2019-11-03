@@ -270,7 +270,6 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final val protAssignDependencies : CacheListRW[DFAnyMember] = CacheListRW(List())
       private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
         CacheDerivedRO(protAssignDependencySet)(discoveryDependenciesStatic ++ protAssignDependencySet)
       @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
@@ -366,8 +365,7 @@ object DFAny {
           throw new IllegalArgumentException(s"\nTarget assignment variable (${toVar.fullName}) is not at the same design as this assignment call (${ctx.owner.fullName})")
         def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted assignment: $toVar := $fromVal}")
         if (toRelWidth != fromVal.width.getValue) throwConnectionError(s"Target width ($toRelWidth) is different than source width (${fromVal.width}).")
-        toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
-        toVar.protAssignDependencies += fromVal
+        DFNet.Assignment(toVar, fromVal)
       }
       def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self.replacement().asInstanceOf[Var]
@@ -376,7 +374,6 @@ object DFAny {
       }
       def assignClear() : Unit = {
         assignedSourceLB.set(Source.none(width))
-        protAssignDependencies.setDefault()
       }
 
     }
@@ -482,8 +479,7 @@ object DFAny {
         val fromVal = that.replacement()
         toVar.connectFrom(width, 0, fromVal)
         //All is well. We can now connect fromVal->toVar
-        toVar.protAssignDependencies += DFNet.Connection(toVar, fromVal)
-        toVar.protAssignDependencies += fromVal
+        DFNet.Connection(toVar, fromVal)
       }
       def connectWith(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val left = self.replacement()
@@ -706,10 +702,6 @@ object DFAny {
       final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
         val toVar = self.replacement().asInstanceOf[Alias[DF]]
         val fromVal = that.replacement()
-        reference.aliasedVals.foreach{case a : DFAny.Var =>
-          a.__dev.protAssignDependencies += toVar
-          a.__dev.protAssignDependencies += fromVal
-        } //TODO: fix dependency to bit accurate dependency?
         reference match {
           case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
             toVar.assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
@@ -722,8 +714,7 @@ object DFAny {
           case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
           case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
         }
-        toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
-        toVar.protAssignDependencies += fromVal
+        DFNet.Assignment(toVar, fromVal)
       }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -749,29 +740,6 @@ object DFAny {
   object Alias {
     trait Tag
     type Context = DFAnyOwner.Context[DFAnyOwner]
-
-//    final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
-//      val toVar = self.replacement().asInstanceOf[Alias[DF]]
-//      val fromVal = that.replacement()
-//      reference.aliasedVars.foreach{case a : DFAny.Var =>
-//        a.__dev.protAssignDependencies += toVar
-//        a.__dev.protAssignDependencies += fromVal
-//      } //TODO: fix dependency to bit accurate dependency?
-//      reference match {
-//        case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
-//          toVar.assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
-//        case DFAny.Alias.Reference.AsIs(aliasedVar) =>
-//          toVar.assign(width, 0, fromVal.inletSourceLB)
-//        case DFAny.Alias.Reference.Concat(aliasedVars) =>
-//          toVar.assign(width, 0, fromVal.inletSourceLB)
-//        case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
-//        case DFAny.Alias.Reference.Invert(aliasedVar) => ???
-//        case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
-//        case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
-//      }
-//      toVar.protAssignDependencies += DFNet.Assignment(toVar, fromVal)
-//      toVar.protAssignDependencies += fromVal
-//    }
 
     sealed abstract class Reference(aliasCodeString_ : => String)(implicit ctx : Alias.Context) {
       final protected implicit val cbOwner = CacheBox.Owner(ctx.owner)
