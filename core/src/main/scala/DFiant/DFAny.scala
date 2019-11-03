@@ -394,9 +394,6 @@ object DFAny {
     final def := [R](right: OpAble[R])(
       implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFNet.Context
     ) = assign(op(left, right))
-
-    @inline final def lala = netsTo
-
     //////////////////////////////////////////////////////////////////////////
   }
   object Var {
