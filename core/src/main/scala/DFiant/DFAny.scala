@@ -94,9 +94,8 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constant
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    lazy val constCB : CacheBoxRO[TToken] = ???
-    val constLB : LazyBox[TToken]
-    final private[DFiant] def isConstant : Boolean = !constLB.get.isBubble
+    val constCB : CacheBoxRO[TToken]
+    final private[DFiant] def isConstant : Boolean = !constCB.unbox.isBubble
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Replacement References
@@ -526,13 +525,22 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Constant
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private def constFunc(source : Source) : TToken = {
-        val bitsToken : DFBits.Token = source.elements.map {
+      private lazy val connectionConsts = CacheDerivedRO(connections, connectionLoop) {
+        if (connectionLoop.isDefined) {
+          val loop = connectionLoop.get.map(e => e.fullName).mkString(" <> ")
+          throw new IllegalArgumentException(s"A cyclic connectivity loop detected\n$loop")
+        }
+        connections.elements.collect {
+          case e : SourceElement.Alias => e.dfVal.constCB
+        }
+      }
+      lazy val constConnectedCB : CacheBoxRO[TToken] = CacheDerivedRO(connectionConsts) {
+        val bitsToken : DFBits.Token = connections.elements.map {
           case x : SourceElement.Alias =>
             val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
               x.stage match {
                 case SourceStage.Prev(step) => DFBits.Token(x.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
-                case _ => x.dfVal.constLB.get
+                case _ => x.dfVal.constCB.unbox
               }
             val selBits = prvBits.bitsWL(x.width, x.relBitLow)
             val revBits = if (x.reversed) selBits.reverse else selBits
@@ -541,8 +549,7 @@ object DFAny {
         }.reduce((l, r) => l ## r)
         protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
       }
-      lazy val constLB : LazyBox[TToken] =
-        LazyBox.Args1[TToken, Source](self)(constFunc, inletSourceLB, Some(bubbleToken(self).asInstanceOf[TToken]))
+      lazy val constCB : CacheBoxRO[TToken] = constConnectedCB
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
@@ -922,9 +929,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Constant
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final override lazy val constCB : CacheBoxRO[TToken] = CacheBoxRO(token.asInstanceOf[TToken])
-      final lazy val constLB : LazyBox[TToken] =
-        LazyBox.Const(self)(token.asInstanceOf[TToken])
+      final lazy val constCB : CacheBoxRO[TToken] = CacheBoxRO(token.asInstanceOf[TToken])
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
