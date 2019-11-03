@@ -27,7 +27,7 @@ sealed abstract class DFNet(netSymbol : String, netName : String)(implicit ctx0 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override private[DFiant] def discoveryDependenciesStatic = super.discoveryDependenciesStatic + fromVal
+    override private[DFiant] def discoveryDependenciesStatic = super.discoveryDependenciesStatic + fromVal + toVal //TODO:toVal might not be required in the future
     override lazy val nameScala = s"${Meta.Name.Separator}$netName"
     def codeString : String = s"\n${toVal.refCodeString} $netSymbol ${fromVal.refCodeString}"
   }

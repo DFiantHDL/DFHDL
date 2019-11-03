@@ -165,7 +165,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
           case _ => //Do nothing
         }
         def isAnonymous(member : DSLMemberConstruct) : Boolean =
-          member.meta.name.anonymous || !(namedAtPos(member.meta.namePosition).memberSet.contains(member))
+          member.meta.name.anonymous || !(namedAtPos(member.meta.namePosition).memberSet.contains(member)) || member.meta.name.value == "applyOrElse"
 
         def getUsages(member : DSLMemberConstruct) : Int = namedAtPos.get(member.meta.namePosition) match {
           case Some(ng) => ng.memberSet.size

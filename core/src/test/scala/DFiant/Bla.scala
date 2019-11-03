@@ -151,9 +151,9 @@ trait IODesignConn2 extends DFDesign{
 }
 
 object Bla extends DFApp {
-  implicit val config = DFAnyConfiguration.detailed
-  val bla = new IODesignConn2 {}
-  bla.io.unfold
+//  implicit val config = DFAnyConfiguration.detailed
+  val bla = new IODesignMatch {}
+//  bla.io.unfold
   bla.printCodeString
   import internals._
 //  println(bla.members.map(m => (m.meta, m.nameFirst)).mkString("\n"))

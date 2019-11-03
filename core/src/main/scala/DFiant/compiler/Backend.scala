@@ -270,7 +270,7 @@ object Backend {
     protected object References {
       private val hashMap : mutable.HashMap[DFAny, Reference] = mutable.HashMap.empty[DFAny, Reference]
       def print() : Unit = println(hashMap.map(e => s"${e._1.name} -> ${e._2.name}").mkString("\n"))
-      def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName}"))
+      def apply(member : DFAny) : Reference = hashMap.getOrElse(member, throw new IllegalArgumentException(s"No reference for ${member.fullName} which is defined at ${member.meta.position}"))
 //      def apply(dfVal : DFAny) : Reference = hashMap.getOrElse(dfVal, architecture.declarations.signal(dfVal))
       def add(member : DFAny, reference : Reference, forceUpdate : Boolean) : Unit =
         if (forceUpdate) hashMap.update(member, reference)
