@@ -442,7 +442,7 @@ object DFSInt extends DFAny.Companion {
       ) : Aux[DFSInt[LW], R, DFSInt[LW]] = create[DFSInt[LW], R, LW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        new Const[LW](Token(left.width, right.constLB.get))
+        new Const[LW](Token(left.width, right.constCB))
       })
     }
   }

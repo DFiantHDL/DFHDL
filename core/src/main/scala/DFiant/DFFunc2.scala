@@ -49,7 +49,7 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
     override lazy val initCB: CacheBoxRO[Seq[TToken]] = initOf(self)
     private[DFiant] var usedAsWide = false //TODO: remove this hack
 
-    final lazy val constLB : LazyBox[TToken] = LazyBox.Args2(self)(tokenFunc, inLeft.constLB.asInstanceOf[LazyBox[leftArg.TToken]], inRight.constLB.asInstanceOf[LazyBox[rightArg.TToken]])
+    override lazy val constCB : CacheBoxRO[TToken] = constOf(self)
     //  private var extraPipe : Int = 0
     //  def pipe() : this.type = pipe(1)
     //  private[DFiant] override def pipeGet : Int = extraPipe
