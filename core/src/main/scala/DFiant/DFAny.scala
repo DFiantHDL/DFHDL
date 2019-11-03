@@ -94,7 +94,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constant
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    val constCB : CacheBoxRO[TToken]
+    lazy val constCB : CacheBoxRO[TToken] = ???
     val constLB : LazyBox[TToken]
     final private[DFiant] def isConstant : Boolean = !constLB.get.isBubble
 
@@ -925,7 +925,7 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Constant
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final lazy val constCB : CacheBoxRO[TToken] = CacheBoxRO(token.asInstanceOf[TToken])
+      final override lazy val constCB : CacheBoxRO[TToken] = CacheBoxRO(token.asInstanceOf[TToken])
       final lazy val constLB : LazyBox[TToken] =
         LazyBox.Const(self)(token.asInstanceOf[TToken])
 
