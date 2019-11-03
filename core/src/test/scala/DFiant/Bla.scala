@@ -150,9 +150,41 @@ trait IODesignConn2 extends DFDesign{
   o <> io.o
 }
 
+
+trait IODesignIf extends DFDesign {
+  val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+  val i2 = DFUInt(8) <> IN init (2, Bubble)
+  val o1 = DFUInt(8) <> OUT
+  val o2 = DFUInt(8) <> OUT
+  val b = DFBool() <> IN init (false, true, true, true)
+  val myIf = ifdf (b) {
+    val myIf2 = ifdf (b) {
+      o1 := i1
+    }.elseifdf(b) {
+      o1 := i1
+    }
+  }.elsedf {
+    o1 := i1
+  }
+  val ret = DFUInt(8).ifdf (b) {
+    val ret2 = DFUInt(8).ifdf (i1 < 8) {
+      i1
+    }.elseifdf(b) {
+      i2
+    }.elsedf {
+      i1
+    }
+    ret2
+  }.elsedf {
+    i2
+  }
+  o2 <> ret
+}
+
+
 object Bla extends DFApp {
 //  implicit val config = DFAnyConfiguration.detailed
-  val bla = new IODesignMatch {}
+  val bla = new IODesignIf {}
 //  bla.io.unfold
   bla.printCodeString
   import internals._
