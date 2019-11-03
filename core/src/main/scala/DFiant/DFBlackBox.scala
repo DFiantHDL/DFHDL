@@ -38,17 +38,31 @@ protected trait DFBlackBox extends DFInterface {
         ff.init.asInstanceOf[Seq[dfVal.TToken]]
       }
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Initialization
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFiant] final def constOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[dfVal.TToken] = {
+      val ff = blackBoxFunctions(dfVal)
+      val inputConsts = ff.inputs.map(i => i.constCB)
+
+      CacheDerivedRO(inputConsts) {
+        ff.const.asInstanceOf[dfVal.TToken]
+      }
+    }
   }
   override private[DFiant] lazy val __dev : __DevDFBlackBox = ???
   import __dev._
 
   protected abstract class BlackBoxFunction[O <: DFAny] private (val output : O)(val inputs : List[DFAny]) {
     def init : Seq[output.TToken]
+    def const : output.TToken
   }
   protected object BlackBoxFunction {
     def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (l.TToken, r.TToken) => o.TToken) =
       new BlackBoxFunction(o)(List(l, r)) {
         def init: Seq[output.TToken] = DFAny.TokenSeq(l.initCB.unbox, r.initCB.unbox)(func).asInstanceOf[Seq[output.TToken]]
+        def const: output.TToken = func(l.constCB.unbox, r.constCB.unbox).asInstanceOf[output.TToken]
       }
   }
   protected val blackBoxFunctions : Map[DFAny, BlackBoxFunction[_]] = Map()
