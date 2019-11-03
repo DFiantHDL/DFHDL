@@ -472,14 +472,13 @@ object DFAny {
         val assigns = toVar.assignmentsAt(toRelWidth, toRelBitLow)
         if (assigns.nonEmpty) throwConnectionError(s"Target ${toVar.fullName} was already assigned to: $assigns.\nCannot apply both := and <> operators for the same target")
         //All is well. We can now connect fromVal->toVar
+        DFNet.Connection(toVar, fromVal)
 //        println(s"connected ${toVar.fullName} <- ${fromVal.fullName} at ${ctx.owner.fullName}")
       }
       def connectFrom(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self.replacement().asInstanceOf[Connectable[DF]]
         val fromVal = that.replacement()
         toVar.connectFrom(width, 0, fromVal)
-        //All is well. We can now connect fromVal->toVar
-        DFNet.Connection(toVar, fromVal)
       }
       def connectWith(that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val left = self.replacement()
@@ -512,16 +511,16 @@ object DFAny {
       }
       lazy val initConnectedCB : CacheBoxRO[Seq[TToken]] = CacheDerivedRO(connectionInits) {
         val bitsTokenSeq : Seq[DFBits.Token] = connections.elements.map {
-            case x : SourceElement.Alias =>
-              val selBits = x.dfVal.initCB.unbox.bitsWL(x.width, x.relBitLow)
-              val revBits = if (x.reversed) DFBits.Token.reverse(selBits) else selBits
-              val invBits = if (x.inverted) DFBits.Token.unary_~(revBits) else revBits
-              x.stage match {
-                case SourceStage.Prev(step) => invBits.prevInit(step)
-                case _ => invBits
-              }
-            case x : SourceElement.Empty => Seq()
-          }.reduce(DFBits.Token.concat)
+          case x : SourceElement.Alias =>
+            val selBits = x.dfVal.initCB.unbox.bitsWL(x.width, x.relBitLow)
+            val revBits = if (x.reversed) DFBits.Token.reverse(selBits) else selBits
+            val invBits = if (x.inverted) DFBits.Token.unary_~(revBits) else revBits
+            x.stage match {
+              case SourceStage.Prev(step) => invBits.prevInit(step)
+              case _ => invBits
+            }
+          case x : SourceElement.Empty => Seq()
+        }.reduce(DFBits.Token.concat)
         bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
       }
       lazy val initCB : CacheBoxRO[Seq[TToken]] = initConnectedCB
