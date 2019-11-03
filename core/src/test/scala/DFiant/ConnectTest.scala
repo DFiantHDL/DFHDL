@@ -16,7 +16,7 @@
  */
 
 import DFiant._
-import DFiant.internals.{LazyBox, devAccess}
+import DFiant.internals.{devAccess}
 import org.scalacheck._
 import shapeless.test.illTyped
 import TestUtils._
