@@ -44,7 +44,6 @@ protected trait DFBlackBox extends DFInterface {
 
   protected abstract class BlackBoxFunction[O <: DFAny] private (val output : O)(val inputs : List[DFAny]) {
     def init : Seq[output.TToken]
-
   }
   protected object BlackBoxFunction {
     def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (l.TToken, r.TToken) => o.TToken) =
