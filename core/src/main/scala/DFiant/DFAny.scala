@@ -308,7 +308,7 @@ object DFAny {
         }
         val prevBits = (version, context) match {
           case (Some(_), block : ConditionalBlock[_,_]) =>
-            val ownerVersions = block.owner.netsTo.apply(self)
+            val ownerVersions = block.owner.netsTo.getOrElse(self, throw new IllegalArgumentException(s"Unexpected missing ${meta.name} at ${meta.position}"))
             var v : Int = ownerVersions.length
             while (v > 0 && ownerVersions(v).isRight) v = v - 1
             if (v > 0) assignedAt(Some(v), block.owner)
@@ -704,8 +704,9 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override lazy val source : Source = reference match {
+      override lazy val source : Source = reference match { //TODO: why is this needed?
         case Alias.Reference.AsIs(a) => Source(self)
+        case Alias.Reference.Prev(a, step) => Source(self)
         case _ => reference.source
       }
     }
