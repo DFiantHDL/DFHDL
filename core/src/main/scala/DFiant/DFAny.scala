@@ -308,7 +308,10 @@ object DFAny {
         }
         val prevBits = (version, context) match {
           case (Some(_), block : ConditionalBlock[_,_]) =>
-            val ownerVersions = block.owner.netsTo.getOrElse(self, throw new IllegalArgumentException(s"Unexpected missing ${meta.name} at ${meta.position}"))
+            val ownerVersions = block.owner.netsTo.getOrElse(self, {
+              println(block.members.map(m => m.meta.name))
+              throw new IllegalArgumentException(s"Unexpected missing ${meta.name} at ${meta.position}")
+            })
             var v : Int = ownerVersions.length
             while (v > 0 && ownerVersions(v).isRight) v = v - 1
             if (v > 0) assignedAt(Some(v), block.owner)

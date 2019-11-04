@@ -158,18 +158,26 @@ trait IODesignIf extends DFDesign {
   val o2 = DFUInt(8) <> OUT
   val b = DFBool() <> IN init (false, true, true, true)
 
+  println("0")
   val ret = DFUInt(8).ifdf (b) {
+    println("1")
     val ret2 = DFUInt(8).ifdf (i1 < 8) {
+      println("1.1")
       i1
     }.elseifdf(b) {
+      println("1.2")
       i2
     }.elsedf {
+      println("1.3")
       i1
     }
+    println("1B")
     ret2
   }.elsedf {
+    println("2")
     i2
   }
+  println("3")
   o2 <> ret
 }
 

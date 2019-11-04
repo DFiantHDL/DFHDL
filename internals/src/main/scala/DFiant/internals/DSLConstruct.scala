@@ -44,8 +44,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
     final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
     def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
-    final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
-    final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
+    final lazy val nonTransparentOwner : ThisOwner = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
+    final lazy val nonTransparentOwnerOption : Option[ThisOwner] = ownerOption.map(o => o.nonTransparent.asInstanceOf[ThisOwner])
     final def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
       nonTransparentOwnerOption == that.nonTransparentOwnerOption
     final def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
@@ -125,7 +125,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final lazy val isTop : Boolean = ownerOption.isEmpty
-    lazy val nonTransparent : DSLOwnerConstruct = self
+    lazy val nonTransparent : ThisOwner = self.asInstanceOf[ThisOwner]
     final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
@@ -284,7 +284,7 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
+    override lazy val nonTransparent : ThisOwner = owner.nonTransparent.asInstanceOf[ThisOwner]
 
   }
   override private[DFiant] lazy val __dev : __DevDSLTransparentOwnerConstruct = ???
