@@ -61,7 +61,7 @@ protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV]
   protected final val returnValue : RV = block
   returnVar.foreach(rv => {
     rv.nameFirst = true
-    rv.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(mutableOwner.value))
+    rv.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(this))
   })
   mutableOwner.value = originalOwner
   id
