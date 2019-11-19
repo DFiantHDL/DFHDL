@@ -871,7 +871,7 @@ object DFAny {
   }
 
   abstract class Const[DF <: DFAny](val token : Token)(
-    implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
+    implicit ctx0 : Const.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {self : DF =>
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevConst extends __DevConstructor {
