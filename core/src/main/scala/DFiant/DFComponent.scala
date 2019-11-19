@@ -41,13 +41,8 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Folding/Unfolding
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final override private[DFiant] def preFoldUnfold(): Unit = {
-      super.preFoldUnfold()
-      portsOut.foreach(p => p.preFoldUnfold()) //clear output ports assignments and connections when folding
-    }
     final override private[DFiant] def unfoldedRun : Unit = {
       ctx.impl(self)
-//      portsOut.foreach(p => p.rediscoverDependencies())
     }
   }
   override private[DFiant] lazy val __dev : __DevDFComponent = new __DevDFComponent {}
@@ -62,7 +57,7 @@ abstract class DFComponent[Comp <: DFComponent[Comp]](implicit ctx : DFComponent
 object DFComponent {
   implicit def fetchDev(from : DFComponent[_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
 
-  trait Context[Comp <: DFComponent[Comp]] extends DFBlock.ContextOf[Unit, DFBlock] {
+  trait Context[Comp <: DFComponent[Comp]] extends DFDesign.ContextOf[Comp] {
     implicit val impl : Comp => Unit
     val compName : Meta.Name.OfType[Comp]
   }

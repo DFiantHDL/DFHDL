@@ -145,48 +145,56 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       CacheDerivedRO(members) {
         case class NamedGroup(position : Meta.Position, nameFirst : Boolean, memberSet : Set[DSLMemberConstruct])
         //Name-Position to Latest Call-Position Map
-        val namedAtPos2 = members.foldLeft(Map.empty[Meta.Position, immutable.ListMap[Meta.Position, List[DSLMemberConstruct]]]){
-          case (nap, m) if !m.meta.name.anonymous =>
-            val updatedListMap = nap.get(m.meta.namePosition) match {
-              case Some(listMap) => listMap.get(m.meta.position) match {
-                case Some(ml) => listMap.updated(m.meta.position, ml :+ m)
-                case None => listMap + (m.meta.position -> List(m))
-              }
-              case None => immutable.ListMap(m.meta.position -> List(m))
-            }
-            nap.updated(m.meta.namePosition, updatedListMap)
-          case (nap, _) => nap
-        }
-
-//        val namedAtPos = mutable.Map[Meta.Position, NamedGroup]()
-//        members.foreach {
-//          case m if !m.meta.name.anonymous => namedAtPos.get(m.meta.namePosition) match {
-//            case Some(ng) if !ng.nameFirst && !m.nameFirst =>
-//              if (m.meta.position > ng.position)
-//                namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
-//              else if (m.meta.position == ng.position)
-//                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
-//            case Some(ng) if ng.nameFirst && m.nameFirst =>
-//              if (m.meta.position == ng.position)
-//                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
-//            case Some(ng) if m.nameFirst =>
-//                namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
-//            case None =>
-//              namedAtPos += (m.meta.namePosition -> NamedGroup(m.meta.position, m.nameFirst, Set(m)))
-//            case _ => //Do nothing
-//          }
-//          case _ => //Do nothing
+//        val namedAtPos2 = members.foldLeft(Map.empty[Meta.Position, immutable.ListMap[Meta.Position, List[DSLMemberConstruct]]]){
+//          case (nap, m) if !m.meta.name.anonymous =>
+//            val updatedListMap = nap.get(m.meta.namePosition) match {
+//              case Some(listMap) => listMap.get(m.meta.position) match {
+//                case Some(ml) => listMap.updated(m.meta.position, ml :+ m)
+//                case None => listMap + (m.meta.position -> List(m))
+//              }
+//              case None => immutable.ListMap(m.meta.position -> List(m))
+//            }
+//            nap.updated(m.meta.namePosition, updatedListMap)
+//          case (nap, _) => nap
 //        }
-        def isAnonymous(member : DSLMemberConstruct) : Boolean =
-          member.meta.name.anonymous  || member.meta.name.value == "applyOrElse" ||
-          {
-            val nap = namedAtPos2(member.meta.namePosition)
-            val nameFirst = nap.head._2.head.nameFirst
-            val pos = nap.keysIterator.indexOf(member.meta.position)
-            nameFirst && pos != 0 || !nameFirst && pos != nap.size-1
-          }
+//
+//        def isAnonymous(member : DSLMemberConstruct) : Boolean =
+//          member.meta.name.anonymous  || member.meta.name.value == "applyOrElse" ||
+//          {
+//            val nap = namedAtPos2(member.meta.namePosition)
+//            val nameFirst = nap.head._2.head.nameFirst
+//            val pos = nap.keysIterator.indexOf(member.meta.position)
+//            nameFirst && pos != 0 || !nameFirst && pos != nap.size-1
+//          }
+//
+//        def getUsages(member : DSLMemberConstruct) : Int = namedAtPos2(member.meta.namePosition)(member.meta.position).length
 
-        def getUsages(member : DSLMemberConstruct) : Int = namedAtPos2(member.meta.namePosition)(member.meta.position).length
+        val namedAtPos = mutable.Map[Meta.Position, NamedGroup]()
+        members.foreach {
+          case m if !m.meta.name.anonymous => namedAtPos.get(m.meta.namePosition) match {
+            case Some(ng) if !ng.nameFirst && !m.nameFirst =>
+              if (m.meta.position > ng.position)
+                namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
+              else if (m.meta.position == ng.position)
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+            case Some(ng) if ng.nameFirst && m.nameFirst =>
+              if (m.meta.position == ng.position)
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+            case Some(ng) if m.nameFirst =>
+              namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
+            case None =>
+              namedAtPos += (m.meta.namePosition -> NamedGroup(m.meta.position, m.nameFirst, Set(m)))
+            case _ => //Do nothing
+          }
+          case _ => //Do nothing
+        }
+        def isAnonymous(member : DSLMemberConstruct) : Boolean =
+          member.meta.name.anonymous || !(namedAtPos(member.meta.namePosition).memberSet.contains(member)) || member.meta.name.value == "applyOrElse"
+
+        def getUsages(member : DSLMemberConstruct) : Int = namedAtPos.get(member.meta.namePosition) match {
+          case Some(ng) => ng.memberSet.size
+          case None => 0
+        }
 
         val idxMap = mutable.Map[Meta.Position, Int]()
         val nameMap = members.map {
@@ -327,12 +335,8 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
 
     private lazy val firstFold : Unit = {
       foldedMemberList = addedMembers
-      foldedRun
       folded = true
 //      foldRequest = __config.foldComponents
-    }
-    private[DFiant] def preFoldUnfold() : Unit = {
-      addedMembers.set(foldedMemberList)
     }
 
     final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
@@ -340,8 +344,8 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
       firstFold
       val foldReq = foldRequest.unbox
       if (folded != foldReq) {
-        preFoldUnfold()
-        if (foldReq) foldedRun else unfoldedRun
+        addedMembers.set(foldedMemberList)
+        if (!foldReq) unfoldedRun
         folded = foldReq
       }
       addedMembers.unbox
@@ -349,8 +353,6 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
-  //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
-  protected def foldedRun : Unit = {}
 
   def fold : this.type = {
     foldRequest.set(true)
