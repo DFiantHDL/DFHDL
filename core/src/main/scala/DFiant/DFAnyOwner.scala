@@ -176,7 +176,13 @@ object DFAnyConfiguration {
 }
 
 object DFAnyOwner {
-  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
+  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration] {self =>
+    override def anonymize: ContextOf[T, Owner] = new ContextOf[T, Owner] {
+      override val ownerOption: Option[Owner] = self.ownerOption
+      override implicit val config: DFAnyConfiguration = self.config
+      override val meta: Meta = self.meta.anonymize
+    }
+  }
   object ContextOf {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit

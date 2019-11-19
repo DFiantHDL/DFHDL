@@ -1043,12 +1043,6 @@ object DFAny {
         case x : DFBlackBox if dir.isOut => x.initOf(self)
         case _ => initExternalOrInternalCB
       }
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Folding/Unfolding
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final private[DFiant] def preFoldUnfold() : Unit = {
-      }
     }
     override private[DFiant] lazy val __dev : __DevPort = new __DevPort {}
     import __dev._

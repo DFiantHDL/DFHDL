@@ -165,7 +165,9 @@ trait IODesignIf extends DFDesign {
   }.elsedf {
     i2
   }
-  o2 <> ret
+  val Lala = {
+    o2 <> ret.prev.prev
+  }
 }
 
 
@@ -175,7 +177,7 @@ object Bla extends DFApp {
 //  bla.io.unfold
   bla.printCodeString
   import internals._
-//  println(bla.members.map(m => (m.meta, m.nameFirst)).mkString("\n"))
+  println(bla.members.map(m => (m.meta, m.nameFirst, m.typeName, m.name)).mkString("\n"))
 //  println(bla.o.connectionLoop)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }
