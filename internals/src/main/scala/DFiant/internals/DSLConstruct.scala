@@ -125,6 +125,10 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final lazy val isTop : Boolean = ownerOption.isEmpty
+    lazy val changeTracker : CacheBoxRW[Unit] = ownerOption match {
+      case Some(o) => o.changeTracker
+      case None => CacheBoxRW[Unit]({})
+    }
     lazy val nonTransparent : ThisOwner = self.asInstanceOf[ThisOwner]
     final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
       if (self.nonTransparent eq member.nonTransparentOwner) true
@@ -347,6 +351,7 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
         addedMembers.set(foldedMemberList)
         if (!foldReq) unfoldedRun
         folded = foldReq
+        changeTracker.set({})
       }
       addedMembers.unbox
     }

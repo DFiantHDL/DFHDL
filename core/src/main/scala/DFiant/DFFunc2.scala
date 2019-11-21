@@ -40,6 +40,9 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = //TODO: This shouldn't be needed
+      CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
     override val isAssignable: Boolean = false
 
     override lazy val initCB: CacheBoxRO[Seq[TToken]] = initOf(self)
