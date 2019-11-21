@@ -264,7 +264,7 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-        CacheDerivedRO(protAssignDependencySet)(discoveryDependenciesStatic ++ protAssignDependencySet)
+        CacheDerivedRO(netsDependencies)(discoveryDependenciesStatic ++ netsDependencies)
       @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
       @tailrec private def getDepSet(set : Set[DFAnyMember], list : List[Either[Source, DFBlock]]) : Set[DFAnyMember] = list match {
         case Left(src) :: xs =>
@@ -276,7 +276,7 @@ object DFAny {
         case Right(block) :: xs => getDepSet(set + block, xs ++ block.netsTo(self))
         case Nil => set
       }
-      final lazy val protAssignDependencySet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
+      final lazy val netsDependencies : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
         getDepSet(Set(), netsTo)
       }
 
@@ -913,6 +913,14 @@ object DFAny {
     protected[DFiant] type ThisOwner <: DFInterface
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevPort extends __DevInitializable {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Member discovery
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      @inline private[DFiant] override def discoveryDependenciesStatic : Set[DFAnyMember] = owner match {
+        case x : DFBlackBox if dir.isOut => super.discoveryDependenciesStatic ++ x.depsOf(self)
+        case _ => super.discoveryDependenciesStatic
+      }
+      
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////

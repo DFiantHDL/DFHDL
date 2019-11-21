@@ -36,17 +36,12 @@ trait DFInterface extends DFAnyOwner { self =>
         else clsSimpleName
       }
     }
-    private lazy val discoveredOutputs : CacheBoxRO[List[DFAny.Port[DFAny, OUT]]] = ownerOption match {
-      case Some(o : DFInterface) =>
-        CacheDerivedRO(portsOut, o.__dev.discoveredSet)(portsOut.filter(o.__dev.discoveredSet.contains))
-      case _ => portsOut
-    }
 
     lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = ownerOption match {
       case Some(o : DFInterface) => o.__dev.discoveredSet
       case _ =>
-        CacheDerivedRO(discoveredOutputs, discoveryDependencies) {
-          discover(Set(), discoveredOutputs)
+        CacheDerivedRO(changeTracker) {
+          discover(Set(), portsOut)
         }
     }
   }

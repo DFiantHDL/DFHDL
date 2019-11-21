@@ -23,31 +23,32 @@ protected trait DFBlackBox extends DFInterface {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-    CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
-    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Initialization
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFiant] final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
-      val ff = blackBoxFunctions(dfVal)
-      val inputInits = ff.inputs.map(i => i.initCB)
-
-      CacheDerivedRO(inputInits) {
-        ff.init.asInstanceOf[Seq[dfVal.TToken]]
-      }
+    private[DFiant] final def depsOf[DF <: DFAny](dfVal : DF) : Set[DFAnyMember] = {
+      val bbf = blackBoxFunctions(dfVal)
+      bbf.inputs.toSet
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Initialization
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private[DFiant] final def initOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[Seq[dfVal.TToken]] = {
+      val bbf = blackBoxFunctions(dfVal)
+      val inputInits = bbf.inputs.map(i => i.initCB)
+
+      CacheDerivedRO(inputInits) {
+        bbf.init.asInstanceOf[Seq[dfVal.TToken]]
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Constant
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private[DFiant] final def constOf[DF <: DFAny](dfVal : DF) : CacheBoxRO[dfVal.TToken] = {
-      val ff = blackBoxFunctions(dfVal)
-      val inputConsts = ff.inputs.map(i => i.constCB)
+      val bbf = blackBoxFunctions(dfVal)
+      val inputConsts = bbf.inputs.map(i => i.constCB)
 
       CacheDerivedRO(inputConsts) {
-        ff.const.asInstanceOf[dfVal.TToken]
+        bbf.const.asInstanceOf[dfVal.TToken]
       }
     }
   }
