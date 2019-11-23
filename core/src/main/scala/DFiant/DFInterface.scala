@@ -47,6 +47,37 @@ trait DFInterface extends DFAnyOwner { self =>
           else ret
         }
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Transparent Ports
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private lazy val anonCtx = ctx.asInstanceOf[DFAnyOwner.ContextOf[Any, DFBlock]].anonymize
+    private lazy val portCtx = implicitly[DFAny.Port.Context].anonymize
+    private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] = {
+      if (cls == null || cls == classOf[DFDesign] ||
+        classOf[ConditionalBlock[_,_]].isAssignableFrom(cls) || classOf[DFFunc2[_,_,_]].isAssignableFrom(cls)) List()
+      else {
+        val fields = cls.getDeclaredFields.toList
+        fields.flatMap{f =>
+          f.setAccessible(true)
+          val ref = f.get(self)
+          ref match {
+            case ref : DFAny if (ref ne null) && (ref.owner ne self) =>
+              val dir = if (classOf[DFAny.Var].isAssignableFrom(f.getType)) OUT else IN
+              val port = ref.copyAsNewPort(dir)(portCtx).setName(f.getName).asInstanceOf[DFAny.Port[DFAny, DFDir]]
+              dir match {
+                case d : IN  => port.connectFrom(ref)(anonCtx)
+                case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)(anonCtx)
+              }
+              Some((ref, port))
+            case _ => None
+          }
+        } ++ addTransparentPorts(cls.getSuperclass)
+      }
+    }
+
+    lazy val transparentPorts : Map[DFAny, DFAny.Port[DFAny, DFDir]] = addTransparentPorts(self.getClass).toMap
+    override def earlyMembersGen(): Unit = transparentPorts
   }
   override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._

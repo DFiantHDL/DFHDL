@@ -33,7 +33,7 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   protected[DFiant] type TAlias <: TVal
   protected[DFiant] type TBool <: DFBool
   type In = TVal
-  type Out = DFAny.Connectable[TVal] with TVal
+  type Out = TVar//DFAny.Connectable[TVal] with TVal
   protected[DFiant] type TBits[W2] <: DFBits[W2]
   protected[DFiant] type TUInt[W2] <: DFUInt[W2]
   protected[DFiant] type TSInt[W2] <: DFSInt[W2]

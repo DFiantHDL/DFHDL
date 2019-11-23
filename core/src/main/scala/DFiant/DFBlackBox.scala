@@ -60,13 +60,14 @@ protected trait DFBlackBox extends DFInterface {
     def const : output.TToken
   }
   protected object BlackBoxFunction {
-    def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (l.TToken, r.TToken) => o.TToken) =
+    def apply[O <: DFAny, L <: DFAny, R <: DFAny](o : O)(l : L, r : R)(func : (L#TToken, R#TToken) => O#TToken) =
       new BlackBoxFunction(o)(List(l, r)) {
         def init: Seq[output.TToken] = DFAny.TokenSeq(l.initCB.unbox, r.initCB.unbox)(func).asInstanceOf[Seq[output.TToken]]
         def const: output.TToken = func(l.constCB.unbox, r.constCB.unbox).asInstanceOf[output.TToken]
       }
   }
   protected val blackBoxFunctions : Map[DFAny, BlackBoxFunction[_]] = Map()
+  def printBB = println(blackBoxFunctions)
 }
 
 object DFBlackBox {

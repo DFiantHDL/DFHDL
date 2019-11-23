@@ -134,8 +134,12 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
+    def earlyMembersGen() : Unit = {}
     final val addedMembers = CacheListRW(List[ThisMember]())
-    lazy val members : CacheBoxRO[List[ThisMember]] = addedMembers
+    lazy val members : CacheBoxRO[List[ThisMember]] = {
+      earlyMembersGen()
+      addedMembers
+    }
     final def addMember(member : ThisMember) : Int = {
       addedMembers += member
 //            println(s"newItemGetID ${member.fullName} : ${member.typeName}")
@@ -145,7 +149,7 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val metaNameTable : CacheBoxRO[Map[DSLMemberConstruct, Meta.Name]] =
+    final lazy val metaNameTable : CacheBoxRO[Map[DSLMemberConstruct, Meta.Name]] =
       CacheDerivedRO(members) {
         case class NamedGroup(position : Meta.Position, nameFirst : Boolean, memberSet : Set[DSLMemberConstruct])
         //Name-Position to Latest Call-Position Map
@@ -213,8 +217,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-    private val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
-    final val nameTable : CacheBoxRO[Map[DSLMemberConstruct, String]] =
+    private lazy val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
+    final lazy val nameTable : CacheBoxRO[Map[DSLMemberConstruct, String]] =
       CacheDerivedRO(membersNamesTemp) {
         case class Info(usages : Int, idx : Int){
           override def toString : String = {
@@ -344,16 +348,19 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     }
 
     final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
-    final override lazy val members : CacheBoxRO[List[ThisMember]] = CacheDerivedRO(addedMembers, foldRequest) {
-      firstFold
-      val foldReq = foldRequest.unbox
-      if (folded != foldReq) {
-        addedMembers.set(foldedMemberList)
-        if (!foldReq) unfoldedRun
-        folded = foldReq
+    final override lazy val members : CacheBoxRO[List[ThisMember]] = {
+      earlyMembersGen()
+      CacheDerivedRO(addedMembers, foldRequest) {
+        firstFold
+        val foldReq = foldRequest.unbox
+        if (folded != foldReq) {
+          addedMembers.set(foldedMemberList)
+          if (!foldReq) unfoldedRun
+          folded = foldReq
+        }
+        membersChangeTracker.set(membersChangeTracker.unbox + 1)
+        addedMembers.unbox
       }
-      membersChangeTracker.set(membersChangeTracker.unbox + 1)
-      addedMembers.unbox
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???

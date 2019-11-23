@@ -173,7 +173,7 @@ object DFBlock {
       val meta : Meta = evContext.meta
     }
   }
-  type Context = ContextOf[Unit, DFBlock]
+  type Context = ContextOf[Any, DFBlock]
 }
 
 
