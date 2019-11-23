@@ -135,6 +135,7 @@ trait Comp extends DFComponent[Comp] {
 object Comp {
   implicit val ev : Comp => Unit = ifc => {
     import ifc._
+    println("impl")
     val rt = new RTx2(8)
     rt.I <> i
     rt.O <> o
@@ -145,9 +146,10 @@ trait IODesignConn2 extends DFDesign{
   val i = DFUInt(8) <> IN init 1
   val o = DFUInt(8) <> OUT
 
-  val io = new Comp {}
-  i <> io.i
-  o <> io.o
+  RTOp2.+(o, i, i)
+//  val io = new Comp {}
+//  i <> io.i
+//  o <> io.o
 }
 
 
@@ -173,11 +175,17 @@ trait IODesignIf extends DFDesign {
 
 object Bla extends DFApp {
 //  implicit val config = DFAnyConfiguration.detailed
-  val bla = new IODesignIf {}
+  val bla = new IODesignConn2 {}
 //  bla.io.unfold
   bla.printCodeString
   import internals._
-  println(bla.members.map(m => (m.meta, m.nameFirst, m.typeName, m.name)).mkString("\n"))
+
+//  println(bla.plus.members)
+//  println(bla.plus.transparentPorts)
+//  println(bla.plus.OPort)
+//  println(bla.plus.transparentPorts)
+//  println(bla.plus.portsOut)
+//  println(bla.members.map(m => (m.meta, m.nameFirst, m.typeName, m.name)).mkString("\n"))
 //  println(bla.o.connectionLoop)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }

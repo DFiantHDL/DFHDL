@@ -50,6 +50,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     val name : String = meta.name
     resetList += this
   }
+  transparentPorts //force transparent ports to be added as regular ports before all other members
   id
 }
 
@@ -62,11 +63,11 @@ object RTComponent {
 //  (implicit ctx : RTComponent.Context) extends RTComponent {
 //}
 
-sealed class RTOp2[O <: DFAny.Var, L <: DFAny, R <: DFAny](
+sealed class RTOp2[O <: DFAny.Connectable[_], L <: DFAny, R <: DFAny](
   val O : O, //Output variable
   val L : L, //Left argument of the operation
   val R : R, //Right argument of the operation
-)(tokenFunc : (L#TToken, R#TToken) => O#TToken)(implicit ctx : RTComponent.Context) extends RTComponent { self =>
+)(tokenFunc : (L#TToken, R#TToken) => O#TToken)(implicit ctx : RTComponent.Context, defName : sourcecode.Name) extends RTComponent { self =>
   private val OPort = O.replacement().asInstanceOf[O]
   private val LPort = L.replacement().asInstanceOf[L]
   private val RPort = R.replacement().asInstanceOf[R]
@@ -76,7 +77,7 @@ sealed class RTOp2[O <: DFAny.Var, L <: DFAny, R <: DFAny](
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def codeString: String = {
       implicit val refCodeOwner : DSLOwnerConstruct = owner
-      s"\nRTOp2.$typeName(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
+      s"\nRTOp2.${defName.value}(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
     }
   }
   override private[DFiant] lazy val __dev : __DevRTOp2 = new __DevRTOp2 {}

@@ -134,12 +134,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
       else false
-    def earlyMembersGen() : Unit = {}
     final val addedMembers = CacheListRW(List[ThisMember]())
-    lazy val members : CacheBoxRO[List[ThisMember]] = {
-      earlyMembersGen()
-      addedMembers
-    }
+    lazy val members : CacheBoxRO[List[ThisMember]] = addedMembers
     final def addMember(member : ThisMember) : Int = {
       addedMembers += member
 //            println(s"newItemGetID ${member.fullName} : ${member.typeName}")
@@ -273,6 +269,7 @@ object DSLContext {
 }
 
 object DSLOwnerConstruct {
+  implicit def fetchOwner(implicit ctx : DSLContext) : DSLOwnerConstruct = ctx.owner
   implicit def fetchDev(from : DSLOwnerConstruct)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
   trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] extends DSLContext {self =>
     val ownerOption : Option[Owner]
@@ -348,19 +345,16 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
     }
 
     final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
-    final override lazy val members : CacheBoxRO[List[ThisMember]] = {
-      earlyMembersGen()
-      CacheDerivedRO(addedMembers, foldRequest) {
-        firstFold
-        val foldReq = foldRequest.unbox
-        if (folded != foldReq) {
-          addedMembers.set(foldedMemberList)
-          if (!foldReq) unfoldedRun
-          folded = foldReq
-        }
-        membersChangeTracker.set(membersChangeTracker.unbox + 1)
-        addedMembers.unbox
+    final override lazy val members : CacheBoxRO[List[ThisMember]] = CacheDerivedRO(addedMembers, foldRequest) {
+      firstFold
+      val foldReq = foldRequest.unbox
+      if (folded != foldReq) {
+        addedMembers.set(foldedMemberList)
+        if (!foldReq) unfoldedRun
+        folded = foldReq
       }
+      membersChangeTracker.set(membersChangeTracker.unbox + 1)
+      addedMembers.unbox
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
