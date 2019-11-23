@@ -196,7 +196,7 @@ object DFAnyOwner {
       val meta : Meta = evMeta
     }
   }
-  type Context[+Owner <: DFAnyOwner] = ContextOf[Unit, Owner]
+  type Context[+Owner <: DFAnyOwner] = ContextOf[Any, Owner]
   trait ContextWithLibOf[+T, +Owner <: DFAnyOwner] extends ContextOf[T, Owner] {
     implicit val targetLib : TargetLib
   }
@@ -215,6 +215,6 @@ object DFAnyOwner {
       val meta : Meta = evMeta
     }
   }
-  type ContextWithLib[+Owner <: DFAnyOwner] = ContextWithLibOf[Unit, Owner]
+  type ContextWithLib[+Owner <: DFAnyOwner] = ContextWithLibOf[Any, Owner]
 
 }
