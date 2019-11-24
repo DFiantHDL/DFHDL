@@ -143,10 +143,11 @@ object Comp {
 }
 
 trait IODesignConn2 extends DFDesign{
-  val i = DFUInt(8) <> IN init 1
+  val l = DFUInt(8) <> IN init 1
+  val r = DFUInt(8) <> IN init 1
   val o = DFUInt(8) <> OUT
 
-  RTOp2.+(o, i, i)
+  o <> (l `RT+` r)
 //  val io = new Comp {}
 //  i <> io.i
 //  o <> io.o
