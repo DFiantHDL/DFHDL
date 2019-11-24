@@ -83,6 +83,21 @@ object DFUInt extends DFAny.Companion {
     final def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
     final def extendable(implicit ctx : DFAny.Alias.Context) : DFUInt.Extendable[Width] = new DFUInt.Extendable[Width](left)
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // RTOps
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    final def `RT+`[RW, NCW](right : DFUInt[RW])(
+      implicit
+      ctx : RTComponent.Context,
+      ncw : `Op+`.Builder.Inference.NCW[Width, RW, NCW]
+    ) : DFUInt[NCW] = {
+      val out = new NewVar[ncw.Out](ncw(width, right.width))
+      new RTOp2(out, left, right)((l, r) => l + r)
+      out
+    }
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
     //    def within[Start, End](right : XRange[Start, End])(implicit op : OpWithin.Builder[TVal, XRange[Start, End]]) = op(left, right)
     final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
     : TVal <~> Dir = new Port(new NewVar[Width](width), dir)
