@@ -5,67 +5,54 @@ import singleton.twoface._
 trait DFAnyMember
 trait DFAny extends DFAnyMember {self =>
   type TVal <: DFAny
-  type TAssignable <: Boolean
+  type TAssignable
   type TToken <: DFAny.Token
   type Width
   val width : TwoFace.Int[Width]
-  val left = this.asInstanceOf[DFAny.Val[TVal]{type TAssignable = self.TAssignable}]
-  def bits = DFAny.Alias.BitsWL(left)(width, 0)
-  def prev = DFAny.Alias.Prev(left)(1)
 }
 
 
 object DFAny {
-  trait Val[DF <: DFAny] extends DFAny {self : DFAny.Val[DF] =>
+  trait Val[DF <: DFAny, Assignable] extends DFAny {
     type TVal = DF
+    type TAssignable = Assignable
+    def bits = DFAny.Alias.BitsWL(this)(width, 0)
+    def prev = DFAny.Alias.Prev(this)(1)
   }
 
   trait Token
 
-  sealed abstract class Constructor[DF <: DFAny](val mold : DF) extends DFAny {
+  sealed abstract class Constructor[DF <: DFAny, Assignable](val mold : DFAny.Val[DF, _]) extends DFAny.Val[DF, Assignable] {
     type Width = mold.Width
     val width = mold.width
   }
 
-  case class Const[DF <: DFAny](override val mold : DF)(token : Token) extends Constructor(mold) {
-    type TAssignable = false
-  }
+  case class Const[DF <: DFAny](override val mold : DFAny.Val[DF, _])(token : DF#TToken) extends Constructor[DF, false](mold)
 
-  sealed abstract class Initializable[DF <: DFAny](override val mold : DF)(externalInit : Seq[DF#TToken]) extends Constructor(mold)
+  sealed abstract class Initializable[DF <: DFAny, Assignable](override val mold : DFAny.Val[DF, _])(externalInit : Seq[DF#TToken]) extends Constructor[DF, Assignable](mold)
 
-  sealed abstract class Port[DF <: DFAny](override val mold : DF)(dir : Port.Dir, externalInit : Seq[DF#TToken]) extends Initializable[DF](mold)(externalInit)
+  sealed abstract class Port[DF <: DFAny, Assignable](override val mold : DFAny.Val[DF, _])(dir : Port.Dir, externalInit : Seq[DF#TToken]) extends Initializable[DF, Assignable](mold)(externalInit)
   object Port {
     sealed trait Dir
     object Dir {
       case object IN extends Dir
       case object OUT extends Dir
     }
-    case class In[DF <: DFAny](override val mold : DF)(externalInit : Seq[DF#TToken]) extends Port(mold)(Dir.IN, externalInit) {
-      type TAssignable = false
-    }
-    case class Out[DF <: DFAny](override val mold : DF)(externalInit : Seq[DF#TToken]) extends Port(mold)(Dir.OUT, externalInit) {
-      type TAssignable = true
-    }
+    case class In[DF <: DFAny](override val mold : DFAny.Val[DF, _])(externalInit : Seq[DF#TToken]) extends Port[DF, false](mold)(Dir.IN, externalInit)
+    case class Out[DF <: DFAny](override val mold : DFAny.Val[DF, _])(externalInit : Seq[DF#TToken]) extends Port[DF, true](mold)(Dir.OUT, externalInit)
   }
 
+  case class NewVar[DF <: DFAny](override val mold : DFAny.Val[DF, _])(externalInit : Seq[DF#TToken]) extends Initializable[DF, true](mold)(externalInit)
 
-  case class NewVar[DF <: DFAny](override val mold : DF)(externalInit : Seq[DF#TToken]) extends Initializable(mold)(externalInit) {
-    type TAssignable = true
-  }
-
-  sealed abstract class Alias[DF <: DFAny, Ref <: DFAny](override val mold : DF)(val refVal : Ref) extends Constructor(mold)
+  sealed abstract class Alias[DF <: DFAny, Assignable, Ref <: DFAny, RefAssignable](override val mold : DFAny.Val[DF, _])(val refVal : DFAny.Val[Ref, RefAssignable]) extends Constructor[DF, Assignable](mold)
   object Alias {
-    case class BitsWL[W, Ref <: DFAny](override val refVal : Ref)(relWidth : TwoFace.Int[W], relBitLow : Int) extends Alias(DFBits(relWidth))(refVal) {
-      override type TAssignable = refVal.TAssignable
-    }
-    case class Prev[DF <: DFAny, Ref <: DFAny](override val refVal : Ref)(val step : Int) extends Alias(refVal)(refVal) {
-      override type TAssignable = false
-    }
+    case class BitsWL[W, Ref <: DFAny, RefAssignable](override val refVal : DFAny.Val[Ref, RefAssignable])(relWidth : TwoFace.Int[W], relBitLow : Int) extends Alias[DFBits[W], RefAssignable, Ref, RefAssignable](DFBits(relWidth))(refVal)
+    case class Prev[Ref <: DFAny, RefAssignable](override val refVal : DFAny.Val[Ref, RefAssignable])(val step : Int) extends Alias[Ref, false, Ref, RefAssignable](refVal)(refVal)
   }
 
 }
 
-case class DFBits[W] private (width : TwoFace.Int[W]) extends DFAny.Val[DFBits[W]] {
+case class DFBits[W] private (width : TwoFace.Int[W]) extends DFAny.Val[DFBits[W], false] {
   type Width = W
 }
 
@@ -77,7 +64,7 @@ object DFBits {
 }
 
 
-case class DFUInt[W] private (width : TwoFace.Int[W]) extends DFAny.Val[DFUInt[W]] with DFUInt.Unbounded {
+case class DFUInt[W] private (width : TwoFace.Int[W]) extends DFAny.Val[DFUInt[W], false] with DFUInt.Unbounded {
   type Width = W
 }
 
@@ -93,6 +80,6 @@ object DFUInt {
 
 object Test {
   val a = DFUInt(8)
-  val aa = a.bits
+  val aa = a.bits.bits
   implicitly[aa.TAssignable =:= true]
 }
