@@ -22,16 +22,28 @@ object DFBlock {
 
 }
 
-sealed abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV], RV](returnType : Option[DFType])(prevBlock : Option[CB], block : => RV) extends DFBlock {
+sealed trait ConditionalBlock[CB <: ConditionalBlock[CB, Type], Type <: DFType] extends DFBlock with DFAny.Val[Type, false] {
+  val dfType : Type
+  val block : () => DFAny.Val[Type, _]
   private val originalOwner : DFBlock = owner.__injectedOwner
   owner.__injectedOwner = this
-  protected final val returnValue : RV = block
-//  returnVar.foreach(rv => {
-//    rv.nameFirst = true
-//    rv.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(this))
-//  })
+  final val returnValue : DFAny.Val[Type, _] = block()
   owner.__injectedOwner = originalOwner
+}
 
+object ConditionalBlock {
+  object WithRetVal {
+    final case class IfBlock[Type <: DFType](dfType : Type, cond : DFAny.Val[DFBool, _], block : () => DFAny.Val[Type, _])(implicit val ctx : DFBlock.Context) extends ConditionalBlock[IfBlock[Type], Type] {
+      def elsedf(block : => DFAny.Val[Type, _])(implicit ctx : DFBlock.Context) : ElseBlock[Type] = ElseBlock[Type](dfType, () => block, Left(this))(ctx)
+      def elseifdf(cond : DFAny.Val[DFBool, _])(block : => DFAny.Val[Type, _])(implicit ctx : DFBlock.Context) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, cond, () => block, Left(this))(ctx)
+    }
+    final case class ElseIfBlock[Type <: DFType](dfType : Type, cond : DFAny.Val[DFBool, _], block : () => DFAny.Val[Type, _], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends ConditionalBlock[IfBlock[Type], Type] {
+      def elsedf(block : => DFAny.Val[Type, _])(implicit ctx : DFBlock.Context) : ElseBlock[Type] = ElseBlock[Type](dfType, () => block, Right(this))(ctx)
+      def elseifdf(cond : DFAny.Val[DFBool, _])(block : => DFAny.Val[Type, _])(implicit ctx : DFBlock.Context) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, cond, () => block, Right(this))(ctx)
+    }
+    final case class ElseBlock[Type <: DFType](dfType : Type, block : () => DFAny.Val[Type, _], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends ConditionalBlock[IfBlock[Type], Type]
+  }
+  object NoRetVal {}
 }
 
 //trait DFDesign {
@@ -39,5 +51,3 @@ sealed abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV], RV](retur
 //}
 
 //case class DFDesign(members : List[DFAnyMember]) extends DFAnyOwner
-
-trait DFInterface

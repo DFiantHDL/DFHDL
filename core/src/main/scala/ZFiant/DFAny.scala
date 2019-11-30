@@ -17,7 +17,6 @@ trait DFAny extends DFMember {
   type TType <: DFType
   type TVar
   val dfType : TType
-  val ctx : DFAny.Context
   final protected val left : this.type = this
   protected type AsVal = DFAny.Aux[TType, false]
   protected type AsVar = DFAny.Aux[TType, true]
@@ -46,18 +45,22 @@ object DFAny {
 
   trait Token
 
-  sealed trait Val[Type <: DFType, Var] extends DFAny {
+  trait Val[Type <: DFType, Var] extends DFAny {
     type TType = Type
     type TVar = Var
   }
 
   type Var[Type <: DFType] = Val[Type, true]
 
+  abstract class Constructor[Type <: DFType, Var] extends Val[Type, Var] {
+    val ctx : DFAny.Context
+  }
+
   final case class Const[Type <: DFType](dfType : Type, token : Type#TToken)(
     implicit val ctx : DFAny.Context
-  ) extends Val[Type, false]
+  ) extends Constructor[Type, false]
 
-  sealed trait Initializable[Type <: DFType, Var] extends Val[Type, Var] {
+  sealed trait Initializable[Type <: DFType, Var] extends Constructor[Type, Var] {
     val externalInit : Seq[TType#TToken]
   }
 
@@ -82,11 +85,14 @@ object DFAny {
     }
   }
 
-  case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
+  final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
-  ) extends Initializable[Type, true]
+  ) extends Initializable[Type, true] {
+    def ifdf(cond : Val[DFBool, _])(block : => Val[Type, _])(implicit ctx : DFBlock.Context)
+    : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
+  }
 
-  trait Alias[Type <: DFType, RefVal <: DFAny, Var] extends Val[Type, Var] {
+  trait Alias[Type <: DFType, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
     val refVal : RefVal
   }
   object Alias {
@@ -105,7 +111,7 @@ object DFAny {
     }
   }
 
-  sealed abstract class Func[Type <: DFType] extends Val[Type, false]
+  sealed abstract class Func[Type <: DFType] extends Constructor[Type, false]
   final case class Func2[Type <: DFType, L <: DFAny, R <: DFAny](dfType: Type, leftArg : L, rightArg : R)(
     implicit val ctx : DFAny.Context
   ) extends Func[Type]
@@ -118,6 +124,12 @@ object DFAny {
 object Test {
   trait BB extends DFBlock {
     val a = DFUInt(8)
+
+    DFUInt(8).ifdf(???) {
+      a
+    }.elsedf {
+      a
+    }
   }
 //  val aa = a.bits.as(DFUInt(8)).bits
 
