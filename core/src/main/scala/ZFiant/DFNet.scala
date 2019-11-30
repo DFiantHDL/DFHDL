@@ -1,9 +1,17 @@
 package ZFiant
 
-sealed abstract class DFNet(to : DFAny, from : DFAny) extends DFAnyMember
+sealed trait DFNet extends DFMember {
+  val to : DFAny
+  val from : DFAny
+}
 
 object DFNet {
+  type Context = DFAny.Context
 
-  final case class Assignment(to : DFAny.Constructor[_ <: DFType, true], from : DFAny) extends DFNet(to, from)
-  final case class Connection(to : DFAny.Port[_ <: DFType,_], from : DFAny) extends DFNet(to, from)
+  final case class Assignment(to : DFAny.Constructor[_ <: DFType, true], from : DFAny)(
+    implicit val ctx : DFNet.Context
+  ) extends DFNet
+  final case class Connection(to : DFAny.Port[_ <: DFType,_], from : DFAny)(
+    implicit val ctx : DFNet.Context
+  ) extends DFNet
 }
