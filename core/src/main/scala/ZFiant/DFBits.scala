@@ -9,8 +9,8 @@ case class DFBits[W] private (width : TwoFace.Int[W]) extends DFType {
 }
 
 object DFBits {
-  def dfType[W](width : TwoFace.Int[W]) = new DFBits(width)
-  def apply[W](width : TwoFace.Int[W]) = DFAny.NewVar(dfType(width), Seq())
+  def dfType[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = new DFBits(width)
+  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(dfType(width), Seq())
 
   case class Token(value : Int) extends DFAny.Token
 }
