@@ -22,14 +22,16 @@ trait DFAny extends DFMember {
   protected type AsVal = DFAny.Aux[TType, false]
   protected type AsVar = DFAny.Aux[TType, true]
   protected type AsType[T <: DFType] = DFAny.Aux[T, TVar]
-  final def bits(implicit ctx : DFAny.Context) : AsType[DFBits[dfType.Width]] = DFAny.Alias.BitsWL[dfType.Width, 0, this.type](left, dfType.width, 0)
-  final def as[AT <: DFType](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] = DFAny.Alias.AsIs[AT, this.type](aliasType, left)
+  final def bits(implicit ctx : DFAny.Context) : AsType[DFBits[dfType.Width]] =
+    DFAny.Alias.BitsWL[dfType.Width, 0, this.type](left, dfType.width, 0)
+  final def as[AT <: DFType](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] =
+    DFAny.Alias.AsIs[AT, this.type](aliasType, left)
   final def prev(implicit ctx : DFAny.Context) : AsVal = DFAny.Alias.Prev[this.type](left, 1)
 }
 
 object DFAny {
   trait Context extends DFMember.Context
-  protected type Aux[Type <: DFType, Var] = DFAny {
+  protected[ZFiant] type Aux[Type <: DFType, Var] = DFAny {
     type TType = Type
     type TVar = Var
   }
@@ -44,16 +46,18 @@ object DFAny {
 
   trait Token
 
-  sealed trait Constructor[Type <: DFType, Var] extends DFAny {
+  sealed trait Val[Type <: DFType, Var] extends DFAny {
     type TType = Type
     type TVar = Var
   }
 
+  type Var[Type <: DFType] = Val[Type, true]
+
   final case class Const[Type <: DFType](dfType : Type, token : Type#TToken)(
     implicit val ctx : DFAny.Context
-  ) extends Constructor[Type, false]
+  ) extends Val[Type, false]
 
-  sealed trait Initializable[Type <: DFType, Var] extends Constructor[Type, Var] {
+  sealed trait Initializable[Type <: DFType, Var] extends Val[Type, Var] {
     val externalInit : Seq[TType#TToken]
   }
 
@@ -82,7 +86,7 @@ object DFAny {
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true]
 
-  trait Alias[Type <: DFType, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
+  trait Alias[Type <: DFType, RefVal <: DFAny, Var] extends Val[Type, Var] {
     val refVal : RefVal
   }
   object Alias {
@@ -101,7 +105,7 @@ object DFAny {
     }
   }
 
-  sealed abstract class Func[Type <: DFType] extends Constructor[Type, false]
+  sealed abstract class Func[Type <: DFType] extends Val[Type, false]
   final case class Func2[Type <: DFType, L <: DFAny, R <: DFAny](dfType: Type, leftArg : L, rightArg : R)(
     implicit val ctx : DFAny.Context
   ) extends Func[Type]
