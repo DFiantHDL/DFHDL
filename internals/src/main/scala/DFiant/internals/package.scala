@@ -155,6 +155,10 @@ package object internals {
       val riHiLow = revIdx(loIdx)
       vec.slice(riLoIdx, riHiLow + 1)
     }
+    def bitsWL[W](relWidth : TwoFace.Int[W], loIdx : Int) : XBitVector[W] = {
+      val hiIdx = relWidth + loIdx - 1
+      bits(hiIdx, loIdx).asInstanceOf[XBitVector[W]]
+    }
     def padToMulsOf(bitsNum : Int) : BitVector = {
       val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
       vec.padLeft(paddedVecLength)

@@ -47,7 +47,18 @@ object DFAny {
     val value : TValue
     val bubbleMask : XBitVector[Width]
     val valueBits : XBitVector[Width]
+    final def isBubble : Boolean = !(bubbleMask === BitVector.low(width.getValue))
     final def bits : DFBits.Token[Width] = DFBits.Token(width, valueBits, bubbleMask)
+    final def bit(relBit : Int) : DFBool.Token = {
+      val outBitsValue = valueBits.bit(relBit)
+      val outBubbleMask = bubbleMask.bit(relBit)
+      DFBool.Token(outBitsValue, outBubbleMask)
+    }
+    final def bitsWL[W](relWidth : TwoFace.Int[W], relBitLow : Int) : DFBits.Token[W] = {
+      val outBitsValue = valueBits.bitsWL(relWidth, relBitLow)
+      val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
+      DFBits.Token(relWidth, outBitsValue, outBubbleMask)
+    }
   }
   object Token {
     trait Of[Value, W] extends Token {
@@ -69,20 +80,8 @@ object DFAny {
 //    val bubbleMask : BitVector
 //    //leading zero counter
 //    final lazy val lzc : Int = scala.math.min(valueBits.lzc, bubbleMask.lzc).toInt
-//    final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
 //    def toBubbleToken : Token
 //
-//    final def bit(relBit : Int) : DFBool.Token = {
-//      val outBitsValue = valueBits.bit(relBit)
-//      val outBubbleMask = bubbleMask.bit(relBit)
-//      new DFBool.Token(outBitsValue, outBubbleMask)
-//    }
-//    final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token = {
-//      val outWidth = relBitHigh - relBitLow + 1
-//      val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
-//      val outBubbleMask = bubbleMask.bits(relBitHigh, relBitLow)
-//      new DFBits.Token(outWidth, outBitsValue, outBubbleMask)
-//    }
 //    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = bits(relWidth + relBitLow - 1, relBitLow)
 //    final def replaceWL(relWidth : Int, relBitLow : Int, replacement : DFBits.Token)(
 //      implicit fromBits : DFBits.Token => TToken
