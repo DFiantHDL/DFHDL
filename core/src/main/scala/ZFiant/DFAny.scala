@@ -5,7 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 trait DFType {
-  type TTokenValue
+  type TToken <: DFAny.Token
   type Width
   val width : TwoFace.Int[Width]
 }
@@ -39,13 +39,21 @@ object DFAny {
     def := [R](right : R)(implicit op : `Op:=`[L, R]) : Unit = op(left, right)
   }
 
-  abstract class Token[Type <: DFType] {
-    type TValue = Type#TTokenValue
-    val dfType : Type
+  abstract class Token {
+    type TValue
+    type Width
+    //maximum token value width
+    val width : TwoFace.Int[Width]
     val value : TValue
-    val bubbleMask : BitVector
+    val bubbleMask : XBitVector[Width]
+    val valueBits : XBitVector[Width]
+    final def bits : DFBits.Token[Width] = DFBits.Token(width, valueBits, bubbleMask)
   }
   object Token {
+    trait Of[Value, W] extends Token {
+      type TValue = Value
+      type Width = W
+    }
   }
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  // Token
@@ -55,7 +63,6 @@ object DFAny {
 //    protected[DFiant] type TToken <: Token
 //    protected[DFiant] type TPattern <: DFAny.Pattern[TPattern]{type TValue = self.TValue}
 //    val value : TValue
-//    //maximum token value width
 //    val width : Int
 //    final lazy val widthOfValue : Int = scala.math.max(valueBits.lengthOfValue, bubbleMask.lengthOfValue).toInt
 //    val valueBits : BitVector
@@ -70,7 +77,6 @@ object DFAny {
 //      val outBubbleMask = bubbleMask.bit(relBit)
 //      new DFBool.Token(outBitsValue, outBubbleMask)
 //    }
-//    final def bits : DFBits.Token = new DFBits.Token(width, valueBits, bubbleMask)
 //    final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token = {
 //      val outWidth = relBitHigh - relBitLow + 1
 //      val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
@@ -201,12 +207,12 @@ object DFAny {
     val ctx : DFAny.Context
   }
 
-  final case class Const[Type <: DFType](dfType : Type, token : Token[Type])(
+  final case class Const[Type <: DFType](dfType : Type, token : Type#TToken)(
     implicit val ctx : DFAny.Context
   ) extends Constructor[Type, false]
 
   sealed trait Initializable[Type <: DFType, Var] extends Constructor[Type, Var] {
-    val externalInit : Seq[Token[Type]]
+    val externalInit : Seq[Type#TToken]
   }
 
   sealed trait Port[Type <: DFType, Var] extends Initializable[Type, Var] {
@@ -218,19 +224,19 @@ object DFAny {
       case object IN extends Dir
       case object OUT extends Dir
     }
-    final case class In[Type <: DFType](dfType : Type, externalInit : Seq[Token[Type]])(
+    final case class In[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, false] {
       val dir : Port.Dir = Dir.IN
     }
-    final case class Out[Type <: DFType](dfType : Type, externalInit : Seq[Token[Type]])(
+    final case class Out[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, true] {
       val dir : Port.Dir = Dir.OUT
     }
   }
 
-  final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Token[Type]])(
+  final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true] {
     def ifdf(cond : ValOrVar[DFBool, _])(block : => ValOrVar[Type, _])(implicit ctx : DFBlock.Context)
