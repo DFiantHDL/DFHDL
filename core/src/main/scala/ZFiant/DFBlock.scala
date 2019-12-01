@@ -43,6 +43,7 @@ object ConditionalBlock {
     }
     final case class ElseBlock[Type <: DFType](dfType : Type, block : () => DFAny.Val[Type, _], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends WithRetVal[IfBlock[Type], Type]
   }
+  sealed trait NoRetVal[CB <: NoRetVal[CB]] extends ConditionalBlock[NoRetVal[CB], Unit]
   object NoRetVal {}
 }
 
