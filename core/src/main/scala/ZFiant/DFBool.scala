@@ -20,5 +20,16 @@ object DFBool {
     lazy val bubbleMask: XBitVector[1] = XBitVector.bit(bubble)
   }
 
+  object Token {
+    def apply(value : Int) : Token = value match {
+      case 0 => Token(false)
+      case 1 => Token(true)
+    }
+    def apply(valueBool : Boolean, bubble : Boolean) : Token = new Token(valueBool, bubble)
+    def apply(value : Boolean) : Token = new Token(value, false)
+    def apply(value : Bubble) : Token = new Token(false, true)
+
+  }
+
 }
 

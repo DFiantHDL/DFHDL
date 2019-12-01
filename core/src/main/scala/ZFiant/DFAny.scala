@@ -59,6 +59,14 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
+    final def == (that : this.type) : DFBool.Token = {
+      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
+      else DFBool.Token(this.valueBits == that.valueBits)
+    }
+    final def != (that : this.type) : DFBool.Token = {
+      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
+      else DFBool.Token(this.valueBits != that.valueBits)
+    }
   }
   object Token {
     trait Of[Value, W] extends Token {
@@ -82,25 +90,6 @@ object DFAny {
 //    final lazy val lzc : Int = scala.math.min(valueBits.lzc, bubbleMask.lzc).toInt
 //    def toBubbleToken : Token
 //
-//    final def replaceWL(relWidth : Int, relBitLow : Int, replacement : DFBits.Token)(
-//      implicit fromBits : DFBits.Token => TToken
-//    ) : TToken = {
-//      val leftWidth = width - (relBitLow + relWidth)
-//      val leftBitLow = relBitLow + relWidth
-//      val rightWidth = relBitLow
-//      val rightBitLow = 0
-//      val leftOption : Option[DFBits.Token] = if (leftWidth > 0) Some(bitsWL(leftWidth, leftBitLow)) else None
-//      val rightOption : Option[DFBits.Token] = if (rightWidth > 0) Some(bitsWL(rightWidth, rightBitLow)) else None
-//      fromBits(List(leftOption, Some(replacement), rightOption).flatten.reduce((l, r) => l ## r))
-//    }
-//    final def == (that : this.type) : DFBool.Token = {
-//      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
-//      else DFBool.Token(this.valueBits == that.valueBits)
-//    }
-//    final def != (that : this.type) : DFBool.Token = {
-//      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
-//      else DFBool.Token(this.valueBits != that.valueBits)
-//    }
 //    final def patternMatch(that : TPattern) : DFBool.Token = DFBool.Token(that.matches(this.value), this.isBubble)
 //  }
 //
