@@ -39,20 +39,21 @@ object DFAny {
     def apply(left : To, right : From) : Unit = {}
   }
 
-  implicit class VarOps[L <: DFAny](left : L)(implicit isVar : L#TVar =:= true) {
+  implicit class VarOps[L <: DFAny.Var[_ <: DFType]](left : L) {
     def := [R](right : R)(implicit op : `Op:=`[L, R]) : Unit = op(left, right)
   }
 
   trait Token
 
-  trait Val[Type <: DFType, Var] extends DFAny {
+  trait ValOrVar[Type <: DFType, Var] extends DFAny {
     type TType = Type
     type TVar = Var
   }
 
-  type Var[Type <: DFType] = Val[Type, true]
+  type Val[Type <: DFType] = ValOrVar[Type, false]
+  type Var[Type <: DFType] = ValOrVar[Type, true]
 
-  abstract class Constructor[Type <: DFType, Var] extends Val[Type, Var] {
+  abstract class Constructor[Type <: DFType, Var] extends ValOrVar[Type, Var] {
     val ctx : DFAny.Context
   }
 
@@ -88,8 +89,9 @@ object DFAny {
   final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true] {
-    def ifdf(cond : Val[DFBool, _])(block : => Val[Type, _])(implicit ctx : DFBlock.Context)
+    def ifdf(cond : ValOrVar[DFBool, _])(block : => ValOrVar[Type, _])(implicit ctx : DFBlock.Context)
     : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
+    override def toString: String = dfType.toString
   }
 
   trait Alias[Type <: DFType, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
@@ -117,6 +119,27 @@ object DFAny {
   ) extends Func[Type]
 
 
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Op
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Op {
+    trait Able[R]{val value : R}
+    object Able {
+      implicit def fromAble[R](able : Able[R]) : R = able.value
+    }
+    trait Builder[L, R] {
+      type Comp <: DFType
+      def apply(left : L, rightR : R) : DFAny.Val[Comp]
+    }
+    type Context = DFBlock.Context
+  }
+  type `Op==Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool}
+  type `Op!=Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool}
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 }
 
 
@@ -124,7 +147,6 @@ object DFAny {
 object Test {
   trait BB extends DFBlock {
     val a = DFUInt(8)
-
     DFUInt(8).ifdf(???) {
       a
     }.elsedf {

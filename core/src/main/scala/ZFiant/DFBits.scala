@@ -6,6 +6,7 @@ import singleton.twoface._
 case class DFBits[W] private (width : TwoFace.Int[W]) extends DFType {
   type Width = W
   type TToken = DFBits.Token
+  override def toString: String = s"DFBits($width)"
 }
 
 object DFBits {
