@@ -82,7 +82,6 @@ object DFAny {
 //    final lazy val lzc : Int = scala.math.min(valueBits.lzc, bubbleMask.lzc).toInt
 //    def toBubbleToken : Token
 //
-//    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = bits(relWidth + relBitLow - 1, relBitLow)
 //    final def replaceWL(relWidth : Int, relBitLow : Int, replacement : DFBits.Token)(
 //      implicit fromBits : DFBits.Token => TToken
 //    ) : TToken = {
