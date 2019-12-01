@@ -6,6 +6,7 @@ class DFBool extends DFType {
   type Width = 1
   type TToken = DFBool.Token
   val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
+  override def toString: String = "DFBool"
 }
 
 object DFBool {

@@ -6,6 +6,7 @@ import singleton.twoface._
 class DFUInt[W] private (val width : TwoFace.Int[W]) extends DFType {
   type Width = W
   type TToken = DFUInt.Token
+  override def toString: String = s"DFUInt($width)"
 }
 
 object DFUInt {
