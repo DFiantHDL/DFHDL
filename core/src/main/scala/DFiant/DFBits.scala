@@ -362,7 +362,7 @@ object DFBits extends DFAny.Companion {
     def apply(width : Int, value : Bubble) : Token = new Token(width, BitVector.low(width), BitVector.high(width))
     def apply(width : Int, value : Token) : Token = {
       assert(value.width == width, s"\nThe init vector $value must have a width of $width")
-      value.bits(width-1, 0)
+      value.bitsWL(width, 0)
     }
     implicit def bubbleOf[W] : DFBits[W] => Token = t => Token(t.width, Bubble)
     implicit val fromBits : DFBits.Token => Token = t => t

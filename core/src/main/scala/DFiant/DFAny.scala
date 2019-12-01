@@ -1106,13 +1106,12 @@ object DFAny {
       new DFBool.Token(outBitsValue, outBubbleMask)
     }
     final def bits : DFBits.Token = new DFBits.Token(width, valueBits, bubbleMask)
-    final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token = {
-      val outWidth = relBitHigh - relBitLow + 1
+    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = {
+      val relBitHigh = relWidth + relBitLow - 1
       val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
       val outBubbleMask = bubbleMask.bits(relBitHigh, relBitLow)
-      new DFBits.Token(outWidth, outBitsValue, outBubbleMask)
+      DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
-    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = bits(relWidth + relBitLow - 1, relBitLow)
     final def replaceWL(relWidth : Int, relBitLow : Int, replacement : DFBits.Token)(
       implicit fromBits : DFBits.Token => TToken
     ) : TToken = {
