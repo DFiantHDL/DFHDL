@@ -135,6 +135,8 @@ package object internals {
   object XBitVector {
     def bit(high: Boolean): XBitVector[1] = BitVector.bit(high).asInstanceOf[XBitVector[1]]
     def fill[W](n: TwoFace.Int[W])(high: Boolean): XBitVector[W] = BitVector.fill(n.getValue)(high).asInstanceOf[XBitVector[W]]
+    def low[W](n: TwoFace.Int[W]): XBitVector[W] = fill(n)(false)
+    def high[W](n: TwoFace.Int[W]): XBitVector[W] = fill(n)(true)
   }
 
   implicit class BitVectorExtras(vec : BitVector) {
