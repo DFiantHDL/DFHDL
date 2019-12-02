@@ -40,6 +40,8 @@ object DFBool {
       if (this.value) if (this.isBubble) bubbleOf(thenSel) else thenSel
       else if (this.isBubble) bubbleOf(elseSel) else elseSel
     }
+    def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
+    def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
   }
 
   object Token {
@@ -51,6 +53,17 @@ object DFBool {
     }
     def apply(value : Boolean) : Token = new Token(value, false)
     def apply(value : Bubble) : Token = new Token(false, true)
+
+    import DFAny.TokenSeq
+    val || : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l || r)
+    val && : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l && r)
+    val ^  : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ^ r)
+    val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
+    val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
+    def unary_! (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => !t)
+    def select[ST <: DFAny.Token](cond : Seq[Token], thenSel : Seq[ST], elseSel : Seq[ST])(
+      implicit bubbleOf : DFAny.Token.BubbleOfToken[ST]
+    ) : Seq[ST] = TokenSeq(cond, thenSel, elseSel)((c, t, e) => c.select(t, e))
   }
 
 }
