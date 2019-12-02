@@ -88,6 +88,8 @@ object DFBits {
 
   }
   object Token {
+    implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits[W]] = t => Token(t.width, Bubble)
     def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token(width, BigInt(value).toBitVector(width))
     def apply[W](width : TwoFace.Int[W], value : XBitVector[W]) : Token[W] = {
       assert(value.length == width.getValue, s"\nThe init vector $value must have a width of $width")
