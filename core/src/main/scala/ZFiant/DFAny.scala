@@ -59,19 +59,17 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
-    final def == (that : this.type) : DFBool.Token = {
-      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
-      else DFBool.Token(this.valueBits == that.valueBits)
-    }
-    final def != (that : this.type) : DFBool.Token = {
-      if (this.isBubble || that.isBubble) DFBool.Token(Bubble)
-      else DFBool.Token(this.valueBits != that.valueBits)
-    }
   }
   object Token {
     trait Of[Value, W] extends Token {
       type TValue = Value
       type Width = W
+    }
+    trait BubbleOfToken[T <: Token] {
+      def apply(t : T) : T
+    }
+    trait BubbleOfDFType[Type <: DFType] {
+      def apply(t : Type) : Type#TToken
     }
     implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
       def prevInit(step : Int) : Seq[T] = {
