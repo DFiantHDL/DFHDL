@@ -73,6 +73,22 @@ object DFAny {
       type TValue = Value
       type Width = W
     }
+    implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
+      def prevInit(step : Int) : Seq[T] = {
+        val length = tokenSeq.length
+        //No init at all, so invoking prev does not change anything (bubble tokens will be used)
+        if ((length == 0) || (step == 0)) tokenSeq
+        //The step is larger or equals to the init sequence, so only the last init token remains
+        else if (length <= step) Seq(tokenSeq.last)
+        //More tokens are available than the step size, so we drop the first, according to the step count
+        else tokenSeq.drop(step)
+      }
+      def bits : Seq[DFBits.Token[T#Width]] =
+        tokenSeq.map(t => t.bits.asInstanceOf[DFBits.Token[T#Width]])
+      def bitsWL[W](relWidth : TwoFace.Int[W], relBitLow : Int) : Seq[DFBits.Token[W]] =
+        tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
+//      def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
+    }
   }
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  // Token
@@ -102,49 +118,27 @@ object DFAny {
 ////      protected[DFiant] type TPattern = P
 ////      final def codeString : String = if (isBubble) "Φ" else value.codeString
 ////    }
-////    implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
-////      def prevInit(step : Int) : Seq[T] = {
-////        val length = tokenSeq.length
-////        //No init at all, so invoking prev does not change anything (bubble tokens will be used)
-////        if ((length == 0) || (step == 0)) tokenSeq
-////        //The step is larger or equals to the init sequence, so only the last init token remains
-////        else if (length <= step) Seq(tokenSeq.last)
-////        //More tokens are available than the step size, so we drop the first, according to the step count
-////        else tokenSeq.drop(step)
-////      }
-////      //      def tokenAt(step : Int)(implicit bubbleOf : [T]) : T = prevInit(step - 1).headOption.getOrElse(DFBits.Token(t.dfVal.width, Bubble))
-////      def bits : Seq[DFBits.Token] =
-////        tokenSeq.map(t => t.bits)
-////      def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
-////        tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
-////      def replaceWL(relWidth : Int, relBitLow : Int, replacement : Seq[DFBits.Token])(
-////        implicit fromBits : DFBits.Token => T
-////      ) : Seq[T] = TokenSeq(tokenSeq, replacement)((t, r) => t.replaceWL(relWidth, relBitLow, r)(fromBits.asInstanceOf[DFBits.Token => t.TToken]).asInstanceOf[T])
-////      def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
-////      def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
-////    }
 ////    def patternMatch[T <: Token, P <: Pattern[_]](tokenSeq : Seq[T], pattern : P) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
 //  }
 //
-//  object TokenSeq {
-//    def apply[O <: Token, T1 <: Token, T2 <: Token, T3 <: Token](t1 : Seq[T1], t2 : Seq[T2], t3 : Seq[T3])(op : (T1, T2, T3) => O) : Seq[O] =
-//      if (t1.isEmpty || t2.isEmpty || t3.isEmpty) Seq() else{
-//        val leftSeq = t1
-//        val rightSeq = t2
-//        val leftSeq2 = leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last)
-//        val rightSeq2 = t3
-//        leftSeq2.zipAll(rightSeq2, leftSeq2.last, rightSeq2.last).map(t => op(t._1._1, t._1._2, t._2))
-//      }
-//    def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
-//      if (leftSeq.isEmpty || rightSeq.isEmpty) Seq() else
-//        leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))
-//    def apply[O <: Token, L <: Token, R](leftSeq : Seq[L], rightConst : R)(op : (L, R) => O) : Seq[O] =
-//      leftSeq.map(t => op(t, rightConst))
-//    def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
-//      seq.map(t => op(t))
-//    def apply[O <: Token, T <: Token, L <: Token](seq : Seq[T], list : List[Seq[L]])(op : (T, List[L]) => O) : Seq[O] = ???
-//  }
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object TokenSeq {
+    def apply[O <: Token, T1 <: Token, T2 <: Token, T3 <: Token](t1 : Seq[T1], t2 : Seq[T2], t3 : Seq[T3])(op : (T1, T2, T3) => O) : Seq[O] =
+      if (t1.isEmpty || t2.isEmpty || t3.isEmpty) Seq() else{
+        val leftSeq = t1
+        val rightSeq = t2
+        val leftSeq2 = leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last)
+        val rightSeq2 = t3
+        leftSeq2.zipAll(rightSeq2, leftSeq2.last, rightSeq2.last).map(t => op(t._1._1, t._1._2, t._2))
+      }
+    def apply[O <: Token, L <: Token, R <: Token](leftSeq : Seq[L], rightSeq : Seq[R])(op : (L, R) => O) : Seq[O] =
+      if (leftSeq.isEmpty || rightSeq.isEmpty) Seq() else
+        leftSeq.zipAll(rightSeq, leftSeq.last, rightSeq.last).map(t => op(t._1, t._2))
+    def apply[O <: Token, L <: Token, R](leftSeq : Seq[L], rightConst : R)(op : (L, R) => O) : Seq[O] =
+      leftSeq.map(t => op(t, rightConst))
+    def apply[O <: Token, T <: Token](seq : Seq[T])(op : T => O) : Seq[O] =
+      seq.map(t => op(t))
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
