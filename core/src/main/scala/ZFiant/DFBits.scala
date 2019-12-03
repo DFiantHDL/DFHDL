@@ -4,16 +4,14 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
-class DFBits[W] private (val width : TwoFace.Int[W]) extends DFType {
-  type Width = W
-  type TToken = DFBits.Token[W]
-  type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
-  override def toString: String = s"DFBits($width)"
-}
-
 object DFBits extends DFAny.Companion {
-  def dfType[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = new DFBits(width)
-  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(dfType(width), Seq())
+  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.DFType {
+    type Width = W
+    type TToken = Token[W]
+    type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]
+    override def toString: String = s"DFBits($width)"
+  }
+  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
 
   final case class Token[W](width : TwoFace.Int[W], value : XBitVector[W], bubbleMask : XBitVector[W]) extends DFAny.Token.Of[XBitVector[W], W] {
     lazy val valueBits : XBitVector[W] = value
@@ -90,7 +88,7 @@ object DFBits extends DFAny.Companion {
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits[W]] = t => Token(t.width, Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits.Type[W]] = t => Token(t.width, Bubble)
     def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token(width, BigInt(value).toBitVector(width))
     def apply[W](width : TwoFace.Int[W], value : XBitVector[W]) : Token[W] = {
       assert(value.length == width.getValue, s"\nThe init vector $value must have a width of $width")
@@ -120,7 +118,7 @@ object DFBits extends DFAny.Companion {
 
   object `Op==` extends `Op==` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type TType = DFBool}
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW
@@ -128,19 +126,19 @@ object DFBits extends DFAny.Companion {
         type ParamFace = Int
       }
 
-      def create[L, LW, R, RW](properLR : (L, R) => (DFAny.Of[DFBits[LW]], DFAny.Of[DFBits[RW]]))(
+      def create[L, LW, R, RW](properLR : (L, R) => (DFBits[LW], DFBits[RW]))(
         implicit ctx : DFAny.Context
       ) : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        DFAny.Func2(DFBool.dfType(), left, DiSoOp.==, right)
+        DFAny.Func2(DFBool.Type(), left, DiSoOp.==, right)
       }
 
       implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFAny.Of[DFBits[LW]], DFAny.Of[DFBits[RW]]] =
-        create[DFAny.Of[DFBits[LW]], LW, DFAny.Of[DFBits[RW]], RW]((left, right) => {
+      ) : Builder[DFBits[LW], DFBits[RW]] =
+        create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })

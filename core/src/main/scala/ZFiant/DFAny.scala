@@ -4,19 +4,8 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
-trait DFType {
-  type TToken <: DFAny.Token
-  type Width
-  val width : TwoFace.Int[Width]
-  protected type OpAble[R] <: DFAny.Op.Able[R]
-  type `Op==Builder`[-L, -R] <: DFAny.`Op==Builder`[L, R]
-}
-object DFType {
-  implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
-}
-
 trait DFAny extends DFMember with Product with Serializable {
-  type TType <: DFType
+  type TType <: DFAny.DFType
   type TVar
   val dfType : TType
   type Width = dfType.Width
@@ -25,7 +14,7 @@ trait DFAny extends DFMember with Product with Serializable {
   final protected val left : this.type = this
   protected type AsVal = DFAny.Val[TType]
   protected type AsVar = DFAny.Var[TType]
-  protected type AsType[T <: DFType] = DFAny.ValOrVar[T, TVar]
+  protected type AsType[T <: DFAny.DFType] = DFAny.ValOrVar[T, TVar]
   protected type This = DFAny.Of[TType]
 
 //  protected type `Op<>Builder`[R] <: DFAny.Op.Builder[This, R]
@@ -39,6 +28,17 @@ trait DFAny extends DFMember with Product with Serializable {
 }
 
 object DFAny {
+  trait DFType {
+    type TToken <: DFAny.Token
+    type Width
+    val width : TwoFace.Int[Width]
+    protected type OpAble[R] <: DFAny.Op.Able[R]
+    type `Op==Builder`[-L, -R] <: DFAny.`Op==Builder`[L, R]
+  }
+  object DFType {
+    implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
+  }
+
   trait Context extends DFMember.Context
 
   trait Of[Type <: DFType] extends DFAny {
@@ -46,28 +46,28 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
-    final def bits(implicit ctx : DFAny.Context) : AsType[DFBits[dfType.Width]] =
+    final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
       DFAny.Alias.BitsWL(this, dfType.width, 0)
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-    ) : AsType[DFBits[relWidth.Out]] =
+    ) : AsType[DFBits.Type[relWidth.Out]] =
       DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow)
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-    ) : AsType[DFBits[relWidth.Out]] = {
+    ) : AsType[DFBits.Type[relWidth.Out]] = {
       checkHiLow.unsafeCheck(relBitHigh, relBitLow)
       protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
     }
 
     final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
       implicit ctx : DFAny.Context
-    ) : AsType[DFBits[W]] = DFAny.Alias.BitsWL(this, relWidth, relBitLow)
+    ) : AsType[DFBits.Type[W]] = DFAny.Alias.BitsWL(this, relWidth, relBitLow)
 
     final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Context
-    ) : AsType[DFBits[W]] = {
+    ) : AsType[DFBits.Type[W]] = {
       checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
       protBitsWL(relWidth, relBitLow.unsafeCheck(width))
     }
@@ -148,7 +148,7 @@ object DFAny {
   final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true] {
-    def ifdf(cond : ValOrVar[DFBool, _])(block : => ValOrVar[Type, _])(implicit ctx : DFBlock.Context)
+    def ifdf(cond : DFBool)(block : => ValOrVar[Type, _])(implicit ctx : DFBlock.Context)
     : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
     override def toString: String = dfType.toString
   }
@@ -162,8 +162,8 @@ object DFAny {
     ) extends Alias[Type, RefVal, RefVal#TVar]
     final case class BitsWL[W, L, RefVal <: DFAny](refVal : RefVal, relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
       implicit val ctx : DFAny.Context
-    ) extends Alias[DFBits[W], RefVal, RefVal#TVar]{
-      val dfType : TType = DFBits.dfType(relWidth)
+    ) extends Alias[DFBits.Type[W], RefVal, RefVal#TVar]{
+      val dfType : TType = DFBits.Type(relWidth)
     }
     final case class Prev[RefVal <: DFAny](refVal : RefVal, step : Int)(
       implicit val ctx : DFAny.Context
@@ -351,11 +351,11 @@ object DFAny {
       implicit def fromAble[R](able : Able[R]) : R = able.value
     }
     trait Builder[-L, -R] {
-      type TType <: DFType
-      def apply(left : L, rightR : R) : DFAny.Val[TType]
+      type Comp <: DFAny
+      def apply(left : L, rightR : R) : Comp
     }
   }
-  type `Op==Builder`[-L, -R] = Op.Builder[L, R]{type TType = DFBool}
+  type `Op==Builder`[-L, -R] = Op.Builder[L, R]{type Comp = DFBool}
 //  type `Op!=Builder`[L, R, Sym] = Op.Builder[L, R, Sym]{type Comp = DFBool}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

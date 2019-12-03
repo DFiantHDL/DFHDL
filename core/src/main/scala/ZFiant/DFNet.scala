@@ -8,10 +8,10 @@ sealed trait DFNet extends DFMember {
 object DFNet {
   type Context = DFAny.Context
 
-  final case class Assignment(to : DFAny.Var[_ <: DFType], from : DFAny)(
+  final case class Assignment(to : DFAny.Var[_ <: DFAny.DFType], from : DFAny)(
     implicit val ctx : DFNet.Context
   ) extends DFNet
-  final case class Connection(to : DFAny.Port[_ <: DFType,_], from : DFAny)(
+  final case class Connection(to : DFAny.Port[_ <: DFAny.DFType,_], from : DFAny)(
     implicit val ctx : DFNet.Context
   ) extends DFNet
 }
