@@ -13,16 +13,36 @@ object DFType {
   implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
 }
 
-trait DFAny extends DFMember {
+trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFType
   type TVar
   val dfType : TType
+  type Width = dfType.Width
+  final lazy val width = dfType.width
   final protected val left : this.type = this
   protected type AsVal = DFAny.Val[TType]
   protected type AsVar = DFAny.Var[TType]
   protected type AsType[T <: DFType] = DFAny.ValOrVar[T, TVar]
+
+  //////////////////////////////////////////////////////////////////////////
+  // Bit range selection
+  //////////////////////////////////////////////////////////////////////////
   final def bits(implicit ctx : DFAny.Context) : AsType[DFBits[dfType.Width]] =
     DFAny.Alias.BitsWL[dfType.Width, 0, this.type](left, dfType.width, 0)
+
+  final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
+    implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
+  ) : AsType[DFBits[relWidth.Out]] =
+    DFAny.Alias.BitsWL[relWidth.Out, relBitLow.Out, this.type](left, relWidth(relBitHigh, relBitLow), relBitLow)
+
+  final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
+    implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
+  ) : AsType[DFBits[relWidth.Out]] = {
+    checkHiLow.unsafeCheck(relBitHigh, relBitLow)
+    protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
+  }
+  //////////////////////////////////////////////////////////////////////////
+
   final def as[AT <: DFType](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] =
     DFAny.Alias.AsIs[AT, this.type](aliasType, left)
   final def prev(implicit ctx : DFAny.Context) : AsVal = DFAny.Alias.Prev[this.type](left, 1)
@@ -39,7 +59,7 @@ object DFAny {
     def := [R](right : R)(implicit op : `Op:=`[L, R]) : Unit = op(left, right)
   }
 
-  abstract class Token {
+  trait Token extends Product with Serializable {
     type TValue
     type Width
     //maximum token value width

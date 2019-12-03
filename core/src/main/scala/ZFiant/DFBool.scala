@@ -3,7 +3,7 @@ package ZFiant
 import singleton.twoface._
 import DFiant.internals._
 
-class DFBool extends DFType {
+case class DFBool private () extends DFType {
   type Width = 1
   type TToken = DFBool.Token
   val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
