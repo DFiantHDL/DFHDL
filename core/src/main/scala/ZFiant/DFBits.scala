@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
-case class DFBits[W] private (width : TwoFace.Int[W]) extends DFType {
+class DFBits[W] private (val width : TwoFace.Int[W]) extends DFType {
   type Width = W
   type TToken = DFBits.Token[W]
   override def toString: String = s"DFBits($width)"
