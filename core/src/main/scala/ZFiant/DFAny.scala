@@ -74,7 +74,7 @@ trait DFAny extends DFMember with Product with Serializable {
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
-//  final def == [R <: This](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
+//  final def == [R](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
 //  final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
   //////////////////////////////////////////////////////////////////////////
 }
