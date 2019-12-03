@@ -23,6 +23,7 @@ trait DFAny extends DFMember with Product with Serializable {
   protected type AsVal = DFAny.Val[TType]
   protected type AsVar = DFAny.Var[TType]
   protected type AsType[T <: DFType] = DFAny.ValOrVar[T, TVar]
+  protected type This = DFAny.Of[TType]
 
   //////////////////////////////////////////////////////////////////////////
   // Bit range selection
@@ -41,15 +42,56 @@ trait DFAny extends DFMember with Product with Serializable {
     checkHiLow.unsafeCheck(relBitHigh, relBitLow)
     protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
   }
+
+  final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
+    implicit ctx : DFAny.Context
+  ) : AsType[DFBits[W]] = DFAny.Alias.BitsWL[W, L, this.type](left, relWidth, relBitLow)
+
+  final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
+    implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Context
+  ) : AsType[DFBits[W]] = {
+    checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
+    protBitsWL(relWidth, relBitLow.unsafeCheck(width))
+  }
   //////////////////////////////////////////////////////////////////////////
 
+  //////////////////////////////////////////////////////////////////////////
+  // Prev
+  //////////////////////////////////////////////////////////////////////////
+  final protected def protPrev(step : Int)(implicit ctx : DFAny.Context)
+  : AsVal = DFAny.Alias.Prev[this.type](left, step)
+  final def prev()(implicit ctx : DFAny.Context) : AsVal = protPrev(1)
+  final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal = protPrev(step)
+  //////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////
+  // Casting/Aliasing
+  //////////////////////////////////////////////////////////////////////////
   final def as[AT <: DFType](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] =
     DFAny.Alias.AsIs[AT, this.type](aliasType, left)
-  final def prev(implicit ctx : DFAny.Context) : AsVal = DFAny.Alias.Prev[this.type](left, 1)
+  //////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////
+  // Equality
+  //////////////////////////////////////////////////////////////////////////
+//  final def == [R <: This](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
+//  final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
+  //////////////////////////////////////////////////////////////////////////
 }
 
 object DFAny {
   trait Context extends DFMember.Context
+
+  trait Of[Type <: DFType] extends DFAny {
+    type TType = Type
+  }
+
+  trait ValOrVar[Type <: DFType, Var] extends DFAny.Of[Type] {
+    type TVar = Var
+  }
+
+  type Val[Type <: DFType] = ValOrVar[Type, false]
+  type Var[Type <: DFType] = ValOrVar[Type, true]
 
   trait `Op:=`[To <: DFAny, From] {
     def apply(left : To, right : From) : Unit = {}
@@ -192,15 +234,6 @@ object DFAny {
 //    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  trait ValOrVar[Type <: DFType, Var] extends DFAny {
-    type TType = Type
-    type TVar = Var
-  }
-
-  type Val[Type <: DFType] = ValOrVar[Type, false]
-  type Var[Type <: DFType] = ValOrVar[Type, true]
 
   abstract class Constructor[Type <: DFType, Var] extends ValOrVar[Type, Var] {
     val ctx : DFAny.Context
