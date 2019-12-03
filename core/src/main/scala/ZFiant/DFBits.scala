@@ -7,10 +7,11 @@ import DFiant.internals._
 class DFBits[W] private (val width : TwoFace.Int[W]) extends DFType {
   type Width = W
   type TToken = DFBits.Token[W]
+  type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
   override def toString: String = s"DFBits($width)"
 }
 
-object DFBits {
+object DFBits extends DFAny.Companion {
   def dfType[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = new DFBits(width)
   def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(dfType(width), Seq())
 
@@ -116,4 +117,89 @@ object DFBits {
     def resize[W, W2](left : Seq[Token[W]], toWidth : TwoFace.Int[W2]) : Seq[Token[W2]] = TokenSeq(left)(t => t.resize(toWidth))
     def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
   }
+
+  object `Op==` extends `Op==` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type TType = DFBool}
+    object Builder {
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "Comparison operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      def create[L, LW, R, RW](properLR : (L, R) => (DFAny.Of[DFBits[LW]], DFAny.Of[DFBits[RW]]))(
+        implicit ctx : DFAny.Context
+      ) : Builder[L, R] = (leftL, rightR) => {
+        val (left, right) = properLR(leftL, rightR)
+        DFAny.Func2(DFBool.dfType(), left, DiSoOp.==, right)
+      }
+
+      implicit def evDFBits_op_DFBits[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[DFAny.Of[DFBits[LW]], DFAny.Of[DFBits[RW]]] =
+        create[DFAny.Of[DFBits[LW]], LW, DFAny.Of[DFBits[RW]], RW]((left, right) => {
+          checkLWvRW.unsafeCheck(left.width, right.width)
+          (left, right)
+        })
+    }
+  }
+
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  // Comparison operations
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token]) {
+//    object Builder {
+//
+//      implicit def evDFBits_op_DFBits[LW, RW](
+//        implicit
+//        ctx : DFAny.Op.Context,
+//        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+//      ) : Builder[DFBits[LW], DFBits[RW]] = create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
+//        checkLWvRW.unsafeCheck(left.width, right.width)
+//        (left, right)
+//      })
+//
+//      implicit def evDFBits_op_Const[LW, R, RW](
+//        implicit
+//        ctx : DFAny.Op.Context,
+//        rConst : Const.Builder.Aux[R, RW],
+//      ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
+//        val right = rConst(rightNum)
+//        (left, right)
+//      })
+//
+//      implicit def evConst_op_DFBits[L, LW, RW](
+//        implicit
+//        ctx : DFAny.Op.Context,
+//        lConst : Const.Builder.Aux[L, LW],
+//      ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
+//        val left = lConst(leftNum)
+//        (left, right)
+//      })
+//
+//      implicit def evDFBits_op_SBV[LW](
+//        implicit
+//        ctx : DFAny.Op.Context,
+//        rSBV : SameBitsVector.Builder[LW]
+//      ) : Builder[DFBits[LW], SameBitsVector] = create[DFBits[LW], LW, SameBitsVector, LW]((left, rightSBV) => {
+//        val right = rSBV(left, rightSBV)
+//        (left, right)
+//      })
+//
+//      implicit def evSBV_op_DFBits[RW](
+//        implicit
+//        ctx : DFAny.Op.Context,
+//        lSBV : SameBitsVector.Builder[RW]
+//      ) : Builder[SameBitsVector, DFBits[RW]] = create[SameBitsVector, RW, DFBits[RW], RW]((leftSBV, right) => {
+//        val left = lSBV(right, leftSBV)
+//        (left, right)
+//      })
+//    }
+//  }
+//  object `Op==` extends OpsCompare(DiSoOp.Kind.==)(DFBits.Token.==) with `Op==`
+//  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=)(DFBits.Token.!=) with `Op!=`
+//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
