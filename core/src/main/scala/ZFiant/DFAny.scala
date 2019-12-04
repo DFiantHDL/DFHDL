@@ -439,8 +439,8 @@ object Test {
     DFUInt(8).ifdf (b == b2) {
       a
     }
-    val bb = b"11111111"
-    val z = b == bb
+    val bb = b"1111111"
+    val z = b == b1s
   }
 //  val aa = a.bits.as(DFUInt(8)).bits
 
