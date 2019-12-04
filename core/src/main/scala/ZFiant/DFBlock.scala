@@ -1,7 +1,7 @@
 package ZFiant
 import DFiant.internals.Meta
 
-trait DFBlock extends DFMember {self =>
+trait DFBlock extends DFMember with Implicits {self =>
   protected implicit def __anyContext(implicit meta0 : Meta) : DFAny.Context = new DFAny.Context {
     val meta: Meta = meta0
     val owner: DFBlock = self
