@@ -91,7 +91,7 @@ object DFBits extends DFAny.Companion {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
     implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits.Type[W]] = t => Token(t.width, Bubble)
     def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token(width, BigInt(value).toBitVector(width))
-    def apply[W](width : TwoFace.Int[W], value : XBitVector[W]) : Token[W] = {
+    def apply[W](width : TwoFace.Int[W], value : BitVector) : Token[W] = {
       assert(value.length == width.getValue, s"\nThe init vector $value must have a width of $width")
       Token(width, value.toLength(width), XBitVector.low(width))
     }
@@ -116,6 +116,37 @@ object DFBits extends DFAny.Companion {
     def resize[LW, RW](left : Seq[Token[LW]], toWidth : TwoFace.Int[RW]) : Seq[Token[RW]] = TokenSeq(left)(t => t.resize(toWidth))
     def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
   }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Constant Builder
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Const {
+    trait Builder[N] {
+      type W
+      def apply(value : N) : DFBits[W]
+    }
+    object Builder {
+      type Aux[N, W0] = Builder[N]{type W = W0}
+      implicit def fromBitVector(implicit ctx : DFAny.Context)
+      : Aux[BitVector, Int] = new Builder[BitVector] {
+        type W = Int
+        def apply(value : BitVector) : DFBits[W] = {
+          val width = TwoFace.Int(value.length.toInt)
+          DFAny.Const[Type[Int]](Type(width), Token(width, value))
+        }
+      }
+      implicit def fromXBitVector[W0](implicit ctx : DFAny.Context)
+      : Aux[XBitVector[W0], W0] = new Builder[XBitVector[W0]] {
+        type W = W0
+        def apply(value : XBitVector[W0]) : DFBits[W] = {
+          val width = TwoFace.Int.create[W0](value.length.toInt)
+          DFAny.Const[Type[W0]](Type(width), Token(width, value))
+        }
+      }
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
@@ -146,6 +177,15 @@ object DFBits extends DFAny.Companion {
           checkLWvRW.unsafeCheck(left.width, right.width)
           (left, right)
         })
+
+      implicit def evDFBits_op_Const[LW, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.Builder.Aux[R, RW],
+      ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        (left, right)
+      })
     }
   }
   object `Op==` extends OpsCompare(DiSoOp.==)((l, r) => l == r) with `Op==`
@@ -155,23 +195,6 @@ object DFBits extends DFAny.Companion {
 //  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token]) {
 //    object Builder {
 //
-//      implicit def evDFBits_op_DFBits[LW, RW](
-//        implicit
-//        ctx : DFAny.Op.Context,
-//        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-//      ) : Builder[DFBits[LW], DFBits[RW]] = create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
-//        checkLWvRW.unsafeCheck(left.width, right.width)
-//        (left, right)
-//      })
-//
-//      implicit def evDFBits_op_Const[LW, R, RW](
-//        implicit
-//        ctx : DFAny.Op.Context,
-//        rConst : Const.Builder.Aux[R, RW],
-//      ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
-//        val right = rConst(rightNum)
-//        (left, right)
-//      })
 //
 //      implicit def evConst_op_DFBits[L, LW, RW](
 //        implicit
