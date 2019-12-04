@@ -99,8 +99,8 @@ package object ZFiant {
   type XInt = singleton.ops.XInt
   type BitVector = scodec.bits.BitVector
   val BitVector = scodec.bits.BitVector
-  type XBitVector[W] = DFiant.internals.XBitVector[W]
-  final val XBitVector = DFiant.internals.XBitVector
+//  type XBitVector[W] = DFiant.internals.XBitVector[W]
+//  final val XBitVector = DFiant.internals.XBitVector
   /**
     * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
