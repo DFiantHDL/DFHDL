@@ -123,29 +123,26 @@ object DFAny {
   }
 
   sealed trait Port[Type <: DFAny.Type, Var] extends Initializable[Type, Var] {
-    val dir : Port.Dir
+    val dir : DFDir
   }
   object Port {
-    sealed trait Dir
-    object Dir {
-      case object IN extends Dir
-      case object OUT extends Dir
-    }
     final case class In[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, false] {
-      val dir : Port.Dir = Dir.IN
+      val dir : DFDir = IN
     }
     final case class Out[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, true] {
-      val dir : Port.Dir = Dir.OUT
+      val dir : DFDir = OUT
     }
   }
 
   final case class NewVar[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true] {
+    def <> (in : IN) : Port.In[Type] = Port.In(dfType, Seq())
+    def <> (out : OUT) : Port.Out[Type] = Port.Out(dfType, Seq())
     def ifdf(cond : DFBool)(block : => Of[Type])(implicit ctx : DFBlock.Context)
     : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
     override def toString: String = dfType.toString
@@ -427,8 +424,8 @@ object Test {
     }.elsedf {
       a
     }
-    val b = DFBits(8)
-    val b2 = DFBits(8)
+    val b = DFBits(8) <> OUT
+    val b2 = DFBits(8) <> IN
     b := b2
     DFUInt(8).ifdf (b == b2) {
       a
