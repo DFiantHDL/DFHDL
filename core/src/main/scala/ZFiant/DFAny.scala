@@ -34,6 +34,7 @@ object DFAny {
     val width : TwoFace.Int[Width]
     protected type OpAble[R] <: DFAny.Op.Able[R]
     type `Op==Builder`[-L, -R] <: DFAny.`Op==Builder`[L, R]
+    type `Op!=Builder`[-L, -R] <: DFAny.`Op!=Builder`[L, R]
   }
   object DFType {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -95,7 +96,9 @@ object DFAny {
     final def == [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
-//      final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
+    final def != [R](right : R)(
+      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
+    ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
     //////////////////////////////////////////////////////////////////////////
   }
 
@@ -358,7 +361,7 @@ object DFAny {
     }
   }
   type `Op==Builder`[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
-//  type `Op!=Builder`[L, R, Sym] = Op.Builder[L, R, Sym]{type Out = DFBool}
+  type `Op!=Builder`[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -412,10 +415,10 @@ object DFAny {
       type Builder[-L, -R] <: DFAny.`Op==Builder`[L, R]
     }
     val `Op==` : `Op==`
-//    trait `Op!=` {
-//      type Builder[L, R] <: DFAny.`Op!=Builder`[L, R]
-//    }
-//    val `Op!=` : `Op!=`
+    trait `Op!=` {
+      type Builder[L, R] <: DFAny.`Op!=Builder`[L, R]
+    }
+    val `Op!=` : `Op!=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

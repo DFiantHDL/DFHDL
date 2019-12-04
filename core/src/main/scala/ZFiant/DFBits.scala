@@ -9,6 +9,7 @@ object DFBits extends DFAny.Companion {
     type Width = W
     type TToken = Token[W]
     type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] = `Op!=`.Builder[L, R]
     override def toString: String = s"DFBits($width)"
   }
   def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
@@ -116,7 +117,10 @@ object DFBits extends DFAny.Companion {
     def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
   }
 
-  object `Op==` extends `Op==` {
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Comparison operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class OpsCompare[Op <: DiSoOp](op : Op) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
     object Builder {
@@ -130,7 +134,7 @@ object DFBits extends DFAny.Companion {
         implicit ctx : DFAny.Context
       ) : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        DFAny.Func2(DFBool.Type(), left, DiSoOp.==, right)
+        DFAny.Func2(DFBool.Type(), left, op, right)
       }
 
       implicit def evDFBits_op_DFBits[LW, RW](
@@ -144,10 +148,10 @@ object DFBits extends DFAny.Companion {
         })
     }
   }
+  object `Op==` extends OpsCompare(DiSoOp.==) with `Op==`
+  object `Op!=` extends OpsCompare(DiSoOp.!=) with `Op!=`
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  // Comparison operations
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token]) {
 //    object Builder {
 //
@@ -197,7 +201,5 @@ object DFBits extends DFAny.Companion {
 //      })
 //    }
 //  }
-//  object `Op==` extends OpsCompare(DiSoOp.Kind.==)(DFBits.Token.==) with `Op==`
-//  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=)(DFBits.Token.!=) with `Op!=`
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
