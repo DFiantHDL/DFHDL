@@ -271,13 +271,13 @@
 //
 //    object Builder {
 //      type Aux[L, R, Comp0] = Builder[L, R] {
-//        type Comp = Comp0
+//        type Out = Comp0
 //      }
 //
 //      def create[SF <: Fields, L, R](properR : (L, R) => DFStruct[SF]) : Aux[L, R, DFStruct[SF]] =
 //        new Builder[L, R] {
-//          type Comp = DFStruct[SF]
-//          def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
+//          type Out = DFStruct[SF]
+//          def apply(leftL : L, rightR : R) : Out = properR(leftL, rightR)
 //        }
 //
 //      implicit def evDFStruct_op_DFStruct[SF <: Fields](implicit ctx : DFAny.Op.Context)
@@ -299,7 +299,7 @@
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  protected abstract class OpsCompare(kind : DiSoOp.Kind) {
 //    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-//    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+//    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool with CanBePiped}
 //
 //    object Builder {
 //      def create[SF <: Fields, L, R](properLR : (L, R) => (DFStruct[SF], DFStruct[SF]))(implicit ctx : DFAny.Op.Context)

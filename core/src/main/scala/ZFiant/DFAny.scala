@@ -92,7 +92,9 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Equality
     //////////////////////////////////////////////////////////////////////////
-    final def == [R](right : R)(implicit op: dfType.`Op==Builder`[This, R]) = op(left, right)
+    final def == [R](right : R)(
+      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
+    ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
 //      final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
     //////////////////////////////////////////////////////////////////////////
   }
@@ -350,13 +352,13 @@ object DFAny {
     object Able {
       implicit def fromAble[R](able : Able[R]) : R = able.value
     }
-    trait Builder[-L, -R] {
-      type Comp <: DFAny
-      def apply(left : L, rightR : R) : Comp
+    trait Builder[-L, -R] extends HasOut {
+      type Out <: DFAny
+      def apply(left : L, rightR : R) : Out
     }
   }
-  type `Op==Builder`[-L, -R] = Op.Builder[L, R]{type Comp = DFBool}
-//  type `Op!=Builder`[L, R, Sym] = Op.Builder[L, R, Sym]{type Comp = DFBool}
+  type `Op==Builder`[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+//  type `Op!=Builder`[L, R, Sym] = Op.Builder[L, R, Sym]{type Out = DFBool}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -431,7 +433,9 @@ object Test {
     }
     val b = DFBits(8)
     val b2 = DFBits(8)
-    b == b2
+    DFUInt(8).ifdf (b == b2) {
+      a
+    }
   }
 //  val aa = a.bits.as(DFUInt(8)).bits
 

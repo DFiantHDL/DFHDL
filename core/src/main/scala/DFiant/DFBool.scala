@@ -315,13 +315,13 @@ object DFBool extends DFAny.Companion {
 
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
+        type Out = Comp0
       }
 
       def create[L, R](properR : (L, R) => DFBool)
       : Aux[L, R, DFBool] = new Builder[L, R] {
-        type Comp = DFBool
-        def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
+        type Out = DFBool
+        def apply(leftL : L, rightR : R) : Out = properR(leftL, rightR)
       }
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit ctx : DFAny.Op.Context)
@@ -344,7 +344,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class BoolOps(kind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool with CanBePiped}
 
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(implicit ctx : DFAny.Op.Context)
