@@ -118,7 +118,7 @@ object DFBits extends DFAny.Companion {
 
   object `Op==` extends `Op==` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool}
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW

@@ -233,13 +233,13 @@ object DFEnum extends DFAny.Companion {
 
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
+        type Out = Comp0
       }
 
       def create[E <: Enum, L, R](properR : (L, R) => DFEnum[E]) : Aux[L, R, DFEnum[E]] =
         new Builder[L, R] {
-          type Comp = DFEnum[E]
-          def apply(leftL : L, rightR : R) : Comp = properR(leftL, rightR)
+          type Out = DFEnum[E]
+          def apply(leftL : L, rightR : R) : Out = properR(leftL, rightR)
         }
 
       implicit def evDFEnum_op_DFEnum[E <: Enum](implicit ctx : DFAny.Op.Context)
@@ -261,7 +261,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[K <: DiSoOp.Kind](kind : K) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool with CanBePiped}
 
     object Builder {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Op.Context)

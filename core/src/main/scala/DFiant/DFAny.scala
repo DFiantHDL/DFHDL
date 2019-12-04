@@ -224,8 +224,12 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
-  final def == [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
-  final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
+  final def == [R <: TUnbounded](right : R)(
+    implicit op : `Op==Builder`[right.TVal]//css: CaseClassSkipper[`Op==Builder`[right.TVal]]
+  ) = op(left, right.tVal)//css(op => op(left, right.tVal), left.asInstanceOf[Any] == right.asInstanceOf[Any])
+  final def != [R <: TUnbounded](right : R)(
+    implicit op : `Op!=Builder`[right.TVal]//css: CaseClassSkipper[`Op!=Builder`[right.TVal]]
+  ) = op(left, right.tVal)//css(op => op(left, right.tVal), left.asInstanceOf[Any] != right.asInstanceOf[Any])
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -1261,14 +1265,14 @@ object DFAny {
     object Able {
       implicit def fromAble[R](able : Able[R]) : R = able.value
     }
-    trait Builder[L, R] {
-      type Comp <: DFAny
-      def apply(left : L, rightR : R) : Comp
+    trait Builder[L, R] extends HasOut {
+      type Out <: DFAny
+      def apply(left : L, rightR : R) : Out
     }
     type Context = DFBlock.Context
   }
-  type `Op==Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
-  type `Op!=Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+  type `Op==Builder`[L, R] = Op.Builder[L, R]{type Out = DFBool with CanBePiped}
+  type `Op!=Builder`[L, R] = Op.Builder[L, R]{type Out = DFBool with CanBePiped}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
