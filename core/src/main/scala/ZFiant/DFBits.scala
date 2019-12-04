@@ -11,8 +11,8 @@ object DFBits extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
     type TToken = Token[W]
-    type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = `Op!=`.Builder[L, R]
+    type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
     override def toString: String = s"DFBits($width)"
   }
   def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
