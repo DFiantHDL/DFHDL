@@ -5,7 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 object DFBits extends DFAny.Companion {
-  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.DFType {
+  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
     type TToken = Token[W]
     type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]

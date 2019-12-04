@@ -4,7 +4,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 object DFBool {
-  final case class Type() extends DFAny.DFType {
+  final case class Type() extends DFAny.Type {
     type Width = 1
     type TToken = Token
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
