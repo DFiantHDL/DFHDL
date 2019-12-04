@@ -223,7 +223,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[CaseClassSkipper[_], LW, RW]
       ) : Builder[DFBits[LW], DFBits[RW]] =
         create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
@@ -234,7 +234,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[CaseClassSkipper[_], LW, RW]
       ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -245,7 +245,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         lConst : Const.Builder.Aux[L, LW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[CaseClassSkipper[_], LW, RW]
       ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
         checkLWvRW.unsafeCheck(left.width, right.width)

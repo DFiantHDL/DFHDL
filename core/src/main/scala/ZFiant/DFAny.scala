@@ -426,7 +426,7 @@ object Test {
     }
     val b = DFBits(8) <> OUT
     val b2 = DFBits(8) <> IN
-    b := b2
+//    b := b2
     DFUInt(8).ifdf (b == b2) {
       a
     }
