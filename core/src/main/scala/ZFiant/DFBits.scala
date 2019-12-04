@@ -16,10 +16,15 @@ object DFBits extends DFAny.Companion {
     type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
     type `Op<>Builder`[-L, -R] = DFBits.`Op<>`.Builder[L, R]
     type `Op:=Builder`[-L, -R] = DFBits.`Op:=`.Builder[L, R]
+    type InitAble[L <: DFAny] = DFBits.Init.Able[L]
+    type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits($width)"
   }
   def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Token
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final case class Token[W](width : TwoFace.Int[W], value : XBitVector[W], bubbleMask : XBitVector[W]) extends DFAny.Token.Of[XBitVector[W], W] {
     lazy val valueBits : XBitVector[W] = value
     def |[RW] (that : Token[RW]) : Token[W] = {
@@ -122,6 +127,38 @@ object DFBits extends DFAny.Companion {
     def resize[LW, RW](left : Seq[Token[LW]], toWidth : TwoFace.Int[RW]) : Seq[Token[RW]] = TokenSeq(left)(t => t.resize(toWidth))
     def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
   }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Init
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Init extends InitCO {
+    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
+    object Able {
+      implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
+      implicit class DFBitsSameBitsVector[LW](val right : SameBitsVector) extends Able[DFBits[LW]]
+      implicit class DFBitsToken[LW](val right : Token[LW]) extends Able[DFBits[LW]]
+      implicit class DFBitsTokenSeq[LW](val right : Seq[Token[LW]]) extends Able[DFBits[LW]]
+      implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
+      implicit class DFBitsSeqOfBitVector[LW](val right : Seq[BitVector]) extends Able[DFBits[LW]]
+      implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
+
+      def toTokenSeq[LW](width : TwoFace.Int[LW], right : Seq[Able[DFBits[LW]]]) : Seq[Token[LW]] =
+        right.toSeqAny.collect{
+          case t : Bubble => Token(width, t)
+          case t : Token[_] => t.asInstanceOf[Token[LW]]
+          case t : BitVector => Token(width, t)
+          case t : SameBitsVector => Token(width, XBitVector.fill(width)(t.value))
+        }
+    }
+    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
+    object Builder {
+      implicit def ev[LW] : Builder[DFBits[LW], Token[LW]] = (left, right) => Able.toTokenSeq(left.width, right)
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant Builder
@@ -167,7 +204,7 @@ object DFBits extends DFAny.Companion {
 //      final def <> [RW](port : DFAny.Connectable[DFBits[RW]] with DFBits[RW])(
 //        implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFNet.Context
 //      ) = port.connectWith(op(port, left))
-    }
+  }
     trait Implicits {
       sealed class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)

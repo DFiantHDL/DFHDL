@@ -16,10 +16,6 @@ trait DFAny extends DFMember with Product with Serializable {
   protected type AsVar = DFAny.Var[TType]
   protected type AsType[T <: DFAny.Type] = DFAny.ValOrVar[T, TVar]
   protected type This = DFAny.Of[TType]
-
-
-  protected type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
-  protected type InitBuilder <: DFAny.Init.Builder[This, InitAble, TToken]
 }
 
 object DFAny {
@@ -32,6 +28,8 @@ object DFAny {
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=Builder`[L, R]
     type `Op<>Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
     type `Op:=Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
+    type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
+    type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -120,6 +118,10 @@ object DFAny {
 
   sealed trait Initializable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
     val externalInit : Seq[Type#TToken]
+
+    final def init(that : Type#InitAble[This]*)(
+      implicit op : Type#InitBuilder[This], ctx : DFAny.Context
+    ) : Unit = ??? //op(left, that)
   }
 
   sealed trait Port[Type <: DFAny.Type, Var] extends Initializable[Type, Var] {
@@ -362,11 +364,11 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Init
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    trait InitCO {
-//      type Able[L <: DFAny] <: DFAny.Init.Able[L]
-//      type Builder[L <: DFAny, Token <: DFAny.Token] <: DFAny.Init.Builder[L, Able, Token]
-//    }
-//    val Init : InitCO
+    trait InitCO {
+      type Able[L <: DFAny] <: DFAny.Init.Able[L]
+      type Builder[L <: DFAny, Token <: DFAny.Token] <: DFAny.Init.Builder[L, Able, Token]
+    }
+    val Init : InitCO
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -426,6 +428,7 @@ object Test {
     }
     val b = DFBits(8) <> OUT
     val b2 = DFBits(8) <> IN
+    val C = DFBits(8) <> IN init (b"11111111", b0s)
 //    b := b2
     DFUInt(8).ifdf (b == b2) {
       a
