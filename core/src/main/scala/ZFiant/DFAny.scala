@@ -17,12 +17,7 @@ trait DFAny extends DFMember with Product with Serializable {
   protected type AsType[T <: DFAny.Type] = DFAny.ValOrVar[T, TVar]
   protected type This = DFAny.Of[TType]
 
-//  protected type `Op<>Builder`[R] <: DFAny.Op.Builder[This, R]
-//  protected type `Op:=Builder`[R] <: DFAny.Op.Builder[This, R]
 
-//  @scala.annotation.implicitNotFound("shit")
-//  type `Op==Builder`[R] <: dfType.`Op==Builder`[This, R]
-//  protected type `Op!=Builder`[R] <: DFAny.`Op!=Builder`[This, R]
   protected type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
   protected type InitBuilder <: DFAny.Init.Builder[This, InitAble, TToken]
 }
@@ -32,9 +27,11 @@ object DFAny {
     type TToken <: DFAny.Token
     type Width
     val width : TwoFace.Int[Width]
-    protected type OpAble[R] <: DFAny.Op.Able[R]
+    type OpAble[R] <: DFAny.Op.Able[R]
     type `Op==Builder`[-L, -R] <: DFAny.`Op==Builder`[L, R]
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=Builder`[L, R]
+    type `Op<>Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
+    type `Op:=Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -109,12 +106,8 @@ object DFAny {
   type Val[Type <: DFAny.Type] = ValOrVar[Type, false]
   type Var[Type <: DFAny.Type] = ValOrVar[Type, true]
 
-  trait `Op:=`[To <: DFAny, From] {
-    def apply(left : To, right : From) : Unit = {}
-  }
-
-  implicit class VarOps[L <: DFAny.Var[_ <: DFAny.Type]](left : L) {
-    def := [R](right : R)(implicit op : `Op:=`[L, R]) : Unit = op(left, right)
+  implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
+    def := [R](right : Type#OpAble[R])(implicit op : Type#`Op:=Builder`[DFAny.Var[Type], R]) : Unit = op(left, right)
   }
 
   abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
@@ -403,20 +396,20 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Common Ops
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    trait `Op:=` {
-//      type Builder[L, R] <: DFAny.Op.Builder[L, R]
-//    }
-//    val `Op:=` : `Op:=`
-//    trait `Op<>` {
-//      type Builder[L, R] <: DFAny.Op.Builder[L, R]
-//    }
-//    val `Op<>` : `Op<>`
+    trait `Op:=` {
+      type Builder[-L, -R] <: DFAny.Op.Builder[L, R]
+    }
+    val `Op:=` : `Op:=`
+    trait `Op<>` {
+      type Builder[-L, -R] <: DFAny.Op.Builder[L, R]
+    }
+    val `Op<>` : `Op<>`
     trait `Op==` {
       type Builder[-L, -R] <: DFAny.`Op==Builder`[L, R]
     }
     val `Op==` : `Op==`
     trait `Op!=` {
-      type Builder[L, R] <: DFAny.`Op!=Builder`[L, R]
+      type Builder[-L, -R] <: DFAny.`Op!=Builder`[L, R]
     }
     val `Op!=` : `Op!=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -436,6 +429,7 @@ object Test {
     }
     val b = DFBits(8)
     val b2 = DFBits(8)
+    b := b2
     DFUInt(8).ifdf (b == b2) {
       a
     }
