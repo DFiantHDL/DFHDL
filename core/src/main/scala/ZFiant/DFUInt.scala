@@ -5,7 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 object DFUInt {
-  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.DFType {
+  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
     type TToken = Token[W]
     override def toString: String = s"DFUInt($width)"

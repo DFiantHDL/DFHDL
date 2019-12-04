@@ -5,7 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 trait DFAny extends DFMember with Product with Serializable {
-  type TType <: DFAny.DFType
+  type TType <: DFAny.Type
   type TVar
   val dfType : TType
   type Width = dfType.Width
@@ -14,7 +14,7 @@ trait DFAny extends DFMember with Product with Serializable {
   final protected val left : this.type = this
   protected type AsVal = DFAny.Val[TType]
   protected type AsVar = DFAny.Var[TType]
-  protected type AsType[T <: DFAny.DFType] = DFAny.ValOrVar[T, TVar]
+  protected type AsType[T <: DFAny.Type] = DFAny.ValOrVar[T, TVar]
   protected type This = DFAny.Of[TType]
 
 //  protected type `Op<>Builder`[R] <: DFAny.Op.Builder[This, R]
@@ -28,7 +28,7 @@ trait DFAny extends DFMember with Product with Serializable {
 }
 
 object DFAny {
-  trait DFType {
+  trait Type extends Product with Serializable {
     type TToken <: DFAny.Token
     type Width
     val width : TwoFace.Int[Width]
@@ -36,13 +36,13 @@ object DFAny {
     type `Op==Builder`[-L, -R] <: DFAny.`Op==Builder`[L, R]
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=Builder`[L, R]
   }
-  object DFType {
+  object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
   }
 
   trait Context extends DFMember.Context
 
-  trait Of[Type <: DFType] extends DFAny {
+  trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
@@ -86,7 +86,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Casting/Aliasing
     //////////////////////////////////////////////////////////////////////////
-    final def as[AT <: DFType](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] =
+    final def as[AT <: DFAny.Type](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] =
       DFAny.Alias.AsIs(aliasType, this)
     //////////////////////////////////////////////////////////////////////////
 
@@ -102,34 +102,34 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-  trait ValOrVar[Type <: DFType, Var] extends DFAny.Of[Type] {
+  trait ValOrVar[Type <: DFAny.Type, Var] extends DFAny.Of[Type] {
     type TVar = Var
   }
 
-  type Val[Type <: DFType] = ValOrVar[Type, false]
-  type Var[Type <: DFType] = ValOrVar[Type, true]
+  type Val[Type <: DFAny.Type] = ValOrVar[Type, false]
+  type Var[Type <: DFAny.Type] = ValOrVar[Type, true]
 
   trait `Op:=`[To <: DFAny, From] {
     def apply(left : To, right : From) : Unit = {}
   }
 
-  implicit class VarOps[L <: DFAny.Var[_ <: DFType]](left : L) {
+  implicit class VarOps[L <: DFAny.Var[_ <: DFAny.Type]](left : L) {
     def := [R](right : R)(implicit op : `Op:=`[L, R]) : Unit = op(left, right)
   }
 
-  abstract class Constructor[Type <: DFType, Var] extends ValOrVar[Type, Var] {
+  abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
     val ctx : DFAny.Context
   }
 
-  final case class Const[Type <: DFType](dfType : Type, token : Type#TToken)(
+  final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken)(
     implicit val ctx : DFAny.Context
   ) extends Constructor[Type, false]
 
-  sealed trait Initializable[Type <: DFType, Var] extends Constructor[Type, Var] {
+  sealed trait Initializable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
     val externalInit : Seq[Type#TToken]
   }
 
-  sealed trait Port[Type <: DFType, Var] extends Initializable[Type, Var] {
+  sealed trait Port[Type <: DFAny.Type, Var] extends Initializable[Type, Var] {
     val dir : Port.Dir
   }
   object Port {
@@ -138,19 +138,19 @@ object DFAny {
       case object IN extends Dir
       case object OUT extends Dir
     }
-    final case class In[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
+    final case class In[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, false] {
       val dir : Port.Dir = Dir.IN
     }
-    final case class Out[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
+    final case class Out[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, true] {
       val dir : Port.Dir = Dir.OUT
     }
   }
 
-  final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
+  final case class NewVar[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true] {
     def ifdf(cond : DFBool)(block : => Of[Type])(implicit ctx : DFBlock.Context)
@@ -158,11 +158,11 @@ object DFAny {
     override def toString: String = dfType.toString
   }
 
-  trait Alias[Type <: DFType, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
+  trait Alias[Type <: DFAny.Type, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
     val refVal : RefVal
   }
   object Alias {
-    final case class AsIs[Type <: DFType, RefVal <: DFAny](dfType : Type, refVal : RefVal)(
+    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](dfType : Type, refVal : RefVal)(
       implicit val ctx : DFAny.Context
     ) extends Alias[Type, RefVal, RefVal#TVar]
     final case class BitsWL[W, L, RefVal <: DFAny](refVal : RefVal, relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
@@ -177,8 +177,8 @@ object DFAny {
     }
   }
 
-  sealed abstract class Func[Type <: DFType] extends Constructor[Type, false]
-  final case class Func2[Type <: DFType, L <: DFAny, Op <: DiSoOp, R <: DFAny](dfType: Type, leftArg : L, op : Op, rightArg : R)(func : (L#TToken, R#TToken) => Type#TToken)(
+  sealed abstract class Func[Type <: DFAny.Type] extends Constructor[Type, false]
+  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](dfType: Type, leftArg : L, op : Op, rightArg : R)(func : (L#TToken, R#TToken) => Type#TToken)(
     implicit val ctx : DFAny.Context
   ) extends Func[Type]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -216,7 +216,7 @@ object DFAny {
     trait BubbleOfToken[T <: Token] {
       def apply(t : T) : T
     }
-    trait BubbleOfDFType[Type <: DFType] {
+    trait BubbleOfDFType[Type <: DFAny.Type] {
       def apply(t : Type) : Type#TToken
     }
     implicit class TokenSeqInit[T <: Token](tokenSeq : Seq[T]) {
