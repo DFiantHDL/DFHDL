@@ -11,8 +11,11 @@ object DFBits extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
     type TToken = Token[W]
+    type OpAble[R] = DFBits.Op.Able[R]
     type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[-L, -R] = DFBits.`Op<>`.Builder[L, R]
+    type `Op:=Builder`[-L, -R] = DFBits.`Op:=`.Builder[L, R]
     override def toString: String = s"DFBits($width)"
   }
   def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
@@ -270,6 +273,65 @@ object DFBits extends DFAny.Companion {
   }
   object `Op==` extends OpsCompare(DiSoOp.==)((l, r) => l == r) with `Op==`
   object `Op!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r) with `Op!=`
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Assign & Connect
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[-L, -R, Out0] = Builder[L, R] {
+        type Out = Out0
+      }
+
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "An assignment/connection operation does not permit different widths. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      def create[L, R, RW](properR : (L, R) => DFBits[RW]) : Aux[L, R, DFBits[RW]] =
+        new Builder[L, R] {
+          type Out = DFBits[RW]
+          def apply(leftL : L, rightR : R) : Out =  properR(leftL, rightR)
+        }
+
+      implicit def evDFBits_op_DFBits[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Aux[DFBits[LW], DFBits[RW], DFBits[RW]] =
+        create[DFBits[LW], DFBits[RW], RW]((left, right) => {
+          checkLWvRW.unsafeCheck(left.width, right.width)
+          right
+        })
+
+      implicit def evDFBits_op_SBV[LW](
+        implicit
+        rSBV : SameBitsVector.Builder[LW]
+      ) : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] =
+        create[DFBits[LW], SameBitsVector, LW]((left, right) => {
+          rSBV(left, right)
+        })
+
+      implicit def evDFBits_op_Const[LW, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.Builder.Aux[R, RW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Aux[DFBits[LW], R, DFBits[RW]] = create[DFBits[LW], R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right
+      })
+    }
+  }
+  object `Op:=` extends `Ops:=,<>`
+  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }
