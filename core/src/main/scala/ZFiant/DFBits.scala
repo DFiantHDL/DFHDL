@@ -182,8 +182,10 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
       })
     }

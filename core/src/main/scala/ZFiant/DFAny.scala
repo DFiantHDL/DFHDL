@@ -93,15 +93,12 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Equality
     //////////////////////////////////////////////////////////////////////////
-    final def == [R](that : Any)(
-      implicit right : GetArg.Aux[ZeroI, R], ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
+    final def == [R](right : R)(
+      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
     final def != [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
-    final def === [R](right : Any)(
-      implicit right2 : GetArg.Aux[ZeroI, R], op: dfType.`Op==Builder`[This, R]
-    ) : Unit = ??? //op(left, right2) //ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
     //////////////////////////////////////////////////////////////////////////
   }
 
@@ -442,8 +439,8 @@ object Test {
     DFUInt(8).ifdf (b == b2) {
       a
     }
-    val bb = b"1111111".asInstanceOf[XBitVector[7]]
-    val z = b === bb
+    val bb = b"11111111"
+    val z = b == bb
   }
 //  val aa = a.bits.as(DFUInt(8)).bits
 
