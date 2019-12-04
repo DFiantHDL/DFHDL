@@ -153,7 +153,7 @@ object DFAny {
   final case class NewVar[Type <: DFType](dfType : Type, externalInit : Seq[Type#TToken])(
     implicit val ctx : DFAny.Context
   ) extends Initializable[Type, true] {
-    def ifdf(cond : DFBool)(block : => ValOrVar[Type, _])(implicit ctx : DFBlock.Context)
+    def ifdf(cond : DFBool)(block : => Of[Type])(implicit ctx : DFBlock.Context)
     : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
     override def toString: String = dfType.toString
   }
@@ -178,7 +178,7 @@ object DFAny {
   }
 
   sealed abstract class Func[Type <: DFType] extends Constructor[Type, false]
-  final case class Func2[Type <: DFType, L <: DFAny, Op <: DiSoOp, R <: DFAny](dfType: Type, leftArg : L, op : Op, rightArg : R)(
+  final case class Func2[Type <: DFType, L <: DFAny, Op <: DiSoOp, R <: DFAny](dfType: Type, leftArg : L, op : Op, rightArg : R)(func : (L#TToken, R#TToken) => Type#TToken)(
     implicit val ctx : DFAny.Context
   ) extends Func[Type]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
