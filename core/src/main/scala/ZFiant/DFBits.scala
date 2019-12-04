@@ -152,6 +152,36 @@ object DFBits extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Op
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Op extends OpCO {
+    class Able[L](val value : L) extends DFAny.Op.Able[L] {
+      final val left = value
+//      final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
+//      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
+//      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+//      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
+//      final def <> [RW](port : DFAny.Connectable[DFBits[RW]] with DFBits[RW])(
+//        implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFNet.Context
+//      ) = port.connectWith(op(port, left))
+    }
+    trait Implicits {
+      sealed class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
+      final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
+      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able[XBitVector[W]](left)
+      final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
+      sealed class DFBitsFromZeros(left : SameBitsVector) extends Able[SameBitsVector](left)
+      final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
+      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends Able[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
+      final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
+      final implicit def ofDFBits[W](value : DFBits[W]) : Able[DFBits[W]] = new Able[DFBits[W]](value)
+    }
+    object Able extends Implicits
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // SameBitsVector for repeated zeros or ones
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected[ZFiant] sealed class SameBitsVector(val value : Boolean)
