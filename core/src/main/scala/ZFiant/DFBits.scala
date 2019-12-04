@@ -4,6 +4,9 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
+object b0s extends DFBits.SameBitsVector(false)
+object b1s extends DFBits.SameBitsVector(true)
+
 object DFBits extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
@@ -149,6 +152,22 @@ object DFBits extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // SameBitsVector for repeated zeros or ones
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected[ZFiant] sealed class SameBitsVector(val value : Boolean)
+  object SameBitsVector {
+    trait Builder[W] {
+      def apply(bits : DFBits[W], sbv : SameBitsVector) : DFBits[W]
+    }
+    object Builder {
+      implicit def ev[W](implicit ctx : DFAny.Context)
+      : Builder[W] = (bits, sbv) => DFAny.Const[Type[W]](Type(bits.width), Token(XBitVector.fill(bits.width)(sbv.value)))
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
@@ -188,43 +207,39 @@ object DFBits extends DFAny.Companion {
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
       })
+
+      implicit def evConst_op_DFBits[L, LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        lConst : Const.Builder.Aux[L, LW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
+        val left = lConst(leftNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        (left, right)
+      })
+
+      implicit def evDFBits_op_SBV[LW](
+        implicit
+        ctx : DFAny.Context,
+        rSBV : SameBitsVector.Builder[LW]
+      ) : Builder[DFBits[LW], SameBitsVector] = create[DFBits[LW], LW, SameBitsVector, LW]((left, rightSBV) => {
+        val right = rSBV(left, rightSBV)
+        (left, right)
+      })
+
+      implicit def evSBV_op_DFBits[RW](
+        implicit
+        ctx : DFAny.Context,
+        lSBV : SameBitsVector.Builder[RW]
+      ) : Builder[SameBitsVector, DFBits[RW]] = create[SameBitsVector, RW, DFBits[RW], RW]((leftSBV, right) => {
+        val left = lSBV(right, leftSBV)
+        (left, right)
+      })
     }
   }
   object `Op==` extends OpsCompare(DiSoOp.==)((l, r) => l == r) with `Op==`
   object `Op!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r) with `Op!=`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFBits.Token], Seq[DFBits.Token]) => Seq[DFBool.Token]) {
-//    object Builder {
-//
-//
-//      implicit def evConst_op_DFBits[L, LW, RW](
-//        implicit
-//        ctx : DFAny.Op.Context,
-//        lConst : Const.Builder.Aux[L, LW],
-//      ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
-//        val left = lConst(leftNum)
-//        (left, right)
-//      })
-//
-//      implicit def evDFBits_op_SBV[LW](
-//        implicit
-//        ctx : DFAny.Op.Context,
-//        rSBV : SameBitsVector.Builder[LW]
-//      ) : Builder[DFBits[LW], SameBitsVector] = create[DFBits[LW], LW, SameBitsVector, LW]((left, rightSBV) => {
-//        val right = rSBV(left, rightSBV)
-//        (left, right)
-//      })
-//
-//      implicit def evSBV_op_DFBits[RW](
-//        implicit
-//        ctx : DFAny.Op.Context,
-//        lSBV : SameBitsVector.Builder[RW]
-//      ) : Builder[SameBitsVector, DFBits[RW]] = create[SameBitsVector, RW, DFBits[RW], RW]((leftSBV, right) => {
-//        val left = lSBV(right, leftSBV)
-//        (left, right)
-//      })
-//    }
-//  }
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
