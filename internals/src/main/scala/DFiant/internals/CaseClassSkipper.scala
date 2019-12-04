@@ -38,11 +38,8 @@ object CaseClassSkipper {
   def evCCMacro[T <: HasOut](c: whitebox.Context)(n : c.Tree)(implicit wt : c.WeakTypeTag[T]) : c.Tree = {
     import c.universe._
     val t = weakTypeOf[T]
-    println(c.enclosingImplicits)
-    if (c.internal.enclosingOwner.owner.asClass.isCaseClass) {
-      println(c.internal.enclosingOwner.owner)
+    if (c.internal.enclosingOwner.owner.asClass.isCaseClass)
       q"DFiant.internals.CaseClassSkipper.Fail[$t]()"
-    }
     else
       c.abort(c.enclosingPosition, "Could not find implicit for...")
   }
