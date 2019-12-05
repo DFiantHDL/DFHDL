@@ -11,6 +11,9 @@ object DFBits extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
     type TToken = Token[W]
+    type TPattern = DFBits.Pattern
+    type TPatternAble[+R] = DFBits.Pattern.Able[R]
+    type TPatternBuilder[L <: DFAny] = DFBits.Pattern.Builder[L]
     type OpAble[R] = DFBits.Op.Able[R]
     type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
@@ -126,6 +129,37 @@ object DFBits extends DFAny.Companion {
     def reverse[W](left : Seq[Token[W]]) : Seq[Token[W]] = TokenSeq(left)(t => t.reverse)
     def resize[LW, RW](left : Seq[Token[LW]], toWidth : TwoFace.Int[RW]) : Seq[Token[RW]] = TokenSeq(left)(t => t.resize(toWidth))
     def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Match Pattern
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  class Pattern(set : Set[BitVector]) extends DFAny.Pattern.OfSet[BitVector, Pattern](set)
+  object Pattern extends PatternCO {
+    trait Able[+R] extends DFAny.Pattern.Able[R] {
+      val bitVector : BitVector
+    }
+    object Able {
+      implicit class DFUIntPatternBitVector[R <: BitVector](val right : R) extends Able[R] {
+        val bitVector : BitVector = right
+      }
+    }
+    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    object Builder {
+      implicit def ev[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
+        def apply[R](left: DFBits[LW], right: Seq[Able[R]]): Pattern = {
+          val patternSet = right.map(e => e.bitVector).foldLeft(Set.empty[BitVector])((set, bitVector) => {
+            if (set.contains(bitVector)) throw new IllegalArgumentException(s"\nThe bitvector $bitVector already intersects with $set")
+            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.ctx.meta.name}")
+            set + bitVector
+          })
+
+          new Pattern(patternSet)
+        }
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
