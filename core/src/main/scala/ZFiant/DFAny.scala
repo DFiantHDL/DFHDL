@@ -118,10 +118,6 @@ object DFAny {
 
   sealed trait Initializable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
     val externalInit : Seq[Type#TToken]
-
-    final def init(that : Type#InitAble[This]*)(
-      implicit op : Type#InitBuilder[This], ctx : DFAny.Context
-    ) : Unit = ??? //op(left, that)
   }
 
   sealed trait Port[Type <: DFAny.Type, Var] extends Initializable[Type, Var] {
@@ -132,11 +128,17 @@ object DFAny {
       implicit val ctx : DFAny.Context
     ) extends Port[Type, false] {
       val dir : DFDir = IN
+      def init(that : dfType.InitAble[This]*)(
+        implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
+      ) : In[Type] = copy(externalInit = op(left, that))
     }
     final case class Out[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, true] {
       val dir : DFDir = OUT
+      def init(that : dfType.InitAble[This]*)(
+        implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
+      ) : Out[Type] = copy(externalInit = op(left, that))
     }
   }
 
@@ -145,6 +147,9 @@ object DFAny {
   ) extends Initializable[Type, true] {
     def <> (in : IN) : Port.In[Type] = Port.In(dfType, Seq())
     def <> (out : OUT) : Port.Out[Type] = Port.Out(dfType, Seq())
+    def init(that : dfType.InitAble[This]*)(
+      implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
+    ) : NewVar[Type] = copy(externalInit = op(left, that))
     def ifdf(cond : DFBool)(block : => Of[Type])(implicit ctx : DFBlock.Context)
     : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
     override def toString: String = dfType.toString
@@ -426,7 +431,7 @@ object Test {
     }.elsedf {
       a
     }
-    val b = DFBits(8) <> OUT
+    val b = DFBits(8) <> OUT init b1s
     val b2 = DFBits(8) <> IN
     val C = DFBits(8) <> IN init (b"11111111", b0s)
 //    b := b2
