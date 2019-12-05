@@ -105,7 +105,7 @@ object DFAny {
   type Var[Type <: DFAny.Type] = ValOrVar[Type, true]
 
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
-    def := [R](right : Type#OpAble[R])(implicit op : Type#`Op:=Builder`[DFAny.Var[Type], R]) : Unit = op(left, right)
+    def := [R](right : left.dfType.OpAble[R])(implicit op : left.dfType.`Op:=Builder`[DFAny.Var[Type], R]) : Unit = op(left, right)
   }
 
   abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
@@ -435,7 +435,7 @@ object Test {
     val b = DFBits(8) <> OUT init b1s
     val b2 = DFBits(8) <> IN
     val C = DFBits(8) <> IN init (b"11111111", b0s)
-//    b := b2
+    b := b2
     DFUInt(8).ifdf (b == b2) {
       a
     }
