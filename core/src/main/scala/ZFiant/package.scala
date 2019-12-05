@@ -22,7 +22,7 @@ import singleton.ops._
 
 package object ZFiant {
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
-  type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
+//  type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
   type DFBool = DFAny.Of[DFBool.Type]
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -47,14 +47,14 @@ package object ZFiant {
     val isIn : Boolean
   }
   implicit object IN extends DFDir {
-    type Func[DF <: DFAny] = DFAny.Port.In[DF#TType]
+    type Func[DF <: DFAny] = DFAny.Val[DF#TType]
     override def toString: String = "IN"
     final val isOut : Boolean = false
     final val isIn : Boolean = true
   }
   type IN = IN.type
   implicit object OUT extends DFDir {
-    type Func[DF <: DFAny] = DFAny.Port.Out[DF#TType]
+    type Func[DF <: DFAny] = DFAny.Var[DF#TType]
     override def toString: String = "OUT"
     final val isOut : Boolean = true
     final val isIn : Boolean = false
