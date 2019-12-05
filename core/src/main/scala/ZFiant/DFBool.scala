@@ -10,7 +10,7 @@ object DFBool {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     override def toString: String = "DFBool()"
   }
-  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(), Seq())
+  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(), None)
 
   final case class Token(value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean, 1] {
     val width: TwoFace.Int[1] = 1

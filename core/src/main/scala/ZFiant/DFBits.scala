@@ -20,7 +20,7 @@ object DFBits extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits($width)"
   }
-  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
+  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), None)
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token

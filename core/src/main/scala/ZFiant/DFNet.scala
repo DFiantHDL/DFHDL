@@ -11,7 +11,7 @@ object DFNet {
   final case class Assignment(to : DFAny.Var[_ <: DFAny.Type], from : DFAny)(
     implicit val ctx : DFNet.Context
   ) extends DFNet
-  final case class Connection(to : DFAny.Port[_ <: DFAny.Type,_], from : DFAny)(
+  final case class Connection(to : DFAny, from : DFAny)(
     implicit val ctx : DFNet.Context
   ) extends DFNet
 }
