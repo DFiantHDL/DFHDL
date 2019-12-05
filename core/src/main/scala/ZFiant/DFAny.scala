@@ -116,40 +116,51 @@ object DFAny {
     implicit val ctx : DFAny.Context
   ) extends Constructor[Type, false]
 
-  sealed trait Initializable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
-    val externalInit : Seq[Type#TToken]
+  sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]]] extends Constructor[Type, Var] {
+    val externalInit : Init
+    type InitializedSelf <: Initializable[Type, Var, Some[Seq[Type#TToken]]]
+    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : InitializedSelf
+  }
+  implicit class InitializableOps[Type <: DFAny.Type, Var](val i : Initializable[Type, Var, None.type]) {
+    def init(that : i.dfType.InitAble[i.This]*)(
+      implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
+    ) : i.InitializedSelf = i.initialize(op(i, that))
+  }
+  object Initializable {
   }
 
-  sealed trait Port[Type <: DFAny.Type, Var] extends Initializable[Type, Var] {
-    val dir : DFDir
-  }
+  sealed trait Port[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]]] extends Initializable[Type, Var, Init]
   object Port {
-    final case class In[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
+    final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
-    ) extends Port[Type, false] {
-      val dir : DFDir = IN
-      def init(that : dfType.InitAble[This]*)(
-        implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
-      ) : In[Type] = copy(externalInit = op(left, that))
+    ) extends Port[Type, false, Init] {
+      type InitializedSelf = In[Type, Some[Seq[Type#TToken]]]
+      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : InitializedSelf =
+        copy(externalInit = Some(externalInit))
     }
-    final case class Out[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
+    final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
-    ) extends Port[Type, true] {
-      val dir : DFDir = OUT
-      def init(that : dfType.InitAble[This]*)(
-        implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
-      ) : Out[Type] = copy(externalInit = op(left, that))
+    ) extends Port[Type, true, Init] {
+      type InitializedSelf = Out[Type, Some[Seq[Type#TToken]]]
+//      def init(that : dfType.InitAble[This]*)(
+//        implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
+//      ) : InitializedSelf = copy(externalInit = Some(op(left, that)))
+      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : InitializedSelf =
+        copy(externalInit = Some(externalInit))
     }
   }
 
-  final case class NewVar[Type <: DFAny.Type](dfType : Type, externalInit : Seq[Type#TToken])(
+  final case class NewVar[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
     implicit val ctx : DFAny.Context
-  ) extends Initializable[Type, true] {
-    def <> (in : IN) : Port.In[Type] = Port.In(dfType, Seq())
-    def <> (out : OUT) : Port.Out[Type] = Port.Out(dfType, Seq())
-    def init(that : dfType.InitAble[This]*)(
-      implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
-    ) : NewVar[Type] = copy(externalInit = op(left, that))
+  ) extends Initializable[Type, true, Init] {
+    type InitializedSelf = NewVar[Type, Some[Seq[Type#TToken]]]
+    def <> (in : IN) : Port.In[Type, None.type] = Port.In(dfType, None)
+    def <> (out : OUT) : Port.Out[Type, None.type] = Port.Out(dfType, None)
+//    def init(that : dfType.InitAble[This]*)(
+//      implicit op : dfType.InitBuilder[This], ctx : DFAny.Context
+//    ) : InitializedSelf = copy(externalInit = Some(op(left, that)))
+    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : InitializedSelf =
+      copy(externalInit = Some(externalInit))
     def ifdf(cond : DFBool)(block : => Of[Type])(implicit ctx : DFBlock.Context)
     : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
     override def toString: String = dfType.toString
@@ -424,6 +435,7 @@ object DFAny {
 
 
 object Test {
+  import DFAny.InitializableOps
   trait BB extends DFBlock {
     val a = DFUInt(8)
     DFUInt(8).ifdf(???) {

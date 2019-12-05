@@ -10,7 +10,7 @@ object DFUInt {
     type TToken = Token[W]
     override def toString: String = s"DFUInt($width)"
   }
-  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), Seq())
+  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), None)
 
   final case class Token[W](width : TwoFace.Int[W], value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, W] {
     lazy val valueBits : XBitVector[W] = value.toBitVector(width)
