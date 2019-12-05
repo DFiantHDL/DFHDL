@@ -54,20 +54,20 @@ object DFBits extends DFAny.Companion {
       val outBubbleMask = this.bubbleMask ++ that.bubbleMask
       Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W + RW]], outBubbleMask.asInstanceOf[XBitVector[W + RW]])
     }
-    def << [RW](that : DFUInt.Token[RW]) : Token[W] = {
-      val shift = that.value.toInt
-      val outWidth = this.width
-      val outBitsValue = this.valueBits << shift
-      val outBubbleMask = this.bubbleMask << shift
-      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
-    }
-    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = {
-      val shift = that.value.toInt
-      val outWidth = this.width
-      val outBitsValue = this.valueBits >>> shift
-      val outBubbleMask = this.bubbleMask >>> shift
-      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
-    }
+//    def << [RW](that : DFUInt.Token[RW]) : Token[W] = {
+//      val shift = that.value.toInt
+//      val outWidth = this.width
+//      val outBitsValue = this.valueBits << shift
+//      val outBubbleMask = this.bubbleMask << shift
+//      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+//    }
+//    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = {
+//      val shift = that.value.toInt
+//      val outWidth = this.width
+//      val outBitsValue = this.valueBits >>> shift
+//      val outBubbleMask = this.bubbleMask >>> shift
+//      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+//    }
     def unary_~ : Token[W] = {
       val outWidth = this.width
       val outBitsValue = ~this.valueBits
@@ -87,12 +87,12 @@ object DFBits extends DFAny.Companion {
     }
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
-    def toUInt : DFUInt.Token[W] = {
-      val outWidth = this.width
-      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
-      val outBubble = isBubble
-      DFUInt.Token(outWidth, outValueUInt, outBubble)
-    }
+//    def toUInt : DFUInt.Token[W] = {
+//      val outWidth = this.width
+//      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
+//      val outBubble = isBubble
+//      DFUInt.Token(outWidth, outValueUInt, outBubble)
+//    }
 //    def toSInt : DFSInt.Token = {
 //      val outWidth = this.width
 //      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
@@ -121,14 +121,14 @@ object DFBits extends DFAny.Companion {
     def &[LW, RW] : (Seq[Token[LW]], Seq[Token[RW]]) => Seq[Token[LW]] = (left, right) => TokenSeq(left, right)((l, r) => l & r)
     def ^[LW, RW] : (Seq[Token[LW]], Seq[Token[RW]]) => Seq[Token[LW]] = (left, right) => TokenSeq(left, right)((l, r) => l ^ r)
     def concat[W, RW] : (Seq[Token[W]], Seq[Token[RW]]) => Seq[Token[W + RW]] = (left, right) => TokenSeq(left, right)((l, r) => l ## r)
-    def <<[LW, RW] : (Seq[Token[LW]], Seq[DFUInt.Token[RW]]) => Seq[Token[LW]] = (left, right) => TokenSeq(left, right)((l, r) => l << r)
-    def >>[LW, RW] : (Seq[Token[LW]], Seq[DFUInt.Token[RW]]) => Seq[Token[LW]] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
+//    def <<[LW, RW] : (Seq[Token[LW]], Seq[DFUInt.Token[RW]]) => Seq[Token[LW]] = (left, right) => TokenSeq(left, right)((l, r) => l << r)
+//    def >>[LW, RW] : (Seq[Token[LW]], Seq[DFUInt.Token[RW]]) => Seq[Token[LW]] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
     def ==[LW, RW] : (Seq[Token[LW]], Seq[Token[RW]]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
     def !=[LW, RW] : (Seq[Token[LW]], Seq[Token[RW]]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
     def unary_~[W](left : Seq[Token[W]]) : Seq[Token[W]] = TokenSeq(left)(t => ~t)
     def reverse[W](left : Seq[Token[W]]) : Seq[Token[W]] = TokenSeq(left)(t => t.reverse)
     def resize[LW, RW](left : Seq[Token[LW]], toWidth : TwoFace.Int[RW]) : Seq[Token[RW]] = TokenSeq(left)(t => t.resize(toWidth))
-    def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
+//    def toUInt[W](left : Seq[Token[W]]) : Seq[DFUInt.Token[W]] = TokenSeq(left)(t => t.toUInt)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
