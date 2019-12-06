@@ -1,7 +1,7 @@
 package ZFiant
 
 object ZTest {
-  trait BB extends DFBlock {
+  trait BB extends DFDesign {
     //    val a = DFUInt(8)
     //    DFUInt(8).ifdf(???) {
     //      a
@@ -19,5 +19,7 @@ object ZTest {
 
   //  a := a
   //  implicitly[aa.Var =:= true]
+  import DFDesign.allowTop._
+  val bb = new BB {}
 }
 

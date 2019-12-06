@@ -2,16 +2,21 @@ package ZFiant
 import DFiant.internals.Meta
 
 trait DFBlock extends DFMember with Implicits {self =>
+  val ctx : DFBlock.Context
   protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
     DFAny.Context(meta, self)
   private[ZFiant] var __injectedOwner : DFBlock = self
   protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    DFBlock.Context(meta, Some(__injectedOwner))
+    new DFBlock.Context(meta, Some(__injectedOwner))
 }
 
 object DFBlock {
-  final case class Context(meta : Meta, ownerOption : Option[DFBlock]) extends DFMember.Context {
+  class Context(val meta : Meta, val ownerOption : Option[DFBlock]) extends DFMember.Context {
     lazy val owner : DFBlock = ownerOption.get
+  }
+  object Context {
+    implicit def evTop(implicit meta: Meta, allowTOP : DFDesign.AllowTOP, lp : shapeless.LowPriority) : Context =
+      new Context(meta, None)
   }
 }
 
@@ -39,9 +44,3 @@ object ConditionalBlock {
   sealed trait NoRetVal[CB <: NoRetVal[CB]] extends ConditionalBlock[NoRetVal[CB], Unit]
   object NoRetVal {}
 }
-
-//trait DFDesign {
-//
-//}
-
-//case class DFDesign(members : List[DFAnyMember]) extends DFAnyOwner
