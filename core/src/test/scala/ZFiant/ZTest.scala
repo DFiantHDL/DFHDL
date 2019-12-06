@@ -1,6 +1,5 @@
 package ZFiant
 
-
 object ZTest {
   trait BB extends DFBlock {
     //    val a = DFUInt(8)

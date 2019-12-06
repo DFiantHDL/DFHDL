@@ -11,7 +11,7 @@ trait DFBlock extends DFMember with Implicits {self =>
 
 object DFBlock {
   final case class Context(meta : Meta, ownerOption : Option[DFBlock]) extends DFMember.Context {
-    val owner : DFBlock = ownerOption.get
+    lazy val owner : DFBlock = ownerOption.get
   }
 }
 
