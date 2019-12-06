@@ -2,24 +2,17 @@ package ZFiant
 import DFiant.internals.Meta
 
 trait DFBlock extends DFMember with Implicits {self =>
-  protected implicit def __anyContext(implicit meta0 : Meta) : DFAny.Context = new DFAny.Context {
-    val meta: Meta = meta0
-    val owner: DFBlock = self
-  }
+  protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
+    DFAny.Context(meta, self)
   private[ZFiant] var __injectedOwner : DFBlock = self
-  protected implicit def __blockContext(implicit meta0 : Meta) : DFBlock.Context = new DFBlock.Context {
-    val meta: Meta = meta0
-    val ownerOption : Option[DFBlock] = Some(__injectedOwner)
-  }
+  protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
+    DFBlock.Context(meta, Some(__injectedOwner))
 }
 
 object DFBlock {
-  trait Context extends DFMember.Context {
-    val meta : Meta
-    val ownerOption : Option[DFBlock]
-    final lazy val owner : DFBlock = ownerOption.get
+  final case class Context(meta : Meta, ownerOption : Option[DFBlock]) extends DFMember.Context {
+    val owner : DFBlock = ownerOption.get
   }
-
 }
 
 sealed trait ConditionalBlock[CB <: ConditionalBlock[CB, Ret], Ret] extends DFBlock {

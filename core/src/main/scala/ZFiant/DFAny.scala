@@ -38,7 +38,7 @@ object DFAny {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
   }
 
-  trait Context extends DFMember.Context
+  final case class Context(meta : Meta, owner : DFBlock) extends DFMember.Context
 
   trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
