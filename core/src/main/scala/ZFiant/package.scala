@@ -180,9 +180,9 @@ package object ZFiant {
         case _ => typeOf[Int]
       }
       q"""
-         new Interpolator[BitVector] {
-           type Out = XBitVector[$widthTpe]
-           def apply() : XBitVector[$widthTpe] = $buildTree.asInstanceOf[XBitVector[$widthTpe]]
+         new ZFiant.Interpolator[scodec.bits.BitVector] {
+           type Out = DFiant.internals.XBitVector[$widthTpe]
+           def apply() : DFiant.internals.XBitVector[$widthTpe] = $buildTree.asInstanceOf[DFiant.internals.XBitVector[$widthTpe]]
          }
        """
     }
