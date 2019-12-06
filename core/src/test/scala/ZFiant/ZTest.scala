@@ -15,11 +15,6 @@ object ZTest {
     val bb = b"1111111"
     val z = b == b1s
   }
-  //  val aa = a.bits.as(DFUInt(8)).bits
 
-  //  a := a
-  //  implicitly[aa.Var =:= true]
-  import DFDesign.allowTop._
-  val bb = new BB {}
 }
 

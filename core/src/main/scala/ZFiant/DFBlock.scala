@@ -1,5 +1,5 @@
 package ZFiant
-import DFiant.internals.Meta
+import DFiant.internals.{Meta, TopLevel}
 
 trait DFBlock extends DFMember with Implicits {self =>
   val ctx : DFBlock.Context
@@ -15,7 +15,7 @@ object DFBlock {
     lazy val owner : DFBlock = ownerOption.get
   }
   object Context {
-    implicit def evTop(implicit meta: Meta, allowTOP : DFDesign.AllowTOP, lp : shapeless.LowPriority) : Context =
+    implicit def evTop(implicit meta: Meta, allowTOP : TopLevel, lp : shapeless.LowPriority) : Context =
       new Context(meta, None)
   }
 }
