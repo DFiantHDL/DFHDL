@@ -10,6 +10,8 @@ trait DFBlock extends DFMember with Implicits {self =>
   private[ZFiant] var __injectedOwner : DFBlock = self
   protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
     DFBlock.Context(meta, Some(__injectedOwner))
+  protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
+    ContextOf[T](meta, Some(__injectedOwner))
 }
 
 object DFBlock {
@@ -22,7 +24,9 @@ object DFBlock {
       "Missing an implicit DFDesign Context.",
       "missing-context"
     ) {final val msg = getMsg}
-    implicit def evTop(implicit meta: Meta, allowTOP : TopLevel, lp : shapeless.LowPriority) : Context =
+    implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
+      new Context(ctx.meta, ctx.ownerOption)
+    implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
       new Context(meta, None)
   }
 }

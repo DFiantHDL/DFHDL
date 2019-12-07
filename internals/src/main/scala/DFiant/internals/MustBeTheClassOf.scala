@@ -14,18 +14,23 @@ object MustBeTheClassOf {
       tree match {
         case Select(This(_), _) =>
           tree.symbol.fullName == tp.typeSymbol.fullName
-        case Apply(tree, _) => explore(tree)
-        case Select(tree, _) => explore(tree)
-        case New(tree) => explore(tree)
-        case Super(This(_), _) =>
+        case Apply(next, _) => explore(next)
+        case Select(next, _) => explore(next)
+        case New(next) => explore(next)
+        case Super(next@This(_), _) =>
           val SuperType(_, t) = tree.tpe
-          t.typeSymbol.fullName == tp.typeSymbol.fullName
+          if (t.typeSymbol.fullName == tp.typeSymbol.fullName) true
+          else explore(next)
+        case This(_) => tree.symbol.fullName == tp.typeSymbol.fullName
         case TypeApply(tree, _) => explore(tree)
         case t@TypeTree() => t.symbol.fullName == tp.typeSymbol.fullName
         case _ => false
       }
     }
-    if (explore(c.enclosingImplicits.last.tree))  q"new DFiant.internals.MustBeTheClassOf[$tp]"
+    val ok = explore(c.enclosingImplicits.last.tree)
+//    println(showRaw(c.enclosingImplicits.last.tree), "compared to", tp, "got", ok)
+
+    if (ok)  q"new DFiant.internals.MustBeTheClassOf[$tp]"
     else c.abort(c.enclosingPosition, "Wrong class symbol")
   }
 }
