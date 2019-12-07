@@ -3,9 +3,10 @@ package ZFiant
 object ZTest extends App {
   abstract class AAA()(implicit ctx : ContextOf[AAA]) extends DFDesign {
 
-//    DFBool().ifdf(true) {
-//
-//    }
+    val b = DFBits(8)
+    DFBits(8).ifdf(1) {
+      b
+    }
   }
 
   trait BBB extends AAA {
