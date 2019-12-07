@@ -169,12 +169,12 @@ object DFBool extends DFAny.Companion {
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       final val left = value
-//      final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
-//      final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
-//      final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
-//      final def <> (port : DFAny.Connectable[DFBool] with DFBool)(
-//        implicit op: `Op<>`.Builder[DFBool, L], ctx : DFNet.Context
-//      ) = port.connectWith(op(port, left))
+      final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
+      final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
+      final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
+      final def <> (port : DFAny.Connectable[Type, _])(
+        implicit op: `Op<>`.Builder[Type, L], ctx : DFNet.Context
+      ) = port.connectWith(op(port.dfType, left))
     }
     trait Implicits {
       sealed class DFBoolFrom0(left : 0) extends Able[0](left)

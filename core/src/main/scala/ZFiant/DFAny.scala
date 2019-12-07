@@ -111,13 +111,16 @@ object DFAny {
 
   trait ValOrVar[Type <: DFAny.Type, Var] extends DFAny.Of[Type] {
     type TVar = Var
+    protected[ZFiant] def assign(that : DFAny.Of[Type])(implicit ctx : DFAny.Context) : Unit = {}
   }
 
   type Val[Type <: DFAny.Type] = ValOrVar[Type, false]
   type Var[Type <: DFAny.Type] = ValOrVar[Type, true]
 
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
-    def := [R](right : left.dfType.OpAble[R])(implicit op : left.dfType.`Op:=Builder`[Type, R]) : Unit = op(left.dfType, right)
+    def := [R](right : left.dfType.OpAble[R])(
+      implicit ctx : DFAny.Context, op : left.dfType.`Op:=Builder`[Type, R]
+    ) : Unit = left.assign(op(left.dfType, right))
   }
 
   abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
@@ -128,7 +131,11 @@ object DFAny {
     implicit val ctx : DFAny.Context
   ) extends Constructor[Type, false]
 
-  sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Constructor[Type, Var] {
+  sealed trait Connectable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
+    protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFAny.Context) : Unit = {}
+  }
+
+  sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Connectable[Type, Var] {
     val externalInit : Init
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : InitializedSelf
   }

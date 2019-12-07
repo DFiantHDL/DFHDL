@@ -241,10 +241,10 @@ object DFBits extends DFAny.Companion {
 //      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-//      final def <> [RW](port : DFAny.Connectable[DFBits[RW]] with DFBits[RW])(
-//        implicit op: `Op<>`.Builder[DFBits[RW], L], ctx : DFNet.Context
-//      ) = port.connectWith(op(port, left))
-  }
+      final def <> [RW](port : DFAny.Connectable[Type[RW], _])(
+        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
+      ) = port.connectWith(op(port.dfType, left))
+    }
     trait Implicits {
       sealed class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
