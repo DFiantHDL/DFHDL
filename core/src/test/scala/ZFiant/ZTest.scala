@@ -4,6 +4,7 @@ object ZTest extends App {
   abstract class AAA()(implicit ctx : ContextOf[AAA]) extends DFDesign {
 
     val b = DFBits(8)
+    val c = DFBits(8) <> OUT
     DFBits(8).ifdf(true) {
       b
     }.elseifdf(1) {
@@ -13,6 +14,7 @@ object ZTest extends App {
     }
 
     b0s <> b
+    b <> c
     ifdf(true){
       b := b0s
     }

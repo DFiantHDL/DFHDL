@@ -111,7 +111,7 @@ object DFAny {
 
   trait ValOrVar[Type <: DFAny.Type, Var] extends DFAny.Of[Type] {
     type TVar = Var
-    protected[ZFiant] def assign(that : DFAny.Of[Type])(implicit ctx : DFAny.Context) : Unit = {}
+    protected[ZFiant] def assign(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {}
   }
 
   type Val[Type <: DFAny.Type] = ValOrVar[Type, false]
@@ -119,7 +119,7 @@ object DFAny {
 
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
     def := [R](right : left.dfType.OpAble[R])(
-      implicit ctx : DFAny.Context, op : left.dfType.`Op:=Builder`[Type, R]
+      implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
   }
 
@@ -132,7 +132,7 @@ object DFAny {
   ) extends Constructor[Type, false]
 
   sealed trait Connectable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
-    protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFAny.Context) : Unit = {}
+    protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {}
   }
 
   sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Connectable[Type, Var] {
@@ -147,7 +147,11 @@ object DFAny {
     }
   }
 
-  sealed trait Port[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Initializable[Type, Var, Init, InitializedSelf]
+  sealed trait Port[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Initializable[Type, Var, Init, InitializedSelf] {
+    def <> [R](right : dfType.OpAble[R])(
+      implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
+    ) : Unit = connectWith(op(dfType, right))
+  }
   object Port {
     final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
