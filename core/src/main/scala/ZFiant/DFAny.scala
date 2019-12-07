@@ -31,8 +31,8 @@ object DFAny {
     type OpAble[R] <: DFAny.Op.Able[R]
     type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[-L, -R] <: DFAny.`Op<>`.Builder[L, R]
-    type `Op:=Builder`[-L, -R] <: DFAny.`Op:=`.Builder[L, R]
+    type `Op<>Builder`[LType <: Type, -R] <: DFAny.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
   }
@@ -117,7 +117,7 @@ object DFAny {
   type Var[Type <: DFAny.Type] = ValOrVar[Type, true]
 
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
-    def := [R](right : left.dfType.OpAble[R])(implicit op : left.dfType.`Op:=Builder`[DFAny.Var[Type], R]) : Unit = op(left, right)
+    def := [R](right : left.dfType.OpAble[R])(implicit op : left.dfType.`Op:=Builder`[Type, R]) : Unit = op(left.dfType, right)
   }
 
   abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
@@ -163,9 +163,9 @@ object DFAny {
     def <> (out : OUT) : Port.Out[Type, None.type] = Port.Out(dfType, None)
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : NewVar[Type, Some[Seq[Type#TToken]]] =
       copy(externalInit = Some(externalInit))
-    def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-      implicit ctx : DFBlock.Context, condConv : DFBool.Const.Builder[DFBool.Const.Builder[_,_], C], blockConv : dfType.`Op:=Builder`[This, B]
-    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, condConv(cond), () => blockConv(left, block).asInstanceOf[Of[Type]])
+    def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Of[Type])(
+      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]//, blockConv : dfType.`Op:=Builder`[This, B]
+    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, condConv(DFBool.Type(),cond), () => block)
     override def toString: String = dfType.toString
   }
 
@@ -378,10 +378,10 @@ object DFAny {
     type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
   }
   object `Op<>` {
-    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+    type Builder[LType <: Type, -R] = Op.Builder[LType, R]{type Out = Of[LType]}
   }
   object `Op:=` {
-    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+    type Builder[LType <: Type, -R] = Op.Builder[LType, R]{type Out = Of[LType]}
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -433,11 +433,11 @@ object DFAny {
     }
     val `Op!=` : `Op!=`
     trait `Op<>` {
-      type Builder[-L, -R] <: DFAny.`Op<>`.Builder[L, R]
+      type Builder[LType <: Type, -R] <: DFAny.`Op<>`.Builder[LType, R]
     }
     val `Op<>` : `Op<>`
     trait `Op:=` {
-      type Builder[-L, -R] <: DFAny.`Op:=`.Builder[L, R]
+      type Builder[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     }
     val `Op:=` : `Op:=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
