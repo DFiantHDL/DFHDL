@@ -1,5 +1,7 @@
 package ZFiant
-import DFiant.internals.{Meta, TopLevel}
+import DFiant.internals._
+
+import scala.annotation.implicitNotFound
 
 trait DFBlock extends DFMember with Implicits {self =>
   val ctx : DFBlock.Context
@@ -7,14 +9,19 @@ trait DFBlock extends DFMember with Implicits {self =>
     DFAny.Context(meta, self)
   private[ZFiant] var __injectedOwner : DFBlock = self
   protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    new DFBlock.Context(meta, Some(__injectedOwner))
+    DFBlock.Context(meta, Some(__injectedOwner))
 }
 
 object DFBlock {
-  class Context(val meta : Meta, val ownerOption : Option[DFBlock]) extends DFMember.Context {
+  @implicitNotFound(Context.MissingError.msg)
+  final case class Context(meta : Meta, ownerOption : Option[DFBlock]) extends DFMember.Context {
     lazy val owner : DFBlock = ownerOption.get
   }
   object Context {
+    final object MissingError extends ErrorMsg (
+      "Missing an implicit DFDesign Context.",
+      "missing-context"
+    ) {final val msg = getMsg}
     implicit def evTop(implicit meta: Meta, allowTOP : TopLevel, lp : shapeless.LowPriority) : Context =
       new Context(meta, None)
   }

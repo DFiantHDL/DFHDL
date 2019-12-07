@@ -4,6 +4,8 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
+import scala.annotation.implicitNotFound
+
 trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
   type TVar
@@ -38,7 +40,14 @@ object DFAny {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
   }
 
+  @implicitNotFound(Context.MissingError.msg)
   final case class Context(meta : Meta, owner : DFBlock) extends DFMember.Context
+  object Context {
+    final object MissingError extends ErrorMsg (
+      "Missing an implicit owner Context.",
+      "missing-context"
+    ) {final val msg = getMsg}
+  }
 
   trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
