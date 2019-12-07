@@ -31,8 +31,8 @@ object DFAny {
     type OpAble[R] <: DFAny.Op.Able[R]
     type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
-    type `Op:=Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
+    type `Op<>Builder`[-L, -R] <: DFAny.`Op<>`.Builder[L, R]
+    type `Op:=Builder`[-L, -R] <: DFAny.`Op:=`.Builder[L, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
   }
@@ -377,6 +377,12 @@ object DFAny {
   object `Op!=` {
     type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
   }
+  object `Op<>` {
+    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+  }
+  object `Op:=` {
+    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -418,14 +424,6 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Common Ops
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    trait `Op:=` {
-      type Builder[-L, -R] <: DFAny.Op.Builder[L, R]
-    }
-    val `Op:=` : `Op:=`
-    trait `Op<>` {
-      type Builder[-L, -R] <: DFAny.Op.Builder[L, R]
-    }
-    val `Op<>` : `Op<>`
     trait `Op==` {
       type Builder[-L, -R] <: DFAny.`Op==`.Builder[L, R]
     }
@@ -434,6 +432,14 @@ object DFAny {
       type Builder[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
     }
     val `Op!=` : `Op!=`
+    trait `Op<>` {
+      type Builder[-L, -R] <: DFAny.`Op<>`.Builder[L, R]
+    }
+    val `Op<>` : `Op<>`
+    trait `Op:=` {
+      type Builder[-L, -R] <: DFAny.`Op:=`.Builder[L, R]
+    }
+    val `Op:=` : `Op:=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
