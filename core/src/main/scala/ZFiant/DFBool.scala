@@ -144,9 +144,10 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  type Const = DFAny.Const[Type]
   object Const {
     trait Builder[Sym, N] {
-      def apply(value : N) : DFBool
+      def apply(value : N) : Const
     }
     object Builder {
       implicit def fromInt[Sym, N <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShellSym[Sym, N])

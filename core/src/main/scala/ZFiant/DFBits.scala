@@ -197,17 +197,18 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant Builder
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  type Const[W] = DFAny.Const[Type[W]]
   object Const {
     trait Builder[N] {
       type W
-      def apply(value : N) : DFBits[W]
+      def apply(value : N) : Const[W]
     }
     object Builder {
       type Aux[N, W0] = Builder[N]{type W = W0}
       implicit def fromBitVector(implicit ctx : DFAny.Context)
       : Aux[BitVector, Int] = new Builder[BitVector] {
         type W = Int
-        def apply(value : BitVector) : DFBits[W] = {
+        def apply(value : BitVector) : Const[W] = {
           val width = TwoFace.Int(value.length.toInt)
           DFAny.Const[Type[Int]](Type(width), Token(width, value))
         }
@@ -215,7 +216,7 @@ object DFBits extends DFAny.Companion {
       implicit def fromXBitVector[W0](implicit ctx : DFAny.Context)
       : Aux[XBitVector[W0], W0] = new Builder[XBitVector[W0]] {
         type W = W0
-        def apply(value : XBitVector[W0]) : DFBits[W] = {
+        def apply(value : XBitVector[W0]) : Const[W] = {
           val width = TwoFace.Int.create[W0](value.length.toInt)
           DFAny.Const[Type[W0]](Type(width), Token(width, value))
         }
