@@ -6,7 +6,7 @@ trait DFMember {
   lazy val owner : DFBlock = ctx.owner
 }
 object DFMember {
-  trait Context {
+  trait Context extends Product with Serializable {
     val meta : Meta
     val owner : DFBlock
   }
