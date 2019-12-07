@@ -9,19 +9,24 @@ object ZTest extends App {
 
   }
 
-    abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {
-
+  abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {
+    val b = new BBB
+    val b2 = new BBB {}
   }
 
-  val a = new AAA() {}
 
-  val b = new AAA()
+  trait Top extends DFDesign {
+    val a = new AAA() {}
 
-  val c = new CCC() {}
+    val a2 = new AAA()
 
-//  trait Top extends DFDesign {
-//
-//  }
+    val c = new CCC() {}
+  }
+
+  val top = new Top {}
+
+  println((top, top.ownerOption), (top.a, top.a.ownerOption), (top.a2, top.a2.ownerOption), (top.c, top.c.ownerOption))
+  println((top.c.b, top.c.b.ownerOption), (top.c.b2, top.c.b2.ownerOption))
 //  trait BB extends DFDesign {
 //    //    val a = DFUInt(8)
 //    //    DFUInt(8).ifdf(???) {

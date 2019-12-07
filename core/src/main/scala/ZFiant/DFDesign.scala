@@ -4,7 +4,8 @@ import DFiant.internals._
 import scala.annotation.implicitNotFound
 
 abstract class DFDesign(implicit val ctx : DFDesign.Context) extends DFBlock {
-
+  final val ownerOption : Option[DFBlock] = ctx.ownerOption
+  override def toString: String = ctx.meta.name
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
