@@ -42,13 +42,23 @@ sealed trait ConditionalBlock[CB <: ConditionalBlock[CB, Ret], Ret] extends DFBl
 object ConditionalBlock {
   sealed trait WithRetVal[CB <: WithRetVal[CB, Type], Type <: DFAny.Type] extends ConditionalBlock[WithRetVal[CB, Type], DFAny.Of[Type]] with DFAny.ValOrVar[Type, false]
   object WithRetVal {
-    final case class IfBlock[Type <: DFAny.Type](dfType : Type, cond : DFBool, block : () => DFAny.Of[Type])(implicit val ctx : DFBlock.Context) extends WithRetVal[IfBlock[Type], Type] {
-      def elsedf(block : => DFAny.Of[Type])(implicit ctx : DFBlock.Context) : ElseBlock[Type] = ElseBlock[Type](dfType, () => block, Left(this))(ctx)
-      def elseifdf(cond : DFBool)(block : => DFAny.Of[Type])(implicit ctx : DFBlock.Context) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, cond, () => block, Left(this))(ctx)
+    final case class IfBlock[Type <: DFAny.Type](dfType : Type, cond : DFBool, block : () => DFAny.Of[Type])(
+      implicit val ctx : DFBlock.Context
+    ) extends WithRetVal[IfBlock[Type], Type] {
+      def elsedf(block : => DFAny.Of[Type])(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => block, Left(this))(ctx)
+      def elseifdf[C](cond : DFBool.Op.Able[C])(block : => DFAny.Of[Type])(
+        implicit ctx : DFBlock.Context, condConv : DFBool.Const.Builder[DFBool.Const.Builder[_,_], C]
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(cond), () => block, Left(this))(ctx)
     }
     final case class ElseIfBlock[Type <: DFAny.Type](dfType : Type, cond : DFBool, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends WithRetVal[IfBlock[Type], Type] {
-      def elsedf(block : => DFAny.Of[Type])(implicit ctx : DFBlock.Context) : ElseBlock[Type] = ElseBlock[Type](dfType, () => block, Right(this))(ctx)
-      def elseifdf(cond : DFBool)(block : => DFAny.Of[Type])(implicit ctx : DFBlock.Context) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, cond, () => block, Right(this))(ctx)
+      def elsedf(block : => DFAny.Of[Type])(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => block, Right(this))(ctx)
+      def elseifdf[C](cond : DFBool.Op.Able[C])(block : => DFAny.Of[Type])(
+        implicit ctx : DFBlock.Context, condConv : DFBool.Const.Builder[DFBool.Const.Builder[_,_], C]
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(cond), () => block, Right(this))(ctx)
     }
     final case class ElseBlock[Type <: DFAny.Type](dfType : Type, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends WithRetVal[IfBlock[Type], Type]
   }
