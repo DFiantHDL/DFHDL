@@ -29,8 +29,8 @@ object DFAny {
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
     type OpAble[R] <: DFAny.Op.Able[R]
-    type `Op==Builder`[-L, -R] <: DFAny.`Op==Builder`[L, R]
-    type `Op!=Builder`[-L, -R] <: DFAny.`Op!=Builder`[L, R]
+    type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
     type `Op<>Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
     type `Op:=Builder`[-L, -R] <: DFAny.Op.Builder[L, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
@@ -371,8 +371,12 @@ object DFAny {
       def apply(left : L, rightR : R) : Out
     }
   }
-  type `Op==Builder`[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
-  type `Op!=Builder`[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+  object `Op==` {
+    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+  }
+  object `Op!=` {
+    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -423,11 +427,11 @@ object DFAny {
     }
     val `Op<>` : `Op<>`
     trait `Op==` {
-      type Builder[-L, -R] <: DFAny.`Op==Builder`[L, R]
+      type Builder[-L, -R] <: DFAny.`Op==`.Builder[L, R]
     }
     val `Op==` : `Op==`
     trait `Op!=` {
-      type Builder[-L, -R] <: DFAny.`Op!=Builder`[L, R]
+      type Builder[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
     }
     val `Op!=` : `Op!=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
