@@ -146,19 +146,20 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   type Const = DFAny.Const[Type]
   object Const {
-    trait Builder[Sym, N] {
-      def apply(value : N) : Const
+    trait Builder[Sym, C] {
+      def apply(value : C) : Const
     }
     object Builder {
-      implicit def fromInt[Sym, N <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShellSym[Sym, N])
-      : Builder[Sym, N] = value => {
+      implicit def fromInt[Sym, C <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShellSym[Sym, C])
+      : Builder[Sym, C] = value => {
         checkBin.unsafeCheck(value)
         DFAny.Const[Type](Type(),Token(value))
       }
-      implicit def fromBoolean[Sym, N <: Boolean](implicit ctx : DFAny.Context)
-      : Builder[Sym, N] = value => DFAny.Const[Type](Type(), Token(value))
+      implicit def fromBoolean[Sym, C <: Boolean](implicit ctx : DFAny.Context)
+      : Builder[Sym, C] = value => DFAny.Const[Type](Type(), Token(value))
     }
   }
+//  implicit def conv[C](t : C)(implicit const : Const.Builder[Const, C]) : Const = const(t)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

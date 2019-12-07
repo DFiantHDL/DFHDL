@@ -223,6 +223,11 @@ object DFBits extends DFAny.Companion {
       }
     }
   }
+//  implicit def conv[LW, R, RW](rightC : R)(
+//    implicit
+//    rConst : Const.Builder.Aux[R, RW],
+//    checkLWvRW : `Op:=`.Builder.`LW == RW`.CheckedShell[LW, RW]
+//  ) : Const[LW] = rConst(rightC).asInstanceOf[Const[LW]]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

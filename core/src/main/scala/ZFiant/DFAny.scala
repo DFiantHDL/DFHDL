@@ -163,8 +163,9 @@ object DFAny {
     def <> (out : OUT) : Port.Out[Type, None.type] = Port.Out(dfType, None)
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : NewVar[Type, Some[Seq[Type#TToken]]] =
       copy(externalInit = Some(externalInit))
-    def ifdf(cond : DFBool)(block : => Of[Type])(implicit ctx : DFBlock.Context)
-    : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, cond, () => block)
+    def ifdf[C](cond : DFBool.Op.Able[C])(block : => Of[Type])(
+      implicit ctx : DFBlock.Context, condConv : DFBool.Const.Builder[DFBool.Const.Builder[_,_], C]
+    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, condConv(cond), () => block)
     override def toString: String = dfType.toString
   }
 
