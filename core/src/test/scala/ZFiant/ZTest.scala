@@ -12,6 +12,7 @@ object ZTest extends App {
       b
     }
 
+    b0s <> b
     ifdf(true){
       b := b0s
     }
