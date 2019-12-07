@@ -12,6 +12,11 @@ trait DFBlock extends DFMember with Implicits {self =>
     DFBlock.Context(meta, Some(__injectedOwner))
   protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
     ContextOf[T](meta, Some(__injectedOwner))
+
+  def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(),cond), () => block)(ctx)
+
 }
 
 object DFBlock {
@@ -65,5 +70,29 @@ object ConditionalBlock {
     final case class ElseBlock[Type <: DFAny.Type](dfType : Type, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends WithRetVal[IfBlock[Type], Type]
   }
   sealed trait NoRetVal[CB <: NoRetVal[CB]] extends ConditionalBlock[NoRetVal[CB], Unit]
-  object NoRetVal {}
+  object NoRetVal {
+    final case class IfBlock(cond : DFBool, block : () => Unit)(
+      implicit val ctx : DFBlock.Context
+    ) extends NoRetVal[IfBlock] {
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock = ElseBlock(() => block, Left(this))(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), () => block, Left(this))(ctx)
+    }
+    final case class ElseIfBlock(cond : DFBool, block : () => Unit, prevBlock : Either[IfBlock, ElseIfBlock])(
+      implicit val ctx : DFBlock.Context
+    ) extends NoRetVal[IfBlock] {
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock = ElseBlock(() => block, Right(this))(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), () => block, Right(this))(ctx)
+    }
+    final case class ElseBlock(block : () => Unit, prevBlock : Either[IfBlock, ElseIfBlock])(
+      implicit val ctx : DFBlock.Context
+    ) extends NoRetVal[IfBlock]
+  }
 }

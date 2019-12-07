@@ -11,6 +11,10 @@ object ZTest extends App {
     }.elsedf {
       b
     }
+
+    ifdf(true){
+      b := b0s
+    }
   }
 
   trait BBB extends AAA {

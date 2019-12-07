@@ -165,7 +165,7 @@ object DFAny {
       copy(externalInit = Some(externalInit))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, condConv(DFBool.Type(),cond), () => blockConv(dfType, block))
+    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, condConv(DFBool.Type(),cond), () => blockConv(dfType, block))(ctx)
     override def toString: String = dfType.toString
   }
 
