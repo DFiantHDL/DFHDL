@@ -6,6 +6,10 @@ object ZTest extends App {
     val b = DFBits(8)
     DFBits(8).ifdf(true) {
       b
+    }.elseifdf(1) {
+      b"11100111"
+    }.elsedf {
+      b
     }
   }
 
