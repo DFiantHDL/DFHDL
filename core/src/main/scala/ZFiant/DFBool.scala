@@ -14,8 +14,8 @@ object DFBool extends DFAny.Companion {
     type OpAble[R] = DFBool.Op.Able[R]
     type `Op==Builder`[-L, -R] = DFBool.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] = DFBool.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[-L, -R] = DFBool.`Op<>`.Builder[L, R]
-    type `Op:=Builder`[-L, -R] = DFBool.`Op:=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFBool.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFBool.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFBool.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
@@ -200,33 +200,25 @@ object DFBool extends DFAny.Companion {
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
+    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
+    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+      type Out = DFAny.Of[LType]
+    }
 
     object Builder {
-      type Aux[-L, -R, Comp0] = Builder[L, R] {
-        type Out = Comp0
-      }
-
-      def create[L, R](properR : (L, R) => DFBool)
-      : Aux[L, R, DFBool] = new Builder[L, R] {
-        type Out = DFBool
-        def apply(leftL : L, rightR : R) : Out = properR(leftL, rightR)
-      }
-
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](
         implicit
         ctx : DFAny.Context
-      ) : Aux[DFBool, DFBool, DFBool] = create[DFBool, DFBool]((left, right) => right)
+      ) : Builder[Type, DFBool] = (left, right) => right
 
       implicit def evDFBool_op_Const[L <: DFBool, R](
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder[Builder[_,_], R]
-      ) : Aux[DFBool, R, DFBool] = create[DFBool, R]((left, rightNum) => {
+      ) : Builder[Type, R] = (left, rightNum) => {
         val right = rConst(rightNum)
         right
-      })
+      }
     }
   }
   object `Op:=` extends `Ops:=,<>`

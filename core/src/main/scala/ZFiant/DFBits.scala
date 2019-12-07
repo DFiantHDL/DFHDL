@@ -17,8 +17,8 @@ object DFBits extends DFAny.Companion {
     type OpAble[R] = DFBits.Op.Able[R]
     type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[-L, -R] = DFBits.`Op<>`.Builder[L, R]
-    type `Op:=Builder`[-L, -R] = DFBits.`Op:=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFBits.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFBits.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits($width)"
@@ -267,7 +267,7 @@ object DFBits extends DFAny.Companion {
   protected[ZFiant] sealed class SameBitsVector(val value : Boolean)
   object SameBitsVector {
     trait Builder[W] {
-      def apply(bits : DFBits[W], sbv : SameBitsVector) : DFBits[W]
+      def apply(bits : Type[W], sbv : SameBitsVector) : Const[W]
     }
     object Builder {
       implicit def ev[W](implicit ctx : DFAny.Context)
@@ -334,7 +334,7 @@ object DFBits extends DFAny.Companion {
         ctx : DFAny.Context,
         rSBV : SameBitsVector.Builder[LW]
       ) : Builder[DFBits[LW], SameBitsVector] = create[DFBits[LW], LW, SameBitsVector, LW]((left, rightSBV) => {
-        val right = rSBV(left, rightSBV)
+        val right = rSBV(left.dfType, rightSBV)
         (left, right)
       })
 
@@ -343,7 +343,7 @@ object DFBits extends DFAny.Companion {
         ctx : DFAny.Context,
         lSBV : SameBitsVector.Builder[RW]
       ) : Builder[SameBitsVector, DFBits[RW]] = create[SameBitsVector, RW, DFBits[RW], RW]((leftSBV, right) => {
-        val left = lSBV(right, leftSBV)
+        val left = lSBV(right.dfType, leftSBV)
         (left, right)
       })
     }
@@ -357,54 +357,45 @@ object DFBits extends DFAny.Companion {
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
+    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
+    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+      type Out = DFAny.Of[LType]
+    }
 
     object Builder {
-      type Aux[-L, -R, Out0] = Builder[L, R] {
-        type Out = Out0
-      }
-
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW
         type Msg[LW, RW] = "An assignment/connection operation does not permit different widths. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
 
-      def create[L, R, RW](properR : (L, R) => DFBits[RW]) : Aux[L, R, DFBits[RW]] =
-        new Builder[L, R] {
-          type Out = DFBits[RW]
-          def apply(leftL : L, rightR : R) : Out =  properR(leftL, rightR)
-        }
-
       implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFBits[LW], DFBits[RW], DFBits[RW]] =
-        create[DFBits[LW], DFBits[RW], RW]((left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          right
-        })
+      ) : Builder[Type[LW], DFBits[RW]] = (left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right.asInstanceOf[DFAny.Of[Type[LW]]]
+      }
 
       implicit def evDFBits_op_SBV[LW](
         implicit
+        ctx : DFAny.Context,
         rSBV : SameBitsVector.Builder[LW]
-      ) : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] =
-        create[DFBits[LW], SameBitsVector, LW]((left, right) => {
-          rSBV(left, right)
-        })
+      ) : Builder[Type[LW], SameBitsVector] = (left, right) => {
+        rSBV(left, right)
+      }
 
       implicit def evDFBits_op_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
         checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFBits[LW], R, DFBits[RW]] = create[DFBits[LW], R, RW]((left, rightNum) => {
+      ) : Builder[Type[LW], R] = (left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        right
-      })
+        right.asInstanceOf[DFAny.Of[Type[LW]]]
+      }
     }
   }
   object `Op:=` extends `Ops:=,<>`
