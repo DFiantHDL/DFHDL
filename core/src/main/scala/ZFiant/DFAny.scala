@@ -24,8 +24,8 @@ object DFAny {
   trait Type extends Product with Serializable {
     type TToken <: DFAny.Token
     type TCompanion <: DFAny.Companion
-    type Width
     val companion : TCompanion
+    type Width
     val width : TwoFace.Int[Width]
     type TPattern <: DFAny.Pattern[TPattern]
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
