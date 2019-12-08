@@ -135,19 +135,23 @@ object DFAny {
     protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {}
   }
 
-  sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Connectable[Type, Var] {
+  sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
+    extends Connectable[Type, Var] {
     val externalInit : Init
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : InitializedSelf
   }
   object Initializable {
-    implicit class InitializableOps[Type <: DFAny.Type, Var, I <: DFAny](val i : Initializable[Type, Var, None.type, I]) {
+    implicit class InitializableOps[Type <: DFAny.Type, Var, I <: DFAny](
+      val i : Initializable[Type, Var, None.type, I]
+    ) {
       def init(that : i.dfType.InitAble[i.This]*)(
         implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
       ) : I = i.initialize(op(i, that))
     }
   }
 
-  sealed trait Port[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Initializable[Type, Var, Init, InitializedSelf] {
+  sealed trait Port[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends
+    Initializable[Type, Var, Init, InitializedSelf] {
     def <> [R](right : dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
     ) : Unit = connectWith(op(dfType, right))
@@ -156,14 +160,16 @@ object DFAny {
     final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, false, Init, In[Type, Some[Seq[Type#TToken]]]] {
-      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : In[Type, Some[Seq[Type#TToken]]] =
-        copy(externalInit = Some(externalInit))(ctx)
+      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
+        implicit ctx : DFAny.Context
+      ) : In[Type, Some[Seq[Type#TToken]]] = copy(externalInit = Some(externalInit))(ctx)
     }
     final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, true, Init, Out[Type, Some[Seq[Type#TToken]]]] {
-      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : Out[Type, Some[Seq[Type#TToken]]] =
-        copy(externalInit = Some(externalInit))(ctx)
+      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
+        implicit ctx : DFAny.Context
+      ) : Out[Type, Some[Seq[Type#TToken]]] = copy(externalInit = Some(externalInit))(ctx)
     }
   }
 
@@ -206,7 +212,9 @@ object DFAny {
   }
 
   sealed abstract class Func[Type <: DFAny.Type] extends Constructor[Type, false]
-  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](dfType: Type, leftArg : L, op : Op, rightArg : R)(func : (L#TToken, R#TToken) => Type#TToken)(
+  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+    dfType: Type, leftArg : L, op : Op, rightArg : R
+  )(func : (L#TToken, R#TToken) => Type#TToken)(
     implicit val ctx : DFAny.Context
   ) extends Func[Type]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
