@@ -51,10 +51,6 @@ object DFAny {
 
   trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
-//    type `Op==Builder`[-L, -R] <: dfType.companion.`Op==`.Builder[L, R]
-//    type `Op!=Builder`[-L, -R] <: dfType.companion.`Op!=`.Builder[L, R]
-//    type `Op<>Builder`[LType <: Type, -R] <: dfType.companion.`Op<>`.Builder[LType, R]
-//    type `Op:=Builder`[LType <: Type, -R] = dfType.companion.`Op:=`.Builder[LType, R]
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
