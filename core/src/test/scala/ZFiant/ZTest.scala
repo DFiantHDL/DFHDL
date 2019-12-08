@@ -29,6 +29,14 @@ object ZTest extends App {
 
     c := sm
 
+    matchdf(b)
+      .casedf(b"11111111") {
+        c := b0s
+      }
+      .casedf_ {
+        c := b1s
+      }
+
   }
 
   trait BBB extends AAA {
