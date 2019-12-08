@@ -23,6 +23,7 @@ sealed trait ConditionalBlock[CB <: ConditionalBlock[CB, Ret], Ret] extends DFBl
   owner.__injectedOwner = this
   final val returnValue : Ret = block()
   owner.__injectedOwner = originalOwner
+  id //touch to trigger addition to owner
 }
 
 sealed trait MatchConfig extends Product with Serializable
@@ -60,7 +61,7 @@ object ConditionalBlock {
 
     final case class MatchHeader[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchVal : DFAny.Of[MVType], matchConfig: MatchConfig
-    )(implicit val ctx : DFMember.Context) extends DFMember {
+    )(implicit val ctx : DFMember.Context) extends DFMemberNotAnOwner {
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = new DFCasePatternBlock[Type, MVType](
@@ -116,7 +117,7 @@ object ConditionalBlock {
 
     final case class MatchHeader[MVType <: DFAny.Type](
       matchVal : DFAny.Of[MVType], matchConfig: MatchConfig
-    )(implicit val ctx : DFMember.Context) extends DFMember {
+    )(implicit val ctx : DFMember.Context) extends DFMemberNotAnOwner {
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
         implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
       ) : DFCasePatternBlock[MVType] = new DFCasePatternBlock[MVType](
