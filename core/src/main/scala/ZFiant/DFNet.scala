@@ -1,6 +1,6 @@
 package ZFiant
 
-sealed trait DFNet extends DFMember {
+sealed trait DFNet extends DFMemberNotAnOwner {
   val to : DFAny
   val from : DFAny
 }

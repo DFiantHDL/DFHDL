@@ -17,8 +17,18 @@ trait DFBlock extends DFMember with Implicits {self =>
     ContextOf[T](meta, Some(__injectedOwner))
   ///////////////////////////////////////////////////////////////////
 
+  ///////////////////////////////////////////////////////////////////
+  // Ownership
+  ///////////////////////////////////////////////////////////////////
   val isTop : Boolean = false
-  val topDesign : DFDesign = owner.topDesign
+  lazy val topDesign : DFDesign = owner.topDesign
+  private var members : List[DFMember] = List()
+  def addMember(member : DFMember) : Int = {
+    members = members :+ member
+    members.length-1
+  }
+  def getMembers : List[DFMember] = members
+  ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
   // Conditional Constructs
