@@ -23,14 +23,16 @@ sealed trait DFAny extends DFMember with Product with Serializable {
 object DFAny {
   trait Type extends Product with Serializable {
     type TToken <: DFAny.Token
-    type TCompanion <: DFAny.Companion
-    val companion : TCompanion
     type Width
     val width : TwoFace.Int[Width]
     type TPattern <: DFAny.Pattern[TPattern]
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
     type OpAble[R] <: DFAny.Op.Able[R]
+    type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: Type, -R] <: DFAny.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
   }
@@ -49,10 +51,10 @@ object DFAny {
 
   trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
-    protected[ZFiant] type `Op==Builder`[-L, -R] = dfType.companion.`Op==`.Builder[L, R]
-    protected[ZFiant] type `Op!=Builder`[-L, -R] = dfType.companion.`Op!=`.Builder[L, R]
-    protected[ZFiant] type `Op<>Builder`[LType <: Type, -R] = dfType.companion.`Op<>`.Builder[LType, R]
-    protected[ZFiant] type `Op:=Builder`[LType <: Type, -R] = dfType.companion.`Op:=`.Builder[LType, R]
+//    type `Op==Builder`[-L, -R] <: dfType.companion.`Op==`.Builder[L, R]
+//    type `Op!=Builder`[-L, -R] <: dfType.companion.`Op!=`.Builder[L, R]
+//    type `Op<>Builder`[LType <: Type, -R] <: dfType.companion.`Op<>`.Builder[LType, R]
+//    type `Op:=Builder`[LType <: Type, -R] = dfType.companion.`Op:=`.Builder[LType, R]
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
@@ -103,10 +105,10 @@ object DFAny {
     // Equality
     //////////////////////////////////////////////////////////////////////////
     final def == [R](right : R)(
-      implicit ccs: CaseClassSkipper[`Op==Builder`[This, R]]
+      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
     final def != [R](right : R)(
-      implicit ccs: CaseClassSkipper[`Op!=Builder`[This, R]]
+      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
     //////////////////////////////////////////////////////////////////////////
   }
@@ -121,7 +123,7 @@ object DFAny {
 
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
     def := [R](right : left.dfType.OpAble[R])(
-      implicit ctx : DFNet.Context, op : left.`Op:=Builder`[Type, R]
+      implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
   }
 
@@ -151,7 +153,7 @@ object DFAny {
 
   sealed trait Port[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Initializable[Type, Var, Init, InitializedSelf] {
     def <> [R](right : dfType.OpAble[R])(
-      implicit ctx : DFNet.Context, op : `Op<>Builder`[Type, R]
+      implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
     ) : Unit = connectWith(op(dfType, right))
   }
   object Port {
@@ -177,7 +179,7 @@ object DFAny {
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : NewVar[Type, Some[Seq[Type#TToken]]] =
       copy(externalInit = Some(externalInit))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : `Op:=Builder`[Type, B]
+      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](dfType, condConv(DFBool.Type(),cond), () => blockConv(dfType, block))(ctx)
     override def toString: String = dfType.toString
   }

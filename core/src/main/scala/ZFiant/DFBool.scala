@@ -7,13 +7,15 @@ import DFiant.internals._
 object DFBool extends DFAny.Companion {
   final case class Type() extends DFAny.Type {
     type Width = 1
-    override type TCompanion = DFBool.type
-    override val companion: TCompanion = DFBool
     type TToken = Token
     type TPattern = DFBool.Pattern
     type TPatternAble[+R] = DFBool.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
     type OpAble[R] = DFBool.Op.Able[R]
+    type `Op==Builder`[-L, -R] = DFBool.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] = DFBool.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFBool.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFBool.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFBool.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
