@@ -18,6 +18,17 @@ object ZTest extends App {
     ifdf(true){
       b := b0s
     }
+
+    val sm = DFBits(8).matchdf(b)
+      .casedf(b"11111111") {
+        b0s
+      }
+      .casedf_ {
+        b1s
+      }
+
+    c := sm
+
   }
 
   trait BBB extends AAA {
