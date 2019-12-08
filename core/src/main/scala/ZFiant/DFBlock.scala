@@ -16,7 +16,9 @@ trait DFBlock extends DFMember with Implicits {self =>
   def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
     implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
   ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(),cond), () => block)(ctx)
-
+  def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
+    implicit ctx : DFBlock.Context
+  ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
 }
 
 object DFBlock {

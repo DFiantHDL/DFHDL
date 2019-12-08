@@ -67,7 +67,6 @@ object ConditionalBlock {
         dfType, this, None, patternBld(matchVal, pattern), () => retBld(dfType, block)
       )(ctx)
     }
-
     final case class DFCasePatternBlock[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchHeader : MatchHeader[Type, MVType],
       prevCase : Option[DFCasePatternBlock[Type, MVType]], pattern : MVType#TPattern,
@@ -114,6 +113,36 @@ object ConditionalBlock {
     final case class ElseBlock(block : () => Unit, prevBlock : Either[IfBlock, ElseIfBlock])(
       implicit val ctx : DFBlock.Context
     ) extends NoRetVal[IfBlock]
+
+    final case class MatchHeader[MVType <: DFAny.Type](
+      matchVal : DFAny.Of[MVType], matchConfig: MatchConfig
+    )(implicit val ctx : DFMember.Context) extends DFMember {
+      def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
+      ) : DFCasePatternBlock[MVType] = new DFCasePatternBlock[MVType](
+        this, None, patternBld(matchVal, pattern), () => block
+      )(ctx)
+    }
+    final case class DFCasePatternBlock[MVType <: DFAny.Type](
+      matchHeader : MatchHeader[MVType],
+      prevCase : Option[DFCasePatternBlock[MVType]], pattern : MVType#TPattern,
+      block : () => Unit
+    )(implicit val ctx : DFBlock.Context) extends NoRetVal[DFCasePatternBlock[MVType]] {
+      def casedf[MC, B](pattern : matchHeader.matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : matchHeader.matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
+      ) : DFCasePatternBlock[MVType] = new DFCasePatternBlock[MVType](
+        matchHeader, Some(this), patternBld(matchHeader.matchVal, pattern), () => block
+      )(ctx)
+      def casedf_[MC, B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : DFCase_Block[MVType] = new DFCase_Block[MVType](
+        matchHeader, this, () => block
+      )(ctx)
+    }
+    final case class DFCase_Block[MVType <: DFAny.Type](
+      matchHeader : MatchHeader[MVType],
+      prevCase : DFCasePatternBlock[MVType], block : () => Unit
+    )(implicit val ctx : DFBlock.Context) extends NoRetVal[DFCase_Block[MVType]]
   }
 }
 
