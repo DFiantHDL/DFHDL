@@ -5,20 +5,31 @@ import scala.annotation.implicitNotFound
 
 trait DFBlock extends DFMember with Implicits {self =>
   val ctx : DFBlock.Context
-  protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
+  ///////////////////////////////////////////////////////////////////
+  // Context implicits
+  ///////////////////////////////////////////////////////////////////
+  final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
     DFAny.Context(meta, self)
   private[ZFiant] var __injectedOwner : DFBlock = self
-  protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
+  final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
     DFBlock.Context(meta, Some(__injectedOwner))
-  protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
+  final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
     ContextOf[T](meta, Some(__injectedOwner))
+  ///////////////////////////////////////////////////////////////////
 
-  def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+  val isTop : Boolean = false
+  val topDesign : DFDesign = owner.topDesign
+
+  ///////////////////////////////////////////////////////////////////
+  // Conditional Constructs
+  ///////////////////////////////////////////////////////////////////
+  final protected def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
     implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
   ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(),cond), () => block)(ctx)
-  def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
+  final protected def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
     implicit ctx : DFBlock.Context
   ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
+  ///////////////////////////////////////////////////////////////////
 }
 
 object DFBlock {
