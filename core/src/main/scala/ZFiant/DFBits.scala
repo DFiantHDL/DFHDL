@@ -9,16 +9,14 @@ object b1s extends DFBits.SameBitsVector(true)
 
 object DFBits extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
+    override type TCompanion = DFBool.type
+    override val companion: TCompanion = DFBool
     type Width = W
     type TToken = Token[W]
     type TPattern = DFBits.Pattern
     type TPatternAble[+R] = DFBits.Pattern.Able[R]
     type TPatternBuilder[L <: DFAny] = DFBits.Pattern.Builder[L]
     type OpAble[R] = DFBits.Op.Able[R]
-    type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFBits.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFBits.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits($width)"
