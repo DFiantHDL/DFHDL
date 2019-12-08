@@ -51,20 +51,20 @@ object ConditionalBlock {
       implicit val ctx : DFBlock.Context
     ) extends WithRetVal[IfBlock[Type], Type] {
       def elsedf[B](block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
+        implicit ctx : DFBlock.Context, blockConv : `Op:=Builder`[Type, B]
       ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => blockConv(dfType, block), Left(this))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : `Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(DFBool.Type(), cond), () => blockConv(dfType, block), Left(this))(ctx)
     }
     final case class ElseIfBlock[Type <: DFAny.Type](dfType : Type, cond : DFBool, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(
       implicit val ctx : DFBlock.Context
     ) extends WithRetVal[IfBlock[Type], Type] {
       def elsedf[B](block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
+        implicit ctx : DFBlock.Context, blockConv : `Op:=Builder`[Type, B]
       ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => blockConv(dfType, block), Right(this))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : `Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(DFBool.Type(), cond), () => blockConv(dfType, block), Right(this))(ctx)
     }
     final case class ElseBlock[Type <: DFAny.Type](dfType : Type, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]])(implicit val ctx : DFBlock.Context) extends WithRetVal[IfBlock[Type], Type]
