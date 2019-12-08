@@ -5,6 +5,11 @@ import scala.annotation.implicitNotFound
 
 abstract class DFDesign(implicit val ctx : DFDesign.Context) extends DFBlock {
   final val ownerOption : Option[DFBlock] = ctx.ownerOption
+  final override val topDesign : DFDesign = ownerOption match {
+    case Some(o) => o.topDesign
+    case None  => this
+  }
+  final override val isTop : Boolean = ownerOption.isEmpty
   override def toString: String = ctx.meta.name
 }
 
