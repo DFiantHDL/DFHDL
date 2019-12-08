@@ -137,7 +137,7 @@ object DFAny {
 
   sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends Connectable[Type, Var] {
     val externalInit : Init
-    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : InitializedSelf
+    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : InitializedSelf
   }
   object Initializable {
     implicit class InitializableOps[Type <: DFAny.Type, Var, I <: DFAny](val i : Initializable[Type, Var, None.type, I]) {
@@ -156,14 +156,14 @@ object DFAny {
     final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, false, Init, In[Type, Some[Seq[Type#TToken]]]] {
-      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : In[Type, Some[Seq[Type#TToken]]] =
-        copy(externalInit = Some(externalInit))
+      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : In[Type, Some[Seq[Type#TToken]]] =
+        copy(externalInit = Some(externalInit))(ctx)
     }
     final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
       implicit val ctx : DFAny.Context
     ) extends Port[Type, true, Init, Out[Type, Some[Seq[Type#TToken]]]] {
-      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : Out[Type, Some[Seq[Type#TToken]]] =
-        copy(externalInit = Some(externalInit))
+      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : Out[Type, Some[Seq[Type#TToken]]] =
+        copy(externalInit = Some(externalInit))(ctx)
     }
   }
 
@@ -172,8 +172,8 @@ object DFAny {
   ) extends Initializable[Type, true, Init, NewVar[Type, Some[Seq[Type#TToken]]]] {
     def <> (in : IN) : Port.In[Type, None.type] = Port.In(dfType, None)
     def <> (out : OUT) : Port.Out[Type, None.type] = Port.Out(dfType, None)
-    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken]) : NewVar[Type, Some[Seq[Type#TToken]]] =
-      copy(externalInit = Some(externalInit))
+    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : NewVar[Type, Some[Seq[Type#TToken]]] =
+      copy(externalInit = Some(externalInit))(ctx)
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
