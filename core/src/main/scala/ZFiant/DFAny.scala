@@ -192,8 +192,8 @@ object DFAny {
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
-      dfType, condConv(DFBool.Type(),cond), () => blockConv(dfType, block)
-    )(ctx)
+      dfType, condConv(DFBool.Type(),cond)
+    )(blockConv(dfType, block))(ctx)
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
