@@ -124,61 +124,88 @@ object ConditionalBlock {
         ctx.compiler.addMember(DFCase_Block[Type, MVType](dfType, matchHeader, prevCase, ctx.owner, ctx.meta)(block))
     }
   }
-  sealed trait NoRetVal extends ConditionalBlock[Unit]
-//  object NoRetVal {
-//    final case class IfBlock(cond : DFBool, block : () => Unit)(
-//      implicit val ctx : DFBlock.Context
-//    ) extends NoRetVal {
-//      def elsedf[B](block : => Unit)(
-//        implicit ctx : DFBlock.Context
-//      ) : ElseBlock = ElseBlock(() => block, this)(ctx)
-//      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
-//        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-//      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), () => block, this)(ctx)
-//    }
-//    final case class ElseIfBlock(cond : DFBool, block : () => Unit, prevBlock : NoRetVal)(
-//      implicit val ctx : DFBlock.Context
-//    ) extends NoRetVal {
-//      def elsedf[B](block : => Unit)(
-//        implicit ctx : DFBlock.Context
-//      ) : ElseBlock = ElseBlock(() => block, this)(ctx)
-//      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
-//        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-//      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), () => block, this)(ctx)
-//    }
-//    final case class ElseBlock(block : () => Unit, prevBlock : NoRetVal)(
-//      implicit val ctx : DFBlock.Context
-//    ) extends NoRetVal
-//
-//    final case class MatchHeader[MVType <: DFAny.Type](
-//      matchVal : DFAny.Of[MVType], matchConfig: MatchConfig
-//    )(implicit val ctx : DFMember.Context) extends DFMember {
-//      def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
-//        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
-//      ) : DFCasePatternBlock[MVType] = new DFCasePatternBlock[MVType](
-//        this, None, patternBld(matchVal, pattern), () => block
-//      )(ctx)
-//    }
-//    final case class DFCasePatternBlock[MVType <: DFAny.Type](
-//      matchHeader : MatchHeader[MVType],
-//      prevCase : Option[DFCasePatternBlock[MVType]], pattern : MVType#TPattern,
-//      block : () => Unit
-//    )(implicit val ctx : DFBlock.Context) extends NoRetVal {
-//      def casedf[MC, B](pattern : matchHeader.matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
-//        implicit ctx : DFBlock.Context, patternBld : matchHeader.matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
-//      ) : DFCasePatternBlock[MVType] = new DFCasePatternBlock[MVType](
-//        matchHeader, Some(this), patternBld(matchHeader.matchVal, pattern), () => block
-//      )(ctx)
-//      def casedf_[MC, B](block : => Unit)(
-//        implicit ctx : DFBlock.Context
-//      ) : DFCase_Block[MVType] = new DFCase_Block[MVType](
-//        matchHeader, this, () => block
-//      )(ctx)
-//    }
-//    final case class DFCase_Block[MVType <: DFAny.Type](
-//      matchHeader : MatchHeader[MVType],
-//      prevCase : DFCasePatternBlock[MVType], block : () => Unit
-//    )(implicit val ctx : DFBlock.Context) extends NoRetVal
-//  }
+  sealed abstract class NoRetVal(block : => Unit) extends ConditionalBlock[Unit](block)
+  object NoRetVal {
+    final case class IfBlock(cond : DFBool, ownerRef: DFRef[DFBlock], meta: Meta)(block : => Unit) extends NoRetVal(block) {
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock = ElseBlock(this)(block)(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), this)(block)(ctx)
+    }
+    object IfBlock {
+      def apply(cond: DFBool)(block: => Unit)(implicit ctx: DFBlock.Context)
+      : IfBlock = ctx.compiler.addMember(IfBlock(cond, ctx.owner, ctx.meta)(block))
+    }
+    final case class ElseIfBlock(cond : DFBool, prevBlock : NoRetVal, ownerRef: DFRef[DFBlock], meta: Meta)(block : => Unit) extends NoRetVal(block) {
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock = ElseBlock(this)(block)(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), this)(block)(ctx)
+    }
+    object ElseIfBlock {
+      def apply(cond: DFBool, prevBlock: NoRetVal)(block: => Unit)(
+        implicit ctx: DFBlock.Context
+      ): ElseIfBlock = ctx.compiler.addMember(ElseIfBlock(cond, prevBlock, ctx.owner, ctx.meta)(block))
+    }
+    final case class ElseBlock(prevBlock : NoRetVal, ownerRef: DFRef[DFBlock], meta: Meta)(block : => Unit)(
+      implicit val ctx : DFBlock.Context
+    ) extends NoRetVal(block)
+    object ElseBlock {
+      def apply(prevBlock: NoRetVal)(block: => Unit)(
+        implicit ctx: DFBlock.Context
+      ): ElseBlock = ctx.compiler.addMember(ElseBlock(prevBlock, ctx.owner, ctx.meta)(block)(ctx))
+    }
+
+    final case class MatchHeader[MVType <: DFAny.Type](
+      matchVal : DFAny.Of[MVType], matchConfig: MatchConfig, ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends DFMember {
+      def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
+      ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
+        this, None, patternBld(matchVal, pattern)
+      )(block)(ctx)
+    }
+    object MatchHeader {
+      def apply[MVType <: DFAny.Type](
+        matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
+      )(implicit ctx: DFMember.Context): MatchHeader[MVType] =
+        ctx.compiler.addMember(MatchHeader(matchVal, matchConfig, ctx.owner, ctx.meta))
+    }
+    final case class DFCasePatternBlock[MVType <: DFAny.Type](
+      matchHeader : MatchHeader[MVType],
+      prevCase : Option[DFCasePatternBlock[MVType]], pattern : MVType#TPattern, ownerRef: DFRef[DFBlock], meta: Meta
+    )(block : => Unit) extends NoRetVal(block) {
+      def casedf[MC, B](pattern : matchHeader.matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : matchHeader.matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
+      ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
+        matchHeader, Some(this), patternBld(matchHeader.matchVal, pattern)
+      )(block)(ctx)
+      def casedf_[MC, B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : DFCase_Block[MVType] = DFCase_Block[MVType](
+        matchHeader, this
+      )(block)(ctx)
+    }
+    object DFCasePatternBlock {
+      def apply[MVType <: DFAny.Type](
+        matchHeader: MatchHeader[MVType], prevCase: Option[DFCasePatternBlock[MVType]], pattern: MVType#TPattern
+      )(block: => Unit)(implicit ctx: DFBlock.Context): DFCasePatternBlock[MVType] =
+        ctx.compiler.addMember(DFCasePatternBlock(matchHeader, prevCase, pattern, ctx.owner, ctx.meta)(block))
+    }
+    final case class DFCase_Block[MVType <: DFAny.Type](
+      matchHeader : MatchHeader[MVType],
+      prevCase : DFCasePatternBlock[MVType], ownerRef: DFRef[DFBlock], meta: Meta
+    )(block : => Unit) extends NoRetVal(block)
+    object DFCase_Block {
+      def apply[MVType <: DFAny.Type](
+        matchHeader: MatchHeader[MVType], prevCase: DFCasePatternBlock[MVType]
+      )(block: => Unit)(implicit ctx: DFBlock.Context): DFCase_Block[MVType] =
+        ctx.compiler.addMember(DFCase_Block(matchHeader, prevCase, ctx.owner, ctx.meta)(block))
+    }
+  }
 }
 
