@@ -23,7 +23,6 @@ sealed trait ConditionalBlock[CB <: ConditionalBlock[CB, Ret], Ret] extends DFBl
   owner.__injectedOwner = this
   final val returnValue : Ret = block()
   owner.__injectedOwner = originalOwner
-  id //touch to trigger addition to owner
 }
 
 sealed trait MatchConfig extends Product with Serializable

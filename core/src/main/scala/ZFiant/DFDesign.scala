@@ -15,7 +15,6 @@ abstract class DFDesign(implicit val ctx : DFDesign.Context) extends DFBlock {
   }
   final override val isTop : Boolean = ownerOption.isEmpty
   override def toString: String = ctx.meta.name
-  id //touch to trigger addition to owner
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
@@ -36,4 +35,6 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
+
+//  final case class Shell[T <: DFDesign](dsn ) extends DFDesign
 }
