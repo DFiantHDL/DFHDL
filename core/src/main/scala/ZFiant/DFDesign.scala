@@ -4,16 +4,10 @@ import DFiant.internals._
 import scala.annotation.implicitNotFound
 
 abstract class DFDesign(implicit val ctx : DFDesign.Context) extends DFBlock {
-  final val ownerOption : Option[DFBlock] = ctx.ownerOption
-  final override lazy val topDesign : DFDesign = ownerOption match {
-    case Some(o) => o.topDesign
-    case None  => this
-  }
-  final override lazy val id : Int = ownerOption match {
-    case Some(o) => o.addMember(this)
-    case None => 0
-  }
-  final override val isTop : Boolean = ownerOption.isEmpty
+  override lazy val owner : DFBlock = ctx.ownerOption.getOrElse(this)
+  final override lazy val topDesign : DFDesign = if (isTop) this else owner.topDesign
+  final override lazy val id : Int = if (isTop) 0 else owner.addMember(this)
+  final override val isTop : Boolean = ctx.ownerOption.isEmpty
   override def toString: String = ctx.meta.name
 }
 
