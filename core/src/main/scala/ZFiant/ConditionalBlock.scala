@@ -94,7 +94,7 @@ object ConditionalBlock {
     }
     final case class DFCasePatternBlock[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
-      prevCase : Option[DFCasePatternBlock[Type, MVType]], pattern : MVType#TPattern,
+      prevCaseRef : Option[DFRef[DFCasePatternBlock[Type, MVType]]], pattern : MVType#TPattern,
       ownerRef: DFRef[DFBlock], meta: Meta
     )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
       private[WithRetVal] val matchVal = matchHeaderRef.matchVal
@@ -112,17 +112,17 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         dfType: Type, matchHeader: MatchHeader[Type, MVType], prevCase: Option[DFCasePatternBlock[Type, MVType]], pattern: MVType#TPattern
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCasePatternBlock[Type, MVType] =
-        ctx.compiler.addMember(DFCasePatternBlock(dfType, matchHeader, prevCase, pattern, ctx.owner, ctx.meta)(block))
+        ctx.compiler.addMember(DFCasePatternBlock(dfType, matchHeader, prevCase.map(p => DFRef(p)), pattern, ctx.owner, ctx.meta)(block))
     }
     final case class DFCase_Block[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
-      prevCase : DFCasePatternBlock[Type, MVType], ownerRef: DFRef[DFBlock], meta: Meta
+      prevCase : DFRef[DFCasePatternBlock[Type, MVType]], ownerRef: DFRef[DFBlock], meta: Meta
     )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block)
     object DFCase_Block {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         dfType: Type, matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType]
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCase_Block[Type, MVType] =
-        ctx.compiler.addMember(DFCase_Block[Type, MVType](dfType, matchHeader, prevCase, ctx.owner, ctx.meta)(block))
+        ctx.compiler.addMember(DFCase_Block[Type, MVType](dfType, matchHeader, DFRef(prevCase), ctx.owner, ctx.meta)(block))
     }
   }
   sealed abstract class NoRetVal(block : => Unit) extends ConditionalBlock[Unit](block)
@@ -179,7 +179,7 @@ object ConditionalBlock {
     }
     final case class DFCasePatternBlock[MVType <: DFAny.Type](
       matchHeaderRef : DFRef[MatchHeader[MVType]],
-      prevCase : Option[DFCasePatternBlock[MVType]], pattern : MVType#TPattern, ownerRef: DFRef[DFBlock], meta: Meta
+      prevCaseRef : Option[DFRef[DFCasePatternBlock[MVType]]], pattern : MVType#TPattern, ownerRef: DFRef[DFBlock], meta: Meta
     )(block : => Unit) extends NoRetVal(block) {
       private[NoRetVal] val matchVal = matchHeaderRef.matchVal
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
@@ -197,11 +197,11 @@ object ConditionalBlock {
       def apply[MVType <: DFAny.Type](
         matchHeader: MatchHeader[MVType], prevCase: Option[DFCasePatternBlock[MVType]], pattern: MVType#TPattern
       )(block: => Unit)(implicit ctx: DFBlock.Context): DFCasePatternBlock[MVType] =
-        ctx.compiler.addMember(DFCasePatternBlock(matchHeader, prevCase, pattern, ctx.owner, ctx.meta)(block))
+        ctx.compiler.addMember(DFCasePatternBlock(matchHeader, prevCase.map(p => DFRef(p)), pattern, ctx.owner, ctx.meta)(block))
     }
     final case class DFCase_Block[MVType <: DFAny.Type](
       matchHeaderRef : DFRef[MatchHeader[MVType]],
-      prevCase : DFCasePatternBlock[MVType], ownerRef: DFRef[DFBlock], meta: Meta
+      prevCase : DFRef[DFCasePatternBlock[MVType]], ownerRef: DFRef[DFBlock], meta: Meta
     )(block : => Unit) extends NoRetVal(block)
     object DFCase_Block {
       def apply[MVType <: DFAny.Type](
