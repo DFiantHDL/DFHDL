@@ -59,8 +59,8 @@ object ZTest extends App {
 
   val top = new Top {}
 
-  println((top, top.ownerOption), (top.a, top.a.ownerOption), (top.b, top.b.ownerOption), (top.c, top.c.ownerOption))
-  println((top.c.b, top.c.b.ownerOption), (top.c.b2, top.c.b2.ownerOption))
+  println((top, top.owner), (top.a, top.a.owner), (top.b, top.b.owner), (top.c, top.c.owner))
+  println((top.c.b, top.c.b.owner), (top.c.b2, top.c.b2.owner))
   trait BB extends DFDesign {
     //    val a = DFUInt(8)
     //    DFUInt(8).ifdf(???) {
