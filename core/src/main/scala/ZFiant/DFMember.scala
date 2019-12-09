@@ -15,9 +15,11 @@ object DFMember {
   }
 }
 
-class DFRef[+T <: DFMember](val member : T)
+class DFRef[+T <: DFMember](member : T) {
+  def get : T = member
+}
 object DFRef {
   def apply[T <: DFMember](member: T): DFRef[T] = new DFRef[T](member)
-  implicit def memberOf[T <: DFMember](ref : DFRef[T]) : T = ref.member
+  implicit def memberOf[T <: DFMember](ref : DFRef[T]) : T = ref.get
 }
 
