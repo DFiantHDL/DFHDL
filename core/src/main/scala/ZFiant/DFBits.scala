@@ -152,7 +152,7 @@ object DFBits extends DFAny.Companion {
         def apply[R](left: DFBits[LW], right: Seq[Able[R]]): Pattern = {
           val patternSet = right.map(e => e.bitVector).foldLeft(Set.empty[BitVector])((set, bitVector) => {
             if (set.contains(bitVector)) throw new IllegalArgumentException(s"\nThe bitvector $bitVector already intersects with $set")
-            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.ctx.meta.name}")
+            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.meta.name}")
             set + bitVector
           })
 
