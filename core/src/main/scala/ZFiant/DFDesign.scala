@@ -4,8 +4,8 @@ import DFiant.internals._
 import scala.annotation.implicitNotFound
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock {
-  val meta : Meta = ctx.meta
-  val ownerRef: DFRef[DFBlock] = DFRef(ctx.ownerOption.getOrElse(this))
+  final val meta : Meta = ctx.meta
+  final val ownerRef: DFRef[DFBlock] = DFRef(ctx.ownerOption.getOrElse(this))
   final private[ZFiant] val __compiler : DFCompiler = ctx.compiler
   final override lazy val topDesign : DFDesign = if (isTop) this else owner.topDesign
   final override val isTop : Boolean = ctx.ownerOption.isEmpty

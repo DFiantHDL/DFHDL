@@ -21,8 +21,8 @@ class DFRef[+T <: DFMember](member : T) {
   def get : T = member
 }
 object DFRef {
-  def apply[T <: DFMember](member: T): DFRef[T] = new DFRef[T](member)
+  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.compiler.addRef(new DFRef[T](member), member)
   implicit def memberOf[T <: DFMember](ref : DFRef[T]) : T = ref.get
-  implicit def refOf[T <: DFMember](member : T) : DFRef[T] = DFRef(member)
+  implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
 }
 
