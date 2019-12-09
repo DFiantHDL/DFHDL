@@ -24,6 +24,7 @@ trait DFBlock extends DFMember with Implicits {self =>
   lazy val topDesign : DFDesign = owner.topDesign
   private var members : List[DFMember] = List()
   def addMember(member : DFMember) : Int = {
+    id //touch to add owner to its own owner (if not top)
     members = members :+ member
     members.length-1
   }
