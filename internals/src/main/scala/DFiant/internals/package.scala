@@ -262,7 +262,17 @@ package object internals {
       delim + value.replaceAll("\n","\n" + delim)
     }
   }
+
+  //from Map[K,V] to Map[V,Set[K]], traverse the input only once
+  //From: https://stackoverflow.com/a/51356499/3845175
+  implicit class MapInverterA[K,V](m :Map[K,V]) {
+    def invert :Map[V,Set[K]] =
+      m.foldLeft(Map.empty[V, Set[K]]) {
+        case (acc,(k, v)) => acc + (v -> (acc.getOrElse(v,Set()) + k))
+      }
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   implicit class ReflectionClassExtras(extended : Any) {
     import java.lang.reflect.Field

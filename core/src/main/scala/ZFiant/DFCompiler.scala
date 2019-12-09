@@ -16,6 +16,7 @@
  */
 
 package ZFiant
+import DFiant.internals._
 
 class DFCompiler {
   private var members : List[DFMember] = List()
@@ -30,4 +31,16 @@ class DFCompiler {
     ref
   }
   def getRefTable : Map[DFRef[_], DFMember] = refTable
+  def immutable : DFCompiler.Immutable = DFCompiler.Immutable(members, refTable)
+}
+
+object DFCompiler {
+  case class Immutable(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
+    lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
+    lazy val refMembers : List[DFMember] = members.collect {
+      case net : DFNet => net
+      case m if memberTable.contains(m) => m
+      case m : DFDesign if m.isTop => m
+    }
+  }
 }
