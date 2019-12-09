@@ -15,9 +15,9 @@ object ZTest extends App {
 
     b0s <> b
     b <> c
-//    ifdf(true){
-//      b := b0s
-//    }
+    ifdf(true){
+      b := b0s
+    }
 
     val sm = DFBits(8).matchdf(b)
       .casedf(b"11111111") {
@@ -29,13 +29,13 @@ object ZTest extends App {
 
     c := sm
 
-//    matchdf(b)
-//      .casedf(b"11111111") {
-//        c := b0s
-//      }
-//      .casedf_ {
-//        c := b1s
-//      }
+    matchdf(b)
+      .casedf(b"11111111") {
+        c := b0s
+      }
+      .casedf_ {
+        c := b1s
+      }
 
   }
 
