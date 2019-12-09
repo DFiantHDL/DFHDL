@@ -207,11 +207,11 @@ object DFAny {
   }
 
   trait Alias[Type <: DFAny.Type, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
-    val refVal : RefVal
+    val refVal : DFRef[RefVal]
   }
   object Alias {
     final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
-      dfType : Type, refVal : RefVal, ownerRef: DFRef[DFBlock], meta: Meta
+      dfType : Type, refVal : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[Type, RefVal, RefVal#TVar]
     object AsIs {
       def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
@@ -219,7 +219,7 @@ object DFAny {
       ): AsIs[Type, RefVal] = ctx.compiler.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
     }
     final case class BitsWL[W, L, RefVal <: DFAny](
-      refVal : RefVal, relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
+      refVal : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[DFBits.Type[W], RefVal, RefVal#TVar]{
       val dfType : TType = DFBits.Type(relWidth)
     }
@@ -229,7 +229,7 @@ object DFAny {
       ): BitsWL[W, L, RefVal] = ctx.compiler.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
     }
     final case class Prev[RefVal <: DFAny](
-      refVal : RefVal, step : Int, ownerRef: DFRef[DFBlock], meta: Meta
+      refVal : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[RefVal#TType, RefVal, false] {
       val dfType : TType = refVal.dfType
     }
@@ -242,7 +242,7 @@ object DFAny {
 
   sealed abstract class Func[Type <: DFAny.Type] extends Constructor[Type, false]
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArg : L, op : Op, rightArg : R, ownerRef: DFRef[DFBlock], meta: Meta
+    dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type]
   object Func2 {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
