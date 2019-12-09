@@ -28,7 +28,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token[W](width : TwoFace.Int[W], value : XBitVector[W], bubbleMask : XBitVector[W]) extends DFAny.Token.Of[XBitVector[W], W] {
+  final case class Token[W](width : Int, value : XBitVector[W], bubbleMask : XBitVector[W]) extends DFAny.Token.Of[XBitVector[W], W] {
     lazy val valueBits : XBitVector[W] = value
     def |[RW] (that : Token[RW]) : Token[W] = {
       assert(that.width == width)
@@ -82,7 +82,7 @@ object DFBits extends DFAny.Companion {
     }
     def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = {
       if (toWidth < width) bitsWL(toWidth, 0)
-      else if (toWidth > width) (Token(toWidth - width, 0) ## this).asInstanceOf[Token[RW]]
+      else if (toWidth > width) (Token(TwoFace.Int.create[Int](toWidth - width), 0) ## this).asInstanceOf[Token[RW]]
       else this.asInstanceOf[Token[RW]]
     }
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
@@ -102,17 +102,17 @@ object DFBits extends DFAny.Companion {
 
   }
   object Token {
-    implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits.Type[W]] = t => Token(t.width, Bubble)
-    def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token(width, BigInt(value).toBitVector(width))
+    implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token[W](TwoFace.Int.create[W](t.width), Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits.Type[W]] = t => Token[W](t.width, Bubble)
+    def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token[W](width, BigInt(value).toBitVector(width))
     def apply[W](width : TwoFace.Int[W], value : BitVector) : Token[W] = {
       assert(value.length == width.getValue, s"\nThe init vector $value must have a width of $width")
       Token(width, value.toLength(width), XBitVector.low(width))
     }
-    def apply[W](value : XBitVector[W]) : Token[W] = Token(TwoFace.Int.create[W](value.length.toInt), value)
-    def apply[W](width : TwoFace.Int[W], value : Bubble) : Token[W] = Token(width, XBitVector.low(width), XBitVector.high(width))
+    def apply[W](value : XBitVector[W]) : Token[W] = Token[W](TwoFace.Int.create[W](value.length.toInt), value)
+    def apply[W](width : TwoFace.Int[W], value : Bubble) : Token[W] = Token[W](width, XBitVector.low(width), XBitVector.high(width))
     def apply[W](width : TwoFace.Int[W], value : Token[W]) : Token[W] = {
-      assert(value.width == width, s"\nThe init vector $value must have a width of $width")
+      assert(value.width == width.getValue, s"\nThe init vector $value must have a width of $width")
       value.bitsWL(width, 0)
     }
 

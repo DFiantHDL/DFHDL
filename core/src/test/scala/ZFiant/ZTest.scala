@@ -39,8 +39,10 @@ object ZTest extends App {
 
   }
 
-  trait BBB extends AAA {
-
+  trait BBB extends DFDesign {
+    val i = DFBits(8) <> IN init b0s
+    val o = DFBits(8) <> OUT init b"11111111"
+    i <> o
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {
@@ -57,12 +59,12 @@ object ZTest extends App {
     val c = new CCC() {}
   }
 
-  val top = new Top {}
-  println(top.__compiler.getMembers)
-  println(top.__compiler.getRefTable)
+  val top = new BBB {}
+  println(top.__compiler.immutable.refMembers)
+//  println(top.__compiler.getRefTable)
 
-  println((top, top.owner), (top.a, top.a.owner), (top.b, top.b.owner), (top.c, top.c.owner))
-  println((top.c.b, top.c.b.owner), (top.c.b2, top.c.b2.owner))
+//  println((top, top.owner), (top.a, top.a.owner), (top.b, top.b.owner), (top.c, top.c.owner))
+//  println((top.c.b, top.c.b.owner), (top.c.b2, top.c.b2.owner))
   trait BB extends DFDesign {
     //    val a = DFUInt(8)
     //    DFUInt(8).ifdf(???) {

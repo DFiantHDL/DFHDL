@@ -10,6 +10,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock {
   final override lazy val topDesign : DFDesign = if (isTop) this else owner.topDesign
   final override val isTop : Boolean = ctx.ownerOption.isEmpty
   override def toString: String = ctx.meta.name
+  __compiler.addMember(this)
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)

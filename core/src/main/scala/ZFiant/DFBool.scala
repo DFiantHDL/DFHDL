@@ -27,7 +27,7 @@ object DFBool extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final case class Token(value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean, 1] {
-    val width: TwoFace.Int[1] = 1
+    val width: Int = 1
     lazy val valueBits : XBitVector[1] = XBitVector.bit(value)
     lazy val bubbleMask: XBitVector[1] = XBitVector.bit(bubble)
     def && (that : Token) : Token = {
