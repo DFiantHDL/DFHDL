@@ -41,7 +41,7 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  final case class Context(meta : Meta, owner : DFBlock) extends DFMember.Context
+  final case class Context(meta : Meta, owner : DFBlock, compiler: DFCompiler) extends DFMember.Context
   object Context {
     final object MissingError extends ErrorMsg (
       "Missing an implicit owner Context.",
@@ -122,13 +122,13 @@ object DFAny {
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
 
-  abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
-    val ctx : DFAny.Context
-  }
+  abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var]
 
-  final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken)(
-    implicit val ctx : DFAny.Context
-  ) extends Constructor[Type, false]
+  final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Constructor[Type, false]
+  object Const {
+    def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
+    : Const[Type] = ctx.compiler.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta))
+  }
 
   sealed trait Connectable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
     protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = DFNet.Connection(this, that)
@@ -156,29 +156,39 @@ object DFAny {
     ) : Unit = connectWith(op(dfType, right))
   }
   object Port {
-    final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
-      implicit val ctx : DFAny.Context
+    final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
+      dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Port[Type, false, Init, In[Type, Some[Seq[Type#TToken]]]] {
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
-      ) : In[Type, Some[Seq[Type#TToken]]] = copy(externalInit = Some(externalInit))(ctx)
+      ) : In[Type, Some[Seq[Type#TToken]]] = In(dfType, Some(externalInit))(ctx)
     }
-    final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
-      implicit val ctx : DFAny.Context
+    object In {
+      def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
+        implicit ctx: DFAny.Context
+      ): In[Type, Init] = ctx.compiler.addMember(In[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
+    }
+    final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
+      dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Port[Type, true, Init, Out[Type, Some[Seq[Type#TToken]]]] {
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
-      ) : Out[Type, Some[Seq[Type#TToken]]] = copy(externalInit = Some(externalInit))(ctx)
+      ) : Out[Type, Some[Seq[Type#TToken]]] = Out(dfType, Some(externalInit))(ctx)
+    }
+    object Out {
+      def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
+        implicit ctx: DFAny.Context
+      ): Out[Type, Init] = ctx.compiler.addMember(Out[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
     }
   }
 
-  final case class NewVar[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType : Type, externalInit : Init)(
-    implicit val ctx : DFAny.Context
+  final case class NewVar[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
+    dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
   ) extends Initializable[Type, true, Init, NewVar[Type, Some[Seq[Type#TToken]]]] {
-    def <> (in : IN) : Port.In[Type, None.type] = Port.In(dfType, None)
-    def <> (out : OUT) : Port.Out[Type, None.type] = Port.Out(dfType, None)
+    def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, None.type] = Port.In(dfType, None)
+    def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, None.type] = Port.Out(dfType, None)
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : NewVar[Type, Some[Seq[Type#TToken]]] =
-      copy(externalInit = Some(externalInit))(ctx)
+      NewVar(dfType, Some(externalInit))(ctx)
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
@@ -190,32 +200,56 @@ object DFAny {
       ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](dfType, matchValue, matchConfig)(ctx)
     override def toString: String = dfType.toString
   }
+  object NewVar {
+    def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
+      implicit ctx: Context
+    ): NewVar[Type, Init] = ctx.compiler.addMember(NewVar[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
+  }
 
   trait Alias[Type <: DFAny.Type, RefVal <: DFAny, Var] extends Constructor[Type, Var] {
     val refVal : RefVal
   }
   object Alias {
-    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](dfType : Type, refVal : RefVal)(
-      implicit val ctx : DFAny.Context
+    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
+      dfType : Type, refVal : RefVal, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[Type, RefVal, RefVal#TVar]
-    final case class BitsWL[W, L, RefVal <: DFAny](refVal : RefVal, relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
-      implicit val ctx : DFAny.Context
+    object AsIs {
+      def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
+        implicit ctx: Context
+      ): AsIs[Type, RefVal] = ctx.compiler.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
+    }
+    final case class BitsWL[W, L, RefVal <: DFAny](
+      refVal : RefVal, relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[DFBits.Type[W], RefVal, RefVal#TVar]{
       val dfType : TType = DFBits.Type(relWidth)
     }
-    final case class Prev[RefVal <: DFAny](refVal : RefVal, step : Int)(
-      implicit val ctx : DFAny.Context
+    object BitsWL {
+      def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
+        implicit ctx: Context
+      ): BitsWL[W, L, RefVal] = ctx.compiler.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+    }
+    final case class Prev[RefVal <: DFAny](
+      refVal : RefVal, step : Int, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[RefVal#TType, RefVal, false] {
       val dfType : TType = refVal.dfType
+    }
+    object Prev {
+      def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
+        implicit ctx: Context
+      ): Prev[RefVal] = ctx.compiler.addMember(Prev[RefVal](refVal, step, ctx.owner, ctx.meta))
     }
   }
 
   sealed abstract class Func[Type <: DFAny.Type] extends Constructor[Type, false]
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArg : L, op : Op, rightArg : R
-  )(func : (L#TToken, R#TToken) => Type#TToken)(
-    implicit val ctx : DFAny.Context
-  ) extends Func[Type]
+    dfType: Type, leftArg : L, op : Op, rightArg : R, ownerRef: DFRef[DFBlock], meta: Meta
+  )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type]
+  object Func2 {
+    def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+      dfType: Type, leftArg: L, op: Op, rightArg: R
+    )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
+    : Func2[Type, L, Op, R] = ctx.compiler.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
