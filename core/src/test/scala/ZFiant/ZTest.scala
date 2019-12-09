@@ -59,6 +59,7 @@ object ZTest extends App {
 
   val top = new Top {}
   println(top.__compiler.getMembers)
+  println(top.__compiler.getRefTable)
 
   println((top, top.owner), (top.a, top.a.owner), (top.b, top.b.owner), (top.c, top.c.owner))
   println((top.c.b, top.c.b.owner), (top.c.b2, top.c.b2.owner))

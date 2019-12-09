@@ -24,4 +24,10 @@ class DFCompiler {
     member
   }
   def getMembers : List[DFMember] = members
+  private var refTable : Map[DFRef[_], DFMember] = Map()
+  def addRef[T <: DFMember](ref : DFRef[T], member : DFMember) : DFRef[T] = {
+    refTable = refTable + (ref -> member)
+    ref
+  }
+  def getRefTable : Map[DFRef[_], DFMember] = refTable
 }
