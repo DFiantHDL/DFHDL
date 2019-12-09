@@ -6,13 +6,13 @@ sealed trait DFNet extends DFMember
 object DFNet {
   type Context = DFAny.Context
 
-  final case class Assignment(to : DFAny.Var[_ <: DFAny.Type], from : DFAny, ownerRef: DFRef[DFBlock], meta: Meta) extends DFNet
+  final case class Assignment(toRef : DFRef[DFAny.Var[_ <: DFAny.Type]], fromRef : DFRef[DFAny], ownerRef: DFRef[DFBlock], meta: Meta) extends DFNet
   object Assignment {
     def apply(to: DFAny.Var[_ <: DFAny.Type], from: DFAny)(implicit ctx: Context)
-    : Assignment = ctx.compiler.addMember(Assignment(to, from, ctx.owner, ctx.meta))
+    : Assignment = ctx.compiler.addMember(Assignment(DFRef(to), from, ctx.owner, ctx.meta))
   }
 
-  final case class Connection(left : DFAny, right : DFAny, ownerRef: DFRef[DFBlock], meta: Meta)(
+  final case class Connection(leftRef : DFRef[DFAny], rightRef : DFRef[DFAny], ownerRef: DFRef[DFBlock], meta: Meta)(
     implicit val ctx : DFNet.Context
   ) extends DFNet
   object Connection {
