@@ -18,7 +18,7 @@
 package ZFiant
 import DFiant.internals.Meta
 
-sealed trait ConditionalBlock[CB <: ConditionalBlock[CB, Ret], Ret] extends DFBlock {
+sealed trait ConditionalBlock[Ret] extends DFBlock {
   val block : () => Ret
   private val originalOwner : DFBlock = owner.__injectedOwner
   owner.__injectedOwner = this
@@ -33,17 +33,17 @@ object MatchConfig {
 }
 
 object ConditionalBlock {
-  sealed trait WithRetVal[CB <: WithRetVal[CB, Type], Type <: DFAny.Type] extends ConditionalBlock[WithRetVal[CB, Type], DFAny.Of[Type]] with DFAny.ValOrVar[Type, false]
+  sealed trait WithRetVal[Type <: DFAny.Type] extends ConditionalBlock[DFAny.Of[Type]] with DFAny.ValOrVar[Type, false]
   object WithRetVal {
     final case class IfBlock[Type <: DFAny.Type](
       dfType : Type, cond : DFBool, block : () => DFAny.Of[Type], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends WithRetVal[IfBlock[Type], Type] {
+    ) extends WithRetVal[Type] {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => blockConv(dfType, block), Left(this))(ctx)
+      ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => blockConv(dfType, block), this)(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(DFBool.Type(), cond), () => blockConv(dfType, block), Left(this))(ctx)
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(DFBool.Type(), cond), () => blockConv(dfType, block), this)(ctx)
     }
     object IfBlock {
       def apply[Type <: DFAny.Type](dfType: Type, cond: DFBool, block: () => DFAny.Of[Type])(
@@ -51,27 +51,27 @@ object ConditionalBlock {
       ): IfBlock[Type] = ctx.compiler.addMember(IfBlock(dfType, cond, block, ctx.owner, ctx.meta))
     }
     final case class ElseIfBlock[Type <: DFAny.Type](
-      dfType : Type, cond : DFBool, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends WithRetVal[IfBlock[Type], Type] {
+      dfType : Type, cond : DFBool, block : () => DFAny.Of[Type], prevBlock : WithRetVal[Type], ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends WithRetVal[Type] {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => blockConv(dfType, block), Right(this))(ctx)
+      ) : ElseBlock[Type] = ElseBlock[Type](dfType, () => blockConv(dfType, block), this)(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(DFBool.Type(), cond), () => blockConv(dfType, block), Right(this))(ctx)
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](dfType, condConv(DFBool.Type(), cond), () => blockConv(dfType, block), this)(ctx)
     }
     object ElseIfBlock {
       def apply[Type <: DFAny.Type](
-        dfType: Type, cond: DFBool, block: () => DFAny.Of[Type], prevBlock: Either[IfBlock[Type], ElseIfBlock[Type]]
+        dfType: Type, cond: DFBool, block: () => DFAny.Of[Type], prevBlock: WithRetVal[Type]
       )(implicit ctx: DFBlock.Context) : ElseIfBlock[Type] =
         ctx.compiler.addMember(ElseIfBlock[Type](dfType, cond, block, prevBlock, ctx.owner, ctx.meta))
     }
     final case class ElseBlock[Type <: DFAny.Type](
-      dfType : Type, block : () => DFAny.Of[Type], prevBlock : Either[IfBlock[Type], ElseIfBlock[Type]], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends WithRetVal[IfBlock[Type], Type]
+      dfType : Type, block : () => DFAny.Of[Type], prevBlock : WithRetVal[Type], ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends WithRetVal[Type]
     object ElseBlock {
       def apply[Type <: DFAny.Type](
-        dfType: Type, block: () => DFAny.Of[Type], prevBlock: Either[IfBlock[Type], ElseIfBlock[Type]]
+        dfType: Type, block: () => DFAny.Of[Type], prevBlock: WithRetVal[Type]
       )(implicit ctx: DFBlock.Context) : ElseBlock[Type] =
         ctx.compiler.addMember(ElseBlock[Type](dfType, block, prevBlock, ctx.owner, ctx.meta))
     }
@@ -95,7 +95,7 @@ object ConditionalBlock {
       dfType : Type, matchHeader : MatchHeader[Type, MVType],
       prevCase : Option[DFCasePatternBlock[Type, MVType]], pattern : MVType#TPattern,
       block : () => DFAny.Of[Type], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends WithRetVal[DFCasePatternBlock[Type, MVType], Type] {
+    ) extends WithRetVal[Type] {
       def casedf[MC, B](pattern : matchHeader.matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, patternBld : matchHeader.matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
@@ -116,7 +116,7 @@ object ConditionalBlock {
     final case class DFCase_Block[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchHeader : MatchHeader[Type, MVType],
       prevCase : DFCasePatternBlock[Type, MVType], block : () => DFAny.Of[Type], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends WithRetVal[DFCase_Block[Type, MVType], Type]
+    ) extends WithRetVal[Type]
     object DFCase_Block {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         dfType: Type, matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType], block: () => DFAny.Of[Type]
@@ -124,7 +124,7 @@ object ConditionalBlock {
         ctx.compiler.addMember(DFCase_Block[Type, MVType](dfType, matchHeader, prevCase, block, ctx.owner, ctx.meta))
     }
   }
-  sealed trait NoRetVal[CB <: NoRetVal[CB]] extends ConditionalBlock[NoRetVal[CB], Unit]
+  sealed trait NoRetVal[CB <: NoRetVal[CB]] extends ConditionalBlock[Unit]
 //  object NoRetVal {
 //    final case class IfBlock(cond : DFBool, block : () => Unit)(
 //      implicit val ctx : DFBlock.Context
