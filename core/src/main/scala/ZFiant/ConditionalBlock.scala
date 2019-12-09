@@ -60,7 +60,7 @@ object ConditionalBlock {
 
     final case class MatchHeader[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchVal : DFAny.Of[MVType], matchConfig: MatchConfig
-    )(implicit val ctx : DFMember.Context) extends DFMemberNotAnOwner {
+    )(implicit val ctx : DFMember.Context) extends DFMember {
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = new DFCasePatternBlock[Type, MVType](
@@ -116,7 +116,7 @@ object ConditionalBlock {
 
     final case class MatchHeader[MVType <: DFAny.Type](
       matchVal : DFAny.Of[MVType], matchConfig: MatchConfig
-    )(implicit val ctx : DFMember.Context) extends DFMemberNotAnOwner {
+    )(implicit val ctx : DFMember.Context) extends DFMember {
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
         implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
       ) : DFCasePatternBlock[MVType] = new DFCasePatternBlock[MVType](

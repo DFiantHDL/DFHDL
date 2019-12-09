@@ -6,7 +6,7 @@ import DFiant.internals._
 
 import scala.annotation.implicitNotFound
 
-sealed trait DFAny extends DFMemberNotAnOwner with Product with Serializable {
+sealed trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
   type TVar
   val dfType : TType
@@ -111,7 +111,6 @@ object DFAny {
 
   trait ValOrVar[Type <: DFAny.Type, Var] extends DFAny.Of[Type] {
     type TVar = Var
-    protected[ZFiant] def assign(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {}
   }
 
   type Val[Type <: DFAny.Type] = ValOrVar[Type, false]
@@ -120,7 +119,7 @@ object DFAny {
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : Unit = left.assign(op(left.dfType, right))
+    ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
 
   abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var] {
@@ -132,7 +131,7 @@ object DFAny {
   ) extends Constructor[Type, false]
 
   sealed trait Connectable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
-    protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {}
+    protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = DFNet.Connection(this, that)
   }
 
   sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
