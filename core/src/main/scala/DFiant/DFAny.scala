@@ -225,11 +225,11 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   // Equality
   //////////////////////////////////////////////////////////////////////////
   final def == [R <: TUnbounded](right : R)(
-    implicit op : `Op==Builder`[right.TVal]//css: CaseClassSkipper[`Op==Builder`[right.TVal]]
-  ) = op(left, right.tVal)//css(op => op(left, right.tVal), left.asInstanceOf[Any] == right.asInstanceOf[Any])
+    implicit css: CaseClassSkipper[`Op==Builder`[right.TVal]]
+  ) : DFBool = css(op => op(left, right.tVal), left.asInstanceOf[Any] == right.asInstanceOf[Any]).asInstanceOf[DFBool]
   final def != [R <: TUnbounded](right : R)(
-    implicit op : `Op!=Builder`[right.TVal]//css: CaseClassSkipper[`Op!=Builder`[right.TVal]]
-  ) = op(left, right.tVal)//css(op => op(left, right.tVal), left.asInstanceOf[Any] != right.asInstanceOf[Any])
+    implicit op : `Op!=Builder`[right.TVal]
+  ) = op(left, right.tVal)
   //////////////////////////////////////////////////////////////////////////
 
 
