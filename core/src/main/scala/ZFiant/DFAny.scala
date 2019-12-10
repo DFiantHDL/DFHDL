@@ -260,11 +260,11 @@ object DFAny {
     type TValue
     type Width
     //maximum token value width
-    val width : Int
+    val width : TwoFace.Int[Width]
     val value : TValue
     val bubbleMask : XBitVector[Width]
     val valueBits : XBitVector[Width]
-    final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
+    final def isBubble : Boolean = !(bubbleMask === XBitVector.low(width))
     final def bits : DFBits.Token[Width] = DFBits.Token(width, valueBits, bubbleMask)
     final def bit(relBit : Int) : DFBool.Token = {
       val outBitsValue = valueBits.bit(relBit)
