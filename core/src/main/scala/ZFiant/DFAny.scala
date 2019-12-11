@@ -125,8 +125,8 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-  trait Value[Type <: DFAny.Type, Mod <: Modifier] extends DFAny.Of[Type] {
-    type TMod = Mod
+  trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
+    type TMod <: Mod
   }
 
   type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
@@ -139,15 +139,11 @@ object DFAny {
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
-  implicit class PortOutOps[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](left : DFAny.Port.Out[Type, Init]) {
-    def := [R](right : left.dfType.OpAble[R])(
-      implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
-  }
 
-  sealed trait Constructor[Type <: DFAny.Type, Mod <: Modifier] extends Value[Type, Mod]
+  sealed trait Constructor[Type <: DFAny.Type, +Mod <: Modifier] extends Value[Type, Mod]
 
   final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Constructor[Type, Modifier.Val] {
+    type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
   }
   object Const {
@@ -155,7 +151,7 @@ object DFAny {
     : Const[Type] = ctx.compiler.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta))
   }
 
-  sealed trait Connectable[Type <: DFAny.Type, Mod <: Modifier] extends Constructor[Type, Mod] {
+  sealed trait Connectable[Type <: DFAny.Type, +Mod <: Modifier] extends Constructor[Type, Mod] {
     protected type ConnRet = Connectable[Type,_ <: Modifier]
     protected type PortIn = Port.In[Type,_ <: Option[Seq[Type#TToken]]]
     protected type PortOut = Port.Out[Type,_ <: Option[Seq[Type#TToken]]]
@@ -224,13 +220,13 @@ object DFAny {
     }
   }
 
-  sealed trait Initializable[Type <: DFAny.Type, Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
+  sealed trait Initializable[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
     extends Connectable[Type, Mod] {
     val externalInit : Init
     protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : InitializedSelf
   }
   object Initializable {
-    implicit class InitializableOps[Type <: DFAny.Type, Mod <: Modifier, I <: DFAny](
+    implicit class InitializableOps[Type <: DFAny.Type, +Mod <: Modifier, I <: DFAny](
       val i : Initializable[Type, Mod, None.type, I]
     ) {
       def init(that : i.dfType.InitAble[i.This]*)(
@@ -239,7 +235,7 @@ object DFAny {
     }
   }
 
-  sealed trait Port[Type <: DFAny.Type, Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends
+  sealed trait Port[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends
     Initializable[Type, Mod, Init, InitializedSelf] {
     def <> [R](right : dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
@@ -249,6 +245,7 @@ object DFAny {
     final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
       dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Port[Type, Modifier.Port.In, Init, In[Type, Some[Seq[Type#TToken]]]] {
+      type TMod = Modifier.Port.In
       val modifier : TMod = Modifier.Port.In
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
@@ -262,6 +259,7 @@ object DFAny {
     final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
       dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Port[Type, Modifier.Port.Out, Init, Out[Type, Some[Seq[Type#TToken]]]] {
+      type TMod = Modifier.Port.Out
       val modifier : TMod = Modifier.Port.Out
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
@@ -277,6 +275,7 @@ object DFAny {
   final case class NewVar[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
     dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
   ) extends Initializable[Type, Modifier.Var, Init, NewVar[Type, Some[Seq[Type#TToken]]]] {
+    type TMod = Modifier.Var
     val modifier : TMod = Modifier.Var
     def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, None.type] = Port.In(dfType, None)
     def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, None.type] = Port.Out(dfType, None)
@@ -299,14 +298,16 @@ object DFAny {
     ): NewVar[Type, Init] = ctx.compiler.addMember(NewVar[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
   }
 
-  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, Mod <: Modifier] extends Constructor[Type, Mod] {
-    val refVal : DFRef[RefVal]
+  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Constructor[Type, Mod] {
+    val retValRef : DFRef[RefVal]
   }
   object Alias {
     final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
-      dfType : Type, refVal : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
+      dfType : Type, retValRef : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[Type, RefVal, RefVal#TMod] {
-      val modifier : TMod = refVal.modifier
+      val retVal : RefVal = retValRef
+      type TMod = retVal.TMod
+      val modifier : TMod = retVal.modifier
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
@@ -314,10 +315,12 @@ object DFAny {
       ): AsIs[Type, RefVal] = ctx.compiler.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
     }
     final case class BitsWL[W, L, RefVal <: DFAny](
-      refVal : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
+      retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[DFBits.Type[W], RefVal, RefVal#TMod]{
+      val retVal : RefVal = retValRef
+      type TMod = retVal.TMod
       val dfType : TType = DFBits.Type(relWidth)
-      val modifier : TMod = refVal.modifier
+      val modifier : TMod = retVal.modifier
     }
     object BitsWL {
       def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
@@ -325,9 +328,10 @@ object DFAny {
       ): BitsWL[W, L, RefVal] = ctx.compiler.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
     }
     final case class Prev[RefVal <: DFAny](
-      refVal : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
+      retValRef : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[RefVal#TType, RefVal, Modifier.Val] {
-      val dfType : TType = refVal.dfType
+      type TMod = Modifier.Val
+      val dfType : TType = retValRef.dfType
       val modifier : TMod = Modifier.Val
     }
     object Prev {
@@ -338,6 +342,7 @@ object DFAny {
   }
 
   sealed abstract class Func[Type <: DFAny.Type] extends Constructor[Type, Modifier.Val] {
+    type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
   }
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](

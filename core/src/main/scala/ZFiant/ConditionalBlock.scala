@@ -34,6 +34,7 @@ object MatchConfig {
 object ConditionalBlock {
   sealed abstract class WithRetVal[Type <: DFAny.Type](block : => DFAny.Of[Type]) extends
     ConditionalBlock[DFAny.Of[Type]](block) with DFAny.Value[Type, DFAny.Modifier.Val] {
+    type TMod = DFAny.Modifier.Val
     val modifier : TMod = DFAny.Modifier.Val
   }
   object WithRetVal {
