@@ -7,7 +7,7 @@ object DFNet {
   type Context = DFAny.Context
 
   final case class Assignment(toRef : DFRef[DFAny.Var[_ <: DFAny.Type]], fromRef : DFRef[DFAny], ownerRef: DFRef[DFBlock], meta: Meta) extends DFNet {
-    override def toString: String = s"${toRef.meta.name} := ${fromRef.meta.name}"
+    override def toString: String = s"${toRef.fullName} := ${fromRef.fullName}"
   }
   object Assignment {
     def apply(to: DFAny.Var[_ <: DFAny.Type], from: DFAny)(implicit ctx: Context)
@@ -15,7 +15,7 @@ object DFNet {
   }
 
   final case class Connection(leftRef : DFRef[DFAny.Connectable[_<: DFAny.Type, _]], rightRef : DFRef[DFAny], ownerRef: DFRef[DFBlock], meta: Meta) extends DFNet {
-    override def toString: String = s"${leftRef.meta.name} <> ${rightRef.meta.name}"
+    override def toString: String = s"${leftRef.fullName} <> ${rightRef.fullName}"
   }
   object Connection {
     def apply(left: DFAny.Connectable[_ <: DFAny.Type, _], right: DFAny)(implicit ctx: Context)

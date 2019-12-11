@@ -10,10 +10,12 @@ trait DFMember {
     case b : DFBlock => b.ownerDesign
   }
   lazy val name : String = meta.name
-  lazy val fullName : String = if (owner.isTop) name else s"${owner.fullName}.${name}"
+  lazy val fullName : String = if (owner.isTop) s"${owner.name}.${name}" else s"${owner.fullName}.${name}"
 
-  final def sameDesignAs(that : DFMember) : Boolean = ownerDesign == that.ownerDesign
-//  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
+  final def isSameOwnerDesignAs(that : DFMember) : Boolean = ownerDesign == that.ownerDesign
+  final def isOneLevelBelow(that : DFMember) : Boolean = ownerDesign isSameOwnerDesignAs that
+
+  //  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
     //      (nonTransparentOwnerOption, that) match {
     //        case (None, _) => false
     //        case (Some(a), b) if a == b => true

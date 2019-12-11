@@ -9,6 +9,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock {
   final private[ZFiant] val __compiler : DFCompiler = ctx.compiler
   final override lazy val topDesign : DFDesign = if (isTop) this else owner.topDesign
   final override val isTop : Boolean = ctx.ownerOption.isEmpty
+  final override lazy val fullName : String = if (isTop) name else s"${owner.fullName}.${name}"
   override def toString: String = ctx.meta.name
   __compiler.addMember(this)
 }
