@@ -15,9 +15,9 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   type TToken = dfType.TToken
   final lazy val width = dfType.width
   final protected val left : this.type = this
-  protected type AsVal = DFAny.Val[TType]
-  protected type AsVar = DFAny.Var[TType]
-  protected type AsType[T <: DFAny.Type] = DFAny.ValOrVar[T, TMod]
+  protected type AsVal = DFAny.ValOf[TType]
+  protected type AsVar = DFAny.VarOf[TType]
+  protected type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
 }
 
@@ -43,14 +43,17 @@ object DFAny {
 
   sealed trait Modifier
   object Modifier {
-    case object Val extends Modifier
-    type Val = Val.type
-    case object Var extends Modifier
-    type Var = Var.type
-    case object PortIn extends Modifier
-    type PortIn = PortIn.type
-    case object PortOut extends Modifier
-    type PortOut = PortOut.type
+    sealed trait Val extends Modifier
+    case object Val extends Val
+    sealed trait Var extends Modifier
+    case object Var extends Var
+    sealed trait Port extends Modifier
+    case object Port extends Port {
+      sealed trait In extends Port
+      case object In extends In
+      sealed trait Out extends Port with Var
+      case object Out extends Out
+    }
   }
 
   @implicitNotFound(Context.MissingError.msg)
@@ -122,14 +125,16 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
   }
 
-  trait ValOrVar[Type <: DFAny.Type, Mod <: Modifier] extends DFAny.Of[Type] {
+  trait Value[Type <: DFAny.Type, Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod = Mod
   }
 
-  type Val[Type <: DFAny.Type] = ValOrVar[Type, Modifier.Val]
-  type Var[Type <: DFAny.Type] = ValOrVar[Type, Modifier.Var]
+  type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
+  type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Var]
+  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
+  type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
 
-  implicit class VarOps[Type <: DFAny.Type](left : DFAny.Var[Type]) {
+  implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
@@ -140,7 +145,7 @@ object DFAny {
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
 
-  sealed trait Constructor[Type <: DFAny.Type, Mod <: Modifier] extends ValOrVar[Type, Mod]
+  sealed trait Constructor[Type <: DFAny.Type, Mod <: Modifier] extends Value[Type, Mod]
 
   final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Constructor[Type, Modifier.Val] {
     val modifier : TMod = Modifier.Val
@@ -243,8 +248,8 @@ object DFAny {
   object Port {
     final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
       dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Port[Type, Modifier.PortIn, Init, In[Type, Some[Seq[Type#TToken]]]] {
-      val modifier : TMod = Modifier.PortIn
+    ) extends Port[Type, Modifier.Port.In, Init, In[Type, Some[Seq[Type#TToken]]]] {
+      val modifier : TMod = Modifier.Port.In
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
       ) : In[Type, Some[Seq[Type#TToken]]] = In(dfType, Some(externalInit))(ctx)
@@ -256,8 +261,8 @@ object DFAny {
     }
     final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
       dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Port[Type, Modifier.PortOut, Init, Out[Type, Some[Seq[Type#TToken]]]] {
-      val modifier : TMod = Modifier.PortOut
+    ) extends Port[Type, Modifier.Port.Out, Init, Out[Type, Some[Seq[Type#TToken]]]] {
+      val modifier : TMod = Modifier.Port.Out
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
       ) : Out[Type, Some[Seq[Type#TToken]]] = Out(dfType, Some(externalInit))(ctx)

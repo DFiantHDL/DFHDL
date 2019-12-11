@@ -47,14 +47,14 @@ package object ZFiant {
     val isIn : Boolean
   }
   implicit object IN extends DFDir {
-    type Func[DF <: DFAny] = DFAny.Val[DF#TType]
+    type Func[DF <: DFAny] = DFAny.ValOf[DF#TType]
     override def toString: String = "IN"
     final val isOut : Boolean = false
     final val isIn : Boolean = true
   }
   type IN = IN.type
   implicit object OUT extends DFDir {
-    type Func[DF <: DFAny] = DFAny.Var[DF#TType]
+    type Func[DF <: DFAny] = DFAny.VarOf[DF#TType]
     override def toString: String = "OUT"
     final val isOut : Boolean = true
     final val isIn : Boolean = false
