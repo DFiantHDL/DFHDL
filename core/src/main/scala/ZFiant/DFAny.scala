@@ -139,12 +139,6 @@ object DFAny {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
       def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign == ctx.owner
     }
-    //    final def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
-    //      implicit callOwner : DSLOwnerConstruct
-    //    ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)
-    //    final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
-    //      implicit callOwner : DSLOwnerConstruct
-    //    ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
     private def connectPortInWithPortIn(left : PortIn, right : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two input ports of the same design.")
