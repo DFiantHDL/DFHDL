@@ -5,8 +5,24 @@ trait DFMember {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
   final lazy val owner : DFBlock = ownerRef
-//  lazy val id = owner.addMember(this)
-  override def toString: String = meta.name
+  final lazy val ownerDesign : DFDesign = owner match {
+    case d : DFDesign => d
+    case b : DFBlock => b.ownerDesign
+  }
+  lazy val name : String = meta.name
+  lazy val fullName : String = if (owner.isTop) name else s"${owner.fullName}.${name}"
+
+  final def sameDesignAs(that : DFMember) : Boolean = ownerDesign == that.ownerDesign
+//  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
+    //      (nonTransparentOwnerOption, that) match {
+    //        case (None, _) => false
+    //        case (Some(a), b) if a == b => true
+    //        case (Some(a), b) => a.isDownstreamMemberOf(that)
+    //      }
+//  }
+
+
+  override def toString: String = fullName
 }
 
 object DFMember {

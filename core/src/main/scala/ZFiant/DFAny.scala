@@ -131,7 +131,113 @@ object DFAny {
   }
 
   sealed trait Connectable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
-    protected[ZFiant] def connectWith(that : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = DFNet.Connection(this, that)
+    type ConnRet = Connectable[Type,_]
+    type PortIn = Port.In[Type,_ <: Option[Seq[Type#TToken]]]
+    type PortOut = Port.Out[Type,_ <: Option[Seq[Type#TToken]]]
+    def isConnectingInsideOfPort : Unit ={}
+    //    final def isConnectedAtOwnerOf(member : DSLMemberConstruct)(
+    //      implicit callOwner : DSLOwnerConstruct
+    //    ) : Boolean = member.nonTransparentOwnerOption.contains(callOwner.nonTransparent)
+    //    final def isConnectedAtEitherSide(left : DSLMemberConstruct, right : DSLMemberConstruct)(
+    //      implicit callOwner : DSLOwnerConstruct
+    //    ) : Boolean = isConnectedAtOwnerOf(left.nonTransparentOwner) || isConnectedAtOwnerOf(right.nonTransparentOwner)
+
+    private def connectPortInWithPortIn(left : PortIn, right : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+      (left, right)
+    }
+    private def connectPortOutWithPortOut(left : PortOut, right : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+      ???
+
+    }
+    private def connectPortOutWithPortIn(out : PortOut, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+      ???
+
+    }
+    private def connectValWithPortIn(dfVal : DFAny, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+      ???
+
+    }
+    private def connectValWithPortOut(dfVal : DFAny, out : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+      ???
+
+    }
+    protected[ZFiant] def connectWith(right : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
+//      val (toPort, from) : (ConnRet, DFAny) = (left, right) match {
+//        case (p1 : Port.In[Type,_], p2 : Port.In[Type,_]) => connectPortInWithPortIn(p1, p2)
+//        case (p1 : Port.Out[Type,_], p2 : Port.Out[Type,_]) => connectPortOutWithPortOut(p1, p2)
+//        case (p1 : Port.Out[Type,_], p2 : Port.In[Type,_]) => connectPortOutWithPortIn(p1, p2)
+//        case (p : Port.In[Type,_], v) => connectValWithPortIn(v, p)
+//        case (v, p : Port.In[Type,_]) => connectValWithPortIn(v, p)
+//        case (p : Port.Out[Type,_], v) => connectValWithPortOut(v, p)
+//        case (v, p : Port.Out[Type,_]) => connectValWithPortOut(v, p)
+//        case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
+//      }
+      DFNet.Connection(this, right)
+    }
+    //    private[DFiant] def connectPort2Port(that : Port[_ <: DFAny,_ <: DFDir])(implicit ctx : DFNet.Context) : Unit = {
+    //      implicit val __theOwnerToBe : DSLOwnerConstruct = ctx.owner
+    //      val left = self
+    //      val right = that
+    //      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}\nConnected at ${ctx.owner.fullName}")
+    //      val (fromPort, toPort) =
+    //      //Ports in the same design, connected at the same design
+    //        if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left)) (left.dir, right.dir) match {
+    //          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
+    //          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
+    //          case (ld : IN,  rd : OUT) => (left, right)
+    //          case (ld : OUT, rd : IN)  => (right, left)
+    //          case _ => throwConnectionError("Unexpected connection error")
+    //        }
+    //        //Ports in the same design, connected at the design's owner.
+    //        //This is a loopback connection from a design's output to one of its inputs
+    //        else if ((left hasSameOwnerAs right) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
+    //          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect two input ports of the same design.")
+    //          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect two output ports of the same design.")
+    //          case (ld : IN,  rd : OUT) => (right, left)
+    //          case (ld : OUT, rd : IN)  => (left, right)
+    //          case _ => throwConnectionError("Unexpected connection error")
+    //        }
+    //        //Connecting owner and child design ports, while owner port is left and child port is right.
+    //        else if (right.isDownstreamMemberOf(left.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+    //          case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+    //          case (ld : OUT, rd : IN) if left.isAssigned || left.isInitialized => (left, right) //relaxation of the rule when the owner output port is already assigned to or initialized
+    //          case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+    //          case (ld : IN,  rd : IN)  => (left, right)
+    //          case (ld : OUT, rd : OUT) => (right, left)
+    //          case _ => throwConnectionError("Unexpected connection error")
+    //        }
+    //        //Connecting owner and child design ports, while owner port is right and child port is left.
+    //        else if (left.isDownstreamMemberOf(right.nonTransparentOwner) && isConnectedAtEitherSide(left, right)) (left.dir, right.dir) match {
+    //          case (ld : IN,  rd : OUT) if right.isAssigned || right.isInitialized => (right, left)  //relaxation of the rule when the owner output port is already assigned to or initialized
+    //          case (ld : IN,  rd : OUT) => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+    //          case (ld : OUT, rd : IN)  => throwConnectionError(s"Cannot connect different port directions between owner and child designs.")
+    //          case (ld : IN,  rd : IN)  => (right, left)
+    //          case (ld : OUT, rd : OUT) => (left, right)
+    //          case _ => throwConnectionError("Unexpected connection error")
+    //        }
+    //        //Connecting sibling designs.
+    //        else if ((left.nonTransparentOwner hasSameOwnerAs right.nonTransparentOwner) && isConnectedAtOwnerOf(left.nonTransparentOwner)) (left.dir, right.dir) match {
+    //          case (ld : IN,  rd : IN)  => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
+    //          case (ld : OUT, rd : OUT) => throwConnectionError(s"Cannot connect ports with the same direction between sibling designs.")
+    //          case (ld : OUT, rd : IN)  => (left, right)
+    //          case (ld : IN,  rd : OUT) => (right, left)
+    //          case _ => throwConnectionError("Unexpected connection error")
+    //        }
+    //        else if (left.dir.isIn && isConnectedAtOwnerOf(left.nonTransparentOwner)) {
+    //          throwConnectionError(s"Via connection is currently not supported")
+    //        }
+    //        else if (right.dir.isIn && isConnectedAtOwnerOf(right.nonTransparentOwner)) {
+    //          throwConnectionError(s"Via connection is currently not supported")
+    //        }
+    //        else if (!left.isDownstreamMemberOf(right.nonTransparentOwner) || !right.isDownstreamMemberOf(left.nonTransparentOwner))
+    //          throwConnectionError(s"Connection must be made between ports that are either in the same design, or in a design and its owner, or between two design siblings.")
+    //        else if (!isConnectedAtEitherSide(left, right))
+    //          throwConnectionError(s"The connection call must be placed at the same design as one of the ports or their mutual owner. Call placed at ${ctx.owner.fullName}")
+    //        else throwConnectionError("Unexpected connection error")
+    //
+    //      toPort.connectFrom(fromPort)
+    //    }
   }
 
   sealed trait Initializable[Type <: DFAny.Type, Var, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
@@ -154,6 +260,10 @@ object DFAny {
     def <> [R](right : dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
     ) : Unit = connectWith(op(dfType, right))
+
+    protected[ZFiant] def connectPort(that : Port.In[_,_]) : Unit = {}
+    protected[ZFiant] def connectPort(that : Port.Out[_,_]) : Unit = {}
+    protected[ZFiant] def connectVal(that : DFAny.Of[_]) : Unit = {}
   }
   object Port {
     final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
@@ -162,6 +272,9 @@ object DFAny {
       protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
         implicit ctx : DFAny.Context
       ) : In[Type, Some[Seq[Type#TToken]]] = In(dfType, Some(externalInit))(ctx)
+      override protected[ZFiant] def connectPort(that : Port.In[_,_]) : Unit = {
+
+      }
     }
     object In {
       def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
