@@ -33,7 +33,9 @@ object MatchConfig {
 
 object ConditionalBlock {
   sealed abstract class WithRetVal[Type <: DFAny.Type](block : => DFAny.Of[Type]) extends
-    ConditionalBlock[DFAny.Of[Type]](block) with DFAny.ValOrVar[Type, false]
+    ConditionalBlock[DFAny.Of[Type]](block) with DFAny.ValOrVar[Type, DFAny.Modifier.Val] {
+    val modifier : TMod = DFAny.Modifier.Val
+  }
   object WithRetVal {
     final case class IfBlock[Type <: DFAny.Type](
       dfType : Type, condRef : DFRef[DFBool], ownerRef: DFRef[DFBlock], meta: Meta
