@@ -45,9 +45,10 @@ object DFAny {
   object Modifier {
     sealed trait Val extends Modifier
     case object Val extends Val
-    sealed trait Var extends Modifier
+    sealed trait Connectable extends Modifier
+    sealed trait Var extends Connectable
     case object Var extends Var
-    sealed trait Port extends Modifier
+    sealed trait Port extends Connectable
     case object Port extends Port {
       sealed trait In extends Port
       case object In extends In
@@ -131,6 +132,7 @@ object DFAny {
 
   type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Var]
+  type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
   type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
 
@@ -152,9 +154,9 @@ object DFAny {
   }
 
   sealed trait Connectable[Type <: DFAny.Type, +Mod <: Modifier] extends Constructor[Type, Mod] {
-    protected type ConnRet = Connectable[Type,_ <: Modifier]
-    protected type PortIn = Port.In[Type,_ <: Option[Seq[Type#TToken]]]
-    protected type PortOut = Port.Out[Type,_ <: Option[Seq[Type#TToken]]]
+    protected type ConnRet = ConnectableOf[Type]
+    protected type PortIn = PortInOf[Type]
+    protected type PortOut = PortOutOf[Type]
 
     protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
