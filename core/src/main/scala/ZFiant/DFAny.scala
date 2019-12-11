@@ -122,7 +122,7 @@ object DFAny {
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
 
-  abstract class Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var]
+  sealed trait Constructor[Type <: DFAny.Type, Var] extends ValOrVar[Type, Var]
 
   final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Constructor[Type, false]
   object Const {
@@ -131,15 +131,15 @@ object DFAny {
   }
 
   sealed trait Connectable[Type <: DFAny.Type, Var] extends Constructor[Type, Var] {
-    type ConnRet = Connectable[Type,_]
-    type PortIn = Port.In[Type,_ <: Option[Seq[Type#TToken]]]
-    type PortOut = Port.Out[Type,_ <: Option[Seq[Type#TToken]]]
+    protected type ConnRet = Connectable[Type,_]
+    protected type PortIn = Port.In[Type,_ <: Option[Seq[Type#TToken]]]
+    protected type PortOut = Port.Out[Type,_ <: Option[Seq[Type#TToken]]]
 
-    implicit class ConnectionExtras(that : DFAny) {
+    protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
       def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign == ctx.owner
     }
-    private def connectPortInWithPortIn(left : PortIn, right : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+    private def connectPortInWithPortIn(left : PortIn, right : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two input ports of the same design.")
       //Connecting owner and child design input ports, while child port is left and owner port is right.
@@ -148,7 +148,7 @@ object DFAny {
       else if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (right, left)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectPortOutWithPortOut(left : PortOut, right : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+    private def connectPortOutWithPortOut(left : PortOut, right : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two output ports of the same design.")
       //Connecting owner and child design output ports, while child port is left and owner port is right.
@@ -157,7 +157,7 @@ object DFAny {
       else if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (left, right)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectPortOutWithPortIn(out : PortOut, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+    private def connectPortOutWithPortIn(out : PortOut, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
       //Connecting input and output ports internally at the same design
       if ((out isSameOwnerDesignAs in) && out.isConnectingInternally) (out, in)
@@ -165,15 +165,24 @@ object DFAny {
       else if ((out.ownerDesign isSameOwnerDesignAs in.ownerDesign) && out.isConnectingExternally) (in, out)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectValWithPortIn(dfVal : DFAny, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
+    private def connectValWithPortIn(dfVal : This, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
+//      //Connecting a value to an input port externally
+//      if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally)) (in, dfVal)
+//      //Connecting owner and child design input ports, while child port is right and owner port is left.
+//      else dfVal match {
+//        case c : Connectable[Type, _] if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (right, left) =>
+//
+//      }
+//
+//
+//      else throwConnectionError("Unsupported connection")
+      ???
+    }
+    private def connectValWithPortOut(dfVal : This, out : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
       ???
 
     }
-    private def connectValWithPortOut(dfVal : DFAny, out : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, DFAny) = {
-      ???
-
-    }
-    protected[ZFiant] def connectWith(right : DFAny.Of[Type])(implicit ctx : DFNet.Context) : Unit = {
+    protected[ZFiant] def connectWith(right : This)(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
       val (toPort, from) : (ConnRet, DFAny) = (left, right) match {
         case (p1 : Port.In[Type,_], p2 : Port.In[Type,_]) => connectPortInWithPortIn(p1, p2)
