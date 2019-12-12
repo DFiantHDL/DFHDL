@@ -15,11 +15,12 @@ object ZTest extends App {
     }
 
     b"11111111" | b
-    b | b
+    val z = b | b
     b | b"11111111"
 
-    b0s <-> c
-    b <-> c
+    b0s <> c
+    b <> c
+    z <> c
     ifdf(true){
       b := b0s
     }
@@ -47,7 +48,7 @@ object ZTest extends App {
   trait BBB extends DFDesign {
     val i = DFBits(8) <> IN init b0s
     val o = DFBits(8) <> OUT// init b"11111111"
-    o <-> i
+    o <> i
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {

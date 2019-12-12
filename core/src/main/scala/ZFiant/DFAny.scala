@@ -191,6 +191,9 @@ object DFAny {
     type TMod = Mod
     def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, Port.In.Uninitialized] = Port.In(dfType)
     def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, Port.Out.Uninitialized] = Port.Out(dfType)
+    def <>[R](right: DFAny.PortOf[Type])(
+      implicit ctx: DFNet.Context, op: dfType.`Op<>Builder`[Type, DFAny.PortOf[Type]]
+    ): Unit = left.connectWith(op(dfType, right))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
@@ -297,10 +300,6 @@ object DFAny {
     protected type PortIn = DFAny//PortInOf[_ <: DFAny.Type]
     protected type PortOut = DFAny//PortOutOf[_ <: DFAny.Type]
     type This = DFAny//Of[_ <: DFAny.Type]
-
-    def <-> [R](right : left.dfType.OpAble[R])(
-      implicit ctx : DFNet.Context, op : left.dfType.`Op<>Builder`[Type, R]
-    ) : Unit = connectWith(op(left.dfType, right))
 
     protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner

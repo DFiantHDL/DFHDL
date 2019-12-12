@@ -235,16 +235,17 @@ object DFBits extends DFAny.Companion {
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
-    class Able[L](val value : L) extends DFAny.Op.Able[L]
+    class Able[L](val value : L) extends DFAny.Op.Able[L] {
+      final def <> [RW](port : DFAny.PortOf[Type[RW]])(
+        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
+      ) = port.connectWith(op(port.dfType, value))
+    }
     class Able2[L](value : L) extends Able[L](value) {
       final val left = value
       final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
       final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def <-> [RW](port : DFAny.PortOf[Type[RW]])(
-        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
-      ) = port.connectWith(op(port.dfType, value))
     }
     trait Implicits {
       sealed class DFBitsFromBitVector(left : BitVector) extends Able2[BitVector](left)
