@@ -21,7 +21,7 @@ object DFBool extends DFAny.Companion {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     override def toString: String = "DFBool()"
   }
-  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(), None)
+  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
@@ -172,7 +172,7 @@ object DFBool extends DFAny.Companion {
       final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
-      final def <> (port : DFAny.Connectable[Type, _])(
+      final def <> (port : DFAny.PortOf[Type])(
         implicit op: `Op<>`.Builder[Type, L], ctx : DFNet.Context
       ) = port.connectWith(op(port.dfType, left))
     }

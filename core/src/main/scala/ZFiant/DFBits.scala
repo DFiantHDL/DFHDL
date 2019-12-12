@@ -23,7 +23,7 @@ object DFBits extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits($width)"
   }
-  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), None)
+  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width))
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
@@ -241,7 +241,7 @@ object DFBits extends DFAny.Companion {
 //      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def <> [RW](port : DFAny.Connectable[Type[RW], _])(
+      final def <> [RW](port : DFAny.PortOf[Type[RW]])(
         implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
       ) = port.connectWith(op(port.dfType, left))
     }
