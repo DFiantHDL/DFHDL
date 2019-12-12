@@ -237,9 +237,9 @@ object DFBits extends DFAny.Companion {
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
       final val left = value
-//      final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
-//      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
-//      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
       final def <> [RW](port : DFAny.PortOf[Type[RW]])(
         implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
@@ -400,6 +400,92 @@ object DFBits extends DFAny.Companion {
   }
   object `Op:=` extends `Ops:=,<>`
   object `Op<>` extends `Ops:=,<>`
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  trait TokenOp[Op <: DiSoOp, L, R, O] {
+    def apply(left : L, right : R) : O
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Logic operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class OpsLogic[Op <: DiSoOp](op : Op) {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[-L, -R, Comp0] = Builder[L, R] {
+        type Out = Comp0
+      }
+
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "Logic operations do not permit different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      implicit def `TokenOp|`[LW, RW] : TokenOp[DiSoOp.|, Token[LW], Token[RW], Token[LW]] = (l, r) => (l | r)
+      implicit def `TokenOp&`[LW, RW] : TokenOp[DiSoOp.&, Token[LW], Token[RW], Token[LW]] = (l, r) => (l & r)
+      implicit def `TokenOp^`[LW, RW] : TokenOp[DiSoOp.^, Token[LW], Token[RW], Token[LW]] = (l, r) => (l ^ r)
+
+      trait DetailedBuilder[L, LW, R, RW] {
+        type Out
+        def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Out]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LW, R, RW](
+          implicit
+          ctx : DFAny.Context,
+          tokenOp : TokenOp[Op, Token[LW], Token[RW], Token[LW]],
+          checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        ) : DetailedBuilder[L, LW, R, RW]{type Out = DFBits[LW]} =
+          new DetailedBuilder[L, LW, R, RW]{
+            type Out = DFBits[LW]
+            def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Out] =
+              new Builder[L, R] {
+                type Out = DFBits[LW]
+                def apply(leftL : L, rightR : R) : Out = {
+                  val (left, right) = properLR(leftL, rightR)
+                  // Completing runtime checks
+                  checkLWvRW.unsafeCheck(left.width, right.width)
+                  // Constructing op
+                  DFAny.Func2[Type[LW], DFBits[LW], Op, DFBits[RW]](Type[LW](left.width), left, op, right)((l, r) => tokenOp(l, r))
+                }
+              }
+          }
+      }
+
+      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+        implicit
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, DFBits[RW], RW]
+      ) = detailedBuilder((left, right) => (left, right))
+
+      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.Builder.Aux[R, RW],
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, R, RW]
+      ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
+
+      implicit def evConst_op_DFBits[L, LW, LE, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Context,
+        lConst : Const.Builder.Aux[L, LW],
+        detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
+      ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
+
+      type UnconstrainedLiteralError =
+        RequireMsgSym[false, "An unconstrained-width literal cannot be used in a logic operation", Builder[_,_]]
+
+      implicit def evDFBits_op_SBV[LW](implicit error : UnconstrainedLiteralError)
+      : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] = ???
+      implicit def evSBV_op_DFBits[RW](implicit error : UnconstrainedLiteralError)
+      : Aux[SameBitsVector, DFBits[RW], DFBits[RW]] = ???
+    }
+  }
+  object `Op|` extends OpsLogic(DiSoOp.|)
+  object `Op&` extends OpsLogic(DiSoOp.&)
+  object `Op^` extends OpsLogic(DiSoOp.^)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

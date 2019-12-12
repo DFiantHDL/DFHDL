@@ -14,6 +14,8 @@ object ZTest extends App {
       b
     }
 
+    b | b
+
     b0s <> c
     b <> c
     ifdf(true){
