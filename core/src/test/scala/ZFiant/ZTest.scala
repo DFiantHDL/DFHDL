@@ -3,7 +3,8 @@ package ZFiant
 object ZTest extends App {
   abstract class AAA()(implicit ctx : ContextOf[AAA]) extends DFDesign {
 
-    val b = DFBits(8)
+    val b = DFBits(8) init b0s
+
     val c = DFBits(8) <> OUT
     DFBits(8).ifdf(true) {
       b
@@ -13,7 +14,7 @@ object ZTest extends App {
       b
     }
 
-    b0s <> b
+    b0s <> c
     b <> c
     ifdf(true){
       b := b0s

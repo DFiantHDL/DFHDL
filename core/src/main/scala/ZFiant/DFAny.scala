@@ -41,22 +41,6 @@ object DFAny {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
   }
 
-  sealed trait Modifier
-  object Modifier {
-    sealed trait Val extends Modifier
-    case object Val extends Val
-    sealed trait Connectable extends Modifier
-    sealed trait Var extends Connectable
-    case object Var extends Var
-    sealed trait Port extends Connectable
-    case object Port extends Port {
-      sealed trait In extends Port
-      case object In extends In
-      sealed trait Out extends Port with Var
-      case object Out extends Out
-    }
-  }
-
   @implicitNotFound(Context.MissingError.msg)
   final case class Context(meta : Meta, owner : DFBlock, compiler: DFCompiler) extends DFMember.Context
   object Context {
@@ -129,34 +113,197 @@ object DFAny {
   trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
   }
-
-  type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
-  type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Var]
-  type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
-  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
-  type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
-
-  implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
-    def := [R](right : left.dfType.OpAble[R])(
-      implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
+  sealed trait Modifier extends Product with Serializable
+  object Modifier {
+    sealed trait Val extends Modifier
+    case object Val extends Val
+    sealed trait Assignable extends Modifier
+    sealed trait Connectable extends Modifier
+    sealed trait Initializable extends Modifier
+    sealed trait Initialized[Token <: DFAny.Token] extends Modifier {
+      val externalInit : Seq[Token]
+    }
+    final case class Constant[Token <: DFAny.Token](token : Token) extends Initialized[Token] with Val {
+      override val externalInit: Seq[Token] = Seq(token)
+    }
+    sealed trait Port extends Connectable
+    object Port {
+      sealed trait In extends Port
+      sealed trait Out extends Port with Assignable
+    }
+    sealed trait NewVar extends Connectable with Assignable
   }
 
-  sealed trait Constructor[Type <: DFAny.Type, +Mod <: Modifier] extends Value[Type, Mod]
-
-  final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Constructor[Type, Modifier.Val] {
-    type TMod = Modifier.Val
-    val modifier : TMod = Modifier.Val
+  final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Value[Type, Modifier.Constant[Type#TToken]] {
+    type TMod = Modifier.Constant[Type#TToken]
+    val modifier : TMod = Modifier.Constant(token)
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
     : Const[Type] = ctx.compiler.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta))
   }
 
-  sealed trait Connectable[Type <: DFAny.Type, +Mod <: Modifier] extends Constructor[Type, Mod] {
+  object Port {
+    final case class In[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.In](
+      dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Value[Type, Mod] {
+      type TMod = Mod
+    }
+    object In {
+      sealed trait Uninitialized extends DFAny.Modifier.Port.In with DFAny.Modifier.Initializable
+      case object Uninitialized extends Uninitialized
+      case class Initialized[Token <: DFAny.Token](externalInit: Seq[Token]) extends DFAny.Modifier.Port.In with DFAny.Modifier.Initialized[Token]
+      implicit class InitializableOps[Type <: DFAny.Type](val i : In[Type, Uninitialized]) {
+        def init(that : i.dfType.InitAble[i.This]*)(
+          implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
+        ) : In[Type, Initialized[i.TToken]] =
+          ctx.compiler.addMember(In[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+      }
+      def apply[Type <: DFAny.Type](dfType: Type)(
+        implicit ctx: DFAny.Context
+      ): In[Type, Uninitialized] = ctx.compiler.addMember(In[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
+    }
+    final case class Out[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.Out](
+      dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Value[Type, Mod] {
+      type TMod = Mod
+    }
+    object Out {
+      sealed trait Uninitialized extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initializable
+      case object Uninitialized extends Uninitialized
+      case class Initialized[Token <: DFAny.Token](externalInit: Seq[Token]) extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initialized[Token]
+      implicit class InitializableOps[Type <: DFAny.Type](val i : Out[Type, Uninitialized]) {
+        def init(that : i.dfType.InitAble[i.This]*)(
+          implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
+        ) : Out[Type, Initialized[i.TToken]] =
+          ctx.compiler.addMember(Out[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+      }
+      def apply[Type <: DFAny.Type](dfType: Type)(
+        implicit ctx: DFAny.Context
+      ): Out[Type, Uninitialized] = ctx.compiler.addMember(Out[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
+    }
+  }
+
+  final case class NewVar[Type <: DFAny.Type, Mod <: DFAny.Modifier.NewVar](
+    dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
+  ) extends Value[Type, Mod] {
+    type TMod = Mod
+    def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, Port.In.Uninitialized] = Port.In(dfType)
+    def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, Port.Out.Uninitialized] = Port.Out(dfType)
+    def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
+      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
+    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
+      dfType, condConv(DFBool.Type(),cond)
+    )(blockConv(dfType, block))(ctx)
+    def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
+      implicit ctx : DFBlock.Context
+    ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
+      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](dfType, matchValue, matchConfig)(ctx)
+    override def toString: String = dfType.toString
+  }
+  object NewVar {
+    sealed trait Uninitialized extends DFAny.Modifier.NewVar with DFAny.Modifier.Initializable
+    case object Uninitialized extends Uninitialized
+    case class Initialized[Token <: DFAny.Token](externalInit: Seq[Token]) extends DFAny.Modifier.NewVar with DFAny.Modifier.Initialized[Token]
+    implicit class InitializableOps[Type <: DFAny.Type](val i : NewVar[Type, Uninitialized]) {
+      def init(that : i.dfType.InitAble[i.This]*)(
+        implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
+      ) : NewVar[Type, Initialized[i.TToken]] =
+        ctx.compiler.addMember(NewVar[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+    }
+    def apply[Type <: DFAny.Type](dfType: Type)(
+      implicit ctx: Context
+    ): NewVar[Type, Uninitialized] = ctx.compiler.addMember(NewVar[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
+  }
+
+  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] {
+    val retValRef : DFRef[RefVal]
+  }
+  object Alias {
+    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
+      dfType : Type, retValRef : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Alias[Type, RefVal, RefVal#TMod] {
+      val retVal : RefVal = retValRef
+      type TMod = retVal.TMod
+      val modifier : TMod = retVal.modifier
+    }
+    object AsIs {
+      def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
+        implicit ctx: Context
+      ): AsIs[Type, RefVal] = ctx.compiler.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
+    }
+    final case class BitsWL[W, L, RefVal <: DFAny](
+      retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Alias[DFBits.Type[W], RefVal, RefVal#TMod]{
+      val retVal : RefVal = retValRef
+      type TMod = retVal.TMod
+      val dfType : TType = DFBits.Type(relWidth)
+      val modifier : TMod = retVal.modifier
+    }
+    object BitsWL {
+      def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
+        implicit ctx: Context
+      ): BitsWL[W, L, RefVal] = ctx.compiler.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+    }
+    final case class Prev[RefVal <: DFAny](
+      retValRef : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Alias[RefVal#TType, RefVal, Modifier.Val] {
+      type TMod = Modifier.Val
+      val dfType : TType = retValRef.dfType
+      val modifier : TMod = Modifier.Val
+    }
+    object Prev {
+      def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
+        implicit ctx: Context
+      ): Prev[RefVal] = ctx.compiler.addMember(Prev[RefVal](refVal, step, ctx.owner, ctx.meta))
+    }
+  }
+
+  sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] {
+    type TMod = Modifier.Val
+    val modifier : TMod = Modifier.Val
+  }
+  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+    dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
+  )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type]
+  object Func2 {
+    def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+      dfType: Type, leftArg: L, op: Op, rightArg: R
+    )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
+    : Func2[Type, L, Op, R] = ctx.compiler.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Extension Classes
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
+  type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
+  implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
+    def := [R](right : left.dfType.OpAble[R])(
+      implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
+    ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
+  }
+
+  //  sealed trait Initializable[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
+  //    extends Connectable[Type, Mod] {
+  //    val externalInit : Init
+  //    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : InitializedSelf
+  //  }
+  //  object Initializable {
+  //  }
+
+  type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
+  type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port]
+  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
+  type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
+
+  implicit class ConnectableOps[Type <: DFAny.Type](left : ConnectableOf[Type]){
     protected type ConnRet = ConnectableOf[Type]
     protected type PortIn = PortInOf[Type]
     protected type PortOut = PortOutOf[Type]
+    type This = Of[Type]
 
     protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
@@ -222,141 +369,14 @@ object DFAny {
     }
   }
 
-  sealed trait Initializable[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
-    extends Connectable[Type, Mod] {
-    val externalInit : Init
-    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : InitializedSelf
-  }
-  object Initializable {
-    implicit class InitializableOps[Type <: DFAny.Type, +Mod <: Modifier, I <: DFAny](
-      val i : Initializable[Type, Mod, None.type, I]
-    ) {
-      def init(that : i.dfType.InitAble[i.This]*)(
-        implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
-      ) : I = i.initialize(op(i, that))
-    }
-  }
-
-  sealed trait Port[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends
-    Initializable[Type, Mod, Init, InitializedSelf] {
-    def <> [R](right : dfType.OpAble[R])(
-      implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
-    ) : Unit = connectWith(op(dfType, right))
-  }
-  object Port {
-    final case class In[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
-      dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Port[Type, Modifier.Port.In, Init, In[Type, Some[Seq[Type#TToken]]]] {
-      type TMod = Modifier.Port.In
-      val modifier : TMod = Modifier.Port.In
-      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
-        implicit ctx : DFAny.Context
-      ) : In[Type, Some[Seq[Type#TToken]]] = In(dfType, Some(externalInit))(ctx)
-    }
-    object In {
-      def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
-        implicit ctx: DFAny.Context
-      ): In[Type, Init] = ctx.compiler.addMember(In[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
-    }
-    final case class Out[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
-      dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Port[Type, Modifier.Port.Out, Init, Out[Type, Some[Seq[Type#TToken]]]] {
-      type TMod = Modifier.Port.Out
-      val modifier : TMod = Modifier.Port.Out
-      protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(
-        implicit ctx : DFAny.Context
-      ) : Out[Type, Some[Seq[Type#TToken]]] = Out(dfType, Some(externalInit))(ctx)
-    }
-    object Out {
-      def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
-        implicit ctx: DFAny.Context
-      ): Out[Type, Init] = ctx.compiler.addMember(Out[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
-    }
-  }
-
-  final case class NewVar[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](
-    dfType : Type, externalInit : Init, ownerRef: DFRef[DFBlock], meta: Meta
-  ) extends Initializable[Type, Modifier.Var, Init, NewVar[Type, Some[Seq[Type#TToken]]]] {
-    type TMod = Modifier.Var
-    val modifier : TMod = Modifier.Var
-    def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, None.type] = Port.In(dfType, None)
-    def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, None.type] = Port.Out(dfType, None)
-    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : NewVar[Type, Some[Seq[Type#TToken]]] =
-      NewVar(dfType, Some(externalInit))(ctx)
-    def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
-      dfType, condConv(DFBool.Type(),cond)
-    )(blockConv(dfType, block))(ctx)
-    def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-      implicit ctx : DFBlock.Context
-    ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
-      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](dfType, matchValue, matchConfig)(ctx)
-    override def toString: String = dfType.toString
-  }
-  object NewVar {
-    def apply[Type <: DFAny.Type, Init <: Option[Seq[Type#TToken]]](dfType: Type, externalInit: Init)(
-      implicit ctx: Context
-    ): NewVar[Type, Init] = ctx.compiler.addMember(NewVar[Type, Init](dfType, externalInit, ctx.owner, ctx.meta))
-  }
-
-  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Constructor[Type, Mod] {
-    val retValRef : DFRef[RefVal]
-  }
-  object Alias {
-    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
-      dfType : Type, retValRef : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Alias[Type, RefVal, RefVal#TMod] {
-      val retVal : RefVal = retValRef
-      type TMod = retVal.TMod
-      val modifier : TMod = retVal.modifier
-    }
-    object AsIs {
-      def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
-        implicit ctx: Context
-      ): AsIs[Type, RefVal] = ctx.compiler.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
-    }
-    final case class BitsWL[W, L, RefVal <: DFAny](
-      retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Alias[DFBits.Type[W], RefVal, RefVal#TMod]{
-      val retVal : RefVal = retValRef
-      type TMod = retVal.TMod
-      val dfType : TType = DFBits.Type(relWidth)
-      val modifier : TMod = retVal.modifier
-    }
-    object BitsWL {
-      def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
-        implicit ctx: Context
-      ): BitsWL[W, L, RefVal] = ctx.compiler.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
-    }
-    final case class Prev[RefVal <: DFAny](
-      retValRef : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Alias[RefVal#TType, RefVal, Modifier.Val] {
-      type TMod = Modifier.Val
-      val dfType : TType = retValRef.dfType
-      val modifier : TMod = Modifier.Val
-    }
-    object Prev {
-      def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
-        implicit ctx: Context
-      ): Prev[RefVal] = ctx.compiler.addMember(Prev[RefVal](refVal, step, ctx.owner, ctx.meta))
-    }
-  }
-
-  sealed abstract class Func[Type <: DFAny.Type] extends Constructor[Type, Modifier.Val] {
-    type TMod = Modifier.Val
-    val modifier : TMod = Modifier.Val
-  }
-  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
-  )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type]
-  object Func2 {
-    def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-      dfType: Type, leftArg: L, op: Op, rightArg: R
-    )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
-    : Func2[Type, L, Op, R] = ctx.compiler.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
-  }
+  //  sealed trait Port[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends
+  //    Initializable[Type, Mod, Init, InitializedSelf] {
+  //    def <> [R](right : dfType.OpAble[R])(
+  //      implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
+  //    ) : Unit = connectWith(op(dfType, right))
+  //  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
