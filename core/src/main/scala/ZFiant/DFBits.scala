@@ -236,25 +236,30 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
+      final def <> [RW](port : DFAny.PortOf[Type[RW]])(
+        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
+      ) = port.connectWith(op(port.dfType, value))
+    }
+    class Able2[L](value : L) extends Able[L](value) {
       final val left = value
       final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
       final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def <> [RW](port : DFAny.PortOf[Type[RW]])(
-        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
-      ) = port.connectWith(op(port.dfType, left))
     }
     trait Implicits {
-      sealed class DFBitsFromBitVector(left : BitVector) extends Able[BitVector](left)
+      sealed class DFBitsFromBitVector(left : BitVector) extends Able2[BitVector](left)
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
-      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able[XBitVector[W]](left)
+      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able2[XBitVector[W]](left)
       final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
-      sealed class DFBitsFromZeros(left : SameBitsVector) extends Able[SameBitsVector](left)
+      sealed class DFBitsFromZeros(left : SameBitsVector) extends Able2[SameBitsVector](left)
       final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
-      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends Able[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
+      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends Able2[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
       final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
       final implicit def ofDFBits[W](value : DFBits[W]) : Able[DFBits[W]] = new Able[DFBits[W]](value)
+      implicit class Ops[LW](val left : DFBits[LW]){
+        final def | [R, RW](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
+      }
     }
     object Able extends Implicits
   }
@@ -402,14 +407,23 @@ object DFBits extends DFAny.Companion {
   object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  trait TokenOp[Op <: DiSoOp, L, R, O] {
-    def apply(left : L, right : R) : O
-  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Logic operations
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsLogic[Op <: DiSoOp](op : Op) {
+  protected trait LogicOp[-Op <: DiSoOp] {
+    def apply[LW, RW](left : Token[LW], right : Token[RW]) : Token[LW]
+  }
+  protected val `TokenOp|` : LogicOp[DiSoOp.|] = new LogicOp[DiSoOp.|] {
+    def apply[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left | right
+  }
+  protected val `TokenOp&` : LogicOp[DiSoOp.&] = new LogicOp[DiSoOp.&] {
+    def apply[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left & right
+  }
+  protected val `TokenOp^` : LogicOp[DiSoOp.^] = new LogicOp[DiSoOp.^] {
+    def apply[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left ^ right
+  }
+  protected abstract class OpsLogic[Op <: DiSoOp](op : Op)(tokenOp : LogicOp[Op]) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
     trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
 
@@ -424,10 +438,6 @@ object DFBits extends DFAny.Companion {
         type ParamFace = Int
       }
 
-      implicit def `TokenOp|`[LW, RW] : TokenOp[DiSoOp.|, Token[LW], Token[RW], Token[LW]] = (l, r) => (l | r)
-      implicit def `TokenOp&`[LW, RW] : TokenOp[DiSoOp.&, Token[LW], Token[RW], Token[LW]] = (l, r) => (l & r)
-      implicit def `TokenOp^`[LW, RW] : TokenOp[DiSoOp.^, Token[LW], Token[RW], Token[LW]] = (l, r) => (l ^ r)
-
       trait DetailedBuilder[L, LW, R, RW] {
         type Out
         def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Out]
@@ -436,7 +446,6 @@ object DFBits extends DFAny.Companion {
         implicit def ev[L, LW, R, RW](
           implicit
           ctx : DFAny.Context,
-          tokenOp : TokenOp[Op, Token[LW], Token[RW], Token[LW]],
           checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
         ) : DetailedBuilder[L, LW, R, RW]{type Out = DFBits[LW]} =
           new DetailedBuilder[L, LW, R, RW]{
@@ -483,9 +492,9 @@ object DFBits extends DFAny.Companion {
       : Aux[SameBitsVector, DFBits[RW], DFBits[RW]] = ???
     }
   }
-  object `Op|` extends OpsLogic(DiSoOp.|)
-  object `Op&` extends OpsLogic(DiSoOp.&)
-  object `Op^` extends OpsLogic(DiSoOp.^)
+  object `Op|` extends OpsLogic(DiSoOp.|)(`TokenOp|`)
+  object `Op&` extends OpsLogic(DiSoOp.&)(`TokenOp&`)
+  object `Op^` extends OpsLogic(DiSoOp.^)(`TokenOp^`)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

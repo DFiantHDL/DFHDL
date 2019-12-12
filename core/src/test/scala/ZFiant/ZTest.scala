@@ -14,7 +14,9 @@ object ZTest extends App {
       b
     }
 
+    b"11111111" | b
     b | b
+    b | b"11111111"
 
     b0s <> c
     b <> c
