@@ -298,7 +298,7 @@ object DFAny {
     protected type PortOut = DFAny//PortOutOf[_ <: DFAny.Type]
     type This = DFAny//Of[_ <: DFAny.Type]
 
-    def <> [R](right : left.dfType.OpAble[R])(
+    def <-> [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op<>Builder`[Type, R]
     ) : Unit = connectWith(op(left.dfType, right))
 
