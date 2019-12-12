@@ -166,26 +166,32 @@ object DFBool extends DFAny.Companion {
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
-    class Able[L](val value : L) extends DFAny.Op.Able[L] {
+    class Able[L](val value : L) extends DFAny.Op.Able[L]
+    class AbleOps[L](value : L) extends Able(value) {
       final val left = value
       final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
     }
     trait Implicits {
-      sealed class DFBoolFrom0(left : 0) extends Able[0](left)
+      sealed class DFBoolFrom0(left : 0) extends AbleOps[0](left)
       final implicit def DFBoolFrom0(left: 0): DFBoolFrom0 = new DFBoolFrom0(left)
-      sealed class DFBoolFrom1(left : 1) extends Able[1](left)
+      sealed class DFBoolFrom1(left : 1) extends AbleOps[1](left)
       final implicit def DFBoolFrom1(left: 1): DFBoolFrom1 = new DFBoolFrom1(left)
-      sealed class DFBoolFromBoolean[L <: Boolean](left : L) extends Able[L](left)
+      sealed class DFBoolFromBoolean[L <: Boolean](left : L) extends AbleOps[L](left)
       final implicit def DFBoolFromBoolean[L <: Boolean](left: L): DFBoolFromBoolean[L] = new DFBoolFromBoolean[L](left)
       sealed class DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
-      ) extends Able[DFBool](DFAny.Alias.AsIs(Type(), left))
+      ) extends AbleOps[DFBool](DFAny.Alias.AsIs(Type(), left))
       final implicit def DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
       ) : DFBoolFromDFBitsW1[LW] = new DFBoolFromDFBitsW1[LW](left)
       final implicit def ofDFBool(value : DFBool) : Able[DFBool] = new Able[DFBool](value)
+      implicit class DFBoolOps[LW](val left : DFBool) {
+        final def || [R, RW](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
+        final def && [R, RW](right : Able[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
+        final def ^ [R, RW](right : Able[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
+      }
     }
     object Able extends Implicits
   }
