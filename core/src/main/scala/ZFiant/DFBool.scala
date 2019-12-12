@@ -159,7 +159,6 @@ object DFBool extends DFAny.Companion {
       : Builder[Sym, C] = value => DFAny.Const[Type](Type(), Token(value))
     }
   }
-//  implicit def conv[C](t : C)(implicit const : Const.Builder[Const, C]) : Const = const(t)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -172,9 +171,6 @@ object DFBool extends DFAny.Companion {
       final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
-//      final def <> (port : DFAny.ConnectableOf[Type])(
-//        implicit op: `Op<>`.Builder[Type, L], ctx : DFNet.Context
-//      ) = port.connectWith(op(port.dfType, left))
     }
     trait Implicits {
       sealed class DFBoolFrom0(left : 0) extends Able[0](left)

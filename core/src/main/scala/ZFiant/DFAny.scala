@@ -113,6 +113,16 @@ object DFAny {
   trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
   }
+  implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
+    def <>[R](right: left.dfType.OpAble[R])(
+      implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, R]
+    ): Unit = left.connectWith(op(left.dfType, right))
+  }
+  implicit class PortOps2[L](left : L) {
+    def <>[Type <: DFAny.Type](right: PortOf[Type])(
+      implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, L]
+    ): Unit = right.connectWith(op(right.dfType, left))
+  }
 
   sealed trait Modifier extends Product with Serializable
   object Modifier {
