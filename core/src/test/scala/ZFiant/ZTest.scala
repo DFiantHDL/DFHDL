@@ -2,11 +2,16 @@ package ZFiant
 
 object ZTest extends App {
   trait ConnTest extends DFDesign {
+    val bool = DFBool() <> IN
     val pI = DFBits(8) <> IN
     val pO = DFBits(8) <> OUT
     val b = DFBits(8)
     val or = b | b
 
+    bool <> bool
+    bool <> (bool || bool)
+    bool || true
+    true || bool
     pI <> pI
     pO <> pI
     pI <> pO

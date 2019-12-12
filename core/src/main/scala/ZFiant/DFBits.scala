@@ -231,7 +231,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
-    class Able2[L](value : L) extends Able[L](value) {
+    class AbleOps[L](value : L) extends Able[L](value) {
       final val left = value
       final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
       final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
@@ -239,13 +239,13 @@ object DFBits extends DFAny.Companion {
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
     }
     trait Implicits {
-      sealed class DFBitsFromBitVector(left : BitVector) extends Able2[BitVector](left)
+      sealed class DFBitsFromBitVector(left : BitVector) extends AbleOps[BitVector](left)
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
-      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends Able2[XBitVector[W]](left)
+      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends AbleOps[XBitVector[W]](left)
       final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
-      sealed class DFBitsFromZeros(left : SameBitsVector) extends Able2[SameBitsVector](left)
+      sealed class DFBitsFromZeros(left : SameBitsVector) extends AbleOps[SameBitsVector](left)
       final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
-      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends Able2[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
+      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
       final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
       final implicit def ofDFBits[W](value : DFBits[W]) : Able[DFBits[W]] = new Able[DFBits[W]](value)
       implicit class DFBitsOps[LW](val left : DFBits[LW]){
