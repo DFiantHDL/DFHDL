@@ -31,7 +31,7 @@ object DFMember {
   trait Context extends Product with Serializable {
     val meta : Meta
     val owner : DFBlock
-    val compiler : DFCompiler
+    val db : DFDesign.DB
   }
 }
 
@@ -39,7 +39,7 @@ class DFRef[+T <: DFMember](member : T) {
   def get : T = member
 }
 object DFRef {
-  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.compiler.addRef(new DFRef[T](member), member)
+  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.addRef(new DFRef[T](member), member)
   implicit def memberOf[T <: DFMember](ref : DFRef[T]) : T = ref.get
   implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
 }

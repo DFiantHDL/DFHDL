@@ -16,17 +16,17 @@
  */
 package example2
 
-import DFiant._ //Required in any DFiant compilation program
+import ZFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
-  val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
-  val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
+  val x = DFBits(16) <> IN  //The input port is a signed 16-bit integer
+  val y = DFBits(16) <> OUT	//The output port is a signed 16-bit integer
   y <> x //Trivial direct input-to-output connection
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
-  val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
-  val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
+  val x = DFBits(16) <> IN  //The input port is a signed 16-bit integer
+  val y = DFBits(16) <> OUT	//The output port is a signed 16-bit integer
   val id1 = new ID {} //First instance of the `ID` design
   val id2 = new ID {} //Second instance of the `ID` design
   id1.x <> x      //Connecting parent input port to child input port
@@ -34,4 +34,9 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.y <> y      //Connecting parent output port to child output port
 }
 
-object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point
+object IDTopApp extends App {
+  val top = new IDTop {}
+  println(top.db.members)
+
+}
+//object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

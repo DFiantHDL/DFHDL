@@ -102,7 +102,7 @@ object ZTest extends App {
   }
 
   val top = new BBB {}
-  println(top.__compiler.immutable.refMembers)
+  println(top.__db.immutable.members)
 //  println(top.__compiler.getRefTable)
 
 //  println((top, top.owner), (top.a, top.a.owner), (top.b, top.b.owner), (top.c, top.c.owner))

@@ -9,12 +9,12 @@ trait DFBlock extends DFMember with Implicits {self =>
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    DFAny.Context(meta, self, topDesign.__compiler)
+    DFAny.Context(meta, self, topDesign.__db)
   private[ZFiant] var __injectedOwner : DFBlock = self
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    DFBlock.Context(meta, Some(__injectedOwner), topDesign.__compiler)
+    DFBlock.Context(meta, Some(__injectedOwner), topDesign.__db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    ContextOf[T](meta, Some(__injectedOwner), topDesign.__compiler)
+    ContextOf[T](meta, Some(__injectedOwner), topDesign.__db)
   ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
@@ -38,7 +38,7 @@ trait DFBlock extends DFMember with Implicits {self =>
 
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
-  final case class Context(meta : Meta, ownerOption : Option[DFBlock], compiler: DFCompiler) extends DFMember.Context {
+  final case class Context(meta : Meta, ownerOption : Option[DFBlock], db : DFDesign.DB) extends DFMember.Context {
     lazy val owner : DFBlock = ownerOption.get
   }
   object Context {
@@ -47,9 +47,9 @@ object DFBlock {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, ctx.ownerOption, ctx.compiler)
+      new Context(ctx.meta, ctx.ownerOption, ctx.db)
     implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
-      new Context(meta, None, new DFCompiler)
+      new Context(meta, None, new DFDesign.DB)
   }
 }
 

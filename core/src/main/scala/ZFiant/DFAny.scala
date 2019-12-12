@@ -42,7 +42,7 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  final case class Context(meta : Meta, owner : DFBlock, compiler: DFCompiler) extends DFMember.Context
+  final case class Context(meta : Meta, owner : DFBlock, db : DFDesign.DB) extends DFMember.Context
   object Context {
     final object MissingError extends ErrorMsg (
       "Missing an implicit owner Context.",
@@ -141,7 +141,7 @@ object DFAny {
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
-    : Const[Type] = ctx.compiler.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta))
+    : Const[Type] = ctx.db.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta))
   }
 
   object Port {
@@ -158,11 +158,11 @@ object DFAny {
         def init(that : i.dfType.InitAble[i.This]*)(
           implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
         ) : In[Type, Initialized[i.TToken]] =
-          ctx.compiler.addMember(In[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+          ctx.db.addMember(In[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
       }
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
-      ): In[Type, Uninitialized] = ctx.compiler.addMember(In[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
+      ): In[Type, Uninitialized] = ctx.db.addMember(In[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
     }
     final case class Out[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.Out](
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
@@ -177,11 +177,11 @@ object DFAny {
         def init(that : i.dfType.InitAble[i.This]*)(
           implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
         ) : Out[Type, Initialized[i.TToken]] =
-          ctx.compiler.addMember(Out[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+          ctx.db.addMember(Out[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
       }
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
-      ): Out[Type, Uninitialized] = ctx.compiler.addMember(Out[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
+      ): Out[Type, Uninitialized] = ctx.db.addMember(Out[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
     }
   }
 
@@ -213,11 +213,11 @@ object DFAny {
       def init(that : i.dfType.InitAble[i.This]*)(
         implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
       ) : NewVar[Type, Initialized[i.TToken]] =
-        ctx.compiler.addMember(NewVar[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+        ctx.db.addMember(NewVar[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
     }
     def apply[Type <: DFAny.Type](dfType: Type)(
       implicit ctx: Context
-    ): NewVar[Type, Uninitialized] = ctx.compiler.addMember(NewVar[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
+    ): NewVar[Type, Uninitialized] = ctx.db.addMember(NewVar[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
   }
 
   sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] {
@@ -234,7 +234,7 @@ object DFAny {
     object AsIs {
       def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
         implicit ctx: Context
-      ): AsIs[Type, RefVal] = ctx.compiler.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
+      ): AsIs[Type, RefVal] = ctx.db.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
     }
     final case class BitsWL[W, L, RefVal <: DFAny](
       retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
@@ -247,7 +247,7 @@ object DFAny {
     object BitsWL {
       def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
         implicit ctx: Context
-      ): BitsWL[W, L, RefVal] = ctx.compiler.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+      ): BitsWL[W, L, RefVal] = ctx.db.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
     }
     final case class Prev[RefVal <: DFAny](
       retValRef : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
@@ -259,7 +259,7 @@ object DFAny {
     object Prev {
       def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
         implicit ctx: Context
-      ): Prev[RefVal] = ctx.compiler.addMember(Prev[RefVal](refVal, step, ctx.owner, ctx.meta))
+      ): Prev[RefVal] = ctx.db.addMember(Prev[RefVal](refVal, step, ctx.owner, ctx.meta))
     }
   }
 
@@ -274,7 +274,7 @@ object DFAny {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
-    : Func2[Type, L, Op, R] = ctx.compiler.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
+    : Func2[Type, L, Op, R] = ctx.db.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -306,16 +306,11 @@ object DFAny {
 
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   implicit class ConnectableOps[Type <: DFAny.Type](left : ConnectableOf[Type]){
-    protected type ConnRet = DFAny//ConnectableOf[_ <: DFAny.Type]
-    protected type PortIn = DFAny//PortInOf[_ <: DFAny.Type]
-    protected type PortOut = DFAny//PortOutOf[_ <: DFAny.Type]
-    type This = DFAny//Of[_ <: DFAny.Type]
-
     protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
       def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign == ctx.owner
     }
-    private def connectPortInWithPortIn(left : PortIn, right : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
+    private def connectPortInWithPortIn(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two input ports of the same design.")
       //Connecting owner and child design input ports, while child port is left and owner port is right.
@@ -324,7 +319,7 @@ object DFAny {
       else if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (right, left)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectPortOutWithPortOut(left : PortOut, right : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
+    private def connectPortOutWithPortOut(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two output ports of the same design.")
       //Connecting owner and child design output ports, while child port is left and owner port is right.
@@ -333,7 +328,7 @@ object DFAny {
       else if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (left, right)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectPortOutWithPortIn(out : PortOut, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
+    private def connectPortOutWithPortIn(out : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
       //Connecting input and output ports internally at the same design
       if ((out isSameOwnerDesignAs in) && out.isConnectingInternally) (out, in)
@@ -341,22 +336,33 @@ object DFAny {
       else if ((out.ownerDesign isSameOwnerDesignAs in.ownerDesign) && out.isConnectingExternally) (in, out)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectValWithPortIn(dfVal : This, in : PortIn)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
-//      //Connecting a value to an input port externally
-//      if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally)) (in, dfVal)
-//      //Connecting owner and child design input ports, while child port is right and owner port is left.
-//      else dfVal match {
-//        case c : Connectable[Type, _] if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (right, left) =>
-//
-//      }
-//
-//
-//      else throwConnectionError("Unsupported connection")
-      ???
+    private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
+      //Connecting a value to an input port externally
+      if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally)) (in, dfVar)
+      //Connecting a an input port to a variable internally
+      else if ((in isSameOwnerDesignAs dfVar) && (in.isConnectingInternally)) (dfVar, in)
+      else throwConnectionError("Unsupported connection")
     }
-    private def connectValWithPortOut(dfVal : This, out : PortOut)(implicit ctx : DFNet.Context) : (ConnRet, This) = {
-      ???
-
+    private def connectVarWithPortOut(dfVar : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.fullName} <> ${out.fullName} at ${ctx.owner.fullName}")
+      //Connecting a value to an output port internally
+      if ((dfVar isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVar)
+      //Connecting a an output port to a variable externally
+      else if ((out isOneLevelBelow dfVar) && (out.isConnectingExternally)) (dfVar, out)
+      else throwConnectionError("Unsupported connection")
+    }
+    private def connectValWithPortIn(dfVal : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVal.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
+      //Connecting a value to an input port externally
+      if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally)) (in, dfVal)
+      else throwConnectionError("Unsupported connection")
+    }
+    private def connectValWithPortOut(dfVal : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.fullName} <> ${dfVal.fullName} at ${ctx.owner.fullName}")
+      //Connecting a value to an output port internally
+      if ((dfVal isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVal)
+      else throwConnectionError("Unsupported connection")
     }
 
     object In {
@@ -371,13 +377,23 @@ object DFAny {
         case _ => false
       }
     }
-    protected[ZFiant] def connectWith(right : This)(implicit ctx : DFNet.Context) : Unit = {
+    object Var {
+      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+        case _ : Modifier.NewVar => true
+        case _ => false
+      }
+    }
+    protected[ZFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
-      val (toPort, from) : (ConnRet, DFAny) = (left, right) match {
+      val (toPort, from) : (DFAny, DFAny) = (left, right) match {
         case (p1@In(), p2@In()) => connectPortInWithPortIn(p1, p2)
         case (p1@Out(), p2@Out()) => connectPortOutWithPortOut(p1, p2)
         case (p1@Out(), p2@In()) => connectPortOutWithPortIn(p1, p2)
         case (p1@In(), p2@Out()) => connectPortOutWithPortIn(p2, p1)
+        case (p@In(), v@Var()) => connectVarWithPortIn(v, p)
+        case (v@Var(), p@In()) => connectVarWithPortIn(v, p)
+        case (p@Out(), v@Var()) => connectVarWithPortOut(v, p)
+        case (v@Var(), p@Out()) => connectVarWithPortOut(v, p)
         case (p@In(), v) => connectValWithPortIn(v, p)
         case (v, p@In()) => connectValWithPortIn(v, p)
         case (p@Out(), v) => connectValWithPortOut(v, p)

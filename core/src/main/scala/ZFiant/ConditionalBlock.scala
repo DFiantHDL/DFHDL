@@ -51,7 +51,7 @@ object ConditionalBlock {
     object IfBlock {
       def apply[Type <: DFAny.Type](dfType: Type, cond: DFBool)(block: => DFAny.Of[Type])(
         implicit ctx: DFBlock.Context
-      ): IfBlock[Type] = ctx.compiler.addMember(IfBlock(dfType, DFRef(cond), ctx.owner, ctx.meta)(block))
+      ): IfBlock[Type] = ctx.db.addMember(IfBlock(dfType, DFRef(cond), ctx.owner, ctx.meta)(block))
     }
     final case class ElseIfBlock[Type <: DFAny.Type](
       dfType : Type, condRef : DFRef[DFBool], prevBlockRef : DFRef[WithRetVal[Type]], ownerRef: DFRef[DFBlock], meta: Meta
@@ -67,7 +67,7 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type](
         dfType: Type, cond: DFBool, prevBlock: WithRetVal[Type]
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context) : ElseIfBlock[Type] =
-        ctx.compiler.addMember(ElseIfBlock[Type](dfType, DFRef(cond), DFRef(prevBlock), ctx.owner, ctx.meta)(block))
+        ctx.db.addMember(ElseIfBlock[Type](dfType, DFRef(cond), DFRef(prevBlock), ctx.owner, ctx.meta)(block))
     }
     final case class ElseBlock[Type <: DFAny.Type](
       dfType : Type, prevBlockRef : DFRef[WithRetVal[Type]], ownerRef: DFRef[DFBlock], meta: Meta
@@ -76,7 +76,7 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type](
         dfType: Type, prevBlock: WithRetVal[Type]
       )(block : => DFAny.Of[Type])(implicit ctx: DFBlock.Context) : ElseBlock[Type] =
-        ctx.compiler.addMember(ElseBlock[Type](dfType, DFRef(prevBlock), ctx.owner, ctx.meta)(block))
+        ctx.db.addMember(ElseBlock[Type](dfType, DFRef(prevBlock), ctx.owner, ctx.meta)(block))
     }
 
     final case class MatchHeader[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -93,7 +93,7 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         dfType: Type, matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
       )(implicit ctx: DFMember.Context): MatchHeader[Type, MVType] =
-        ctx.compiler.addMember(MatchHeader(dfType, DFRef(matchVal), matchConfig, ctx.owner, ctx.meta))
+        ctx.db.addMember(MatchHeader(dfType, DFRef(matchVal), matchConfig, ctx.owner, ctx.meta))
     }
     final case class DFCasePatternBlock[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
@@ -115,7 +115,7 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         dfType: Type, matchHeader: MatchHeader[Type, MVType], prevCase: Option[DFCasePatternBlock[Type, MVType]], pattern: MVType#TPattern
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCasePatternBlock[Type, MVType] =
-        ctx.compiler.addMember(DFCasePatternBlock(dfType, matchHeader, prevCase.map(p => DFRef(p)), pattern, ctx.owner, ctx.meta)(block))
+        ctx.db.addMember(DFCasePatternBlock(dfType, matchHeader, prevCase.map(p => DFRef(p)), pattern, ctx.owner, ctx.meta)(block))
     }
     final case class DFCase_Block[Type <: DFAny.Type, MVType <: DFAny.Type](
       dfType : Type, matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
@@ -125,7 +125,7 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         dfType: Type, matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType]
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCase_Block[Type, MVType] =
-        ctx.compiler.addMember(DFCase_Block[Type, MVType](dfType, matchHeader, DFRef(prevCase), ctx.owner, ctx.meta)(block))
+        ctx.db.addMember(DFCase_Block[Type, MVType](dfType, matchHeader, DFRef(prevCase), ctx.owner, ctx.meta)(block))
     }
   }
   sealed abstract class NoRetVal(block : => Unit) extends ConditionalBlock[Unit](block)
@@ -140,7 +140,7 @@ object ConditionalBlock {
     }
     object IfBlock {
       def apply(cond: DFBool)(block: => Unit)(implicit ctx: DFBlock.Context)
-      : IfBlock = ctx.compiler.addMember(IfBlock(DFRef(cond), ctx.owner, ctx.meta)(block))
+      : IfBlock = ctx.db.addMember(IfBlock(DFRef(cond), ctx.owner, ctx.meta)(block))
     }
     final case class ElseIfBlock(condRef : DFRef[DFBool], prevBlockRef : DFRef[NoRetVal], ownerRef: DFRef[DFBlock], meta: Meta)(block : => Unit) extends NoRetVal(block) {
       def elsedf[B](block : => Unit)(
@@ -153,7 +153,7 @@ object ConditionalBlock {
     object ElseIfBlock {
       def apply(cond: DFBool, prevBlock: NoRetVal)(block: => Unit)(
         implicit ctx: DFBlock.Context
-      ): ElseIfBlock = ctx.compiler.addMember(ElseIfBlock(DFRef(cond), prevBlock, ctx.owner, ctx.meta)(block))
+      ): ElseIfBlock = ctx.db.addMember(ElseIfBlock(DFRef(cond), prevBlock, ctx.owner, ctx.meta)(block))
     }
     final case class ElseBlock(prevBlockRef : DFRef[NoRetVal], ownerRef: DFRef[DFBlock], meta: Meta)(block : => Unit)(
       implicit val ctx : DFBlock.Context
@@ -161,7 +161,7 @@ object ConditionalBlock {
     object ElseBlock {
       def apply(prevBlock: NoRetVal)(block: => Unit)(
         implicit ctx: DFBlock.Context
-      ): ElseBlock = ctx.compiler.addMember(ElseBlock(prevBlock, ctx.owner, ctx.meta)(block)(ctx))
+      ): ElseBlock = ctx.db.addMember(ElseBlock(prevBlock, ctx.owner, ctx.meta)(block)(ctx))
     }
 
     final case class MatchHeader[MVType <: DFAny.Type](
@@ -178,7 +178,7 @@ object ConditionalBlock {
       def apply[MVType <: DFAny.Type](
         matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
       )(implicit ctx: DFMember.Context): MatchHeader[MVType] =
-        ctx.compiler.addMember(MatchHeader(DFRef(matchVal), matchConfig, ctx.owner, ctx.meta))
+        ctx.db.addMember(MatchHeader(DFRef(matchVal), matchConfig, ctx.owner, ctx.meta))
     }
     final case class DFCasePatternBlock[MVType <: DFAny.Type](
       matchHeaderRef : DFRef[MatchHeader[MVType]],
@@ -200,7 +200,7 @@ object ConditionalBlock {
       def apply[MVType <: DFAny.Type](
         matchHeader: MatchHeader[MVType], prevCase: Option[DFCasePatternBlock[MVType]], pattern: MVType#TPattern
       )(block: => Unit)(implicit ctx: DFBlock.Context): DFCasePatternBlock[MVType] =
-        ctx.compiler.addMember(DFCasePatternBlock(matchHeader, prevCase.map(p => DFRef(p)), pattern, ctx.owner, ctx.meta)(block))
+        ctx.db.addMember(DFCasePatternBlock(matchHeader, prevCase.map(p => DFRef(p)), pattern, ctx.owner, ctx.meta)(block))
     }
     final case class DFCase_Block[MVType <: DFAny.Type](
       matchHeaderRef : DFRef[MatchHeader[MVType]],
@@ -210,7 +210,7 @@ object ConditionalBlock {
       def apply[MVType <: DFAny.Type](
         matchHeader: MatchHeader[MVType], prevCase: DFCasePatternBlock[MVType]
       )(block: => Unit)(implicit ctx: DFBlock.Context): DFCase_Block[MVType] =
-        ctx.compiler.addMember(DFCase_Block(matchHeader, prevCase, ctx.owner, ctx.meta)(block))
+        ctx.db.addMember(DFCase_Block(matchHeader, prevCase, ctx.owner, ctx.meta)(block))
     }
   }
 }
