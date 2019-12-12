@@ -4,13 +4,13 @@ import DFiant.internals.Meta
 trait DFMember {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
-  final lazy val owner : DFBlock = ownerRef
-  final lazy val ownerDesign : DFDesign = owner match {
+  final val owner : DFBlock = ownerRef
+  final val ownerDesign : DFDesign = owner match {
     case d : DFDesign => d
     case b : DFBlock => b.ownerDesign
   }
-  lazy val name : String = meta.name
-  lazy val fullName : String = if (owner.isTop) s"${owner.name}.${name}" else s"${owner.fullName}.${name}"
+  val name : String = meta.name
+  val fullName : String = if (owner.isTop) s"${owner.name}.${name}" else s"${owner.fullName}.${name}"
 
   final def isSameOwnerDesignAs(that : DFMember) : Boolean = ownerDesign == that.ownerDesign
   final def isOneLevelBelow(that : DFMember) : Boolean = ownerDesign isSameOwnerDesignAs that
