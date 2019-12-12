@@ -1,6 +1,37 @@
 package ZFiant
 
 object ZTest extends App {
+  trait ConnTest extends DFDesign {
+    val pI = DFBits(8) <> IN
+    val pO = DFBits(8) <> OUT
+    val b = DFBits(8)
+    val or = b | b
+
+    pI <> pI
+    pO <> pI
+    pI <> pO
+    pO <> pO
+
+    pI <> b
+    b <> pI
+    pO <> b
+    b <> pO
+
+    or <> pO
+    or <> pI
+
+    b0s <> pO
+    pO <> b0s
+    pI <> b0s
+    b0s <> pO
+
+    //errors
+//    1 <> pO
+//    pO <> 1
+//    b <> b
+//    or <> b
+//    or <> or
+  }
   abstract class AAA()(implicit ctx : ContextOf[AAA]) extends DFDesign {
 
     val b = DFBits(8) init b0s
