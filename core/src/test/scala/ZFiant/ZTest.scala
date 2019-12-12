@@ -42,8 +42,8 @@ object ZTest extends App {
 
   trait BBB extends DFDesign {
     val i = DFBits(8) <> IN init b0s
-    val o = DFBits(8) <> OUT init b"11111111"
-    i <> o
+    val o = DFBits(8) <> OUT// init b"11111111"
+    o <> i
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {

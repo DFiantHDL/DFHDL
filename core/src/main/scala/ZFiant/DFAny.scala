@@ -113,6 +113,7 @@ object DFAny {
   trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
   }
+
   sealed trait Modifier extends Product with Serializable
   object Modifier {
     sealed trait Val extends Modifier
@@ -286,24 +287,20 @@ object DFAny {
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
 
-  //  sealed trait Initializable[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny]
-  //    extends Connectable[Type, Mod] {
-  //    val externalInit : Init
-  //    protected[ZFiant] def initialize(externalInit : Seq[Type#TToken])(implicit ctx : DFAny.Context) : InitializedSelf
-  //  }
-  //  object Initializable {
-  //  }
-
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port]
-  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
   type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
+  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
 
   implicit class ConnectableOps[Type <: DFAny.Type](left : ConnectableOf[Type]){
-    protected type ConnRet = ConnectableOf[Type]
-    protected type PortIn = PortInOf[Type]
-    protected type PortOut = PortOutOf[Type]
-    type This = Of[Type]
+    protected type ConnRet = DFAny//ConnectableOf[_ <: DFAny.Type]
+    protected type PortIn = DFAny//PortInOf[_ <: DFAny.Type]
+    protected type PortOut = DFAny//PortOutOf[_ <: DFAny.Type]
+    type This = DFAny//Of[_ <: DFAny.Type]
+
+    def <> [R](right : left.dfType.OpAble[R])(
+      implicit ctx : DFNet.Context, op : left.dfType.`Op<>Builder`[Type, R]
+    ) : Unit = connectWith(op(left.dfType, right))
 
     protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
@@ -352,31 +349,36 @@ object DFAny {
       ???
 
     }
+
+    object In {
+      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+        case _ : Modifier.Port.In => true
+        case _ => false
+      }
+    }
+    object Out {
+      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+        case _ : Modifier.Port.Out => true
+        case _ => false
+      }
+    }
     protected[ZFiant] def connectWith(right : This)(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
       val (toPort, from) : (ConnRet, DFAny) = (left, right) match {
-        case (p1 : Port.In[Type,_], p2 : Port.In[Type,_]) => connectPortInWithPortIn(p1, p2)
-        case (p1 : Port.Out[Type,_], p2 : Port.Out[Type,_]) => connectPortOutWithPortOut(p1, p2)
-        case (p1 : Port.Out[Type,_], p2 : Port.In[Type,_]) => connectPortOutWithPortIn(p1, p2)
-        case (p1 : Port.In[Type,_], p2 : Port.Out[Type,_]) => connectPortOutWithPortIn(p2, p1)
-        case (p : Port.In[Type,_], v) => connectValWithPortIn(v, p)
-        case (v, p : Port.In[Type,_]) => connectValWithPortIn(v, p)
-        case (p : Port.Out[Type,_], v) => connectValWithPortOut(v, p)
-        case (v, p : Port.Out[Type,_]) => connectValWithPortOut(v, p)
+        case (p1@In(), p2@In()) => connectPortInWithPortIn(p1, p2)
+        case (p1@Out(), p2@Out()) => connectPortOutWithPortOut(p1, p2)
+        case (p1@Out(), p2@In()) => connectPortOutWithPortIn(p1, p2)
+        case (p1@In(), p2@Out()) => connectPortOutWithPortIn(p2, p1)
+        case (p@In(), v) => connectValWithPortIn(v, p)
+        case (v, p@In()) => connectValWithPortIn(v, p)
+        case (p@Out(), v) => connectValWithPortOut(v, p)
+        case (v, p@Out()) => connectValWithPortOut(v, p)
         case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
       }
       DFNet.Connection(toPort, from)
     }
   }
-
-  //  sealed trait Port[Type <: DFAny.Type, +Mod <: Modifier, Init <: Option[Seq[Type#TToken]], InitializedSelf <: DFAny] extends
-  //    Initializable[Type, Mod, Init, InitializedSelf] {
-  //    def <> [R](right : dfType.OpAble[R])(
-  //      implicit ctx : DFNet.Context, op : dfType.`Op<>Builder`[Type, R]
-  //    ) : Unit = connectWith(op(dfType, right))
-  //  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
