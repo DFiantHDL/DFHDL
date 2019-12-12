@@ -236,9 +236,9 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L] {
-      final def <> [RW](port : DFAny.PortOf[Type[RW]])(
-        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
-      ) = port.connectWith(op(port.dfType, value))
+//      final def <> [RW](port : DFAny.PortOf[Type[RW]])(
+//        implicit op: `Op<>`.Builder[Type[RW], L], ctx : DFNet.Context
+//      ) = port.connectWith(op(port.dfType, value))
     }
     class Able2[L](value : L) extends Able[L](value) {
       final val left = value
