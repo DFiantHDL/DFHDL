@@ -113,16 +113,6 @@ object DFAny {
   trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
   }
-  implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
-    def <>[R](right: left.dfType.OpAble[R])(
-      implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, R]
-    ): Unit = left.connectWith(op(left.dfType, right))
-  }
-  implicit class PortOps2[L](left : L) {
-    def <>[Type <: DFAny.Type](right: PortOf[Type])(
-      implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, L]
-    ): Unit = right.connectWith(op(right.dfType, left))
-  }
 
   sealed trait Modifier extends Product with Serializable
   object Modifier {
@@ -300,11 +290,21 @@ object DFAny {
     ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
   }
 
-  type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port]
   type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
   type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
+  implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
+    def <>[R](right: left.dfType.OpAble[R])(
+      implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, R]
+    ): Unit = left.connectWith(op(left.dfType, right))
+  }
+  implicit class PortOps2[L](left : L) {
+    def <>[Type <: DFAny.Type](right: PortOf[Type])(
+      implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, L]
+    ): Unit = right.connectWith(op(right.dfType, left))
+  }
 
+  type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   implicit class ConnectableOps[Type <: DFAny.Type](left : ConnectableOf[Type]){
     protected type ConnRet = DFAny//ConnectableOf[_ <: DFAny.Type]
     protected type PortIn = DFAny//PortInOf[_ <: DFAny.Type]
