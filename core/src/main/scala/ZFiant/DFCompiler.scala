@@ -26,6 +26,7 @@ object DFCompiler {
   }
 
   implicit class CodeString(designDB : DFDesign.DB) {
+//    val designStrings : Map[String, Map]
     designDB.members.collect {
       case m : DFDesign =>
     }
