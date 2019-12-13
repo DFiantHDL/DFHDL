@@ -42,7 +42,7 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  final case class Context(meta : Meta, owner : DFBlock, db : DFDesign.DB) extends DFMember.Context
+  final case class Context(meta : Meta, owner : DFBlock, db : DFDesign.DB.Mutable) extends DFMember.Context
   object Context {
     final object MissingError extends ErrorMsg (
       "Missing an implicit owner Context.",
