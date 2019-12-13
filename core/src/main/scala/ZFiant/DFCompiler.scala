@@ -18,3 +18,16 @@
 package ZFiant
 import DFiant.internals._
 
+object DFCompiler {
+  implicit class Discovery(designDB : DFDesign.DB) {
+    def discovery : DFDesign.DB = {
+      ???
+    }
+  }
+
+  implicit class CodeString(designDB : DFDesign.DB) {
+    designDB.members.collect {
+      case m : DFDesign =>
+    }
+  }
+}
