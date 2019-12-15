@@ -108,6 +108,8 @@ object DFAny {
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
     //////////////////////////////////////////////////////////////////////////
+
+    override lazy val typeName: String = dfType.toString
   }
 
   trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
@@ -149,6 +151,7 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Value[Type, Mod] {
       type TMod = Mod
+      override lazy val typeName: String = s"$dfType <> IN"
     }
     object In {
       sealed trait Uninitialized extends DFAny.Modifier.Port.In with DFAny.Modifier.Initializable
@@ -168,6 +171,7 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Value[Type, Mod] {
       type TMod = Mod
+      override lazy val typeName: String = s"$dfType <> OUT"
     }
     object Out {
       sealed trait Uninitialized extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initializable
