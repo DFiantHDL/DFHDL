@@ -9,7 +9,7 @@ object DFUInt {
 //  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
 //    type Width = W
 //    type TToken = Token[W]
-//    override def toString: String = s"DFUInt($width)"
+//    override def toString: String = s"DFUInt[$width]"
 //  }
 //  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width), None)
 //
