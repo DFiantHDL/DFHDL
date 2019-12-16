@@ -142,7 +142,7 @@ object DFAny {
     type TMod = Modifier.Constant[Type#TToken]
     val modifier : TMod = Modifier.Constant(token)
 
-    override def toString: String = s"Const(${token.value}) : $dfType"
+    override def toString: String = s"Const($token) : $dfType"
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
@@ -444,6 +444,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
+    override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
     trait Of[Value, W] extends Token {
