@@ -3,14 +3,29 @@ import DFiant.internals._
 
 import scala.annotation.implicitNotFound
 
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock {
-  final lazy val meta : Meta = ctx.meta
-  final lazy val ownerRef: DFRef[DFBlock] = DFRef(ctx.ownerOption.getOrElse(this))
-  final private[ZFiant] val __db : DFDesign.DB.Mutable = ctx.db
-  final override val isTop : Boolean = ctx.ownerOption.isEmpty
-  final override val topDesign : DFDesign = if (isTop) this else owner.topDesign
-  final override val fullName : String = if (isTop) name else s"${owner.fullName}.${name}"
-  __db.addMember(this)
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends Implicits {
+  private[ZFiant] val block : DFBlock = DFDesign.Block()(ctx)
+  ///////////////////////////////////////////////////////////////////
+  // Context implicits
+  ///////////////////////////////////////////////////////////////////
+  final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
+    DFAny.Context(meta, block, block.topDesign.__db)
+  final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
+    DFBlock.Context(meta, Some(block.__injectedOwner), block.topDesign.__db)
+  final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
+    ContextOf[T](meta, Some(block.__injectedOwner), block.topDesign.__db)
+  ///////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////
+  // Conditional Constructs
+  ///////////////////////////////////////////////////////////////////
+  final protected def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(),cond))(block)(ctx)
+  final protected def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
+    implicit ctx : DFBlock.Context
+  ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
+  ///////////////////////////////////////////////////////////////////
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
@@ -31,9 +46,22 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
+  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta) extends DFBlock
+  final case class TopBlock(meta : Meta)(db : DB.Mutable) extends DFBlock {
+    override lazy val ownerRef: DFRef[DFBlock] = ???
+    override lazy val owner: DFBlock = this
+    override val isTop : Boolean = true
+    private[ZFiant] val __db : DFDesign.DB.Mutable = db
+    override val topDesign : TopBlock = this
+    override val fullName : String = name
+  }
+  object Block {
+    def apply()(implicit ctx : Context) : DFBlock = ctx.db.addMember(
+      if (ctx.ownerOption.isEmpty) TopBlock(ctx.meta)(ctx.db) else Block(ctx.owner, ctx.meta))
+  }
 
   implicit class DevAccess(design : DFDesign) {
-    def db : DB = design.__db.immutable
+    def db : DB = design.block.topDesign.__db.immutable
   }
   final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
@@ -79,7 +107,7 @@ object DFDesign {
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
           case m if memberTable.contains(m) => m
-          case m : DFDesign if m.isTop => m
+          case m : DFDesign.TopBlock => m
         }
         DB(refMembers, refTable)
       }

@@ -4,9 +4,10 @@ import DFiant.internals.Meta
 trait DFMember {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
-  final val owner : DFBlock = ownerRef
-  final val ownerDesign : DFDesign = owner match {
-    case d : DFDesign => d
+  lazy val owner : DFBlock = ownerRef
+  final val ownerDesign : DFBlock = owner match {
+    case d : DFDesign.Block => d
+    case d : DFDesign.TopBlock => d
     case b : DFBlock => b.ownerDesign
   }
   val name : String = meta.name
@@ -23,7 +24,7 @@ trait DFMember {
       else clsSimpleName
     }
   }
-  val fullName : String = if (owner.isTop) s"${owner.name}.${name}" else s"${owner.fullName}.${name}"
+  val fullName : String = s"${owner.fullName}.${name}"
   final private[ZFiant] def getOwnerChain : List[DFBlock] = if (owner.isTop) List(owner) else owner.getOwnerChain :+ owner
   def getRelativeName(implicit ctx : DFMember.Context) : String = {
     if (this isSameOwnerDesignAs ctx.owner) name
