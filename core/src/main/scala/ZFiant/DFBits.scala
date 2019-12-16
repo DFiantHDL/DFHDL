@@ -22,8 +22,9 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits[$width]"
+    def constructorString : String = s"DFBits($width)"
   }
-  def apply[W](width : TwoFace.Int[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(width))
+  def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
