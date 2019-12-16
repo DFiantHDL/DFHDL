@@ -3,8 +3,8 @@ import DFiant.internals._
 
 import scala.annotation.implicitNotFound
 
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends Implicits {
-  private[ZFiant] val block : DFBlock = DFDesign.Block()(ctx)
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
+  private[ZFiant] val block : DFBlock = DFDesign.Block(typeName)(ctx)
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
@@ -46,18 +46,20 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
-  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta) extends DFBlock
-  final case class TopBlock(meta : Meta)(db : DB.Mutable) extends DFBlock {
+  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock
+
+  final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
     override lazy val ownerRef: DFRef[DFBlock] = ???
     override lazy val owner: DFBlock = this
-    override val isTop : Boolean = true
-    private[ZFiant] val __db : DFDesign.DB.Mutable = db
-    override val topDesign : TopBlock = this
-    override val fullName : String = name
+    override val isTop: Boolean = true
+    private[ZFiant] val __db: DFDesign.DB.Mutable = db
+    override val topDesign: TopBlock = this
+    override lazy val typeName : String = designType
+    override val fullName: String = name
   }
   object Block {
-    def apply()(implicit ctx : Context) : DFBlock = ctx.db.addMember(
-      if (ctx.ownerOption.isEmpty) TopBlock(ctx.meta)(ctx.db) else Block(ctx.owner, ctx.meta))
+    def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(
+      if (ctx.ownerOption.isEmpty) TopBlock(ctx.meta)(ctx.db, designType) else Block(ctx.owner, ctx.meta)(designType))
   }
 
   implicit class DevAccess(design : DFDesign) {
