@@ -1,16 +1,7 @@
 package ZFiant
 import DFiant.internals.Meta
 
-trait DFMember {
-  val ownerRef : DFRef[DFBlock]
-  val meta : Meta
-  lazy val owner : DFBlock = ownerRef
-  final val ownerDesign : DFBlock = owner match {
-    case d : DFDesign.Block => d
-    case d : DFDesign.TopBlock => d
-    case b : DFBlock => b.ownerDesign
-  }
-  val name : String = meta.name
+trait HasTypeName {
   lazy val typeName: String = {
     val cls = this.getClass
     val ifc = cls.getInterfaces
@@ -24,6 +15,17 @@ trait DFMember {
       else clsSimpleName
     }
   }
+}
+trait DFMember extends HasTypeName {
+  val ownerRef : DFRef[DFBlock]
+  val meta : Meta
+  lazy val owner : DFBlock = ownerRef
+  final val ownerDesign : DFBlock = owner match {
+    case d : DFDesign.Block => d
+    case d : DFDesign.TopBlock => d
+    case b : DFBlock => b.ownerDesign
+  }
+  val name : String = meta.name
   val fullName : String = s"${owner.fullName}.${name}"
   final private[ZFiant] def getOwnerChain : List[DFBlock] = if (owner.isTop) List(owner) else owner.getOwnerChain :+ owner
   def getRelativeName(implicit ctx : DFMember.Context) : String = {
