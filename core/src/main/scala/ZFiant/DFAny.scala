@@ -121,7 +121,7 @@ object DFAny {
   object Modifier {
     sealed trait Val extends Modifier
     case object Val extends Val
-    sealed trait Assignable extends Modifier
+    sealed trait Assignable extends Val
     sealed trait Connectable extends Modifier
     sealed trait Initializable extends Modifier
     sealed trait Initialized[Token <: DFAny.Token] extends Modifier {
@@ -141,6 +141,8 @@ object DFAny {
   final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Value[Type, Modifier.Constant[Type#TToken]] {
     type TMod = Modifier.Constant[Type#TToken]
     val modifier : TMod = Modifier.Constant(token)
+
+    override def toString: String = s"Const(${token.value}) : $dfType"
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
@@ -274,12 +276,18 @@ object DFAny {
   }
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
     dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
-  )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type]
+  )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
+    override def toString: String = s"${leftArg.fullName} $op ${rightArg.fullName} : $dfType"
+  }
   object Func2 {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
     : Func2[Type, L, Op, R] = ctx.db.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
+  }
+
+  trait DefaultRet[-T, Type <: DFAny.Type] {
+    def apply(t : T) : DFAny.ValOf[Type]
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -410,6 +418,7 @@ object DFAny {
       DFNet.Connection(toPort, from)
     }
   }
+  type CBOf[Type <: DFAny.Type] = ConditionalBlock.WithRetVal[Type]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

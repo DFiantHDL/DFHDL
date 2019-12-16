@@ -20,7 +20,7 @@ import DFiant.internals.Meta
 
 sealed abstract class ConditionalBlock[Ret](block : => Ret) extends DFBlock {
   private[ZFiant] val originalOwner : DFBlock = owner.__injectedOwner
-  private[ZFiant] val applyBlock : Unit
+  private[ZFiant] lazy val applyBlock : Unit = ???
 }
 
 sealed trait MatchConfig extends Product with Serializable
@@ -30,11 +30,10 @@ object MatchConfig {
 }
 
 object ConditionalBlock {
-  sealed abstract class WithRetVal[Type <: DFAny.Type](retVar : DFAny.VarOf[Type])(block : => DFAny.Of[Type]) extends
-    ConditionalBlock[DFAny.Of[Type]](block) with DFAny.Value[Type, DFAny.Modifier.Val] {
-    type TMod = DFAny.Modifier.Val
-    val modifier : TMod = DFAny.Modifier.Val
-    val dfType: Type = retVar.dfType
+  sealed abstract class WithRetVal[Type <: DFAny.Type](block : => DFAny.Of[Type]) extends
+    ConditionalBlock[DFAny.Of[Type]](block) {
+    val retVar : DFAny.VarOf[Type]
+    lazy val dfType: Type = retVar.dfType
 
     override private[ZFiant] lazy val applyBlock : Unit = {
       owner.__injectedOwner = this
@@ -46,13 +45,14 @@ object ConditionalBlock {
   object WithRetVal {
     final case class IfBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], condRef : DFRef[DFBool], ownerRef: DFRef[DFBlock], meta: Meta
-    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](retVar)(block) {
+    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseBlock[Type] = ElseBlock[Type](retVar, this)(blockConv(dfType, block))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
+      override lazy val typeName: String = "IfBlock"
     }
     object IfBlock {
       def apply[Type <: DFAny.Type](retVar : DFAny.VarOf[Type], cond: DFBool)(block: => DFAny.Of[Type])(
@@ -61,13 +61,14 @@ object ConditionalBlock {
     }
     final case class ElseIfBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], condRef : DFRef[DFBool], prevBlockRef : DFRef[WithRetVal[Type]], ownerRef: DFRef[DFBlock], meta: Meta
-    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](retVar)(block) {
+    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseBlock[Type] = ElseBlock[Type](retVar, this)(blockConv(dfType, block))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
+      override lazy val typeName: String = "ElseIfBlock"
     }
     object ElseIfBlock {
       def apply[Type <: DFAny.Type](
@@ -77,7 +78,9 @@ object ConditionalBlock {
     }
     final case class ElseBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], prevBlockRef : DFRef[WithRetVal[Type]], ownerRef: DFRef[DFBlock], meta: Meta
-    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](retVar)(block)
+    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
+      override lazy val typeName: String = "ElseBlock"
+    }
     object ElseBlock {
       def apply[Type <: DFAny.Type](
         retVar : DFAny.VarOf[Type], prevBlock: WithRetVal[Type]
@@ -106,7 +109,7 @@ object ConditionalBlock {
       retVar : DFAny.VarOf[Type], matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
       prevCaseRef : Option[DFRef[DFCasePatternBlock[Type, MVType]]], pattern : MVType#TPattern,
       ownerRef: DFRef[DFBlock], meta: Meta
-    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](retVar)(block) {
+    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
       private[WithRetVal] val matchVal = matchHeaderRef.matchVal
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]], retBld : dfType.`Op:=Builder`[Type, B]
@@ -127,7 +130,7 @@ object ConditionalBlock {
     final case class DFCase_Block[Type <: DFAny.Type, MVType <: DFAny.Type](
       retVar : DFAny.VarOf[Type], matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
       prevCase : DFRef[DFCasePatternBlock[Type, MVType]], ownerRef: DFRef[DFBlock], meta: Meta
-    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](retVar)(block)
+    )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block)
     object DFCase_Block {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         retVar : DFAny.VarOf[Type], matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType]
