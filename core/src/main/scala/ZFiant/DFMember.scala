@@ -62,6 +62,7 @@ object DFMember {
 
 class DFRef[+T <: DFMember](member : T) {
   def get : T = member
+  override def toString: String = get.toString
 }
 object DFRef {
   def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.addRef(new DFRef[T](member), member)

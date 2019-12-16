@@ -249,6 +249,7 @@ object DFBits extends DFAny.Companion {
       sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
       final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
       final implicit def ofDFBits[W](value : DFBits[W]) : Able[DFBits[W]] = new Able[DFBits[W]](value)
+      final implicit def ofCB[W](value : DFAny.CBOf[Type[W]]) : Able[DFBits[W]] = new Able[DFBits[W]](value.retVar)
       implicit class DFBitsOps[LW](val left : DFBits[LW]){
         final def | [R, RW](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
         final def & [R, RW](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)

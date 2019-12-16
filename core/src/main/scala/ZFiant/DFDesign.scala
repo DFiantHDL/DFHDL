@@ -60,7 +60,7 @@ object DFDesign {
       private var members : List[DFMember] = List()
       def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB) : CB = {
         members = members :+ cb
-        cb.applyBlock()
+        cb.applyBlock
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {

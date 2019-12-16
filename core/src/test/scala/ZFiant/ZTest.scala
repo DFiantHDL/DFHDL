@@ -84,7 +84,14 @@ object ZTest extends App {
   trait BBB extends DFDesign {
     val i = DFBits(8) <> IN init b0s
     val o = DFBits(8) <> OUT// init b"11111111"
-    o <> i
+
+    val b = i == b0s
+    val ret = DFBits(8).ifdf(b) {
+      i & i
+    }.elsedf {
+      i | i
+    }
+    o <> ret
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {
