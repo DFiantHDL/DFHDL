@@ -38,7 +38,7 @@ object ConditionalBlock {
     override private[ZFiant] lazy val applyBlock : Unit = {
       owner.__injectedOwner = this
       val returnValue = block
-      retVar.assign(returnValue)(DFAny.Context(meta.anonymize, owner, owner.topDesign.__db))
+      retVar.assign(returnValue)(DFAny.Context(meta.anonymize, this, topDesign.__db))
       owner.__injectedOwner = originalOwner
     }
   }
