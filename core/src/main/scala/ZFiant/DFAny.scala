@@ -210,7 +210,6 @@ object DFAny {
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
       ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
-    override def toString: String = dfType.toString
   }
   object NewVar {
     sealed trait Uninitialized extends DFAny.Modifier.NewVar with DFAny.Modifier.Initializable
