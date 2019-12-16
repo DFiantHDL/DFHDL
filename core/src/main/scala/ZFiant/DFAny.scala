@@ -36,6 +36,7 @@ object DFAny {
     type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
+    def constructorString : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -201,12 +202,12 @@ object DFAny {
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
-      dfType, condConv(DFBool.Type(),cond)
+      this, condConv(DFBool.Type(),cond)
     )(blockConv(dfType, block))(ctx)
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
-      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](dfType, matchValue, matchConfig)(ctx)
+      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
     override def toString: String = dfType.toString
   }
   object NewVar {
@@ -289,9 +290,11 @@ object DFAny {
   type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
+    private[ZFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit =
+      DFNet.Assignment(left, that)
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : Unit = DFNet.Assignment(left, op(left.dfType, right))
+    ) : Unit = assign(op(left.dfType, right))
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port]

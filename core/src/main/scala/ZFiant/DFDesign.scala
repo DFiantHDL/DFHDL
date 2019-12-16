@@ -35,13 +35,34 @@ object DFDesign {
   implicit class DevAccess(design : DFDesign) {
     def db : DB = design.__db.immutable
   }
-  case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
+  final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
+//    private def ownerTableGen(
+//      ot : Map[DFBlock, List[DFMember]], remainingMembers : List[DFMember], currentOwner : DFBlock, currentList : List[DFMember]
+//    ) : Map[DFBlock, List[DFMember]] = {
+//
+//    }
+
+//    def dfsSort(
+//      remainingMembers : List[DFMember], currentOwner : DFBlock, currentList : List[DFMember]
+//    ) : List[DFMember] = remainingMembers match {
+//      case (x : DFBlock) :: xs if (x.owner == currentOwner) => dfsSort(xs, x, )
+//    }
+    lazy val ownerTable : Map[DFBlock, List[DFMember]] = ???
+    def getMembersOf(owner : DFBlock) : List[DFMember] = {
+      val ownerIdx = members.indexOf(owner)
+      ???
+    }
   }
 
   object DB {
     class Mutable {
       private var members : List[DFMember] = List()
+      def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB) : CB = {
+        members = members :+ cb
+        cb.applyBlock()
+        cb
+      }
       def addMember[M <: DFMember](member : M) : M = {
         members = members :+ member
         member
