@@ -72,30 +72,30 @@ object DFDesign {
     }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
     @tailrec private def recur(
-      oml : List[(DFBlock, List[DFMember])], globalMembers : List[DFMember], localQueue : immutable.Queue[(DFBlock, List[DFMember])]
+      oml : List[(DFBlock, List[DFMember])], globalMembers : List[DFMember], localStack : List[(DFBlock, List[DFMember])]
     ) : List[(DFBlock, List[DFMember])] = {
-      val ((localOwner, localMembers), updatedQueue0) = localQueue.dequeue
+      val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
         case m :: mList if m.owner == localOwner => //current member indeed belongs to current owner
-          val updatedQueue1 = updatedQueue0.enqueue(localOwner -> (localMembers :+ m))
+          val updatedStack1 = (localOwner -> (localMembers :+ m)) :: updatedStack0
           m match {
             case o : DFBlock => //Deep borrowing into block as the new owner
-              val updatedQueue2 = updatedQueue1.enqueue(o -> List())
-              recur(oml, mList, updatedQueue2)
+              val updatedStack2 = (o -> List()) :: updatedStack1
+              recur(oml, mList, updatedStack2)
             case _ => //Just a member
-              recur(oml, mList, updatedQueue1)
+              recur(oml, mList, updatedStack1)
           }
         case x :: xs => //current member does not belong to current owner
           val updatedOML = oml :+ (localOwner -> localMembers)
-          recur(updatedOML, globalMembers, updatedQueue0)
+          recur(updatedOML, globalMembers, updatedStack0)
         case Nil =>
-          assert(updatedQueue0.length == 1) //sanity check
+          assert(updatedStack0.isEmpty, updatedStack0) //sanity check
           oml :+ (localOwner -> localMembers)
       }
     }
 
     lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
-      recur(List(), members.drop(1), immutable.Queue(top -> List())) //head will always be the TOP block
+      recur(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
     def getMembersOf(owner : DFBlock) : List[DFMember] = {
       val ownerIdx = members.indexOf(owner)
       ???
