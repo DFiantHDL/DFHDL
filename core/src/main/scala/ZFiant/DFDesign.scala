@@ -100,6 +100,10 @@ object DFDesign {
       val ownerIdx = members.indexOf(owner)
       ???
     }
+
+    def printOwnership() : Unit = {
+      println(members.map(m => (m -> m.owner).toString()).mkString("\n"))
+    }
   }
 
   object DB {
