@@ -10,7 +10,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    DFAny.Context(meta, block, block.topDesign.__db)
+    DFAny.Context(meta, block.__injectedOwner, block.topDesign.__db)
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
     DFBlock.Context(meta, Some(block.__injectedOwner), block.topDesign.__db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
