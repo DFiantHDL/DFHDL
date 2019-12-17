@@ -88,19 +88,20 @@ object DFBits extends DFAny.Companion {
     }
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
-//    def toUInt : DFUInt.Token[W] = {
-//      val outWidth = this.width
-//      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
-//      val outBubble = isBubble
-//      DFUInt.Token(outWidth, outValueUInt, outBubble)
-//    }
-//    def toSInt : DFSInt.Token = {
-//      val outWidth = this.width
-//      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
-//      val outBubble = isBubble
-//      new DFSInt.Token(outWidth, outValueSInt, outBubble)
-//    }
 
+    //    def toUInt : DFUInt.Token[W] = {
+    //      val outWidth = this.width
+    //      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
+    //      val outBubble = isBubble
+    //      DFUInt.Token(outWidth, outValueUInt, outBubble)
+    //    }
+    //    def toSInt : DFSInt.Token = {
+    //      val outWidth = this.width
+    //      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
+    //      val outBubble = isBubble
+    //      new DFSInt.Token(outWidth, outValueSInt, outBubble)
+    //    }
+    def constructorCodeString: String = value.codeString
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)

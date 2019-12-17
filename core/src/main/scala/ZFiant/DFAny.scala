@@ -23,7 +23,6 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   def refCodeString(implicit callOwner : DFBlock) : String =
     if (meta.name.anonymous) constructorCodeString
     else getRelativeName(callOwner)
-//  override def toString: String = s"$constructorCodeString : $dfType"
 }
 
 object DFAny {
@@ -147,7 +146,7 @@ object DFAny {
     type TMod = Modifier.Constant[Type#TToken]
     val modifier : TMod = Modifier.Constant(token)
 
-    def constructorCodeString : String = token.toString
+    def constructorCodeString : String = token.constructorCodeString
     override def refCodeString(implicit callOwner : DFBlock) : String = constructorCodeString
     override def toString: String = s"Const($token) : $dfType"
   }
@@ -459,6 +458,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
+    def constructorCodeString : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {

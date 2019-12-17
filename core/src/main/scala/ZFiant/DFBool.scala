@@ -55,6 +55,8 @@ object DFBool extends DFAny.Companion {
     }
     def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+
+    def constructorCodeString: String = value.codeString
   }
 
   object Token {
