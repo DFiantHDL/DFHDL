@@ -1,7 +1,8 @@
 package ZFiant
 import DFiant.internals._
 
-import scala.annotation.implicitNotFound
+import scala.annotation.{implicitNotFound, tailrec}
+import scala.collection.immutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   private[ZFiant] val block : DFBlock = DFDesign.Block(typeName)(ctx)
@@ -66,19 +67,35 @@ object DFDesign {
     def db : DB = design.block.topDesign.__db.immutable
   }
   final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
+    lazy val top : TopBlock = members.head match {
+      case m : TopBlock => m
+    }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
-//    private def ownerTableGen(
-//      ot : Map[DFBlock, List[DFMember]], remainingMembers : List[DFMember], currentOwner : DFBlock, currentList : List[DFMember]
-//    ) : Map[DFBlock, List[DFMember]] = {
-//
-//    }
+    @tailrec private def recur(
+      oml : List[(DFBlock, List[DFMember])], globalMembers : List[DFMember], localQueue : immutable.Queue[(DFBlock, List[DFMember])]
+    ) : List[(DFBlock, List[DFMember])] = {
+      val ((localOwner, localMembers), updatedQueue0) = localQueue.dequeue
+      globalMembers match {
+        case m :: mList if m.owner == localOwner => //current member indeed belongs to current owner
+          val updatedQueue1 = updatedQueue0.enqueue(localOwner -> (localMembers :+ m))
+          m match {
+            case o : DFBlock => //Deep borrowing into block as the new owner
+              val updatedQueue2 = updatedQueue1.enqueue(o -> List())
+              recur(oml, mList, updatedQueue2)
+            case _ => //Just a member
+              recur(oml, mList, updatedQueue1)
+          }
+        case x :: xs => //current member does not belong to current owner
+          val updatedOML = oml :+ (localOwner -> localMembers)
+          recur(updatedOML, globalMembers, updatedQueue0)
+        case Nil =>
+          assert(updatedQueue0.length == 1) //sanity check
+          oml :+ (localOwner -> localMembers)
+      }
+    }
 
-//    def dfsSort(
-//      remainingMembers : List[DFMember], currentOwner : DFBlock, currentList : List[DFMember]
-//    ) : List[DFMember] = remainingMembers match {
-//      case (x : DFBlock) :: xs if (x.owner == currentOwner) => dfsSort(xs, x, )
-//    }
-    lazy val ownerTable : Map[DFBlock, List[DFMember]] = ???
+    lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
+      recur(List(), members.drop(1), immutable.Queue(top -> List())) //head will always be the TOP block
     def getMembersOf(owner : DFBlock) : List[DFMember] = {
       val ownerIdx = members.indexOf(owner)
       ???
