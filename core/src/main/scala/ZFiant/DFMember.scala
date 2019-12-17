@@ -16,7 +16,7 @@ trait HasTypeName {
     }
   }
 }
-trait DFMember extends HasTypeName {
+trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
   lazy val owner : DFBlock = ownerRef
