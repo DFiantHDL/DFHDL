@@ -94,12 +94,12 @@ object DFDesign {
       }
     }
 
+    //holds the topological order of owner block dependency
     lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
       recur(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
-    def getMembersOf(owner : DFBlock) : List[DFMember] = {
-      val ownerIdx = members.indexOf(owner)
-      ???
-    }
+
+    //holds a hash table that lists members of each owner block. The member list order is maintained.
+    lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
     def printOwnership() : Unit = {
       println(members.map(m => (m -> m.owner).toString()).mkString("\n"))
