@@ -19,7 +19,7 @@ trait HasTypeName {
 trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
-  lazy val owner : DFBlock = ownerRef
+  implicit lazy val owner : DFBlock = ownerRef
   final val ownerDesign : DFBlock = owner match {
     case d : DFDesign.Block => d
     case d : DFDesign.TopBlock => d
@@ -28,14 +28,14 @@ trait DFMember extends HasTypeName with Product with Serializable {
   val name : String = meta.name
   val fullName : String = s"${owner.fullName}.${name}"
   final private[ZFiant] def getOwnerChain : List[DFBlock] = if (owner.isTop) List(owner) else owner.getOwnerChain :+ owner
-  def getRelativeName(implicit ctx : DFMember.Context) : String = {
-    if (this isSameOwnerDesignAs ctx.owner) name
-    else if (this isOneLevelBelow ctx.owner) s"${owner.name}.$name"
+  def getRelativeName(implicit callOwner : DFBlock) : String = {
+    if (this isSameOwnerDesignAs callOwner) name
+    else if (this isOneLevelBelow callOwner) s"${owner.name}.$name"
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
       val memberChain = this.getOwnerChain
-      val ctxChain = ctx.owner.getOwnerChain
+      val ctxChain = callOwner.getOwnerChain
       ??? //TODO
     }
   }

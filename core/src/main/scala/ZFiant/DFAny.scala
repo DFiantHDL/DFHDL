@@ -19,6 +19,11 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   protected type AsVar = DFAny.VarOf[TType]
   protected type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
+  def constructorCodeString : String
+  def refCodeString(implicit callOwner : DFBlock) : String =
+    if (meta.name.anonymous) constructorCodeString
+    else getRelativeName(callOwner)
+//  override def toString: String = s"$constructorCodeString : $dfType"
 }
 
 object DFAny {
@@ -36,7 +41,7 @@ object DFAny {
     type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
-    def constructorString : String
+    def constructorCodeString : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -142,6 +147,8 @@ object DFAny {
     type TMod = Modifier.Constant[Type#TToken]
     val modifier : TMod = Modifier.Constant(token)
 
+    def constructorCodeString : String = token.toString
+    override def refCodeString(implicit callOwner : DFBlock) : String = constructorCodeString
     override def toString: String = s"Const($token) : $dfType"
   }
   object Const {
@@ -154,6 +161,8 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Value[Type, Mod] {
       type TMod = Mod
+
+      def constructorCodeString : String = s"${dfType.constructorCodeString} <> IN"
       override lazy val typeName: String = s"$dfType <> IN"
     }
     object In {
@@ -174,6 +183,7 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Value[Type, Mod] {
       type TMod = Mod
+      def constructorCodeString : String = s"${dfType.constructorCodeString} <> IN"
       override lazy val typeName: String = s"$dfType <> OUT"
     }
     object Out {
@@ -210,6 +220,7 @@ object DFAny {
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
       ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
+    def constructorCodeString : String = dfType.constructorCodeString
   }
   object NewVar {
     sealed trait Uninitialized extends DFAny.Modifier.NewVar with DFAny.Modifier.Initializable
@@ -236,6 +247,7 @@ object DFAny {
       val retVal : RefVal = retValRef
       type TMod = retVal.TMod
       val modifier : TMod = retVal.modifier
+      def constructorCodeString : String = s"${retVal.refCodeString}.as(${dfType.constructorCodeString})"
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
@@ -249,6 +261,7 @@ object DFAny {
       type TMod = retVal.TMod
       val dfType : TType = DFBits.Type(relWidth)
       val modifier : TMod = retVal.modifier
+      def constructorCodeString : String = s"${retVal.refCodeString}.bitsWL($relWidth, $relBitLow)"
     }
     object BitsWL {
       def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
@@ -261,6 +274,7 @@ object DFAny {
       type TMod = Modifier.Val
       val dfType : TType = retValRef.dfType
       val modifier : TMod = Modifier.Val
+      def constructorCodeString : String = s"${retValRef.refCodeString}.prev($step)"
     }
     object Prev {
       def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
@@ -276,7 +290,8 @@ object DFAny {
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
     dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
-    override def toString: String = s"${leftArg.fullName} $op ${rightArg.fullName} : $dfType"
+    def constructorCodeString : String = s"${leftArg.refCodeString} $op ${rightArg.refCodeString}"
+    override def toString: String = s"$constructorCodeString : $dfType"
   }
   object Func2 {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
