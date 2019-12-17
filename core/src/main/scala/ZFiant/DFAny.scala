@@ -244,7 +244,7 @@ object DFAny {
     final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
       dfType : Type, retValRef : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[Type, RefVal, RefVal#TMod] {
-      val retVal : RefVal = retValRef
+      protected val retVal : RefVal = retValRef
       type TMod = retVal.TMod
       val modifier : TMod = retVal.modifier
       def constructorCodeString : String = s"${retVal.refCodeString}.as(${dfType.constructorCodeString})"
@@ -257,7 +257,7 @@ object DFAny {
     final case class BitsWL[W, L, RefVal <: DFAny](
       retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[DFBits.Type[W], RefVal, RefVal#TMod]{
-      val retVal : RefVal = retValRef
+      protected val retVal : RefVal = retValRef
       type TMod = retVal.TMod
       val dfType : TType = DFBits.Type(relWidth)
       val modifier : TMod = retVal.modifier
