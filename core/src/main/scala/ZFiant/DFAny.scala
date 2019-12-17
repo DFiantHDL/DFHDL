@@ -339,7 +339,7 @@ object DFAny {
       def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign == ctx.owner
     }
     private def connectPortInWithPortIn(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two input ports of the same design.")
       //Connecting owner and child design input ports, while child port is left and owner port is right.
       else if ((left isOneLevelBelow right) && (left.isConnectingExternally)) (left, right)
@@ -348,7 +348,7 @@ object DFAny {
       else throwConnectionError("Unsupported connection")
     }
     private def connectPortOutWithPortOut(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two output ports of the same design.")
       //Connecting owner and child design output ports, while child port is left and owner port is right.
       else if ((left isOneLevelBelow right) && (left.isConnectingExternally)) (right, left)
@@ -357,7 +357,7 @@ object DFAny {
       else throwConnectionError("Unsupported connection")
     }
     private def connectPortOutWithPortIn(out : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting input and output ports internally at the same design
       if ((out isSameOwnerDesignAs in) && out.isConnectingInternally) (out, in)
       //Connecting input and output ports of sibling designs
@@ -365,7 +365,7 @@ object DFAny {
       else throwConnectionError("Unsupported connection")
     }
     private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
       if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally)) (in, dfVar)
       //Connecting a an input port to a variable internally
@@ -373,7 +373,7 @@ object DFAny {
       else throwConnectionError("Unsupported connection")
     }
     private def connectVarWithPortOut(dfVar : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.fullName} <> ${out.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${out.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an output port internally
       if ((dfVar isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVar)
       //Connecting a an output port to a variable externally
@@ -381,13 +381,13 @@ object DFAny {
       else throwConnectionError("Unsupported connection")
     }
     private def connectValWithPortIn(dfVal : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVal.fullName} <> ${in.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVal.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
       if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally)) (in, dfVal)
       else throwConnectionError("Unsupported connection")
     }
     private def connectValWithPortOut(dfVal : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.fullName} <> ${dfVal.fullName} at ${ctx.owner.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.getFullName} <> ${dfVal.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an output port internally
       if ((dfVal isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVal)
       else throwConnectionError("Unsupported connection")
@@ -412,7 +412,7 @@ object DFAny {
       }
     }
     protected[ZFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
-      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.fullName} <> ${right.fullName}")
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
       val (toPort, from) : (DFAny, DFAny) = (left, right) match {
         case (p1@In(), p2@In()) => connectPortInWithPortIn(p1, p2)
         case (p1@Out(), p2@Out()) => connectPortOutWithPortOut(p1, p2)

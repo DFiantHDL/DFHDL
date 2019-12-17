@@ -25,6 +25,12 @@ object DFCompiler {
     }
   }
 
+  implicit class Naming(designDB : DFDesign.DB) {
+    def fixNames : DFDesign.DB = {
+      ???
+    }
+  }
+
   implicit class CodeString(designDB : DFDesign.DB) {
 //    val designStrings : Map[String, Map]
     designDB.members.collect {
