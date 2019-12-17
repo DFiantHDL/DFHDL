@@ -71,7 +71,9 @@ object DFDesign {
       case m : TopBlock => m
     }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
-    @tailrec private def recur(
+
+    //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
+    @tailrec private def OMLGen(
       oml : List[(DFBlock, List[DFMember])], globalMembers : List[DFMember], localStack : List[(DFBlock, List[DFMember])]
     ) : List[(DFBlock, List[DFMember])] = {
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
@@ -81,13 +83,13 @@ object DFDesign {
           m match {
             case o : DFBlock => //Deep borrowing into block as the new owner
               val updatedStack2 = (o -> List()) :: updatedStack1
-              recur(oml, mList, updatedStack2)
+              OMLGen(oml, mList, updatedStack2)
             case _ => //Just a member
-              recur(oml, mList, updatedStack1)
+              OMLGen(oml, mList, updatedStack1)
           }
         case x :: xs => //current member does not belong to current owner
           val updatedOML = oml :+ (localOwner -> localMembers)
-          recur(updatedOML, globalMembers, updatedStack0)
+          OMLGen(updatedOML, globalMembers, updatedStack0)
         case Nil =>
           assert(updatedStack0.isEmpty, updatedStack0) //sanity check
           oml :+ (localOwner -> localMembers)
@@ -96,7 +98,7 @@ object DFDesign {
 
     //holds the topological order of owner block dependency
     lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
-      recur(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
+      OMLGen(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
 
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
