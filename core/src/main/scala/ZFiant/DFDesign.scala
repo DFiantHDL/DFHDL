@@ -103,6 +103,21 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
+    //replaces all members according to the patch table (origMember -> repMember)
+    def patch(patchTable : Map[DFMember, DFMember]) : DB = {
+      val patchedMembers = members.map(origMember => patchTable.get(origMember) match {
+        case Some(repMember) => repMember
+        case None => origMember
+      })
+      val patchedRefTable = patchTable.foldLeft(refTable) {
+        case (rt, (origMember, repMember)) => memberTable.get(origMember) match {
+          case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+          case None => rt
+        }
+      }
+      DB(patchedMembers, patchedRefTable)
+    }
+
     def printOwnership() : Unit = {
       println(members.map(m => (m -> m.owner).toString()).mkString("\n"))
     }
