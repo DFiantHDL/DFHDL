@@ -32,7 +32,7 @@ object DFAny {
     val width : TwoFace.Int[Width]
     type TPattern <: DFAny.Pattern[TPattern]
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
-    type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
+    type TPatternBuilder[LType <: Type] <: DFAny.Pattern.Builder[LType, TPatternAble]
     type OpAble[R] <: DFAny.Op.Able[R]
     type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
@@ -564,8 +564,8 @@ object DFAny {
       val right : R
     }
 
-    trait Builder[L <: DFAny, Able[+R] <: Pattern.Able[R]] {
-      def apply[R](left : L, right : Seq[Able[R]]) : left.dfType.TPattern
+    trait Builder[LType <: Type, Able[+R] <: Pattern.Able[R]] {
+      def apply[R](left : LType, right : Seq[Able[R]]) : left.TPattern
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -647,7 +647,7 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait PatternCO {
       type Able[+R] <: DFAny.Pattern.Able[R]
-      type Builder[L <: DFAny] <: DFAny.Pattern.Builder[L, Able]
+      type Builder[LType <: DFAny.Type] <: DFAny.Pattern.Builder[LType, Able]
     }
     val Pattern : PatternCO
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
