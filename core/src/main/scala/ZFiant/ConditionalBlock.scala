@@ -92,12 +92,11 @@ object ConditionalBlock {
       retVar : DFAny.VarOf[Type], mvType : MVType,
       matchValRef : DFRef[DFAny.Of[MVType]], matchConfig: MatchConfig, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends DFMember {
-      private[WithRetVal] val matchVal = matchValRef.get
       private val dfType = retVar.dfType
-      def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
-        retVar, this, None, patternBld(matchVal.dfType, pattern)
+        retVar, this, None, patternBld(mvType, pattern)
       )(retBld(dfType, block))(ctx)
     }
     object MatchHeader {
@@ -112,11 +111,10 @@ object ConditionalBlock {
       prevCaseRef : Option[DFRef[DFCasePatternBlock[Type, MVType]]], pattern : MVType#TPattern,
       ownerRef: DFRef[DFBlock], meta: Meta
     )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
-      private[WithRetVal] val matchVal = matchHeaderRef.matchVal
-      def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
-        retVar, matchHeaderRef, Some(this), patternBld(matchVal.dfType, pattern)
+        retVar, matchHeaderRef, Some(this), patternBld(mvType, pattern)
       )(retBld(dfType, block))(ctx)
       def casedf_[MC, B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, retBld : dfType.`Op:=Builder`[Type, B]
