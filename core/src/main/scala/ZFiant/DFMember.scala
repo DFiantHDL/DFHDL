@@ -63,7 +63,7 @@ object DFMember {
   }
 }
 
-class DFRef[+T <: DFMember](member : T) {
+class DFRef[T <: DFMember](member : T) {
   def get : T = member
   override def toString: String = get.toString
 }
