@@ -136,19 +136,21 @@ object DFDesign {
         member
       }
       def getMembers : List[DFMember] = members
-      private var refTable : Map[DFRef[_], DFMember] = Map()
-      def addRef[T <: DFMember](ref : DFRef[T], member : DFMember) : DFRef[T] = {
-        refTable = refTable + (ref -> member)
-        ref
+      private var memberTable : Map[DFMember, DFRef[_]] = Map()
+      def getRef[T <: DFMember](member : T) : DFRef[T] = {
+        memberTable.getOrElse(member, {
+          val ref = new DFRef[T]
+          memberTable = memberTable + (member -> ref)
+          ref
+        }).asInstanceOf[DFRef[T]]
       }
-      def getRefTable : Map[DFRef[_], DFMember] = refTable
       def immutable : DB = {
-        val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
           case m if memberTable.contains(m) => m
           case m : DFDesign.TopBlock => m
         }
+        val refTable = for ((k,v) <- memberTable) yield (v, k)
         DB(refMembers, refTable)
       }
     }

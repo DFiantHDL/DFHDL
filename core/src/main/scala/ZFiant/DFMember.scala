@@ -63,12 +63,12 @@ object DFMember {
   }
 }
 
-class DFRef[+T <: DFMember](member : T) {
-  def get : T = member
+class DFRef[+T] {
+  def get : T = ???
   override def toString: String = get.toString
 }
 object DFRef {
-  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.addRef(new DFRef[T](member), member)
+  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.getRef(member)
   implicit def memberOf[T <: DFMember](ref : DFRef[T]) : T = ref.get
   implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
 }
