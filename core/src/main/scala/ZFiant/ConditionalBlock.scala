@@ -19,7 +19,6 @@ package ZFiant
 import DFiant.internals.Meta
 
 sealed abstract class ConditionalBlock[Ret](block : => Ret) extends DFBlock {
-  private[ZFiant] val originalOwner : DFBlock = owner.__injectedOwner
   private[ZFiant] lazy val applyBlock : Unit = ???
 }
 
@@ -36,10 +35,11 @@ object ConditionalBlock {
     lazy val dfType: Type = retVar.dfType
 
     override private[ZFiant] lazy val applyBlock : Unit = {
+      val injectedOwnerBackup = owner.__injectedOwner
       owner.__injectedOwner = this
       val returnValue = block
       retVar.assign(returnValue)(DFAny.Context(returnValue.meta.anonymize, this, topDesign.__db))
-      owner.__injectedOwner = originalOwner
+      owner.__injectedOwner = injectedOwnerBackup
     }
   }
   object WithRetVal {
@@ -140,9 +140,10 @@ object ConditionalBlock {
   }
   sealed abstract class NoRetVal(block : => Unit) extends ConditionalBlock[Unit](block) {
     override private[ZFiant] lazy val applyBlock : Unit = {
+      val injectedOwnerBackup = owner.__injectedOwner
       owner.__injectedOwner = this
       block
-      owner.__injectedOwner = originalOwner
+      owner.__injectedOwner = injectedOwnerBackup
     }
   }
   object NoRetVal {
