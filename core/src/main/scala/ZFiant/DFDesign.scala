@@ -5,16 +5,17 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
-  private[ZFiant] val block : DFBlock = DFDesign.Block(typeName)(ctx)
+  private val block : DFBlock = DFDesign.Block(typeName)(ctx)
+  private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    DFAny.Context(meta, block.__injectedOwner, block.topDesign.__db)
+    DFAny.Context(meta, block.__injectedOwner, ctx.db)
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    DFBlock.Context(meta, Some(block.__injectedOwner), block.topDesign.__db)
+    DFBlock.Context(meta, Some(block.__injectedOwner), ctx.db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    ContextOf[T](meta, Some(block.__injectedOwner), block.topDesign.__db)
+    ContextOf[T](meta, Some(block.__injectedOwner), ctx.db)
   ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
@@ -53,7 +54,6 @@ object DFDesign {
     override lazy val ownerRef: DFRef[DFBlock] = ???
     override lazy val owner: DFBlock = this
     override val isTop: Boolean = true
-    private[ZFiant] val __db: DFDesign.DB.Mutable = db
     override val topDesign: TopBlock = this
     override lazy val typeName : String = designType
     override def getFullName: String = name
@@ -64,7 +64,7 @@ object DFDesign {
   }
 
   implicit class DevAccess(design : DFDesign) {
-    def db : DB = design.block.topDesign.__db.immutable
+    def db : DB = design.__db.immutable
   }
   final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
     lazy val top : TopBlock = members.head match {
@@ -128,7 +128,7 @@ object DFDesign {
       private var members : List[DFMember] = List()
       def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB) : CB = {
         members = members :+ cb
-        cb.applyBlock
+        cb.applyBlock(this)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {

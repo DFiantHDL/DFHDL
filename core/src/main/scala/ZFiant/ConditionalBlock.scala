@@ -19,7 +19,7 @@ package ZFiant
 import DFiant.internals.Meta
 
 sealed abstract class ConditionalBlock[Ret](block : => Ret) extends DFBlock {
-  private[ZFiant] lazy val applyBlock : Unit = ???
+  private[ZFiant] def applyBlock(db : DFDesign.DB.Mutable) : Unit
 }
 
 sealed trait MatchConfig extends Product with Serializable
@@ -34,11 +34,11 @@ object ConditionalBlock {
     val retVar : DFAny.VarOf[Type]
     lazy val dfType: Type = retVar.dfType
 
-    override private[ZFiant] lazy val applyBlock : Unit = {
+    private[ZFiant] def applyBlock(db : DFDesign.DB.Mutable) : Unit = {
       val injectedOwnerBackup = owner.__injectedOwner
       owner.__injectedOwner = this
       val returnValue = block
-      retVar.assign(returnValue)(DFAny.Context(returnValue.meta.anonymize, this, topDesign.__db))
+      retVar.assign(returnValue)(DFAny.Context(returnValue.meta.anonymize, this, db))
       owner.__injectedOwner = injectedOwnerBackup
     }
   }
@@ -140,7 +140,7 @@ object ConditionalBlock {
     }
   }
   sealed abstract class NoRetVal(block : => Unit) extends ConditionalBlock[Unit](block) {
-    override private[ZFiant] lazy val applyBlock : Unit = {
+    private[ZFiant] def applyBlock(db : DFDesign.DB.Mutable) : Unit = {
       val injectedOwnerBackup = owner.__injectedOwner
       owner.__injectedOwner = this
       block
