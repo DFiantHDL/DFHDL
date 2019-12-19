@@ -94,9 +94,9 @@ object ConditionalBlock {
       private[WithRetVal] val matchVal = matchValRef.get
       private val dfType = retVar.dfType
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]], retBld : dfType.`Op:=Builder`[Type, B]
+        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
-        retVar, this, None, patternBld(matchVal, pattern)
+        retVar, this, None, patternBld(matchVal.dfType, pattern)
       )(retBld(dfType, block))(ctx)
     }
     object MatchHeader {
@@ -112,9 +112,9 @@ object ConditionalBlock {
     )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
       private[WithRetVal] val matchVal = matchHeaderRef.matchVal
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]], retBld : dfType.`Op:=Builder`[Type, B]
+        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
-        retVar, matchHeaderRef, Some(this), patternBld(matchVal, pattern)
+        retVar, matchHeaderRef, Some(this), patternBld(matchVal.dfType, pattern)
       )(retBld(dfType, block))(ctx)
       def casedf_[MC, B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, retBld : dfType.`Op:=Builder`[Type, B]
@@ -186,9 +186,9 @@ object ConditionalBlock {
     ) extends DFMember {
       private[NoRetVal] val matchVal = matchValRef.get
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
-        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
+        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[MVType]
       ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
-        this, None, patternBld(matchVal, pattern)
+        this, None, patternBld(matchVal.dfType, pattern)
       )(block)(ctx)
     }
     object MatchHeader {
@@ -203,9 +203,9 @@ object ConditionalBlock {
     )(block : => Unit) extends NoRetVal(block) {
       private[NoRetVal] val matchVal = matchHeaderRef.matchVal
       def casedf[MC, B](pattern : matchVal.dfType.TPatternAble[MC]*)(block : => Unit)(
-        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[DFAny.Of[MVType]]
+        implicit ctx : DFBlock.Context, patternBld : matchVal.dfType.TPatternBuilder[MVType]
       ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
-        matchHeaderRef, Some(this), patternBld(matchVal, pattern)
+        matchHeaderRef, Some(this), patternBld(matchVal.dfType, pattern)
       )(block)(ctx)
       def casedf_[MC, B](block : => Unit)(
         implicit ctx : DFBlock.Context
