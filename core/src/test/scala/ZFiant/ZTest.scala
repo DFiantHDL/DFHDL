@@ -109,7 +109,7 @@ object ZTest extends App {
   }
 
   val top = new BBB {}
-  println(top.db.ownerMemberList.mkString("\n"))
+  println(top.db.ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
 //  println(top.__compiler.getRefTable)
 
 //  println((top, top.owner), (top.a, top.a.owner), (top.b, top.b.owner), (top.c, top.c.owner))

@@ -54,7 +54,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
 //  }
 
 
-  override def toString: String = s"$getFullName : $typeName"
+  def show : String = s"$getFullName : $typeName"
 }
 
 object DFMember {
