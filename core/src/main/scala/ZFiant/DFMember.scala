@@ -1,6 +1,8 @@
 package ZFiant
 import DFiant.internals.Meta
 
+import scala.annotation.tailrec
+
 trait HasTypeName {
   lazy val typeName: String = {
     val cls = this.getClass
@@ -19,18 +21,18 @@ trait HasTypeName {
 trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
-  implicit lazy val owner : DFBlock = ownerRef
-  final val ownerDesign : DFBlock = owner match {
+  implicit def getOwner : DFBlock = ownerRef
+  final def getOwnerDesign : DFBlock = getOwner match {
     case d : DFDesign.Block => d
     case d : DFDesign.TopBlock => d
-    case b : DFBlock => b.ownerDesign
+    case b : DFBlock => b.getOwnerDesign
   }
   @inline final val name : String = meta.name
-  def getFullName : String = s"${owner.getFullName}.${name}"
-  final private[ZFiant] def getOwnerChain : List[DFBlock] = if (owner.isTop) List(owner) else owner.getOwnerChain :+ owner
+  def getFullName : String = s"${getOwner.getFullName}.${name}"
+  final private[ZFiant] def getOwnerChain : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
   def getRelativeName(implicit callOwner : DFBlock) : String = {
     if (this isSameOwnerDesignAs callOwner) name
-    else if (this isOneLevelBelow callOwner) s"${owner.name}.$name"
+    else if (this isOneLevelBelow callOwner) s"${getOwner.name}.$name"
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
@@ -40,8 +42,8 @@ trait DFMember extends HasTypeName with Product with Serializable {
     }
   }
 
-  final def isSameOwnerDesignAs(that : DFMember) : Boolean = ownerDesign == that.ownerDesign
-  final def isOneLevelBelow(that : DFMember) : Boolean = ownerDesign isSameOwnerDesignAs that
+  final def isSameOwnerDesignAs(that : DFMember) : Boolean = getOwnerDesign == that.getOwnerDesign
+  final def isOneLevelBelow(that : DFMember) : Boolean = getOwnerDesign isSameOwnerDesignAs that
 
   //  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
     //      (nonTransparentOwnerOption, that) match {

@@ -52,7 +52,7 @@ object DFDesign {
 
   final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
     override lazy val ownerRef: DFRef[DFBlock] = ???
-    override lazy val owner: DFBlock = this
+    override lazy val getOwner: DFBlock = this
     override val isTop: Boolean = true
     override lazy val typeName : String = designType
     override def getFullName: String = name
@@ -77,7 +77,7 @@ object DFDesign {
     ) : List[(DFBlock, List[DFMember])] = {
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
-        case m :: mList if m.owner == localOwner => //current member indeed belongs to current owner
+        case m :: mList if m.getOwner == localOwner => //current member indeed belongs to current owner
           val updatedStack1 = (localOwner -> (localMembers :+ m)) :: updatedStack0
           m match {
             case o : DFBlock => //Deep borrowing into block as the new owner
@@ -118,7 +118,7 @@ object DFDesign {
     }
 
     def printOwnership() : Unit = {
-      println(members.map(m => (m -> m.owner).toString()).mkString("\n"))
+      println(members.map(m => (m -> m.getOwner).toString()).mkString("\n"))
     }
   }
 
