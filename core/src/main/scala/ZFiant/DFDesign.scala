@@ -54,7 +54,6 @@ object DFDesign {
     override lazy val ownerRef: DFRef[DFBlock] = ???
     override lazy val owner: DFBlock = this
     override val isTop: Boolean = true
-    override val topDesign: TopBlock = this
     override lazy val typeName : String = designType
     override def getFullName: String = name
   }
