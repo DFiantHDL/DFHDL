@@ -148,7 +148,7 @@ object DFAny {
 
     def constructorCodeString : String = token.constructorCodeString
     override def refCodeString(implicit callOwner : DFBlock) : String = constructorCodeString
-    override def toString: String = s"Const($token) : $dfType"
+    override def show : String = s"Const($token) : $dfType"
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
@@ -290,7 +290,7 @@ object DFAny {
     dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     def constructorCodeString : String = s"${leftArg.refCodeString} $op ${rightArg.refCodeString}"
-    override def toString: String = s"$constructorCodeString : $dfType"
+    override def show : String = s"$constructorCodeString : $dfType"
   }
   object Func2 {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
