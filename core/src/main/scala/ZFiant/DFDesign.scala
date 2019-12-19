@@ -56,7 +56,7 @@ object DFDesign {
     private[ZFiant] val __db: DFDesign.DB.Mutable = db
     override val topDesign: TopBlock = this
     override lazy val typeName : String = designType
-    override def getFullName: String = getName
+    override def getFullName: String = name
   }
   object Block {
     def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(

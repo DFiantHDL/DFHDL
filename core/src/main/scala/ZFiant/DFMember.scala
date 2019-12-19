@@ -25,12 +25,12 @@ trait DFMember extends HasTypeName with Product with Serializable {
     case d : DFDesign.TopBlock => d
     case b : DFBlock => b.ownerDesign
   }
-  @inline final def getName : String = meta.name
-  def getFullName : String = s"${owner.getFullName}.${getName}"
+  @inline final val name : String = meta.name
+  def getFullName : String = s"${owner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain : List[DFBlock] = if (owner.isTop) List(owner) else owner.getOwnerChain :+ owner
   def getRelativeName(implicit callOwner : DFBlock) : String = {
-    if (this isSameOwnerDesignAs callOwner) getName
-    else if (this isOneLevelBelow callOwner) s"${owner.getName}.$getName"
+    if (this isSameOwnerDesignAs callOwner) name
+    else if (this isOneLevelBelow callOwner) s"${owner.name}.$name"
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
