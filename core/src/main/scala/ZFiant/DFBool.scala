@@ -20,7 +20,7 @@ object DFBool extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     override def toString: String = "DFBool"
-    def constructorCodeString(implicit getter : MemberGetter) : String = "DFBool()"
+    def codeString(implicit getter : MemberGetter) : String = "DFBool()"
   }
   def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
 
@@ -56,7 +56,7 @@ object DFBool extends DFAny.Companion {
     def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
 
-    def constructorCodeString(implicit getter : MemberGetter) : String = value.codeString
+    def codeString(implicit getter : MemberGetter) : String = value.codeString
   }
 
   object Token {

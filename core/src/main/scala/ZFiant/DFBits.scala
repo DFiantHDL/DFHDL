@@ -22,7 +22,7 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits[$width]"
-    def constructorCodeString(implicit getter : MemberGetter) : String = s"DFBits($width)"
+    def codeString(implicit getter : MemberGetter) : String = s"DFBits($width)"
   }
   def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
 
@@ -101,7 +101,7 @@ object DFBits extends DFAny.Companion {
     //      val outBubble = isBubble
     //      new DFSInt.Token(outWidth, outValueSInt, outBubble)
     //    }
-    def constructorCodeString(implicit getter : MemberGetter) : String = value.codeString
+    def codeString(implicit getter : MemberGetter) : String = value.codeString
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
