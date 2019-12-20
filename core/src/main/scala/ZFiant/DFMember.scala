@@ -21,16 +21,16 @@ trait HasTypeName {
 trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
-  implicit def getOwner : DFBlock = ownerRef
-  final def getOwnerDesign : DFBlock = getOwner match {
+  implicit def getOwner(implicit getter : MemberGetter) : DFBlock = ownerRef
+  final def getOwnerDesign(implicit getter : MemberGetter) : DFBlock = getOwner match {
     case d : DFDesign.Block => d
     case d : DFDesign.TopBlock => d
     case b : DFBlock => b.getOwnerDesign
   }
   @inline final val name : String = meta.name
-  def getFullName : String = s"${getOwner.getFullName}.${name}"
-  final private[ZFiant] def getOwnerChain : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
-  def getRelativeName(implicit callOwner : DFBlock) : String = {
+  def getFullName(implicit getter : MemberGetter) : String = s"${getOwner.getFullName}.${name}"
+  final private[ZFiant] def getOwnerChain(implicit getter : MemberGetter) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
+  def getRelativeName(implicit callOwner : DFBlock, getter : MemberGetter) : String = {
     if (this isSameOwnerDesignAs callOwner) name
     else if (this isOneLevelBelow callOwner) s"${getOwner.name}.$name"
     else {
@@ -42,8 +42,8 @@ trait DFMember extends HasTypeName with Product with Serializable {
     }
   }
 
-  final def isSameOwnerDesignAs(that : DFMember) : Boolean = getOwnerDesign == that.getOwnerDesign
-  final def isOneLevelBelow(that : DFMember) : Boolean = getOwnerDesign isSameOwnerDesignAs that
+  final def isSameOwnerDesignAs(that : DFMember)(implicit getter : MemberGetter) : Boolean = getOwnerDesign == that.getOwnerDesign
+  final def isOneLevelBelow(that : DFMember)(implicit getter : MemberGetter) : Boolean = getOwnerDesign isSameOwnerDesignAs that
 
   //  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
     //      (nonTransparentOwnerOption, that) match {
@@ -54,7 +54,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
 //  }
 
 
-  def show : String = s"$getFullName : $typeName"
+  def show(implicit getter : MemberGetter) : String = s"$getFullName : $typeName"
 }
 
 object DFMember {
@@ -65,13 +65,21 @@ object DFMember {
   }
 }
 
-class DFRef[T <: DFMember](member : T) {
-  def get : T = member
-  override def toString: String = get.toString
+class DFRef[T <: DFMember] {
+  def get(implicit getter: MemberGetter) : T = getter(this)
 }
 object DFRef {
-  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.addRef(new DFRef[T](member), member)
-  implicit def memberOf[T <: DFMember](ref : DFRef[T]) : T = ref.get
+  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.getRef(member)
+  implicit def memberOf[T <: DFMember](ref : DFRef[T])(implicit getter : MemberGetter) : T = getter(ref)
   implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
+}
+
+trait MemberGetter {
+  def apply[T <: DFMember](ref : DFRef[T]) : T
+}
+object MemberGetter {
+  implicit def ev(implicit ctx : DFMember.Context) : MemberGetter = new MemberGetter {
+    override def apply[T <: DFMember](ref: DFRef[T]): T = ctx.db.getMember(ref)
+  }
 }
 

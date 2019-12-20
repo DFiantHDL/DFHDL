@@ -52,10 +52,10 @@ object DFDesign {
 
   final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
     override lazy val ownerRef: DFRef[DFBlock] = ???
-    override lazy val getOwner: DFBlock = this
+    override def getOwner(implicit getter : MemberGetter): DFBlock = this
     override val isTop: Boolean = true
     override lazy val typeName : String = designType
-    override def getFullName: String = name
+    override def getFullName(implicit getter : MemberGetter): String = name
   }
   object Block {
     def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(
@@ -68,6 +68,9 @@ object DFDesign {
   final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
     lazy val top : TopBlock = members.head match {
       case m : TopBlock => m
+    }
+    private implicit val getter : MemberGetter = new MemberGetter {
+      override def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
     }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
 
@@ -98,6 +101,8 @@ object DFDesign {
     //holds the topological order of owner block dependency
     lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
       OMLGen(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
+    def printOwnerMemberList() : Unit =
+      println(ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
 
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
@@ -125,7 +130,7 @@ object DFDesign {
   object DB {
     class Mutable {
       private var members : List[DFMember] = List()
-      def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB) : CB = {
+      def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB)(implicit getter : MemberGetter) : CB = {
         members = members :+ cb
         cb.applyBlock(this)
         cb
@@ -136,13 +141,17 @@ object DFDesign {
       }
       def getMembers : List[DFMember] = members
       private var refTable : Map[DFRef[_], DFMember] = Map()
-      def addRef[T <: DFMember](ref : DFRef[T], member : DFMember) : DFRef[T] = {
-        refTable = refTable + (ref -> member)
-        ref
+      private var memberTable : Map[DFMember, DFRef[_]] = Map()
+      def getMember[T <: DFMember](ref : DFRef[T]) : T = refTable(ref).asInstanceOf[T]
+      def getRef[T <: DFMember](member : T) : DFRef[T] = {
+        memberTable.getOrElse(member, {
+          val ref = new DFRef[T]
+          memberTable = memberTable + (member -> ref)
+          refTable = refTable + (ref -> member)
+          ref
+        }).asInstanceOf[DFRef[T]]
       }
-      def getRefTable : Map[DFRef[_], DFMember] = refTable
       def immutable : DB = {
-        val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
           case m if memberTable.contains(m) => m
