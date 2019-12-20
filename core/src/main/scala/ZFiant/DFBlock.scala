@@ -3,15 +3,14 @@ import DFiant.internals._
 
 import scala.annotation.implicitNotFound
 
-trait DFBlock extends DFMember {self =>
+trait DFBlock extends DFMember {
 //  val ctx : DFBlock.Context
-  private[ZFiant] var __injectedOwner : DFBlock = self
+  private[ZFiant] var __injectedOwner : DFBlock = this
 
   ///////////////////////////////////////////////////////////////////
   // Ownership
   ///////////////////////////////////////////////////////////////////
   val isTop : Boolean = false
-  val topDesign : DFDesign.TopBlock = owner.topDesign
   ///////////////////////////////////////////////////////////////////
 }
 

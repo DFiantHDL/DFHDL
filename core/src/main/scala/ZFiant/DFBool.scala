@@ -10,7 +10,7 @@ object DFBool extends DFAny.Companion {
     type TToken = Token
     type TPattern = DFBool.Pattern
     type TPatternAble[+R] = DFBool.Pattern.Able[R]
-    type TPatternBuilder[L <: DFAny] = DFBool.Pattern.Builder[L]
+    type TPatternBuilder[LType <: DFAny.Type] = DFBool.Pattern.Builder[LType]
     type OpAble[R] = DFBool.Op.Able[R]
     type `Op==Builder`[-L, -R] = DFBool.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] = DFBool.`Op!=`.Builder[L, R]
@@ -20,7 +20,7 @@ object DFBool extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     override def toString: String = "DFBool"
-    def constructorCodeString : String = "DFBool()"
+    def constructorCodeString(implicit getter : MemberGetter) : String = "DFBool()"
   }
   def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
 
@@ -56,7 +56,7 @@ object DFBool extends DFAny.Companion {
     def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
 
-    def constructorCodeString: String = value.codeString
+    def constructorCodeString(implicit getter : MemberGetter) : String = value.codeString
   }
 
   object Token {
@@ -96,10 +96,10 @@ object DFBool extends DFAny.Companion {
         val bool : Boolean = right
       }
     }
-    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    trait Builder[LType <: DFAny.Type] extends DFAny.Pattern.Builder[LType, Able]
     object Builder {
-      implicit def ev[LW] : Builder[DFBool] = new Builder[DFBool] {
-        def apply[R](left: DFBool, right: Seq[Able[R]]): Pattern = {
+      implicit def ev[LW] : Builder[Type] = new Builder[Type] {
+        def apply[R](left: Type, right: Seq[Able[R]]): Pattern = {
           val patternSet = right.map(e => e.bool).foldLeft(Set.empty[Boolean])((set, bool) => {
             if (set.contains(bool)) throw new IllegalArgumentException(s"\nThe boolean $bool already intersects with $set")
             set + bool

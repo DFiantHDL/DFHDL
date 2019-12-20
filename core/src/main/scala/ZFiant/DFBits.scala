@@ -13,7 +13,7 @@ object DFBits extends DFAny.Companion {
     type TToken = Token[W]
     type TPattern = DFBits.Pattern
     type TPatternAble[+R] = DFBits.Pattern.Able[R]
-    type TPatternBuilder[L <: DFAny] = DFBits.Pattern.Builder[L]
+    type TPatternBuilder[LType <: DFAny.Type] = DFBits.Pattern.Builder[LType]
     type OpAble[R] = DFBits.Op.Able[R]
     type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
@@ -22,7 +22,7 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits[$width]"
-    def constructorCodeString : String = s"DFBits($width)"
+    def constructorCodeString(implicit getter : MemberGetter) : String = s"DFBits($width)"
   }
   def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
 
@@ -101,7 +101,7 @@ object DFBits extends DFAny.Companion {
     //      val outBubble = isBubble
     //      new DFSInt.Token(outWidth, outValueSInt, outBubble)
     //    }
-    def constructorCodeString: String = value.codeString
+    def constructorCodeString(implicit getter : MemberGetter) : String = value.codeString
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
@@ -148,13 +148,13 @@ object DFBits extends DFAny.Companion {
         val bitVector : BitVector = right
       }
     }
-    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    trait Builder[LType <: DFAny.Type] extends DFAny.Pattern.Builder[LType, Able]
     object Builder {
-      implicit def ev[LW] : Builder[DFBits[LW]] = new Builder[DFBits[LW]] {
-        def apply[R](left: DFBits[LW], right: Seq[Able[R]]): Pattern = {
+      implicit def ev[LW] : Builder[Type[LW]] = new Builder[Type[LW]] {
+        def apply[R](left: Type[LW], right: Seq[Able[R]]): Pattern = {
           val patternSet = right.map(e => e.bitVector).foldLeft(Set.empty[BitVector])((set, bitVector) => {
             if (set.contains(bitVector)) throw new IllegalArgumentException(s"\nThe bitvector $bitVector already intersects with $set")
-            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.meta.name}")
+            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.width}")
             set + bitVector
           })
 

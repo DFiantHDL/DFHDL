@@ -5,16 +5,17 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
-  private[ZFiant] val block : DFBlock = DFDesign.Block(typeName)(ctx)
+  private val block : DFBlock = DFDesign.Block(typeName)(ctx)
+  private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    DFAny.Context(meta, block.__injectedOwner, block.topDesign.__db)
+    DFAny.Context(meta, block.__injectedOwner, ctx.db)
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    DFBlock.Context(meta, Some(block.__injectedOwner), block.topDesign.__db)
+    DFBlock.Context(meta, Some(block.__injectedOwner), ctx.db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    ContextOf[T](meta, Some(block.__injectedOwner), block.topDesign.__db)
+    ContextOf[T](meta, Some(block.__injectedOwner), ctx.db)
   ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
@@ -47,16 +48,17 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
-  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock
+  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock {
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
+  }
 
   final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
     override lazy val ownerRef: DFRef[DFBlock] = ???
-    override lazy val owner: DFBlock = this
+    override def getOwner(implicit getter : MemberGetter): DFBlock = this
     override val isTop: Boolean = true
-    private[ZFiant] val __db: DFDesign.DB.Mutable = db
-    override val topDesign: TopBlock = this
     override lazy val typeName : String = designType
-    override def getFullName: String = getName
+    override def getFullName(implicit getter : MemberGetter): String = name
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(db, designType)
   }
   object Block {
     def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(
@@ -64,11 +66,14 @@ object DFDesign {
   }
 
   implicit class DevAccess(design : DFDesign) {
-    def db : DB = design.block.topDesign.__db.immutable
+    def db : DB = design.__db.immutable
   }
   final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
     lazy val top : TopBlock = members.head match {
       case m : TopBlock => m
+    }
+    private implicit val getter : MemberGetter = new MemberGetter {
+      override def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
     }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
 
@@ -78,7 +83,7 @@ object DFDesign {
     ) : List[(DFBlock, List[DFMember])] = {
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
-        case m :: mList if m.owner == localOwner => //current member indeed belongs to current owner
+        case m :: mList if m.getOwner == localOwner => //current member indeed belongs to current owner
           val updatedStack1 = (localOwner -> (localMembers :+ m)) :: updatedStack0
           m match {
             case o : DFBlock => //Deep borrowing into block as the new owner
@@ -99,6 +104,8 @@ object DFDesign {
     //holds the topological order of owner block dependency
     lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
       OMLGen(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
+    def printOwnerMemberList() : Unit =
+      println(ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
 
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
@@ -119,16 +126,16 @@ object DFDesign {
     }
 
     def printOwnership() : Unit = {
-      println(members.map(m => (m -> m.owner).toString()).mkString("\n"))
+      println(members.map(m => (m -> m.getOwner).toString()).mkString("\n"))
     }
   }
 
   object DB {
     class Mutable {
       private var members : List[DFMember] = List()
-      def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB) : CB = {
+      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit getter : MemberGetter) : CB = {
         members = members :+ cb
-        cb.applyBlock
+        cb.applyBlock(block, this)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
@@ -136,11 +143,14 @@ object DFDesign {
         member
       }
       def getMembers : List[DFMember] = members
+      private var refTable : Map[DFRef[_], DFMember] = Map()
       private var memberTable : Map[DFMember, DFRef[_]] = Map()
+      def getMember[T <: DFMember](ref : DFRef[T]) : T = refTable(ref).asInstanceOf[T]
       def getRef[T <: DFMember](member : T) : DFRef[T] = {
         memberTable.getOrElse(member, {
           val ref = new DFRef[T]
           memberTable = memberTable + (member -> ref)
+          refTable = refTable + (ref -> member)
           ref
         }).asInstanceOf[DFRef[T]]
       }
@@ -150,7 +160,6 @@ object DFDesign {
           case m if memberTable.contains(m) => m
           case m : DFDesign.TopBlock => m
         }
-        val refTable = for ((k,v) <- memberTable) yield (v, k)
         DB(refMembers, refTable)
       }
     }

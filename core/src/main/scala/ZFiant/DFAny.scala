@@ -19,10 +19,10 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   protected type AsVar = DFAny.VarOf[TType]
   protected type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
-  def constructorCodeString : String
-  def refCodeString(implicit callOwner : DFBlock) : String =
+  def constructorCodeString(implicit getter : MemberGetter) : String
+  def refCodeString(implicit callOwner : DFBlock, getter : MemberGetter) : String =
     if (meta.name.anonymous) constructorCodeString
-    else getRelativeName(callOwner)
+    else getRelativeName(callOwner, getter)
 }
 
 object DFAny {
@@ -32,7 +32,7 @@ object DFAny {
     val width : TwoFace.Int[Width]
     type TPattern <: DFAny.Pattern[TPattern]
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
-    type TPatternBuilder[L <: DFAny] <: DFAny.Pattern.Builder[L, TPatternAble]
+    type TPatternBuilder[LType <: Type] <: DFAny.Pattern.Builder[LType, TPatternAble]
     type OpAble[R] <: DFAny.Op.Able[R]
     type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
     type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
@@ -40,7 +40,7 @@ object DFAny {
     type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
-    def constructorCodeString : String
+    def constructorCodeString(implicit getter : MemberGetter) : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -55,7 +55,7 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  trait Of[Type <: DFAny.Type] extends DFAny {
+  sealed trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
@@ -117,7 +117,17 @@ object DFAny {
     override lazy val typeName: String = dfType.toString
   }
 
-  trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
+  object Of {
+    import shapeless._
+    val nameValueP = ^.meta.name.value
+    val nameAnonP = ^.meta.name.anonymous
+    implicit class OfExtras[T <: DFAny](t : T) {
+      def setName(value : String)(implicit nameValueL: nameValueP.Lens[T, String]) : T = nameValueL().set(t)(value)
+      def anonymize(implicit nameAnonL: nameAnonP.Lens[T, Boolean]) : T = nameAnonL().set(t)(true)
+    }
+  }
+
+  sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
   }
 
@@ -146,9 +156,10 @@ object DFAny {
     type TMod = Modifier.Constant[Type#TToken]
     val modifier : TMod = Modifier.Constant(token)
 
-    def constructorCodeString : String = token.constructorCodeString
-    override def refCodeString(implicit callOwner : DFBlock) : String = constructorCodeString
-    override def toString: String = s"Const($token) : $dfType"
+    def constructorCodeString(implicit getter : MemberGetter) : String = token.constructorCodeString
+    override def refCodeString(implicit callOwner : DFBlock, getter : MemberGetter) : String = constructorCodeString
+    override def show(implicit getter : MemberGetter) : String = s"Const($token) : $dfType"
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
@@ -161,8 +172,9 @@ object DFAny {
     ) extends Value[Type, Mod] {
       type TMod = Mod
 
-      def constructorCodeString : String = s"${dfType.constructorCodeString} <> IN"
+      def constructorCodeString(implicit getter : MemberGetter) : String = s"${dfType.constructorCodeString} <> IN"
       override lazy val typeName: String = s"$dfType <> IN"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object In {
       sealed trait Uninitialized extends DFAny.Modifier.Port.In with DFAny.Modifier.Initializable
@@ -182,8 +194,9 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Value[Type, Mod] {
       type TMod = Mod
-      def constructorCodeString : String = s"${dfType.constructorCodeString} <> IN"
+      def constructorCodeString(implicit getter : MemberGetter) : String = s"${dfType.constructorCodeString} <> IN"
       override lazy val typeName: String = s"$dfType <> OUT"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object Out {
       sealed trait Uninitialized extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initializable
@@ -219,7 +232,8 @@ object DFAny {
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
       ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
-    def constructorCodeString : String = dfType.constructorCodeString
+    def constructorCodeString(implicit getter : MemberGetter) : String = dfType.constructorCodeString
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)
   }
   object NewVar {
     sealed trait Uninitialized extends DFAny.Modifier.NewVar with DFAny.Modifier.Initializable
@@ -240,45 +254,48 @@ object DFAny {
     val retValRef : DFRef[RefVal]
   }
   object Alias {
-    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny](
-      dfType : Type, retValRef : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Alias[Type, RefVal, RefVal#TMod] {
-      protected val retVal : RefVal = retValRef
-      type TMod = retVal.TMod
-      val modifier : TMod = retVal.modifier
-      def constructorCodeString : String = s"${retVal.refCodeString}.as(${dfType.constructorCodeString})"
+    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny, Mod <: Modifier](
+      dfType : Type, modifier : Mod, retValRef : DFRef[RefVal], ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Alias[Type, RefVal, Mod] {
+      type TMod = Mod
+      def constructorCodeString(implicit getter : MemberGetter) : String =
+        s"${retValRef.refCodeString}.as(${dfType.constructorCodeString})"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
         implicit ctx: Context
-      ): AsIs[Type, RefVal] = ctx.db.addMember(AsIs[Type, RefVal](dfType, refVal, ctx.owner, ctx.meta))
+      ): AsIs[Type, RefVal, refVal.TMod] =
+        ctx.db.addMember(AsIs[Type, RefVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
     }
-    final case class BitsWL[W, L, RefVal <: DFAny](
-      retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
-    ) extends Alias[DFBits.Type[W], RefVal, RefVal#TMod]{
-      protected val retVal : RefVal = retValRef
-      type TMod = retVal.TMod
+    final case class BitsWL[W, L, RefVal <: DFAny, Mod <: Modifier](
+      modifier : Mod, retValRef : DFRef[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef: DFRef[DFBlock], meta: Meta
+    ) extends Alias[DFBits.Type[W], RefVal, Mod]{
+      type TMod = Mod
       val dfType : TType = DFBits.Type(relWidth)
-      val modifier : TMod = retVal.modifier
-      def constructorCodeString : String = s"${retVal.refCodeString}.bitsWL($relWidth, $relBitLow)"
+      def constructorCodeString(implicit getter : MemberGetter) : String =
+        s"${retValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object BitsWL {
       def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
         implicit ctx: Context
-      ): BitsWL[W, L, RefVal] = ctx.db.addMember(BitsWL(refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+      ): BitsWL[W, L, RefVal, refVal.TMod] =
+        ctx.db.addMember(BitsWL[W, L, RefVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
     }
     final case class Prev[RefVal <: DFAny](
-      retValRef : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
+      dfType : RefVal#TType, retValRef : DFRef[RefVal], step : Int, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Alias[RefVal#TType, RefVal, Modifier.Val] {
       type TMod = Modifier.Val
-      val dfType : TType = retValRef.dfType
       val modifier : TMod = Modifier.Val
-      def constructorCodeString : String = s"${retValRef.refCodeString}.prev($step)"
+      def constructorCodeString(implicit getter : MemberGetter) : String =
+        s"${retValRef.refCodeString}.prev($step)"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object Prev {
       def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
         implicit ctx: Context
-      ): Prev[RefVal] = ctx.db.addMember(Prev[RefVal](refVal, step, ctx.owner, ctx.meta))
+      ): Prev[RefVal] = ctx.db.addMember(Prev[RefVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta))
     }
   }
 
@@ -289,8 +306,9 @@ object DFAny {
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
     dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
-    def constructorCodeString : String = s"${leftArg.refCodeString} $op ${rightArg.refCodeString}"
-    override def toString: String = s"$constructorCodeString : $dfType"
+    def constructorCodeString(implicit getter : MemberGetter) : String = s"${leftArg.refCodeString} $op ${rightArg.refCodeString}"
+    override def show(implicit getter : MemberGetter) : String = s"$constructorCodeString : $dfType"
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(func)
   }
   object Func2 {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
@@ -335,8 +353,8 @@ object DFAny {
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   implicit class ConnectableOps[Type <: DFAny.Type](left : ConnectableOf[Type]){
     protected implicit class ConnectionExtras(that : DFAny) {
-      def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign.ownerDesign == ctx.owner
-      def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.ownerDesign == ctx.owner
+      def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.getOwnerDesign.getOwnerDesign == ctx.owner
+      def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.getOwnerDesign == ctx.owner
     }
     private def connectPortInWithPortIn(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
@@ -361,7 +379,7 @@ object DFAny {
       //Connecting input and output ports internally at the same design
       if ((out isSameOwnerDesignAs in) && out.isConnectingInternally) (out, in)
       //Connecting input and output ports of sibling designs
-      else if ((out.ownerDesign isSameOwnerDesignAs in.ownerDesign) && out.isConnectingExternally) (in, out)
+      else if ((out.getOwnerDesign isSameOwnerDesignAs in.getOwnerDesign) && out.isConnectingExternally) (in, out)
       else throwConnectionError("Unsupported connection")
     }
     private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
@@ -458,7 +476,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
-    def constructorCodeString : String
+    def constructorCodeString(implicit getter : MemberGetter) : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
@@ -564,8 +582,8 @@ object DFAny {
       val right : R
     }
 
-    trait Builder[L <: DFAny, Able[+R] <: Pattern.Able[R]] {
-      def apply[R](left : L, right : Seq[Able[R]]) : left.dfType.TPattern
+    trait Builder[LType <: Type, Able[+R] <: Pattern.Able[R]] {
+      def apply[R](left : LType, right : Seq[Able[R]]) : left.TPattern
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -647,7 +665,7 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait PatternCO {
       type Able[+R] <: DFAny.Pattern.Able[R]
-      type Builder[L <: DFAny] <: DFAny.Pattern.Builder[L, Able]
+      type Builder[LType <: DFAny.Type] <: DFAny.Pattern.Builder[LType, Able]
     }
     val Pattern : PatternCO
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
