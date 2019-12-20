@@ -12,6 +12,8 @@ trait DFBlock extends DFMember {
   ///////////////////////////////////////////////////////////////////
   val isTop : Boolean = false
   ///////////////////////////////////////////////////////////////////
+  def headerCodeString(implicit getter : MemberGetter) : String
+  final def codeString(body : String)(implicit getter : MemberGetter) : String = s"$headerCodeString {\n${body.delimRowsBy(DFCompiler.delim)}\n}"
 }
 
 object DFBlock {

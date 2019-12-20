@@ -4,7 +4,8 @@ import DFiant.internals._
 sealed abstract class DFNet(op : String) extends DFMember {
   val toRef : DFRef[DFAny]
   val fromRef : DFRef[DFAny]
-  override def show(implicit getter : MemberGetter) : String = s"${toRef.refCodeString} $op ${fromRef.refCodeString}"
+  def codeString(implicit getter : MemberGetter) : String = s"${toRef.refCodeString} $op ${fromRef.refCodeString}"
+  override def show(implicit getter : MemberGetter) : String = codeString
 }
 
 object DFNet {

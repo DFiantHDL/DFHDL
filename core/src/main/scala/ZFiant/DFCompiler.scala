@@ -19,6 +19,7 @@ package ZFiant
 import DFiant.internals._
 
 object DFCompiler {
+  val delim : String = "  "
   implicit class Discovery(designDB : DFDesign.DB) {
     def discovery : DFDesign.DB = {
       ???
@@ -30,16 +31,31 @@ object DFCompiler {
       import designDB.getter
       val patchList = designDB.members.collect {
         case m : DFAny if (m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition) =>
-          m -> m.annonimize
+          m -> m.anonymize
+        case m : DFAny.Const[_] => m -> m.anonymize
       }
       designDB.patch(patchList.toMap)
     }
   }
 
-  implicit class CodeString(designDB : DFDesign.DB) {
-//    val designStrings : Map[String, Map]
-    designDB.members.collect {
-      case m : DFDesign =>
+  final implicit class CodeString(designDB : DFDesign.DB) {
+    import designDB.getter
+    def blockBodyCodeString(block : DFBlock, members : List[DFMember]) : String = {
+      val membersCodeString = members.collect {
+        case mh : ConditionalBlock.MatchHeader[_] => mh.codeString
+        case cb : ConditionalBlock[_] => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
+        case m : DFBlock => s"val $m = new ${m.typeName} {}" //TODO: fix
+        case n : DFNet => n.codeString
+        case a : DFAny if !a.meta.name.anonymous => s"val ${a.name} = ${a.codeString}"
+      }
+      membersCodeString.mkString("\n")
+    }
+    def codeString : String = {
+      designDB.ownerMemberList.map{case (block, members) => blockBodyCodeString(block, members)}.mkString("\n")
+    }
+    def printCodeString() : DFDesign.DB = {
+      println(codeString)
+      designDB
     }
   }
 }

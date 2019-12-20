@@ -50,6 +50,7 @@ object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
   final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock {
     def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
+    def headerCodeString(implicit getter: MemberGetter): String = s"trait $typeName"
   }
 
   final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
@@ -59,6 +60,7 @@ object DFDesign {
     override lazy val typeName : String = designType
     override def getFullName(implicit getter : MemberGetter): String = name
     def setMeta(meta : Meta) : DFMember = copy(meta = meta)(db, designType)
+    def headerCodeString(implicit getter: MemberGetter): String = s"trait $typeName"
   }
   object Block {
     def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(
@@ -125,8 +127,9 @@ object DFDesign {
       DB(patchedMembers, patchedRefTable)
     }
 
-    def printOwnership() : Unit = {
+    def printOwnership() : DB = {
       println(members.map(m => (m -> m.getOwner).toString()).mkString("\n"))
+      this
     }
   }
 
