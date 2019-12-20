@@ -117,15 +117,15 @@ object DFAny {
     override lazy val typeName: String = dfType.toString
   }
 
-  object Of {
-    import shapeless._
-    val nameValueP = ^.meta.name.value
-    val nameAnonP = ^.meta.name.anonymous
-    implicit class OfExtras[T <: DFAny](t : T) {
-      def setName(value : String)(implicit nameValueL: nameValueP.Lens[T, String]) : T = nameValueL().set(t)(value)
-      def anonymize(implicit nameAnonL: nameAnonP.Lens[T, Boolean]) : T = nameAnonL().set(t)(true)
-    }
-  }
+//  object Of {
+//    import shapeless._
+//    val nameValueP = ^.meta.name.value
+//    val nameAnonP = ^.meta.name.anonymous
+//    implicit class OfExtras[T <: DFAny](t : T) {
+//      def setName(value : String)(implicit nameValueL: nameValueP.Lens[T, String]) : T = nameValueL().set(t)(value)
+//      def anonymize(implicit nameAnonL: nameAnonP.Lens[T, Boolean]) : T = nameAnonL().set(t)(true)
+//    }
+//  }
 
   sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
