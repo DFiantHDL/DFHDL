@@ -55,6 +55,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
 
   def setMeta(meta : Meta) : DFMember
   def setName(value : String) : DFMember = setMeta(meta.copy(meta.name.copy(value = value)))
+  def annonimize : DFMember = setMeta(meta.anonymize)
   def show(implicit getter : MemberGetter) : String = s"$getFullName : $typeName"
 }
 

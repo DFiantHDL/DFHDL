@@ -72,7 +72,7 @@ object DFDesign {
     lazy val top : TopBlock = members.head match {
       case m : TopBlock => m
     }
-    private implicit val getter : MemberGetter = new MemberGetter {
+    implicit val getter : MemberGetter = new MemberGetter {
       override def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
     }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
