@@ -27,7 +27,12 @@ object DFCompiler {
 
   implicit class Naming(designDB : DFDesign.DB) {
     def fixNames : DFDesign.DB = {
-      ???
+      import designDB.getter
+      val patchList = designDB.members.collect {
+        case m : DFAny if (m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition) =>
+          m -> m.annonimize
+      }
+      designDB.patch(patchList.toMap)
     }
   }
 
