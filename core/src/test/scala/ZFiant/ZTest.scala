@@ -111,7 +111,7 @@ object ZTest extends App {
   val top = new BBB {}
 
   top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
-  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
+//  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
 //  top.db.patch(Map(top.i -> top.i.copy(meta = top.i.meta.copy(top.i.meta.name.copy(value = "HAHA"))))).printOwnerMemberList()
 
 

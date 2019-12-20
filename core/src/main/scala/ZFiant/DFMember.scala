@@ -53,11 +53,19 @@ trait DFMember extends HasTypeName with Product with Serializable {
     //      }
 //  }
 
-
+  def setMeta(meta : Meta) : DFMember
+  def setName(value : String) : DFMember = setMeta(meta.copy(meta.name.copy(value = value)))
   def show(implicit getter : MemberGetter) : String = s"$getFullName : $typeName"
 }
 
+
 object DFMember {
+//  import shapeless._
+//  protected val metaP = ^.meta
+//  abstract class CC[P <: CC[P]](implicit metaL: metaP.Lens[P, Meta]) extends DFMember {self : P =>
+//    def setName(value : String) : DFMember = metaL().modify(self)(s => s.copy(name = s.name.copy(value)))
+//  }
+
   trait Context extends Product with Serializable {
     val meta : Meta
     val owner : DFBlock
