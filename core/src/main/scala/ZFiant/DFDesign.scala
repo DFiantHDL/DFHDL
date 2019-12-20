@@ -48,7 +48,9 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
-  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock
+  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock {
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
+  }
 
   final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
     override lazy val ownerRef: DFRef[DFBlock] = ???
@@ -56,6 +58,7 @@ object DFDesign {
     override val isTop: Boolean = true
     override lazy val typeName : String = designType
     override def getFullName(implicit getter : MemberGetter): String = name
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(db, designType)
   }
   object Block {
     def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(
@@ -130,9 +133,9 @@ object DFDesign {
   object DB {
     class Mutable {
       private var members : List[DFMember] = List()
-      def addConditionalBlock[CB <: ConditionalBlock[_]](cb : CB)(implicit getter : MemberGetter) : CB = {
+      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit getter : MemberGetter) : CB = {
         members = members :+ cb
-        cb.applyBlock(this)
+        cb.applyBlock(block, this)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {

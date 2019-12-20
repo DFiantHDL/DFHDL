@@ -159,6 +159,7 @@ object DFAny {
     def constructorCodeString(implicit getter : MemberGetter) : String = token.constructorCodeString
     override def refCodeString(implicit callOwner : DFBlock, getter : MemberGetter) : String = constructorCodeString
     override def show(implicit getter : MemberGetter) : String = s"Const($token) : $dfType"
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
@@ -173,6 +174,7 @@ object DFAny {
 
       def constructorCodeString(implicit getter : MemberGetter) : String = s"${dfType.constructorCodeString} <> IN"
       override lazy val typeName: String = s"$dfType <> IN"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object In {
       sealed trait Uninitialized extends DFAny.Modifier.Port.In with DFAny.Modifier.Initializable
@@ -194,6 +196,7 @@ object DFAny {
       type TMod = Mod
       def constructorCodeString(implicit getter : MemberGetter) : String = s"${dfType.constructorCodeString} <> IN"
       override lazy val typeName: String = s"$dfType <> OUT"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object Out {
       sealed trait Uninitialized extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initializable
@@ -230,6 +233,7 @@ object DFAny {
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
       ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
     def constructorCodeString(implicit getter : MemberGetter) : String = dfType.constructorCodeString
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)
   }
   object NewVar {
     sealed trait Uninitialized extends DFAny.Modifier.NewVar with DFAny.Modifier.Initializable
@@ -256,6 +260,7 @@ object DFAny {
       type TMod = Mod
       def constructorCodeString(implicit getter : MemberGetter) : String =
         s"${retValRef.refCodeString}.as(${dfType.constructorCodeString})"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
@@ -270,6 +275,7 @@ object DFAny {
       val dfType : TType = DFBits.Type(relWidth)
       def constructorCodeString(implicit getter : MemberGetter) : String =
         s"${retValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object BitsWL {
       def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
@@ -284,6 +290,7 @@ object DFAny {
       val modifier : TMod = Modifier.Val
       def constructorCodeString(implicit getter : MemberGetter) : String =
         s"${retValRef.refCodeString}.prev($step)"
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object Prev {
       def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
@@ -301,6 +308,7 @@ object DFAny {
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     def constructorCodeString(implicit getter : MemberGetter) : String = s"${leftArg.refCodeString} $op ${rightArg.refCodeString}"
     override def show(implicit getter : MemberGetter) : String = s"$constructorCodeString : $dfType"
+    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(func)
   }
   object Func2 {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
