@@ -52,7 +52,6 @@ object ConditionalBlock {
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
-      override lazy val typeName: String = "IfBlock"
     }
     object IfBlock {
       def apply[Type <: DFAny.Type](retVar : DFAny.VarOf[Type], cond: DFBool)(block: => DFAny.Of[Type])(
@@ -68,7 +67,6 @@ object ConditionalBlock {
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
-      override lazy val typeName: String = "ElseIfBlock"
     }
     object ElseIfBlock {
       def apply[Type <: DFAny.Type](
@@ -79,7 +77,6 @@ object ConditionalBlock {
     final case class ElseBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], prevBlockRef : DFRef[WithRetVal[Type]], ownerRef: DFRef[DFBlock], meta: Meta
     )(block : => DFAny.Of[Type]) extends WithRetVal[Type](block) {
-      override lazy val typeName: String = "ElseBlock"
     }
     object ElseBlock {
       def apply[Type <: DFAny.Type](
