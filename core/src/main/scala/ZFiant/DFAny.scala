@@ -55,7 +55,7 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  trait Of[Type <: DFAny.Type] extends DFAny {
+  sealed trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
@@ -117,7 +117,17 @@ object DFAny {
     override lazy val typeName: String = dfType.toString
   }
 
-  trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
+  object Of {
+    import shapeless._
+    val nameValueP = ^.meta.name.value
+    val nameAnonP = ^.meta.name.anonymous
+    implicit class OfExtras[T <: DFAny](t : T) {
+      def setName(value : String)(implicit nameValueL: nameValueP.Lens[T, String]) : T = nameValueL().set(t)(value)
+      def anonymize(implicit nameAnonL: nameAnonP.Lens[T, Boolean]) : T = nameAnonL().set(t)(true)
+    }
+  }
+
+  sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
   }
 
