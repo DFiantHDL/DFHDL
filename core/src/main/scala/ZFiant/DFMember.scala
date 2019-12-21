@@ -22,25 +22,31 @@ trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
   val meta : Meta
   implicit def getOwner(implicit getter : MemberGetter) : DFBlock = ownerRef
-  final def getOwnerDesign(implicit getter : MemberGetter) : DFBlock = getOwner match {
+  final def getOwnerDesign(implicit getter : MemberGetter) : DFDesign.Block = getOwner match {
     case d : DFDesign.Block => d
     case b : DFBlock => b.getOwnerDesign
+  }
+  final def getThisOrOwnerDesign(implicit getter : MemberGetter) : DFDesign.Block = this match {
+    case d : DFDesign.Block => d
+    case x => x.getOwnerDesign
   }
   @inline final def name : String = meta.name
   def getFullName(implicit getter : MemberGetter) : String = s"${getOwner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain(implicit getter : MemberGetter) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
   def getRelativeName(implicit callOwner : DFBlock, getter : MemberGetter) : String = {
-    if (this isSameOwnerDesignAs callOwner) name
-    else if (this isOneLevelBelow callOwner) s"${getOwner.name}.$name"
+    val designOwner = callOwner.getThisOrOwnerDesign
+    if (this isMemberOfDesign designOwner) name
+    else if (this isOneLevelBelow designOwner) s"${getOwner.name}.$name"
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
       val memberChain = this.getOwnerChain
-      val ctxChain = callOwner.getOwnerChain
+      val ctxChain = designOwner.getOwnerChain
       ??? //TODO
-    }   
+    }
   }
 
+  final def isMemberOfDesign(that : DFDesign.Block)(implicit getter : MemberGetter) : Boolean = getOwnerDesign == that
   final def isSameOwnerDesignAs(that : DFMember)(implicit getter : MemberGetter) : Boolean = getOwnerDesign == that.getOwnerDesign
   final def isOneLevelBelow(that : DFMember)(implicit getter : MemberGetter) : Boolean = getOwnerDesign isSameOwnerDesignAs that
 
