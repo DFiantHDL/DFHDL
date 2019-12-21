@@ -101,7 +101,7 @@ object DFBits extends DFAny.Companion {
     //      val outBubble = isBubble
     //      new DFSInt.Token(outWidth, outValueSInt, outBubble)
     //    }
-    def codeString(implicit getter : MemberGetter) : String = value.codeString
+    def codeString : String = value.codeString
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
