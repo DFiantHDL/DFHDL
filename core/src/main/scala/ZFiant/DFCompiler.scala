@@ -67,13 +67,11 @@ object DFCompiler {
     def codeString : String = {
       val bodyDB = new DSLOwnerConstruct.DB[DFBlock, String]{
         override def ownerToString(ownerTypeName: String, ownerBody: String): String =
-          s"trait $ownerTypeName {\n${ownerBody.delimRowsBy(delim)}\n}"
+          s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(delim)}\n}"
       }
-//      designDB.ownerMemberList.collect {
-//        case (block : DFDesign.Block, members) => block.codeString(blockBodyCodeString(block, members))
-//      }.mkString("\n\n")
       designDB.ownerMemberList.foreach {
-        case (block : DFDesign.Block, members) => bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members), block)
+        case (block : DFDesign.Block, members) =>
+          bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members), block)
         case _ =>
       }
       bodyDB.dbString
