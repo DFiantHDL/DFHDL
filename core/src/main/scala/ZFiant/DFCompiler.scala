@@ -51,7 +51,9 @@ object DFCompiler {
       membersCodeString.mkString("\n")
     }
     def codeString : String = {
-      designDB.ownerMemberList.map{case (block, members) => blockBodyCodeString(block, members)}.mkString("\n")
+      designDB.ownerMemberList.collect {
+        case (block, members) => block.codeString(blockBodyCodeString(block, members))
+      }.mkString("\n")
     }
     def printCodeString() : DFDesign.DB = {
       println(codeString)
