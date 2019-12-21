@@ -38,7 +38,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
       val memberChain = this.getOwnerChain
       val ctxChain = callOwner.getOwnerChain
       ??? //TODO
-    }
+    }   
   }
 
   final def isSameOwnerDesignAs(that : DFMember)(implicit getter : MemberGetter) : Boolean = getOwnerDesign == that.getOwnerDesign

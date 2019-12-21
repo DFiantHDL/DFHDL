@@ -54,6 +54,7 @@ object DFDesign {
   object Block {
     final case class Internal(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends Block {
       def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
+      override lazy val typeName : String = designType
     }
     object Internal {
       def apply(designType : String)(implicit ctx : Context) : Block = ctx.db.addMember(
