@@ -36,7 +36,8 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
 
 object IDTopApp extends App {
   val top = new IDTop {}
-  println(top.db.members)
+  import DFCompiler._
+  top.db.printCodeString()
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

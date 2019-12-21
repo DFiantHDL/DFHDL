@@ -31,20 +31,22 @@ object DFCompiler {
     def fixNames : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
         case (block, members) => members.groupBy(m => m.meta.namePosition).flatMap {
+          //In case an anonymous member got a name from its owner. For example:
+          //val ret = DFBits(8).ifdf(cond) {
+          //  i & i
+          //}
+          //The `i & i` function would also get the `ret` name just as the if block itself
           case (pos, gm) if (pos == block.meta.namePosition) => gm
-          case (pos, gm) if (gm.length > 1) =>
+          //In case an anonymous member was used as an argument to an owner. For example:
+          //val ret = DFBits(8).ifdf(i & i) {
+          //}
+          //The `i & i` function would also get the `ret` name just as the if block itself
+          case (_, gm) if (gm.length > 1) =>
             if (gm.collectFirst{case x : DFBlock => x}.isDefined)
-              gm.collect {
-                case a : DFAny.Alias[_,_,_] => a
-                case a : DFAny.Func[_] => a
-              }
+              gm.collect {case a : DFAny.CanBeAnonymous => a}
             else List()
           case _ => List()
         }
-//          m -> m.anonymize
-//        case m : DFAny if ((m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition)) =>
-//            m -> m.anonymize
-//        case ib : ConditionalBlock.IfBlock if (ib.=>
       }
       designDB.patch(anonymizeList.map(a => a -> a.anonymize).toMap)
     }
@@ -56,7 +58,7 @@ object DFCompiler {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader[_] => mh.codeString
         case cb : ConditionalBlock[_] => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
-        case m : DFDesign.Block => s"val $m = new ${m.typeName} {}" //TODO: fix
+        case m : DFDesign.Block => s"val ${m.name} = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
         case a : DFAny if !a.meta.name.anonymous => s"val ${a.name} = ${a.codeString}"
       }
