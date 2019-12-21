@@ -24,7 +24,6 @@ trait DFMember extends HasTypeName with Product with Serializable {
   implicit def getOwner(implicit getter : MemberGetter) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getter : MemberGetter) : DFBlock = getOwner match {
     case d : DFDesign.Block => d
-    case d : DFDesign.TopBlock => d
     case b : DFBlock => b.getOwnerDesign
   }
   @inline final def name : String = meta.name
