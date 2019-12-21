@@ -137,19 +137,24 @@ object DFAny {
     case object Val extends Val
     sealed trait Assignable extends Val
     sealed trait Connectable extends Modifier
-    sealed trait Initializable extends Modifier
-    sealed trait Initialized[Token <: DFAny.Token] extends Modifier {
+    sealed trait Initializable extends Modifier {
+      def codeString : String = ""
+    }
+    sealed trait Initialized[Token <: DFAny.Token] extends Initializable {
       val externalInit : Seq[Token]
+      import Token.TokenSeqInit
+      override def codeString: String =
+        if (externalInit.length == 1) s" init ${externalInit.head.codeString}" else s" init ${externalInit.codeString}"
     }
     final case class Constant[Token <: DFAny.Token](token : Token) extends Initialized[Token] with Val {
       override val externalInit: Seq[Token] = Seq(token)
     }
-    sealed trait Port extends Connectable
+    sealed trait Port extends Connectable with Initializable
     object Port {
       sealed trait In extends Port
       sealed trait Out extends Port with Assignable
     }
-    sealed trait NewVar extends Connectable with Assignable
+    sealed trait NewVar extends Connectable with Assignable with Initializable
   }
 
   final case class Const[Type <: DFAny.Type](dfType : Type, token : Type#TToken, ownerRef: DFRef[DFBlock], meta: Meta) extends Value[Type, Modifier.Constant[Type#TToken]] {
@@ -172,12 +177,12 @@ object DFAny {
     ) extends Value[Type, Mod] {
       type TMod = Mod
 
-      def codeString(implicit getter : MemberGetter) : String = s"${dfType.codeString} <> IN"
+      def codeString(implicit getter : MemberGetter) : String = s"${dfType.codeString} <> IN${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> IN"
       def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object In {
-      sealed trait Uninitialized extends DFAny.Modifier.Port.In with DFAny.Modifier.Initializable
+      sealed trait Uninitialized extends DFAny.Modifier.Port.In
       case object Uninitialized extends Uninitialized
       case class Initialized[Token <: DFAny.Token](externalInit: Seq[Token]) extends DFAny.Modifier.Port.In with DFAny.Modifier.Initialized[Token]
       implicit class InitializableOps[Type <: DFAny.Type](val i : In[Type, Uninitialized]) {
@@ -194,12 +199,12 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
     ) extends Value[Type, Mod] {
       type TMod = Mod
-      def codeString(implicit getter : MemberGetter) : String = s"${dfType.codeString} <> IN"
+      def codeString(implicit getter : MemberGetter) : String = s"${dfType.codeString} <> OUT${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> OUT"
       def setMeta(meta : Meta) : DFMember = copy(meta = meta)
     }
     object Out {
-      sealed trait Uninitialized extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initializable
+      sealed trait Uninitialized extends DFAny.Modifier.Port.Out
       case object Uninitialized extends Uninitialized
       case class Initialized[Token <: DFAny.Token](externalInit: Seq[Token]) extends DFAny.Modifier.Port.Out with DFAny.Modifier.Initialized[Token]
       implicit class InitializableOps[Type <: DFAny.Type](val i : Out[Type, Uninitialized]) {
@@ -232,11 +237,11 @@ object DFAny {
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
       ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
-    def codeString(implicit getter : MemberGetter) : String = dfType.codeString
+    def codeString(implicit getter : MemberGetter) : String = s"${dfType.codeString}${modifier.codeString}"
     def setMeta(meta : Meta) : DFMember = copy(meta = meta)
   }
   object NewVar {
-    sealed trait Uninitialized extends DFAny.Modifier.NewVar with DFAny.Modifier.Initializable
+    sealed trait Uninitialized extends DFAny.Modifier.NewVar
     case object Uninitialized extends Uninitialized
     case class Initialized[Token <: DFAny.Token](externalInit: Seq[Token]) extends DFAny.Modifier.NewVar with DFAny.Modifier.Initialized[Token]
     implicit class InitializableOps[Type <: DFAny.Type](val i : NewVar[Type, Uninitialized]) {
@@ -476,7 +481,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
-    def codeString(implicit getter : MemberGetter) : String
+    def codeString : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
@@ -504,6 +509,7 @@ object DFAny {
         tokenSeq.map(t => t.bits.asInstanceOf[DFBits.Token[T#Width]])
       def bitsWL[W](relWidth : TwoFace.Int[W], relBitLow : Int) : Seq[DFBits.Token[W]] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
+      def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
       //      def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
     }
   }
