@@ -115,6 +115,9 @@ object DFAny {
     final def != [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
+    final def =!= [R](right : R)(
+      implicit op: dfType.`Op!=Builder`[This, R]
+    ) = op(left, right)
     //////////////////////////////////////////////////////////////////////////
 
     override lazy val typeName: String = dfType.toString
@@ -171,7 +174,7 @@ object DFAny {
   }
   object Const {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
-    : Const[Type] = ctx.db.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta))
+    : Const[Type] = ctx.db.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta.anonymize))
   }
 
   object Port {

@@ -23,8 +23,12 @@ object DiSoOp {
   sealed trait +  extends DiSoOp
   sealed trait -  extends DiSoOp
   sealed trait *  extends DiSoOp
-  sealed trait == extends DiSoOp
-  sealed trait != extends DiSoOp
+  sealed trait == extends DiSoOp {
+    override def toString: String = "==="
+  }
+  sealed trait != extends DiSoOp {
+    override def toString: String = "=!="
+  }
   sealed trait <  extends DiSoOp
   sealed trait >  extends DiSoOp
   sealed trait <= extends DiSoOp

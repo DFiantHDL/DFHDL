@@ -29,14 +29,24 @@ object DFCompiler {
   implicit class Naming(designDB : DFDesign.DB) {
     import designDB.getter
     def fixNames : DFDesign.DB = {
-      val patchList = designDB.members.collect {
-        case m : DFAny.Const[_] => m -> m.anonymize
-        case m : DFAny if ((m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition)) =>
-            m -> m.anonymize
+      val anonymizeList = designDB.ownerMemberList.flatMap {
+        case (block, members) => members.groupBy(m => m.meta.namePosition).flatMap {
+          case (pos, gm) if (pos == block.meta.namePosition) => gm
+          case (pos, gm) if (gm.length > 1) =>
+            if (gm.collectFirst{case x : DFBlock => x}.isDefined)
+              gm.collect {
+                case a : DFAny.Alias[_,_,_] => a
+                case a : DFAny.Func[_] => a
+              }
+            else List()
+          case _ => List()
+        }
+//          m -> m.anonymize
+//        case m : DFAny if ((m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition)) =>
+//            m -> m.anonymize
 //        case ib : ConditionalBlock.IfBlock if (ib.=>
-
       }
-      designDB.patch(patchList.toMap)
+      designDB.patch(anonymizeList.map(a => a -> a.anonymize).toMap)
     }
   }
 
