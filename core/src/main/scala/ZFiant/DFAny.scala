@@ -177,6 +177,8 @@ object DFAny {
     : Const[Type] = ctx.db.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta.anonymize))
   }
 
+  sealed trait CanBeAnonymous extends DFMember
+
   object Port {
     final case class In[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.In](
       dfType : Type, modifier : Mod, ownerRef: DFRef[DFBlock], meta: Meta
@@ -261,7 +263,7 @@ object DFAny {
     ): NewVar[Type, Uninitialized] = ctx.db.addMember(NewVar[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
   }
 
-  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] {
+  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] with CanBeAnonymous {
     val retValRef : DFRef[RefVal]
   }
   object Alias {
@@ -310,7 +312,7 @@ object DFAny {
     }
   }
 
-  sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] {
+  sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
   }
