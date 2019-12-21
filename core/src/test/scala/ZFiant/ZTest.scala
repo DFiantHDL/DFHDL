@@ -87,9 +87,9 @@ object ZTest extends App {
 
 //    val b = i == b0s
     val ret = DFBits(8).ifdf(i === b0s) {
-      i & i
+      i & i | i
     }.elsedf {
-      i | i
+      i | i & i
     }
     o <> ret
   }

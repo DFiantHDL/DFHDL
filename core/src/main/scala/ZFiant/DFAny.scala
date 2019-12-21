@@ -314,7 +314,7 @@ object DFAny {
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
     dfType: Type, leftArg : DFRef[L], op : Op, rightArg : DFRef[R], ownerRef: DFRef[DFBlock], meta: Meta
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
-    def codeString(implicit getter : MemberGetter) : String = s"${leftArg.refCodeString} $op ${rightArg.refCodeString}"
+    def codeString(implicit getter : MemberGetter) : String = s"${leftArg.refCodeString.applyBrackets()} $op ${rightArg.refCodeString.applyBrackets()}"
     override def show(implicit getter : MemberGetter) : String = s"$codeString : $dfType"
     def setMeta(meta : Meta) : DFMember = copy(meta = meta)(func)
   }
