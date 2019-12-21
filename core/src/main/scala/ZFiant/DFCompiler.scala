@@ -27,12 +27,13 @@ object DFCompiler {
   }
 
   implicit class Naming(designDB : DFDesign.DB) {
+    import designDB.getter
     def fixNames : DFDesign.DB = {
-      import designDB.getter
       val patchList = designDB.members.collect {
-        case m : DFAny if (m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition) =>
-          m -> m.anonymize
         case m : DFAny.Const[_] => m -> m.anonymize
+        case m : DFAny if ((m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition)) =>
+            m -> m.anonymize
+
       }
       designDB.patch(patchList.toMap)
     }
@@ -44,7 +45,7 @@ object DFCompiler {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader[_] => mh.codeString
         case cb : ConditionalBlock[_] => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
-        case m : DFBlock => s"val $m = new ${m.typeName} {}" //TODO: fix
+        case m : DFDesign.Block => s"val $m = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
         case a : DFAny if !a.meta.name.anonymous => s"val ${a.name} = ${a.codeString}"
       }
@@ -52,7 +53,7 @@ object DFCompiler {
     }
     def codeString : String = {
       designDB.ownerMemberList.collect {
-        case (block, members) => block.codeString(blockBodyCodeString(block, members))
+        case (block : DFDesign.Block, members) => block.codeString(blockBodyCodeString(block, members))
       }.mkString("\n")
     }
     def printCodeString() : DFDesign.DB = {

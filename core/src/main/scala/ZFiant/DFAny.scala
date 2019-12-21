@@ -109,6 +109,9 @@ object DFAny {
     final def == [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
+    final def === [R](right : R)(
+      implicit op: dfType.`Op==Builder`[This, R]
+    ) = op(left, right)
     final def != [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])

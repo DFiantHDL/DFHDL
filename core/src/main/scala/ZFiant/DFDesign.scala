@@ -5,7 +5,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
-  private val block : DFBlock = DFDesign.Block(typeName)(ctx)
+  private val block : DFBlock = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   ///////////////////////////////////////////////////////////////////
   // Context implicits
@@ -48,31 +48,34 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
-  final case class Block(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends DFBlock {
-    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
-    def headerCodeString(implicit getter: MemberGetter): String = s"trait $typeName"
-  }
-
-  final case class TopBlock(meta: Meta)(db: DB.Mutable, designType: String) extends DFBlock {
-    override lazy val ownerRef: DFRef[DFBlock] = ???
-    override def getOwner(implicit getter : MemberGetter): DFBlock = this
-    override val isTop: Boolean = true
-    override lazy val typeName : String = designType
-    override def getFullName(implicit getter : MemberGetter): String = name
-    def setMeta(meta : Meta) : DFMember = copy(meta = meta)(db, designType)
-    def headerCodeString(implicit getter: MemberGetter): String = s"trait $typeName"
+  sealed trait Block extends DFBlock {
+    def headerCodeString(implicit getter: MemberGetter): String = s"trait $typeName extends DFDesign"
   }
   object Block {
-    def apply(designType : String)(implicit ctx : Context) : DFBlock = ctx.db.addMember(
-      if (ctx.ownerOption.isEmpty) TopBlock(ctx.meta)(ctx.db, designType) else Block(ctx.owner, ctx.meta)(designType))
+    final case class Internal(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends Block {
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
+    }
+    object Internal {
+      def apply(designType : String)(implicit ctx : Context) : Block = ctx.db.addMember(
+        if (ctx.ownerOption.isEmpty) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
+    }
+
+    final case class Top(meta: Meta)(db: DB.Mutable, designType: String) extends Block {
+      override lazy val ownerRef: DFRef[DFBlock] = ???
+      override def getOwner(implicit getter : MemberGetter): DFBlock = this
+      override val isTop: Boolean = true
+      override lazy val typeName : String = designType
+      override def getFullName(implicit getter : MemberGetter): String = name
+      def setMeta(meta : Meta) : DFMember = copy(meta = meta)(db, designType)
+    }
   }
 
   implicit class DevAccess(design : DFDesign) {
     def db : DB = design.__db.immutable
   }
   final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
-    lazy val top : TopBlock = members.head match {
-      case m : TopBlock => m
+    lazy val top : Block.Top = members.head match {
+      case m : Block.Top => m
     }
     implicit val getter : MemberGetter = new MemberGetter {
       override def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
@@ -161,7 +164,7 @@ object DFDesign {
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
           case m if memberTable.contains(m) => m
-          case m : DFDesign.TopBlock => m
+          case m : DFDesign.Block.Top => m
         }
         DB(refMembers, refTable)
       }
