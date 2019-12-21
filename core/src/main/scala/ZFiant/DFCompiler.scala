@@ -33,6 +33,7 @@ object DFCompiler {
         case m : DFAny.Const[_] => m -> m.anonymize
         case m : DFAny if ((m.meta.name == m.getOwner.meta.name) && (m.meta.namePosition == m.getOwner.meta.namePosition)) =>
             m -> m.anonymize
+//        case ib : ConditionalBlock.IfBlock if (ib.=>
 
       }
       designDB.patch(patchList.toMap)
