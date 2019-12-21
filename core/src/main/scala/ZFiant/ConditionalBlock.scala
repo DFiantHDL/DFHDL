@@ -19,7 +19,7 @@ package ZFiant
 import DFiant.internals._
 
 sealed trait ConditionalBlock[Ret] extends DFBlock {
-  private[ZFiant] def applyBlock(block : => Ret, db : DFDesign.DB.Mutable)(implicit getter : MemberGetter) : Unit
+  private[ZFiant] def applyBlock(block : => Ret, db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit
 }
 
 sealed trait MatchConfig extends Product with Serializable
@@ -32,29 +32,29 @@ object ConditionalBlock {
   sealed trait MatchHeader[MVType <: DFAny.Type] extends DFMember {
     val matchValRef : DFRef[DFAny.Of[MVType]]
     val matchConfig : MatchConfig
-    def codeString(implicit getter : MemberGetter) : String = matchConfig match  {
+    def codeString(implicit getset : MemberGetSet) : String = matchConfig match  {
       case MatchConfig.NoOverlappingCases => s"matchdf (${matchValRef.refCodeString})"
       case MatchConfig.AllowOverlappingCases => s"matchdf (${matchValRef.refCodeString}, MatchConfig.AllowOverlappingCases)"
     }
   }
   sealed trait IfBlock extends DFBlock {
     val condRef : DFRef[DFBool]
-    def headerCodeString(implicit getter : MemberGetter) : String = s"ifdf(${condRef.refCodeString})"
+    def headerCodeString(implicit getset : MemberGetSet) : String = s"ifdf(${condRef.refCodeString})"
   }
   sealed trait ElseIfBlock extends DFBlock {
     val condRef : DFRef[DFBool]
-    def headerCodeString(implicit getter : MemberGetter) : String = s".elseifdf(${condRef.refCodeString})"
+    def headerCodeString(implicit getset : MemberGetSet) : String = s".elseifdf(${condRef.refCodeString})"
   }
   sealed trait ElseBlock extends DFBlock {
-    def headerCodeString(implicit getter : MemberGetter) : String = s".elsedf"
+    def headerCodeString(implicit getset : MemberGetSet) : String = s".elsedf"
   }
 
   sealed trait CasePatternBlock[MVType <: DFAny.Type] extends DFBlock {
     val pattern : MVType#TPattern
-    def headerCodeString(implicit getter : MemberGetter) : String = s".casedf(${pattern.codeString})"
+    def headerCodeString(implicit getset : MemberGetSet) : String = s".casedf(${pattern.codeString})"
   }
   sealed trait Case_Block extends DFBlock {
-    def headerCodeString(implicit getter : MemberGetter) : String = s".casedf_"
+    def headerCodeString(implicit getset : MemberGetSet) : String = s".casedf_"
   }
 
   sealed trait WithRetVal[Type <: DFAny.Type] extends
@@ -62,7 +62,7 @@ object ConditionalBlock {
     val retVar : DFAny.VarOf[Type]
     lazy val dfType: Type = retVar.dfType
 
-    private[ZFiant] def applyBlock(block : => DFAny.Of[Type], db : DFDesign.DB.Mutable)(implicit getter : MemberGetter) : Unit = {
+    private[ZFiant] def applyBlock(block : => DFAny.Of[Type], db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
       val injectedOwnerBackup = getOwner.__injectedOwner
       getOwner.__injectedOwner = this
       val returnValue = block
@@ -80,7 +80,7 @@ object ConditionalBlock {
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object IfBlock {
       def apply[Type <: DFAny.Type](retVar : DFAny.VarOf[Type], cond: DFBool)(block: => DFAny.Of[Type])(
@@ -96,7 +96,7 @@ object ConditionalBlock {
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object ElseIfBlock {
       def apply[Type <: DFAny.Type](
@@ -107,7 +107,7 @@ object ConditionalBlock {
     final case class ElseBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], prevBlockRef : DFRef[WithRetVal[Type]], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends ConditionalBlock.ElseBlock with WithRetVal[Type] {
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object ElseBlock {
       def apply[Type <: DFAny.Type](
@@ -126,7 +126,7 @@ object ConditionalBlock {
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
         retVar, this, None, patternBld(mvType, pattern)
       )(retBld(dfType, block))(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object MatchHeader {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -149,7 +149,7 @@ object ConditionalBlock {
         implicit ctx : DFBlock.Context, retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCase_Block[Type, MVType] =
         DFCase_Block[Type, MVType](retVar, matchHeaderRef, this)(retBld(dfType, block))(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object DFCasePatternBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -162,7 +162,7 @@ object ConditionalBlock {
       matchHeaderRef : DFRef[MatchHeader[Type, MVType]],
       prevCase : DFRef[DFCasePatternBlock[Type, MVType]], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends ConditionalBlock.Case_Block with WithRetVal[Type] {
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object DFCase_Block {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -172,7 +172,7 @@ object ConditionalBlock {
     }
   }
   sealed trait NoRetVal extends ConditionalBlock[Unit] {
-    private[ZFiant] def applyBlock(block : => Unit, db : DFDesign.DB.Mutable)(implicit getter : MemberGetter) : Unit = {
+    private[ZFiant] def applyBlock(block : => Unit, db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
       val injectedOwnerBackup = getOwner.__injectedOwner
       getOwner.__injectedOwner = this
       block
@@ -187,7 +187,7 @@ object ConditionalBlock {
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
       ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), this)(block)(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object IfBlock {
       def apply(cond: DFBool)(block: => Unit)(implicit ctx: DFBlock.Context)
@@ -200,7 +200,7 @@ object ConditionalBlock {
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
       ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), this)(block)(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object ElseIfBlock {
       def apply(cond: DFBool, prevBlock: NoRetVal)(block: => Unit)(
@@ -208,7 +208,7 @@ object ConditionalBlock {
       ): ElseIfBlock = ctx.db.addConditionalBlock(ElseIfBlock(DFRef(cond), prevBlock, ctx.owner, ctx.meta), block)
     }
     final case class ElseBlock(prevBlockRef : DFRef[NoRetVal], ownerRef: DFRef[DFBlock], meta: Meta) extends ConditionalBlock.ElseBlock with NoRetVal {
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object ElseBlock {
       def apply(prevBlock: NoRetVal)(block: => Unit)(
@@ -225,7 +225,7 @@ object ConditionalBlock {
       ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
         this, None, patternBld(mvType, pattern)
       )(block)(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object MatchHeader {
       def apply[MVType <: DFAny.Type](
@@ -248,7 +248,7 @@ object ConditionalBlock {
       ) : DFCase_Block[MVType] = DFCase_Block[MVType](
         matchHeaderRef, this
       )(block)(ctx)
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object DFCasePatternBlock {
       def apply[MVType <: DFAny.Type](
@@ -262,7 +262,7 @@ object ConditionalBlock {
       matchHeaderRef : DFRef[MatchHeader[MVType]],
       prevCase : DFRef[DFCasePatternBlock[MVType]], ownerRef: DFRef[DFBlock], meta: Meta
     ) extends ConditionalBlock.Case_Block with NoRetVal {
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta))
     }
     object DFCase_Block {
       def apply[MVType <: DFAny.Type](

@@ -22,7 +22,7 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     override def toString: String = s"DFBits[$width]"
-    def codeString(implicit getter : MemberGetter) : String = s"DFBits($width)"
+    def codeString(implicit getset : MemberGetSet) : String = s"DFBits($width)"
   }
   def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
 
