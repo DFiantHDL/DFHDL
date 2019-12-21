@@ -67,7 +67,7 @@ object DFCompiler {
     def codeString : String = {
       designDB.ownerMemberList.collect {
         case (block : DFDesign.Block, members) => block.codeString(blockBodyCodeString(block, members))
-      }.mkString("\n")
+      }.mkString("\n\n")
     }
     def printCodeString() : DFDesign.DB = {
       println(codeString)
