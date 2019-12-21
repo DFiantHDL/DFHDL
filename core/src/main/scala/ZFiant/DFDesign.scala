@@ -7,6 +7,12 @@ import scala.collection.immutable
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   private val block : DFBlock = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
+  protected implicit val __getset : MemberGetSet = new MemberGetSet {
+    def apply[T <: DFMember](ref: DFRef[T]): T = ctx.db.getMember(ref)
+    def set[T <: DFMember](originalMember : T, newMember: T): T =
+      ctx.db.setMember(ctx.db.getRef(originalMember), newMember)
+  }
+
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
@@ -49,11 +55,11 @@ object ContextOf {
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
   sealed trait Block extends DFBlock {
-    def headerCodeString(implicit getter: MemberGetter): String = s"trait $typeName extends DFDesign"
+    def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
     final case class Internal(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends Block {
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)(designType)
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta)(designType))
       override lazy val typeName : String = designType
     }
     object Internal {
@@ -63,11 +69,11 @@ object DFDesign {
 
     final case class Top(meta: Meta)(db: DB.Mutable, designType: String) extends Block {
       override lazy val ownerRef: DFRef[DFBlock] = ???
-      override def getOwner(implicit getter : MemberGetter): DFBlock = this
+      override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       override lazy val typeName : String = designType
-      override def getFullName(implicit getter : MemberGetter): String = name
-      def setMeta(meta : Meta) : DFMember = copy(meta = meta)(db, designType)
+      override def getFullName(implicit getset : MemberGetSet): String = name
+      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta)(db, designType))
     }
   }
 
@@ -78,8 +84,9 @@ object DFDesign {
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
-    implicit val getter : MemberGetter = new MemberGetter {
-      override def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
+    implicit val getset : MemberGetSet = new MemberGetSet {
+      def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
+      def set[T <: DFMember](originalMember : T, newMember: T): T = newMember
     }
     lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
 
@@ -139,34 +146,44 @@ object DFDesign {
 
   object DB {
     class Mutable {
-      private var members : List[DFMember] = List()
-      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit getter : MemberGetter) : CB = {
-        members = members :+ cb
+      private var members : Vector[DFMember] = Vector()
+      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit getset : MemberGetSet) : CB = {
+        addMember(cb)
         cb.applyBlock(block, this)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
+        memberTable = memberTable + (member -> (None, members.length))
         members = members :+ member
         member
       }
-      def getMembers : List[DFMember] = members
       private var refTable : Map[DFRef[_], DFMember] = Map()
-      private var memberTable : Map[DFMember, DFRef[_]] = Map()
+      private var memberTable : Map[DFMember, (Option[DFRef[_]], Int)] = Map()
       def getMember[T <: DFMember](ref : DFRef[T]) : T = refTable(ref).asInstanceOf[T]
+      def setMember[T <: DFMember](ref : DFRef[T], newMember : T) : T = {
+        val originalMember = refTable(ref)
+        val cell = memberTable(originalMember)
+        members = members.updated(cell._2, newMember)
+        refTable = refTable + (ref -> newMember)
+        memberTable = memberTable - originalMember
+        memberTable = memberTable + (newMember -> cell)
+        newMember
+      }
       def getRef[T <: DFMember](member : T) : DFRef[T] = {
-        memberTable.getOrElse(member, {
+        val cell = memberTable(member)
+        cell._1.getOrElse {
           val ref = new DFRef[T]
-          memberTable = memberTable + (member -> ref)
+          memberTable = memberTable + (member -> cell.copy(_1 = Some(ref)))
           refTable = refTable + (ref -> member)
           ref
-        }).asInstanceOf[DFRef[T]]
+        }.asInstanceOf[DFRef[T]]
       }
       def immutable : DB = {
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
-          case m if memberTable.contains(m) => m
+          case m if memberTable(m)._1.isDefined => m
           case m : DFDesign.Block.Top => m
-        }
+        }.toList
         DB(refMembers, refTable)
       }
     }

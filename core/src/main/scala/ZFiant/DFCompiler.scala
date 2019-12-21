@@ -27,7 +27,7 @@ object DFCompiler {
   }
 
   implicit class Naming(designDB : DFDesign.DB) {
-    import designDB.getter
+    import designDB.getset
     def fixNames : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
         case (block, members) => members.groupBy(m => m.meta.namePosition).flatMap {
@@ -53,7 +53,7 @@ object DFCompiler {
   }
 
   final implicit class CodeString(designDB : DFDesign.DB) {
-    import designDB.getter
+    import designDB.getset
     def blockBodyCodeString(block : DFBlock, members : List[DFMember]) : String = {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader[_] => mh.codeString
