@@ -46,6 +46,11 @@ object DFAny {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
   }
 
+  trait PostConnectionTags extends DFMember.Tags {
+    val init : Option[Seq[Token]]
+    val const : Option[Token]
+  }
+
   @implicitNotFound(Context.MissingError.msg)
   final case class Context(meta : Meta, owner : DFBlock, db : DFDesign.DB.Mutable) extends DFMember.Context
   object Context {
