@@ -273,14 +273,10 @@ object DFUInt extends DFAny.Companion {
       val left = value
 //      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable[Int], DFUInt[RW]]) = op(left, right)
 //      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable[Int], DFUInt[RW]]) = op(left, right)
-//      def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
-//      def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
-//      def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
-//      def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
-//      def <> [RW](port : DFAny.Connectable[DFUInt[RW]] with DFUInt[RW])(
-//        implicit op: `Op<>`.Builder[DFUInt[RW], L], ctx : DFNet.Context
-//      ) = port.connectWith(op(port, left))
-//      def toDFUInt(implicit op : Const.PosOnly[Const.PosOnly[_,_],L]) = op(left)
+      final def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
+      final def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
+      final def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
+      final def >= [RW](right : DFUInt[RW])(implicit op: `Op>=`.Builder[L, DFUInt[RW]]) = op(left, right)
     }
     trait Implicits {
       sealed class DFUIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
@@ -295,11 +291,12 @@ object DFUInt extends DFAny.Companion {
       final implicit def DFUIntFromBigInt[L <: BigInt](left: L): DFUIntFromBigInt[L] = new DFUIntFromBigInt[L](left)
       final implicit def ofDFUInt[W](value : DFUInt[W]) : Able[DFUInt[W]] = new Able[DFUInt[W]](value)
       final implicit def ofCB[W](value : DFAny.CBOf[Type[W]]) : Able[DFUInt[W]] = new Able[DFUInt[W]](value.retVar)
-//      implicit class DFUIntOps[LW](val left : DFUInt[LW]){
-//        final def | [R, RW](right : Able[R])(implicit op: `Op|`.Builder[DFUInt[LW], R]) = op(left, right)
-//        final def & [R, RW](right : Able[R])(implicit op: `Op&`.Builder[DFUInt[LW], R]) = op(left, right)
-//        final def ^ [R, RW](right : Able[R])(implicit op: `Op^`.Builder[DFUInt[LW], R]) = op(left, right)
-//      }
+      implicit class DFUIntOps[LW](val left : DFUInt[LW]){
+        final def <  [R, RW](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def >  [R, RW](right : Able[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def <= [R, RW](right : Able[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def >= [R, RW](right : Able[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
+      }
     }
     object Able extends Implicits
   }
