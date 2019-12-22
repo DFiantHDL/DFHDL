@@ -30,13 +30,13 @@ object DFCompiler {
     import designDB.getset
     def fixNames : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
-        case (block, members) => members.groupBy(m => m.meta.namePosition).flatMap {
+        case (block, members) => members.groupBy(m => m.tags.meta.namePosition).flatMap {
           //In case an anonymous member got a name from its owner. For example:
           //val ret = DFBits(8).ifdf(cond) {
           //  i & i
           //}
           //The `i & i` function would also get the `ret` name just as the if block itself
-          case (pos, gm) if (pos == block.meta.namePosition) => gm
+          case (pos, gm) if (pos == block.tags.meta.namePosition) => gm
           //In case an anonymous member was used as an argument to an owner. For example:
           //val ret = DFBits(8).ifdf(i & i) {
           //}
@@ -60,7 +60,7 @@ object DFCompiler {
         case cb : ConditionalBlock[_] => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
         case m : DFDesign.Block => s"val ${m.name} = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
-        case a : DFAny if !a.meta.name.anonymous => s"val ${a.name} = ${a.codeString}"
+        case a : DFAny if !a.tags.meta.name.anonymous => s"val ${a.name} = ${a.codeString}"
       }
       membersCodeString.mkString("\n")
     }
