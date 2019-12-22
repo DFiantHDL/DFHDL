@@ -67,7 +67,7 @@ object ConditionalBlock {
       val injectedOwnerBackup = owner.__injectedOwner
       owner.__injectedOwner = this
       val returnValue = block
-      retVar.assign(returnValue)(DFAny.Context(returnValue.tags.meta.anonymize, () => this, db))
+      retVar.assign(returnValue)(new DFAny.Context(returnValue.tags.meta.anonymize, this, db))
       owner.__injectedOwner = injectedOwnerBackup
     }
   }

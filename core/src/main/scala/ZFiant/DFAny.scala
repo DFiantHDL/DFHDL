@@ -3,6 +3,7 @@ package ZFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
+import ZFiant.DFDesign.DB
 
 import scala.annotation.implicitNotFound
 
@@ -52,8 +53,8 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  final case class Context(meta : Meta, ownerFunc : () => DFBlock, db : DFDesign.DB.Mutable) extends DFMember.Context {
-    lazy val owner : DFBlock = ownerFunc()
+  final class Context(val meta : Meta, ownerFunc : => DFBlock, val db : DFDesign.DB.Mutable) extends DFMember.Context {
+    lazy val owner : DFBlock = ownerFunc
   }
   object Context {
     final object MissingError extends ErrorMsg (
