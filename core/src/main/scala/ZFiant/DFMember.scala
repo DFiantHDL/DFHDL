@@ -20,6 +20,7 @@ trait HasTypeName {
 }
 trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
+//  val tags : DFMember.Tags
   val meta : Meta
   implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {
@@ -64,8 +65,6 @@ trait DFMember extends HasTypeName with Product with Serializable {
 
 
 object DFMember {
-//  import shapeless._
-//  protected val metaP = ^.meta
 //  abstract class CC[P <: CC[P]](implicit metaL: metaP.Lens[P, Meta]) extends DFMember {self : P =>
 //    def setName(value : String) : DFMember = metaL().modify(self)(s => s.copy(name = s.name.copy(value)))
 //  }
@@ -77,8 +76,28 @@ object DFMember {
   }
 
   trait Tags extends Product with Serializable {
+    type TTags <: Tags
     val meta : Meta
     val keep : Boolean
+    def setMeta(meta : Meta) : TTags
+    def setKeep(keep : Boolean) : TTags
+    final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
+    final def anonymize : TTags = setMeta(meta.copy(name = meta.name.copy(anonymous = true)))
+  }
+  object Tags {
+    import shapeless._
+    final protected val metaP = ^.meta
+    final protected val keepP = ^.keep
+    abstract class CC[P <: CC[P]](
+      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean]
+    ) extends Tags {self : P =>
+      type TTags = P
+      final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
+      final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
+    }
+
+    final case class Basic(meta : Meta, keep : Boolean) extends Tags.CC[Basic]
+    implicit def fromMeta(meta : Meta) : Tags = Basic(meta, keep = false)
   }
 
   trait Context extends Product with Serializable {
