@@ -5,7 +5,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
-  private val block : DFBlock = DFDesign.Block.Internal(typeName)(ctx)
+  private val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   protected implicit val __getset : MemberGetSet = ctx.db.getset
 
@@ -51,12 +51,12 @@ object ContextOf {
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
 
-//  implicit class DesignExtender[T <: DFDesign](design : T) {
-//    def setName(value : String)(implicit getset : MemberGetSet) : T = {
-//      design.block.setName(value)
-//      design
-//    }
-//  }
+  implicit class DesignExtender[T <: DFDesign](design : T) {
+    import design.__db.getset
+    def onBlock(b : Block => Unit) : T = {b(design.block); design}
+    def setName(value : String) : T = onBlock(_.setName(value))
+    def keep : T = onBlock(_.keep)
+  }
 
   sealed trait Block extends DFBlock {
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
