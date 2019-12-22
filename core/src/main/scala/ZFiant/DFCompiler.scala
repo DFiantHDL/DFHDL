@@ -48,7 +48,26 @@ object DFCompiler {
           case _ => List()
         }
       }
-      designDB.patch(anonymizeList.map(a => a -> a.anonymize).toMap)
+      designDB.patch(anonymizeList.map(a => a -> Some(a.anonymize)).toMap)
+    }
+  }
+
+  implicit class Flatten(designDB : DFDesign.DB) {
+    import designDB.getset
+    def flatten(design : DFDesign) : DFDesign.DB = {
+      val block = design.block
+      if (block.isTop) designDB else {
+        val members = designDB.ownerMemberTable(block)
+        val owner = block.getOwner
+        val updatedRefTable = members.foldLeft(designDB.refTable) ((rt, m) =>
+          rt.updated(m.ownerRef, owner)
+        )
+        val removalPatch = (block -> None) :: members.collect {
+          case m : DFAny.Port.In[_,_] => (m -> None)
+          case m : DFAny.Port.Out[_,_] => (m -> None)
+        }
+        designDB.patch(removalPatch.toMap).copy(refTable = updatedRefTable)
+      }
     }
   }
 
