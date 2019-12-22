@@ -30,7 +30,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
     case d : DFDesign.Block => d
     case x => x.getOwnerDesign
   }
-  @inline final def name : String = tags.meta.name
+  final val name : String = tags.meta.name
   def getFullName(implicit getset : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain(implicit getset : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
   def getRelativeName(implicit callOwner : DFBlock, getset : MemberGetSet) : String = {
