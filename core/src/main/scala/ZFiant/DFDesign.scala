@@ -51,19 +51,19 @@ object ContextOf {
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
 
-  implicit class DesignExtender[T <: DFDesign](design : T) {
-    def setName(value : String)(implicit getset : MemberGetSet) : T = {
-      design.block.setName(value)
-      design
-    }
-  }
+//  implicit class DesignExtender[T <: DFDesign](design : T) {
+//    def setName(value : String)(implicit getset : MemberGetSet) : T = {
+//      design.block.setName(value)
+//      design
+//    }
+//  }
 
   sealed trait Block extends DFBlock {
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
-    final case class Internal(ownerRef : DFRef[DFBlock], meta : Meta)(designType: String) extends Block {
-      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta)(designType))
+    final case class Internal(ownerRef : DFRef[DFBlock], tags : DFMember.Tags)(designType: String) extends Block {
+      def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
       override lazy val typeName : String = designType
     }
     object Internal {
@@ -71,13 +71,13 @@ object DFDesign {
         if (ctx.ownerOption.isEmpty) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
     }
 
-    final case class Top(meta: Meta)(db: DB.Mutable, designType: String) extends Block {
-      override lazy val ownerRef: DFRef[DFBlock] = ???
+    final case class Top(tags : DFMember.Tags)(db: DB.Mutable, designType: String) extends Block {
+      override lazy val ownerRef : DFRef[DFBlock] = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       override lazy val typeName : String = designType
       override def getFullName(implicit getset : MemberGetSet): String = name
-      def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(meta = meta)(db, designType))
+      def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db, designType))
     }
   }
 

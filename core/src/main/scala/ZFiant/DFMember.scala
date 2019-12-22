@@ -20,8 +20,7 @@ trait HasTypeName {
 }
 trait DFMember extends HasTypeName with Product with Serializable {
   val ownerRef : DFRef[DFBlock]
-//  val tags : DFMember.Tags
-  val meta : Meta
+  val tags : DFMember.Tags
   implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {
     case d : DFDesign.Block => d
@@ -31,7 +30,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
     case d : DFDesign.Block => d
     case x => x.getOwnerDesign
   }
-  @inline final def name : String = meta.name
+  @inline final def name : String = tags.meta.name
   def getFullName(implicit getset : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain(implicit getset : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
   def getRelativeName(implicit callOwner : DFBlock, getset : MemberGetSet) : String = {
@@ -59,20 +58,17 @@ trait DFMember extends HasTypeName with Product with Serializable {
     //      }
 //  }
 
-  def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember
+  def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"
 }
 
 
 object DFMember {
-//  abstract class CC[P <: CC[P]](implicit metaL: metaP.Lens[P, Meta]) extends DFMember {self : P =>
-//    def setName(value : String) : DFMember = metaL().modify(self)(s => s.copy(name = s.name.copy(value)))
-//  }
-
   implicit class MemberExtender[T <: DFMember](member : T) {
     def setName(value : String)(implicit getset : MemberGetSet) : T =
-      member.setMeta(member.meta.copy(member.meta.name.copy(value = value, anonymous = false))).asInstanceOf[T]
-    def anonymize(implicit getset : MemberGetSet) : T = member.setMeta(member.meta.anonymize).asInstanceOf[T]
+      member.setTags(member.tags.setName(value)).asInstanceOf[T]
+    def anonymize(implicit getset : MemberGetSet) : T =
+      member.setTags(member.tags.anonymize).asInstanceOf[T]
   }
 
   trait Tags extends Product with Serializable {
