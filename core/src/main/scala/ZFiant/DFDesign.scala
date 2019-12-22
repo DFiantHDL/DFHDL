@@ -34,7 +34,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
 
 @implicitNotFound(ContextOf.MissingError.msg)
 final case class ContextOf[T <: DFDesign](meta : Meta, ownerOption : () => Option[DFBlock], db: DFDesign.DB.Mutable) extends DFMember.Context {
-  def owner : DFBlock = ownerOption().get
+  lazy val owner : DFBlock = ownerOption().get
 }
 object ContextOf {
   final object MissingError extends ErrorMsg (
