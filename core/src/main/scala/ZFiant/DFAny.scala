@@ -53,7 +53,7 @@ object DFAny {
 
   @implicitNotFound(Context.MissingError.msg)
   final case class Context(meta : Meta, ownerFunc : () => DFBlock, db : DFDesign.DB.Mutable) extends DFMember.Context {
-    def owner : DFBlock = ownerFunc()
+    lazy val owner : DFBlock = ownerFunc()
   }
   object Context {
     final object MissingError extends ErrorMsg (

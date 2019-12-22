@@ -24,7 +24,7 @@ trait DFBlock extends DFMember {
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
   final case class Context(meta : Meta, ownerOption : () => Option[DFBlock], db : DFDesign.DB.Mutable) extends DFMember.Context {
-    def owner : DFBlock = ownerOption().get
+    lazy val owner : DFBlock = ownerOption().get
   }
   object Context {
     final object MissingError extends ErrorMsg (
