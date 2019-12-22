@@ -23,6 +23,9 @@ object DiSoOp {
   sealed trait +  extends DiSoOp
   sealed trait -  extends DiSoOp
   sealed trait *  extends DiSoOp
+  sealed trait +^  extends DiSoOp
+  sealed trait -^  extends DiSoOp
+  sealed trait *^  extends DiSoOp
   sealed trait == extends DiSoOp {
     override def toString: String = "==="
   }
@@ -43,6 +46,9 @@ object DiSoOp {
   implicit case object +  extends +
   implicit case object -  extends -
   implicit case object *  extends *
+  implicit case object +^  extends +^
+  implicit case object -^  extends -^
+  implicit case object *^  extends *^
   implicit case object == extends ==
   implicit case object != extends !=
   implicit case object <  extends <

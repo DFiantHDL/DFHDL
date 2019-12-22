@@ -105,7 +105,7 @@ object DFBits extends DFAny.Companion {
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[DFBits.Type[W]] = t => Token[W](t.width, Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token[W](t.width, Bubble)
     def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token[W](width, BigInt(value).toBitVector(width))
     def apply[W](width : TwoFace.Int[W], value : BitVector) : Token[W] = {
       assert(value.length == width.getValue, s"\nThe init vector $value must have a width of $width")
@@ -181,7 +181,7 @@ object DFBits extends DFAny.Companion {
       implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
 
       def toTokenSeq[LW](width : TwoFace.Int[LW], right : Seq[Able[DFBits[LW]]]) : Seq[Token[LW]] =
-        right.toSeqAny.collect{
+        right.toSeqAny.collect {
           case t : Bubble => Token(width, t)
           case t : Token[_] => t.asInstanceOf[Token[LW]]
           case t : BitVector => Token(width, t)
@@ -279,6 +279,56 @@ object DFBits extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Assign & Connect
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
+    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+      type Out = DFAny.Of[LType]
+    }
+
+    object Builder {
+      object `LW == RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW == RW
+        type Msg[LW, RW] = "An assignment/connection operation does not permit different widths. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+
+      implicit def evDFBits_op_DFBits[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[Type[LW], DFBits[RW]] = (left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right.asInstanceOf[DFAny.Of[Type[LW]]]
+      }
+
+      implicit def evDFBits_op_SBV[LW](
+        implicit
+        ctx : DFAny.Context,
+        rSBV : SameBitsVector.Builder[LW]
+      ) : Builder[Type[LW], SameBitsVector] = (left, right) => {
+        rSBV(left, right)
+      }
+
+      implicit def evDFBits_op_Const[LW, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.Builder.Aux[R, RW],
+        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+      ) : Builder[Type[LW], R] = (left, rightNum) => {
+        val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right.asInstanceOf[DFAny.Of[Type[LW]]]
+      }
+    }
+  }
+  object `Op:=` extends `Ops:=,<>`
+  object `Op<>` extends `Ops:=,<>`
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
@@ -355,58 +405,8 @@ object DFBits extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Assign & Connect
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
-      type Out = DFAny.Of[LType]
-    }
-
-    object Builder {
-      object `LW == RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = LW == RW
-        type Msg[LW, RW] = "An assignment/connection operation does not permit different widths. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
-        type ParamFace = Int
-      }
-
-      implicit def evDFBits_op_DFBits[LW, RW](
-        implicit
-        ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[Type[LW], DFBits[RW]] = (left, right) => {
-        checkLWvRW.unsafeCheck(left.width, right.width)
-        right.asInstanceOf[DFAny.Of[Type[LW]]]
-      }
-
-      implicit def evDFBits_op_SBV[LW](
-        implicit
-        ctx : DFAny.Context,
-        rSBV : SameBitsVector.Builder[LW]
-      ) : Builder[Type[LW], SameBitsVector] = (left, right) => {
-        rSBV(left, right)
-      }
-
-      implicit def evDFBits_op_Const[LW, R, RW](
-        implicit
-        ctx : DFAny.Context,
-        rConst : Const.Builder.Aux[R, RW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[Type[LW], R] = (left, rightNum) => {
-        val right = rConst(rightNum)
-        checkLWvRW.unsafeCheck(left.width, right.width)
-        right.asInstanceOf[DFAny.Of[Type[LW]]]
-      }
-    }
-  }
-  object `Op:=` extends `Ops:=,<>`
-  object `Op<>` extends `Ops:=,<>`
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Logic operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected trait LogicOp[-Op <: DiSoOp] {
     def apply[LW, RW](left : Token[LW], right : Token[RW]) : Token[LW]
   }
