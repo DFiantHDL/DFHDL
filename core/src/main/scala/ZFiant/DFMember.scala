@@ -97,7 +97,7 @@ object DFMember {
 
   trait Context extends Product with Serializable {
     val meta : Meta
-    val owner : DFBlock
+    def owner : DFBlock
     val db : DFDesign.DB.Mutable
   }
 }

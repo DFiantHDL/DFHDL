@@ -63,14 +63,16 @@ object ConditionalBlock {
     lazy val dfType: Type = retVar.dfType
 
     private[ZFiant] def applyBlock(block : => DFAny.Of[Type], db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
-      val injectedOwnerBackup = getOwner.__injectedOwner
-      getOwner.__injectedOwner = this
+      val owner = getOwner
+      val injectedOwnerBackup = owner.__injectedOwner
+      owner.__injectedOwner = this
       val returnValue = block
-      retVar.assign(returnValue)(DFAny.Context(returnValue.tags.meta.anonymize, this, db))
-      getOwner.__injectedOwner = injectedOwnerBackup
+      retVar.assign(returnValue)(DFAny.Context(returnValue.tags.meta.anonymize, () => this, db))
+      owner.__injectedOwner = injectedOwnerBackup
     }
   }
   object WithRetVal {
+    implicit def getRetVal[Type <: DFAny.Type](cb : WithRetVal[Type]) : DFAny.ValOf[Type] = cb.retVar
     final case class IfBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], condRef : DFRef[DFBool], ownerRef : DFRef[DFBlock], tags : DFMember.Tags
     ) extends ConditionalBlock.IfBlock with WithRetVal[Type] {
@@ -173,10 +175,11 @@ object ConditionalBlock {
   }
   sealed trait NoRetVal extends ConditionalBlock[Unit] {
     private[ZFiant] def applyBlock(block : => Unit, db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
-      val injectedOwnerBackup = getOwner.__injectedOwner
-      getOwner.__injectedOwner = this
+      val owner = getOwner
+      val injectedOwnerBackup = owner.__injectedOwner
+      owner.__injectedOwner = this
       block
-      getOwner.__injectedOwner = injectedOwnerBackup
+      owner.__injectedOwner = injectedOwnerBackup
     }
   }
   object NoRetVal {

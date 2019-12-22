@@ -83,15 +83,20 @@ object ZTest extends App {
 
   trait BBB extends DFDesign {
     val i = DFBits(8) <> IN init b0s
-    val o = DFBits(8) <> OUT setName("haha")
+    val o = DFBits(8) <> OUT// setName("haha")
 
-//    val b = i == b0s
-    val ret = DFBits(8).ifdf(i === b0s) {
+    val b = i == b0s
+    val ret = DFBits(8).ifdf(b) {
       i & i | i
     }.elsedf {
       i | i & i.prev
     }
-    o <> ret
+
+    val ret2  = DFBits(8).matchdf(ret)
+        .casedf(b"00000000") {b0s}
+        .casedf(b"11110000") {i}
+        .casedf_ {i}
+    o <> ret2
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {
