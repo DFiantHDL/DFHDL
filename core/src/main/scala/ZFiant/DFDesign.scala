@@ -7,11 +7,7 @@ import scala.collection.immutable
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   private val block : DFBlock = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
-  protected implicit val __getset : MemberGetSet = new MemberGetSet {
-    def apply[T <: DFMember](ref: DFRef[T]): T = ctx.db.getMember(ref)
-    def set[T <: DFMember](originalMember : T, newMember: T): T =
-      ctx.db.setMember(ctx.db.getRef(originalMember), newMember)
-  }
+  protected implicit val __getset : MemberGetSet = ctx.db.getset
 
   ///////////////////////////////////////////////////////////////////
   // Context implicits
@@ -54,6 +50,14 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
+
+  implicit class DesignExtender[T <: DFDesign](design : T) {
+    def setName(value : String)(implicit getset : MemberGetSet) : T = {
+      design.block.setName(value)
+      design
+    }
+  }
+
   sealed trait Block extends DFBlock {
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
@@ -185,6 +189,11 @@ object DFDesign {
           case m : DFDesign.Block.Top => m
         }.toList
         DB(refMembers, refTable)
+      }
+
+      implicit val getset : MemberGetSet = new MemberGetSet {
+        def apply[T <: DFMember](ref: DFRef[T]): T = getMember(ref)
+        def set[T <: DFMember](originalMember : T, newMember: T): T = setMember(getRef(originalMember), newMember)
       }
     }
   }
