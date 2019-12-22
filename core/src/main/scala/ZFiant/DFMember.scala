@@ -95,7 +95,7 @@ object DFMember {
     implicit def fromMeta(meta : Meta) : Tags = Basic(meta, keep = false)
   }
 
-  trait Context extends Product with Serializable {
+  trait Context {
     val meta : Meta
     def owner : DFBlock
     val db : DFDesign.DB.Mutable
