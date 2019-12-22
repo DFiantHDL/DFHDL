@@ -5,7 +5,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.immutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
-  private val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
+  val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   protected implicit val __getset : MemberGetSet = ctx.db.getset
 
@@ -13,11 +13,11 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    DFAny.Context(meta, block.__injectedOwner, ctx.db)
+    DFAny.Context(meta, () => block.__injectedOwner, ctx.db)
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    DFBlock.Context(meta, Some(block.__injectedOwner), ctx.db)
+    DFBlock.Context(meta, () => Some(block.__injectedOwner), ctx.db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    ContextOf[T](meta, Some(block.__injectedOwner), ctx.db)
+    ContextOf[T](meta, () => Some(block.__injectedOwner), ctx.db)
   ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
@@ -33,8 +33,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
-final case class ContextOf[T <: DFDesign](meta : Meta, ownerOption : Option[DFBlock], db: DFDesign.DB.Mutable) extends DFMember.Context {
-  lazy val owner : DFBlock = ownerOption.get
+final case class ContextOf[T <: DFDesign](meta : Meta, ownerOption : () => Option[DFBlock], db: DFDesign.DB.Mutable) extends DFMember.Context {
+  def owner : DFBlock = ownerOption().get
 }
 object ContextOf {
   final object MissingError extends ErrorMsg (
@@ -46,7 +46,7 @@ object ContextOf {
   ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.ownerOption, ctx.db)
   implicit def evTop[T <: DFDesign](
     implicit meta: Meta, topLevel : TopLevel, mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
-  ) : ContextOf[T] = ContextOf[T](meta, None, new DFDesign.DB.Mutable)
+  ) : ContextOf[T] = ContextOf[T](meta, () => None, new DFDesign.DB.Mutable)
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
@@ -68,7 +68,7 @@ object DFDesign {
     }
     object Internal {
       def apply(designType : String)(implicit ctx : Context) : Block = ctx.db.addMember(
-        if (ctx.ownerOption.isEmpty) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
+        if (ctx.ownerOption().isEmpty) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
     }
 
     final case class Top(tags : DFMember.Tags)(db: DB.Mutable, designType: String) extends Block {
