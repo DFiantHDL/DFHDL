@@ -76,6 +76,11 @@ object DFMember {
     def anonymize(implicit getset : MemberGetSet) : T = member.setMeta(member.meta.anonymize).asInstanceOf[T]
   }
 
+  trait Tags extends Product with Serializable {
+    val meta : Meta
+    val keep : Boolean
+  }
+
   trait Context extends Product with Serializable {
     val meta : Meta
     val owner : DFBlock
@@ -99,4 +104,3 @@ trait MemberGetSet {
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset
 }
-
