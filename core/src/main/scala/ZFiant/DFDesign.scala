@@ -54,7 +54,7 @@ object DFDesign {
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getset
-    def onBlock(b : Block => Unit) : T = {b(design.block); design}
+    private def onBlock(b : Block => Unit) : T = {b(design.block); design}
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
   }
@@ -128,15 +128,20 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
-    //replaces all members according to the patch table (origMember -> repMember)
-    def patch(patchTable : Map[DFMember, DFMember]) : DB = {
-      val patchedMembers = members.map(origMember => patchTable.get(origMember) match {
-        case Some(repMember) => repMember
-        case None => origMember
-      })
+    //replaces all members according to the patch table (origMember -> Some(repMember))
+    //If the replacement member is None, then the original member needs to be removed
+    def patch(patchTable : Map[DFMember, Option[DFMember]]) : DB = {
+      val patchedMembers = members.collect {
+        case origMember if patchTable.get(origMember).isDefined && patchTable(origMember).isDefined => patchTable(origMember).get
+        case origMember if patchTable.get(origMember).isEmpty => origMember
+      }
       val patchedRefTable = patchTable.foldLeft(refTable) {
-        case (rt, (origMember, repMember)) => memberTable.get(origMember) match {
+        case (rt, (origMember, Some(repMember))) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+          case None => rt
+        }
+        case (rt, (origMember, None)) => memberTable.get(origMember) match {
+          case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
           case None => rt
         }
       }
