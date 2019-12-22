@@ -59,8 +59,6 @@ trait DFMember extends HasTypeName with Product with Serializable {
 //  }
 
   def setMeta(meta : Meta)(implicit getset : MemberGetSet) : DFMember
-//  def setName(value : String) : DFMember = setMeta(meta.copy(meta.name.copy(value = value)))
-  def anonymize(implicit getset : MemberGetSet) : DFMember = setMeta(meta.anonymize)
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"
 }
 
@@ -75,6 +73,7 @@ object DFMember {
   implicit class MemberExtender[T <: DFMember](member : T) {
     def setName(value : String)(implicit getset : MemberGetSet) : T =
       member.setMeta(member.meta.copy(member.meta.name.copy(value = value, anonymous = false))).asInstanceOf[T]
+    def anonymize(implicit getset : MemberGetSet) : T = member.setMeta(member.meta.anonymize).asInstanceOf[T]
   }
 
   trait Context extends Product with Serializable {
@@ -98,10 +97,6 @@ trait MemberGetSet {
   def set[T <: DFMember](originalMember : T, newMember : T) : T
 }
 object MemberGetSet {
-  implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = new MemberGetSet {
-    def apply[T <: DFMember](ref: DFRef[T]): T = ctx.db.getMember(ref)
-    def set[T <: DFMember](originalMember : T, newMember: T): T =
-      ctx.db.setMember(ctx.db.getRef(originalMember), newMember)
-  }
+  implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset
 }
 
