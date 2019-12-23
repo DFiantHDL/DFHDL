@@ -54,6 +54,9 @@ object DFCompiler {
 
   implicit class Flatten(designDB : DFDesign.DB) {
     import designDB.getset
+//    private def flattenPortIn(p : DFAny.Port.In[_,_]) : DFDesign.DB = {
+//
+//    }
     def flatten(design : DFDesign) : DFDesign.DB = {
       val block = design.block
       if (block.isTop) designDB else {
