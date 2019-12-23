@@ -16,7 +16,7 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   type TToken = dfType.TToken
   final lazy val width = dfType.width
   final protected val left : this.type = this
-  protected type AsVal = DFAny.ValOf[TType]
+  protected type AsVal = DFAny.Value[TType, DFAny.Modifier.Val]
   protected type AsVar = DFAny.VarOf[TType]
   protected type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
@@ -63,8 +63,9 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  sealed trait Of[Type <: DFAny.Type] extends DFAny {
+  sealed trait Of[Type <: DFAny.Type] extends DFAny with ValOf[Type] {
     type TType = Type
+    final def getVal: Of[Type] = this
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
@@ -133,6 +134,13 @@ object DFAny {
 
   sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
     type TMod <: Mod
+  }
+
+  trait ValOf[Type <: DFAny.Type] {
+    def getVal : DFAny.Of[Type]
+  }
+  object ValOf {
+    implicit def getVal[Type <: DFAny.Type](v : ValOf[Type]) : DFAny.Of[Type] = v.getVal
   }
 
   sealed trait Modifier extends Product with Serializable
@@ -329,17 +337,12 @@ object DFAny {
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
     : Func2[Type, L, Op, R] = ctx.db.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
   }
-
-  trait DefaultRet[-T, Type <: DFAny.Type] {
-    def apply(t : T) : DFAny.ValOf[Type]
-  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Extension Classes
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  type ValOf[Type <: DFAny.Type] = Value[Type, Modifier.Val]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     private[ZFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit =

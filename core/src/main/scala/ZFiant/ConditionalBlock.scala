@@ -58,8 +58,9 @@ object ConditionalBlock {
   }
 
   sealed trait WithRetVal[Type <: DFAny.Type] extends
-    ConditionalBlock[DFAny.Of[Type]] {
+    ConditionalBlock[DFAny.Of[Type]] with DFAny.ValOf[Type] {
     val retVar : DFAny.VarOf[Type]
+    final def getVal: DFAny.Of[Type] = retVar
     lazy val dfType: Type = retVar.dfType
 
     private[ZFiant] def applyBlock(block : => DFAny.Of[Type], db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
@@ -72,7 +73,6 @@ object ConditionalBlock {
     }
   }
   object WithRetVal {
-    implicit def getRetVal[Type <: DFAny.Type](cb : WithRetVal[Type]) : DFAny.ValOf[Type] = cb.retVar
     final case class IfBlock[Type <: DFAny.Type](
       retVar : DFAny.VarOf[Type], condRef : DFRef[DFBool], ownerRef : DFRef[DFBlock], tags : DFMember.Tags
     ) extends ConditionalBlock.IfBlock with WithRetVal[Type] {
