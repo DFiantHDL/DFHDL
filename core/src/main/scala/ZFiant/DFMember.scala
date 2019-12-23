@@ -106,7 +106,7 @@ class DFRef[T <: DFMember] {
   def get(implicit getset: MemberGetSet) : T = getset(this)
 }
 object DFRef {
-  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.getRef(member)
+  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.newRefFor(member)
   implicit def memberOf[T <: DFMember](ref : DFRef[T])(implicit getset : MemberGetSet) : T = getset(ref)
   implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
 //  class Owner[T <: DFBlock] extends DFRef[T]
