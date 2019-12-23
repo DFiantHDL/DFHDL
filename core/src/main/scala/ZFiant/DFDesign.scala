@@ -163,43 +163,43 @@ object DFDesign {
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
-        memberTable = memberTable + (member -> (None, members.length))
+        memberTable = memberTable + (member -> (Set(), members.length))
         members = members :+ member
         member
       }
-      private var refTable : Map[DFRef[_], DFMember] = Map()
-      private var memberTable : Map[DFMember, (Option[DFRef[_]], Int)] = Map()
-      def getMember[T <: DFMember](ref : DFRef[T]) : T = refTable(ref).asInstanceOf[T]
-      def setMember[T <: DFMember](ref : DFRef[T], newMember : T) : T = {
-        val originalMember = refTable(ref)
+      private var refTable : Map[DFRef[_], Int] = Map()
+      private var memberTable : Map[DFMember, (Set[DFRef[_]], Int)] = Map()
+      def getMember[T <: DFMember](ref : DFRef[T]) : T = members(refTable(ref)).asInstanceOf[T]
+      def setMember[T <: DFMember](originalMember : T, newMember : T) : T = {
         val cell = memberTable(originalMember)
         members = members.updated(cell._2, newMember)
-        refTable = refTable + (ref -> newMember)
         memberTable = memberTable - originalMember
         memberTable = memberTable + (newMember -> cell)
         newMember
       }
-      def getRef[T <: DFMember](member : T) : DFRef[T] = {
+      def newRefFor[T <: DFMember](member : T) : DFRef[T] = {
         val cell = memberTable(member)
-        cell._1.getOrElse {
-          val ref = new DFRef[T]
-          memberTable = memberTable + (member -> cell.copy(_1 = Some(ref)))
-          refTable = refTable + (ref -> member)
-          ref
-        }.asInstanceOf[DFRef[T]]
+        val ref = new DFRef[T]
+        memberTable = memberTable + (member -> cell.copy(_1 = cell._1 + ref))
+        refTable = refTable + (ref -> cell._2)
+        ref.asInstanceOf[DFRef[T]]
+      }
+      def getRefs[T <: DFMember](member : T) : Set[DFRef[T]] = {
+        val cell = memberTable(member)
+        cell._1.asInstanceOf[Set[DFRef[T]]]
       }
       def immutable : DB = {
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
-          case m if memberTable(m)._1.isDefined => m
+          case m if memberTable(m)._1.nonEmpty => m
           case m : DFDesign.Block.Top => m
         }.toList
-        DB(refMembers, refTable)
+        DB(refMembers, refTable.mapValues(i => members(i)))
       }
 
       implicit val getset : MemberGetSet = new MemberGetSet {
         def apply[T <: DFMember](ref: DFRef[T]): T = getMember(ref)
-        def set[T <: DFMember](originalMember : T, newMember: T): T = setMember(getRef(originalMember), newMember)
+        def set[T <: DFMember](originalMember : T, newMember: T): T = setMember(originalMember, newMember)
       }
     }
   }
