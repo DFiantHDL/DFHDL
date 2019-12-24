@@ -293,10 +293,10 @@ object DFUInt extends DFAny.Companion {
       final implicit def DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) : DFUIntFromDefaultRet[W] = new DFUIntFromDefaultRet(left)
       final implicit def ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
       implicit class DFUIntOps[LW](val left : DFUInt[LW]){
-        final def <  [R, RW](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
-        final def >  [R, RW](right : Able[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
-        final def <= [R, RW](right : Able[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
-        final def >= [R, RW](right : Able[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def <  [R](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def >  [R](right : Able[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def <= [R](right : Able[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def >= [R](right : Able[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
       }
     }
     object Able extends Implicits
