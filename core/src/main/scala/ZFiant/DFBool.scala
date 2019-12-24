@@ -189,8 +189,7 @@ object DFBool extends DFAny.Companion {
       final implicit def DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
       ) : DFBoolFromDFBitsW1[LW] = new DFBoolFromDFBitsW1[LW](left)
-      final implicit def ofDFBool(value : DFBool) : Able[DFBool] = new Able[DFBool](value)
-      final implicit def ofCB(value : DFAny.CBOf[Type]) : Able[DFBool] = new Able[DFBool](value.retVar)
+      final implicit def ofDFBoolVal[W](value : DFAny.ValOf[Type]) : Able[DFBool] = new Able[DFBool](value.getVal)
       implicit class DFBoolOps[LW](val left : DFBool) {
         final def || [R, RW](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
         final def && [R, RW](right : Able[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
