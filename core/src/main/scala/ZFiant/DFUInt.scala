@@ -350,6 +350,7 @@ object DFUInt extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
+    type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -376,7 +377,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
       ) : Builder[DFUInt[LW], DFUInt[RW]] = create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
@@ -385,7 +386,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
+        rConst : Const.PosOnly.Aux[ErrorSym, R, RW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
       ) : Builder[DFUInt[LW], R] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
@@ -396,7 +397,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evConst_op_DFUInt[L, LW, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        lConst : Const.PosOnly.Aux[Builder[_,_], L, LW],
+        lConst : Const.PosOnly.Aux[ErrorSym, L, LW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
       ) : Builder[L, DFUInt[RW]] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
@@ -405,12 +406,14 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends OpsCompare(DiSoOp.==)(_ == _) with `Op==`
-  object `Op!=` extends OpsCompare(DiSoOp.!=)(_ != _) with `Op!=`
-  object `Op<`  extends OpsCompare(DiSoOp.< )(_ <  _)
-  object `Op>`  extends OpsCompare(DiSoOp.> )(_ >  _)
-  object `Op<=` extends OpsCompare(DiSoOp.<=)(_ <= _)
-  object `Op>=` extends OpsCompare(DiSoOp.>=)(_ >= _)
+  object `Op==`  extends OpsCompare(DiSoOp.==)(_ == _) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op!=`  extends OpsCompare(DiSoOp.!=)(_ != _) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends OpsCompare(DiSoOp.==)(_ == _){type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends OpsCompare(DiSoOp.!=)(_ != _){type ErrorSym = Builder[_,_]}
+  object `Op<`   extends OpsCompare(DiSoOp.< )(_ <  _){type ErrorSym = Builder[_,_]}
+  object `Op>`   extends OpsCompare(DiSoOp.> )(_ >  _){type ErrorSym = Builder[_,_]}
+  object `Op<=`  extends OpsCompare(DiSoOp.<=)(_ <= _){type ErrorSym = Builder[_,_]}
+  object `Op>=`  extends OpsCompare(DiSoOp.>=)(_ >= _){type ErrorSym = Builder[_,_]}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
