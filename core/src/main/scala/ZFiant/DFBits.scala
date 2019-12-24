@@ -238,6 +238,8 @@ object DFBits extends DFAny.Companion {
       final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
       final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
       final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def === [RW](right : DFBits[RW])(implicit op: `Op===`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def =!= [RW](right : DFBits[RW])(implicit op: `Op=!=`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
     }
     trait Implicits {
@@ -249,11 +251,15 @@ object DFBits extends DFAny.Companion {
       final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
       sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
       final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
-      final implicit def ofDFBitsVal[W](value : DFAny.ValOf[Type[W]]) : Able[DFBits[W]] = new Able[DFBits[W]](value.getVal)
+      sealed class DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) extends AbleOps[DFBits[W]](left)
+      final implicit def DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) : DFBitsFromDefaultRet[W] = new DFBitsFromDefaultRet(left)
+      final implicit def ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
       implicit class DFBitsOps[LW](val left : DFBits[LW]){
         final def | [R, RW](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
         final def & [R, RW](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
         final def ^ [R, RW](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
+        final def === [R, RW](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
+        final def =!= [R, RW](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
       }
     }
     object Able extends Implicits
@@ -331,6 +337,7 @@ object DFBits extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
+    type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
     object Builder {
@@ -350,7 +357,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[CaseClassSkipper[_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
       ) : Builder[DFBits[LW], DFBits[RW]] =
         create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
@@ -361,7 +368,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[CaseClassSkipper[_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
       ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -372,7 +379,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         lConst : Const.Builder.Aux[L, LW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[CaseClassSkipper[_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
       ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -398,8 +405,10 @@ object DFBits extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends OpsCompare(DiSoOp.==)((l, r) => l == r) with `Op==`
-  object `Op!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r) with `Op!=`
+  object `Op==` extends OpsCompare(DiSoOp.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends OpsCompare(DiSoOp.==)((l, r) => l == r){type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r){type ErrorSym = Builder[_,_]}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

@@ -63,9 +63,8 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  sealed trait Of[Type <: DFAny.Type] extends DFAny with ValOf[Type] {
+  sealed trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
-    final def getVal: Of[Type] = this
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
@@ -116,17 +115,11 @@ object DFAny {
     // Equality
     //////////////////////////////////////////////////////////////////////////
     final def == [R](right : R)(
-      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[This, R]]
+      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
-    final def === [R](right : R)(
-      implicit op: dfType.`Op==Builder`[This, R]
-    ) = op(left, right)
     final def != [R](right : R)(
-      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[This, R]]
+      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
-    final def =!= [R](right : R)(
-      implicit op: dfType.`Op!=Builder`[This, R]
-    ) = op(left, right)
     //////////////////////////////////////////////////////////////////////////
 
     override lazy val typeName: String = dfType.toString
@@ -136,11 +129,22 @@ object DFAny {
     type TMod <: Mod
   }
 
-  trait ValOf[Type <: DFAny.Type] {
-    def getVal : DFAny.Of[Type]
+  trait DefaultRet[Type <: DFAny.Type] {
+    val thisVal : DFAny.Of[Type]
+    val dfType : Type
+    //////////////////////////////////////////////////////////////////////////
+    // Equality
+    //////////////////////////////////////////////////////////////////////////
+    final def == [R](right : R)(
+      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]]
+    ) = ccs(op => op(thisVal, right), thisVal.asInstanceOf[Any] == right.asInstanceOf[Any])
+    final def != [R](right : R)(
+      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]]
+    ) = ccs(op => op(thisVal, right), thisVal.asInstanceOf[Any] != right.asInstanceOf[Any])
+    //////////////////////////////////////////////////////////////////////////
   }
-  object ValOf {
-    implicit def getVal[Type <: DFAny.Type](v : ValOf[Type]) : DFAny.Of[Type] = v.getVal
+  object DefaultRet {
+    implicit def getVal[Type <: DFAny.Type](v : DefaultRet[Type]) : DFAny.Of[Type] = v.thisVal
   }
 
   sealed trait Modifier extends Product with Serializable

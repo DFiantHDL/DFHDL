@@ -58,10 +58,10 @@ object ConditionalBlock {
   }
 
   sealed trait WithRetVal[Type <: DFAny.Type] extends
-    ConditionalBlock[DFAny.Of[Type]] with DFAny.ValOf[Type] {
+    ConditionalBlock[DFAny.Of[Type]] with DFAny.DefaultRet[Type] {
     val retVar : DFAny.VarOf[Type]
-    final def getVal: DFAny.Of[Type] = retVar
-    lazy val dfType: Type = retVar.dfType
+    final val thisVal : DFAny.Of[Type] = retVar
+    final val dfType: Type = retVar.dfType
 
     private[ZFiant] def applyBlock(block : => DFAny.Of[Type], db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
       val owner = getOwner
