@@ -83,7 +83,7 @@ object ZTest extends App {
 
   trait BBB extends DFDesign {
     val i = DFBits(8) <> IN init b0s
-    val o = DFBits(8) <> OUT// setName("haha")
+    val o = DFBits(8) <> OUT setName("haha")
 
     val b = i == b0s
     val ret = DFBits(8).ifdf(b) {
