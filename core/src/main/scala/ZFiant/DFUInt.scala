@@ -289,8 +289,7 @@ object DFUInt extends DFAny.Companion {
       final implicit def DFUIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFUIntFromXLong[L] = new DFUIntFromXLong(left)
       sealed class DFUIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
       final implicit def DFUIntFromBigInt[L <: BigInt](left: L): DFUIntFromBigInt[L] = new DFUIntFromBigInt[L](left)
-      final implicit def ofDFUInt[W](value : DFUInt[W]) : Able[DFUInt[W]] = new Able[DFUInt[W]](value)
-      final implicit def ofCB[W](value : DFAny.CBOf[Type[W]]) : Able[DFUInt[W]] = new Able[DFUInt[W]](value.retVar)
+      final implicit def ofDFUIntVal[W](value : DFAny.ValOf[Type[W]]) : Able[DFUInt[W]] = new Able[DFUInt[W]](value.getVal)
       implicit class DFUIntOps[LW](val left : DFUInt[LW]){
         final def <  [R, RW](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
         final def >  [R, RW](right : Able[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
