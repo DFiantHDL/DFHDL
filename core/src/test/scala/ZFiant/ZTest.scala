@@ -96,7 +96,8 @@ object ZTest extends App {
         .casedf(b"00000000") {b0s}
         .casedf(b"11110000") {i}
         .casedf_ {i}
-    o <> ret2
+    val x = ret2 == b"00000000"
+    o <> (ret2 | ret2)
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {
