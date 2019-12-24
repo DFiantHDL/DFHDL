@@ -235,9 +235,9 @@ object DFBits extends DFAny.Companion {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able[L](value) {
       final val left = value
-      final def |  [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def &  [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def ^  [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def |   [RW](right : DFBits[RW])(implicit op: `Op|`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def &   [RW](right : DFBits[RW])(implicit op: `Op&`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def ^   [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
       final def === [RW](right : DFBits[RW])(implicit op: `Op===`.Builder[L, DFBits[RW]]) = op(left, right)
       final def =!= [RW](right : DFBits[RW])(implicit op: `Op=!=`.Builder[L, DFBits[RW]]) = op(left, right)
 //      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
@@ -255,11 +255,11 @@ object DFBits extends DFAny.Companion {
       final implicit def DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) : DFBitsFromDefaultRet[W] = new DFBitsFromDefaultRet(left)
       final implicit def ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
       implicit class DFBitsOps[LW](val left : DFBits[LW]){
-        final def | [R, RW](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
-        final def & [R, RW](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
-        final def ^ [R, RW](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
-        final def === [R, RW](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
-        final def =!= [R, RW](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
+        final def |   [R](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
+        final def &   [R](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
+        final def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
+        final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
+        final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
       }
     }
     object Able extends Implicits
