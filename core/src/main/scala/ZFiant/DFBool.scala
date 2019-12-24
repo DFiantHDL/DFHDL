@@ -175,6 +175,8 @@ object DFBool extends DFAny.Companion {
       final def ||  (right : DFBool)(implicit op: `Op||`.Builder[L, DFBool]) = op(left, right)
       final def &&  (right : DFBool)(implicit op: `Op&&`.Builder[L, DFBool]) = op(left, right)
       final def ^   (right : DFBool)(implicit op: `Op^`.Builder[L, DFBool]) = op(left, right)
+      final def === (right : DFBool)(implicit op: `Op===`.Builder[L, DFBool]) = op(left, right)
+      final def =!= (right : DFBool)(implicit op: `Op=!=`.Builder[L, DFBool]) = op(left, right)
     }
     trait Implicits {
       sealed class DFBoolFrom0(left : 0) extends AbleOps[0](left)
@@ -193,9 +195,11 @@ object DFBool extends DFAny.Companion {
       final implicit def DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type]) : DFBoolFromDefaultRet = new DFBoolFromDefaultRet(left)
       final implicit def ofDFBool(left : DFBool) : Able[DFBool] = new Able(left)
       implicit class DFBoolOps[LW](val left : DFBool) {
-        final def || [R, RW](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
-        final def && [R, RW](right : Able[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
-        final def ^ [R, RW](right : Able[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
+        final def ||  [R](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
+        final def &&  [R](right : Able[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
+        final def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
+        final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
+        final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
       }
     }
     object Able extends Implicits
@@ -275,6 +279,8 @@ object DFBool extends DFAny.Companion {
   }
   object `Op==` extends BoolOps(DiSoOp.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
   object `Op!=` extends BoolOps(DiSoOp.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends BoolOps(DiSoOp.==)((l, r) => l == r) {type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends BoolOps(DiSoOp.!=)((l, r) => l != r) {type ErrorSym = Builder[_,_]}
   object `Op||` extends BoolOps(DiSoOp.||)((l, r) => l || r){type ErrorSym = Builder[_,_]}
   object `Op&&` extends BoolOps(DiSoOp.&&)((l, r) => l && r){type ErrorSym = Builder[_,_]}
   object `Op^` extends BoolOps(DiSoOp.^)((l, r) => l ^ r){type ErrorSym = Builder[_,_]}
