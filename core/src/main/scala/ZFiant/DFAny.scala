@@ -3,7 +3,6 @@ package ZFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
-import ZFiant.DFDesign.DB
 
 import scala.annotation.implicitNotFound
 
