@@ -20,11 +20,22 @@ package ZFiant
 sealed trait DiSoOp
 //Dual Input, Single Output Operation
 object DiSoOp {
-  sealed trait +  extends DiSoOp
-  sealed trait -  extends DiSoOp
+  sealed trait Negateable extends DiSoOp {
+    def negate : Negateable
+  }
+  sealed trait +  extends Negateable {
+    def negate : - = -
+  }
+  sealed trait -  extends Negateable {
+    def negate : + = +
+  }
   sealed trait *  extends DiSoOp
-  sealed trait +^  extends DiSoOp
-  sealed trait -^  extends DiSoOp
+  sealed trait +^  extends Negateable {
+    def negate : -^ = -^
+  }
+  sealed trait -^  extends Negateable {
+    def negate : +^ = +^
+  }
   sealed trait *^  extends DiSoOp
   sealed trait == extends DiSoOp {
     override def toString: String = "==="
