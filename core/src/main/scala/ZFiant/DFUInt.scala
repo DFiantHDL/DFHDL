@@ -417,12 +417,12 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  // +/- operation
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  protected abstract class `Ops+Or-`[K <: `Ops+Or-`.Kind](kind : K) {
-//    //NCW = No-carry width
-//    //WCW = With-carry width
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // +/- operation
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class `Ops+Or-`[Op <: DiSoOp.Negateable](op : Op) {
+    //NCW = No-carry width
+    //WCW = With-carry width
 //    final class Component[NCW, WCW](_wc : DFFunc2[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Context) extends
 //      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFUInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
 //      lazy val wc = {_wc.usedAsWide = true; _wc}
@@ -431,102 +431,85 @@ object DFUInt extends DFAny.Companion {
 //      lazy val comp = wc
 //      //      lazy val bypassAlias = c.isNotDiscovered
 //    }
-//
-//    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
-//    trait Builder[-L, LE, -R] extends DFAny.Op.Builder[L, R]
-//
-//    object Builder {
-//      type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
-//        type Out = Comp0
-//      }
-//
-//      object `LW >= RW` extends Checked1Param.Int {
-//        type Cond[LW, RW] = LW >= RW
-//        type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
-//        type ParamFace = Int
-//        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
-//      }
-//
-//      object Inference {
-//        import singleton.ops.math.Max
-//        type CalcWCW[LW, RW] = Max[LW, RW] + 1
-//        type WCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcWCW, LW, Int, RW, Int, ResW]
-//        type CalcNCW[LW, RW] = Max[LW, RW]
-//        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
-//      }
-//
-//      trait DetailedBuilder[L, LW, LE, R, RW] {
-//        type Out
-//        def apply(properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Out]
-//      }
-//      object DetailedBuilder {
-//        implicit def ev[L, LW, LE, R, RW, NCW, WCW](
-//          implicit
-//          ctx : DFAny.Context,
-//          ncW : Inference.NCW[LW, RW, NCW],
-//          wcW : Inference.WCW[LW, RW, WCW],
-//          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
-//        ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = Component[NCW, WCW]} =
-//          new DetailedBuilder[L, LW, LE, R, RW]{
-//            type Out = Component[NCW, WCW]
-//            def apply(properLR : (L, R) => (`Ops+Or-`.Kind, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Out] =
-//              new Builder[L, LE, R] {
-//                type Out = Component[NCW, WCW]
-//                def apply(leftL : L, rightR : R) : Out = {
-//                  import stdlib.DFUIntOps._
-//                  val (creationKind, left, right) = properLR(leftL, rightR)
-//                  // Completing runtime checks
-//                  checkLWvRW.unsafeCheck(left.width, right.width)
-//                  // Constructing op
-//                  val opWidth = wcW(left.width, right.width)
-//                  val opInst = creationKind match {
-//                    case `Ops+Or-`.+ => `Func2Comp+`[LW, RW, WCW](left, right)
-//                    case `Ops+Or-`.- => `Func2Comp-`[LW, RW, WCW](left, right)
-//                  }
-//                  opInst.__dev.setAutoName(if (opInst.usedAsWide) s"${ctx}WC" else s"${ctx}")
-//                  // Creating extended component aliasing the op
-//                  new Component[NCW, WCW](opInst)
-//                }
-//              }
-//          }
-//      }
-//
-//      implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
-//        implicit
-//        detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, DFUInt[RW], RW]
-//      ) = detailedBuilder((left, right) => (kind, left, right))
-//
-//      implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, LE, R, RW](
-//        implicit
-//        ctx : DFAny.Context,
-//        rConst : Const.PosNeg.Aux[R, RW],
-//        detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
-//      ) = detailedBuilder((left, rightNum) => {
-//        val (right, negative) = rConst(rightNum)
-//        val creationKind = if (negative) -kind else kind
-//        (creationKind, left, right)
-//      })
-//
-//      implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
-//        implicit
-//        ctx : DFAny.Context,
-//        lConst : Const.PosOnly.Aux[Builder[_,_,_], L, LW],
-//        detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
-//      ) = detailedBuilder((leftNum, right) => {
-//        (kind, lConst(leftNum), right)
-//      })
-//    }
-//  }
-//  protected object `Ops+Or-` {
-//    abstract class Kind(val opString : String) {
-//      def unary_- : Kind
-//    }
-//    case object + extends Kind("+") {def unary_- : Kind = `Ops+Or-`.-}
-//    case object - extends Kind("-") {def unary_- : Kind = `Ops+Or-`.+}
-//  }
-//  object `Op+` extends `Ops+Or-`(`Ops+Or-`.+)
-//  object `Op-` extends `Ops+Or-`(`Ops+Or-`.-)
-//  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
+    trait Builder[-L, LE, -R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
+        type Out = Comp0
+      }
+
+      object `LW >= RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW >= RW
+        type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
+        type ParamFace = Int
+        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
+      }
+
+      object Inference {
+        import singleton.ops.math.Max
+        type CalcNCW[LW, RW] = Max[LW, RW]
+        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
+      }
+
+      trait DetailedBuilder[L, LW, LE, R, RW] {
+        type Out
+        def apply(properLR : (L, R) => (DiSoOp.Negateable, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Out]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LW, LE, R, RW, NCW, WCW](
+          implicit
+          ctx : DFAny.Context,
+          ncW : Inference.NCW[LW, RW, NCW],
+          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
+        ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = DFUInt[NCW]} =
+          new DetailedBuilder[L, LW, LE, R, RW]{
+            type Out = DFUInt[NCW]
+            def apply(properLR : (L, R) => (DiSoOp.Negateable, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Out] =
+              new Builder[L, LE, R] {
+                type Out = DFUInt[NCW]
+                def apply(leftL : L, rightR : R) : Out = {
+                  val (creationKind, left, right) = properLR(leftL, rightR)
+                  // Completing runtime checks
+                  checkLWvRW.unsafeCheck(left.width, right.width)
+                  // Constructing op
+                  val opWidth = ncW(left.width, right.width)
+                  DFAny.Func2(Type(opWidth), left, op, right)(???)
+                }
+              }
+          }
+      }
+
+      implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
+        implicit
+        detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, DFUInt[RW], RW]
+      ) = detailedBuilder((left, right) => (op, left, right))
+
+      implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, LE, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.PosNeg.Aux[R, RW],
+        detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
+      ) = detailedBuilder((left, rightNum) => {
+        val (right, negative) = rConst(rightNum)
+        val creationKind : DiSoOp.Negateable = if (negative) op.negate else op
+        (creationKind, left, right)
+      })
+
+      implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
+        implicit
+        ctx : DFAny.Context,
+        lConst : Const.PosOnly.Aux[Builder[_,_,_], L, LW],
+        detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
+      ) = detailedBuilder((leftNum, right) => {
+        (op, lConst(leftNum), right)
+      })
+    }
+  }
+  object `Op+`  extends `Ops+Or-`(DiSoOp.+)
+  object `Op-`  extends `Ops+Or-`(DiSoOp.-)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 }
