@@ -21,6 +21,7 @@ object DFUInt extends DFAny.Companion {
     override def toString: String = s"DFUInt[$width]"
     def codeString(implicit getset : MemberGetSet) : String = s"DFUInt($width)"
   }
+  trait Extendable
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
@@ -35,13 +36,17 @@ object DFUInt extends DFAny.Companion {
   case class Token[W](width : TwoFace.Int[W], value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, W] { //with DFAny.Token.Resizable
     lazy val valueBits : XBitVector[W] = value.toBitVector(width)
     lazy val bubbleMask: XBitVector[W] = bubble.toBitVector(width)
-//    def mkTokenU[RW](that : Token[RW], result : BigInt, resultWidth : Int) : Token = {
-//      if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
-//      else Token(resultWidth, result.asUnsigned(resultWidth))
-//    }
-//
-//    final def + [RW](that : Token[RW]) : Token = mkTokenU(that, this.value + that.value, scala.math.max(this.width, that.width) + 1)
-//    final def - [RW](that : Token[RW]) : Token = mkTokenU(that, this.value - that.value, scala.math.max(this.width, that.width) + 1)
+    def mkTokenU[RW, OW](that : Token[RW], result : BigInt, resultWidth : TwoFace.Int[OW]) : Token[OW] = {
+      if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
+      else Token(resultWidth, result.asUnsigned(resultWidth))
+    }
+    final def + [RW](that : Token[RW])(
+      implicit ncW : `Op+`.Builder.Inference.NCW[W, RW, _]
+    ) : Token[ncW.Out] = mkTokenU(that, this.value + that.value, ncW(this.width, that.width))
+    final def - [RW](that : Token[RW])(
+      implicit ncW : `Op-`.Builder.Inference.NCW[W, RW, _]
+    ) : Token[ncW.Out] = mkTokenU(that, this.value - that.value, ncW(this.width, that.width))
+
 //    final def * [RW](that : Token[RW]) : Token = mkTokenU(that, this.value * that.value, this.width + that.width)
 //    final def / [RW](that : Token[RW]) : Token = mkTokenU(that, this.value / that.value, this.width)
 //    final def % [RW](that : Token[RW]) : Token = mkTokenU(that, this.value % that.value, that.width)
@@ -271,8 +276,8 @@ object DFUInt extends DFAny.Companion {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able[L](value) {
       val left = value
-//      def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, Extendable[Int], DFUInt[RW]]) = op(left, right)
-//      def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, Extendable[Int], DFUInt[RW]]) = op(left, right)
+      final def +  [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, true, DFUInt[RW]]) = op(left, right)
+      final def -  [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, true, DFUInt[RW]]) = op(left, right)
       final def <  [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def >  [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def <= [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
@@ -292,11 +297,18 @@ object DFUInt extends DFAny.Companion {
       sealed class DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) extends AbleOps[DFUInt[W]](left)
       final implicit def DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) : DFUIntFromDefaultRet[W] = new DFUIntFromDefaultRet(left)
       final implicit def ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
+      implicit class ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
+        final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
+        final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
+      }
       implicit class DFUIntOps[LW](val left : DFUInt[LW]){
+        final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
         final def <  [R](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
         final def >  [R](right : Able[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
         final def <= [R](right : Able[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
         final def >= [R](right : Able[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
+        final def extendable : DFUInt[LW] with Extendable = left.asInstanceOf[DFUInt[LW] with Extendable]
       }
     }
     object Able extends Implicits
@@ -444,7 +456,7 @@ object DFUInt extends DFAny.Companion {
         type Cond[LW, RW] = LW >= RW
         type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
         type ParamFace = Int
-        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[IsBoolean[LE], 0, RW]]
+        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[LE, 0, RW]]
       }
 
       object Inference {
@@ -470,12 +482,18 @@ object DFUInt extends DFAny.Companion {
               new Builder[L, LE, R] {
                 type Out = DFUInt[NCW]
                 def apply(leftL : L, rightR : R) : Out = {
-                  val (creationKind, left, right) = properLR(leftL, rightR)
+                  val (updatedOp, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
                   val opWidth = ncW(left.width, right.width)
-                  DFAny.Func2(Type(opWidth), left, op, right)(???)
+                  val out = Type(opWidth)
+                  val func : (left.TToken, right.TToken) => out.TToken = updatedOp match {
+                    case _ : DiSoOp.+ => _ + _
+                    case _ : DiSoOp.- => _ - _
+                    case _ => ???
+                  }
+                  DFAny.Func2(out, left, op, right)(func)
                 }
               }
           }
@@ -493,8 +511,8 @@ object DFUInt extends DFAny.Companion {
         detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, R, RW]
       ) = detailedBuilder((left, rightNum) => {
         val (right, negative) = rConst(rightNum)
-        val creationKind : DiSoOp.Negateable = if (negative) op.negate else op
-        (creationKind, left, right)
+        val updatedOp : DiSoOp.Negateable = if (negative) op.negate else op
+        (updatedOp, left, right)
       })
 
       implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](

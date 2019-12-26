@@ -98,6 +98,10 @@ object ZTest extends App {
         .casedf_ {i}
     val x = ret2 == b"00000000"
     o <> (ret2 | ret2)
+
+    val u8 = DFUInt(8)
+    val u7 = DFUInt(7)
+    u8 + u8
   }
 
   abstract class CCC()(implicit ctx : ContextOf[CCC]) extends DFDesign {

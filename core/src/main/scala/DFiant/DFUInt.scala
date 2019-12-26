@@ -285,13 +285,13 @@ object DFUInt extends DFAny.Companion {
       implicit class DFUIntSeqOfBigInt[LW](val right : Seq[BigInt]) extends Able[DFUInt[LW]]
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[Token] =
-        right.toSeqAny.map(e => e match {
+        right.toSeqAny.map {
           case (t : Bubble) => DFUInt.Token(width, t)
           case (t : DFUInt.Token) => DFUInt.Token(width, t)
           case (t : Int) => DFUInt.Token(width, t)
           case (t : Long) => DFUInt.Token(width, t)
           case (t : BigInt) => DFUInt.Token(width, t)
-        })
+        }
 
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
