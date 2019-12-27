@@ -33,29 +33,29 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Token[W](width : TwoFace.Int[W], value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, W] { //with DFAny.Token.Resizable
+  final case class Token[W](width : TwoFace.Int[W], value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, W] { //with DFAny.Token.Resizable
     lazy val valueBits : XBitVector[W] = value.toBitVector(width)
     lazy val bubbleMask: XBitVector[W] = bubble.toBitVector(width)
     def mkTokenU[RW, OW](that : Token[RW], result : BigInt, resultWidth : TwoFace.Int[OW]) : Token[OW] = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result.asUnsigned(resultWidth))
     }
-    final def + [RW](that : Token[RW])(
+    def + [RW](that : Token[RW])(
       implicit ncW : `Op+`.Builder.Inference.NCW[W, RW, _]
     ) : Token[ncW.Out] = mkTokenU(that, this.value + that.value, ncW(this.width, that.width))
-    final def - [RW](that : Token[RW])(
+    def - [RW](that : Token[RW])(
       implicit ncW : `Op-`.Builder.Inference.NCW[W, RW, _]
     ) : Token[ncW.Out] = mkTokenU(that, this.value - that.value, ncW(this.width, that.width))
 
 //    final def * [RW](that : Token[RW]) : Token = mkTokenU(that, this.value * that.value, this.width + that.width)
 //    final def / [RW](that : Token[RW]) : Token = mkTokenU(that, this.value / that.value, this.width)
 //    final def % [RW](that : Token[RW]) : Token = mkTokenU(that, this.value % that.value, that.width)
-    final def <  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value < that.value, this.isBubble || that.isBubble)
-    final def >  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value > that.value, this.isBubble || that.isBubble)
-    final def <= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value <= that.value, this.isBubble || that.isBubble)
-    final def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
-    final def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
-    final def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def <  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value < that.value, this.isBubble || that.isBubble)
+    def >  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value > that.value, this.isBubble || that.isBubble)
+    def <= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value <= that.value, this.isBubble || that.isBubble)
+    def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
+    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
+    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
 //    def resize(toWidth : Int) : Token = bits.resize(toWidth).toUInt
     def codeString : String = value.codeString
   }

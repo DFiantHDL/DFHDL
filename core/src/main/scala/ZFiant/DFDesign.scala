@@ -192,6 +192,7 @@ object DFDesign {
         val refMembers : List[DFMember] = members.collect {
           case net : DFNet => net
           case m if memberTable(m)._1.nonEmpty => m
+          case m if m.tags.keep => m
           case m : DFDesign.Block.Top => m
         }.toList
         DB(refMembers, refTable.mapValues(i => members(i)))
