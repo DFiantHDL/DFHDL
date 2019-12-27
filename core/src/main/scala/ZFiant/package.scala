@@ -22,8 +22,9 @@ import singleton.ops._
 
 package object ZFiant {
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
-  type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
   type DFBool = DFAny.Of[DFBool.Type]
+  type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
+  type DFEnum[E <: Enum] = DFAny.Of[DFEnum.Type[E]]
 
   ////////////////////////////////////////////////////////////////////////////////////
   // A Dataflow Bubble
