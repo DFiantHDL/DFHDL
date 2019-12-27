@@ -260,6 +260,7 @@ object DFBits extends DFAny.Companion {
         final def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
         final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
         final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
+        final def uint(implicit ctx : DFAny.Context) = left.as(DFUInt.Type(left.width))
       }
     }
     object Able extends Implicits
