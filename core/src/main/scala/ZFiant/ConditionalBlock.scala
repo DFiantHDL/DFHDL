@@ -29,6 +29,7 @@ object MatchConfig {
 }
 
 object ConditionalBlock {
+  class PrevBlockRef[Ret, CB <: ConditionalBlock[Ret]] extends DFMember.Ref[CB]
   class CondRef extends DFAny.Ref.ConsumeFrom[DFBool]
   object CondRef extends DFAny.Ref.ConsumeFrom.CO[DFBool, CondRef](new CondRef)
 
@@ -46,6 +47,9 @@ object ConditionalBlock {
       case MatchConfig.AllowOverlappingCases => s"matchdf (${matchValRef.refCodeString}, MatchConfig.AllowOverlappingCases)"
     }
   }
+  object MatchHeader {
+    class Ref[MVType <: DFAny.Type] extends DFMember.Ref[MatchHeader[MVType]]
+  }
   sealed trait IfBlock extends DFBlock {
     val condRef : CondRef
     def headerCodeString(implicit getset : MemberGetSet) : String = s"ifdf(${condRef.refCodeString})"
@@ -61,6 +65,9 @@ object ConditionalBlock {
   sealed trait CasePatternBlock[MVType <: DFAny.Type] extends DFBlock {
     val pattern : MVType#TPattern
     def headerCodeString(implicit getset : MemberGetSet) : String = s".casedf(${pattern.codeString})"
+  }
+  object CasePatternBlock {
+    class Ref[MVType <: DFAny.Type] extends DFMember.Ref[CasePatternBlock[MVType]]
   }
   sealed trait Case_Block extends DFBlock {
     def headerCodeString(implicit getset : MemberGetSet) : String = s".casedf_"
