@@ -21,7 +21,10 @@ import ZFiant._ //Required in any DFiant compilation program
 trait ID extends DFDesign { //This our `ID` dataflow design
   val x = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
   val y = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
-  y <> x //Trivial direct input-to-output connection
+  val temp = DFUInt(16)
+  temp <> x
+  temp <> y
+//  y <> x //Trivial direct input-to-output connection
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
@@ -37,7 +40,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
 object IDTopApp extends App {
   val top = new IDTop {}
   import DFCompiler._
-  top.db.printCodeString() //.flatten(top.id1)
+  top.db.flatten(top.id1).printCodeString() //
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point
