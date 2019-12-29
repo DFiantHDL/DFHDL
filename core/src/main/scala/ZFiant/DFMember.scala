@@ -124,6 +124,7 @@ object DFMember {
     def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = newRefFor(new Ref[T], member)
     class CO[T <: DFMember, R <: Ref[T]](newR : => R) {
       implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
+//      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
     }
   }
 }
