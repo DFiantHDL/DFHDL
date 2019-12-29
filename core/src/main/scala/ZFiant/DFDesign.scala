@@ -63,7 +63,7 @@ object DFDesign {
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
-    final case class Internal(ownerRef : DFRef[DFBlock], tags : DFMember.Tags)(designType: String) extends Block {
+    final case class Internal(ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags)(designType: String) extends Block {
       def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
       override lazy val typeName : String = designType
     }
@@ -73,7 +73,7 @@ object DFDesign {
     }
 
     final case class Top(tags : DFMember.Tags)(db: DB.Mutable, designType: String) extends Block {
-      override lazy val ownerRef : DFRef[DFBlock] = ???
+      override lazy val ownerRef : DFMember.Ref[DFBlock] = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       override lazy val typeName : String = designType
@@ -85,15 +85,15 @@ object DFDesign {
   implicit class DevAccess(design : DFDesign) {
     def db : DB = design.__db.immutable
   }
-  final case class DB(members : List[DFMember], refTable : Map[DFRef[_], DFMember]) {
+  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref[_], DFMember]) {
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
     implicit val getset : MemberGetSet = new MemberGetSet {
-      def apply[T <: DFMember](ref: DFRef[T]): T = refTable(ref).asInstanceOf[T]
+      def apply[T <: DFMember](ref: DFMember.Ref[T]): T = refTable(ref).asInstanceOf[T]
       def set[T <: DFMember](originalMember : T, newMember: T): T = newMember
     }
-    lazy val memberTable : Map[DFMember, Set[DFRef[_]]] = refTable.invert
+    lazy val memberTable : Map[DFMember, Set[DFMember.Ref[_]]] = refTable.invert
 
     //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
     @tailrec private def OMLGen(
@@ -167,9 +167,9 @@ object DFDesign {
         members = members :+ member
         member
       }
-      private var refTable : Map[DFRef[_], Int] = Map()
-      private var memberTable : Map[DFMember, (Set[DFRef[_]], Int)] = Map()
-      def getMember[T <: DFMember](ref : DFRef[T]) : T = members(refTable(ref)).asInstanceOf[T]
+      private var refTable : Map[DFMember.Ref[_], Int] = Map()
+      private var memberTable : Map[DFMember, (Set[DFMember.Ref[_]], Int)] = Map()
+      def getMember[T <: DFMember](ref : DFMember.Ref[T]) : T = members(refTable(ref)).asInstanceOf[T]
       def setMember[T <: DFMember](originalMember : T, newMember : T) : T = {
         val cell = memberTable(originalMember)
         members = members.updated(cell._2, newMember)
@@ -177,16 +177,16 @@ object DFDesign {
         memberTable = memberTable + (newMember -> cell)
         newMember
       }
-      def newRefFor[T <: DFMember](member : T) : DFRef[T] = {
+      def newRefFor[T <: DFMember](member : T) : DFMember.Ref[T] = {
         val cell = memberTable(member)
-        val ref = new DFRef[T]
+        val ref = new DFMember.Ref[T]
         memberTable = memberTable + (member -> cell.copy(_1 = cell._1 + ref))
         refTable = refTable + (ref -> cell._2)
-        ref.asInstanceOf[DFRef[T]]
+        ref.asInstanceOf[DFMember.Ref[T]]
       }
-      def getRefs[T <: DFMember](member : T) : Set[DFRef[T]] = {
+      def getRefs[T <: DFMember](member : T) : Set[DFMember.Ref[T]] = {
         val cell = memberTable(member)
-        cell._1.asInstanceOf[Set[DFRef[T]]]
+        cell._1.asInstanceOf[Set[DFMember.Ref[T]]]
       }
       def immutable : DB = {
         val refMembers : List[DFMember] = members.collect {
@@ -199,7 +199,7 @@ object DFDesign {
       }
 
       implicit val getset : MemberGetSet = new MemberGetSet {
-        def apply[T <: DFMember](ref: DFRef[T]): T = getMember(ref)
+        def apply[T <: DFMember](ref: DFMember.Ref[T]): T = getMember(ref)
         def set[T <: DFMember](originalMember : T, newMember: T): T = setMember(originalMember, newMember)
       }
     }
