@@ -118,12 +118,19 @@ object DFMember {
     def get(implicit getset: MemberGetSet) : T = getset(this)
   }
   object Ref {
-    def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = ctx.db.newRefFor(member)
+    def newRefFor[T <: DFMember, R <: Ref[T]](ref : R, member: T)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor(ref, member)
     implicit def memberOf[T <: DFMember](ref : Ref[T])(implicit getset : MemberGetSet) : T = getset(ref)
-    implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : Ref[T] = Ref(member)
-    class Owner[T <: DFBlock] extends Ref[T]
-    class ConsumeFrom[T <: DFAny] extends Ref[T]
-    class ProduceTo[T <: DFAny] extends Ref[T]
+    implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : Ref[T] = Ref.newRefFor(new Ref[T], member)
+    def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = newRefFor(new Ref[T], member)
+    trait CO[R[T]] {
+
+    }
+  }
+//  class ConsumeFrom[T <: DFAny] extends Ref[T]
+//  class ProduceTo[T <: DFAny] extends Ref[T]
+  class OwnerRef[T <: DFBlock] extends Ref[T]
+  object OwnerRef {
+    implicit def refOf[T <: DFBlock](member : T)(implicit ctx : DFMember.Context) : OwnerRef[T] = Ref.newRefFor(new OwnerRef[T], member)
   }
 }
 
