@@ -12,13 +12,9 @@ object DFNet {
   type Context = DFAny.Context
 
   class ToRef extends DFAny.Ref[DFAny]
-  object ToRef {
-    implicit def refOf(member : DFAny)(implicit ctx : DFMember.Context) : ToRef = DFMember.Ref.newRefFor(new ToRef, member)
-  }
+  object ToRef extends DFAny.Ref.CO[DFAny, ToRef](new ToRef)
   class FromRef extends DFAny.Ref[DFAny]
-  object FromRef {
-    implicit def refOf(member : DFAny)(implicit ctx : DFMember.Context) : FromRef = DFMember.Ref.newRefFor(new FromRef, member)
-  }
+  object FromRef extends DFAny.Ref.CO[DFAny, FromRef](new FromRef)
 
   final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags) extends DFNet(":=") {
     def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
