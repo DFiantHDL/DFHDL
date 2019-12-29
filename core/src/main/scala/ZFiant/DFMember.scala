@@ -100,6 +100,18 @@ object DFMember {
     def owner : DFBlock
     val db : DFDesign.DB.Mutable
   }
+
+  final class OwnerInjector(designBlock : DFDesign.Block) {
+    private var value : DFBlock = designBlock
+    def inject(newOwner : DFBlock) : Unit = value = newOwner
+    def get : DFBlock = value
+    def injectOwnerAndRun(injectedOwner : DFBlock)(block : => Unit) : Unit = {
+      val injectedOwnerBackup = get
+      inject(injectedOwner)
+      block
+      inject(injectedOwnerBackup)
+    }
+  }
 }
 
 class DFRef[T <: DFMember] {

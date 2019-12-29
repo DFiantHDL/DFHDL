@@ -19,7 +19,7 @@ package ZFiant
 import DFiant.internals._
 
 sealed trait ConditionalBlock[Ret] extends DFBlock {
-  private[ZFiant] def applyBlock(block : => Ret, db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit
+  private[ZFiant] def applyBlock(block : => Ret)(implicit ctx : DFBlock.Context) : Unit
 }
 
 sealed trait MatchConfig extends Product with Serializable
@@ -174,13 +174,9 @@ object ConditionalBlock {
     }
   }
   sealed trait NoRetVal extends ConditionalBlock[Unit] {
-    private[ZFiant] def applyBlock(block : => Unit, db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
-      val owner = getOwner
-      val injectedOwnerBackup = db.__injectedOwner
-      db.__injectedOwner = this
-      block
-      db.__injectedOwner = injectedOwnerBackup
-    }
+    private[ZFiant] def applyBlock(block : => Unit)(
+      implicit ctx : DFBlock.Context
+    ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this)(block)
   }
   object NoRetVal {
     final case class IfBlock(condRef : DFRef[DFBool], ownerRef : DFRef[DFBlock], tags : DFMember.Tags) extends ConditionalBlock.IfBlock with NoRetVal {

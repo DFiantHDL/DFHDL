@@ -7,17 +7,18 @@ import scala.collection.immutable
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
+  private val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
   protected implicit val __getset : MemberGetSet = ctx.db.getset
 
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    new DFAny.Context(meta, block.__injectedOwner, ctx.db)
+    new DFAny.Context(meta, ownerInjector, ctx.db)
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    new DFBlock.Context(meta, Some(block.__injectedOwner), ctx.db)
+    new DFBlock.Context(meta, ownerInjector, ctx.db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    new ContextOf[T](meta, Some(block.__injectedOwner), ctx.db)
+    new ContextOf[T](meta, ownerInjector, ctx.db)
   ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
@@ -33,9 +34,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
-final class ContextOf[T <: DFDesign](val meta : Meta, ownerOptionFunc : => Option[DFBlock], val db: DFDesign.DB.Mutable) extends DFMember.Context {
-  lazy val ownerOption : Option[DFBlock] = ownerOptionFunc
-  lazy val owner : DFBlock = ownerOption.get
+final class ContextOf[T <: DFDesign](val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val db: DFDesign.DB.Mutable) extends DFMember.Context {
+  lazy val owner : DFBlock = ownerInjector.get
 }
 object ContextOf {
   final object MissingError extends ErrorMsg (
@@ -44,10 +44,10 @@ object ContextOf {
   ) {final val msg = getMsg}
   implicit def evCtx[T1 <: DFDesign, T2 <: DFDesign](
     implicit ctx : ContextOf[T1], mustBeTheClassOf: MustBeTheClassOf[T1]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.ownerOption, ctx.db)
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.ownerInjector, ctx.db)
   implicit def evTop[T <: DFDesign](
     implicit meta: Meta, topLevel : TopLevel, mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
-  ) : ContextOf[T] = new ContextOf[T](meta, None, new DFDesign.DB.Mutable)
+  ) : ContextOf[T] = new ContextOf[T](meta, null, new DFDesign.DB.Mutable)
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
@@ -69,7 +69,7 @@ object DFDesign {
     }
     object Internal {
       def apply(designType : String)(implicit ctx : Context) : Block = ctx.db.addMember(
-        if (ctx.ownerOption.isEmpty) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
+        if (ctx.ownerInjector == null) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
     }
 
     final case class Top(tags : DFMember.Tags)(db: DB.Mutable, designType: String) extends Block {
@@ -157,9 +157,9 @@ object DFDesign {
   object DB {
     class Mutable {
       private var members : Vector[DFMember] = Vector()
-      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit getset : MemberGetSet) : CB = {
+      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
-        cb.applyBlock(block, this)
+        cb.applyBlock(block)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
