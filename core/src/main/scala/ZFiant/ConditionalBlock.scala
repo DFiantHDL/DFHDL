@@ -18,8 +18,9 @@
 package ZFiant
 import DFiant.internals._
 
-sealed trait ConditionalBlock[Ret] extends DFBlock {
-  private[ZFiant] def applyBlock(block : => Ret)(implicit ctx : DFBlock.Context) : Unit
+sealed trait ConditionalBlock extends DFBlock {
+  type TRet
+  private[ZFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
 }
 
 sealed trait MatchConfig extends Product with Serializable
@@ -29,7 +30,8 @@ object MatchConfig {
 }
 
 object ConditionalBlock {
-  class PrevBlockRef[Ret, CB <: ConditionalBlock[Ret]] extends DFMember.Ref[CB]
+  type Of[Ret] = ConditionalBlock{type TRet = Ret}
+  class PrevBlockRef[CB <: ConditionalBlock] extends DFMember.Ref[CB]
   class CondRef extends DFAny.Ref.ConsumeFrom[DFBool]
   object CondRef extends DFAny.Ref.ConsumeFrom.CO[DFBool, CondRef](new CondRef)
 
@@ -74,7 +76,8 @@ object ConditionalBlock {
   }
 
   sealed trait WithRetVal[Type <: DFAny.Type] extends
-    ConditionalBlock[DFAny.Of[Type]] with DFAny.DefaultRet[Type] {
+    ConditionalBlock with DFAny.DefaultRet[Type] {
+    type TRet = DFAny.Of[Type]
     val retVar : DFAny.VarOf[Type]
     final val thisVal : DFAny.Of[Type] = retVar
     final val dfType: Type = retVar.dfType
@@ -200,7 +203,8 @@ object ConditionalBlock {
         ctx.db.addConditionalBlock(DFCase_Block[Type, MVType](retVar, matchHeader.mvType, matchHeader, DFMember.Ref(prevCase), ctx.owner, ctx.meta), block)
     }
   }
-  sealed trait NoRetVal extends ConditionalBlock[Unit] {
+  sealed trait NoRetVal extends ConditionalBlock {
+    type TRet = Unit
     private[ZFiant] def applyBlock(block : => Unit)(
       implicit ctx : DFBlock.Context
     ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this)(block)

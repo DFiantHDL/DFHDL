@@ -157,7 +157,7 @@ object DFDesign {
   object DB {
     class Mutable {
       private var members : Vector[DFMember] = Vector()
-      def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
+      def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
         cb.applyBlock(block)
         cb
