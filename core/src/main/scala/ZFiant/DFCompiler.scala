@@ -91,7 +91,7 @@ object DFCompiler {
     def blockBodyCodeString(block : DFBlock, members : List[DFMember]) : String = {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader[_] => mh.codeString
-        case cb : ConditionalBlock[_] => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
+        case cb : ConditionalBlock => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
         case m : DFDesign.Block => s"final val ${m.name} = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
         case a : DFAny if !a.isAnonymous => s"final val ${a.name} = ${a.codeString}"
