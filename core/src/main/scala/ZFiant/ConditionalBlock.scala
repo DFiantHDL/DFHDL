@@ -64,12 +64,12 @@ object ConditionalBlock {
     final val dfType: Type = retVar.dfType
 
     private[ZFiant] def applyBlock(block : => DFAny.Of[Type], db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
-      val owner = getOwner
-      val injectedOwnerBackup = owner.__injectedOwner
-      owner.__injectedOwner = this
+//      val owner = getOwner
+      val injectedOwnerBackup = db.__injectedOwner
+      db.__injectedOwner = this
       val returnValue = block
       retVar.assign(returnValue)(new DFAny.Context(returnValue.tags.meta.anonymize, this, db))
-      owner.__injectedOwner = injectedOwnerBackup
+      db.__injectedOwner = injectedOwnerBackup
     }
   }
   object WithRetVal {
@@ -176,10 +176,10 @@ object ConditionalBlock {
   sealed trait NoRetVal extends ConditionalBlock[Unit] {
     private[ZFiant] def applyBlock(block : => Unit, db : DFDesign.DB.Mutable)(implicit getset : MemberGetSet) : Unit = {
       val owner = getOwner
-      val injectedOwnerBackup = owner.__injectedOwner
-      owner.__injectedOwner = this
+      val injectedOwnerBackup = db.__injectedOwner
+      db.__injectedOwner = this
       block
-      owner.__injectedOwner = injectedOwnerBackup
+      db.__injectedOwner = injectedOwnerBackup
     }
   }
   object NoRetVal {
