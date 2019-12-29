@@ -35,9 +35,8 @@ object DFBlock {
   }
 
   class Ref extends DFMember.Ref[DFBlock]
-  object Ref {
-    implicit def refOf(member : DFBlock)(implicit ctx : DFMember.Context) : Ref = DFMember.Ref.newRefFor(new Ref, member)
-  }
+  object Ref extends DFMember.Ref.CO[DFBlock, Ref](new Ref)
+
 
 }
 

@@ -64,7 +64,7 @@ object DFAny {
 
   class Ref[+T <: DFAny] extends DFMember.Ref[T]
   object Ref {
-    implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : Ref[T] = DFMember.Ref.newRefFor(new Ref[T], member)
+    class CO[T <: DFAny, R <: Ref[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
   }
 
   sealed trait Of[Type <: DFAny.Type] extends DFAny {

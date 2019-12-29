@@ -122,9 +122,9 @@ object DFMember {
     implicit def memberOf[T <: DFMember](ref : Ref[T])(implicit getset : MemberGetSet) : T = getset(ref)
     implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : Ref[T] = Ref.newRefFor(new Ref[T], member)
     def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = newRefFor(new Ref[T], member)
-//    class CO[T <: DFMember, R <: Ref[T]](newR : => R) {
-//      implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
-//    }
+    class CO[T <: DFMember, R <: Ref[T]](newR : => R) {
+      implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
+    }
   }
 }
 
