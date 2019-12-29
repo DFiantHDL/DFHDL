@@ -56,9 +56,16 @@ object DFCompiler {
     import designDB.getset
     private def flattenPortIn(block : DFDesign.Block, p : DFAny.Port.In[_,_]) : DFDesign.DB = {
       val refsOfPort = designDB.memberTable(p)
-//      val connectedToPort = refsOfPort collect {
-//        case c : DFNet.Connection()
-//      }
+      val ownerMembers = designDB.ownerMemberTable(block.getOwnerDesign) //TODO: perhaps at any hierarchy?
+      val connectedToPortList = ownerMembers collect {
+        case m : DFNet.Connection if refsOfPort.contains(m.toRef) => designDB.refTable(m.fromRef)
+      }
+      assert(connectedToPortList.size == 1)
+      val connectedToPort = connectedToPortList.head
+      val blockMembers = designDB.ownerMemberTable(block) //TODO: perhaps at any hierarchy?
+      val refPatch = blockMembers collect {
+        case m : DFNet if refsOfPort.contains(m.fromRef) => m.toRef -> connectedToPort
+      }
       ???
     }
     def flatten(design : DFDesign) : DFDesign.DB = {

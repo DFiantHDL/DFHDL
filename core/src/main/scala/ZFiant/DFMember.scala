@@ -122,9 +122,9 @@ object DFRef {
   def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.newRefFor(member)
   implicit def memberOf[T <: DFMember](ref : DFRef[T])(implicit getset : MemberGetSet) : T = getset(ref)
   implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
-//  class Owner[T <: DFBlock] extends DFRef[T]
-//  class ConsumeFrom[T <: DFAny] extends DFRef[T]
-//  class ProduceTo[T <: DFAny] extends DFRef[T]
+  class Owner[T <: DFBlock] extends DFRef[T]
+  class ConsumeFrom[T <: DFAny] extends DFRef[T]
+  class ProduceTo[T <: DFAny] extends DFRef[T]
 }
 
 trait MemberGetSet {
