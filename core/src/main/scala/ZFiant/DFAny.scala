@@ -290,7 +290,7 @@ object DFAny {
     val relValRef : Alias.RelValRef[RelVal]
   }
   object Alias {
-    class RelValRef[RelVal <: DFAny] extends DFAny.Ref.ConsumeFrom[RelVal]
+    class RelValRef[RelVal <: DFAny] extends DFAny.Ref[RelVal]
     object RelValRef {
       implicit def refOf[RelVal <: DFAny](member : RelVal)(implicit ctx : DFMember.Context) : RelValRef[RelVal] =
         DFMember.Ref.newRefFor(new RelValRef[RelVal], member)
