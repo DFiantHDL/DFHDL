@@ -29,6 +29,11 @@ object MatchConfig {
 }
 
 object ConditionalBlock {
+  class CondRef extends DFAny.Ref[DFBool]
+  object CondRef {
+    implicit def refOf(member : DFBool)(implicit ctx : DFMember.Context) : CondRef = DFMember.Ref.newRefFor(new CondRef, member)
+  }
+
   sealed trait MatchHeader[MVType <: DFAny.Type] extends DFMember {
     val matchValRef : DFMember.Ref[DFAny.Of[MVType]]
     val matchConfig : MatchConfig
