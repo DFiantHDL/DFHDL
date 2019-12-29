@@ -63,7 +63,7 @@ object DFDesign {
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
-    final case class Internal(ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags)(designType: String) extends Block {
+    final case class Internal(ownerRef : DFBlock.Ref, tags : DFMember.Tags)(designType: String) extends Block {
       def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
       override lazy val typeName : String = designType
     }
@@ -73,7 +73,7 @@ object DFDesign {
     }
 
     final case class Top(tags : DFMember.Tags)(db: DB.Mutable, designType: String) extends Block {
-      override lazy val ownerRef : DFBlock.Ref[DFBlock] = ???
+      override lazy val ownerRef : DFBlock.Ref = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       override lazy val typeName : String = designType

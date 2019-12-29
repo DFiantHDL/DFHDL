@@ -34,9 +34,9 @@ object DFBlock {
       new Context(meta, null, new DFDesign.DB.Mutable)
   }
 
-  class Ref[+T <: DFBlock] extends DFMember.Ref[T]
+  class Ref extends DFMember.Ref[DFBlock]
   object Ref {
-    implicit def refOf[T <: DFBlock](member : T)(implicit ctx : DFMember.Context) : Ref[T] = DFMember.Ref.newRefFor(new Ref[T], member)
+    implicit def refOf(member : DFBlock)(implicit ctx : DFMember.Context) : Ref = DFMember.Ref.newRefFor(new Ref, member)
   }
 
 }
