@@ -19,7 +19,7 @@ trait HasTypeName {
   }
 }
 trait DFMember extends HasTypeName with Product with Serializable {
-  val ownerRef : DFBlock.Ref[DFBlock]
+  val ownerRef : DFBlock.Ref
   val tags : DFMember.Tags
   implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {

@@ -20,7 +20,7 @@ object DFNet {
     implicit def refOf(member : DFAny)(implicit ctx : DFMember.Context) : FromRef = DFMember.Ref.newRefFor(new FromRef, member)
   }
 
-  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags) extends DFNet(":=") {
+  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags) extends DFNet(":=") {
     def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object Assignment {
@@ -28,7 +28,7 @@ object DFNet {
     : Assignment = ctx.db.addMember(Assignment(to, from, ctx.owner, ctx.meta))
   }
 
-  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags) extends DFNet("<>") {
+  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags) extends DFNet("<>") {
     def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object Connection {
