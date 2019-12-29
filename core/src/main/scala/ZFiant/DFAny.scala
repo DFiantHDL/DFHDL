@@ -64,7 +64,14 @@ object DFAny {
 
   class Ref[+T <: DFAny] extends DFMember.Ref[T]
   object Ref {
-    class CO[T <: DFAny, R <: Ref[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    class ConsumeFrom[+T <: DFAny] extends Ref[T]
+    object ConsumeFrom  {
+      class CO[T <: DFAny, R <: ConsumeFrom[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    }
+    class ProduceTo[+T <: DFAny] extends Ref[T]
+    object ProduceTo  {
+      class CO[T <: DFAny, R <: ProduceTo[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    }
   }
 
   sealed trait Of[Type <: DFAny.Type] extends DFAny {
@@ -279,52 +286,58 @@ object DFAny {
     ): NewVar[Type, Uninitialized] = ctx.db.addMember(NewVar[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
   }
 
-  sealed trait Alias[Type <: DFAny.Type, RefVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] with CanBeAnonymous {
-    val retValRef : DFMember.Ref[RefVal]
+  sealed trait Alias[Type <: DFAny.Type, RelVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] with CanBeAnonymous {
+    val relValRef : Alias.RelValRef[RelVal]
   }
   object Alias {
-    final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny, Mod <: Modifier](
-      dfType : Type, modifier : Mod, retValRef : DFMember.Ref[RefVal], ownerRef : DFBlock.Ref, tags : DFMember.Tags
-    ) extends Alias[Type, RefVal, Mod] {
+    class RelValRef[RelVal <: DFAny] extends DFAny.Ref.ConsumeFrom[RelVal]
+    object RelValRef {
+      implicit def refOf[RelVal <: DFAny](member : RelVal)(implicit ctx : DFMember.Context) : RelValRef[RelVal] =
+        DFMember.Ref.newRefFor(new RelValRef[RelVal], member)
+    }
+
+    final case class AsIs[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
+      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFMember.Tags
+    ) extends Alias[Type, RelVal, Mod] {
       type TMod = Mod
       def codeString(implicit getset : MemberGetSet) : String =
-        s"${retValRef.refCodeString}.as(${dfType.codeString})"
+        s"${relValRef.refCodeString}.as(${dfType.codeString})"
       def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object AsIs {
-      def apply[Type <: DFAny.Type, RefVal <: DFAny](dfType: Type, refVal: RefVal)(
+      def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, refVal: RelVal)(
         implicit ctx: Context
-      ): AsIs[Type, RefVal, refVal.TMod] =
-        ctx.db.addMember(AsIs[Type, RefVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
+      ): AsIs[Type, RelVal, refVal.TMod] =
+        ctx.db.addMember(AsIs[Type, RelVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
     }
-    final case class BitsWL[W, L, RefVal <: DFAny, Mod <: Modifier](
-      modifier : Mod, retValRef : DFMember.Ref[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFBlock.Ref, tags : DFMember.Tags
-    ) extends Alias[DFBits.Type[W], RefVal, Mod]{
+    final case class BitsWL[W, L, RelVal <: DFAny, Mod <: Modifier](
+      modifier : Mod, relValRef : RelValRef[RelVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFBlock.Ref, tags : DFMember.Tags
+    ) extends Alias[DFBits.Type[W], RelVal, Mod]{
       type TMod = Mod
       val dfType : TType = DFBits.Type(relWidth)
       def codeString(implicit getset : MemberGetSet) : String =
-        s"${retValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
+        s"${relValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
       def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object BitsWL {
-      def apply[W, L, RefVal <: DFAny](refVal: RefVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
+      def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
         implicit ctx: Context
-      ): BitsWL[W, L, RefVal, refVal.TMod] =
-        ctx.db.addMember(BitsWL[W, L, RefVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+      ): BitsWL[W, L, RelVal, refVal.TMod] =
+        ctx.db.addMember(BitsWL[W, L, RelVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
     }
-    final case class Prev[RefVal <: DFAny](
-      dfType : RefVal#TType, retValRef : DFMember.Ref[RefVal], step : Int, ownerRef : DFBlock.Ref, tags : DFMember.Tags
-    ) extends Alias[RefVal#TType, RefVal, Modifier.Val] {
+    final case class Prev[RelVal <: DFAny](
+      dfType : RelVal#TType, relValRef : RelValRef[RelVal], step : Int, ownerRef : DFBlock.Ref, tags : DFMember.Tags
+    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
       def codeString(implicit getset : MemberGetSet) : String =
-        s"${retValRef.refCodeString}.prev($step)"
+        s"${relValRef.refCodeString}.prev($step)"
       def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Prev {
-      def apply[RefVal <: DFAny](refVal: RefVal, step: Int)(
+      def apply[RelVal <: DFAny](refVal: RelVal, step: Int)(
         implicit ctx: Context
-      ): Prev[RefVal] = ctx.db.addMember(Prev[RefVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta))
+      ): Prev[RelVal] = ctx.db.addMember(Prev[RelVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta))
     }
   }
 
@@ -333,13 +346,25 @@ object DFAny {
     val modifier : TMod = Modifier.Val
   }
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArg : DFMember.Ref[L], op : Op, rightArg : DFMember.Ref[R], ownerRef : DFBlock.Ref, tags : DFMember.Tags
+    dfType: Type, leftArg : Func2.LeftArgRef[L], op : Op, rightArg : Func2.RightArgRef[R], ownerRef : DFBlock.Ref, tags : DFMember.Tags
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     def codeString(implicit getset : MemberGetSet) : String = s"${leftArg.refCodeString.applyBrackets()} $op ${rightArg.refCodeString.applyBrackets()}"
     override def show(implicit getset : MemberGetSet) : String = s"$codeString : $dfType"
     def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func))
   }
   object Func2 {
+    sealed class Ref[+T <: DFAny] extends DFAny.Ref.ConsumeFrom[T]
+    class LeftArgRef[+T <: DFAny] extends Ref[T] 
+    object LeftArgRef {
+      implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : LeftArgRef[T] =
+        DFMember.Ref.newRefFor(new LeftArgRef[T], member)
+    }
+    class RightArgRef[+T <: DFAny] extends Ref[T]
+    object RightArgRef {
+      implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : RightArgRef[T] =
+        DFMember.Ref.newRefFor(new RightArgRef[T], member)
+    }
+
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
