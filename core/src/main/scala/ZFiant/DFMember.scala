@@ -126,6 +126,10 @@ object DFMember {
       implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
 //      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
     }
+//    class CO2[R[T <: DFMember] <: Ref[T]](newR : => R[_]) {
+//      implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : R[T] = DFMember.Ref.newRefFor(newR, member)
+      //      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
+//    }
   }
 }
 
