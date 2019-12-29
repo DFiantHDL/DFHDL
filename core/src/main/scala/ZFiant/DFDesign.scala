@@ -7,17 +7,18 @@ import scala.collection.immutable
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
+  __db.__injectedOwner = block
   protected implicit val __getset : MemberGetSet = ctx.db.getset
 
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
   final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    new DFAny.Context(meta, block.__injectedOwner, ctx.db)
+    new DFAny.Context(meta, __db.__injectedOwner, ctx.db)
   final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    new DFBlock.Context(meta, Some(block.__injectedOwner), ctx.db)
+    new DFBlock.Context(meta, Some(__db.__injectedOwner), ctx.db)
   final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    new ContextOf[T](meta, Some(block.__injectedOwner), ctx.db)
+    new ContextOf[T](meta, Some(__db.__injectedOwner), ctx.db)
   ///////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////
@@ -157,6 +158,7 @@ object DFDesign {
   object DB {
     class Mutable {
       private var members : Vector[DFMember] = Vector()
+      private[ZFiant] var __injectedOwner : DFBlock = _
       def addConditionalBlock[Ret, CB <: ConditionalBlock[Ret]](cb : CB, block : => Ret)(implicit getset : MemberGetSet) : CB = {
         addMember(cb)
         cb.applyBlock(block, this)
