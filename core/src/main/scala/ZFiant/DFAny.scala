@@ -62,6 +62,11 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
+  class Ref[+T <: DFAny] extends DFMember.Ref[T]
+  object Ref {
+    implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : Ref[T] = DFMember.Ref.newRefFor(new Ref[T], member)
+  }
+
   sealed trait Of[Type <: DFAny.Type] extends DFAny {
     type TType = Type
     //////////////////////////////////////////////////////////////////////////
@@ -173,7 +178,7 @@ object DFAny {
   }
 
   final case class Const[Type <: DFAny.Type](
-    dfType : Type, token : Type#TToken, ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+    dfType : Type, token : Type#TToken, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
   ) extends Value[Type, Modifier.Constant[Type#TToken]] {
     type TMod = Modifier.Constant[Type#TToken]
     val modifier : TMod = Modifier.Constant(token)
@@ -192,7 +197,7 @@ object DFAny {
 
   object Port {
     final case class In[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.In](
-      dfType : Type, modifier : Mod, ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+      dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
     ) extends Value[Type, Mod] {
       type TMod = Mod
 
@@ -215,7 +220,7 @@ object DFAny {
       ): In[Type, Uninitialized] = ctx.db.addMember(In[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
     }
     final case class Out[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.Out](
-      dfType : Type, modifier : Mod, ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+      dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
     ) extends Value[Type, Mod] {
       type TMod = Mod
       def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> OUT${modifier.codeString}"
@@ -239,7 +244,7 @@ object DFAny {
   }
 
   final case class NewVar[Type <: DFAny.Type, Mod <: DFAny.Modifier.NewVar](
-    dfType : Type, modifier : Mod, ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+    dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
   ) extends Value[Type, Mod] {
     type TMod = Mod
     def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, Port.In.Uninitialized] = Port.In(dfType)
@@ -279,7 +284,7 @@ object DFAny {
   }
   object Alias {
     final case class AsIs[Type <: DFAny.Type, RefVal <: DFAny, Mod <: Modifier](
-      dfType : Type, modifier : Mod, retValRef : DFMember.Ref[RefVal], ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+      dfType : Type, modifier : Mod, retValRef : DFMember.Ref[RefVal], ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
     ) extends Alias[Type, RefVal, Mod] {
       type TMod = Mod
       def codeString(implicit getset : MemberGetSet) : String =
@@ -293,7 +298,7 @@ object DFAny {
         ctx.db.addMember(AsIs[Type, RefVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
     }
     final case class BitsWL[W, L, RefVal <: DFAny, Mod <: Modifier](
-      modifier : Mod, retValRef : DFMember.Ref[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+      modifier : Mod, retValRef : DFMember.Ref[RefVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
     ) extends Alias[DFBits.Type[W], RefVal, Mod]{
       type TMod = Mod
       val dfType : TType = DFBits.Type(relWidth)
@@ -308,7 +313,7 @@ object DFAny {
         ctx.db.addMember(BitsWL[W, L, RefVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
     }
     final case class Prev[RefVal <: DFAny](
-      dfType : RefVal#TType, retValRef : DFMember.Ref[RefVal], step : Int, ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+      dfType : RefVal#TType, retValRef : DFMember.Ref[RefVal], step : Int, ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
     ) extends Alias[RefVal#TType, RefVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -328,7 +333,7 @@ object DFAny {
     val modifier : TMod = Modifier.Val
   }
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArg : DFMember.Ref[L], op : Op, rightArg : DFMember.Ref[R], ownerRef : DFMember.Ref[DFBlock], tags : DFMember.Tags
+    dfType: Type, leftArg : DFMember.Ref[L], op : Op, rightArg : DFMember.Ref[R], ownerRef : DFBlock.Ref[DFBlock], tags : DFMember.Tags
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     def codeString(implicit getset : MemberGetSet) : String = s"${leftArg.refCodeString.applyBrackets()} $op ${rightArg.refCodeString.applyBrackets()}"
     override def show(implicit getset : MemberGetSet) : String = s"$codeString : $dfType"

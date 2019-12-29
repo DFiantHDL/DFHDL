@@ -19,7 +19,7 @@ trait HasTypeName {
   }
 }
 trait DFMember extends HasTypeName with Product with Serializable {
-  val ownerRef : DFMember.Ref[DFBlock]
+  val ownerRef : DFBlock.Ref[DFBlock]
   val tags : DFMember.Tags
   implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {
@@ -114,7 +114,7 @@ object DFMember {
     }
   }
 
-  class Ref[T <: DFMember] {
+  class Ref[+T <: DFMember] {
     def get(implicit getset: MemberGetSet) : T = getset(this)
   }
   object Ref {
@@ -125,12 +125,6 @@ object DFMember {
     trait CO[R[T]] {
 
     }
-  }
-//  class ConsumeFrom[T <: DFAny] extends Ref[T]
-//  class ProduceTo[T <: DFAny] extends Ref[T]
-  class OwnerRef[T <: DFBlock] extends Ref[T]
-  object OwnerRef {
-    implicit def refOf[T <: DFBlock](member : T)(implicit ctx : DFMember.Context) : OwnerRef[T] = Ref.newRefFor(new OwnerRef[T], member)
   }
 }
 

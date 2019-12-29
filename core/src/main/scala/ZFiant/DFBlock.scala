@@ -33,6 +33,12 @@ object DFBlock {
     implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
       new Context(meta, null, new DFDesign.DB.Mutable)
   }
+
+  class Ref[+T <: DFBlock] extends DFMember.Ref[T]
+  object Ref {
+    implicit def refOf[T <: DFBlock](member : T)(implicit ctx : DFMember.Context) : Ref[T] = DFMember.Ref.newRefFor(new Ref[T], member)
+  }
+
 }
 
 
