@@ -54,9 +54,13 @@ object DFCompiler {
 
   implicit class Flatten(designDB : DFDesign.DB) {
     import designDB.getset
-//    private def flattenPortIn(p : DFAny.Port.In[_,_]) : DFDesign.DB = {
-//
-//    }
+    private def flattenPortIn(block : DFDesign.Block, p : DFAny.Port.In[_,_]) : DFDesign.DB = {
+      val refsOfPort = designDB.memberTable(p)
+//      val connectedToPort = refsOfPort collect {
+//        case c : DFNet.Connection()
+//      }
+      ???
+    }
     def flatten(design : DFDesign) : DFDesign.DB = {
       val block = design.block
       if (block.isTop) designDB else {
@@ -65,11 +69,12 @@ object DFCompiler {
         val updatedRefTable = members.foldLeft(designDB.refTable) ((rt, m) =>
           rt.updated(m.ownerRef, owner)
         )
-        val removalPatch = (block -> None) :: members.collect {
+        val removalOrRenamePatch = (block -> None) :: members.collect {
           case m : DFAny.Port.In[_,_] => (m -> None)
           case m : DFAny.Port.Out[_,_] => (m -> None)
+          case m if !m.isAnonymous => m -> Some(m.setName(s"${block.name}_${m.name}"))
         }
-        designDB.patch(removalPatch.toMap).copy(refTable = updatedRefTable)
+        designDB.patch(removalOrRenamePatch.toMap).copy(refTable = updatedRefTable)
       }
     }
   }
@@ -82,7 +87,7 @@ object DFCompiler {
         case cb : ConditionalBlock[_] => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
         case m : DFDesign.Block => s"final val ${m.name} = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
-        case a : DFAny if !a.tags.meta.name.anonymous => s"final val ${a.name} = ${a.codeString}"
+        case a : DFAny if !a.isAnonymous => s"final val ${a.name} = ${a.codeString}"
       }
       membersCodeString.mkString("\n")
     }
