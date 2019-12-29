@@ -5,7 +5,7 @@ import scala.annotation.implicitNotFound
 
 trait DFBlock extends DFMember {
 //  val ctx : DFBlock.Context
-  private[ZFiant] var __injectedOwner : DFBlock = this
+//  private[ZFiant] var __injectedOwner : DFBlock = this
 
   ///////////////////////////////////////////////////////////////////
   // Ownership
@@ -23,9 +23,8 @@ trait DFBlock extends DFMember {
 
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
-  final class Context(val meta : Meta, ownerOptionFunc : => Option[DFBlock], val db : DFDesign.DB.Mutable) extends DFMember.Context {
-    lazy val ownerOption : Option[DFBlock] = ownerOptionFunc
-    lazy val owner : DFBlock = ownerOption.get
+  final class Context(val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val db : DFDesign.DB.Mutable) extends DFMember.Context {
+    lazy val owner : DFBlock = ownerInjector.get
   }
   object Context {
     final object MissingError extends ErrorMsg (
@@ -33,9 +32,9 @@ object DFBlock {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, ctx.ownerOption, ctx.db)
+      new Context(ctx.meta, ctx.ownerInjector, ctx.db)
     implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
-      new Context(meta, None, new DFDesign.DB.Mutable)
+      new Context(meta, null, new DFDesign.DB.Mutable)
   }
 }
 
