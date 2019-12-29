@@ -177,12 +177,11 @@ object DFDesign {
         memberTable = memberTable + (newMember -> cell)
         newMember
       }
-      def newRefFor[T <: DFMember](member : T) : DFMember.Ref[T] = {
+      def newRefFor[T <: DFMember, R <: DFMember.Ref[T]](ref : R, member : T) : R = {
         val cell = memberTable(member)
-        val ref = new DFMember.Ref[T]
         memberTable = memberTable + (member -> cell.copy(_1 = cell._1 + ref))
         refTable = refTable + (ref -> cell._2)
-        ref.asInstanceOf[DFMember.Ref[T]]
+        ref
       }
       def getRefs[T <: DFMember](member : T) : Set[DFMember.Ref[T]] = {
         val cell = memberTable(member)
