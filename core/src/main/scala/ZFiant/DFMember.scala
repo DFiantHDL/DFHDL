@@ -19,7 +19,7 @@ trait HasTypeName {
   }
 }
 trait DFMember extends HasTypeName with Product with Serializable {
-  val ownerRef : DFRef[DFBlock]
+  val ownerRef : DFMember.Ref[DFBlock]
   val tags : DFMember.Tags
   implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {
@@ -113,22 +113,23 @@ object DFMember {
       inject(injectedOwnerBackup)
     }
   }
+
+  class Ref[T <: DFMember] {
+    def get(implicit getset: MemberGetSet) : T = getset(this)
+  }
+  object Ref {
+    def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = ctx.db.newRefFor(member)
+    implicit def memberOf[T <: DFMember](ref : Ref[T])(implicit getset : MemberGetSet) : T = getset(ref)
+    implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : Ref[T] = Ref(member)
+    class Owner[T <: DFBlock] extends Ref[T]
+    class ConsumeFrom[T <: DFAny] extends Ref[T]
+    class ProduceTo[T <: DFAny] extends Ref[T]
+  }
 }
 
-class DFRef[T <: DFMember] {
-  def get(implicit getset: MemberGetSet) : T = getset(this)
-}
-object DFRef {
-  def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : DFRef[T] = ctx.db.newRefFor(member)
-  implicit def memberOf[T <: DFMember](ref : DFRef[T])(implicit getset : MemberGetSet) : T = getset(ref)
-  implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : DFRef[T] = DFRef(member)
-  class Owner[T <: DFBlock] extends DFRef[T]
-  class ConsumeFrom[T <: DFAny] extends DFRef[T]
-  class ProduceTo[T <: DFAny] extends DFRef[T]
-}
 
 trait MemberGetSet {
-  def apply[T <: DFMember](ref : DFRef[T]) : T
+  def apply[T <: DFMember](ref : DFMember.Ref[T]) : T
   def set[T <: DFMember](originalMember : T, newMember : T) : T
 }
 object MemberGetSet {
