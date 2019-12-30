@@ -17,6 +17,7 @@
 
 package ZFiant
 import DFiant.internals._
+import DFDesign.DB.Patch
 
 object DFCompiler {
   val delim : String = "  "
@@ -48,40 +49,64 @@ object DFCompiler {
           case _ => List()
         }
       }
-      designDB.patch(anonymizeList.map(a => a -> Some(a.anonymize)).toMap)
+      designDB.patch(anonymizeList.map(a => a -> Patch.ReplaceWith(a.anonymize)))
     }
   }
 
   implicit class Flatten(designDB : DFDesign.DB) {
     import designDB.getset
-    private def flattenPortIn(block : DFDesign.Block, p : DFAny.Port.In[_,_]) : DFDesign.DB = {
+    private def flattenPortIn(block : DFDesign.Block, p : DFAny.Port.In[_,_]) : List[(DFMember, Patch)] = {
       val refsOfPort = designDB.memberTable(p)
+      val toRefs = refsOfPort.flatMap {
+        case r : DFNet.ToRef => Some(r)
+        case _ => None
+      }
+      assert(toRefs.size == 1) //currently assuming there is always one an only one connected input. TODO: fix for empty
+      val aliasedRefs = refsOfPort.flatMap {
+        case a : DFAny.Alias.RelValRef[_] => Some(a)
+        case _ => None
+      }
+      assert(aliasedRefs.isEmpty)//TODO:fix for aliased connection
+      val toRef = toRefs.head
       val ownerMembers = designDB.ownerMemberTable(block.getOwnerDesign) //TODO: perhaps at any hierarchy?
-      val connectedToPortList = ownerMembers collect {
-        case m : DFNet.Connection if refsOfPort.contains(m.toRef) => designDB.refTable(m.fromRef)
+      val (connectedToPort, unusedNet) = ownerMembers.collectFirst{
+        case m : DFNet.Connection if m.toRef == toRef => (designDB.refTable(m.fromRef), m)
+      }.get
+      println(s"removing unused net ${unusedNet.codeString}")
+      List((p : DFMember, Patch.ReplaceWith(connectedToPort)), (unusedNet, Patch.Remove))
+    }
+    private def flattenPortOut(block : DFDesign.Block, p : DFAny.Port.Out[_,_]) : List[(DFMember, Patch)] = {
+      val refsOfPort = designDB.memberTable(p)
+      val toRefs = refsOfPort.flatMap {
+        case r : DFNet.ToRef => Some(r)
+        case _ => None
       }
-      assert(connectedToPortList.size == 1)
-      val connectedToPort = connectedToPortList.head
-      val blockMembers = designDB.ownerMemberTable(block) //TODO: perhaps at any hierarchy?
-      val refPatch = blockMembers collect {
-        case m : DFNet if refsOfPort.contains(m.fromRef) => m.toRef -> connectedToPort
+      assert(toRefs.size == 1) //currently assuming there is always one an only one connected input. TODO: fix for empty
+      val aliasedRefs = refsOfPort.flatMap {
+        case a : DFAny.Alias.RelValRef[_] => Some(a)
+        case _ => None
       }
-      ???
+      assert(aliasedRefs.isEmpty)//TODO:fix for aliased connection
+      val toRef = toRefs.head
+      val ownerMembers = designDB.ownerMemberTable(block.getOwnerDesign) //TODO: perhaps at any hierarchy?
+      val (connectedToPort, unusedNet) = ownerMembers.collectFirst{
+        case m : DFNet.Connection if m.toRef == toRef => (designDB.refTable(m.fromRef), m)
+      }.get
+      println(s"removing unused net ${unusedNet.codeString}")
+      List((p : DFMember, Patch.ReplaceWith(connectedToPort)), (unusedNet, Patch.Remove))
     }
     def flatten(design : DFDesign) : DFDesign.DB = {
       val block = design.block
       if (block.isTop) designDB else {
         val members = designDB.ownerMemberTable(block)
-        val owner = block.getOwner
-        val updatedRefTable = members.foldLeft(designDB.refTable) ((rt, m) =>
-          rt.updated(m.ownerRef, owner)
-        )
-        val removalOrRenamePatch = (block -> None) :: members.collect {
-          case m : DFAny.Port.In[_,_] => (m -> None)
-          case m : DFAny.Port.Out[_,_] => (m -> None)
-          case m if !m.isAnonymous => m -> Some(m.setName(s"${block.name}_${m.name}"))
+        val owner = block.getOwnerDesign
+        val removalOrRenamePatch = (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
+          case p : DFAny.Port.In[_,_] => flattenPortIn(block, p)
+//          case m : DFAny.Port.Out[_,_] => List((m -> Patch.Remove))
+          case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(m.setName(s"${block.name}_${m.name}")))
+          case _ => None
         }
-        designDB.patch(removalOrRenamePatch.toMap).copy(refTable = updatedRefTable)
+        designDB.patch(removalOrRenamePatch)
       }
     }
   }

@@ -128,19 +128,27 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
-    //replaces all members according to the patch table (origMember -> Some(repMember))
-    //If the replacement member is None, then the original member needs to be removed
-    def patch(patchTable : Map[DFMember, Option[DFMember]]) : DB = {
-      val patchedMembers = members.collect {
-        case origMember if patchTable.get(origMember).isDefined && patchTable(origMember).isDefined => patchTable(origMember).get
-        case origMember if patchTable.get(origMember).isEmpty => origMember
-      }
-      val patchedRefTable = patchTable.foldLeft(refTable) {
-        case (rt, (origMember, Some(repMember))) => memberTable.get(origMember) match {
+    //replaces all members and references according to the patch list
+    def patch(patchList : List[(DFMember, DB.Patch)]) : DB = {
+      //If we attempt to replace with an existing member, then we convert the patch to remove
+      //the old member just for the member list (references are replaced).
+      val patchTable = patchList.map {
+        case (m, DB.Patch.ReplaceWith(r)) if memberTable.contains(r) => (m, DB.Patch.Remove)
+        case x => x
+      }.toMap
+      //Patching member list
+      val patchedMembers = members.flatMap(m => patchTable.get(m) match {
+        case Some(DB.Patch.ReplaceWith(r)) => Some(r)
+        case Some(DB.Patch.Remove) => None
+        case None => Some(m) //not in the patch table, therefore remain as-is
+      })
+      //Patching reference table
+      val patchedRefTable = patchList.foldLeft(refTable) {
+        case (rt, (origMember, DB.Patch.ReplaceWith(repMember))) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None => rt
         }
-        case (rt, (origMember, None)) => memberTable.get(origMember) match {
+        case (rt, (origMember, DB.Patch.Remove)) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
           case None => rt
         }
@@ -155,6 +163,11 @@ object DFDesign {
   }
 
   object DB {
+    sealed trait Patch extends Product with Serializable
+    object Patch {
+      case object Remove extends Patch
+      case class ReplaceWith(updatedMember : DFMember) extends Patch
+    }
     class Mutable {
       private var members : Vector[DFMember] = Vector()
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
