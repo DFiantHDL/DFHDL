@@ -84,7 +84,7 @@ object DFCompiler {
         case r : DFNet.ToRef => Some(r)
         case _ => None
       }
-
+      val aliases =
       if (toRefs.size > 1) {
         p -> Patch.ReplaceWith(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags).setName(s"${block.name}_${p.name}"))
       } else {
