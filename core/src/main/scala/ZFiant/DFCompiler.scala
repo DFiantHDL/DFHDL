@@ -73,9 +73,9 @@ object DFCompiler {
       val producersToPort = designDB.consumerDependencyTable(p)
       if (producersToPort.size == 1) {
         val producerToPort = producersToPort.head
-        val ownerMembers = designDB.ownerMemberTable(block.getOwnerDesign) //TODO: perhaps at any hierarchy?
+        val ownerMembers = designDB.ownerMemberTable(block) //TODO: perhaps at any hierarchy?
         val unusedNet = ownerMembers.collectFirst{
-          case m : DFNet.Connection if m.fromRef.get == p => m
+          case m : DFNet.Connection if m.toRef.get == p => m
         }.get
         val replacement = if (producerToPort.isAnonymous) {
           if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(p.name)
