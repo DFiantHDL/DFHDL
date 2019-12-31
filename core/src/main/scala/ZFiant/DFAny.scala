@@ -346,9 +346,9 @@ object DFAny {
     val modifier : TMod = Modifier.Val
   }
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArg : Func2.LeftArgRef[L], op : Op, rightArg : Func2.RightArgRef[R], ownerRef : DFBlock.Ref, tags : DFMember.Tags
+    dfType: Type, leftArgRef : Func2.LeftArgRef[L], op : Op, rightArgRef : Func2.RightArgRef[R], ownerRef : DFBlock.Ref, tags : DFMember.Tags
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
-    def codeString(implicit getset : MemberGetSet) : String = s"${leftArg.refCodeString.applyBrackets()} $op ${rightArg.refCodeString.applyBrackets()}"
+    def codeString(implicit getset : MemberGetSet) : String = s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
     override def show(implicit getset : MemberGetSet) : String = s"$codeString : $dfType"
     def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func))
   }
@@ -397,6 +397,25 @@ object DFAny {
     def <>[Type <: DFAny.Type](right: PortOf[Type])(
       implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, L]
     ): Unit = right.connectWith(op(right.dfType, left))
+  }
+
+  object In {
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+      case _ : Modifier.Port.In => true
+      case _ => false
+    }
+  }
+  object Out {
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+      case _ : Modifier.Port.Out => true
+      case _ => false
+    }
+  }
+  object Var {
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+      case _ : Modifier.NewVar => true
+      case _ => false
+    }
   }
 
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
@@ -460,24 +479,6 @@ object DFAny {
       else throwConnectionError("Unsupported connection")
     }
 
-    object In {
-      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
-        case _ : Modifier.Port.In => true
-        case _ => false
-      }
-    }
-    object Out {
-      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
-        case _ : Modifier.Port.Out => true
-        case _ => false
-      }
-    }
-    object Var {
-      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
-        case _ : Modifier.NewVar => true
-        case _ => false
-      }
-    }
     protected[ZFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
       val (toPort, from) : (DFAny, DFAny) = (left, right) match {

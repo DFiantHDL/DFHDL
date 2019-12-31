@@ -31,7 +31,7 @@ object MatchConfig {
 
 object ConditionalBlock {
   trait Of[Ret] extends ConditionalBlock{type TRet = Ret}
-  class PrevBlockRef[CB <: ConditionalBlock] extends DFMember.Ref[CB]
+  class PrevBlockRef[+CB <: ConditionalBlock] extends DFMember.Ref[CB]
   object PrevBlockRef {
     implicit def apply[CB <: ConditionalBlock](member : CB)(implicit ctx : DFMember.Context) : PrevBlockRef[CB] =
       DFMember.Ref.newRefFor(new PrevBlockRef[CB], member)
@@ -56,7 +56,7 @@ object ConditionalBlock {
   }
   object MatchHeader {
     trait Of[MVType <: DFAny.Type] extends MatchHeader{type TMVType = MVType}
-    class Ref[MH <: MatchHeader] extends DFMember.Ref[MH]
+    class Ref[+MH <: MatchHeader] extends DFMember.Ref[MH]
     object Ref {
       implicit def apply[MH <: MatchHeader](member : MH)(implicit ctx : DFMember.Context) : Ref[MH] =
         DFMember.Ref.newRefFor(new Ref[MH], member)
@@ -68,17 +68,21 @@ object ConditionalBlock {
   }
   sealed trait ElseIfBlock extends DFBlock {
     val condRef : CondRef
+    val prevBlockRef : PrevBlockRef[ConditionalBlock]
     def headerCodeString(implicit getset : MemberGetSet) : String = s".elseifdf(${condRef.refCodeString})"
   }
   sealed trait ElseBlock extends DFBlock {
+    val prevBlockRef : PrevBlockRef[ConditionalBlock]
     def headerCodeString(implicit getset : MemberGetSet) : String = s".elsedf"
   }
 
   sealed trait CasePatternBlock[MVType <: DFAny.Type] extends DFBlock {
     val pattern : MVType#TPattern
+    val matchHeaderRef : MatchHeader.Ref[MatchHeader]
     def headerCodeString(implicit getset : MemberGetSet) : String = s".casedf(${pattern.codeString})"
   }
   sealed trait Case_Block extends DFBlock {
+    val matchHeaderRef : MatchHeader.Ref[MatchHeader]
     def headerCodeString(implicit getset : MemberGetSet) : String = s".casedf_"
   }
 

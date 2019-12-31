@@ -156,6 +156,64 @@ object DFDesign {
       DB(patchedMembers, patchedRefTable)
     }
 
+    @tailrec private def getGuards(currentOwner : DFBlock, targetOwner : DFBlock, currentGuards : List[DFAny]) : List[DFAny] =
+      currentOwner match {
+        case _ : DFDesign.Block => currentGuards //reached the design block
+        case o : DFBlock if o == targetOwner => currentGuards //can't go past the target owner
+        case cb : ConditionalBlock.IfBlock => getGuards(cb.getOwner, targetOwner, cb.condRef.get :: currentGuards)
+        case cb : ConditionalBlock.ElseIfBlock => getGuards(cb.prevBlockRef, targetOwner, cb.condRef.get :: currentGuards)
+        case cb : ConditionalBlock.ElseBlock => getGuards(cb.prevBlockRef, targetOwner, currentGuards)
+        case cb : ConditionalBlock.CasePatternBlock[_] => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
+        case cb : ConditionalBlock.Case_Block => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
+      }
+
+    //for a given consumer, we get a set of its producers
+    lazy val consumerDependencyTable : Map[DFAny, Set[DFAny]] = {
+      //first passing through all nets to get directionality of aliased values
+      val netPass = members.foldLeft(Map.empty[DFAny, Set[DFAny]])((dt, m) => m match {
+        case n : DFNet =>
+          val toVal = n.toRef.get
+          val fromVal = n.fromRef.get
+          val depSet = dt.getOrElse(toVal, Set()) + fromVal
+          val guards = n match {
+            case _ : DFNet.Connection => List() //connections are insensitive to guards
+            case a : DFNet.Assignment => getGuards(a.getOwner, toVal.getOwner, List())
+          }
+          dt + (toVal -> (depSet ++ guards))
+        case _ => dt
+      })
+      members.foldLeft(netPass)((dt, m) => m match {
+        case f : DFAny.Func2[_,_,_,_] => dt + (f-> Set(f.leftArgRef.get, f.rightArgRef.get))
+        case a : DFAny.Alias[_,_,_] =>
+          val relVal = a.relValRef.get
+          (dt.get(a), dt.get(relVal)) match {
+            //when alias is written to, then the relative value is also dependent on the alias
+            case (Some(aDeps), Some(relDeps)) => dt + (a -> (aDeps + relVal)) + (relVal -> (relDeps + a))
+            case (Some(aDeps), None) => dt + (a -> (aDeps + relVal)) + (relVal -> Set(a))
+            //the alias is just read, and therefore it's dependent only on the rel
+            case (None, _) => dt + (a -> Set(relVal))
+          }
+        case _ => dt
+      })
+    }
+
+    //for a given producer, we get a set of its consumers
+    lazy val producerDependencyTable : Map[DFAny, Set[DFAny]] = {
+      consumerDependencyTable.foldLeft(Map.empty[DFAny, Set[DFAny]]){case (dt, (consumer, producerSet)) =>
+        dt ++ producerSet.map(p => p -> (dt.getOrElse(p, Set()) + consumer))}
+    }
+
+
+    def printConsumerDependencyTable : DB = {
+      println(consumerDependencyTable.map(op => s"${op._1.getFullName} <- ${op._2.map(e => e.getFullName)}").mkString("\n"))
+      this
+    }
+
+    def printProducerDependencyTable : DB = {
+      println(producerDependencyTable.map(op => s"${op._1.getFullName} -> ${op._2.map(e => e.getFullName)}").mkString("\n"))
+      this
+    }
+
     def printOwnership() : DB = {
       println(members.map(m => (m -> m.getOwner).toString()).mkString("\n"))
       this
