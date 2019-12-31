@@ -75,11 +75,20 @@ object DFCompiler {
       println(s"removing unused net ${unusedNet.codeString}")
       List((p : DFMember, Patch.ReplaceWith(connectedToPort)), (unusedNet, Patch.Remove))
     }
-    private def flattenPortOut(block : DFDesign.Block, p : DFAny.Port.Out[_,_]) : List[(DFMember, Patch)] = {
+
+    //An output flattening is as follows:
+    //If there is more than one assignment to the port or it is read internally, then the port should be converted to variable
+    private def flattenPortOut(block : DFDesign.Block, p : DFAny.Port.Out[_ <: DFAny.Type,_ <: DFAny.Modifier.Port.Out]) : List[(DFMember, Patch)] = {
       val refsOfPort = designDB.memberTable(p)
       val toRefs = refsOfPort.flatMap {
         case r : DFNet.ToRef => Some(r)
         case _ => None
+      }
+
+      if (toRefs.size > 1) {
+        p -> Patch.ReplaceWith(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags).setName(s"${block.name}_${p.name}"))
+      } else {
+
       }
       assert(toRefs.size == 1) //currently assuming there is always one an only one connected input. TODO: fix for empty
       val aliasedRefs = refsOfPort.flatMap {
@@ -102,7 +111,7 @@ object DFCompiler {
         val owner = block.getOwnerDesign
         val removalOrRenamePatch = (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
           case p : DFAny.Port.In[_,_] => flattenPortIn(block, p)
-//          case m : DFAny.Port.Out[_,_] => List((m -> Patch.Remove))
+//          case p : DFAny.Port.Out[_,_] => flattenPortOut(block, p)
           case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(m.setName(s"${block.name}_${m.name}")))
           case _ => None
         }
