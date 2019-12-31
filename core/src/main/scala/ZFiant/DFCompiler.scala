@@ -63,17 +63,25 @@ object DFCompiler {
       val unusedNet = ownerMembers.collectFirst{
         case m : DFNet.Connection if m.toRef.get == p => m
       }.get
-      List((p : DFMember, Patch.ReplaceWith(producerToPort)), (unusedNet, Patch.Remove))
+      val replacement = if (producerToPort.isAnonymous) {
+        if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(p.name)
+        else producerToPort
+      } else producerToPort
+      List((p : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
     }
     private def flattenPortOut(block : DFDesign.Block, p : DFAny.Port.Out[_ <: DFAny.Type,_ <: DFAny.Modifier.Port.Out]) : List[(DFMember, Patch)] = {
       val producersToPort = designDB.consumerDependencyTable(p)
       if (producersToPort.size == 1) {
         val producerToPort = producersToPort.head
-        val blockMembers = designDB.ownerMemberTable(block) //TODO: perhaps at any hierarchy?
-        val unusedNet = blockMembers.collectFirst{
-          case m : DFNet.Connection if m.toRef.get == p => m
+        val ownerMembers = designDB.ownerMemberTable(block.getOwnerDesign) //TODO: perhaps at any hierarchy?
+        val unusedNet = ownerMembers.collectFirst{
+          case m : DFNet.Connection if m.fromRef.get == p => m
         }.get
-        List((p : DFMember, Patch.ReplaceWith(producerToPort)), (unusedNet, Patch.Remove))
+        val replacement = if (producerToPort.isAnonymous) {
+          if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(p.name)
+          else producerToPort
+        } else producerToPort
+        List((p : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
       } else {
         List(p -> Patch.ReplaceWith(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags).setName(s"${block.name}_${p.name}")))
       }
