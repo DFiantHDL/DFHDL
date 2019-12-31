@@ -22,9 +22,9 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   val x = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
   val y = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
   val temp = DFUInt(16)
-  temp <> x
-  temp <> y
-//  y <> x //Trivial direct input-to-output connection
+//  temp <> x
+//  temp <> y
+  y <> x+x //Trivial direct input-to-output connection
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
