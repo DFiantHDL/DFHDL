@@ -24,7 +24,7 @@ trait ID extends DFDesign { //This our `ID` dataflow design
 //  val temp = DFUInt(16)
 //  temp <> x
 //  temp <> y
-  y <> x+x //Trivial direct input-to-output connection
+  y <> x //Trivial direct input-to-output connection
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
@@ -40,7 +40,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
 object IDTopApp extends App {
   val top = new IDTop {}
   import DFCompiler._
-  top.db.flatten(top.id1).printCodeString()
+  top.db.flatten(top.id1, top.id2).printCodeString()
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

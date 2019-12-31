@@ -78,20 +78,20 @@ object DFCompiler {
         List(p -> Patch.ReplaceWith(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags).setName(s"${block.name}_${p.name}")))
       }
     }
-    def flatten(design : DFDesign) : DFDesign.DB = {
+    private def flattenPatch(design : DFDesign) : List[(DFMember, Patch)] = {
       val block = design.block
-      if (block.isTop) designDB else {
+      if (block.isTop) List() else {
         val members = designDB.ownerMemberTable(block)
         val owner = block.getOwnerDesign
-        val removalOrRenamePatch = (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
+        (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
           case p : DFAny.Port.In[_,_] => flattenPortIn(block, p)
           case p : DFAny.Port.Out[_,_] => flattenPortOut(block, p)
           case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(m.setName(s"${block.name}_${m.name}")))
           case _ => None
         }
-        designDB.patch(removalOrRenamePatch)
       }
     }
+    def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
   }
 
   final implicit class CodeString(designDB : DFDesign.DB) {
