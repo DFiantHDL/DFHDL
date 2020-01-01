@@ -19,6 +19,8 @@ package ZFiant
 import DFiant.internals._
 import DFDesign.DB.Patch
 
+import scala.annotation.tailrec
+
 object DFCompiler {
   val delim : String = "  "
   implicit class Discovery(designDB : DFDesign.DB) {
@@ -91,6 +93,41 @@ object DFCompiler {
       }
     }
     def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
+  }
+
+  implicit class AddGuard(designDB : DFDesign.DB) {
+    import designDB.getset
+    @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
+      remaining match {
+        case (block : DFBlock) :: mList => mcf(designDB.ownerMemberTable(block) ++ mList, retList :+ block)
+        case m :: mList => mcf(mList, retList :+ m)
+        case Nil => retList
+      }
+    private def mcf() : List[DFMember] = mcf(List(designDB.top), List())
+    def moveConnectableFirst : DFDesign.DB = {
+      designDB.top
+//      val split = designDB.members.partition {
+//        case m : DFBlock => true
+//        case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] && m.getOwner == m.getOwnerDesign => true
+//        case _ => false
+//      }
+      designDB.copy(members = mcf)
+    }
+    def addIfGuard(guardMembers : Seq[DFMember], guardRefs : Seq[DFMember.Ref[_]], fromMember : DFMember, toMember : DFMember) : DFDesign.DB = {
+      val block = fromMember.getOwner
+      val members = designDB.ownerMemberTable(block)
+      val owner = block.getOwnerDesign
+//      val ifBlock = ConditionalBlock.NoRetVal.IfBlock()
+      (fromMember -> Patch.AddBefore(guardMembers, guardRefs))
+//      (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
+//        case p : DFAny.Port.In[_,_] => flattenPort(p)
+//        case p : DFAny.Port.Out[_,_] => flattenPort(p)
+//        case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(flattenName(m)))
+//        case _ => None
+//      }
+//      designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
+      ???
+    }
   }
 
   final implicit class CodeString(designDB : DFDesign.DB) {
