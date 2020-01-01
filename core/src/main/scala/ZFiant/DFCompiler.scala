@@ -55,6 +55,7 @@ object DFCompiler {
 
   implicit class Flatten(designDB : DFDesign.DB) {
     import designDB.getset
+    private def flattenName(member : DFMember) : DFMember = member.setName(s"${member.getOwner.name}_${member.name}")
     private def flattenPortIn(block : DFDesign.Block, p : DFAny.Port.In[_,_]) : List[(DFMember, Patch)] = {
       val producersToPort = designDB.consumerDependencyTable(p)
       assert(producersToPort.size == 1) //currently assuming there is always one an only one connected input. TODO: fix for empty
@@ -83,7 +84,7 @@ object DFCompiler {
         } else producerToPort
         List((p : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
       } else {
-        List(p -> Patch.ReplaceWith(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags).setName(s"${block.name}_${p.name}")))
+        List(p -> Patch.ReplaceWith(flattenName(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags))))
       }
     }
     private def flattenPatch(design : DFDesign) : List[(DFMember, Patch)] = {
@@ -94,7 +95,7 @@ object DFCompiler {
         (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
           case p : DFAny.Port.In[_,_] => flattenPortIn(block, p)
           case p : DFAny.Port.Out[_,_] => flattenPortOut(block, p)
-          case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(m.setName(s"${block.name}_${m.name}")))
+          case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(flattenName(m)))
           case _ => None
         }
       }
