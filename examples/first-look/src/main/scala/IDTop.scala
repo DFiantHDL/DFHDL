@@ -21,9 +21,11 @@ import ZFiant._ //Required in any DFiant compilation program
 trait ID extends DFDesign { //This our `ID` dataflow design
   val x = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
   val y = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
-  val temp = DFUInt(16)
-  temp <> x
-  temp <> y
+  val tempX = DFUInt(16)
+  val tempY = DFUInt(16)
+  tempX <> x
+  tempY := tempX
+  tempY <> y
 //  y <> x //Trivial direct input-to-output connection
 }
 

@@ -139,6 +139,7 @@ object DFDesign {
       //Patching member list
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
         case Some(DB.Patch.ReplaceWith(r)) => Some(r)
+        case Some(DB.Patch.AddBefore(newMembers, _)) => newMembers :+ m
         case Some(DB.Patch.Remove) => None
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
@@ -225,6 +226,10 @@ object DFDesign {
     object Patch {
       case object Remove extends Patch
       case class ReplaceWith(updatedMember : DFMember) extends Patch
+      case class AddBefore(newMembers : Seq[DFMember], newRefs : Seq[DFMember.Ref[_]]) extends Patch
+//      object AddBefore {
+//        def apply(newMembers : DFMember*)(newRefs : DFMember.Ref[_]*): AddBefore = new AddBefore(newMembers, newRefs)
+//      }
     }
     class Mutable {
       private var members : Vector[DFMember] = Vector()
