@@ -56,35 +56,25 @@ object DFCompiler {
   implicit class Flatten(designDB : DFDesign.DB) {
     import designDB.getset
     private def flattenName(member : DFMember) : DFMember = member.setName(s"${member.getOwner.name}_${member.name}")
-    private def flattenPortIn(block : DFDesign.Block, p : DFAny.Port.In[_,_]) : List[(DFMember, Patch)] = {
-      val producersToPort = designDB.consumerDependencyTable(p)
-      assert(producersToPort.size == 1) //currently assuming there is always one an only one connected input. TODO: fix for empty
-      val producerToPort = producersToPort.head
-      val ownerMembers = designDB.ownerMemberTable(block.getOwnerDesign) //TODO: perhaps at any hierarchy?
-      val unusedNet = ownerMembers.collectFirst{
-        case m : DFNet.Connection if m.toRef.get == p => m
-      }.get
-      val replacement = if (producerToPort.isAnonymous) {
-        if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(p.name)
-        else producerToPort
-      } else producerToPort
-      List((p : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
-    }
-    private def flattenPortOut(block : DFDesign.Block, p : DFAny.Port.Out[_ <: DFAny.Type,_ <: DFAny.Modifier.Port.Out]) : List[(DFMember, Patch)] = {
-      val producersToPort = designDB.consumerDependencyTable(p)
+    private def flattenPort(port : DFAny) : List[(DFMember, Patch)] = {
+      val incomingBlock = port match {
+        case DFAny.In() => port.getOwnerDesign.getOwnerDesign
+        case DFAny.Out() => port.getOwnerDesign
+      }
+      val producersToPort = designDB.consumerDependencyTable(port)
       if (producersToPort.size == 1) {
         val producerToPort = producersToPort.head
-        val ownerMembers = designDB.ownerMemberTable(block) //TODO: perhaps at any hierarchy?
-        val unusedNet = ownerMembers.collectFirst{
-          case m : DFNet.Connection if m.toRef.get == p => m
+        val ibMembers = designDB.ownerMemberTable(incomingBlock) //TODO: perhaps at any hierarchy?
+        val unusedNet = ibMembers.collectFirst{
+          case m : DFNet.Connection if m.toRef.get == port => m
         }.get
         val replacement = if (producerToPort.isAnonymous) {
-          if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(p.name)
+          if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(port.name)
           else producerToPort
         } else producerToPort
-        List((p : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
+        List((port : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
       } else {
-        List(p -> Patch.ReplaceWith(flattenName(DFAny.NewVar(p.dfType, DFAny.NewVar.Uninitialized, p.ownerRef, p.tags))))
+        List(port -> Patch.ReplaceWith(flattenName(DFAny.NewVar(port.dfType, DFAny.NewVar.Uninitialized, port.ownerRef, port.tags))))
       }
     }
     private def flattenPatch(design : DFDesign) : List[(DFMember, Patch)] = {
@@ -93,8 +83,8 @@ object DFCompiler {
         val members = designDB.ownerMemberTable(block)
         val owner = block.getOwnerDesign
         (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
-          case p : DFAny.Port.In[_,_] => flattenPortIn(block, p)
-          case p : DFAny.Port.Out[_,_] => flattenPortOut(block, p)
+          case p : DFAny.Port.In[_,_] => flattenPort(p)
+          case p : DFAny.Port.Out[_,_] => flattenPort(p)
           case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(flattenName(m)))
           case _ => None
         }
