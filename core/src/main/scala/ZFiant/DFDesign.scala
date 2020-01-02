@@ -266,15 +266,7 @@ object DFDesign {
         val cell = memberTable(member)
         cell._1.asInstanceOf[Set[DFMember.Ref[T]]]
       }
-      def immutable : DB = {
-        val refMembers : List[DFMember] = members.collect {
-          case net : DFNet => net
-          case m if memberTable(m)._1.nonEmpty => m
-          case m if m.tags.keep => m
-          case m : DFDesign.Block.Top => m
-        }.toList
-        DB(refMembers, refTable.mapValues(i => members(i)))
-      }
+      def immutable : DB = DB(members.toList, refTable.mapValues(i => members(i)))
 
       implicit val getset : MemberGetSet = new MemberGetSet {
         def apply[T <: DFMember](ref: DFMember.Ref[T]): T = getMember(ref)

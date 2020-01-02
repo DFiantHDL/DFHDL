@@ -42,7 +42,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
 object IDTopApp extends App {
   val top = new IDTop {}
   import DFCompiler._
-  top.db.flatten(top.id1).printCodeString()
+  top.db.printCodeString() //.flatten(top.id1)
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point
