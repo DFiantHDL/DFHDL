@@ -139,7 +139,7 @@ object DFDesign {
       //Patching member list
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
         case Some(DB.Patch.ReplaceWith(r)) => Some(r)
-        case Some(DB.Patch.AddBefore(newMembers, _)) => newMembers :+ m
+        case Some(DB.Patch.AddBefore(db)) => db.members.drop(1) :+ m //adding the members without its Top members
         case Some(DB.Patch.Remove) => None
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
@@ -149,6 +149,9 @@ object DFDesign {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None => rt
         }
+        case (rt, (origMember, DB.Patch.AddBefore(db))) =>
+          val dbPatched = db.patch(List(db.top -> DB.Patch.ReplaceWith(origMember.getOwner)))
+          rt ++ dbPatched.refTable
         case (rt, (origMember, DB.Patch.Remove)) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
           case None => rt
@@ -226,7 +229,7 @@ object DFDesign {
     object Patch {
       case object Remove extends Patch
       case class ReplaceWith(updatedMember : DFMember) extends Patch
-      case class AddBefore(newMembers : Seq[DFMember], newRefs : Seq[DFMember.Ref[_]]) extends Patch
+      case class AddBefore(db : DB) extends Patch
 //      object AddBefore {
 //        def apply(newMembers : DFMember*)(newRefs : DFMember.Ref[_]*): AddBefore = new AddBefore(newMembers, newRefs)
 //      }
