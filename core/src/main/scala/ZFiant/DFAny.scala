@@ -202,6 +202,16 @@ object DFAny {
 
   sealed trait CanBeAnonymous extends DFMember
 
+//  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
+//    dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFMember.Tags
+//  ) extends Value[Type, Mod] {
+//    type TMod = Mod
+//
+//    def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString}${modifier.codeString}"
+//    override lazy val typeName: String = s"$dfType"
+//    def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+//  }
+//
   object Port {
     final case class In[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.In](
       dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFMember.Tags
@@ -219,8 +229,13 @@ object DFAny {
       implicit class InitializableOps[Type <: DFAny.Type](val i : In[Type, Uninitialized]) {
         def init(that : i.dfType.InitAble[i.This]*)(
           implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
-        ) : In[Type, Initialized[i.TToken]] =
-          ctx.db.addMember(In[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+        ) : In[Type, Initialized[i.TToken]] = {
+          val newMember = In[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta)
+          if (ctx.meta.namePosition == i.tags.meta.namePosition) {
+            implicitly[MemberGetSet].set(i, newMember)
+            newMember
+          } else ctx.db.addMember(newMember)
+        }
       }
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
@@ -241,8 +256,13 @@ object DFAny {
       implicit class InitializableOps[Type <: DFAny.Type](val i : Out[Type, Uninitialized]) {
         def init(that : i.dfType.InitAble[i.This]*)(
           implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
-        ) : Out[Type, Initialized[i.TToken]] =
-          ctx.db.addMember(Out[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+        ) : Out[Type, Initialized[i.TToken]] = {
+          val newMember = Out[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta)
+          if (ctx.meta.namePosition == i.tags.meta.namePosition) {
+            implicitly[MemberGetSet].set(i, newMember)
+            newMember
+          } else ctx.db.addMember(newMember)
+        }
       }
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
@@ -254,8 +274,20 @@ object DFAny {
     dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFMember.Tags
   ) extends Value[Type, Mod] {
     type TMod = Mod
-    def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, Port.In.Uninitialized] = Port.In(dfType)
-    def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, Port.Out.Uninitialized] = Port.Out(dfType)
+    def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, Port.In.Uninitialized] = {
+      val newMember = Port.In[Type, Port.In.Uninitialized](dfType, Port.In.Uninitialized, ctx.owner, ctx.meta)
+      if (ctx.meta.namePosition == this.tags.meta.namePosition) {
+        implicitly[MemberGetSet].set(this, newMember)
+        newMember
+      } else ctx.db.addMember(newMember)
+    }
+    def <> (out : OUT)(implicit ctx : DFAny.Context) : Port.Out[Type, Port.Out.Uninitialized] = {
+      val newMember = Port.Out[Type, Port.Out.Uninitialized](dfType, Port.Out.Uninitialized, ctx.owner, ctx.meta)
+      if (ctx.meta.namePosition == this.tags.meta.namePosition) {
+        implicitly[MemberGetSet].set(this, newMember)
+        newMember
+      } else ctx.db.addMember(newMember)
+    }
     def <>[R](right: DFAny.PortOf[Type])(
       implicit ctx: DFNet.Context, op: dfType.`Op<>Builder`[Type, DFAny.PortOf[Type]]
     ): Unit = left.connectWith(op(dfType, right))
@@ -278,8 +310,13 @@ object DFAny {
     implicit class InitializableOps[Type <: DFAny.Type](val i : NewVar[Type, Uninitialized]) {
       def init(that : i.dfType.InitAble[i.This]*)(
         implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
-      ) : NewVar[Type, Initialized[i.TToken]] =
-        ctx.db.addMember(NewVar[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta))
+      ) : NewVar[Type, Initialized[i.TToken]] = {
+        val newMember = NewVar[Type, Initialized[i.TToken]](i.dfType, Initialized(op(i, that)), ctx.owner, ctx.meta)
+        if (ctx.meta.namePosition == i.tags.meta.namePosition) {
+          implicitly[MemberGetSet].set(i, newMember)
+          newMember
+        } else ctx.db.addMember(newMember)
+      }
     }
     def apply[Type <: DFAny.Type](dfType: Type)(
       implicit ctx: Context
