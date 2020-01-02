@@ -45,5 +45,9 @@ trait SimpleHDL extends DFDesign {
 object SimpleHDLApp extends App {
   val simple_hdl = new SimpleHDL {}
   import DFCompiler._
-  simple_hdl.db.printCodeString()
+  val hack = new DFDesign() {
+    val x = DFUInt(8) init 0
+    x := x + 1
+  }
+  simple_hdl.db.patch(List(simple_hdl.mode -> DFDesign.DB.Patch.AddBefore(hack.db.fixNames))).printCodeString()
 }

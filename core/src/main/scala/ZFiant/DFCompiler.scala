@@ -99,26 +99,32 @@ object DFCompiler {
     import designDB.getset
     @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
       remaining match {
-        case (block : DFBlock) :: mList => mcf(designDB.ownerMemberTable(block) ++ mList, retList :+ block)
+        case (block : DFBlock) :: mList =>
+          val members = designDB.ownerMemberTable(block)
+          val sortedMembers = block match {
+            case _ : DFDesign.Block =>
+              val split = members.partition {
+                case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] => true
+                case _ => false
+              }
+              split._1 ++ split._2
+            case _ => members
+          }
+          mcf(sortedMembers ++ mList, retList :+ block)
         case m :: mList => mcf(mList, retList :+ m)
         case Nil => retList
       }
-    private def mcf() : List[DFMember] = mcf(List(designDB.top), List())
-    def moveConnectableFirst : DFDesign.DB = {
-      designDB.top
-//      val split = designDB.members.partition {
-//        case m : DFBlock => true
-//        case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] && m.getOwner == m.getOwnerDesign => true
-//        case _ => false
-//      }
-      designDB.copy(members = mcf)
-    }
+    def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
     def addIfGuard(guardMembers : Seq[DFMember], guardRefs : Seq[DFMember.Ref[_]], fromMember : DFMember, toMember : DFMember) : DFDesign.DB = {
       val block = fromMember.getOwner
       val members = designDB.ownerMemberTable(block)
       val owner = block.getOwnerDesign
+      val temp = new DFDesign() {
+        val myCounter = DFUInt(8) init 0
+        myCounter := myCounter + 1
+      }
 //      val ifBlock = ConditionalBlock.NoRetVal.IfBlock()
-      (fromMember -> Patch.AddBefore(guardMembers, guardRefs))
+//      (fromMember -> Patch.AddBefore(guardMembers, guardRefs))
 //      (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
 //        case p : DFAny.Port.In[_,_] => flattenPort(p)
 //        case p : DFAny.Port.Out[_,_] => flattenPort(p)
