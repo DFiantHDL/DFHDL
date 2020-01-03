@@ -46,5 +46,5 @@ object SimpleHDLApp extends App {
   val simple_hdl = new SimpleHDL {}
   import DFCompiler._
   import maxeler._
-  simple_hdl.maxJNode(simple_hdl.max, simple_hdl.count)(simple_hdl.hold_count).db.printCodeString()
+  simple_hdl.maxJNode(simple_hdl.max)(simple_hdl.count)(simple_hdl.hold_count).db.printCodeString()
 }
