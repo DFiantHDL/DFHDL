@@ -67,9 +67,9 @@ object DFCompiler {
               split._1 ++ split._2
             case _ => members
           }
-          mcf(sortedMembers ++ mList, retList :+ block)
-        case m :: mList => mcf(mList, retList :+ m)
-        case Nil => retList
+          mcf(sortedMembers ++ mList, block :: retList)
+        case m :: mList => mcf(mList, m :: retList)
+        case Nil => retList.reverse
       }
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
