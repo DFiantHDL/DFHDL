@@ -111,11 +111,11 @@ object DFDesign {
               OMLGen(oml, mList, updatedStack1)
           }
         case x :: xs => //current member does not belong to current owner
-          val updatedOML = oml :+ (localOwner -> localMembers)
+          val updatedOML = (localOwner -> localMembers) :: oml
           OMLGen(updatedOML, globalMembers, updatedStack0)
         case Nil =>
           assert(updatedStack0.isEmpty, updatedStack0) //sanity check
-          oml :+ (localOwner -> localMembers)
+          (localOwner -> localMembers) :: oml
       }
     }
 
