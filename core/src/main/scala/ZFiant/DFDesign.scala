@@ -129,7 +129,7 @@ object DFDesign {
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
     //replaces all members and references according to the patch list
-    def patch(patchList : List[(DFMember, DB.Patch)]) : DB = {
+    def patch(patchList : List[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
       //If we attempt to replace with an existing member, then we convert the patch to remove
       //the old member just for the member list (references are replaced).
       val patchTable = patchList.map {

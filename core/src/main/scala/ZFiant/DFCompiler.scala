@@ -53,6 +53,25 @@ object DFCompiler {
       }
       designDB.patch(anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement)))
     }
+    @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
+      remaining match {
+        case (block : DFBlock) :: mList =>
+          val members = designDB.ownerMemberTable(block)
+          val sortedMembers = block match {
+            case _ : DFDesign.Block =>
+              val split = members.partition {
+                case _ : DFDesign.Block => true
+                case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] => true
+                case _ => false
+              }
+              split._1 ++ split._2
+            case _ => members
+          }
+          mcf(sortedMembers ++ mList, retList :+ block)
+        case m :: mList => mcf(mList, retList :+ m)
+        case Nil => retList
+      }
+    def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
 
   implicit class Flatten(designDB : DFDesign.DB) {
@@ -97,25 +116,6 @@ object DFCompiler {
 
   implicit class AddGuard(designDB : DFDesign.DB) {
     import designDB.getset
-    @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
-      remaining match {
-        case (block : DFBlock) :: mList =>
-          val members = designDB.ownerMemberTable(block)
-          val sortedMembers = block match {
-            case _ : DFDesign.Block =>
-              val split = members.partition {
-                case _ : DFDesign.Block => true
-                case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] => true
-                case _ => false
-              }
-              split._1 ++ split._2
-            case _ => members
-          }
-          mcf(sortedMembers ++ mList, retList :+ block)
-        case m :: mList => mcf(mList, retList :+ m)
-        case Nil => retList
-      }
-    def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
     def addIfGuard(guardMembers : Seq[DFMember], guardRefs : Seq[DFMember.Ref[_]], fromMember : DFMember, toMember : DFMember) : DFDesign.DB = {
       val block = fromMember.getOwner
       val members = designDB.ownerMemberTable(block)
