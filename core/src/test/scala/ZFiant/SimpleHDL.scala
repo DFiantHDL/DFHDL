@@ -7,7 +7,7 @@ object ModeType extends Enum.Auto {
 trait SimpleHDL extends DFDesign {
   import ModeType._
   final val max = DFBits(32) <> IN
-  final val count = DFBits(32) <> OUT
+  final val count = DFBits(32) <> OUT init b0s
   final val hold_count = DFBits(32) <> IN
 
   final val counter = DFUInt(32) init 0
@@ -45,9 +45,33 @@ trait SimpleHDL extends DFDesign {
 object SimpleHDLApp extends App {
   val simple_hdl = new SimpleHDL {}
   import DFCompiler._
-  val hack = new DFDesign() {
-    val x = DFUInt(8) init 0
-    x := x + 1
+  import DFDesign.DB.Patch
+  implicit class MaxelerExtras(designDB : DFDesign.DB) {
+    def maxelerStreamIn(port : DFAny.PortInOf[_ <: DFAny.Type]) : DFDesign.DB = {
+      val extras = new DFDesign() {
+        val empty = DFBool() <> IN setNamePrefix(s"${port.name}_")
+        val almost_empty = DFBool() <> IN setNamePrefix(s"${port.name}_")
+        val read = DFBool() <> OUT setNamePrefix(s"${port.name}_")
+      }
+      import designDB.getset
+      designDB.patch(List(port -> DFDesign.DB.Patch.Add(extras.db, before = false))).patch(List(port -> Patch.Replace(port.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
+    }
+    def maxelerStreamOut(port : DFAny.PortOutOf[_ <: DFAny.Type]) : DFDesign.DB = {
+      val extras = new DFDesign() {
+        val stall = DFBool() <> IN setNamePrefix(s"${port.name}_")
+        val valid = DFBool() <> OUT init 0 setNamePrefix(s"${port.name}_")
+      }
+      import designDB.getset
+      designDB.patch(List(port -> DFDesign.DB.Patch.Add(extras.db, before = false))).patch(List(port -> Patch.Replace(port.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
+    }
+    def maxelerScalarIn(port : DFAny.PortInOf[_ <: DFAny.Type]) : DFDesign.DB = {
+      val extras = new DFDesign() {
+        val reg = port.prev() setNamePrefix(s"${port.name}_")
+      }
+      import designDB.getset
+      designDB.patch(List(port -> Patch.Replace(extras.reg, Patch.Replace.Config.ChangeRefOnly))).patch(List(port -> DFDesign.DB.Patch.Add(extras.db, before = false)))
+    }
+
   }
-  simple_hdl.db.patch(List(simple_hdl.mode -> DFDesign.DB.Patch.AddBefore(hack.db.fixNames))).printCodeString()
+  simple_hdl.db.maxelerStreamIn(simple_hdl.max).maxelerStreamOut(simple_hdl.count).maxelerScalarIn(simple_hdl.hold_count).printCodeString()
 }

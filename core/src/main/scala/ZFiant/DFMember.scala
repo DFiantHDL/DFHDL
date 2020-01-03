@@ -67,6 +67,8 @@ trait DFMember extends HasTypeName with Product with Serializable {
 object DFMember {
   implicit class MemberExtender[T <: DFMember](member : T)(implicit getset : MemberGetSet) {
     def setName(value : String) : T = member.setTags(member.tags.setName(value)).asInstanceOf[T]
+    def setNameSuffix(value : String) : T = setName(s"${member.name}$value")
+    def setNamePrefix(value : String) : T = setName(s"$value${member.name}")
     def anonymize : T = member.setTags(member.tags.anonymize).asInstanceOf[T]
     def keep : T = member.setTags(member.tags.setKeep(true)).asInstanceOf[T]
   }

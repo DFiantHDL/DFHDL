@@ -2,7 +2,7 @@ package ZFiant
 import DFiant.internals._
 
 import scala.annotation.{implicitNotFound, tailrec}
-import scala.collection.immutable
+import scala.collection.mutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
@@ -133,24 +133,30 @@ object DFDesign {
       //If we attempt to replace with an existing member, then we convert the patch to remove
       //the old member just for the member list (references are replaced).
       val patchTable = patchList.map {
-        case (m, DB.Patch.ReplaceWith(r)) if memberTable.contains(r) => (m, DB.Patch.Remove)
+        case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement)) if memberTable.contains(r) => (m, DB.Patch.Remove)
         case x => x
       }.toMap
       //Patching member list
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
-        case Some(DB.Patch.ReplaceWith(r)) => Some(r)
-        case Some(DB.Patch.AddBefore(db)) => db.members.drop(1) :+ m //adding the members without its Top members
+        case Some(DB.Patch.Replace(r, config)) => config match {
+          case DB.Patch.Replace.Config.ChangeRefOnly => Some(m)
+          case DB.Patch.Replace.Config.FullReplacement => Some(r)
+        }
+        case Some(DB.Patch.Add(db, before)) =>
+          //adding the members without its Top members either before or after the patched member
+          if (before) db.members.drop(1) :+ m
+          else m :: db.members.drop(1)
         case Some(DB.Patch.Remove) => None
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
-        case (rt, (origMember, DB.Patch.ReplaceWith(repMember))) => memberTable.get(origMember) match {
+        case (rt, (origMember, DB.Patch.Replace(repMember, config))) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None => rt
         }
-        case (rt, (origMember, DB.Patch.AddBefore(db))) =>
-          val dbPatched = db.patch(List(db.top -> DB.Patch.ReplaceWith(origMember.getOwner)))
+        case (rt, (origMember, DB.Patch.Add(db, _))) =>
+          val dbPatched = db.patch(db.top -> DB.Patch.Replace(origMember.getOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           rt ++ dbPatched.refTable
         case (rt, (origMember, DB.Patch.Remove)) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
@@ -159,7 +165,7 @@ object DFDesign {
       }
       DB(patchedMembers, patchedRefTable)
     }
-
+    def patch(singlePatch : (DFMember, DB.Patch)) : DB = patch(List(singlePatch))
     @tailrec private def getGuards(currentOwner : DFBlock, targetOwner : DFBlock, currentGuards : List[DFAny]) : List[DFAny] =
       currentOwner match {
         case _ : DFDesign.Block => currentGuards //reached the design block
@@ -227,46 +233,49 @@ object DFDesign {
   object DB {
     sealed trait Patch extends Product with Serializable
     object Patch {
-      case object Remove extends Patch
-      case class ReplaceWith(updatedMember : DFMember) extends Patch
-      case class AddBefore(db : DB) extends Patch
+      final case object Remove extends Patch
+      final case class Replace(updatedMember : DFMember, config : Replace.Config) extends Patch
+      object Replace {
+        sealed trait Config extends Product with Serializable
+        object Config {
+          //only modifies the reference table so that all members currently referencing the original member will reference
+          //the updated member.
+          case object ChangeRefOnly extends Config
+          //The updated member is replacing the original member in the member list and all members currently
+          //referencing the existing member will reference the updated member.
+          //If the updated member already exists in the member list (at a different position), then the original member is
+          //removed from the list without being replaced in its position.
+          case object FullReplacement extends Config
+        }
+      }
+      final case class Add(db : DB, before : Boolean) extends Patch
 //      object AddBefore {
 //        def apply(newMembers : DFMember*)(newRefs : DFMember.Ref[_]*): AddBefore = new AddBefore(newMembers, newRefs)
 //      }
     }
     class Mutable {
-      private var members : Vector[DFMember] = Vector()
+      private val members : mutable.ListBuffer[DFMember] = mutable.ListBuffer()
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
         cb.applyBlock(block)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
-        memberTable = memberTable + (member -> (Set(), members.length))
-        members = members :+ member
+        members += member
         member
       }
-      private var refTable : Map[DFMember.Ref[_], Int] = Map()
-      private var memberTable : Map[DFMember, (Set[DFMember.Ref[_]], Int)] = Map()
-      def getMember[T <: DFMember](ref : DFMember.Ref[T]) : T = members(refTable(ref)).asInstanceOf[T]
+      private val refTable : mutable.Map[DFMember.Ref[_], DFMember] = mutable.Map()
+      def getMember[T <: DFMember](ref : DFMember.Ref[T]) : T = refTable(ref).asInstanceOf[T]
       def setMember[T <: DFMember](originalMember : T, newMember : T) : T = {
-        val cell = memberTable(originalMember)
-        members = members.updated(cell._2, newMember)
-        memberTable = memberTable - originalMember
-        memberTable = memberTable + (newMember -> cell)
+        val idx = members.length - 1 - members.reverseIterator.indexOf(originalMember) //more likely to set latest members
+        members.update(idx, newMember)
         newMember
       }
       def newRefFor[T <: DFMember, R <: DFMember.Ref[T]](ref : R, member : T) : R = {
-        val cell = memberTable(member)
-        memberTable = memberTable + (member -> cell.copy(_1 = cell._1 + ref))
-        refTable = refTable + (ref -> cell._2)
+        refTable += (ref -> member)
         ref
       }
-      def getRefs[T <: DFMember](member : T) : Set[DFMember.Ref[T]] = {
-        val cell = memberTable(member)
-        cell._1.asInstanceOf[Set[DFMember.Ref[T]]]
-      }
-      def immutable : DB = DB(members.toList, refTable.mapValues(i => members(i)))
+      def immutable : DB = DB(members.toList, refTable.toMap)
 
       implicit val getset : MemberGetSet = new MemberGetSet {
         def apply[T <: DFMember](ref: DFMember.Ref[T]): T = getMember(ref)
