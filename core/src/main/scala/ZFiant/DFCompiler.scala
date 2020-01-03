@@ -51,7 +51,7 @@ object DFCompiler {
           case _ => List()
         }
       }
-      designDB.patch(anonymizeList.map(a => a -> Patch.ReplaceWith(a.anonymize)))
+      designDB.patch(anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement)))
     }
   }
 
@@ -74,9 +74,9 @@ object DFCompiler {
           if (designDB.producerDependencyTable(producerToPort).size > 1) producerToPort.setName(port.name)
           else producerToPort
         } else producerToPort
-        List((port : DFMember, Patch.ReplaceWith(replacement)), (unusedNet, Patch.Remove))
+        List((port : DFMember, Patch.Replace(replacement, Patch.Replace.Config.FullReplacement)), (unusedNet, Patch.Remove))
       } else {
-        List(port -> Patch.ReplaceWith(flattenName(DFAny.NewVar(port.dfType, DFAny.NewVar.Uninitialized, port.ownerRef, port.tags))))
+        List(port -> Patch.Replace(flattenName(DFAny.NewVar(port.dfType, DFAny.NewVar.Uninitialized, port.ownerRef, port.tags)), Patch.Replace.Config.FullReplacement))
       }
     }
     private def flattenPatch(design : DFDesign) : List[(DFMember, Patch)] = {
@@ -84,10 +84,10 @@ object DFCompiler {
       if (block.isTop) List() else {
         val members = designDB.ownerMemberTable(block)
         val owner = block.getOwnerDesign
-        (block -> Patch.ReplaceWith(owner)) :: members.flatMap {
+        (block -> Patch.Replace(owner, Patch.Replace.Config.FullReplacement)) :: members.flatMap {
           case p : DFAny.Port.In[_,_] => flattenPort(p)
           case p : DFAny.Port.Out[_,_] => flattenPort(p)
-          case m if !m.isAnonymous => List(m -> Patch.ReplaceWith(flattenName(m)))
+          case m if !m.isAnonymous => List(m -> Patch.Replace(flattenName(m), Patch.Replace.Config.FullReplacement))
           case _ => None
         }
       }
@@ -104,6 +104,7 @@ object DFCompiler {
           val sortedMembers = block match {
             case _ : DFDesign.Block =>
               val split = members.partition {
+                case _ : DFDesign.Block => true
                 case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] => true
                 case _ => false
               }
