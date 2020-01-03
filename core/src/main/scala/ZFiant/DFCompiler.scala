@@ -31,9 +31,9 @@ object DFCompiler {
 
   implicit class Naming(designDB : DFDesign.DB) {
     import designDB.getset
-    def fixNames : DFDesign.DB = {
+    def fixAnonymous : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
-        case (block, members) => members.groupBy(m => m.tags.meta.namePosition).flatMap {
+        case (block, members) => members.filterNot(m => m.isAnonymous).groupBy(m => m.tags.meta.namePosition).flatMap {
           //In case an anonymous member got a name from its owner. For example:
           //val ret = DFBits(8).ifdf(cond) {
           //  i & i
