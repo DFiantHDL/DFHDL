@@ -44,7 +44,7 @@ case class MaxJNode(
       .patch(pushOutZ.map((p, _) => p -> Patch.Replace(p.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
       .patch(scalaInZ.map((p, e) => p -> Patch.Replace(e.reg, Patch.Replace.Config.ChangeRefOnly)))
       .patch(scalaInZ.map((p, e) => p -> DFDesign.DB.Patch.Add(e.db, before = false)))
-//      .fixNames
+      .fixAnonymous
       .moveConnectableFirst
   }
 }
