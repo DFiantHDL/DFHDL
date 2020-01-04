@@ -376,12 +376,27 @@ object DFAny {
         implicit ctx: Context
       ): Prev[RelVal] = ctx.db.addMember(Prev[RelVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta))
     }
+    final case class Invert[RelVal <: DFAny](
+      dfType : RelVal#TType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFMember.Tags
+    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
+      type TMod = Modifier.Val
+      val modifier : TMod = Modifier.Val
+      def codeString(implicit getset : MemberGetSet) : String =
+        s"!${relValRef.refCodeString}"
+      def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+    }
+    object Invert {
+      def apply[RelVal <: DFAny](refVal: RelVal)(
+        implicit ctx: Context
+      ): Invert[RelVal] = ctx.db.addMember(Invert[RelVal](refVal.dfType, refVal, ctx.owner, ctx.meta))
+    }
   }
 
   sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
   }
+
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
     dfType: Type, leftArgRef : Func2.LeftArgRef[L], op : Op, rightArgRef : Func2.RightArgRef[R], ownerRef : DFBlock.Ref, tags : DFMember.Tags
   )(func : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {

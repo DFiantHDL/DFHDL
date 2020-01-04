@@ -29,7 +29,7 @@ object DFCompiler {
     }
   }
 
-  implicit class Naming(designDB : DFDesign.DB) {
+  implicit class Utils(designDB : DFDesign.DB) {
     import designDB.getset
     def fixAnonymous : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {

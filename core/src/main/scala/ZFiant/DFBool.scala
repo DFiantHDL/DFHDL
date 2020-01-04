@@ -200,6 +200,7 @@ object DFBool extends DFAny.Companion {
         final def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
         final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
         final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
+        final def unary_!(implicit ctx : DFAny.Context) : DFBool = DFAny.Alias.Invert(left)
       }
     }
     object Able extends Implicits
