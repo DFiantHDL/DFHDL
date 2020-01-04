@@ -144,23 +144,35 @@ object DFDesign {
           case DB.Patch.Replace.Config.ChangeRefOnly => Some(m)
           case DB.Patch.Replace.Config.FullReplacement => Some(r)
         }
-        case Some(DB.Patch.Add(db, before)) =>
-          //adding the members without its Top members either before or after the patched member
-          if (before) db.members.drop(1) :+ m
-          else m :: db.members.drop(1)
+        case Some(DB.Patch.Add(db, config)) =>
+          val notTop = db.members.drop(1) //adding the members without the Top design block
+          config match {
+            case DB.Patch.Add.Config.After => m :: notTop
+            case DB.Patch.Add.Config.Before => notTop :+ m
+            case DB.Patch.Add.Config.Replace => notTop
+          }
         case Some(DB.Patch.Remove) => None
         case Some(_ : DB.Patch.ChangeRef[_]) => Some(m)
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
-        case (rt, (origMember, DB.Patch.Replace(repMember, config))) => memberTable.get(origMember) match {
+        case (rt, (origMember, DB.Patch.Replace(repMember, _))) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None => rt
         }
-        case (rt, (origMember, DB.Patch.Add(db, _))) =>
+        case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(origMember.getOwner, DB.Patch.Replace.Config.ChangeRefOnly))
-          rt ++ dbPatched.refTable
+          val repRT = config match {
+            case DB.Patch.Add.Config.Replace =>
+              val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
+              memberTable.get(origMember) match {
+                case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+                case None => rt
+              }
+            case _ => rt
+          }
+          repRT ++ dbPatched.refTable
         case (rt, (origMember, DB.Patch.Remove)) => memberTable.get(origMember) match {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
           case None => rt
@@ -254,7 +266,17 @@ object DFDesign {
           case object FullReplacement extends Config
         }
       }
-      final case class Add(db : DB, before : Boolean) extends Patch
+      final case class Add(db : DB, config : Add.Config) extends Patch {
+        def this(design : DFDesign, config : Add.Config) = this(design.db, config)
+      }
+      object Add {
+        sealed trait Config extends Product with Serializable
+        object Config {
+          case object Before extends Config
+          case object After extends Config
+          case object Replace extends Config
+        }
+      }
       final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref[_ <: DFMember], updatedRefMember : DFMember) extends Patch
     }
     class Mutable {

@@ -45,19 +45,20 @@ case class MaxJNode(
     import DFCompiler._
     val z = control.db.ownerMemberTable
     val extendedPortsDB = designDB
-      .patch(pullInZ.map((p, e) => p -> DFDesign.DB.Patch.Add(e.db, before = false)))
+      .patch(pullInZ.map((p, e) => p -> Patch.Add(e.db, Patch.Add.Config.After)))
       .patch(pullInZ.map((p, _) => p -> Patch.Replace(p.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
-      .patch(pushOutZ.map((p, e) => p -> DFDesign.DB.Patch.Add(e.db, before = false)))
+      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e.db, Patch.Add.Config.After)))
       .patch(pushOutZ.map((p, _) => p -> Patch.Replace(p.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
       .patch(scalaInZ.map((p, e) => p -> Patch.Replace(e.reg, Patch.Replace.Config.ChangeRefOnly)))
-      .patch(scalaInZ.map((p, e) => p -> DFDesign.DB.Patch.Add(e.db, before = false)))
+      .patch(scalaInZ.map((p, e) => p -> Patch.Add(e.db, Patch.Add.Config.After)))
       .moveConnectableFirst
-    val guarded = extendedPortsDB.ownerMemberTable(design.block).collect {
+    val guardedMembers = extendedPortsDB.ownerMemberTable(design.block).collect {
       case m : CanBeGuarded => m
     }
-    extendedPortsDB
-      .patch(guarded.head -> DFDesign.DB.Patch.Add(control.db, before = true))
-      .patch(guarded.map(m => m -> DFDesign.DB.Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
+    val guardedDB = extendedPortsDB
+      .patch(guardedMembers.head -> DFDesign.DB.Patch.Add(control.db, Patch.Add.Config.Before))
+      .patch(guardedMembers.map(m => m -> DFDesign.DB.Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
+    guardedDB
   }
 
   private val instName : String = design.block.name
