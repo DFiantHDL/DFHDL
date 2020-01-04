@@ -16,7 +16,7 @@ object DFNet {
   class FromRef extends DFAny.Ref.ConsumeFrom[DFAny]
   object FromRef extends DFAny.Ref.ConsumeFrom.CO[DFAny, FromRef](new FromRef)
 
-  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags) extends DFNet(":=") {
+  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags) extends DFNet(":=") with CanBeGuarded {
     def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object Assignment {

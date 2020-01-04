@@ -64,9 +64,8 @@ object DFCompiler {
           val sortedMembers = block match {
             case _ : DFDesign.Block =>
               val split = members.partition {
-                case _ : DFDesign.Block => true
-                case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] => true
-                case _ => false
+                case _ : CanBeGuarded => false
+                case _ => true
               }
               split._1 ++ split._2
             case _ => members

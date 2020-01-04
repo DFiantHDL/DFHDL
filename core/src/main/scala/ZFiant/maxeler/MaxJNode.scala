@@ -52,10 +52,8 @@ case class MaxJNode(
       .patch(scalaInZ.map((p, e) => p -> Patch.Replace(e.reg, Patch.Replace.Config.ChangeRefOnly)))
       .patch(scalaInZ.map((p, e) => p -> DFDesign.DB.Patch.Add(e.db, before = false)))
       .moveConnectableFirst
-    val guarded = extendedPortsDB.ownerMemberTable(design.block).flatMap {
-      case _ : DFDesign.Block => None
-      case m : DFAny if m.modifier.isInstanceOf[DFAny.Modifier.Connectable] => None
-      case m => Some(m)
+    val guarded = extendedPortsDB.ownerMemberTable(design.block).collect {
+      case m : CanBeGuarded => m
     }
     extendedPortsDB
       .patch(guarded.head -> DFDesign.DB.Patch.Add(control.db, before = true))
