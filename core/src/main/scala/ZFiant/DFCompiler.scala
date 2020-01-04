@@ -33,26 +33,30 @@ object DFCompiler {
     import designDB.getset
     def fixAnonymous : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
-        case (block, members) => members.filterNot(m => m.isAnonymous).groupBy(m => m.tags.meta.namePosition).flatMap {
+        case (block, members) =>
+          members.filterNot(m => m.isAnonymous).groupBy(m => m.tags.meta.namePosition).flatMap {
           //In case an anonymous member got a name from its owner. For example:
           //val ret = DFBits(8).ifdf(cond) {
           //  i & i
           //}
           //The `i & i` function would also get the `ret` name just as the if block itself
           case (pos, gm) if (pos == block.tags.meta.namePosition) => gm
-          //In case an anonymous member was used as an argument to an owner. For example:
-          //val ret = DFBits(8).ifdf(i & i) {
-          //}
-          //The `i & i` function would also get the `ret` name just as the if block itself
           case (_, gm) if (gm.length > 1) =>
-            if (gm.collectFirst{case x : DFBlock => x}.isDefined)
-              gm.collect {case a : DFAny.CanBeAnonymous => a}
-            else List()
+            //In case an anonymous member was used as an argument to an owner. For example:
+            //val ret = DFBits(8).ifdf(i & i) {
+            //}
+            //The `i & i` function would also get the `ret` name just as the if block itself
+            if (gm.collectFirst{case x : DFBlock => x}.isDefined) gm.collect {case a : DFAny.CanBeAnonymous => a}
+            //In case an anonymous member inside a composition, we anonymize all but the last. For example:
+            //val ret = i & i | i
+            //Only the final 'Or' operation would be considered for the name `ret`
+            else gm.dropRight(1)
           case _ => List()
         }
       }
       designDB.patch(anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement)))
     }
+    def uniqueNames : DFDesign.DB = ???
     @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
       remaining match {
         case (block : DFBlock) :: mList =>
@@ -138,11 +142,12 @@ object DFCompiler {
   }
 
   final implicit class CodeString(designDB : DFDesign.DB) {
-    import designDB.getset
+    private val fixedDB = designDB.fixAnonymous
+    import fixedDB.getset
     def blockBodyCodeString(block : DFBlock, members : List[DFMember]) : String = {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader => mh.codeString
-        case cb : ConditionalBlock => cb.codeString(blockBodyCodeString(cb, designDB.ownerMemberTable(cb)))
+        case cb : ConditionalBlock => cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb)))
         case m : DFDesign.Block => s"final val ${m.name} = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
         case a : DFAny if !a.isAnonymous => s"final val ${a.name} = ${a.codeString}"
@@ -154,7 +159,7 @@ object DFCompiler {
         override def ownerToString(ownerTypeName: String, ownerBody: String): String =
           s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(delim)}\n}"
       }
-      designDB.ownerMemberList.foreach {
+      fixedDB.ownerMemberList.foreach {
         case (block : DFDesign.Block, members) =>
           bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members), block)
         case _ =>
@@ -163,7 +168,7 @@ object DFCompiler {
     }
     def printCodeString() : DFDesign.DB = {
       println(codeString)
-      designDB
+      fixedDB
     }
   }
 }

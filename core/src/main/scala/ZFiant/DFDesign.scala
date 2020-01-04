@@ -147,6 +147,7 @@ object DFDesign {
           if (before) db.members.drop(1) :+ m
           else m :: db.members.drop(1)
         case Some(DB.Patch.Remove) => None
+        case Some(_ : DB.Patch.ChangeRef[_]) => Some(m)
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
       //Patching reference table
@@ -162,6 +163,9 @@ object DFDesign {
           case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
           case None => rt
         }
+        case (rt, (_, DB.Patch.ChangeRef(origMember, refFunc, updatedRefMember))) =>
+          val ref = refFunc(origMember)
+          rt + (ref -> updatedRefMember)
       }
       DB(patchedMembers, patchedRefTable)
     }
@@ -249,9 +253,7 @@ object DFDesign {
         }
       }
       final case class Add(db : DB, before : Boolean) extends Patch
-//      object AddBefore {
-//        def apply(newMembers : DFMember*)(newRefs : DFMember.Ref[_]*): AddBefore = new AddBefore(newMembers, newRefs)
-//      }
+      final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref[_ <: DFMember], updatedRefMember : DFMember) extends Patch
     }
     class Mutable {
       private val members : mutable.ListBuffer[DFMember] = mutable.ListBuffer()

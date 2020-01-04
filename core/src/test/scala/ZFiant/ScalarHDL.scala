@@ -47,5 +47,6 @@ object SimpleHDLApp extends App {
   import DFCompiler._
   import maxeler._
   val res= scalar_hdl.maxJNode(scalar_hdl.max)(scalar_hdl.count)(scalar_hdl.hold_count)
+  res.db.printCodeString()
   println(res.nodeMaxJString)
 }
