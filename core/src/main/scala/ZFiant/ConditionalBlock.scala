@@ -18,7 +18,7 @@
 package ZFiant
 import DFiant.internals._
 
-sealed trait ConditionalBlock extends DFBlock {
+sealed trait ConditionalBlock extends DFBlock with CanBeGuarded {
   type TRet
   private[ZFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
 }
@@ -45,7 +45,7 @@ object ConditionalBlock {
       DFMember.Ref.newRefFor(new MatchValRef[MVType], member)
   }
 
-  sealed trait MatchHeader extends DFMember {
+  sealed trait MatchHeader extends CanBeGuarded {
     type TMVType <: DFAny.Type
     val matchValRef : MatchValRef[TMVType]
     val matchConfig : MatchConfig

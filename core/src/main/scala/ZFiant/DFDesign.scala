@@ -102,7 +102,7 @@ object DFDesign {
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
         case m :: mList if m.getOwner == localOwner => //current member indeed belongs to current owner
-          val updatedStack1 = (localOwner -> (localMembers :+ m)) :: updatedStack0
+          val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
           m match {
             case o : DFBlock => //Deep borrowing into block as the new owner
               val updatedStack2 = (o -> List()) :: updatedStack1
@@ -111,13 +111,13 @@ object DFDesign {
               OMLGen(oml, mList, updatedStack1)
           }
         case x :: xs => //current member does not belong to current owner
-          val updatedOML = (localOwner -> localMembers) :: oml
+          val updatedOML = (localOwner -> localMembers.reverse) :: oml
           OMLGen(updatedOML, globalMembers, updatedStack0)
         case Nil if updatedStack0.nonEmpty =>
-          val updatedOML = (localOwner -> localMembers) :: oml
+          val updatedOML = (localOwner -> localMembers.reverse) :: oml
           OMLGen(updatedOML, globalMembers, updatedStack0)
         case Nil =>
-          (localOwner -> localMembers) :: oml
+          (localOwner -> localMembers.reverse) :: oml
       }
     }
 

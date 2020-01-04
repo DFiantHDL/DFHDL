@@ -143,3 +143,5 @@ trait MemberGetSet {
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset
 }
+
+trait CanBeGuarded extends DFMember
