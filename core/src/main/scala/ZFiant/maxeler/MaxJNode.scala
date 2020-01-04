@@ -35,14 +35,15 @@ case class MaxJNode(
 
   private val control = new DFDesign() {
     final val ready = !pullInZ.head._2.empty && !pushOutZ.head._2.stall
-    final val guard = ifdf(ready){pushOutZ.head._2.valid := true}
     pushOutZ.head._2.valid := ready.prev //force 1 clock delay from ready
+    final val guard = ifdf(ready){}
   }
 
   val db : DFDesign.DB = {
     import designDB.getset
     import DFDesign.DB.Patch
     import DFCompiler._
+    val z = control.db.ownerMemberTable
     val extendedPortsDB = designDB
       .patch(pullInZ.map((p, e) => p -> DFDesign.DB.Patch.Add(e.db, before = false)))
       .patch(pullInZ.map((p, _) => p -> Patch.Replace(p.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
@@ -58,7 +59,7 @@ case class MaxJNode(
     }
     extendedPortsDB
       .patch(guarded.head -> DFDesign.DB.Patch.Add(control.db, before = true))
-//      .patch(guarded.map(m => m -> DFDesign.DB.Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
+      .patch(guarded.map(m => m -> DFDesign.DB.Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
   }
 
   private val instName : String = design.block.name

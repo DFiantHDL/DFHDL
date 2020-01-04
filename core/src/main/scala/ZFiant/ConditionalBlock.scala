@@ -50,8 +50,8 @@ object ConditionalBlock {
     val matchValRef : MatchValRef[TMVType]
     val matchConfig : MatchConfig
     def codeString(implicit getset : MemberGetSet) : String = matchConfig match  {
-      case MatchConfig.NoOverlappingCases => s"matchdf (${matchValRef.refCodeString})"
-      case MatchConfig.AllowOverlappingCases => s"matchdf (${matchValRef.refCodeString}, MatchConfig.AllowOverlappingCases)"
+      case MatchConfig.NoOverlappingCases => s"matchdf(${matchValRef.refCodeString})"
+      case MatchConfig.AllowOverlappingCases => s"matchdf(${matchValRef.refCodeString}, MatchConfig.AllowOverlappingCases)"
     }
   }
   object MatchHeader {

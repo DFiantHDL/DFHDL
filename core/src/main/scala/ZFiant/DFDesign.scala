@@ -113,8 +113,10 @@ object DFDesign {
         case x :: xs => //current member does not belong to current owner
           val updatedOML = (localOwner -> localMembers) :: oml
           OMLGen(updatedOML, globalMembers, updatedStack0)
+        case Nil if updatedStack0.nonEmpty =>
+          val updatedOML = (localOwner -> localMembers) :: oml
+          OMLGen(updatedOML, globalMembers, updatedStack0)
         case Nil =>
-          assert(updatedStack0.isEmpty, updatedStack0) //sanity check
           (localOwner -> localMembers) :: oml
       }
     }
