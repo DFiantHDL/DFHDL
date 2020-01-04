@@ -22,7 +22,7 @@ case class MaxJNode(
     final val read = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
   private val pushInZ = (pushInputs, pushInputs.map(p => new DFDesign() {
-    final val stall = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
+    final val stall = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
   private val pushOutZ = (pushOutputs, pushOutputs.map(p => new DFDesign() {
@@ -32,6 +32,12 @@ case class MaxJNode(
   private val scalaInZ = (scalarInputs, scalarInputs.map(p => new DFDesign() {
     final val reg = p.prev() setNamePrefix(s"${p.name}_")
   })).zipped
+
+  private val control = new DFDesign() {
+    final val ready = !pullInZ.head._2.empty && !pushOutZ.head._2.stall
+    pushOutZ.head._2.valid := ready.prev //force 1 clock delay from ready
+    final val guard = ifdf(ready){}
+  }
 
   val db : DFDesign.DB = {
     import designDB.getset
@@ -47,4 +53,38 @@ case class MaxJNode(
       .fixAnonymous
       .moveConnectableFirst
   }
+
+  private val instName : String = design.block.name
+  private val packName : String = design.block.name
+  private val className : String = s"${design.typeName}Node"
+  private val vhdlName : String = s"${design.typeName}Source"
+  private val clkName : String = "clk"
+  private val rstName : String = "rst"
+
+  val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
+  val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
+  val pushInStr : String = pushInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
+  val pushOutStr : String = pushOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
+  val scalarInStr : String = scalarInputs.map(p => s"""\n\t\taddScalarInput("${p.name}", ${p.width});""").mkString
+  val scalarOutStr : String = scalarOutputs.map(p => s"""\n\t\taddScalarOutput("${p.name}", ${p.width});""").mkString
+
+  val nodeMaxJString : String =
+    s"""
+       |package $packName;
+       |
+       |import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
+       |import com.maxeler.maxcompiler.v2.managers.custom.blocks.CustomHDLNode;
+       |
+       |final class $className extends CustomHDLNode {
+       |	ScalarHDLNode(CustomManager manager, String instance_name) {
+       |		super(manager, instance_name, "$instName");
+       |
+       |		CustomNodeClock nodeClock = addClockDomain("$clkName");
+       |		nodeClock.setNeedsReset("$rstName");
+       |		$pullInStr$pullOutStr$pushInStr$pushOutStr$scalarInStr$scalarOutStr
+       |
+       |		addVHDLSource("$vhdlName.vhdl", false);
+       |	}
+       |}
+       |""".stripMargin
 }

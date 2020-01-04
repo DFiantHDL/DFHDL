@@ -4,7 +4,7 @@ import scala.language.postfixOps
 object ModeType extends Enum.Auto {
   val COUNTING_UP, COUNTING_DOWN, HOLD = Entry()
 }
-trait SimpleHDL extends DFDesign {
+trait ScalarHDL extends DFDesign {
   import ModeType._
   final val max = DFBits(32) <> IN
   final val count = DFBits(32) <> OUT init b0s
@@ -43,8 +43,9 @@ trait SimpleHDL extends DFDesign {
 }
 
 object SimpleHDLApp extends App {
-  val simple_hdl = new SimpleHDL {}
+  val scalar_hdl = new ScalarHDL {}
   import DFCompiler._
   import maxeler._
-  simple_hdl.maxJNode(simple_hdl.max)(simple_hdl.count)(simple_hdl.hold_count).db.printCodeString()
+  val res= scalar_hdl.maxJNode(scalar_hdl.max)(scalar_hdl.count)(scalar_hdl.hold_count)
+  println(res.nodeMaxJString)
 }
