@@ -52,8 +52,7 @@ case class MaxJNode(
     val extendedPortsDB = designDB
       .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
       .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
-      .patch(scalaInZ.map((p, e) => p -> Patch.Replace(e.reg, Patch.Replace.Config.ChangeRefOnly)))
-      .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.After)))
+      .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Via)))
       .moveConnectableFirst
     val guardedMembers = designDB.ownerMemberTable(design.block).collect{case m : CanBeGuarded => m}
     val guardedDB = extendedPortsDB

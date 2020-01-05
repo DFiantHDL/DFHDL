@@ -130,6 +130,14 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
+    private implicit class RefTableOps(rt : Map[DFMember.Ref[_], DFMember]) {
+      def replaceMember(origMember : DFMember, repMember : DFMember) : Map[DFMember.Ref[_], DFMember] =
+        memberTable.get(origMember) match {
+          case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+          case None => rt
+        }
+    }
+
     //replaces all members and references according to the patch list
     def patch(patchList : List[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
       //If we attempt to replace with an existing member, then we convert the patch to remove
@@ -150,6 +158,7 @@ object DFDesign {
             case DB.Patch.Add.Config.After => m :: notTop
             case DB.Patch.Add.Config.Before => notTop :+ m
             case DB.Patch.Add.Config.Replace => notTop
+            case DB.Patch.Add.Config.Via => m :: notTop
           }
         case Some(DB.Patch.Remove) => None
         case Some(_ : DB.Patch.ChangeRef[_]) => Some(m)
@@ -157,19 +166,16 @@ object DFDesign {
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
-        case (rt, (origMember, DB.Patch.Replace(repMember, _))) => memberTable.get(origMember) match {
-          case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
-          case None => rt
-        }
+        case (rt, (origMember, DB.Patch.Replace(repMember, _))) => rt.replaceMember(origMember, repMember)
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(origMember.getOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
             case DB.Patch.Add.Config.Replace =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
-              memberTable.get(origMember) match {
-                case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
-                case None => rt
-              }
+              rt.replaceMember(origMember, repMember)
+            case DB.Patch.Add.Config.Via =>
+              val repMember = db.members.last //The last member is used for Via addition.
+              rt.replaceMember(origMember, repMember)
             case _ => rt
           }
           repRT ++ dbPatched.refTable
@@ -266,16 +272,21 @@ object DFDesign {
           case object FullReplacement extends Config
         }
       }
-      final case class Add(db : DB, config : Add.Config) extends Patch {
-        def this(design : DFDesign, config : Add.Config) {this(design.db, config)}
-      }
+      final case class Add(db : DB, config : Add.Config) extends Patch
       object Add {
         def apply(design : DFDesign, config : Add.Config) : Add = Add(design.db, config)
         sealed trait Config extends Product with Serializable
         object Config {
+          //adds members before the patched member
           case object Before extends Config
+          //adds members after the patched member
           case object After extends Config
+          //adds members replacing the patched member.
+          //The FIRST (non-Top) member is considered the reference replacement member
           case object Replace extends Config
+          //adds members after the patched member.
+          //The LAST member is considered the reference replacement member
+          case object Via extends Config
         }
       }
       final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref[_ <: DFMember], updatedRefMember : DFMember) extends Patch

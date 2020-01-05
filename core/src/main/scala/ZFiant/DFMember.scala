@@ -73,12 +73,15 @@ object DFMember {
     def keep : T = member.setTags(member.tags.setKeep(true)).asInstanceOf[T]
   }
 
+  trait CustomTag extends Product with Serializable
   trait Tags extends Product with Serializable {
     type TTags <: Tags
     val meta : Meta
     val keep : Boolean
+    val customTags : List[CustomTag]
     def setMeta(meta : Meta) : TTags
     def setKeep(keep : Boolean) : TTags
+    def addCustomTag(customTag : CustomTag) : TTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
     final def anonymize : TTags = setMeta(meta.copy(name = meta.name.copy(anonymous = true)))
   }
@@ -86,16 +89,18 @@ object DFMember {
     import shapeless._
     final protected val metaP = ^.meta
     final protected val keepP = ^.keep
+    final protected val customTagsP = ^.customTags
     abstract class CC[P <: CC[P]](
-      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean]
+      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean], customTagsL : customTagsP.Lens[P, List[CustomTag]]
     ) extends Tags {self : P =>
       type TTags = P
       final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
       final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
+      final def addCustomTag(customTag : CustomTag) : P = customTagsL().modify(self)(tList => customTag :: tList)
     }
 
-    final case class Basic(meta : Meta, keep : Boolean) extends Tags.CC[Basic]
-    implicit def fromMeta(meta : Meta) : Tags = Basic(meta, keep = false)
+    final case class Basic(meta : Meta, keep : Boolean, customTags : List[CustomTag]) extends Tags.CC[Basic]
+    implicit def fromMeta(meta : Meta) : Tags = Basic(meta, keep = false, List())
   }
 
   trait Context {
