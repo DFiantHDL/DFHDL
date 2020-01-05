@@ -12,20 +12,24 @@ case class MaxJNode(
 ) {
   private val designDB = design.db
   private val pullInZ = (pullInputs, pullInputs.map(p => new DFDesign() {
+    final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
   })).zipped
   private val pullOutZ = (pullOutputs, pullOutputs.map(p => new DFDesign() {
+    final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
   private val pushInZ = (pushInputs, pushInputs.map(p => new DFDesign() {
+    final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
   private val pushOutZ = (pushOutputs, pushOutputs.map(p => new DFDesign() {
+    final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
   })).zipped
@@ -35,29 +39,26 @@ case class MaxJNode(
 
   private val control = new DFDesign() {
     final val ready = !pullInZ.head._2.empty && !pushOutZ.head._2.stall
-    pushOutZ.head._2.valid := ready.prev //force 1 clock delay from ready
-    final val guard = ifdf(ready){}
+    pushOutZ.head._2.valid := false
+    final val guard = ifdf(ready){
+      pushOutZ.head._2.valid := true
+    }
   }
 
   val db : DFDesign.DB = {
     import designDB.getset
     import DFDesign.DB.Patch
     import DFCompiler._
-    val z = control.db.ownerMemberTable
     val extendedPortsDB = designDB
-      .patch(pullInZ.map((p, e) => p -> Patch.Add(e.db, Patch.Add.Config.After)))
-      .patch(pullInZ.map((p, _) => p -> Patch.Replace(p.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
-      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e.db, Patch.Add.Config.After)))
-      .patch(pushOutZ.map((p, _) => p -> Patch.Replace(p.setNameSuffix("_data"), Patch.Replace.Config.FullReplacement)))
+      .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
+      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
       .patch(scalaInZ.map((p, e) => p -> Patch.Replace(e.reg, Patch.Replace.Config.ChangeRefOnly)))
-      .patch(scalaInZ.map((p, e) => p -> Patch.Add(e.db, Patch.Add.Config.After)))
+      .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.After)))
       .moveConnectableFirst
-    val guardedMembers = extendedPortsDB.ownerMemberTable(design.block).collect {
-      case m : CanBeGuarded => m
-    }
+    val guardedMembers = designDB.ownerMemberTable(design.block).collect{case m : CanBeGuarded => m}
     val guardedDB = extendedPortsDB
-      .patch(guardedMembers.head -> DFDesign.DB.Patch.Add(control.db, Patch.Add.Config.Before))
-      .patch(guardedMembers.map(m => m -> DFDesign.DB.Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
+      .patch(guardedMembers.head -> Patch.Add(control.db, Patch.Add.Config.Before))
+      .patch(guardedMembers.map(m => m -> Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
     guardedDB
   }
 

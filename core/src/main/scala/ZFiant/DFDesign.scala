@@ -267,9 +267,10 @@ object DFDesign {
         }
       }
       final case class Add(db : DB, config : Add.Config) extends Patch {
-        def this(design : DFDesign, config : Add.Config) = this(design.db, config)
+        def this(design : DFDesign, config : Add.Config) {this(design.db, config)}
       }
       object Add {
+        def apply(design : DFDesign, config : Add.Config) : Add = Add(design.db, config)
         sealed trait Config extends Product with Serializable
         object Config {
           case object Before extends Config
