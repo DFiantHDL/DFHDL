@@ -44,7 +44,7 @@ trait ScalarHDL extends DFDesign {
 
 object SimpleHDLApp extends App {
   import maxeler._
-  val scalar_hdl = new ScalarHDL {
+  val scalar_hdl = new ScalarHDL with MaxelerOptions {
     max.setMaxelerStreamIOPull
     count.setMaxelerStreamIOPush
     hold_count.setMaxelerScalarIO

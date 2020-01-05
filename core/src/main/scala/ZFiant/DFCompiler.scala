@@ -21,6 +21,22 @@ import DFDesign.DB.Patch
 
 import scala.annotation.tailrec
 
+trait Compilable[-T] {
+  def getDB(t : T) : DFDesign.DB
+}
+object Compilable {
+  def apply[T](implicit comp : Compilable[T]) : Compilable[T] = comp
+  implicit class CompilerOps[T : Compilable](t : T) {
+    private val designDB : DFDesign.DB = Compilable[T].getDB(t)
+    def boom : DFDesign.DB = {
+      ???
+    }
+  }
+
+  implicit val fromDB : Compilable[DFDesign.DB] = t => t
+  implicit val fromDFDesign : Compilable[DFDesign] = t => t.db
+}
+
 object DFCompiler {
   val delim : String = "  "
   implicit class Discovery(designDB : DFDesign.DB) {
