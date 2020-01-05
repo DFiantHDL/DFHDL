@@ -71,6 +71,7 @@ object DFMember {
     def setNamePrefix(value : String) : T = setName(s"$value${member.name}")
     def anonymize : T = member.setTags(member.tags.anonymize).asInstanceOf[T]
     def keep : T = member.setTags(member.tags.setKeep(true)).asInstanceOf[T]
+    def addCustomTag(customTag : CustomTag) : T = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[T]
   }
 
   trait CustomTag extends Product with Serializable

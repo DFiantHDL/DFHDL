@@ -2,17 +2,13 @@ package ZFiant
 
 package object maxeler {
   implicit class MaxelerExtras(design : DFDesign) {
-    def maxJNode(pullIOs : DFAny.PortOf[_ <: DFAny.Type]*)(pushIOs : DFAny.PortOf[_ <: DFAny.Type]*)(scalarIOs : DFAny.PortOf[_ <: DFAny.Type]*) : MaxJNode = {
-      MaxJNode(
-        design,
-        pullIOs.collect{case p : DFAny.Port.In[_,_] => p}.toList,
-        pullIOs.collect{case p : DFAny.Port.Out[_,_] => p}.toList,
-        pushIOs.collect{case p : DFAny.Port.In[_,_] => p}.toList,
-        pushIOs.collect{case p : DFAny.Port.Out[_,_] => p}.toList,
-        scalarIOs.collect{case p : DFAny.Port.In[_,_] => p}.toList,
-        scalarIOs.collect{case p : DFAny.Port.Out[_,_] => p}.toList
-      )
-    }
+    def maxJNode : MaxJNode = MaxJNode(design)
+  }
+
+  implicit class PortsTagging[P <: DFAny.PortOf[_ <: DFAny.Type]](port : P) {
+    def setMaxelerStreamIOPush(implicit getSet: MemberGetSet) : Unit = port.addCustomTag(MaxelerStreamIOPush)
+    def setMaxelerStreamIOPull(implicit getSet: MemberGetSet) : Unit = port.addCustomTag(MaxelerStreamIOPull)
+    def setMaxelerScalarIO(implicit getSet: MemberGetSet) : Unit = port.addCustomTag(MaxelerScalarIO)
   }
 
 }

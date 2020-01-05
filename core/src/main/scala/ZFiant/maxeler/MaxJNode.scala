@@ -1,16 +1,34 @@
 package ZFiant.maxeler
 import ZFiant._
 
-case class MaxJNode(
-  design : DFDesign,
-  pullInputs : List[DFAny.PortInOf[_ <: DFAny.Type]],
-  pullOutputs : List[DFAny.PortOutOf[_ <: DFAny.Type]],
-  pushInputs : List[DFAny.PortInOf[_ <: DFAny.Type]],
-  pushOutputs : List[DFAny.PortOutOf[_ <: DFAny.Type]],
-  scalarInputs : List[DFAny.PortInOf[_ <: DFAny.Type]],
-  scalarOutputs : List[DFAny.PortOutOf[_ <: DFAny.Type]]
+final case class MaxJNode(
+  design : DFDesign
 ) {
   private val designDB = design.db
+  private val topMembers = designDB.ownerMemberTable(design.block)
+  private val topPorts : List[DFAny.PortOf[_ <: DFAny.Type]] = topMembers.collect{
+    case p : DFAny.Port.In[_,_] => p
+    case p : DFAny.Port.Out[_,_] => p
+  }
+  private val pullInputs : List[DFAny.PortInOf[_ <: DFAny.Type]] = topPorts.collect {
+    case p : DFAny.Port.In[_,_] if p.tags.customTags.contains(MaxelerStreamIOPull) => p
+  }
+  private val pullOutputs : List[DFAny.PortOutOf[_ <: DFAny.Type]] = topPorts.collect {
+    case p : DFAny.Port.Out[_,_] if p.tags.customTags.contains(MaxelerStreamIOPull) => p
+  }
+  private val pushInputs : List[DFAny.PortInOf[_ <: DFAny.Type]] = topPorts.collect {
+    case p : DFAny.Port.In[_,_] if p.tags.customTags.contains(MaxelerStreamIOPush) => p
+  }
+  private val pushOutputs : List[DFAny.PortOutOf[_ <: DFAny.Type]] = topPorts.collect {
+    case p : DFAny.Port.Out[_,_] if p.tags.customTags.contains(MaxelerStreamIOPush) => p
+  }
+  private val scalarInputs : List[DFAny.PortInOf[_ <: DFAny.Type]] = topPorts.collect {
+    case p : DFAny.Port.In[_,_] if p.tags.customTags.contains(MaxelerScalarIO) => p
+  }
+  private val scalarOutputs : List[DFAny.PortOutOf[_ <: DFAny.Type]] = topPorts.collect {
+    case p : DFAny.Port.Out[_,_] if p.tags.customTags.contains(MaxelerScalarIO) => p
+  }
+
   private val pullInZ = (pullInputs, pullInputs.map(p => new DFDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> IN setNamePrefix(s"${p.name}_")

@@ -43,10 +43,14 @@ trait ScalarHDL extends DFDesign {
 }
 
 object SimpleHDLApp extends App {
-  val scalar_hdl = new ScalarHDL {}
-  import DFCompiler._
   import maxeler._
-  val res= scalar_hdl.maxJNode(scalar_hdl.max)(scalar_hdl.count)(scalar_hdl.hold_count)
+  val scalar_hdl = new ScalarHDL {
+    max.setMaxelerStreamIOPull
+    count.setMaxelerStreamIOPush
+    hold_count.setMaxelerScalarIO
+  }
+  import DFCompiler._
+  val res= scalar_hdl.maxJNode
   res.db.printCodeString()
   println(res.nodeMaxJString)
 }
