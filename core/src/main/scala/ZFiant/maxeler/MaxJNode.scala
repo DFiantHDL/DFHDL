@@ -1,9 +1,8 @@
 package ZFiant.maxeler
 import ZFiant._
 
-final case class MaxJNode(design : DFDesign) {
-  private val designDB = design.db
-  private val topMembers = designDB.ownerMemberTable(design.block)
+final case class MaxJNode(designDB : DFDesign.DB) {
+  private val topMembers = designDB.ownerMemberTable(designDB.top)
   private val topPorts : List[DFAny.PortOf[_ <: DFAny.Type]] = topMembers.collect{
     case p : DFAny.Port.In[_,_] => p
     case p : DFAny.Port.Out[_,_] => p
@@ -85,10 +84,10 @@ final case class MaxJNode(design : DFDesign) {
     guardedDB
   }
 
-  private val instName : String = design.block.name
-  private val packName : String = design.block.name
-  private val className : String = s"${design.typeName}Node"
-  private val vhdlName : String = s"${design.typeName}Source"
+  private val instName : String = designDB.top.name
+  private val packName : String = designDB.top.name
+  private val className : String = s"${designDB.top.typeName}Node"
+  private val vhdlName : String = s"${designDB.top.typeName}Source"
   private val clkName : String = "clk"
   private val rstName : String = "rst"
 

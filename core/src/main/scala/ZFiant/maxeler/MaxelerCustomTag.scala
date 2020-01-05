@@ -2,7 +2,7 @@ package ZFiant.maxeler
 
 import ZFiant._
 
-sealed trait MaxelerCustomTag extends DFMember.CustomTag
-case object MaxelerStreamIOPush extends MaxelerCustomTag
-case object MaxelerStreamIOPull extends MaxelerCustomTag
-case object MaxelerScalarIO extends MaxelerCustomTag
+protected[maxeler] sealed trait MaxelerCustomTag extends DFMember.CustomTag
+protected[maxeler] case object MaxelerStreamIOPush extends MaxelerCustomTag
+protected[maxeler] case object MaxelerStreamIOPull extends MaxelerCustomTag
+protected[maxeler] case object MaxelerScalarIO extends MaxelerCustomTag
