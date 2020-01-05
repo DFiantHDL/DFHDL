@@ -1,9 +1,7 @@
 package ZFiant.maxeler
 import ZFiant._
 
-final case class MaxJNode(
-  design : DFDesign
-) {
+final case class MaxJNode(design : DFDesign) {
   private val designDB = design.db
   private val topMembers = designDB.ownerMemberTable(design.block)
   private val topPorts : List[DFAny.PortOf[_ <: DFAny.Type]] = topMembers.collect{
@@ -56,15 +54,23 @@ final case class MaxJNode(
   })).zipped
 
   private val control = new DFDesign() {
-    final val ready = !pullInZ.head._2.empty && !pushOutZ.head._2.stall
-    pushOutZ.head._2.valid := false
-    final val guard = ifdf(ready){
-      pushOutZ.head._2.valid := true
+    val empties : List[DFBool] = pullInZ.map{case (_,d) => d.empty}
+    val stalls : List[DFBool] = pushOutZ.map{case (_,d) => d.stall}
+
+    //This forces a Join between all stream IOs. In the future we can generalize this according to
+    //more enhanced constraints
+    final val ready =
+      empties.drop(1).foldLeft(!empties.head)((and, e) => and && !e) &&
+      stalls.drop(1).foldLeft(!stalls.head.prev)((and, e) => and && !e.prev)
+
+    pullInZ.foreach{case (_,d) => d.read := ready}
+    pushOutZ.foreach{case (_,d) => d.valid := false}
+    final val guard = ifdf(ready.prev){
+      pushOutZ.foreach{case (_,d) => d.valid := true}
     }
   }
 
   val db : DFDesign.DB = {
-    import designDB.getset
     import DFDesign.DB.Patch
     import DFCompiler._
     val extendedPortsDB = designDB
@@ -72,7 +78,7 @@ final case class MaxJNode(
       .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
       .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Via)))
       .moveConnectableFirst
-    val guardedMembers = designDB.ownerMemberTable(design.block).collect{case m : CanBeGuarded => m}
+    val guardedMembers = topMembers.collect{case m : CanBeGuarded => m}
     val guardedDB = extendedPortsDB
       .patch(guardedMembers.head -> Patch.Add(control.db, Patch.Add.Config.Before))
       .patch(guardedMembers.map(m => m -> Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
