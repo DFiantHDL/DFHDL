@@ -133,8 +133,10 @@ object DFDesign {
     private implicit class RefTableOps(rt : Map[DFMember.Ref[_], DFMember]) {
       def replaceMember(origMember : DFMember, repMember : DFMember) : Map[DFMember.Ref[_], DFMember] =
         memberTable.get(origMember) match {
-          case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
-          case None => rt
+          case Some(refs) =>
+            refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+          case None =>
+            rt
         }
     }
 
@@ -292,24 +294,34 @@ object DFDesign {
       final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref[_ <: DFMember], updatedRefMember : DFMember) extends Patch
     }
     class Mutable {
-      private val members : mutable.ListBuffer[DFMember] = mutable.ListBuffer()
+      private val members : mutable.ArrayBuffer[DFMember] = mutable.ArrayBuffer()
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
         cb.applyBlock(block)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
+        memberTable += (member -> (members.length, Set()))
         members += member
         member
       }
+      private val memberTable : mutable.Map[DFMember, (Int, Set[DFMember.Ref[_]])] = mutable.Map()
       private val refTable : mutable.Map[DFMember.Ref[_], DFMember] = mutable.Map()
       def getMember[T <: DFMember](ref : DFMember.Ref[T]) : T = refTable(ref).asInstanceOf[T]
       def setMember[T <: DFMember](originalMember : T, newMember : T) : T = {
-        val idx = members.length - 1 - members.reverseIterator.indexOf(originalMember) //more likely to set latest members
-        members.update(idx, newMember)
+        val x = memberTable.remove(originalMember).get
+        x._2.foreach(r => refTable.update(r, newMember))
+        memberTable.update(newMember, x)
+        members.update(x._1, newMember)
         newMember
       }
       def newRefFor[T <: DFMember, R <: DFMember.Ref[T]](ref : R, member : T) : R = {
+        memberTable.get(member) match {
+          case Some(x) => memberTable.update(member, x.copy(_2 = x._2 + ref))
+          case _ =>
+          //In case where we do meta programming and planting one design into another,
+          //we may not have the member available at the table. This is OK.
+        }
         refTable += (ref -> member)
         ref
       }
