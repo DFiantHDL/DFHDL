@@ -102,7 +102,7 @@ object DFMember {
     }
 
     final case class Basic(meta : Meta, keep : Boolean, customTags : List[CustomTag]) extends Tags.CC[Basic]
-    implicit def fromMeta(meta : Meta) : Tags = Basic(meta, keep = false, List())
+    implicit def fromMeta(meta : Meta) : Basic = Basic(meta, keep = false, List())
   }
 
   trait Context {
