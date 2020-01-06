@@ -90,53 +90,57 @@ object ConditionalBlock {
 
   sealed trait WithRetVal[Type <: DFAny.Type] extends
     ConditionalBlock.Of[DFAny.Of[Type]] with DFAny.DefaultRet[Type] {
-    val retVar : DFAny.VarOf[Type]
-    final val thisVal : DFAny.Of[Type] = retVar
-    final val dfType: Type = retVar.dfType
+    val retVarRef : WithRetVal.RetVarRef[Type]
+    final def thisVal(implicit getSet: MemberGetSet) : DFAny.Of[Type] = retVarRef
 
     private[ZFiant] def applyBlock(block : => DFAny.Of[Type])(
       implicit ctx : DFBlock.Context
     ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this) {
       val returnValue = block
-      retVar.assign(returnValue)(new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db))
+      retVarRef.get.assign(returnValue)(new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db))
     }
   }
   object WithRetVal {
+    class RetVarRef[Type <: DFAny.Type] extends DFMember.Ref[DFAny.VarOf[Type]]
+    object RetVarRef {
+      implicit def apply[Type <: DFAny.Type](member : DFAny.VarOf[Type])(implicit ctx : DFMember.Context) : RetVarRef[Type] =
+        DFMember.Ref.newRefFor(new RetVarRef[Type], member)
+    }
     final case class IfBlock[Type <: DFAny.Type](
-      retVar : DFAny.VarOf[Type], condRef : CondRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+      dfType : Type, retVarRef : RetVarRef[Type], condRef : CondRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
     ) extends ConditionalBlock.IfBlock with WithRetVal[Type] {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseBlock[Type] = ElseBlock[Type](retVar, this)(blockConv(dfType, block))(ctx)
+      ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object IfBlock {
       def apply[Type <: DFAny.Type](retVar : DFAny.VarOf[Type], cond: DFBool)(block: => DFAny.Of[Type])(
         implicit ctx: DFBlock.Context
-      ): IfBlock[Type] = ctx.db.addConditionalBlock(IfBlock[Type](retVar, cond, ctx.owner, ctx.meta), block)
+      ): IfBlock[Type] = ctx.db.addConditionalBlock(IfBlock[Type](retVar.dfType, retVar, cond, ctx.owner, ctx.meta), block)
     }
     final case class ElseIfBlock[Type <: DFAny.Type](
-      retVar : DFAny.VarOf[Type], condRef : CondRef, prevBlockRef : PrevBlockRef[WithRetVal[Type]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+      dfType : Type, retVarRef : RetVarRef[Type], condRef : CondRef, prevBlockRef : PrevBlockRef[WithRetVal[Type]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
     ) extends ConditionalBlock.ElseIfBlock with WithRetVal[Type] {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseBlock[Type] = ElseBlock[Type](retVar, this)(blockConv(dfType, block))(ctx)
+      ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVar, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object ElseIfBlock {
       def apply[Type <: DFAny.Type](
         retVar : DFAny.VarOf[Type], cond: DFBool, prevBlock: WithRetVal[Type]
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context) : ElseIfBlock[Type] =
-        ctx.db.addConditionalBlock(ElseIfBlock[Type](retVar, cond, prevBlock, ctx.owner, ctx.meta), block)
+        ctx.db.addConditionalBlock(ElseIfBlock[Type](retVar.dfType, retVar, cond, prevBlock, ctx.owner, ctx.meta), block)
     }
     final case class ElseBlock[Type <: DFAny.Type](
-      retVar : DFAny.VarOf[Type], prevBlockRef : PrevBlockRef[WithRetVal[Type]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+      dfType : Type, retVarRef : RetVarRef[Type], prevBlockRef : PrevBlockRef[WithRetVal[Type]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
     ) extends ConditionalBlock.ElseBlock with WithRetVal[Type] {
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
@@ -144,18 +148,17 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type](
         retVar : DFAny.VarOf[Type], prevBlock: WithRetVal[Type]
       )(block : => DFAny.Of[Type])(implicit ctx: DFBlock.Context) : ElseBlock[Type] =
-        ctx.db.addConditionalBlock(ElseBlock[Type](retVar, prevBlock, ctx.owner, ctx.meta), block)
+        ctx.db.addConditionalBlock(ElseBlock[Type](retVar.dfType, retVar, prevBlock, ctx.owner, ctx.meta), block)
     }
 
     final case class MatchHeader[Type <: DFAny.Type, MVType <: DFAny.Type](
-      retVar : DFAny.VarOf[Type], mvType : MVType,
+      dfType : Type, retVarRef : RetVarRef[Type], mvType : MVType,
       matchValRef : MatchValRef[MVType], matchConfig: MatchConfig, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
     ) extends ConditionalBlock.MatchHeader.Of[MVType] {
-      private val dfType = retVar.dfType
       def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
-        retVar, this, None, patternBld(mvType, pattern)
+        retVarRef, this, None, patternBld(mvType, pattern)
       )(retBld(dfType, block))(ctx)
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
@@ -163,10 +166,10 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         retVar : DFAny.VarOf[Type], matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
       )(implicit ctx: DFMember.Context): MatchHeader[Type, MVType] =
-        ctx.db.addMember(MatchHeader(retVar, matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta))
+        ctx.db.addMember(MatchHeader(retVar.dfType, retVar, matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta))
     }
     final case class DFCasePatternBlock[Type <: DFAny.Type, MVType <: DFAny.Type](
-      retVar : DFAny.VarOf[Type], mvType : MVType,
+      dfType : Type, retVarRef : RetVarRef[Type], mvType : MVType,
       matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[Type, MVType]],
       prevCaseRef : Option[PrevBlockRef[DFCasePatternBlock[Type, MVType]]], pattern : MVType#TPattern,
       ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
@@ -174,22 +177,22 @@ object ConditionalBlock {
       def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
-        retVar, matchHeaderRef, Some(this), patternBld(mvType, pattern)
+        retVarRef, matchHeaderRef, Some(this), patternBld(mvType, pattern)
       )(retBld(dfType, block))(ctx)
       def casedf_[MC, B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, retBld : dfType.`Op:=Builder`[Type, B]
       ) : DFCase_Block[Type, MVType] =
-        DFCase_Block[Type, MVType](retVar, matchHeaderRef, this)(retBld(dfType, block))(ctx)
+        DFCase_Block[Type, MVType](retVarRef, matchHeaderRef, this)(retBld(dfType, block))(ctx)
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object DFCasePatternBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         retVar : DFAny.VarOf[Type], matchHeader: MatchHeader[Type, MVType], prevCase: Option[DFCasePatternBlock[Type, MVType]], pattern: MVType#TPattern
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCasePatternBlock[Type, MVType] =
-        ctx.db.addConditionalBlock(DFCasePatternBlock(retVar, matchHeader.mvType, matchHeader, prevCase.map(p => PrevBlockRef(p)), pattern, ctx.owner, ctx.meta), block)
+        ctx.db.addConditionalBlock(DFCasePatternBlock(retVar.dfType, retVar, matchHeader.mvType, matchHeader, prevCase.map(p => PrevBlockRef(p)), pattern, ctx.owner, ctx.meta), block)
     }
     final case class DFCase_Block[Type <: DFAny.Type, MVType <: DFAny.Type](
-      retVar : DFAny.VarOf[Type], mvType : MVType,
+      dfType : Type, retVarRef : RetVarRef[Type], mvType : MVType,
       matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[Type, MVType]],
       prevCase : PrevBlockRef[DFCasePatternBlock[Type, MVType]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
     ) extends ConditionalBlock.Case_Block with WithRetVal[Type] {
@@ -199,7 +202,7 @@ object ConditionalBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         retVar : DFAny.VarOf[Type], matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType]
       )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCase_Block[Type, MVType] =
-        ctx.db.addConditionalBlock(DFCase_Block[Type, MVType](retVar, matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block)
+        ctx.db.addConditionalBlock(DFCase_Block[Type, MVType](retVar.dfType, retVar, matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block)
     }
   }
   sealed trait NoRetVal extends ConditionalBlock.Of[Unit] {

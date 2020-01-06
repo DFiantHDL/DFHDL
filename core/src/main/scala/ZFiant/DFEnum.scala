@@ -139,8 +139,8 @@ object DFEnum extends DFAny.Companion {
     trait Implicits {
       sealed class DFEnumFromEntry[L <: Enum.Entry](left : L) extends AbleOps[L](left)
       final implicit def DFEnumFromEntry[L <: Enum.Entry](left: L): DFEnumFromEntry[L] = new DFEnumFromEntry(left)
-      sealed class DFEnumFromDefaultRet[E <: Enum](left : DFAny.DefaultRet[Type[E]]) extends AbleOps[DFEnum[E]](left)
-      final implicit def DFEnumFromDefaultRet[E <: Enum](left : DFAny.DefaultRet[Type[E]]) : DFEnumFromDefaultRet[E] = new DFEnumFromDefaultRet(left)
+      sealed class DFEnumFromDefaultRet[E <: Enum](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) extends AbleOps[DFEnum[E]](left)
+      final implicit def DFEnumFromDefaultRet[E <: Enum](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) : DFEnumFromDefaultRet[E] = new DFEnumFromDefaultRet(left)
       final implicit def ofDFEnum[E <: Enum](left : DFEnum[E]) : Able[DFEnum[E]] = new Able(left)
     }
     object Able extends Implicits
