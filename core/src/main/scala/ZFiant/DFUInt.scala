@@ -297,8 +297,8 @@ object DFUInt extends DFAny.Companion {
       final implicit def DFUIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFUIntFromXLong[L] = new DFUIntFromXLong(left)
       sealed class DFUIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
       final implicit def DFUIntFromBigInt[L <: BigInt](left: L): DFUIntFromBigInt[L] = new DFUIntFromBigInt[L](left)
-      sealed class DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) extends AbleOps[DFUInt[W]](left)
-      final implicit def DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) : DFUIntFromDefaultRet[W] = new DFUIntFromDefaultRet(left)
+      sealed class DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFUInt[W]](left)
+      final implicit def DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFUIntFromDefaultRet[W] = new DFUIntFromDefaultRet(left)
       final implicit def ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
       implicit class ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
         final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)

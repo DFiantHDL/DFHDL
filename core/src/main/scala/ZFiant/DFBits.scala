@@ -252,8 +252,8 @@ object DFBits extends DFAny.Companion {
       final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
       sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
       final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
-      sealed class DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) extends AbleOps[DFBits[W]](left)
-      final implicit def DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]]) : DFBitsFromDefaultRet[W] = new DFBitsFromDefaultRet(left)
+      sealed class DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFBits[W]](left)
+      final implicit def DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFBitsFromDefaultRet[W] = new DFBitsFromDefaultRet(left)
       final implicit def ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
       implicit class DFBitsOps[LW](val left : DFBits[LW]){
         final def |   [R](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
