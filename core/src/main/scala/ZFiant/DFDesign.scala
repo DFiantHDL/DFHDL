@@ -60,12 +60,12 @@ object DFDesign {
   }
 
   sealed trait Block extends DFBlock {
-    type TTags = DFMember.Tags
+    type TTags = DFMember.Tags.Basic
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
-    final case class Internal(ownerRef : DFBlock.Ref, tags : DFMember.Tags)(designType: String) extends Block {
-      def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
+    final case class Internal(ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic)(designType: String) extends Block {
+      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
       override lazy val typeName : String = designType
     }
     object Internal {
@@ -73,13 +73,13 @@ object DFDesign {
         if (ctx.ownerInjector == null) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
     }
 
-    final case class Top(tags : DFMember.Tags)(db: DB.Mutable, designType: String) extends Block {
+    final case class Top(tags : DFMember.Tags.Basic)(db: DB.Mutable, designType: String) extends Block {
       override lazy val ownerRef : DFBlock.Ref = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       override lazy val typeName : String = designType
       override def getFullName(implicit getset : MemberGetSet): String = name
-      def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db, designType))
+      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db, designType))
     }
   }
 
@@ -124,7 +124,7 @@ object DFDesign {
 
     //holds the topological order of owner block dependency
     lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
-      OMLGen(List(), members.drop(1), List(top -> List())) //head will always be the TOP block
+      OMLGen(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
     def printOwnerMemberList() : Unit =
       println(ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
 
