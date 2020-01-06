@@ -60,6 +60,7 @@ object DFDesign {
   }
 
   sealed trait Block extends DFBlock {
+    type TTags = DFMember.Tags
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
