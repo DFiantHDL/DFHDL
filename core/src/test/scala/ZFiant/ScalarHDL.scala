@@ -39,12 +39,12 @@ trait ScalarHDL extends DFDesign {
       }
     }
 
-  count := counter.bits
+  count := counter.prev.bits
 }
 
 object SimpleHDLApp extends App {
   import maxeler._
-  val scalar_hdl = new ScalarHDL with MaxelerOptions {
+  val scalar_hdl = new ScalarHDL {
     max.setMaxelerStreamIOPull
     count.setMaxelerStreamIOPush
     hold_count.setMaxelerScalarIO
