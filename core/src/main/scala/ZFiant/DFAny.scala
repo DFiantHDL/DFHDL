@@ -184,6 +184,9 @@ object DFAny {
       sealed trait Out extends Port with Assignable
     }
     sealed trait NewVar extends Connectable with Assignable with Initializable
+    sealed trait RetVar extends NewVar
+    case object IfRetVar extends RetVar
+    case object MatchRetVar extends RetVar
   }
 
   sealed trait CanBeAnonymous extends DFMember
@@ -304,13 +307,19 @@ object DFAny {
     ): Unit = left.connectWith(op(dfType, right))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = ConditionalBlock.WithRetVal.IfBlock[Type](
-      this, condConv(DFBool.Type(),cond)
-    )(blockConv(dfType, block))(ctx)
+    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = {
+      val newMember = NewVar(dfType, Modifier.IfRetVar, ownerRef, tags) //setting a RetVar modifier
+      implicitly[MemberGetSet].set(this, newMember)
+      ConditionalBlock.WithRetVal.IfBlock[Type](newMember, condConv(DFBool.Type(),cond))(blockConv(dfType, block))(ctx)
+    }
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
-    ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] =
-      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](this, matchValue, matchConfig)(ctx)
+    ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] = {
+      val newMember = NewVar(dfType, Modifier.MatchRetVar, ownerRef, tags) //setting a RetVar modifier
+      implicitly[MemberGetSet].set(this, newMember)
+      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](newMember, matchValue, matchConfig)(ctx)
+    }
+
     def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString}${modifier.codeString}"
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
