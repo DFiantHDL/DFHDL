@@ -19,6 +19,7 @@ object DFBool extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBool.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
+    def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     override def toString: String = "DFBool"
     def codeString(implicit getset : MemberGetSet) : String = "DFBool()"
   }
