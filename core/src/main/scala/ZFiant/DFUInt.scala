@@ -18,6 +18,7 @@ object DFUInt extends DFAny.Companion {
     type `Op:=Builder`[LType <: DFAny.Type, -R] = DFUInt.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFUInt.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFUInt.Init.Builder[L, TToken]
+    def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     override def toString: String = s"DFUInt[$width]"
     def codeString(implicit getset : MemberGetSet) : String = s"DFUInt($width)"
   }
