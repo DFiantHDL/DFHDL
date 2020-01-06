@@ -18,9 +18,10 @@ trait HasTypeName {
     }
   }
 }
-trait DFMember extends HasTypeName with Product with Serializable {
+trait DFMember extends HasTypeName with Product with Serializable {self =>
+  type TTags <: DFMember.Tags{type TTags = self.TTags}
   val ownerRef : DFBlock.Ref
-  val tags : DFMember.Tags
+  val tags : TTags
   implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
   final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {
     case d : DFDesign.Block => d
@@ -59,7 +60,7 @@ trait DFMember extends HasTypeName with Product with Serializable {
     //      }
 //  }
 
-  def setTags(tags : DFMember.Tags)(implicit getset : MemberGetSet) : DFMember
+  def setTags(tags : TTags)(implicit getset : MemberGetSet) : DFMember
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"
 }
 
