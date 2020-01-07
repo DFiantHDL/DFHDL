@@ -133,9 +133,19 @@ object DFCompiler {
     def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
   }
 
+  implicit class Checker(designDB : DFDesign.DB) {
+    import designDB.getset
+    def connectionCheck : DFDesign.DB = {
+//      designDB.members.collect {
+//
+//      }
+      ???
+    }
+  }
+
   implicit class Calculator(designDB : DFDesign.DB) {
     import designDB.getset
-    @tailrec private def calcInit(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]]) : Map[DFAny, Seq[DFAny.Token]] = {
+    @tailrec private def calcInit(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]], requestedCalc : Set[DFAny]) : Map[DFAny, Seq[DFAny.Token]] = {
       def getInit[T <: DFAny](member : T) : Option[Seq[member.TToken]] = member.tags.init match {
         case Some(init) => Some(init).asInstanceOf[Option[Seq[member.TToken]]]
         case None => calc.get(member).asInstanceOf[Option[Seq[member.TToken]]]
@@ -147,32 +157,37 @@ object DFCompiler {
         }
       }
       remaining match {
-        case m :: mList => if (getInit(m).isDefined) calcInit(mList, calc) else m match {
-          case c : DFAny.Const[_] => calcInit(mList, calc + (m -> Seq(c.token)))
+        case m :: mList => if (getInit(m).isDefined) calcInit(mList, calc, requestedCalc) else m match {
+          case c : DFAny.Const[_] => calcInit(mList, calc + (m -> Seq(c.token)), requestedCalc)
           case f : DFAny.Func2[_,_,_,_] =>
             val leftArg = f.leftArgRef.get
             val rightArg = f.rightArgRef.get
             (getInit(leftArg), getInit(rightArg)) match {
               case (Some(leftInit), Some(rightInit)) =>
-                calcInit(mList, calc + (m -> f.initFunc(leftInit, rightInit)))
-              case _ => calcInit(leftArg :: rightArg :: remaining, calc) //first need to calculate args
+                calcInit(mList, calc + (m -> f.initFunc(leftInit, rightInit)), requestedCalc)
+              case _ if requestedCalc.contains(m) =>
+                calcInit(mList, calc + (m -> Seq()), requestedCalc - m)
+              case _ =>
+                calcInit(leftArg :: rightArg :: remaining, calc, requestedCalc + m) //first need to calculate args
             }
           case a : DFAny.Alias[_,_,_] => designDB.getConnectionTo(a) match {
             //connection overrides the calculated alias init
             case Some(s) => getInit(s) match {
-              case Some(init) => calcInit(mList, calc + (m -> init))
-              case None => calcInit(s :: remaining, calc)
+              case Some(init) => calcInit(mList, calc + (m -> init), requestedCalc)
+              case None if requestedCalc.contains(m) => calcInit(mList, calc + (m -> Seq()), requestedCalc - m)
+              case None => calcInit(s :: remaining, calc, requestedCalc + m)
             }
             //no connection => use the calculated aliased init
             case None =>
               val relVal = a.relValRef.get
               getInit(relVal) match {
-                case Some(relInit) => calcInit(mList, calc + (m -> a.initFunc(relInit)))
-                case _ => calcInit(relVal :: remaining, calc)
+                case Some(relInit) => calcInit(mList, calc + (m -> a.initFunc(relInit)), requestedCalc)
+                case None if requestedCalc.contains(m) => calcInit(mList, calc + (m -> Seq()), requestedCalc - m)
+                case None => calcInit(relVal :: remaining, calc, requestedCalc + m)
               }
           }
           case rv@DFAny.NewVar(_,DFAny.Modifier.MatchRetVar, _, _) =>
-            calcInit(mList, calc + (m -> Seq()))
+            calcInit(mList, calc + (m -> Seq()), requestedCalc)
           case rv@DFAny.NewVar(_,DFAny.Modifier.IfRetVar, _, _) =>
 //            val members = designDB.ownerMemberTable(rv.getOwner)
 //            val cbs = members.collect{case m : ConditionalBlock.WithRetVal[_] if m.retVarRef.get == rv => m}
@@ -186,18 +201,19 @@ object DFCompiler {
 //              case Left((cond, retVal)) => Left(getInit(cond), getInit(retVal))
 //              case Right(retVal) => Right(getInit(retVal))
 //            }
-            calcInit(mList, calc + (m -> Seq()))
+            calcInit(mList, calc + (m -> Seq()), requestedCalc)
           case v : DFAny.Value[_,_] => v.modifier match { //Handles NewVar, Port.In, Port.Out
             //external init has priority over connection init
-            case i : DFAny.Modifier.Initialized[_] => calcInit(mList, calc + (m -> i.externalInit))
+            case i : DFAny.Modifier.Initialized[_] => calcInit(mList, calc + (m -> i.externalInit), requestedCalc)
             case _ => designDB.getConnectionTo(v) match {
               //uses connection init
               case Some(s) => getInit(s) match {
-                case Some(init) => calcInit(mList, calc + (m -> init))
-                case None => calcInit(s :: remaining, calc)
+                case Some(init) => calcInit(mList, calc + (m -> init), requestedCalc)
+                case None if requestedCalc.contains(m) => calcInit(mList, calc + (m -> Seq()), requestedCalc - m)
+                case None => calcInit(s :: remaining, calc, requestedCalc + m)
               }
               //no connection and no external init, so use an empty sequence
-              case None => calcInit(mList, calc + (m -> Seq()))
+              case None => calcInit(mList, calc + (m -> Seq()), requestedCalc)
             }
           }
         }
@@ -209,7 +225,7 @@ object DFCompiler {
       //we request init calculation for all members that can have initialization and currently do not have
       //a calculated init tag (the tag is empty).
       val calcMembers = designDB.members.collect{case v : DFAny if v.tags.init.isEmpty => v}
-      val initMap = calcInit(calcMembers, Map())
+      val initMap = calcInit(calcMembers, Map(), Set())
       designDB.patch(initMap.toList.map{
         case (v, init) => v -> Patch.Replace(v.setTags(v.tags.setInit(init.asInstanceOf[Seq[v.TToken]])), Patch.Replace.Config.FullReplacement)
       })
