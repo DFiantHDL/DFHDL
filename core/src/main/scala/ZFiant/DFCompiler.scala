@@ -148,7 +148,7 @@ object DFCompiler {
       }
       remaining match {
         case m :: mList => if (getInit(m).isDefined) calcInit(mList, calc) else m match {
-          case c : DFAny.Const[_] => calc + (m -> Seq(c.token))
+          case c : DFAny.Const[_] => calcInit(mList, calc + (m -> Seq(c.token)))
           case f : DFAny.Func2[_,_,_,_] =>
             val leftArg = f.leftArgRef.get
             val rightArg = f.rightArgRef.get
@@ -206,32 +206,44 @@ object DFCompiler {
     }
 
     def calcInit : DFDesign.DB = {
-//      val block = fromMember.getOwner
-//      val members = designDB.ownerMemberTable(block)
-//      val owner = block.getOwnerDesign
-//      val temp = new DFDesign() {
-//        val myCounter = DFUInt(8) init 0
-//        myCounter := myCounter + 1
-//      }
-//      designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
-      ???
+      //we request init calculation for all members that can have initialization and currently do not have
+      //a calculated init tag (the tag is empty).
+      val calcMembers = designDB.members.collect{case v : DFAny if v.tags.init.isEmpty => v}
+      val initMap = calcInit(calcMembers, Map())
+      designDB.patch(initMap.toList.map{
+        case (v, init) => v -> Patch.Replace(v.setTags(v.tags.setInit(init.asInstanceOf[Seq[v.TToken]])), Patch.Replace.Config.FullReplacement)
+      })
     }
   }
 
+  sealed trait PrintConfig
+  object PrintConfig {
+    implicit case object Default extends PrintConfig
+    case object ShowInits extends PrintConfig
+  }
   final implicit class CodeString(designDB : DFDesign.DB) {
     private val fixedDB = designDB.fixAnonymous
     import fixedDB.getset
-    def blockBodyCodeString(block : DFBlock, members : List[DFMember]) : String = {
+
+    def blockBodyCodeString(block : DFBlock, members : List[DFMember])(implicit printConfig : PrintConfig) : String = {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader => mh.codeString
         case cb : ConditionalBlock => cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb)))
         case m : DFDesign.Block => s"final val ${m.name} = new ${m.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
-        case a : DFAny if !a.isAnonymous => s"final val ${a.name} = ${a.codeString}"
+        case a : DFAny if !a.isAnonymous =>
+          val initInfo = printConfig match {
+            case PrintConfig.Default => ""
+            case PrintConfig.ShowInits => a.tags.init match {
+              case Some(init) => s"//init = ${init.codeString}"
+              case None => "//init = Unknown"
+            }
+          }
+          s"final val ${a.name} = ${a.codeString}$initInfo"
       }
       membersCodeString.mkString("\n")
     }
-    def codeString : String = {
+    def codeString(implicit printConfig : PrintConfig) : String = {
       val bodyDB = new DSLOwnerConstruct.DB[DFBlock, String]{
         override def ownerToString(ownerTypeName: String, ownerBody: String): String =
           s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(delim)}\n}"
@@ -243,7 +255,7 @@ object DFCompiler {
       }
       bodyDB.dbString
     }
-    def printCodeString() : DFDesign.DB = {
+    def printCodeString()(implicit printConfig : PrintConfig) : DFDesign.DB = {
       println(codeString)
       fixedDB
     }

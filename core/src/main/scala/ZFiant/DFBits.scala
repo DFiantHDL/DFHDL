@@ -22,6 +22,7 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
+    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken
     override def toString: String = s"DFBits[$width]"
     def codeString(implicit getset : MemberGetSet) : String = s"DFBits($width)"
   }
@@ -90,12 +91,12 @@ object DFBits extends DFAny.Companion {
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
 
-    //    def toUInt : DFUInt.Token[W] = {
-    //      val outWidth = this.width
-    //      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
-    //      val outBubble = isBubble
-    //      DFUInt.Token(outWidth, outValueUInt, outBubble)
-    //    }
+    def toUInt : DFUInt.Token[W] = {
+      val outWidth = this.width
+      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
+      val outBubble = isBubble
+      DFUInt.Token(outWidth, outValueUInt, outBubble)
+    }
     //    def toSInt : DFSInt.Token = {
     //      val outWidth = this.width
     //      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
@@ -255,13 +256,14 @@ object DFBits extends DFAny.Companion {
       sealed class DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFBits[W]](left)
       final implicit def DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFBitsFromDefaultRet[W] = new DFBitsFromDefaultRet(left)
       final implicit def ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
-      implicit class DFBitsOps[LW](val left : DFBits[LW]){
-        final def |   [R](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
-        final def &   [R](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
-        final def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
-        final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
-        final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
-        final def uint(implicit ctx : DFAny.Context) = left.as(DFUInt.Type(left.width))
+      final implicit class DFBitsOps[LW](val left : DFBits[LW]){
+        def |   [R](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
+        def &   [R](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
+        def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
+        def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
+        def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
+        def uint(implicit ctx : DFAny.Context) = left.as(DFUInt.Type(left.width))
+        def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
       }
     }
     object Able extends Implicits

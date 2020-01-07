@@ -41,6 +41,8 @@ object DFEnum extends DFAny.Companion {
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder[L <: DFAny] = Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
+    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
+      Token[E](enumType, enumType.entries(fromToken.valueBits.toBigInt).asInstanceOf[E#Entry])
     override def toString: String = s"DFEnum[$enumType]"
     def codeString(implicit getset : MemberGetSet) : String = s"DFEnum($enumType)"
   }
