@@ -41,8 +41,9 @@ object DFAny {
     type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
-    def codeString(implicit getset : MemberGetSet) : String
     def getBubbleToken : TToken
+    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token
+    def codeString(implicit getset : MemberGetSet) : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -193,11 +194,12 @@ object DFAny {
 
   final case class Tags[Token <: DFAny.Token](
     meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag]
-  ) extends DFMember.Tags.CC[Tags[Token]]
+  ) extends DFMember.Tags.CC[Tags[Token]] {
+    def setInit(init : Seq[Token]) : Tags[Token] = copy(init = Some(init))
+  }
   object Tags {
     implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, List())
   }
-
 
   final case class Const[Type <: DFAny.Type](
     dfType : Type, token : Type#TToken, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
@@ -359,7 +361,7 @@ object DFAny {
       dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
     ) extends Alias[Type, RelVal, Mod] {
       type TMod = Mod
-      def constFunc(t : DFAny.Token) : DFAny.Token = ???
+      def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
       def codeString(implicit getset : MemberGetSet) : String =
         s"${relValRef.refCodeString}.as(${dfType.codeString})"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
@@ -375,7 +377,7 @@ object DFAny {
     ) extends Alias[DFBits.Type[W], RelVal, Mod]{
       type TMod = Mod
       val dfType : TType = DFBits.Type(relWidth)
-      def constFunc(t : DFAny.Token) : DFAny.Token = ???
+      def constFunc(t : DFAny.Token) : DFAny.Token = t.bitsWL(relWidth, relBitLow)
       def codeString(implicit getset : MemberGetSet) : String =
         s"${relValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
       def setTags(tags : DFAny.Tags[DFBits.Token[W]])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
@@ -391,7 +393,8 @@ object DFAny {
     ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
-      def constFunc(t : DFAny.Token) : DFAny.Token = ???
+      def constFunc(t : DFAny.Token) : DFAny.Token = t
+      override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
       def codeString(implicit getset : MemberGetSet) : String =
         s"${relValRef.refCodeString}.prev($step)"
       def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
@@ -406,9 +409,16 @@ object DFAny {
     ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
-      def constFunc(t : DFAny.Token) : DFAny.Token = ???
+      def constFunc(t : DFAny.Token) : DFAny.Token = t match {
+        case t : DFBool.Token => !t
+        case t : DFBits.Token[_] => ~t
+      }
+      private val op : String = dfType match {
+        case _ : DFBits.Type[_] => "~"
+        case _ : DFBool.Type => "!"
+      }
       def codeString(implicit getset : MemberGetSet) : String =
-        s"!${relValRef.refCodeString}"
+        s"$op${relValRef.refCodeString}"
       def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Invert {
