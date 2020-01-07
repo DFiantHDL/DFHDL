@@ -123,8 +123,9 @@ object DFMember {
     }
   }
 
-  class Ref[+T <: DFMember] {
+  class Ref[+T <: DFMember] extends HasTypeName {
     def get(implicit getset: MemberGetSet) : T = getset(this)
+    override def toString: String = s"$typeName<${hashCode.toHexString}>"
   }
   object Ref {
     def newRefFor[T <: DFMember, R <: Ref[T]](ref : R, member: T)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor(ref, member)
