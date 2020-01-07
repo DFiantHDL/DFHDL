@@ -97,7 +97,33 @@ object DFDesign {
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref[_]]] = refTable.invert
 
     //There can only be a single connection to a value (but multiple assignments are possible)
-    def getConnectionTo(v : DFAny) : Option[DFAny] =
+    //                              To    From
+    lazy val connectionTable : Map[DFAny, DFAny] =
+      members.collect{case n : DFNet.Connection => (n.toRef.get, n.fromRef.get)}.toMap
+
+    //we reserve the order of assignments within the list
+    lazy val assignmentsTable : Map[DFAny, List[DFAny]] =
+      members.reverse.foldLeft(Map.empty[DFAny, List[DFAny]]){
+        case (at, n : DFNet.Assignment) =>
+          val toVal = n.toRef.get
+          val fromVal = n.fromRef.get
+          at + (toVal -> (fromVal :: at.getOrElse(toVal, List())))
+        case (at, _) => at
+      }
+
+//    lazy val aliasesTable : Map[DFAny, List[DFAny]] =
+//      members.foldLeft(Map.empty[DFAny, List[DFAny]]){
+//        case (at, a : DFAny.Alias[_,_,_]) => connectionTable.get(a)
+//          val toVal = a
+//          val fromVal = n.fromRef.get
+//          at + (toVal -> (at.getOrElse(toVal, List()) :+ fromVal))
+//        case (at, _) => at
+//      }
+
+    def getConnectionTo(v : DFAny) : Option[DFAny] = connectionTable.get(v)
+    def getAssignmentsTo(v : DFAny) : List[DFAny] = assignmentsTable.getOrElse(v, List())
+
+    def getAliasesTo(v : DFAny) : Option[DFAny] =
       members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}
 
     //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
