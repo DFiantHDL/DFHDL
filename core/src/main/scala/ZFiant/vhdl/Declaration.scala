@@ -1,5 +1,5 @@
 package ZFiant.vhdl
 
-trait declaration {
+trait Declaration {
 
 }
