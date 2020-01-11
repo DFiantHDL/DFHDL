@@ -8,18 +8,18 @@ object Value {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Definition
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Def(
-    name : Name, rtType : Type, modifier : Def.Modifier, initStr : Option[String]
-  ) extends Value with declaration
+  case class Def[+Mod <: Def.Modifier](
+    name : Name, rtType : Type, modifier : Mod, initStr : Option[String]
+  ) extends Value with Declaration
   object Def {
     sealed trait Modifier extends Product with Serializable
     object Modifier {
-      case object signal extends Modifier
-      case object variable extends Modifier
-      sealed trait port extends Modifier
-      object port {
-        case object in extends port
-        case object out extends port
+      case object Signal extends Modifier
+      case object Variable extends Modifier
+      sealed trait Port extends Modifier
+      object Port {
+        case object In extends Port
+        case object Out extends Port
       }
     }
   }

@@ -1,5 +1,5 @@
 package ZFiant.vhdl
 
-trait statement {
+trait Statement {
 
 }
