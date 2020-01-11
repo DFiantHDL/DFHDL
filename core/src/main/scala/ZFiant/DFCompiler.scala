@@ -22,12 +22,12 @@ import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
 trait Compilable[-T] {
-  def getDB(t : T) : DFDesign.DB
+  def apply(t : T) : DFDesign.DB
 }
 object Compilable {
   def apply[T](implicit comp : Compilable[T]) : Compilable[T] = comp
   implicit class CompilerOps[T : Compilable](t : T) {
-    private val designDB : DFDesign.DB = Compilable[T].getDB(t)
+    private val designDB : DFDesign.DB = Compilable[T].apply(t)
     def boom : DFDesign.DB = {
       ???
     }
@@ -45,7 +45,8 @@ object DFCompiler {
     }
   }
 
-  implicit class Utils(designDB : DFDesign.DB) {
+  implicit class Utils[C](c : C)(implicit comp : Compilable[C]) {
+    private val designDB = comp(c)
     import designDB.getset
     def fixAnonymous : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
@@ -133,7 +134,8 @@ object DFCompiler {
     def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
   }
 
-  implicit class Checker(designDB : DFDesign.DB) {
+  implicit class Checker[C](c : C)(implicit comp : Compilable[C]) {
+    private val designDB = comp(c)
     import designDB.getset
     def connectionCheck : DFDesign.DB = {
 //      designDB.members.collect {
@@ -143,7 +145,8 @@ object DFCompiler {
     }
   }
 
-  implicit class Calculator(designDB : DFDesign.DB) {
+  implicit class Calculator[C](c : C)(implicit comp : Compilable[C]) {
+    private val designDB = comp(c)
     import designDB.getset
     @tailrec private def calcInit(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]], requestedCalc : Set[DFAny]) : Map[DFAny, Seq[DFAny.Token]] = {
       def getInit[T <: DFAny](member : T) : Option[Seq[member.TToken]] = member.tags.init match {
@@ -213,7 +216,9 @@ object DFCompiler {
                 case None => calcInit(s :: remaining, calc, requestedCalc + m)
               }
               //no connection and no external init, so use an empty sequence
-              case None => calcInit(mList, calc + (m -> Seq()), requestedCalc)
+              case None =>
+                //TODO: add connection via alias init fetch support here
+                calcInit(mList, calc + (m -> Seq()), requestedCalc)
             }
           }
         }
@@ -237,7 +242,8 @@ object DFCompiler {
     implicit case object Default extends PrintConfig
     case object ShowInits extends PrintConfig
   }
-  final implicit class CodeString(designDB : DFDesign.DB) {
+  final implicit class CodeString[C](c : C)(implicit comp : Compilable[C]) {
+    private val designDB = comp(c)
     private val fixedDB = designDB.fixAnonymous
     import fixedDB.getset
 
@@ -245,7 +251,7 @@ object DFCompiler {
       val membersCodeString = members.collect {
         case mh : ConditionalBlock.MatchHeader => mh.codeString
         case cb : ConditionalBlock => cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb)))
-        case m : DFDesign.Block => s"final val ${m.name} = new ${m.typeName} {}" //TODO: fix
+        case d : DFDesign.Block => s"final val ${d.name} = new ${d.typeName} {}" //TODO: fix
         case n : DFNet => n.codeString
         case a : DFAny if !a.isAnonymous =>
           val initInfo = printConfig match {
