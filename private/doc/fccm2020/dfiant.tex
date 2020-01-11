@@ -1,10 +1,10 @@
 
-\begin{table*}[t!]
+\begin{figure*}[t!]
   \centering
-  \begin{minipage}[t][11.8cm][t]{0.505\linewidth}
+  \begin{minipage}[b][10.8cm][t]{0.32\linewidth}
     \centering
-    \captionsetup{justification=centering}    
-    \begin{minted}[xleftmargin=1em,linenos,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{8}{9}\selectfont]{scala}
+    \captionsetup{justification=centering}   
+    \begin{minted}[xleftmargin=1em,linenos,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont,highlightlines={10-14}]{scala}
 			import DFiant._
 			
 			trait MA4 extends DFDesign {
@@ -14,17 +14,21 @@
 				val d    = DFSInt[16] <> IN init 0
 				val o    = DFSInt[16] <> OUT
 				
-				def ma(src : DFSInt[16]) = {     
-					val acc = DFSInt[18] init 0    //-Compiled to->
-					acc := acc - src.prev(4) + src //-Compiled to->
+				def ma(src: DFSInt[16]) = {     
+					val acc = DFSInt[18] init 0    
+					acc := acc - src.prev(4) + src 
 					(acc / 4).toWidth(16)
 				}
-				def avg2(src1 : DFSInt[16], src2 : DFSInt[16]) =
-					((src1 + src2).wc / 2).toWidth(16)
-					//  (_ + _).wc is a with-carry addition
+				def avg2(
+				  src1: DFSInt[16], 
+				  src2: DFSInt[16]
+				)=((src1 +^ src2) / 2)
+				  .toWidth(16)
+					//  (_ +^ _)=with-carry addition
 					
 				o := avg2(
-					avg2(ma(a), ma(b)), avg2(ma(c), ma(d))
+					avg2(ma(a), ma(b)), 
+					avg2(ma(c), ma(d))
 				)
 			}
 			
@@ -32,70 +36,79 @@
 			
 			
 			
-			
-			
-			
-			
-			object MA4App extends DFApp.VHDLCompiler[MA4]
+			object MA4App 
+			extends DFApp.VHDLCompiler[MA4]
     \end{minted}
-    \captionof{figure}{The MA4 DFiant code \\ Concise and portable}
+    \captionof{subfigure}{The MA4 DFiant code \\ Concise and portable}
     \label{fig:MADFiant}
-  \end{minipage}
+  \end{minipage}%
   \hfill
-  \begin{minipage}[t][11.8cm][t]{0.49\linewidth}
+  \begin{minipage}[b][10.8cm][t]{0.325\linewidth}
     \centering
     \captionsetup{justification=centering}
-		\begin{minted}[xleftmargin=1em,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{8}{9}\selectfont]{vhdl}
+		\begin{minted}[xleftmargin=1em,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont,highlightlines={1-33}]{vhdl}
 			...
-			signal acc       : signed(17 downto 0);
-			signal acc_prev1 : signed(17 downto 0);
-			signal src_prev1 : signed(15 downto 0);
-			signal src_prev2 : signed(15 downto 0);
-			signal src_prev3 : signed(15 downto 0);
-			signal src_prev4 : signed(15 downto 0);
+			signal acc      :signed(17 downto 0);
+			signal acc_prev1:signed(17 downto 0);
+			signal src_prev1:signed(15 downto 0);
+			signal src_prev2:signed(15 downto 0);
+			signal src_prev3:signed(15 downto 0);
+			signal src_prev4:signed(15 downto 0);
 			...
 			sync_proc : process (CLK, RSTn)
 			begin
 			  if RSTn = '0' then
-			    acc_prev1    <= 18d"0";
-			    src_prev1    <= 16d"0";
-			    src_prev2    <= 16d"0";
-			    src_prev3    <= 16d"0";
-			    src_prev4    <= 16d"0";
+			    acc_prev1   <= 18d"0";
+			    src_prev1   <= 16d"0";
+			    src_prev2   <= 16d"0";
+			    src_prev3   <= 16d"0";
+			    src_prev4   <= 16d"0";
 			  elsif rising_edge(CLK) then
-			    acc_prev1    <= acc;
-			    src_prev1    <= src;
-			    src_prev2    <= src_prev1;
-			    src_prev3    <= src_prev2;
-			    src_prev4    <= src_prev3;
+			    acc_prev1   <= acc;
+			    src_prev1   <= src;
+			    src_prev2   <= src_prev1;
+			    src_prev3   <= src_prev2;
+			    src_prev4   <= src_prev3;
 			  end if;
 			end process sync_proc;
 			...
 			async_proc : process (all)
-			  variable v_acc : signed(17 downto 0);
+			  variable v_acc:signed(17 downto 0);
 			begin
-			  v_acc          := acc_prev1;
-				v_acc 		     := v_acc - src_prev4 + src;
-			  acc            <= v_acc;
+			  v_acc := acc_prev1;
+				v_acc := v_acc - src_prev4 + src;
+			  acc   <= v_acc;
+			  ma    <= resize(acc sra 2, 16)
 			end process async_proc;
     \end{minted}
-    \captionof{figure}{
-    	The MA4 DFiant lines 11-12 compiled to VHDL \\ 
-    	The DFiant code is extremely compact in comparison.
-    }
+    \captionof{subfigure}{
+			A single \code{ma} VHDL code
+		}
+%    \captionof{figure}{
+%    	The MA4 DFiant lines 11-12 compiled to VHDL \\ 
+%    	The DFiant code is extremely compact in comparison.
+%    }
     \label{fig:MAVHDL}
-  \end{minipage}
-%  \vfill
-  \includegraphics[width=0.92\linewidth]{graphics/ma.pdf}
-  \captionsetup{justification=centering}
-  \captionof{figure}{
-  	The MA4 dataflow graph (the inputs are \code{a}, \code{b}, \code{c}, \code{d} and the output is \code{o}) \\ 
-  	The entire design is a composition of the \code{ma} and \code{avg} functions (detailed blowouts are depicted as well). \\ 
-  	The compiler places pipeline tags to achieve the required performance and the backend inserts registers accordingly. \\
-  	The concurrent construction is implied from a sequential composition thanks to the dataflow abstraction. 
-  }
-\label{fig:MADraw}
-\end{table*}
+  \end{minipage}%
+	\hfill
+  \begin{minipage}[b][10.8cm][t]{0.34\linewidth}
+		\centering
+
+  	\includegraphics[width=0.884\linewidth]{graphics/ma.pdf}
+  	\captionsetup{justification=centering}
+    \captionof{subfigure}{
+			The MA4 dataflow graph
+		}
+		\label{fig:MADraw}
+  \end{minipage}%
+  \captionsetup{justification=centering}      
+  \caption{
+		The MA4, presented in three forms (the inputs are \code{a}, \code{b}, \code{c}, \code{d} and the output is \code{o}) \\ 
+		The entire design is a composition of the \code{ma} and \code{avg} functions (detailed blowouts are depicted as well). \\ 
+		The compiler places pipeline tags to achieve the required performance and the backend inserts registers accordingly. \\
+		The concurrent construction is implied from a sequential composition thanks to the dataflow abstraction. 
+	}
+\end{figure*}
 
 \section{The DFiant Language Overview}
 \label{sec:dfiant}
@@ -308,10 +321,10 @@ DFiant expands traditional structural composition capabilities by utilizing Scal
 %\subsubsection{Realtime Components (Blackboxes)}
 %Realtime components
 
-Figures \ref{fig:BoxTopCode}, \ref{fig:BoxTopDraw}, and \ref{fig:BoxTopTokens} showcase the flexibility when applying both DFiant hierarchies and Scala inheritance. Indeed these capabilities are no strangers to HL-RTLs such as Chisel, and may even be expressible by native RTLs in some cumbersome fashion, but all these languages still couple the design to its specific timing and target constraints. For example,  \code{NWParCross} should have larger PD than \code{NWPArDirect}. On the one hand, pipelining inside the \code{NWLeft} and \code{NWRight} may result in over-pipelining. while on the other hand, pipelining outside, in their parent designs, may cause the same. DFiant helps us describe a truly agnostic network and \emph{optionally} leave the hard work to the compiler. 
+%Figures \ref{fig:BoxTopCode}, \ref{fig:BoxTopDraw}, and \ref{fig:BoxTopTokens} showcase the flexibility when applying both DFiant hierarchies and Scala inheritance. Indeed these capabilities are no strangers to HL-RTLs such as Chisel, and may even be expressible by native RTLs in some cumbersome fashion, but all these languages still couple the design to its specific timing and target constraints. For example,  \code{NWParCross} should have larger PD than \code{NWPArDirect}. On the one hand, pipelining inside the \code{NWLeft} and \code{NWRight} may result in over-pipelining. while on the other hand, pipelining outside, in their parent designs, may cause the same. DFiant helps us describe a truly agnostic network and \emph{optionally} leave the hard work to the compiler. 
 %Additionally, these figures highlight some of the differences between connections and assignments and how they affect the initialization throughout the design.
 
-\input{connectivity_table}
+%\input{connectivity_table}
 
 
 \subsection{Simulation Constructs}

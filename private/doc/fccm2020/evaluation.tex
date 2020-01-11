@@ -1,17 +1,17 @@
+
+\begin{table*}[t]
+	\centering
+	\captionsetup{justification=centering}
+	\captionof{table}{Comparing various RTL codes with equivalent DFiant codes in terms of performance, utilization, and LoCs\\The DFiant implementation is usually more concise and yet achieves roughly the same performance}
+	\label{tbl:Results}
+	\includegraphics[width=0.9\linewidth]{graphics/Results.pdf}
+\end{table*}
+
 \section{Evaluation}
 \label{sec:evaluation}
 DFiant aims to greatly improve designer productivity. To evaluate possible productivity gains we chose various open-source use-cases and implemented them in DFiant: an AES cypher~\cite{hsing2013aes}, an IEEE-754 double precision floating point multiplier~\cite{lundgren2014open}, a two-stage RISC-V core~\cite{samsoniuk2019riscv}, a bitonic-sort network~\cite{bitsortvhdl}, a cyclic redundancy check (CRC) generator/checker~\cite{drange2016crc}, and other simple examples~\cite{pedroni2008digital, fibgenvhdl, seqdetvhdl}. We compared the use-cases and our implementations via the following metrics: the maximum clock frequency, pipeline latency, utilizations of both look-up tables (LUTs) and flip-flop registers (FFs), and lines of code (LoC). We documented all results in \tbl{tbl:Results}. Apart from the LoC, all other metrics were obtained from a Vivado synthesis report. For maximum frequency, we introduced additional IO registers and recorded the longest path between registers. These extra registers effect was removed from the latency and FFs columns.  
 
 Also included in \tbl{tbl:Results} are the pipelining methods we chose\footnote{We did not include results of pipelining designs further than their RTL counterparts. We believe this comparison, although interesting, is out of scope for this paper which focuses on the language and not the compiler.} and if our design is also hardware proven. The pipelining criteria is as follows: \emph{None}, if the design is pure combinational; \emph{Not Applicable}, if the design cannot be pipelined any further due to feedback; \emph{Manual}, if the design is pipelined using the \code{.pipe} construct; and finally \emph{Auto}, if the design is pipelined automatically by running the compiler with a maximum frequency constraint. From inspecting the results and the code we deduce as follows:
-
-
-\begin{table*}[t]
-  \centering
-	\captionsetup{justification=centering}
-  \captionof{table}{Comparing various RTL codes with equivalent DFiant codes in terms of performance, utilization, and LoCs\\The DFiant implementation is usually more concise and yet achieves roughly the same performance}
-	\label{tbl:Results}
-	\includegraphics[width=0.9\linewidth]{graphics/Results.pdf}
-\end{table*}
 
 
 \emph{Conciseness}\quad The DFiant code is often significantly more compact than the RTL code (from 50\% to 70\% less code), because DFiant semantically implies much of the additional information required by the RTL description. The only difference occurs at the RISC-V implementation. The reason is that the RTL code design is flat, while we invested substantial code in hierarchical abstractions. We already came up with a solution to reduce this verbose code significantly, but have yet to implement it.  
