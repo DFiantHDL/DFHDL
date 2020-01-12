@@ -1,7 +1,7 @@
 
 \begin{figure*}[t!]
   \centering
-  \begin{minipage}[b][10.8cm][t]{0.32\linewidth}
+  \begin{minipage}[b][10cm][t]{0.32\linewidth}
     \centering
     \captionsetup{justification=centering}   
     \begin{minted}[xleftmargin=1em,linenos,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont,highlightlines={10-14}]{scala}
@@ -39,11 +39,11 @@
 			object MA4App 
 			extends DFApp.VHDLCompiler[MA4]
     \end{minted}
-    \captionof{subfigure}{The MA4 DFiant code \\ Concise and portable}
+    \subcaption{The MA4 DFiant code is concise and portable}
     \label{fig:MADFiant}
   \end{minipage}%
   \hfill
-  \begin{minipage}[b][10.8cm][t]{0.325\linewidth}
+  \begin{minipage}[b][10cm][t]{0.325\linewidth}
     \centering
     \captionsetup{justification=centering}
 		\begin{minted}[xleftmargin=1em,autogobble,tabsize=2,framesep=1pt,frame=single,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont,highlightlines={1-33}]{vhdl}
@@ -81,8 +81,8 @@
 			  ma    <= resize(acc sra 2, 16)
 			end process async_proc;
     \end{minted}
-    \captionof{subfigure}{
-			A single \code{ma} VHDL code
+    \subcaption{
+			The MA4 DFiant lines 11-13 compiled to VHDL
 		}
 %    \captionof{figure}{
 %    	The MA4 DFiant lines 11-12 compiled to VHDL \\ 
@@ -91,12 +91,12 @@
     \label{fig:MAVHDL}
   \end{minipage}%
 	\hfill
-  \begin{minipage}[b][10.8cm][t]{0.34\linewidth}
+  \begin{minipage}[b][10cm][t]{0.34\linewidth}
 		\centering
 
   	\includegraphics[width=0.884\linewidth]{graphics/ma.pdf}
   	\captionsetup{justification=centering}
-    \captionof{subfigure}{
+    \subcaption{
 			The MA4 dataflow graph
 		}
 		\label{fig:MADraw}
