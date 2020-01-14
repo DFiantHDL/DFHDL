@@ -112,14 +112,14 @@
 
 \section{The DFiant Language Overview}
 \label{sec:dfiant}
-DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a four-by-four moving average (MA4) unit. The MA4 has four 16-bit integer input channels and is required to output the average of all channels, while each channel is averaged by a four-sample moving window continuously. The complete MA4 DFiant implementation and its dataflow graph are available in \fig{fig:MADFiant} and ~\ref{fig:MADraw}, respectively. \fig{fig:MAVHDL} presents a subset of the DFiant-generated VHDL (2008) code derived from lines 11-12 in \fig{fig:MADFiant}.
+DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a four-by-four moving average (MA4) unit. The MA4 has four 16-bit integer input channels and is required to output the average of all channels, while each channel is averaged by a four-sample moving window continuously. The complete MA4 DFiant implementation and its dataflow graph are available in \fig{fig:MADFiant} and ~\ref{fig:MADraw}, respectively. \fig{fig:MAVHDL} presents a subset of the DFiant-generated VHDL (2008) code derived from lines 11--13 in \fig{fig:MADFiant}.
 
 
 \subsection{Hello DFiant World!}
-The DFiant code in \fig{fig:MADFiant} demonstrates the structure of any DFiant program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} abstract class (lines 3--21), and creates a runnable application that instantiates the top design trait, and compiles it into a VHDL file (line 32).
+The DFiant code in \fig{fig:MADFiant} demonstrates the structure of any DFiant program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} abstract class (lines 3--26), and creates a runnable application that instantiates the top design trait, and compiles it into a VHDL file (linees 32--33).
 
-The MA4 design is fairly straightforward. Lines 4-8 generate the signed dataflow ports and include a \code{0} value initialization (see Section~\ref{sec:state_constructs}). 
-Lines 10-14 define the function \code{ma} that generates a single four-sample moving average, while lines 15-16 define the function \code{avg2} that generates a two-input average unit. Finally, lines 18-20 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.
+The MA4 design is fairly straightforward. Lines 4--8 generate the signed dataflow ports and include a \code{0} value initialization (see Section~\ref{sec:state_constructs}). 
+Lines 10--14 define the function \code{ma} that generates a single four-sample moving average, while lines 15--19 define the function \code{avg2} that generates a two-input average unit. Finally, lines 22--25 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.
 
 
 \subsection{Dataflow Variable Semantics}
@@ -144,7 +144,7 @@ Unused nodes always consume tokens and are discarded during compilation.
 
 \subsubsection{Bit-Accurate Operations and Type Inference}
 DFiant supports various basic dataflow types such as \code{DFBool}, \code{DFBits}, and others.
-All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., at line 11 of \code{MA4} the variable \code{acc} is an 18-bit signed integer). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, at line 12 of \code{MA4}, a 16-bit value is subtracted from an 18-bit value which results in an 18-bit value. In line 16 the addition between \code{src1} and \code{src2} returns a carried 17-bit result due to invocation of \code{.wc}. DFiant also employs various type-safe restrictions to protect designers from unexpected or surprising behavior (e.g., it is unclear what should occur at \code{DFUInt[4] - 1000}).
+All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., at line 11 of \code{MA4} the variable \code{acc} is an 18-bit signed integer). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, at line 12 of \code{MA4}, a 16-bit value is subtracted from an 18-bit value which results in an 18-bit value. In line 18 the with-carry addition between \code{src1} and \code{src2} returns a carried 17-bit. DFiant also employs various type-safe restrictions to protect designers from unexpected or surprising behavior (e.g., it is unclear what should occur at \code{DFUInt[4] - 1000}).
 
 \subsubsection{Assignment and Mutability}
 \label{sec:mutability}
@@ -327,28 +327,28 @@ DFiant expands traditional structural composition capabilities by utilizing Scal
 %\input{connectivity_table}
 
 
-\subsection{Simulation Constructs}
-\label{sec:simulation}
-Unlike VHDL and Verilog which were developed for simulation and only later adopted for synthesis, DFiant was developed with a synthesizable language focus in mind. Nonetheless, to test our designs we added some basic simulation-only constructs, and to clearly separate them from the rest of the language, we placed them under a separate name space -- \code{sim}. Furthermore, all simulation constructs exist only within a simulation context which is formed only if the toplevel design is actually a simulation design, \code{DFSimulation}. The \code{DFSimulation} construct typically holds both the device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs.
-%\code{sim.assert} to print errors if a condition is not satisfied; \code{sim.report} for printing messages; and finally \code{sim.finish} to finish the simulation. 
-\fig{fig:FibTest} demonstrates basic testing methods in DFiant, like using \code{.prev} to inject token sequences(lines 2,3,5) and easily constructing strings via string interpolation (line 6).
-
-\begin{figure}[h]
-  \centering
-  \captionsetup{justification=centering}    
-  
-  \begin{minted}[xleftmargin=0.08\linewidth, xrightmargin=0.08\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
-	trait SeqDetTest extends DFSimulator {
-		val TestSeq = Seq(1, 1, 0, 1, 0, 0, 1, 0, 1)
-		val seqIn = DFBool() init TestSeq.reverse
-		val dut = new SeqDet {}
-		dut.seqIn <> seqIn.prev(TestSeq.length)
-		sim.report(dfs"det: ${dut.detOut}")
-	}
-  \end{minted}
-  \captionof{figure}{Simulation wrapper for our sequence detector \\ }
-  \label{fig:FibTest}
-\end{figure}
+%\subsection{Simulation Constructs}
+%\label{sec:simulation}
+%Unlike VHDL and Verilog which were developed for simulation and only later adopted for synthesis, DFiant was developed with a synthesizable language focus in mind. Nonetheless, to test our designs we added some basic simulation-only constructs, and to clearly separate them from the rest of the language, we placed them under a separate name space -- \code{sim}. Furthermore, all simulation constructs exist only within a simulation context which is formed only if the toplevel design is actually a simulation design, \code{DFSimulation}. The \code{DFSimulation} construct typically holds both the device-under-test (DUT) and the testing logic. Currently, the DFiant compiler only supports a handful of dedicated simulation constructs.
+%%\code{sim.assert} to print errors if a condition is not satisfied; \code{sim.report} for printing messages; and finally \code{sim.finish} to finish the simulation. 
+%\fig{fig:FibTest} demonstrates basic testing methods in DFiant, like using \code{.prev} to inject token sequences(lines 2,3,5) and easily constructing strings via string interpolation (line 6).
+%
+%\begin{figure}[h]
+%  \centering
+%  \captionsetup{justification=centering}    
+%  
+%  \begin{minted}[xleftmargin=0.08\linewidth, xrightmargin=0.08\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
+%	trait SeqDetTest extends DFSimulator {
+%		val TestSeq = Seq(1, 1, 0, 1, 0, 0, 1, 0, 1)
+%		val seqIn = DFBool() init TestSeq.reverse
+%		val dut = new SeqDet {}
+%		dut.seqIn <> seqIn.prev(TestSeq.length)
+%		sim.report(dfs"det: ${dut.detOut}")
+%	}
+%  \end{minted}
+%  \captionof{figure}{Simulation wrapper for our sequence detector \\ }
+%  \label{fig:FibTest}
+%\end{figure}
 
 
 
