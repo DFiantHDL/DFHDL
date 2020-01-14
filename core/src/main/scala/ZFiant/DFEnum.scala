@@ -19,7 +19,6 @@ package ZFiant
 
 import singleton.ops._
 import singleton.twoface._
-import DFiant.targetlib._
 import DFiant.internals._
 
 import scala.collection.mutable

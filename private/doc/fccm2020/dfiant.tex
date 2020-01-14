@@ -8,14 +8,14 @@
 			import DFiant._
 			
 			trait MA4 extends DFDesign {
-				val a    = DFSInt[16] <> IN init 0
-				val b    = DFSInt[16] <> IN init 0
-				val c    = DFSInt[16] <> IN init 0
-				val d    = DFSInt[16] <> IN init 0
-				val o    = DFSInt[16] <> OUT
+				val a    = DFSInt(16) <> IN init 0
+				val b    = DFSInt(16) <> IN init 0
+				val c    = DFSInt(16) <> IN init 0
+				val d    = DFSInt(16) <> IN init 0
+				val o    = DFSInt(16) <> OUT
 				
 				def ma(src: DFSInt[16]) = {     
-					val acc = DFSInt[18] init 0    
+					val acc = DFSInt(18) init 0    
 					acc := acc - src.prev(4) + src 
 					(acc / 4).toWidth(16)
 				}
@@ -150,8 +150,9 @@ All DFiant's dataflow types are bit-accurate and structurally static, with their
 \label{sec:mutability}
 DFiant supports dataflow variable "mutation" via the \code{:=} operator. This not an actual mutation but only a change of the variable reference to a different dataflow stream (hardware \emph{construction} is immutable). Assignments are also used inside conditional constructs (\sect{sec:conditional}) and to set the input of a feedback state (\sect{sec:state_update}).
 
-Dataflow variables can be either mutable (accept \code{:=}) or immutable (compiler error for \code{:=}). The mutability trait depends on the type and sometimes also on the context within it is applied. For example, we cannot assign to a the dataflow stream returned at line 13 of \code{MA4}. The only mutable variables are the ones explicitly constructed or output ports as seen at lines 11 and 8 of \code{MA4}. Mutation must be local to the context of assignment operation (e.g., cannot assign to variable outside its design).
-Note: do not confuse with Scala-level mutation which is enabled by using \code{\textbf{var}} instead of \code{\textbf{val}} (the DFiant compiler disallows constructing DFiant objects under a \code{\textbf{var}} reference). 
+Dataflow variables can be either mutable (accept \code{:=}) or immutable (compiler error for \code{:=}). The mutability trait depends on the type and sometimes also on the context within it is applied. For example, we cannot assign to a the dataflow stream returned at line 13 of \code{MA4}. 
+%The only mutable variables are the ones explicitly constructed or output ports as seen at lines 11 and 8 of \code{MA4}. Mutation must be local to the context of assignment operation (e.g., cannot assign to variable outside its design).
+%Note: do not confuse with Scala-level mutation which is enabled by using \code{\textbf{var}} instead of \code{\textbf{val}} (the DFiant compiler disallows constructing DFiant objects under a \code{\textbf{var}} reference). 
 
 \subsubsection{Read Access}
 All dataflow values can be read (yes, even output ports). The only exception exist in an output port that is neither assigned or initialized because in this situation the reader will only consume stall bubble tokens and possibly lead to a system deadlock.
@@ -237,8 +238,8 @@ Another example that illustrates the benefits of the DFiant state constructs is 
 
   \begin{minted}[xleftmargin=0.25\linewidth, xrightmargin=0.25\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{6}{7}\selectfont]{scala}
     trait FibGen extends DFDesign {
-      val o = DFUInt[32] <> OUT
-      val f = DFUInt[32] init (1, 0)
+      val o = DFUInt(32) <> OUT
+      val f = DFUInt(32) init (1, 0)
       f := f.prev + f.prev(2)
       o := f.prev(2) //output from 0
     }
