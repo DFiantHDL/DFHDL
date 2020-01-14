@@ -43,7 +43,7 @@
 	publisher = {VLSICoding},
 	title = {{VHDL Code for Bitonic Sorter}},
 	url = {https://vlsicoding.blogspot.com/2016/01/vhdl-code-for-bitonic-sorter.html},
-	year = {2016}
+	year = {2016},
 	month = {January}
 }
 
@@ -128,6 +128,43 @@
   publisher={Springer Science \& Business Media}
 }
 
+@article{Serre,
+	author = {Serre, F and Technology, M P{\"{u}}schel - ACM Transactions on Reconfigurable and undefined 2019},
+	file = {:C\:/Users/soronpo/AppData/Local/Mendeley Ltd./Mendeley Desktop/Downloaded/Serre, Technology, 2019 - Unknown - DSL-Based Hardware Generation with Scala Example Fast Fourier Transforms and Sorting Networks.pdf:pdf},
+	journal = {dl.acm.org},
+	title = {{DSL-Based Hardware Generation with Scala: Example Fast Fourier Transforms and Sorting Networks}},
+	url = {https://dl.acm.org/doi/abs/10.1145/3359754}
+}
+
+@inproceedings{Koeplinger2018,
+	abstract = {Industry is increasingly turning to reconfigurable architectures like FPGAs and CGRAs for improved performance and energy efficiency. Unfortunately, adoption of these architectures has been limited by their programming models. HDLs lack abstractions for productivity and are difficult to target from higher level languages. HLS tools are more productive, but offer an ad-hoc mix of software and hardware abstractions which make performance optimizations difficult. In this work, we describe a new domain-specific language and compiler called Spatial for higher level descriptions of application accelerators. We describe Spatial's hardware-centric abstractions for both programmer productivity and design performance, and summarize the compiler passes required to support these abstractions, including pipeline scheduling, automatic memory banking, and automated design tuning driven by active machine learning. We demonstrate the language's ability to target FPGAs and CGRAs from common source code. We show that applications written in Spatial are, on average, 42% shorter and achieve a mean speedup of 2.9× over SDAccel HLS when targeting a Xilinx UltraScale+ VU9P FPGA on an Amazon EC2 F1 instance.},
+	author = {Koeplinger, David and Feldman, Matthew and Prabhakar, Raghu and Zhang, Yaqi and Hadjis, Stefan and Fiszel, Ruben and Zhao, Tian and Nardi, Luigi and Pedram, Ardavan and Kozyrakis, Christos and Olukotun, Kunle},
+	booktitle = {Proceedings of the ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI)},
+	doi = {10.1145/3192366.3192379},
+	file = {::},
+	isbn = {9781450356985},
+	issn = {0362-1340},
+	keywords = {CGRAs,Compilers,Domain-specific languages,FPGAs,Hardware accelerators,High-level synthesis,Reconfigurable architectures},
+	pages = {296--311},
+	publisher = {ACM},
+	title = {{Spatial: A language and compiler for application accelerators}},
+	url = {https://doi.org/10.1145/3192366.3192379},
+	year = {2018}
+}
+
+
+@inproceedings{Bellows,
+	abstract = {JHDL is a design tool for reconfigurable systems that allows designers to express circuit organizations that dynamically change over time in a natural way, using only standard programming abstractions found in object-oriented languages. JHDL manages FPGA resources in a manner that is similar to the way object-oriented languages manage memory: circuits are treated as distinct objects and a circuit is configured onto a configurable computing machine (CCM) by invoking its constructor effectively «constructing » an instance of the circuit onto the reconfigurable platform just as object instances are allocated in memory with conventional object-oriented languages. This approach of using object constructors/destructors to control the circuit lifetime on a CCM is a powerful technique that naturally leads to a dual simulation/execution environment where a designer can easily switch between either software simulation or hardware execution on a CCM with a single application description. Moreover JHDL supports dual hardware/software execution; parts of the application described using JHDL circuit constructs can be executed on the CCM while the remainder of the application the-GUI for example-can run on the CCM host. Based on an existing programming language (Java), JHDL requires no language extensions and can be used with any standard Java 1.1 distribution.},
+	author = {Bellows, Peter and Hutchings, Brad},
+	booktitle = {Proceedings - IEEE Symposium on FPGAs for Custom Computing Machines, FCCM 1998},
+	doi = {10.1109/FPGA.1998.707895},
+	file = {:C\:/Users/soronpo/AppData/Local/Mendeley Ltd./Mendeley Desktop/Downloaded/Bellows, Hutchings - Unknown - JHDL-An HDL for Reconfigurable Systems {\pounds}.pdf:pdf},
+	isbn = {0818689005},
+	pages = {1--10},
+	title = {{JHDL-an HDL for reconfigurable systems}},
+	volume = {1998-April},
+	year = {1998}
+}
 
 @MastersThesis{Port2015,
 author = {Port, Oron},
@@ -1274,7 +1311,7 @@ year = {2017}
 }
 
 @inproceedings{Clow2017,
-  author = {Clow, John and Tzimpragos, Georgios and Dangwal, Deeksha and Guo, Sammy and McMahan, Joseph and Sh, Timothy},
+	author = {Clow, John and Tzimpragos, Georgios and Dangwal, Deeksha and Guo, Sammy and McMahan, Joseph and Sherwood, Timothy},
   booktitle = FPGA,
   title = {{A Pythonic Approach for Rapid Hardware Prototyping and Instrumentation}},
   year = {2017}
