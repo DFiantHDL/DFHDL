@@ -180,10 +180,10 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
               if (m.meta.position > ng.position)
                 namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
               else if (m.meta.position == ng.position)
-                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet union Set(m)))
             case Some(ng) if ng.nameFirst && m.nameFirst =>
               if (m.meta.position == ng.position)
-                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet union Set(m)))
             case Some(ng) if m.nameFirst =>
               namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
             case None =>
