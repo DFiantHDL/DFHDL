@@ -103,16 +103,16 @@
   \end{minipage}%
   \captionsetup{justification=centering}      
   \caption{
-		The MA4, presented in three forms (the inputs are \code{a}, \code{b}, \code{c}, \code{d} and the output is \code{o}) \\ 
+		Our MA4 implementation (the inputs are \code{a}, \code{b}, \code{c}, \code{d} and the output is \code{o}) \\ 
 		The entire design is a composition of the \code{ma} and \code{avg} functions (detailed blowouts are depicted as well). \\ 
 		The compiler places pipeline tags to achieve the required performance and the backend inserts registers accordingly. \\
-		The concurrent construction is implied from a sequential composition thanks to the dataflow abstraction. 
+		The concurrent construction is implied from independent sequential compositions thanks to the dataflow abstraction. 
 	}
 \end{figure*}
 
 \section{The DFiant Language Overview}
 \label{sec:dfiant}
-DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics that enable dataflow-based hardware description. Throughout this section we elaborate on these constructs and semantics via our running example, a four-by-four moving average (MA4) unit. The MA4 has four 16-bit integer input channels and is required to output the average of all channels, while each channel is averaged by a four-sample moving window continuously. The complete MA4 DFiant implementation and its dataflow graph are available in \fig{fig:MADFiant} and ~\ref{fig:MADraw}, respectively. \fig{fig:MAVHDL} presents a subset of the DFiant-generated VHDL (2008) code derived from lines 11--13 in \fig{fig:MADFiant}.
+DFiant is a Scala library and thus possesses various rich type safe language constructs. DFiant also incorporates unique language semantics, as expected from a DF-HDL. Throughout this section we elaborate on these constructs and semantics via our running example, a four-by-four moving average (MA4) unit. The MA4 has four 16-bit integer input channels and is required to output the average of all channels, while each channel is averaged by a four-sample moving window continuously. The complete MA4 DFiant implementation and its dataflow graph are available in \fig{fig:MADFiant} and \ref{fig:MADraw}, respectively. \fig{fig:MAVHDL} presents a subset of the DFiant-generated VHDL (2008) code derived from lines 11--13 in \fig{fig:MADFiant}.
 
 
 \subsection{Hello DFiant World!}
@@ -235,7 +235,7 @@ Another example that illustrates the benefits of the DFiant state constructs is 
   \centering
   \captionsetup{justification=centering}    
 
-  \begin{minted}[xleftmargin=0.2\linewidth, xrightmargin=0.2\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
+  \begin{minted}[xleftmargin=0.25\linewidth, xrightmargin=0.25\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{6}{7}\selectfont]{scala}
     trait FibGen extends DFDesign {
       val o = DFUInt[32] <> OUT
       val f = DFUInt[32] init (1, 0)
@@ -250,6 +250,8 @@ Another example that illustrates the benefits of the DFiant state constructs is 
 Both \fig{fig:MAVHDL} and \fig{fig:FibGen} emphasize the advantages of DFiant state constructs over RTL registers and wires.
 One advantage is that the DFiant code resembles its RTL counterparts, but is also very concise since state elements are automatically constructed when a stream history is accessed. Another advantage is portability, because state elements are not registers and therefore any type of state component is applicable. Our first synchronous backend indeed maps state elements to registers, but even an asynchronous backend can compile the same code and apply the Muller C-element~\cite{muller1957theory} as a state element. 
 
+In comparison, many HLS tools rely on C and use \code{static} or global variables to define their explicit state. Indeed these variables abstract over registers, but their major disadvantage is that they prevent functional composition. For example, the \code{ma} function has a state and requires a static variable in its HLS implementation. This variable is shared among all \code{ma} function calls, so an HLS composition code similar to lines 22--25 of MA4 would not be possible as-is.
+
 \subsection{Conditional Constructs and Semantics}
 \label{sec:conditional}
 DFiant has \code{ifdf} and \code{matchdf} conditional constructs which logically resemble the Scala \code{\textbf{if}} and \code{\textbf{match}}, respectively. These dataflow conditional constructs are also very similar to their RTL counterparts and yield multiplexer hardware. However, their semantics follow the same dataflow \emph{join} and \emph{fork} rules we described in Sections \ref{sec:basic_ops} and \ref{sec:path_div}, and therefore all dataflow values used within the conditional constructs are joined together and all modified dataflow variables which are referenced outside the conditional constructs are forked as well. Of course, if there is no need for this additional flow control logic, the default compiler yields a simple combinational structure.
@@ -261,7 +263,7 @@ Note we did not need to directly refer to \code{state.prev} at line 8, thanks to
   \centering
   \captionsetup{justification=centering}    
   
-  \begin{minted}[xleftmargin=0.13\linewidth, xrightmargin=0.13\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{7}{8}\selectfont]{scala}
+  \begin{minted}[xleftmargin=0.18\linewidth, xrightmargin=0.18\linewidth,frame=single,autogobble,linenos,tabsize=2,fontfamily=courier,fontsize=\fontsize{6}{7}\selectfont]{scala}
     trait SeqDet extends DFDesign {
       val seqIn  = DFBool() <> IN
       val detOut = DFBool() <> OUT
@@ -310,7 +312,8 @@ Dataflow IO ports act in many ways just like dataflow variables.
 %The main difference is that only ports can be referenced outside the design in which they are constructed (this limitation may change in the future). 
 Ports are used either to connect a parent design to its child or connect two child sibling designs. The operator \code{<>} is used both to construct dataflow ports (from dataflow variables) and create connections between ports. 
 Dataflow ports can be either \code{IN} or \code{OUT} as seen at lines 7--8 of \code{MA4} and can also be initialized via \code{.init}. Input ports are immutable. Output ports are mutable, but only within the context of their owner design.  
-There are various connectivity rules and there are important differences between a connection \code{<>} and an assignment \code{:=}. See \tbl{tbl:Box} for a brief comparison.
+There are various connectivity rules and semantic differences between a connection \code{<>} and an assignment \code{:=}.
+%See \tbl{tbl:Box} for a brief comparison.
 
 \subsubsection{Dataflow Designs} 
 Dataflow designs are the basic hierarchy abstraction in DFiant. By extending the abstract class \code{DFDesign} the designer populates it with IO ports that makeup its interface and with dataflow variables and operations that makeup its implementation.
