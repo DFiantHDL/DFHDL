@@ -82,7 +82,7 @@
 			end process async_proc;
     \end{minted}
     \subcaption{
-			The MA4 DFiant lines 11-13 compiled to VHDL
+			DFiant code lines 11-13 compiled to VHDL
 		}
 %    \captionof{figure}{
 %    	The MA4 DFiant lines 11-12 compiled to VHDL \\ 
@@ -150,7 +150,7 @@ All DFiant's dataflow types are bit-accurate and structurally static, with their
 \label{sec:mutability}
 DFiant supports dataflow variable "mutation" via the \code{:=} operator. This not an actual mutation but only a change of the variable reference to a different dataflow stream (hardware \emph{construction} is immutable). Assignments are also used inside conditional constructs (\sect{sec:conditional}) and to set the input of a feedback state (\sect{sec:state_update}).
 
-Dataflow variables can be either mutable (accept \code{:=}) or immutable (compiler error for \code{:=}). The mutability trait depends on the type and sometimes also on the context within they are applied. For example, we cannot assign to a the dataflow stream returned at line 13 of \code{MA4}. The only mutable variables are the ones explicitly constructed or output ports as seen at lines 11 and 8 of \code{MA4}. Mutation must be local to the context of assignment operation (e.g., cannot assign to variable outside its design).
+Dataflow variables can be either mutable (accept \code{:=}) or immutable (compiler error for \code{:=}). The mutability trait depends on the type and sometimes also on the context within it is applied. For example, we cannot assign to a the dataflow stream returned at line 13 of \code{MA4}. The only mutable variables are the ones explicitly constructed or output ports as seen at lines 11 and 8 of \code{MA4}. Mutation must be local to the context of assignment operation (e.g., cannot assign to variable outside its design).
 Note: do not confuse with Scala-level mutation which is enabled by using \code{\textbf{var}} instead of \code{\textbf{val}} (the DFiant compiler disallows constructing DFiant objects under a \code{\textbf{var}} reference). 
 
 \subsubsection{Read Access}
