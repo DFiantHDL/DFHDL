@@ -2,6 +2,8 @@ matrix:
   include:
     - language: scala
       jdk: openjdk11
+      scala:
+        - 2.13.1
       before_install:
         - git fetch --tags
       stages:
