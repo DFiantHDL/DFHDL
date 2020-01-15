@@ -262,75 +262,75 @@ class ConnectTest extends Properties("ConnectTest") {
 //    top_ioDesignIf.codeString =@= compare
 //  }
 
-  property("IODesignIf.codeString default") = {
-    import DFDesign.allowTop._
-    val top_ioDesignIf = new IODesignIf {}
-    val compare =
-      """
-        |trait IODesignIf extends DFDesign {
-        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)
-        |  val i2 = DFUInt(8) <> IN init(2, Φ)
-        |  val o1 = DFUInt(8) <> OUT
-        |  val o2 = DFUInt(8) <> OUT
-        |  val b = DFBool() <> IN init(false, true, true, true)
-        |  ifdf(b) {
-        |    ifdf(b) {
-        |      o1 := i1
-        |    }.elseifdf(b) {
-        |      o1 := i1
-        |    }
-        |  }.elsedf {
-        |    o1 := i1
-        |  }
-        |  val ret = DFUInt(8) init(2, 1, Φ, 1)
-        |  ifdf(b) {
-        |    val ret2 = DFUInt(8) init(1, 1, Φ, 1)
-        |    ifdf(i1 < 8) {
-        |      ret2 := i1
-        |    }.elseifdf(b) {
-        |      ret2 := i2
-        |    }.elsedf {
-        |      ret2 := i1
-        |    }
-        |    ret := ret2
-        |  }.elsedf {
-        |    ret := i2
-        |  }
-        |  o2 <> ret
-        |}
-        |
-        |val top_ioDesignIf = new IODesignIf {}
-      """.stripMargin
-    top_ioDesignIf.codeString =@= compare
-  }
+//  property("IODesignIf.codeString default") = {
+//    import DFDesign.allowTop._
+//    val top_ioDesignIf = new IODesignIf {}
+//    val compare =
+//      """
+//        |trait IODesignIf extends DFDesign {
+//        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)
+//        |  val i2 = DFUInt(8) <> IN init(2, Φ)
+//        |  val o1 = DFUInt(8) <> OUT
+//        |  val o2 = DFUInt(8) <> OUT
+//        |  val b = DFBool() <> IN init(false, true, true, true)
+//        |  ifdf(b) {
+//        |    ifdf(b) {
+//        |      o1 := i1
+//        |    }.elseifdf(b) {
+//        |      o1 := i1
+//        |    }
+//        |  }.elsedf {
+//        |    o1 := i1
+//        |  }
+//        |  val ret = DFUInt(8) init(2, 1, Φ, 1)
+//        |  ifdf(b) {
+//        |    val ret2 = DFUInt(8) init(1, 1, Φ, 1)
+//        |    ifdf(i1 < 8) {
+//        |      ret2 := i1
+//        |    }.elseifdf(b) {
+//        |      ret2 := i2
+//        |    }.elsedf {
+//        |      ret2 := i1
+//        |    }
+//        |    ret := ret2
+//        |  }.elsedf {
+//        |    ret := i2
+//        |  }
+//        |  o2 <> ret
+//        |}
+//        |
+//        |val top_ioDesignIf = new IODesignIf {}
+//      """.stripMargin
+//    top_ioDesignIf.codeString =@= compare
+//  }
 
-  property("IODesignConn2.codeString") = {
-    implicit val config = DFAnyConfiguration.detailed
-    import DFDesign.allowTop._
-    val top_ioDesignConn2 = new IODesignConn2 {}
-    top_ioDesignConn2.io.unfold
-    val compare =
-      """
-        |trait Comp extends DFDesign {
-        |  val i = DFUInt(8) <> IN                                    //init = (1)
-        |  val o = DFUInt(8) <> OUT                                   //init = (2)
-        |  val rt = new RTx2 {}
-        |  rt.I <> i
-        |  o <> rt.O
-        |}
-        |
-        |trait IODesignConn2 extends DFDesign {
-        |  val i = DFUInt(8) <> IN init(1)                            //init = (1)
-        |  val o = DFUInt(8) <> OUT                                   //init = (2)
-        |  val io = new Comp {}
-        |  io.i <> i
-        |  o <> io.o
-        |}
-        |
-        |val top_ioDesignConn2 = new IODesignConn2 {}
-      """.stripMargin
-    top_ioDesignConn2.codeString =@= compare
-  }
+//  property("IODesignConn2.codeString") = {
+//    implicit val config = DFAnyConfiguration.detailed
+//    import DFDesign.allowTop._
+//    val top_ioDesignConn2 = new IODesignConn2 {}
+//    top_ioDesignConn2.io.unfold
+//    val compare =
+//      """
+//        |trait Comp extends DFDesign {
+//        |  val i = DFUInt(8) <> IN                                    //init = (1)
+//        |  val o = DFUInt(8) <> OUT                                   //init = (2)
+//        |  val rt = new RTx2 {}
+//        |  rt.I <> i
+//        |  o <> rt.O
+//        |}
+//        |
+//        |trait IODesignConn2 extends DFDesign {
+//        |  val i = DFUInt(8) <> IN init(1)                            //init = (1)
+//        |  val o = DFUInt(8) <> OUT                                   //init = (2)
+//        |  val io = new Comp {}
+//        |  io.i <> i
+//        |  o <> io.o
+//        |}
+//        |
+//        |val top_ioDesignConn2 = new IODesignConn2 {}
+//      """.stripMargin
+//    top_ioDesignConn2.codeString =@= compare
+//  }
 
   property("IODesignConn5.codeString detailed") = {
     implicit val config = DFAnyConfiguration.detailed
@@ -367,27 +367,27 @@ class ConnectTest extends Properties("ConnectTest") {
     top_ioDesignConn5.codeString =@= compare
   }
 
-  property("IODesignConn5.codeString default") = {
-    import DFDesign.allowTop._
-    val top_ioDesignConn5 = new IODesignConn5 {}
-    val compare =
-      """
-        |trait IODesignConn5 extends DFDesign {
-        |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o = DFUInt(8) <> OUT
-        |  o <> i.prev.prev.prev.prev
-        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o_d_1 = DFUInt(8) <> OUT
-        |  o_d_1 <> i_d_1.prev.prev.prev.prev
-        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
-        |  val o_d_2 = DFUInt(8) <> OUT
-        |  o_d_2 <> i_d_2.prev.prev.prev.prev
-        |}
-        |
-        |val top_ioDesignConn5 = new IODesignConn5 {}
-      """.stripMargin
-    top_ioDesignConn5.codeString =@= compare
-  }
+//  property("IODesignConn5.codeString default") = {
+//    import DFDesign.allowTop._
+//    val top_ioDesignConn5 = new IODesignConn5 {}
+//    val compare =
+//      """
+//        |trait IODesignConn5 extends DFDesign {
+//        |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+//        |  val o = DFUInt(8) <> OUT
+//        |  o <> i.prev.prev.prev.prev
+//        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+//        |  val o_d_1 = DFUInt(8) <> OUT
+//        |  o_d_1 <> i_d_1.prev.prev.prev.prev
+//        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+//        |  val o_d_2 = DFUInt(8) <> OUT
+//        |  o_d_2 <> i_d_2.prev.prev.prev.prev
+//        |}
+//        |
+//        |val top_ioDesignConn5 = new IODesignConn5 {}
+//      """.stripMargin
+//    top_ioDesignConn5.codeString =@= compare
+//  }
 
 //  property("IODesignConn3.codeString detailed") = {
 //    implicit val config = DFAnyConfiguration.detailed
