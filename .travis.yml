@@ -1,10 +1,13 @@
+language: scala
+
+jdk: openjdk11
+
 before_install:
   - git fetch --tags
 stages:
   - name: release
     if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
 
-language: python
 install:
 - pip install pygments
 - pip install mkdocs
