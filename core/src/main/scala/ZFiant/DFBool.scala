@@ -12,10 +12,10 @@ object DFBool extends DFAny.Companion {
     type TPatternAble[+R] = DFBool.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFBool.Pattern.Builder[LType]
     type OpAble[R] = DFBool.Op.Able[R]
-    type `Op==Builder`[-L, -R] = DFBool.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = DFBool.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFBool.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFBool.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[L, R] = DFBool.`Op==`.Builder[L, R]
+    type `Op!=Builder`[L, R] = DFBool.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, R] = DFBool.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, R] = DFBool.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFBool.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
@@ -216,7 +216,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait `Ops:=,<>` extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
       type Out = DFAny.Of[LType]
     }
 
@@ -247,7 +247,7 @@ object DFBool extends DFAny.Companion {
   protected abstract class BoolOps[Op <: DiSoOp](op : Op)(func : (Token, Token) => DFBool.Token) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(

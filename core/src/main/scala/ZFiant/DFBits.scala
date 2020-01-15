@@ -15,10 +15,10 @@ object DFBits extends DFAny.Companion {
     type TPatternAble[+R] = DFBits.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFBits.Pattern.Builder[LType]
     type OpAble[R] = DFBits.Op.Able[R]
-    type `Op==Builder`[-L, -R] = DFBits.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = DFBits.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFBits.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFBits.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[L, R] = DFBits.`Op==`.Builder[L, R]
+    type `Op!=Builder`[L, R] = DFBits.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, R] = DFBits.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, R] = DFBits.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
@@ -249,8 +249,8 @@ object DFBits extends DFAny.Companion {
       final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
       sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends AbleOps[XBitVector[W]](left)
       final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
-      sealed class DFBitsFromZeros(left : SameBitsVector) extends AbleOps[SameBitsVector](left)
-      final implicit def DFBitsFromZeros(left : SameBitsVector) : DFBitsFromZeros = new DFBitsFromZeros(left)
+      sealed class DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) extends AbleOps[SBV](left)
+      final implicit def DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : DFBitsFromZeros[SBV] = new DFBitsFromZeros(left)
       sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
       final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
       sealed class DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFBits[W]](left)
@@ -292,7 +292,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait `Ops:=,<>` extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
       type Out = DFAny.Of[LType]
     }
 
@@ -312,11 +312,11 @@ object DFBits extends DFAny.Companion {
         right.asInstanceOf[DFAny.Of[Type[LW]]]
       }
 
-      implicit def evDFBits_op_SBV[LW](
+      implicit def evDFBits_op_SBV[LW, SBV <: SameBitsVector](
         implicit
         ctx : DFAny.Context,
         rSBV : SameBitsVector.Builder[LW]
-      ) : Builder[Type[LW], SameBitsVector] = (left, right) => {
+      ) : Builder[Type[LW], SBV] = (left, right) => {
         rSBV(left, right)
       }
 
@@ -343,7 +343,7 @@ object DFBits extends DFAny.Companion {
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
         type Cond[LW, RW] = LW == RW
@@ -390,20 +390,20 @@ object DFBits extends DFAny.Companion {
         (left, right)
       })
 
-      implicit def evDFBits_op_SBV[LW](
+      implicit def evDFBits_op_SBV[LW, SBV <: SameBitsVector](
         implicit
         ctx : DFAny.Context,
         rSBV : SameBitsVector.Builder[LW]
-      ) : Builder[DFBits[LW], SameBitsVector] = create[DFBits[LW], LW, SameBitsVector, LW]((left, rightSBV) => {
+      ) : Builder[DFBits[LW], SBV] = create[DFBits[LW], LW, SBV, LW]((left, rightSBV) => {
         val right = rSBV(left.dfType, rightSBV)
         (left, right)
       })
 
-      implicit def evSBV_op_DFBits[RW](
+      implicit def evSBV_op_DFBits[RW, SBV <: SameBitsVector](
         implicit
         ctx : DFAny.Context,
         lSBV : SameBitsVector.Builder[RW]
-      ) : Builder[SameBitsVector, DFBits[RW]] = create[SameBitsVector, RW, DFBits[RW], RW]((leftSBV, right) => {
+      ) : Builder[SBV, DFBits[RW]] = create[SBV, RW, DFBits[RW], RW]((leftSBV, right) => {
         val left = lSBV(right.dfType, leftSBV)
         (left, right)
       })
@@ -433,10 +433,10 @@ object DFBits extends DFAny.Companion {
   }
   protected abstract class OpsLogic[Op <: DiSoOp](op : Op)(tokenOp : LogicOp[Op]) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
-      type Aux[-L, -R, Comp0] = Builder[L, R] {
+      type Aux[L, R, Comp0] = Builder[L, R] {
         type Out = Comp0
       }
 
@@ -494,10 +494,10 @@ object DFBits extends DFAny.Companion {
       type UnconstrainedLiteralError =
         RequireMsgSym[false, "An unconstrained-width literal cannot be used in a logic operation", Builder[_,_]]
 
-      implicit def evDFBits_op_SBV[LW](implicit error : UnconstrainedLiteralError)
-      : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] = ???
-      implicit def evSBV_op_DFBits[RW](implicit error : UnconstrainedLiteralError)
-      : Aux[SameBitsVector, DFBits[RW], DFBits[RW]] = ???
+      implicit def evDFBits_op_SBV[LW, SBV <: SameBitsVector](implicit error : UnconstrainedLiteralError)
+      : Aux[DFBits[LW], SBV, DFBits[LW]] = ???
+      implicit def evSBV_op_DFBits[RW, SBV <: SameBitsVector](implicit error : UnconstrainedLiteralError)
+      : Aux[SBV, DFBits[RW], DFBits[RW]] = ???
     }
   }
   object `Op|` extends OpsLogic(DiSoOp.|)(`TokenOp|`)

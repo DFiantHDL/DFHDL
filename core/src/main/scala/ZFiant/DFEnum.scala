@@ -33,10 +33,10 @@ object DFEnum extends DFAny.Companion {
     type TPatternAble[+R] = Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = Pattern.Builder[LType]
     type OpAble[R] = Op.Able[R]
-    type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = `Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, -R] = `Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, -R] = `Op:=`.Builder[LType, R]
+    type `Op==Builder`[L, R] = `Op==`.Builder[L, R]
+    type `Op!=Builder`[L, R] = `Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, R] = `Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, R] = `Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder[L <: DFAny] = Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
@@ -154,7 +154,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait `Ops:=,<>` extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
       type Out = DFAny.Of[LType]
     }
 
@@ -178,7 +178,7 @@ object DFEnum extends DFAny.Companion {
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       def create[E <: Enum, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Context)
