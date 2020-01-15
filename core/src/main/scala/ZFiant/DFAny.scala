@@ -35,10 +35,10 @@ object DFAny {
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
     type TPatternBuilder[LType <: Type] <: DFAny.Pattern.Builder[LType, TPatternAble]
     type OpAble[R] <: DFAny.Op.Able[R]
-    type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: Type, -R] <: DFAny.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[L, R] <: DFAny.`Op==`.Builder[L, R]
+    type `Op!=Builder`[L, R] <: DFAny.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: Type, R] <: DFAny.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: Type, R] <: DFAny.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
     def getBubbleToken : TToken
@@ -305,7 +305,7 @@ object DFAny {
       } else ctx.db.addMember(newMember)
     }
     def <>[R](right: DFAny.PortOf[Type])(
-      implicit ctx: DFNet.Context, op: dfType.`Op<>Builder`[Type, DFAny.PortOf[Type]]
+      implicit ctx: DFNet.Context, op: dfType.`Op<>Builder`[Type, DFAny.Of[Type]]
     ): Unit = left.connectWith(op(dfType, right))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
@@ -767,22 +767,22 @@ object DFAny {
     object Able {
       implicit def fromAble[R](able : Able[R]) : R = able.value
     }
-    trait Builder[-L, -R] extends HasOut {
+    trait Builder[L, R] extends HasOut {
       type Out <: DFAny
       def apply(left : L, rightR : R) : Out
     }
   }
   object `Op==` {
-    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+    type Builder[L, R] = Op.Builder[L, R]{type Out = DFBool}
   }
   object `Op!=` {
-    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
+    type Builder[L, R] = Op.Builder[L, R]{type Out = DFBool}
   }
   object `Op<>` {
-    type Builder[LType <: Type, -R] = Op.Builder[LType, R]{type Out = Of[LType]}
+    type Builder[LType <: Type, R] = Op.Builder[LType, R]{type Out = Of[LType]}
   }
   object `Op:=` {
-    type Builder[LType <: Type, -R] = Op.Builder[LType, R]{type Out = Of[LType]}
+    type Builder[LType <: Type, R] = Op.Builder[LType, R]{type Out = Of[LType]}
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -826,19 +826,19 @@ object DFAny {
     // Common Ops
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait `Op==` {
-      type Builder[-L, -R] <: DFAny.`Op==`.Builder[L, R]
+      type Builder[L, R] <: DFAny.`Op==`.Builder[L, R]
     }
     val `Op==` : `Op==`
     trait `Op!=` {
-      type Builder[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
+      type Builder[L, R] <: DFAny.`Op!=`.Builder[L, R]
     }
     val `Op!=` : `Op!=`
     trait `Op<>` {
-      type Builder[LType <: Type, -R] <: DFAny.`Op<>`.Builder[LType, R]
+      type Builder[LType <: Type, R] <: DFAny.`Op<>`.Builder[LType, R]
     }
     val `Op<>` : `Op<>`
     trait `Op:=` {
-      type Builder[LType <: Type, -R] <: DFAny.`Op:=`.Builder[LType, R]
+      type Builder[LType <: Type, R] <: DFAny.`Op:=`.Builder[LType, R]
     }
     val `Op:=` : `Op:=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////

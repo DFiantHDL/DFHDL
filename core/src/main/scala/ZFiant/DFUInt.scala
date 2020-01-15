@@ -12,10 +12,10 @@ object DFUInt extends DFAny.Companion {
     type TPatternAble[+R] = DFUInt.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFUInt.Pattern.Builder[LType]
     type OpAble[R] = DFUInt.Op.Able[R]
-    type `Op==Builder`[-L, -R] = DFUInt.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = DFUInt.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, -R] = DFUInt.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, -R] = DFUInt.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[L, R] = DFUInt.`Op==`.Builder[L, R]
+    type `Op!=Builder`[L, R] = DFUInt.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, R] = DFUInt.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, R] = DFUInt.`Op:=`.Builder[LType, R]
     type InitAble[L <: DFAny] = DFUInt.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFUInt.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
@@ -278,8 +278,8 @@ object DFUInt extends DFAny.Companion {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able[L](value) {
       val left = value
-      final def +   [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, true, DFUInt[RW]]) = op(left, right)
-      final def -   [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, true, DFUInt[RW]]) = op(left, right)
+      final def +   [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, false, DFUInt[RW]]) = op(left, right)
+      final def -   [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, false, DFUInt[RW]]) = op(left, right)
       final def <   [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def >   [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def <=  [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
@@ -327,7 +327,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, -R] extends DFAny.Op.Builder[LType, R] {
+    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
       type Out = DFAny.Of[LType]
     }
 
@@ -370,7 +370,7 @@ object DFUInt extends DFAny.Companion {
   protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
@@ -451,7 +451,7 @@ object DFUInt extends DFAny.Companion {
 //    }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
-    trait Builder[-L, LE, -R] extends DFAny.Op.Builder[L, R]
+    trait Builder[L, LE, R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
       type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {

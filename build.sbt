@@ -1,8 +1,9 @@
-name := "dfiant"
+val projectName = "dfiant"
+name := projectName
 organization in ThisBuild := "hdl.dfiant"
-scalaVersion in ThisBuild := "2.12.4-bin-typelevel-4"
+scalaVersion in ThisBuild := "2.13.1"
 
-version := "0.0.12-SNAPSHOT"
+version in ThisBuild := "0.0.12-SNAPSHOT"
 
 // PROJECTS
 
@@ -11,8 +12,8 @@ lazy val global = project
   .settings(settings)
   .aggregate(
     core,
-    examples,
-    `private`
+    internals,
+    continuum
   )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +60,7 @@ lazy val internals = project
 
 lazy val core = project
   .settings(
-    name := "core",
+    name := projectName,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
