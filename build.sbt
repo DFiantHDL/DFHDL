@@ -1,21 +1,22 @@
 val projectName = "dfiant"
 
-homepage     := Some(url("https://dfianthdl.github.io/"))
-licenses     := List("LGPL" -> url("https://www.gnu.org/licenses/lgpl-3.0.txt"))
-developers := List(
-  Developer(
-    "soronpo",
-    "Oron Port",
-    "",
-    url("https://www.researchgate.net/profile/Oron_Port")
-  )
-)
+inThisBuild(List(
+  homepage     := Some(url("https://dfianthdl.github.io/")),
+  licenses     := List("LGPL" -> url("https://www.gnu.org/licenses/lgpl-3.0.txt")),
+  developers := List(
+    Developer(
+      "soronpo",
+      "Oron Port",
+      "",
+      url("https://www.researchgate.net/profile/Oron_Port")
+    )
+)))
 
 name := projectName
 organization in ThisBuild := "io.github.dfianthdl"
 scalaVersion in ThisBuild := "2.13.1" //2.12.4-bin-typelevel-4
 
-version in ThisBuild := "0.0.12-SNAPSHOT"
+//version in ThisBuild := "0.0.12-SNAPSHOT"
 
 // PROJECTS
 
