@@ -15,7 +15,16 @@ jobs:
       script: sbt compile
     - stage: release
       name: release
-      script: sbt ci-release
+      script:
+        - sudo apt-get update && sudo apt-get -y install gnupg2
+        - mkdir ~/.gnupg && chmod 700 ~/.gnupg
+        - echo use-agent >> ~/.gnupg/gpg.conf
+        - echo pinentry-mode loopback >> ~/.gnupg/gpg.conf
+        - echo allow-loopback-pinentry >> ~/.gnupg/gpg-agent.conf
+        - chmod 600 ~/.gnupg/*
+        - echo RELOADAGENT | gpg-connect-agent
+        - echo $PGP_SECRET | base64 --decode | gpg --import --no-tty --batch --yes
+        - sbt ci-release
 before_cache:
   - du -h -d 1 $HOME/.ivy2/cache
   - du -h -d 2 $HOME/.sbt/
