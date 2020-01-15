@@ -15,7 +15,16 @@ jobs:
       script: sbt compile
     - stage: release
       name: release
-      script: sbt ci-release
+      script:
+        - sbt ci-release
+        - mkdir -p ~/.gnupg
+        - echo "charset utf-8" > ~/.gnupg/gpg.conf
+        - echo "use-agent" >> ~/.gnupg/gpg.conf
+        - echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+        - echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+        - chown -R $(whoami) ~/.gnupg/
+        - find ~/.gnupg -type f -exec chmod 600 {} \;
+        - find ~/.gnupg -type d -exec chmod 700 {} \;
 before_cache:
   - du -h -d 1 $HOME/.ivy2/cache
   - du -h -d 2 $HOME/.sbt/
