@@ -114,7 +114,7 @@ object CacheBoxRW {
 }
 
 final case class CacheListRW[T](default : List[T])(implicit owner : CacheBox.Owner, name : sourcecode.Name) extends CacheBoxRW[List[T]](default) {
-  private val deps : mutable.ListBuffer[CacheDerivedHashMapRO[_,_,_]] = mutable.ListBuffer()
+  private val deps : mutable.ListBuffer[CacheDerivedMapRO[_,_,_]] = mutable.ListBuffer()
   @inline def += (deltaValue : T) : Unit = {
     super.set(unbox :+ deltaValue)
     pushAddUpdates()
@@ -130,12 +130,12 @@ final case class CacheListRW[T](default : List[T])(implicit owner : CacheBox.Own
   @inline private def pushAddUpdates() : Unit = deps.foreach(x => x.add())
   @inline private def pushSetDefault() : Unit = deps.foreach(x => x.setDefault())
 
-  @inline protected[internals] def addFolderDependency(st : CacheDerivedHashMapRO[_,_,_]) : Unit = deps += st
+  @inline protected[internals] def addFolderDependency(st : CacheDerivedMapRO[_,_,_]) : Unit = deps += st
 
   super.set(default)
 }
 
-final case class CacheDerivedHashMapRO[A, B, T]
+final case class CacheDerivedMapRO[A, B, T]
   (source : CacheListRW[T])(default : Map[A, B])
   (op : (Map[A, B], T) => Map[A, B])(implicit owner : CacheBox.Owner, name : sourcecode.Name) extends CacheBoxRO(default) {
   @inline protected[internals] def add() : Unit =  {

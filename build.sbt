@@ -1,8 +1,21 @@
-name := "dfiant"
-organization in ThisBuild := "hdl.dfiant"
-scalaVersion in ThisBuild := "2.12.4-bin-typelevel-4"
+val projectName = "dfiant"
 
-version := "0.0.12-SNAPSHOT"
+homepage     := Some(url("https://dfianthdl.github.io/"))
+licenses     := List("LGPL" -> url("https://www.gnu.org/licenses/lgpl-3.0.txt"))
+developers := List(
+  Developer(
+    "soronpo",
+    "Oron Port",
+    "",
+    url("https://www.researchgate.net/profile/Oron_Port")
+  )
+)
+
+name := projectName
+organization in ThisBuild := "io.github.dfianthdl"
+scalaVersion in ThisBuild := "2.13.1" //2.12.4-bin-typelevel-4
+
+version in ThisBuild := "0.0.12-SNAPSHOT"
 
 // PROJECTS
 
@@ -11,8 +24,8 @@ lazy val global = project
   .settings(settings)
   .aggregate(
     core,
-    examples,
-    `private`
+    internals,
+    continuum
   )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +72,7 @@ lazy val internals = project
 
 lazy val core = project
   .settings(
-    name := "core",
+    name := projectName,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -74,6 +87,7 @@ lazy val core = project
 lazy val sorted_networks = (project in file("examples/sorted_networks"))
   .settings(
     name := "sorted_networks",
+    skip in publish := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -85,6 +99,7 @@ lazy val sorted_networks = (project in file("examples/sorted_networks"))
 lazy val `first-look` = (project in file("examples/first-look"))
   .settings(
     name := "first-look",
+    skip in publish := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -94,7 +109,10 @@ lazy val `first-look` = (project in file("examples/first-look"))
   )
 
 lazy val examples = project
-  .settings(settings)
+  .settings(
+    skip in publish := true,
+    settings
+  )
   .aggregate(
     sorted_networks,
     `first-look`
@@ -108,6 +126,7 @@ lazy val examples = project
 lazy val `private` = (project in file("private"))
   .settings(
     name := "private",
+    skip in publish := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -127,13 +146,13 @@ lazy val dependencies =
     val scalaLoggingV   = "3.7.2"
     val typesafeConfigV = "1.3.1"
     val pureconfigV     = "0.8.0"
-    val akkaV           = "2.5.19"
-    val scalatestV      = "3.0.6-SNAP6"
-    val scalacheckV     = "1.14.0"
-    val singletonOpsV   = "0.4.0"
+    val akkaV           = "2.5.25"
+    val scalatestV      = "3.0.8"
+    val scalacheckV     = "1.14.2"
+    val singletonOpsV   = "0.4.1"
     val shapelessV      = "2.3.3"
-    val scodecV         = "1.1.9"
-    val sourcecodeV     = "0.1.7"
+    val scodecV         = "1.1.12"
+    val sourcecodeV     = "0.1.9"
     val continuumV      = "0.4-SNAPSHOT"
     val macroParadiseV  = "2.1.1"
     val macroCompatV    = "1.1.1"
@@ -235,9 +254,9 @@ lazy val commonSettings = Seq(
   )
 )
 
-lazy val wartremoverSettings = Seq(
-  wartremoverWarnings in (Compile, compile) ++= Warts.allBut(Wart.Throw)
-)
+//lazy val wartremoverSettings = Seq(
+//  wartremoverWarnings in (Compile, compile) ++= Warts.allBut(Wart.Throw)
+//)
 
 lazy val scalafmtSettings =
   Seq(

@@ -54,33 +54,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
       val valCode = valCodeString
       if (isTop) s"$designDB\n$valCode" else valCode
     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Transparent Ports
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] =
-      if (cls == null || cls == classOf[DFDesign] ||
-        classOf[ConditionalBlock[_,_]].isAssignableFrom(cls) || classOf[DFFunc2[_,_,_]].isAssignableFrom(cls)) List()
-      else {
-        val fields = cls.getDeclaredFields.toList
-        fields.flatMap{f =>
-          f.setAccessible(true)
-          val ref = f.get(self)
-          ref match {
-            case ref : DFAny if (ref ne null) && (ref.owner ne self) =>
-              val dir = if (f.getType.isAssignableFrom(classOf[DFAny.Connectable[_]])) OUT else IN
-              val port = ref.copyAsNewPort(dir).setName(f.getName).asInstanceOf[DFAny.Port[DFAny, DFDir]]
-              dir match {
-                case d : IN  => port.connectFrom(ref)
-                case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)
-              }
-              Some((ref, port))
-            case _ => None
-          }
-        } ++ addTransparentPorts(cls.getSuperclass)
-      }
-
-    lazy val transparentPorts : Map[DFAny, DFAny.Port[DFAny, DFDir]] = addTransparentPorts(self.getClass).toMap
   }
   override private[DFiant] lazy val __dev : __DevDFDesign = new __DevDFDesign {}
   import __dev._
@@ -106,7 +79,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFBlock with DF
   def compileToVHDL : Backend.VHDL = new Backend.VHDL(this)
   final def printVHDLString : this.type = {compileToVHDL.print(); this}
   transparentPorts //force transparent ports to be added as regular ports before all other members
-  nameFirst = true
   id
 }
 

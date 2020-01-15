@@ -176,7 +176,13 @@ object DFAnyConfiguration {
 }
 
 object DFAnyOwner {
-  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration]
+  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DSLOwnerConstruct.Context[Owner, DFAnyConfiguration] {self =>
+    override def anonymize: ContextOf[T, Owner] = new ContextOf[T, Owner] {
+      override val ownerOption: Option[Owner] = self.ownerOption
+      override implicit val config: DFAnyConfiguration = self.config
+      override val meta: Meta = self.meta.anonymize
+    }
+  }
   object ContextOf {
     implicit def ev[T, Owner <: DFAnyOwner](
       implicit
@@ -190,7 +196,7 @@ object DFAnyOwner {
       val meta : Meta = evMeta
     }
   }
-  type Context[+Owner <: DFAnyOwner] = ContextOf[Unit, Owner]
+  type Context[+Owner <: DFAnyOwner] = ContextOf[Any, Owner]
   trait ContextWithLibOf[+T, +Owner <: DFAnyOwner] extends ContextOf[T, Owner] {
     implicit val targetLib : TargetLib
   }
@@ -209,6 +215,6 @@ object DFAnyOwner {
       val meta : Meta = evMeta
     }
   }
-  type ContextWithLib[+Owner <: DFAnyOwner] = ContextWithLibOf[Unit, Owner]
+  type ContextWithLib[+Owner <: DFAnyOwner] = ContextWithLibOf[Any, Owner]
 
 }

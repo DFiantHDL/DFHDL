@@ -219,7 +219,7 @@ object Backend {
         Value(value, Type(member))
       }
       def apply(member : DFAny) : Value = member match {
-        case x : DFAny.Const[_] => Value(member, member.constLB.get)
+        case x : DFAny.Const[_] => Value(member, member.constCB.unbox)
         case _ => References(member)
       }
     }

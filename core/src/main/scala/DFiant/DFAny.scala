@@ -74,9 +74,9 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     private def initCommentString : String =
       if (__config.commentInitValues || owner.privShowInits) s"//init = ${initCB.unbox.codeString}" else ""
     private def latencyCommentString : String =
-      if (__config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${thisSourceLB.get.latencyString}" else ""
+      if (__config.commentLatencyValues || owner.privShowLatencies) s"//latency = ${source.latencyString}" else ""
     private def connCommentString : String =
-      if (__config.commentConnection || owner.privShowConnections) s"//conn = ${getFoldedSource.refCodeString}" else ""
+      if (__config.commentConnection || owner.privShowConnections) s"//conn = ${source.refCodeString}" else ""
     private def valCodeString : String = s"\nval $name = $constructCodeString"
     def codeString : String = f"$valCodeString%-60s$initCommentString$latencyCommentString$connCommentString"
 
@@ -94,16 +94,15 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Constant
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    val constCB : CacheBoxRO[TToken]
-    val constLB : LazyBox[TToken]
-    final private[DFiant] def isConstant : Boolean = !constLB.get.isBubble
+    val constCB : CacheBoxRO[TToken]
+    final private[DFiant] def isConstant : Boolean = !constCB.unbox.isBubble
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Transparent Replacement References
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final def replacement()(implicit ctx : DSLContext) : TAlias =
+    final def replacement()(implicit ctx : DFInterface.ReplacementContext) : TAlias =
       if (self.nonTransparentOwner ne ctx.owner.nonTransparent) ctx.owner.nonTransparent match {
-        case d : DFDesign => d.transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
+        case d : DFInterface => d.transparentPorts.getOrElse(self, self).asInstanceOf[TAlias]
         case _ =>  self.asInstanceOf[TAlias]
       } else self.asInstanceOf[TAlias]
 
@@ -111,12 +110,6 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
     // Source
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     lazy val source : Source = Source(self)
-    def thisSourceLB : LazyBox[Source] =
-      LazyBox.Args1[Source, Source](self)(f => f.copyWithNewDFVal(self), inletSourceLB)
-    lazy val prevSourceLB : LazyBox[Source] =
-      LazyBox.Const[Source](self)(Source.zeroLatency(self).prev(1))
-    def inletSourceLB : LazyBox[Source]
-    final lazy val getFoldedSource : Source = inletSourceLB.get
   }
   override private[DFiant] lazy val __dev : __DevDFAny = ???
   import __dev._
@@ -231,8 +224,12 @@ trait DFAny extends DFAnyMember with HasWidth {self =>
   //////////////////////////////////////////////////////////////////////////
   // Equality
   //////////////////////////////////////////////////////////////////////////
-  final def == [R <: TUnbounded](right : R)(implicit op: `Op==Builder`[right.TVal]) = op(left, right.tVal)
-  final def != [R <: TUnbounded](right : R)(implicit op: `Op!=Builder`[right.TVal]) = op(left, right.tVal)
+  final def == [R <: TUnbounded](right : R)(
+    implicit css: CaseClassSkipper[`Op==Builder`[right.TVal]]
+  ) : DFBool = css(op => op(left, right.tVal), left.asInstanceOf[Any] == right.asInstanceOf[Any]).asInstanceOf[DFBool]
+  final def != [R <: TUnbounded](right : R)(
+    implicit op : `Op!=Builder`[right.TVal]
+  ) = op(left, right.tVal)
   //////////////////////////////////////////////////////////////////////////
 
 
@@ -271,7 +268,7 @@ object DFAny {
       // Member discovery
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] =
-        CacheDerivedRO(protAssignDependencySet)(discoveryDependenciesStatic ++ protAssignDependencySet)
+        CacheDerivedRO(netsDependencies)(discoveryDependenciesStatic ++ netsDependencies)
       @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
       @tailrec private def getDepSet(set : Set[DFAnyMember], list : List[Either[Source, DFBlock]]) : Set[DFAnyMember] = list match {
         case Left(src) :: xs =>
@@ -283,7 +280,7 @@ object DFAny {
         case Right(block) :: xs => getDepSet(set + block, xs ++ block.netsTo(self))
         case Nil => set
       }
-      final lazy val protAssignDependencySet : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
+      final lazy val netsDependencies : CacheBoxRO[Set[DFAnyMember]] = CacheDerivedRO(netsTo) {
         getDepSet(Set(), netsTo)
       }
 
@@ -314,12 +311,14 @@ object DFAny {
           case None => List()
         }
         val prevBits = (version, context) match {
-          case (Some(_), block : ConditionalBlock[_,_]) =>
-            val ownerVersions = block.owner.netsTo.apply(self)
-            var v : Int = ownerVersions.length
-            while (v > 0 && ownerVersions(v).isRight) v = v - 1
-            if (v > 0) assignedAt(Some(v), block.owner)
-            else immutable.BitSet()
+          case (Some(_), block : ConditionalBlock[_,_]) => block.owner.netsTo.get(self) match {
+            case Some(ownerVersions) =>
+              var v : Int = ownerVersions.length
+              while (v > 0 && ownerVersions(v).isRight) v = v - 1
+              if (v > 0) assignedAt(Some(v), block.owner)
+              else immutable.BitSet()
+            case None => immutable.BitSet()
+          }
           case _ => immutable.BitSet()
         }
         prevList.foldLeft(prevBits){
@@ -340,7 +339,6 @@ object DFAny {
       }
       override val isAssignable : Boolean = true
       final def isAssigned : Boolean = assignments.nonEmpty
-      final protected lazy val assignedSourceLB = LazyBox.Mutable[Source](self)(Source.none(width))
       final def assignmentsAt(toRelWidth : Int, toRelBitLow : Int) : List[Either[Source, DFBlock]] = owner match {
         case o : DFDesign => o.netsToAt(self, toRelWidth, toRelBitLow).flatMap {
           case Left(src) =>
@@ -352,11 +350,6 @@ object DFAny {
         case _ => List()
       }
 
-      def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(
-        implicit ctx : DFNet.Context
-      ) : Unit = {
-        assignedSourceLB.set(LazyBox.Args2[Source, Source, Source](self)((t, f) => t.replaceWL(toRelWidth, toRelBitLow, f), assignedSourceLB.getBox, fromSourceLB))
-      }
       def assign(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
@@ -372,10 +365,6 @@ object DFAny {
         val fromVal = that.replacement()
         toVar.assign(width, 0, fromVal)
       }
-      def assignClear() : Unit = {
-        assignedSourceLB.set(Source.none(width))
-      }
-
     }
     override private[DFiant] lazy val __dev : __DevVar = ???
     import __dev._
@@ -394,9 +383,6 @@ object DFAny {
     final def := [R](right: OpAble[R])(
       implicit dir : MustBeOut, op: `Op:=Builder`[R], ctx : DFNet.Context
     ) = assign(op(left, right))
-
-    @inline final def lala = netsTo
-
     //////////////////////////////////////////////////////////////////////////
   }
   object Var {
@@ -459,7 +445,6 @@ object DFAny {
         }
       }
 
-      final lazy val connectedSourceLB = LazyBox.Const[Source](self)(connectionsAt(width, 0))
       private def connectFrom(toRelWidth : Int, toRelBitLow : Int, that : DFAny)(implicit ctx : DFNet.Context) : Unit = {
         val toVar = self
         val fromVal = that
@@ -524,18 +509,26 @@ object DFAny {
         bitsTokenSeq.map(b => protTokenBitsToTToken(b).asInstanceOf[TToken])
       }
       lazy val initCB : CacheBoxRO[Seq[TToken]] = initConnectedCB
-      lazy val initSourceLB : LazyBox[Source] = connectedSourceLB
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Constant
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      private def constFunc(source : Source) : TToken = {
-        val bitsToken : DFBits.Token = source.elements.map {
+      private lazy val connectionConsts = CacheDerivedRO(connections, connectionLoop) {
+        if (connectionLoop.isDefined) {
+          val loop = connectionLoop.get.map(e => e.fullName).mkString(" <> ")
+          throw new IllegalArgumentException(s"A cyclic connectivity loop detected\n$loop")
+        }
+        connections.elements.collect {
+          case e : SourceElement.Alias => e.dfVal.constCB
+        }
+      }
+      lazy val constConnectedCB : CacheBoxRO[TToken] = CacheDerivedRO(connectionConsts) {
+        val bitsToken : DFBits.Token = connections.elements.map {
           case x : SourceElement.Alias =>
             val prvBits = //TODO: fix this. For instance, a steady state token self assigned generator can be considered constant
               x.stage match {
                 case SourceStage.Prev(step) => DFBits.Token(x.dfVal.width, Bubble)//t.dfVal.initLB.get.prevInit(t.prevStep-1).headOption.getOrElse(bubble)
-                case _ => x.dfVal.constLB.get
+                case _ => x.dfVal.constCB.unbox
               }
             val selBits = prvBits.bitsWL(x.width, x.relBitLow)
             val revBits = if (x.reversed) selBits.reverse else selBits
@@ -544,14 +537,7 @@ object DFAny {
         }.reduce((l, r) => l ## r)
         protTokenBitsToTToken(bitsToken).asInstanceOf[TToken]
       }
-      lazy val constLB : LazyBox[TToken] =
-        LazyBox.Args1[TToken, Source](self)(constFunc, inletSourceLB, Some(bubbleToken(self).asInstanceOf[TToken]))
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Source
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def inletSourceLB : LazyBox[Source] =
-        LazyBox.Args3[Source, Source, Source, Source](self)((c, a, p) => c orElse a orElse p, connectedSourceLB, assignedSourceLB.getBox, prevSourceLB)
+      lazy val constCB : CacheBoxRO[TToken] = constConnectedCB
     }
     override private[DFiant] lazy val __dev : __DevConnectable = ???
     import __dev._
@@ -672,49 +658,47 @@ object DFAny {
       // Assignment
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       override val isAssignable : Boolean = reference.isAssignable
-      override def assign(toRelWidth : Int, toRelBitLow : Int, fromSourceLB : LazyBox[Source])(implicit ctx : DFNet.Context) : Unit = {
-        val toVar = self
-        val toRelBitHigh = toRelBitLow + toRelWidth-1
-        case class absolute(alias : DFAny, high : Int, low : Int)
-        //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
-        val absolutes = reference.aliasedVals.foldLeft[List[absolute]](List()) {
-          case (list, alias) if list.isEmpty => List(absolute(alias, reference.width - 1, reference.width - alias.width))
-          case (list, alias) => list :+ absolute(alias, list.last.low - 1, list.last.low - alias.width)
-        }
-        val assignableAbsolutes = absolutes.filter(a => toRelBitHigh >= a.low || toRelBitLow <= a.high)
-        //      println(f"${s"$fullName($toRelBitHigh, $toRelBitLow)"}%-30s := ") //${fromVal.fullName}@${fromVal.width}
-        assignableAbsolutes.foreach {
-          case absolute(alias : DFAny.Port[_,_], high, low) if alias.dir.isIn =>
-            throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
-          case absolute(alias : DFAny.Var, high, low) =>
-            val partHigh = scala.math.min(high, toRelBitHigh)
-            val partLow = scala.math.max(low, toRelBitLow)
-            val fromWidth = partHigh - partLow + 1
-            val fromLow = partLow + low
-            //          val partFromSourceLB = LazyBox.Args1[Source, Source](this)(f => f.bitsWL(fromWidth, fromLow), fromSourceLB)
-            //          println(s"Boom ${alias.fullName}(${fromWidth+fromLow-1}, $fromLow) := ")
-            alias.assign(fromWidth, fromLow, fromSourceLB)
-          case absolute(alias, high, low) =>
-            throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
-        }
-      }
-      final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
-        val toVar = self.replacement().asInstanceOf[Alias[DF]]
-        val fromVal = that.replacement()
-        reference match {
-          case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
-            toVar.assign(relWidth, relBitLow, fromVal.inletSourceLB) //LazyBox.Args1[Source, Source](this)(f => f.bitsWL(relWidth, relBitLow), that.currentSourceLB)
-          case DFAny.Alias.Reference.AsIs(aliasedVar) =>
-            toVar.assign(width, 0, fromVal.inletSourceLB)
-          case DFAny.Alias.Reference.Concat(aliasedVars) =>
-            toVar.assign(width, 0, fromVal.inletSourceLB)
-          case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
-          case DFAny.Alias.Reference.Invert(aliasedVar) => ???
-          case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
-          case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
-        }
-        DFNet.Assignment(toVar, fromVal)
-      }
+//      override def assign(toRelWidth : Int, toRelBitLow : Int, fromVal : DFAny)(implicit ctx : DFNet.Context) : Unit = {
+//        val toVar = self
+//        val toRelBitHigh = toRelBitLow + toRelWidth-1
+//        case class absolute(alias : DFAny, high : Int, low : Int)
+//        //absolutes set as a tuple3 list of aliases with their absolute (high,low) coordinates
+//        val absolutes = reference.aliasedVals.foldLeft[List[absolute]](List()) {
+//          case (list, alias) if list.isEmpty => List(absolute(alias, reference.width - 1, reference.width - alias.width))
+//          case (list, alias) => list :+ absolute(alias, list.last.low - 1, list.last.low - alias.width)
+//        }
+//        val assignableAbsolutes = absolutes.filter(a => toRelBitHigh >= a.low || toRelBitLow <= a.high)
+//        //      println(f"${s"$fullName($toRelBitHigh, $toRelBitLow)"}%-30s := ") //${fromVal.fullName}@${fromVal.width}
+//        assignableAbsolutes.foreach {
+//          case absolute(alias : DFAny.Port[_,_], high, low) if alias.dir.isIn =>
+//            throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of an input port ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
+//          case absolute(alias : DFAny.Var, high, low) =>
+//            val partHigh = scala.math.min(high, toRelBitHigh)
+//            val partLow = scala.math.max(low, toRelBitLow)
+//            val fromWidth = partHigh - partLow + 1
+//            val fromLow = partLow + low
+//            alias.assign(fromWidth, fromLow, fromVal)
+//          case absolute(alias, high, low) =>
+//            throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias of ${alias.fullName} at bits ($high, $low) and shouldn't be assigned")
+//        }
+//      }
+//      final override def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit = {
+//        val toVar = self.replacement().asInstanceOf[Alias[DF]]
+//        val fromVal = that.replacement()
+//        reference match {
+//          case DFAny.Alias.Reference.BitsWL(aliasedVar, relWidth, relBitLow) =>
+//            toVar.assign(relWidth, relBitLow, fromVal)
+//          case DFAny.Alias.Reference.AsIs(aliasedVar) =>
+//            toVar.assign(width, 0, fromVal)
+//          case DFAny.Alias.Reference.Concat(aliasedVars) =>
+//            toVar.assign(width, 0, fromVal)
+//          case DFAny.Alias.Reference.BitReverse(aliasedVar) => ??? // assign(width, 0, that.reverse)
+//          case DFAny.Alias.Reference.Invert(aliasedVar) => ???
+//          case DFAny.Alias.Reference.Resize(aliasedVar, toWidth) => ???
+//          case _ => throw new IllegalArgumentException(s"\nTarget assignment variable (${self.fullName}) is an immutable alias and shouldn't be assigned")
+//        }
+//        DFNet.Assignment(toVar, fromVal)
+//      }
 
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Initialization
@@ -726,9 +710,11 @@ object DFAny {
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Source
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override lazy val source : Source = reference.source
-      override def inletSourceLB = reference.sourceLB
-      override lazy val initSourceLB : LazyBox[Source] = inletSourceLB
+      override lazy val source : Source = reference match { //TODO: why is this needed?
+        case Alias.Reference.AsIs(a) => Source(self)
+        case Alias.Reference.Prev(a, step) => Source(self)
+        case _ => reference.source
+      }
     }
     override private[DFiant] lazy val __dev : __DevAlias = new __DevAlias {}
     import __dev._
@@ -750,7 +736,6 @@ object DFAny {
       def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit
       val initCB : CacheBoxRO[Seq[DFBits.Token]]
       val source : Source
-      val sourceLB : LazyBox[Source]
     }
     sealed abstract class SingleReference(refVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context)
       extends Reference(aliasCodeString) {
@@ -766,12 +751,11 @@ object DFAny {
         extends SingleReference(refVar, aliasCodeString) {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
-          aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
+          aliasedVar.assign(width, 0, that.replacement())
         lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
           aliasedVal.initCB.unbox.bits
         }
         lazy val source : Source = aliasedVal.source
-        lazy val sourceLB: LazyBox[Source] = aliasedVal.thisSourceLB
       }
       object AsIs {
         def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new AsIs(aliasedVar, aliasCodeString)
@@ -793,8 +777,6 @@ object DFAny {
           initDeps.map(i => i.unbox.bits).reduce(DFBits.Token.concat)
         }
         lazy val source : Source = Source(aliasedVals.flatMap(a => a.source.elements)).coalesce
-        lazy val sourceLB: LazyBox[Source] = LazyBox.ArgList[Source, Source](aliasedVals.head)(
-          s => Source(s.flatMap(a => a.elements)).coalesce, aliasedVals.map(a => a.thisSourceLB))
       }
       object Concat {
         def apply(aliasedVars : List[DFAny], aliasCodeString : => String)(implicit ctx : Alias.Context) = new Concat(aliasedVars, aliasCodeString)
@@ -809,8 +791,6 @@ object DFAny {
           aliasedVal.initCB.unbox.bitsWL(relWidth, relBitLow)
         }
         lazy val source : Source = aliasedVal.source.bitsWL(relWidth, relBitLow)
-        lazy val sourceLB : LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
-          s => s.bitsWL(relWidth, relBitLow), aliasedVal.thisSourceLB)
       }
       object BitsWL {
         def apply(aliasedVar : DFAny, relWidth: Int, relBitLow : Int, aliasCodeString : => String)(implicit ctx : Alias.Context) =
@@ -825,8 +805,6 @@ object DFAny {
           aliasedVal.initCB.unbox.bits.prevInit(step)
         }
         lazy val source : Source = aliasedVal.source.prev(step)
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
-          s => s.prev(step), aliasedVal.thisSourceLB)
       }
       object Prev {
         def apply(aliasedVar : DFAny, step : Int)(implicit ctx : Alias.Context) = new Prev(aliasedVar, step)
@@ -840,8 +818,6 @@ object DFAny {
           aliasedVal.initCB.unbox.bits.prevInit(step)
         }
         lazy val source : Source = aliasedVal.source.pipe(step)
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
-          s => s.pipe(step), aliasedVal.thisSourceLB)
       }
       object Pipe {
         def apply(aliasedVar : DFAny, step : Int)(implicit ctx : Alias.Context) = new Pipe(aliasedVar, step)
@@ -849,8 +825,6 @@ object DFAny {
       }
 //      class LeftShift(aliasedVar : DFAny, val shift : Int)
 //        extends SingleReference(aliasedVar, if (shift == 0) "" else s"$shift") {
-//        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVar)(
-//          s => s.prev(shift), aliasedVar.thisSourceLB)
 //      }
 //      object LeftShift {
 //        def apply(aliasedVar : DFAny, shift : Int) = new LeftShift(aliasedVar, shift)
@@ -865,8 +839,6 @@ object DFAny {
           TokenSeq(aliasedVal.initCB.unbox.asInstanceOf[Seq[Token.Resizable]])(t => t.resize(toWidth)).bits
         }
         lazy val source : Source = aliasedVal.source.resize(toWidth)
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
-          s => s.resize(toWidth), aliasedVal.thisSourceLB)
       }
       object Resize {
         def apply(aliasedVar : DFAny, toWidth : Int)(implicit ctx : Alias.Context) = new Resize(aliasedVar, toWidth)
@@ -876,13 +848,11 @@ object DFAny {
         extends SingleReference(refVar, aliasCodeString) {
         val isAssignable : Boolean = refVar.isAssignable
         def assign(that: DFAny)(implicit ctx: DFNet.Context): Unit =
-          aliasedVar.assign(width, 0, that.replacement().inletSourceLB)
+          aliasedVar.assign(width, 0, that.replacement())
         lazy val initCB : CacheBoxRO[Seq[DFBits.Token]] = CacheDerivedRO(aliasedVal.initCB){
           DFBits.Token.reverse(aliasedVal.initCB.unbox.bits)
         }
         lazy val source : Source = aliasedVal.source.reverse
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
-          s => s.reverse, aliasedVal.thisSourceLB)
       }
       object BitReverse {
         def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new BitReverse(aliasedVar, aliasCodeString)
@@ -896,8 +866,6 @@ object DFAny {
           DFBits.Token.unary_~(aliasedVal.initCB.unbox.bits)
         }
         lazy val source : Source = aliasedVal.source.invert
-        lazy val sourceLB: LazyBox[Source] = LazyBox.Args1[Source, Source](aliasedVal)(
-          s => s.invert, aliasedVal.thisSourceLB)
       }
       object Invert {
         def apply(aliasedVar : DFAny, aliasCodeString : => String)(implicit ctx : Alias.Context) = new Invert(aliasedVar, aliasCodeString)
@@ -907,7 +875,7 @@ object DFAny {
   }
 
   abstract class Const[DF <: DFAny](val token : Token)(
-    implicit ctx0 : NewVar.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
+    implicit ctx0 : Const.Context, cmp : Companion, bubbleToken : DF => DF#TToken, protTokenBitsToTToken : DFBits.Token => DF#TToken
   ) extends Constructor[DF](token.width) {self : DF =>
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevConst extends __DevConstructor {
@@ -926,19 +894,6 @@ object DFAny {
       // Constant
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       final lazy val constCB : CacheBoxRO[TToken] = CacheBoxRO(token.asInstanceOf[TToken])
-      final lazy val constLB : LazyBox[TToken] =
-        LazyBox.Const(self)(token.asInstanceOf[TToken])
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Source
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final lazy val inletSourceLB : LazyBox[Source] =
-        LazyBox.Const(self)(Source.withLatency(self, None))
-      final override lazy val thisSourceLB : LazyBox[Source] =
-        LazyBox.Const(self)(Source.withLatency(self, None))
-      override lazy val prevSourceLB : LazyBox[Source] =
-        LazyBox.Const[Source](self)(Source.withLatency(self, None))
-
     }
     override private[DFiant] lazy val __dev : __DevConst = new __DevConst {}
     import __dev._
@@ -962,6 +917,14 @@ object DFAny {
     protected[DFiant] type ThisOwner <: DFInterface
     final private[DFiant] override lazy val ctx = ctx0
     protected[DFiant] trait __DevPort extends __DevInitializable {
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Member discovery
+      /////////////////////////////////////////////////////////////////////////////////////////////////////////
+      @inline private[DFiant] override def discoveryDependenciesStatic : Set[DFAnyMember] = owner match {
+        case x : DFBlackBox if dir.isOut => super.discoveryDependenciesStatic ++ x.depsOf(self)
+        case _ => super.discoveryDependenciesStatic
+      }
+
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Naming
       /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1092,24 +1055,6 @@ object DFAny {
         case x : DFBlackBox if dir.isOut => x.initOf(self)
         case _ => initExternalOrInternalCB
       }
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Source
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def inletSourceLB : LazyBox[Source] =
-        if (dir.isIn && owner.isTop) LazyBox.Const[Source](self)(Source.none(width))
-        else super.inletSourceLB
-
-      override def thisSourceLB : LazyBox[Source] =
-        if (dir.isIn && owner.isTop) LazyBox.Const[Source](self)(Source.zeroLatency(self))
-        else super.thisSourceLB
-
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Folding/Unfolding
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      final private[DFiant] def preFoldUnfold() : Unit = {
-        assignClear()
-      }
     }
     override private[DFiant] lazy val __dev : __DevPort = new __DevPort {}
     import __dev._
@@ -1165,13 +1110,12 @@ object DFAny {
       new DFBool.Token(outBitsValue, outBubbleMask)
     }
     final def bits : DFBits.Token = new DFBits.Token(width, valueBits, bubbleMask)
-    final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token = {
-      val outWidth = relBitHigh - relBitLow + 1
+    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = {
+      val relBitHigh = relWidth + relBitLow - 1
       val outBitsValue = valueBits.bits(relBitHigh, relBitLow)
       val outBubbleMask = bubbleMask.bits(relBitHigh, relBitLow)
-      new DFBits.Token(outWidth, outBitsValue, outBubbleMask)
+      DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
-    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = bits(relWidth + relBitLow - 1, relBitLow)
     final def replaceWL(relWidth : Int, relBitLow : Int, replacement : DFBits.Token)(
       implicit fromBits : DFBits.Token => TToken
     ) : TToken = {
@@ -1321,14 +1265,14 @@ object DFAny {
     object Able {
       implicit def fromAble[R](able : Able[R]) : R = able.value
     }
-    trait Builder[L, R] {
-      type Comp <: DFAny
-      def apply(left : L, rightR : R) : Comp
+    trait Builder[L, R] extends HasOut {
+      type Out <: DFAny
+      def apply(left : L, rightR : R) : Out
     }
     type Context = DFBlock.Context
   }
-  type `Op==Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
-  type `Op!=Builder`[L, R] = Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+  type `Op==Builder`[L, R] = Op.Builder[L, R]{type Out = DFBool with CanBePiped}
+  type `Op!=Builder`[L, R] = Op.Builder[L, R]{type Out = DFBool with CanBePiped}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

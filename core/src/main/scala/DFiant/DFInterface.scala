@@ -36,23 +36,52 @@ trait DFInterface extends DFAnyOwner { self =>
         else clsSimpleName
       }
     }
-    private lazy val discoveredOutputs : CacheBoxRO[List[DFAny.Port[DFAny, OUT]]] = ownerOption match {
-      case Some(o : DFInterface) =>
-        CacheDerivedRO(portsOut, o.__dev.discoveredSet)(portsOut.filter(o.__dev.discoveredSet.contains))
-      case _ => portsOut
-    }
 
     lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = ownerOption match {
       case Some(o : DFInterface) => o.__dev.discoveredSet
       case _ =>
-        CacheDerivedRO(discoveredOutputs, discoveryDependencies) {
-          discover(Set(), discoveredOutputs)
+        CacheDerivedRO(membersChangeTracker) {
+          val changeVersion = membersChangeTracker.unbox
+          val ret = discover(Set(), portsOut)
+          if (changeVersion != membersChangeTracker.unbox) discover(Set(), portsOut)
+          else ret
         }
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Transparent Ports
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private lazy val anonCtx = ctx.asInstanceOf[DFAnyOwner.ContextOf[Any, DFBlock]].anonymize
+    private lazy val portCtx = implicitly[DFAny.Port.Context].anonymize
+    private def addTransparentPorts(cls : Class[_]) : List[(DFAny, DFAny.Port[DFAny, DFDir])] = {
+      if (cls == null || cls == classOf[DFDesign] ||
+        classOf[ConditionalBlock[_,_]].isAssignableFrom(cls) || classOf[DFFunc2[_,_,_]].isAssignableFrom(cls)) List()
+      else {
+        val fields = cls.getDeclaredFields.toList
+        fields.flatMap{f =>
+          f.setAccessible(true)
+          val ref = f.get(self)
+          ref match {
+            case ref : DFAny if (ref ne null) && (ref.owner ne self) =>
+              val dir = if (classOf[DFAny.Connectable[_]].isAssignableFrom(f.getType)) OUT else IN
+              val port = ref.copyAsNewPort(dir)(portCtx).setName(f.getName).asInstanceOf[DFAny.Port[DFAny, DFDir]]
+              dir match {
+                case d : IN  => port.connectFrom(ref)(anonCtx)
+                case d : OUT => ref.asInstanceOf[DFAny.Connectable[_]].connectFrom(port)(anonCtx)
+              }
+              Some((ref, port))
+            case _ => None
+          }
+        } ++ addTransparentPorts(cls.getSuperclass)
+      }
+    }
+
+    lazy val transparentPorts : Map[DFAny, DFAny.Port[DFAny, DFDir]] = addTransparentPorts(self.getClass).toMap
   }
   override private[DFiant] lazy val __dev : __DevDFInterface = ???
   import __dev._
   protected implicit def __interfaceOwner(implicit lp : shapeless.LowPriority) : DFInterface = this
+  protected implicit val __replacementCtx : DFInterface.ReplacementContext = DFInterface.ReplacementContext(Some(this))
 
   final lazy val ports = CacheDerivedRO(addedMembers) {
     addedMembers.collect{case o : DFAny.Port[_,_] => o}.asInstanceOf[List[DFAny.Port[DFAny, DFDir]]]
@@ -69,3 +98,10 @@ trait DFInterface extends DFAnyOwner { self =>
   override def toString: String = s"$name : $typeName"
 }
 
+object DFInterface {
+  implicit def fetchDev(from : DFInterface)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
+  case class ReplacementContext(ownerOption : Option[DSLOwnerConstruct]) extends DSLContext
+  object ReplacementContext {
+    implicit def ev(implicit ctx : DSLContext) : ReplacementContext = ReplacementContext(Some(ctx.owner))
+  }
+}

@@ -3,7 +3,9 @@ package DFiant.internals
 import scala.annotation.tailrec
 import scala.reflect.macros.blackbox
 
-case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position)
+case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position) {
+  def anonymize : Meta = copy(name = name.copy(anonymous = true))
+}
 
 object Meta {
   /////////////////////////////////////////////////////////

@@ -50,6 +50,7 @@ abstract class RTComponent(implicit ctx0 : RTComponent.Context, args : sourcecod
     val name : String = meta.name
     resetList += this
   }
+  transparentPorts //force transparent ports to be added as regular ports before all other members
   id
 }
 
@@ -62,23 +63,31 @@ object RTComponent {
 //  (implicit ctx : RTComponent.Context) extends RTComponent {
 //}
 
-sealed abstract class RTOp2(implicit ctx : RTComponent.Context) extends RTComponent { self =>
-  val O : DFAny.Var //Output variable
-  val L : DFAny //Left argument of the operation
-  val R : DFAny //Right argument of the operation
+sealed class RTOp2[O <: DFAny.Connectable[_], L <: DFAny, R <: DFAny](
+  val O : O, //Output variable
+  val L : L, //Left argument of the operation
+  val R : R, //Right argument of the operation
+)(tokenFunc : (L#TToken, R#TToken) => O#TToken)(implicit ctx : RTComponent.Context, defName : sourcecode.Name) extends RTComponent { self =>
+  private val OPort = O.replacement().asInstanceOf[O]
+  private val LPort = L.replacement().asInstanceOf[L]
+  private val RPort = R.replacement().asInstanceOf[R]
   protected[DFiant] trait __DevRTOp2 extends __DevRTComponent {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     override def codeString: String = {
       implicit val refCodeOwner : DSLOwnerConstruct = owner
-      s"\nRTOp2.$typeName(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
+      s"\nRTOp2.${defName.value}(${O.refCodeString}, ${L.refCodeString}, ${R.refCodeString})"
     }
   }
   override private[DFiant] lazy val __dev : __DevRTOp2 = new __DevRTOp2 {}
+  override protected val blackBoxFunctions : Map[DFAny, BlackBoxFunction[_]] = Map(
+    OPort -> BlackBoxFunction(OPort)(LPort, RPort)(tokenFunc)
+  )
 }
 object RTOp2 {
-  case class +(O : DFAny.Var, L : DFAny, R : DFAny)(implicit ctx : RTComponent.Context) extends RTOp2
-  case class -(O : DFAny.Var, L : DFAny, R : DFAny)(implicit ctx : RTComponent.Context) extends RTOp2
+  def +[OW, LW, RW](O : DFUInt[OW] <> OUT, L : DFUInt[LW] <> IN, R : DFUInt[RW] <> IN)(implicit ctx : RTComponent.Context)
+  = new RTOp2(O, L, R)((l, r) => l + r)
+//  case class -(O : DFAny.Var, L : DFAny, R : DFAny)(implicit ctx : RTComponent.Context) extends RTOp2
 //  def +[L, R](l : DFUInt[Int], r : DFUInt[Int])(implicit ctx : RTComponent.Context) : DFUInt[Int] =
 }

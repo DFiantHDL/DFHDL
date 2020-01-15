@@ -1,0 +1,15 @@
+% As a general rule, do not put math, special symbols or citations
+% in the abstract
+\begin{abstract}
+Since the dawn of digital hardware design, the most prominent hardware description model has been the register-transfer level (RTL) design abstraction. The main drawback of the RTL model is its coupling between functionality and timing constraints, resulting in a verbose and less portable code. Two main approaches were taken in an effort to mitigate these issues. One approach introduces high-level RTL languages (e.g., Chisel) to improve code expressiveness, but still binds the design to specific timing and device constraints. The other approach relies on high-level synthesis (HLS) tools (e.g., Vivado HLS) that employ software programming languages to abstract over registers. However, these languages loose fine grain hardware control and their inherent sequential semantics inhibit parallel hardware expressiveness.
+
+In this paper we propose a new dataflow hardware description abstraction layer which covers the numerous synthesizable uses of RTL constructs and replaces them with higher-level abstractions. We also present DFiant, a Scala-embedded HDL that applies the dataflow semantics to decouple design functionality from its constraints. DFiant provides a strong bit-accurate type safe foundations to describe hardware in a very concise and portable fashion. The DFiant compiler can automatically pipeline designs to meet performance requirements and produce synthesizable RTL code.
+\end{abstract}
+
+
+%For over two decades, register-transfer level (RTL) has been the dominant programming model as the basis for hardware description languages (HDLs) such as Verilog and VHDL. Unfortunately, RTL language-constructs tightly couple design functionality with timing and device constraints, thus as the design complexity grows the design code becomes more verbose and less portable.
+%To bridge this hardware programmability gap, high-level synthesis (HLS) tools were introduced and based on software languages such as C. However, sequential software language semantics prevent designers from controlling hardware construction and data scheduling, which is crucial in many design use-cases. 
+
+%In this paper we introduce a dataflow hardware programming model as the basis for DFiant, a Scala-embedded HDL that decouples functionality from implementation constraints. 
+%DFiant bridges the timing-agnostic and device-agnostic hardware description gaps by incorporating dataflow semantics together with modern software language features such as inheritance and polymorphism; and typical HDL traits such as bit-accuracy, input/output ports, and component composition. DFiant is not an HLS language, nor is it an RTL language, but it is still an HDL that provides abstractions beyond RTL behavioral modeling, to reduce verbosity yet maintain portable codes. 
+

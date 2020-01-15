@@ -34,7 +34,7 @@ protected[DFiant] class DFString(value_ : List[Any])(implicit ctx0 : DFAny.Op.Co
     @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
       super.discoveryDependenciesStatic ++ value_.collect{case v : DFAny => v}
 
-    private def maxLatency: Option[Int] = value_.collect { case x: DFAny => x.thisSourceLB.get.getMaxLatency }.max
+//    private def maxLatency: Option[Int] = value_.collect { case x: DFAny => x.thisSourceLB.get.getMaxLatency }.max
 
     val versioned : List[Either[Source, Any]] = value_.map {
       case x : DFAny => Left(x.source.versioned)
@@ -43,7 +43,7 @@ protected[DFiant] class DFString(value_ : List[Any])(implicit ctx0 : DFAny.Op.Co
 
     val value: List[Any] = value_.collect {
       case x: DFAny =>
-        val elms = x.thisSourceLB.get.balanceTo(maxLatency).elements
+        val elms = x.source.elements//.get.balanceTo(maxLatency).elements
         //TODO: fix this
         //      assert(elms.length == 1, s"Full handling of split pipeline in a message is not yet supported (${x.fullName})")
         elms.head

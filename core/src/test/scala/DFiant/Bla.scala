@@ -135,6 +135,7 @@ trait Comp extends DFComponent[Comp] {
 object Comp {
   implicit val ev : Comp => Unit = ifc => {
     import ifc._
+    println("impl")
     val rt = new RTx2(8)
     rt.I <> i
     rt.O <> o
@@ -142,21 +143,50 @@ object Comp {
 }
 
 trait IODesignConn2 extends DFDesign{
-  val i = DFUInt(8) <> IN init 1
+  val l = DFUInt(8) <> IN init 1
+  val r = DFUInt(8) <> IN init 1
   val o = DFUInt(8) <> OUT
 
-  val io = new Comp {}
-  i <> io.i
-  o <> io.o
+  o <> (l `RT+` r)
+//  val io = new Comp {}
+//  i <> io.i
+//  o <> io.o
 }
+
+
+trait IODesignIf extends DFDesign {
+  val i1 = DFUInt(8) <> IN init (1, 1, Bubble, 1)
+  val i2 = DFUInt(8) <> IN init (2, Bubble)
+  val o1 = DFUInt(8) <> OUT
+  val o2 = DFUInt(8) <> OUT
+  val b = DFBool() <> IN init (false, true, true, true)
+  val temp = DFUInt(8) init 0
+
+  val ret = DFUInt(8).ifdf (b) {
+    temp := 1
+    temp
+  }.elsedf {
+    i2
+  }
+  val Lala = {
+    o2 <> ret.prev.prev
+  }
+}
+
 
 object Bla extends DFApp {
 //  implicit val config = DFAnyConfiguration.detailed
-  val bla = new IODesignMatch {}
+  val bla = new IODesignConn2 {}
 //  bla.io.unfold
   bla.printCodeString
   import internals._
-//  println(bla.members.map(m => (m.meta, m.nameFirst)).mkString("\n"))
+
+//  println(bla.plus.members)
+//  println(bla.plus.transparentPorts)
+//  println(bla.plus.OPort)
+//  println(bla.plus.transparentPorts)
+//  println(bla.plus.portsOut)
+//  println(bla.members.map(m => (m.meta, m.nameFirst, m.typeName, m.name)).mkString("\n"))
 //  println(bla.o.connectionLoop)
 //  println(bla.members.collect{case m : ConditionalBlock[_,_] => m.netsTo})
 }

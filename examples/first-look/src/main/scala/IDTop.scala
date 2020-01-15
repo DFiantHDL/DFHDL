@@ -16,22 +16,42 @@
  */
 package example2
 
-import DFiant._ //Required in any DFiant compilation program
+import ZFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
-  val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
-  val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
-  y <> x //Trivial direct input-to-output connection
+  val i = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
+  val o = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
+//  val tempX = DFUInt(16)
+//  val tempY = DFUInt(16)
+//  tempX <> x
+//  tempY := tempX
+//  tempY <> y
+  o <> i //Trivial direct input-to-output connection
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
-  val x = DFSInt[16] <> IN  //The input port is a signed 16-bit integer
-  val y = DFSInt[16] <> OUT	//The output port is a signed 16-bit integer
+  val x = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
+  val y = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
   val id1 = new ID {} //First instance of the `ID` design
   val id2 = new ID {} //Second instance of the `ID` design
-  id1.x <> x      //Connecting parent input port to child input port
-  id1.y <> id2.x  //Connecting sibling instance ports
-  id2.y <> y      //Connecting parent output port to child output port
+  id1.i <> x      //Connecting parent input port to child input port
+  id1.o <> id2.i  //Connecting sibling instance ports
+  id2.o <> y      //Connecting parent output port to child output port
 }
 
-object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point
+trait ContainerConnLoop extends DFDesign {
+  val i = DFUInt(8) <> IN
+  val o = DFUInt(8) <> OUT
+  val io = new ID {}
+  io.i <> io.o
+  o <> io.o
+}
+
+
+object IDTopApp extends App {
+  val top = new IDTop {}
+  import DFCompiler._
+  top.db.calcInit.printCodeString()(PrintConfig.ShowInits) //.flatten(top.id1)
+
+}
+//object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

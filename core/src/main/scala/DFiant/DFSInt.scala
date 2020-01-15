@@ -409,7 +409,7 @@ object DFSInt extends DFAny.Companion {
 
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
+        type Out = Comp0
       }
 
       object `LW >= RW` extends Checked1Param.Int {
@@ -420,8 +420,8 @@ object DFSInt extends DFAny.Companion {
 
       def create[L, R, RW](properR : (L, R) => DFSInt[RW]) : Aux[L, R, DFSInt[RW]] =
         new Builder[L, R] {
-          type Comp = DFSInt[RW]
-          def apply(leftL : L, rightR : R) : Comp =  properR(leftL, rightR)
+          type Out = DFSInt[RW]
+          def apply(leftL : L, rightR : R) : Out =  properR(leftL, rightR)
         }
 
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
@@ -442,7 +442,7 @@ object DFSInt extends DFAny.Companion {
       ) : Aux[DFSInt[LW], R, DFSInt[LW]] = create[DFSInt[LW], R, LW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        new Const[LW](Token(left.width, right.constLB.get))
+        new Const[LW](Token(left.width, right.constCB))
       })
     }
   }
@@ -471,7 +471,7 @@ object DFSInt extends DFAny.Companion {
 
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
+        type Out = Comp0
       }
 
       object Inference {
@@ -483,8 +483,8 @@ object DFSInt extends DFAny.Companion {
       }
 
       trait DetailedBuilder[L, LW, R, RW] {
-        type Comp
-        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp]
+        type Out
+        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out]
       }
       object DetailedBuilder {
         implicit def ev[L, LW, R, RW, NCW, WCW](
@@ -492,13 +492,13 @@ object DFSInt extends DFAny.Companion {
           ctx : DFAny.Op.Context,
           ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
-        ) : DetailedBuilder[L, LW, R, RW]{type Comp = Component[NCW, WCW]} =
+        ) : DetailedBuilder[L, LW, R, RW]{type Out = Component[NCW, WCW]} =
           new DetailedBuilder[L, LW, R, RW]{
-            type Comp = Component[NCW, WCW]
-            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp] =
+            type Out = Component[NCW, WCW]
+            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out] =
               new Builder[L, R] {
-                type Comp = Component[NCW, WCW]
-                def apply(leftL : L, rightR : R) : Comp = {
+                type Out = Component[NCW, WCW]
+                def apply(leftL : L, rightR : R) : Out = {
                   import stdlib.DFSIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
@@ -561,7 +561,7 @@ object DFSInt extends DFAny.Companion {
 
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
-        type Comp = Comp0
+        type Out = Comp0
       }
 
       object Inference {
@@ -575,8 +575,8 @@ object DFSInt extends DFAny.Companion {
       }
 
       trait DetailedBuilder[L, LW, R, RW] {
-        type Comp
-        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp]
+        type Out
+        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out]
       }
       object DetailedBuilder {
         implicit def ev[L, LW, R, RW, CW, NCW, WCW](
@@ -585,13 +585,13 @@ object DFSInt extends DFAny.Companion {
           ncW : Inference.NCW[LW, RW, NCW],
           wcW : Inference.WCW[LW, RW, WCW],
           cW : Inference.CW[LW, RW, CW],
-        ) : DetailedBuilder[L, LW, R, RW]{type Comp = Component[NCW, WCW, CW]} =
+        ) : DetailedBuilder[L, LW, R, RW]{type Out = Component[NCW, WCW, CW]} =
           new DetailedBuilder[L, LW, R, RW]{
-            type Comp = Component[NCW, WCW, CW]
-            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Comp] =
+            type Out = Component[NCW, WCW, CW]
+            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out] =
               new Builder[L, R] {
-                type Comp = Component[NCW, WCW, CW]
-                def apply(leftL : L, rightR : R) : Comp = {
+                type Out = Component[NCW, WCW, CW]
+                def apply(leftL : L, rightR : R) : Out = {
                   import stdlib.DFSIntOps._
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
@@ -637,7 +637,7 @@ object DFSInt extends DFAny.Companion {
   protected abstract class OpsShift(opKind : DiSoOp.Kind) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
     trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
-      type Comp <: DFSInt.Unbounded
+      type Out <: DFSInt.Unbounded
     }
 
     object Builder {
@@ -651,9 +651,9 @@ object DFSInt extends DFAny.Companion {
         implicit
         ctx : DFAny.Op.Context,
         checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFSInt[LW], DFUInt[RW]]{type Comp = DFSInt[LW] with CanBePiped} =
+      ) : Builder[DFSInt[LW], DFUInt[RW]]{type Out = DFSInt[LW] with CanBePiped} =
         new Builder[DFSInt[LW], DFUInt[RW]]{
-          type Comp = DFSInt[LW] with CanBePiped
+          type Out = DFSInt[LW] with CanBePiped
           def apply(left : DFSInt[LW], right : DFUInt[RW]) : DFSInt[LW] with CanBePiped = {
             import stdlib.DFSIntOps._
             // Completing runtime checks
@@ -673,8 +673,8 @@ object DFSInt extends DFAny.Companion {
         ctx : DFAny.Op.Context,
         check : Natural.Int.CheckedShellSym[Builder[_,_], R],
         rConst : DFUInt.Const.PosNeg.Aux[R, RW]
-      ) : Builder[DFSInt[LW], R]{type Comp = DFSInt[LW]} = new Builder[DFSInt[LW], R]{
-        type Comp = DFSInt[LW]
+      ) : Builder[DFSInt[LW], R]{type Out = DFSInt[LW]} = new Builder[DFSInt[LW], R]{
+        type Out = DFSInt[LW]
         def apply(left : DFSInt[LW], right : R) : DFSInt[LW] = {
           check.unsafeCheck(right)
 //          opKind match {
@@ -712,7 +712,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFSInt.Token], Seq[DFSInt.Token]) => Seq[DFBool.Token]) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Comp = DFBool with CanBePiped}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool with CanBePiped}
 
     object Builder {
       object `LW == RW` extends Checked1Param.Int {

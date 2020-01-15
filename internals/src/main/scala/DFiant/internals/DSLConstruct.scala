@@ -44,8 +44,8 @@ trait DSLMemberConstruct extends DSLConstruct with HasProperties
     val ownerOption : Option[DSLOwnerConstruct] = ctx.ownerOption
     final lazy val owner : ThisOwner = ownerOption.getOrElse(unexpectedNullOwner).asInstanceOf[ThisOwner]
     def unexpectedNullOwner = throw new IllegalArgumentException("\nUnexpected null Owner")
-    final lazy val nonTransparentOwner : DSLOwnerConstruct = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
-    final lazy val nonTransparentOwnerOption : Option[DSLOwnerConstruct] = ownerOption.map(o => o.nonTransparent)
+    final lazy val nonTransparentOwner : ThisOwner = nonTransparentOwnerOption.getOrElse(unexpectedNullOwner)
+    final lazy val nonTransparentOwnerOption : Option[ThisOwner] = ownerOption.map(o => o.nonTransparent.asInstanceOf[ThisOwner])
     final def hasSameOwnerAs(that : DSLMemberConstruct) : Boolean =
       nonTransparentOwnerOption == that.nonTransparentOwnerOption
     final def isDownstreamMemberOf(that : DSLOwnerConstruct) : Boolean =
@@ -125,7 +125,11 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     final lazy val isTop : Boolean = ownerOption.isEmpty
-    lazy val nonTransparent : DSLOwnerConstruct = self
+    lazy val membersChangeTracker : CacheBoxRW[Int] = ownerOption match {
+      case Some(o) => o.membersChangeTracker
+      case None => CacheBoxRW(0)
+    }
+    lazy val nonTransparent : ThisOwner = self.asInstanceOf[ThisOwner]
     final private[DFiant] def callSiteSameAsOwnerOf(member : DSLMemberConstruct) : Boolean =
       if (self.nonTransparent eq member.nonTransparentOwner) true
       else if (self.nonTransparentOwnerOption.isEmpty) false
@@ -141,10 +145,34 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Naming
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val metaNameTable : CacheBoxRO[Map[DSLMemberConstruct, Meta.Name]] =
+    final lazy val metaNameTable : CacheBoxRO[Map[DSLMemberConstruct, Meta.Name]] =
       CacheDerivedRO(members) {
         case class NamedGroup(position : Meta.Position, nameFirst : Boolean, memberSet : Set[DSLMemberConstruct])
         //Name-Position to Latest Call-Position Map
+//        val namedAtPos2 = members.foldLeft(Map.empty[Meta.Position, immutable.ListMap[Meta.Position, List[DSLMemberConstruct]]]){
+//          case (nap, m) if !m.meta.name.anonymous =>
+//            val updatedListMap = nap.get(m.meta.namePosition) match {
+//              case Some(listMap) => listMap.get(m.meta.position) match {
+//                case Some(ml) => listMap.updated(m.meta.position, ml :+ m)
+//                case None => listMap + (m.meta.position -> List(m))
+//              }
+//              case None => immutable.ListMap(m.meta.position -> List(m))
+//            }
+//            nap.updated(m.meta.namePosition, updatedListMap)
+//          case (nap, _) => nap
+//        }
+//
+//        def isAnonymous(member : DSLMemberConstruct) : Boolean =
+//          member.meta.name.anonymous  || member.meta.name.value == "applyOrElse" ||
+//          {
+//            val nap = namedAtPos2(member.meta.namePosition)
+//            val nameFirst = nap.head._2.head.nameFirst
+//            val pos = nap.keysIterator.indexOf(member.meta.position)
+//            nameFirst && pos != 0 || !nameFirst && pos != nap.size-1
+//          }
+//
+//        def getUsages(member : DSLMemberConstruct) : Int = namedAtPos2(member.meta.namePosition)(member.meta.position).length
+
         val namedAtPos = mutable.Map[Meta.Position, NamedGroup]()
         members.foreach {
           case m if !m.meta.name.anonymous => namedAtPos.get(m.meta.namePosition) match {
@@ -152,12 +180,12 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
               if (m.meta.position > ng.position)
                 namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
               else if (m.meta.position == ng.position)
-                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet union Set(m)))
             case Some(ng) if ng.nameFirst && m.nameFirst =>
               if (m.meta.position == ng.position)
-                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet + m))
+                namedAtPos += (m.meta.namePosition -> ng.copy(memberSet = ng.memberSet union Set(m)))
             case Some(ng) if m.nameFirst =>
-                namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
+              namedAtPos += (m.meta.namePosition -> ng.copy(position = m.meta.position, memberSet = Set(m)))
             case None =>
               namedAtPos += (m.meta.namePosition -> NamedGroup(m.meta.position, m.nameFirst, Set(m)))
             case _ => //Do nothing
@@ -185,8 +213,8 @@ trait DSLOwnerConstruct extends DSLMemberConstruct {self =>
 
     //the table saves the number of occurrences for each member name, to generate unique names when the scala scope
     //isn't enough to protect from reusing the same name, e.g.: loops that generate new members.
-    private val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
-    final val nameTable : CacheBoxRO[Map[DSLMemberConstruct, String]] =
+    private lazy val membersNamesTemp = CacheDerivedRO(members)(members.map(x => x.nameTemp))
+    final lazy val nameTable : CacheBoxRO[Map[DSLMemberConstruct, String]] =
       CacheDerivedRO(membersNamesTemp) {
         case class Info(usages : Int, idx : Int){
           override def toString : String = {
@@ -241,14 +269,20 @@ object DSLContext {
 }
 
 object DSLOwnerConstruct {
+  implicit def fetchOwner(implicit ctx : DSLContext) : DSLOwnerConstruct = ctx.owner
   implicit def fetchDev(from : DSLOwnerConstruct)(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
-  trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] extends DSLContext {
+  trait Context[+Owner <: DSLOwnerConstruct, +Config <: DSLConfiguration] extends DSLContext {self =>
     val ownerOption : Option[Owner]
     override implicit lazy val owner : Owner =
       ownerOption.getOrElse(throw new IllegalArgumentException("\nExepcted a non-null owner, but got one"))
     implicit val config : Config
     val meta : Meta
     override def toString: String = meta.name
+    def anonymize : Context[Owner, Config] = new Context[Owner, Config] {
+      override val ownerOption: Option[Owner] = self.ownerOption
+      override implicit val config: Config = self.config
+      override val meta: Meta = self.meta.anonymize
+    }
   }
   trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, order : Int, owners : ListBuffer[Owner])
@@ -284,7 +318,7 @@ trait DSLTransparentOwnerConstruct extends DSLOwnerConstruct {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Ownership
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override lazy val nonTransparent : DSLOwnerConstruct = owner.nonTransparent
+    override lazy val nonTransparent : ThisOwner = owner.nonTransparent.asInstanceOf[ThisOwner]
 
   }
   override private[DFiant] lazy val __dev : __DevDSLTransparentOwnerConstruct = ???
@@ -306,12 +340,8 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
 
     private lazy val firstFold : Unit = {
       foldedMemberList = addedMembers
-      foldedRun
       folded = true
 //      foldRequest = __config.foldComponents
-    }
-    private[DFiant] def preFoldUnfold() : Unit = {
-      addedMembers.set(foldedMemberList)
     }
 
     final protected[DSLFoldableOwnerConstruct] lazy val foldRequest = CacheBoxRW(true)
@@ -319,17 +349,16 @@ trait DSLFoldableOwnerConstruct extends DSLOwnerConstruct {
       firstFold
       val foldReq = foldRequest.unbox
       if (folded != foldReq) {
-        preFoldUnfold()
-        if (foldReq) foldedRun else unfoldedRun
+        addedMembers.set(foldedMemberList)
+        if (!foldReq) unfoldedRun
         folded = foldReq
       }
+      membersChangeTracker.set(membersChangeTracker.unbox + 1)
       addedMembers.unbox
     }
   }
   override private[DFiant] lazy val __dev : __DevDSLFoldableOwnerConstruct = ???
   import __dev._
-  //override foldedRun to support folded run (inject output->input dependencies and setup initialization)
-  protected def foldedRun : Unit = {}
 
   def fold : this.type = {
     foldRequest.set(true)

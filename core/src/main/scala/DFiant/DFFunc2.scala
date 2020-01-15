@@ -40,26 +40,27 @@ abstract class DFFunc2[Comp <: DFFunc2[Comp, L, R], L <: DFAny, R <: DFAny]
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Member discovery
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private lazy val _discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = //TODO: This shouldn't be needed
+      CacheDerivedRO(portsIn, super.discoveryDependencies)(super.discoveryDependencies ++ portsIn)
+    @inline override private[DFiant] def discoveryDependencies : CacheBoxRO[Set[DFAnyMember]] = _discoveryDependencies
     override val isAssignable: Boolean = false
-
-    override def inletSourceLB : LazyBox[Source] = {
-      LazyBox.Args1[Source, Option[Int]](self)(l => Source.withLatency(self, l)/*.pipe(extraPipe)*/, maxLatency)
-    }
 
     override lazy val initCB: CacheBoxRO[Seq[TToken]] = initOf(self)
     private[DFiant] var usedAsWide = false //TODO: remove this hack
 
-    final lazy val constLB : LazyBox[TToken] = LazyBox.Args2(self)(tokenFunc, inLeft.constLB.asInstanceOf[LazyBox[leftArg.TToken]], inRight.constLB.asInstanceOf[LazyBox[rightArg.TToken]])
+    override lazy val constCB : CacheBoxRO[TToken] = constOf(self)
     //  private var extraPipe : Int = 0
     //  def pipe() : this.type = pipe(1)
     //  private[DFiant] override def pipeGet : Int = extraPipe
     //  final def pipe(p : Int) : this.type = {extraPipe = p; this}
-    final lazy val leftBalancedSource = leftArg.thisSourceLB.get.balanceTo(maxLatency.get)
-    final lazy val rightBalancedSource = rightArg.thisSourceLB.get.balanceTo(maxLatency.get)
+    final lazy val leftBalancedSource = {
+      leftArg.source
+    }//.balanceTo(maxLatency.get)
+    final lazy val rightBalancedSource = rightArg.source//.balanceTo(maxLatency.get)
 
-    final val leftLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, leftArg.thisSourceLB)
-    final val rightLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, rightArg.thisSourceLB)
-    final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](self)((l, r) => List(l, r).max, leftLatency, rightLatency)
+//    final val leftLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, leftArg.source)
+//    final val rightLatency = LazyBox.Args1[Option[Int], Source](self)(s => s.getMaxLatency, rightArg.source)
+//    final lazy val maxLatency = LazyBox.Args2[Option[Int], Option[Int], Option[Int]](self)((l, r) => List(l, r).max, leftLatency, rightLatency)
   }
   override private[DFiant] lazy val __dev : __DevFunc2Comp = new __DevFunc2Comp {}
   __dev
