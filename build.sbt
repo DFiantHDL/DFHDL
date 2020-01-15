@@ -87,6 +87,7 @@ lazy val core = project
 lazy val sorted_networks = (project in file("examples/sorted_networks"))
   .settings(
     name := "sorted_networks",
+    skip in publish := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -98,6 +99,7 @@ lazy val sorted_networks = (project in file("examples/sorted_networks"))
 lazy val `first-look` = (project in file("examples/first-look"))
   .settings(
     name := "first-look",
+    skip in publish := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -107,7 +109,10 @@ lazy val `first-look` = (project in file("examples/first-look"))
   )
 
 lazy val examples = project
-  .settings(settings)
+  .settings(
+    skip in publish := true,
+    settings
+  )
   .aggregate(
     sorted_networks,
     `first-look`
@@ -121,6 +126,7 @@ lazy val examples = project
 lazy val `private` = (project in file("private"))
   .settings(
     name := "private",
+    skip in publish := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
