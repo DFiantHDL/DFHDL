@@ -19,8 +19,8 @@ package example2
 import ZFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
-  val i = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
-  val o = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
+  val i = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
+  val o = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
 //  val tempX = DFUInt(16)
 //  val tempY = DFUInt(16)
 //  tempX <> x
@@ -30,8 +30,8 @@ trait ID extends DFDesign { //This our `ID` dataflow design
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
-  val x = DFUInt(16) <> IN  //The input port is a signed 16-bit integer
-  val y = DFUInt(16) <> OUT	//The output port is a signed 16-bit integer
+  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
+  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
   val id1 = new ID {} //First instance of the `ID` design
   val id2 = new ID {} //Second instance of the `ID` design
   id1.i <> x      //Connecting parent input port to child input port

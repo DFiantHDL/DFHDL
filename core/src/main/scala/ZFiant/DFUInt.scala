@@ -325,7 +325,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
+  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
     @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
     trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
       type Out = DFAny.Of[LType]
@@ -333,7 +333,7 @@ object DFUInt extends DFAny.Companion {
 
     object Builder {
       object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = SkipLengthCheck || (LW >= RW)
+        type Cond[LW, RW] = LW >= RW
         type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
@@ -359,8 +359,8 @@ object DFUInt extends DFAny.Companion {
       }
     }
   }
-  object `Op:=` extends `Ops:=,<>`[false]
-  object `Op<>` extends `Ops:=,<>`[true]
+  object `Op:=` extends `Ops:=,<>`
+  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
