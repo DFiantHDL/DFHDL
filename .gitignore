@@ -17,3 +17,6 @@ private/doc/fpl2019/fpl2019.pdf
 site/
 sandbox/
 
+**/.bloop
+.metals/
+
