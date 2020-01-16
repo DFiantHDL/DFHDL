@@ -1,25 +1,54 @@
-package ZFiant.vhdl
+package ZFiant.vhdl.ast
 
 sealed trait Value extends Product with Serializable {
   val rtType : Value.Type
+  val name : Name
+  def refCodeString : String
 }
 
 object Value {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Definition
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Def[+Mod <: Def.Modifier](
-    name : Name, rtType : Type, modifier : Mod, initStr : Option[String]
-  ) extends Value with Declaration
-  object Def {
-    sealed trait Modifier extends Product with Serializable
+  final case class Dcl[+Mod <: Dcl.Modifier](
+    name : Name, rtType : Type, modifier : Mod, initStrOption : Option[String]
+  ) extends Value with Declaration {
+    private val initStr = initStrOption match {
+      case Some(i) => s" := $i"
+      case None => ""
+    }
+    def refCodeString : String = name.toString
+    override def toString: String =
+      s"${modifier.preModStr}$name : ${modifier.portDirStr}$rtType$initStr${modifier.postModStr}"
+  }
+  object Dcl {
+    sealed trait Modifier extends Product with Serializable {
+      val preModStr : String
+      val postModStr : String
+      val portDirStr : String
+    }
     object Modifier {
-      case object Signal extends Modifier
-      case object Variable extends Modifier
-      sealed trait Port extends Modifier
+      case object Signal extends Modifier {
+        val preModStr : String = "signal "
+        val postModStr : String = ";"
+        val portDirStr : String = ""
+      }
+      case object Variable extends Modifier {
+        val preModStr : String = "variable "
+        val postModStr : String = ";"
+        val portDirStr : String = ""
+      }
+      sealed trait Port extends Modifier {
+        val preModStr : String = ""
+        val postModStr : String = ""
+      }
       object Port {
-        case object In extends Port
-        case object Out extends Port
+        case object In extends Port {
+          val portDirStr : String = "in "
+        }
+        case object Out extends Port {
+          val portDirStr : String = "out "
+        }
       }
     }
   }
@@ -46,7 +75,7 @@ object Value {
     ///////////////////////////////////////////////////////////
     // std_logic_vector
     ///////////////////////////////////////////////////////////
-    case class std_logic_vector(width : Int) extends Resizeable with Invertable with Reverseable {
+    final case class std_logic_vector(width : Int) extends Resizeable with Invertable with Reverseable {
       def resize(width : Int) : Type = std_logic_vector(width)
       override def toString: String = s"std_logic_vector(${width-1} downto 0)"
     }
@@ -55,7 +84,7 @@ object Value {
     ///////////////////////////////////////////////////////////
     // unsigned
     ///////////////////////////////////////////////////////////
-    case class unsigned(width : Int) extends Resizeable {
+    final case class unsigned(width : Int) extends Resizeable {
       def resize(width : Int) : Type = unsigned(width)
       override def toString: String = s"unsigned(${width-1} downto 0)"
     }
@@ -64,7 +93,7 @@ object Value {
     ///////////////////////////////////////////////////////////
     // signed
     ///////////////////////////////////////////////////////////
-    case class signed(width : Int) extends Resizeable {
+    final case class signed(width : Int) extends Resizeable {
       def resize(width : Int) : Type = signed(width)
       override def toString: String = s"signed(${width-1} downto 0)"
     }
@@ -111,16 +140,17 @@ object Value {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
   sealed trait Reference extends Value {
     val refVal : Value
+    override def refCodeString: String = if (name.isAnonymous) toString else name.toString
   }
   object Reference {
-    case class resize(rtType : Type, refVal : Value) extends Reference
+    final case class resize(name : Name, rtType : Type, refVal : Value) extends Reference
     object resize {
-      def apply(refVal : Value, width : Int) : resize = refVal.rtType match {
-        case t : Type.Resizeable => resize(t.resize(width), refVal)
-        case _ => ???
-      }
+//      def apply(refVal : Value, width : Int) : resize = refVal.rtType match {
+//        case t : Type.Resizeable => resize(t.resize(width), refVal)
+//        case _ => ???
+//      }
     }
-    case class invert(refVal : Value) extends Reference {
+    final case class invert(name : Name, refVal : Value) extends Reference {
       val rtType: Type = refVal.rtType
     }
   }

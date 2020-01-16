@@ -1,6 +1,6 @@
-package ZFiant.vhdl
+package ZFiant.vhdl.ast
 
-case class Process(sensitivity : Process.Sensitivity, variables : List[Value.Def.Modifier.Port], statements : List[Statement]) extends Statement
+final case class Process(sensitivity : Process.Sensitivity, variables : List[Value.Dcl.Modifier.Port], statements : List[Statement]) extends Statement
 
 object Process {
   sealed trait Sensitivity extends Product with Serializable
