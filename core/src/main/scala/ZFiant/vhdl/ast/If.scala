@@ -1,6 +1,6 @@
 package ZFiant.vhdl.ast
 
-final case class If(cond : Value, statements : List[Statement], closing : If.Closing) {
+final case class If(cond : Value, statements : List[Statement], closing : If.Closing) extends Statement {
   cond.rtType match {
     case Value.Type.boolean => //OK
     case Value.Type.std_logic => //OK

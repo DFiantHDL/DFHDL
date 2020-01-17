@@ -1,6 +1,6 @@
 package ZFiant.vhdl.ast
 
-final case class Process(sensitivity : Process.Sensitivity, variables : List[Value.Dcl.Modifier.Port], statements : List[Statement]) extends Statement {
+final case class Process(sensitivity : Process.Sensitivity, variables : List[Value.Dcl[Value.Dcl.Modifier.Port]], statements : List[Statement]) extends Statement {
   override def toString: String =
     s"""process ($sensitivity)
        |${variables.mkString("\n").delim}
@@ -19,5 +19,9 @@ object Process {
       override def toString: String = "all"
     }
   }
-  def sync_rst(clkName : Name, rstName : Name) : Process = ???
+  def ClkAsyncRst(clk : Clock, rst : Reset, variables : List[Value.Dcl[Value.Dcl.Modifier.Port]], resetStatements : List[Statement], clockedStatements : List[Statement]) : Process = {
+    val sensitivity = Sensitivity.List(List(clk.name, rst.name))
+    val statements : List[Statement] = List(If(rst.active, resetStatements, If.ElsIf(clk.active, clockedStatements, If.End)))
+    Process(sensitivity, variables, statements)
+  }
 }
