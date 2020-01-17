@@ -1,5 +1,3 @@
 package ZFiant.vhdl.ast
 
-trait Statement {
-
-}
+trait Statement extends Product with Serializable

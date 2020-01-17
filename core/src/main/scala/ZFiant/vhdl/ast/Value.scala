@@ -3,7 +3,7 @@ package ZFiant.vhdl.ast
 sealed trait Value extends Product with Serializable {
   val rtType : Value.Type
   val name : Name
-  def refCodeString : String
+  def refString : String
 }
 
 object Value {
@@ -17,7 +17,7 @@ object Value {
       case Some(i) => s" := $i"
       case None => ""
     }
-    def refCodeString : String = name.toString
+    def refString : String = name.toString
     override def toString: String =
       s"${modifier.preModStr}$name : ${modifier.portDirStr}$rtType$initStr${modifier.postModStr}"
   }
@@ -61,7 +61,7 @@ object Value {
   sealed trait Type extends Product with Serializable {
     val width : Int
   }
-  protected object Type {
+  object Type {
     ///////////////////////////////////////////////////////////
     // Capabilities
     ///////////////////////////////////////////////////////////
@@ -140,18 +140,27 @@ object Value {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
   sealed trait Reference extends Value {
     val refVal : Value
-    override def refCodeString: String = if (name.isAnonymous) toString else name.toString
+    override def refString: String = if (name.isAnonymous) toString else name.toString
   }
   object Reference {
-    final case class resize(name : Name, rtType : Type, refVal : Value) extends Reference
-    object resize {
+    final case class Resize(name : Name, rtType : Type, refVal : Value) extends Reference
+    object Resize {
 //      def apply(refVal : Value, width : Int) : resize = refVal.rtType match {
 //        case t : Type.Resizeable => resize(t.resize(width), refVal)
 //        case _ => ???
 //      }
     }
-    final case class invert(name : Name, refVal : Value) extends Reference {
+    final case class Invert(name : Name, refVal : Value) extends Reference {
       val rtType: Type = refVal.rtType
+    }
+    final case class RisingEdge(refVal : Value) extends Reference {
+      refVal.rtType match {
+        case Type.std_logic => //OK
+        case _ => ??? //Bad
+      }
+      val rtType: Type = Type.boolean
+      override val name: Name = Name.anonymous
+      override def toString: String = s"rising_edge(${refVal.refString})"
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
