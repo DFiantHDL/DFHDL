@@ -24,4 +24,6 @@ object Process {
     val statements : List[Statement] = List(If(rst.active, resetStatements, If.ElsIf(clk.active, clockedStatements, If.End)))
     Process(sensitivity, variables, statements)
   }
+  def Async(variables : List[Value.Dcl[Value.Dcl.Modifier.Port]], statements : List[Statement]) : Process =
+    Process(Sensitivity.All, variables, statements)
 }
