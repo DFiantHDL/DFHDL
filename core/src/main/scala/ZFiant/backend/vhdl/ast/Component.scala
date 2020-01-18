@@ -1,4 +1,6 @@
-package ZFiant.vhdl.ast
+package ZFiant.backend.vhdl.ast
+
+import ZFiant.backend.utils._
 
 final case class Component(entityName : Name, ports : List[Value.Dcl[Value.Dcl.Modifier.Port]]) extends Declaration {
   override def toString: String =

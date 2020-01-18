@@ -1,4 +1,6 @@
-package ZFiant.vhdl.ast
+package ZFiant.backend.vhdl.ast
+
+import ZFiant.backend.utils._
 
 final case class Case(expression : Value, whens : List[Case.When]) extends Statement {
   override def toString: String =

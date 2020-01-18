@@ -1,4 +1,4 @@
-package ZFiant.vhdl.ast
+package ZFiant.backend.vhdl.ast
 
 sealed trait Net extends Product with Serializable {
   val toVal : Value

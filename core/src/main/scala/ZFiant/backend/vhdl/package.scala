@@ -1,6 +1,8 @@
-package ZFiant
+package ZFiant.backend
 
-import collection.mutable
+import ZFiant._
+import ZFiant.backend.utils._
+
 package object vhdl {
   private val reservedKeywords : List[String] = List(
     "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin",
@@ -13,23 +15,7 @@ package object vhdl {
     "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable",
     "wait", "when", "while", "with", "xnor", "xor",
   )
-  final class NameDB(reservedNames : List[String], caseSensitive : Boolean) {
-    //initializing the table with reserved names
-    //starting from -1 for reserved names, so the first indexed returned name value will be 0.
-    //this is different than non-reserved name collision which will start at index 1
-    private val nameTable : mutable.HashMap[String, Int] = mutable.HashMap.from(reservedNames.map(r => (r, -1)))
-    def getUniqueName(suggestedName : String) : String = {
-      val lcSuggestedName = if (caseSensitive) suggestedName else suggestedName.toLowerCase()
-      nameTable.get(lcSuggestedName) match {
-        case Some(v) =>
-          nameTable.update(lcSuggestedName, v + 1)
-          suggestedName + "_b_" + v //_b_ for Backend indication
-        case _ =>
-          nameTable.update(lcSuggestedName, 1)
-          suggestedName
-      }
-    }
-  }
+
   object File {
     private implicit def getVHDLType(from : DFAny) : ast.Value.Type = from.dfType match {
       case DFBits.Type(width) => ast.Value.Type.std_logic_vector(width)
@@ -38,7 +24,15 @@ package object vhdl {
     }
     private implicit def getName(from : DFAny)(implicit nameDB : NameDB) : ast.Name =
       if (from.isAnonymous) ast.Name.anonymous
-      else ast.Name(nameDB.getUniqueName(from.name))
+      else {
+        //port names are capitalized to make ports more visible
+        val modifiedName = from match {
+          case p@DFAny.In() => from.name.toUpperCase
+          case p@DFAny.Out() => from.name.toUpperCase
+          case _ => from.name
+        }
+        ast.Name(nameDB.getUniqueName(modifiedName))
+      }
 
     def fromDesign(design : DFDesign) : ast.File = {
       val designDB = design.db

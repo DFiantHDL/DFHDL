@@ -1,4 +1,4 @@
-package ZFiant.vhdl.ast
+package ZFiant.backend.vhdl.ast
 
 import DFiant.internals.StringExtras
 
