@@ -57,6 +57,20 @@ object Value {
         }
       }
     }
+    object Port {
+      final case class In(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Port.In.type] {
+        val modifier = Dcl.Modifier.Port.In
+      }
+      final case class Out(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Port.Out.type] {
+        val modifier = Dcl.Modifier.Port.Out
+      }
+    }
+    final case class Signal(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Signal.type] {
+      val modifier = Dcl.Modifier.Signal
+    }
+    final case class Variable(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Variable.type] {
+      val modifier = Dcl.Modifier.Variable
+    }
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
