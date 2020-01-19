@@ -94,7 +94,8 @@ object DFCompiler {
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
 
-  implicit class Flatten(designDB : DFDesign.DB) {
+  implicit class Flatten[C](c : C)(implicit comp : Compilable[C]) {
+    private val designDB = comp(c)
     import designDB.getset
     private def flattenName(member : DFMember) : DFMember = member.setName(s"${member.getOwner.name}_${member.name}")
     private def flattenPort(port : DFAny) : List[(DFMember, Patch)] = {
@@ -118,8 +119,7 @@ object DFCompiler {
         List(port -> Patch.Replace(flattenName(DFAny.NewVar(port.dfType, DFAny.NewVar.Uninitialized, port.ownerRef, port.tags)), Patch.Replace.Config.FullReplacement))
       }
     }
-    private def flattenPatch(design : DFDesign) : List[(DFMember, Patch)] = {
-      val block = design.block
+    private def flattenPatch(block : DFBlock) : List[(DFMember, Patch)] = {
       if (block.isTop) List() else {
         val members = designDB.ownerMemberTable(block)
         val owner = block.getOwnerDesign
@@ -131,7 +131,12 @@ object DFCompiler {
         }
       }
     }
-    def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d)).toList)
+    def flattenInline : DFDesign.DB = {
+      val inlineBlocks = designDB.members.collect{case ib@DFDesign.Block.Internal(_,_,Some(_)) => ib}
+      val patchList = inlineBlocks.flatMap(ib => flattenPatch(ib))
+      designDB.patch(patchList)
+    }
+    def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d.block)).toList)
   }
 
   implicit class Checker[C](c : C)(implicit comp : Compilable[C]) {

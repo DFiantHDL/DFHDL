@@ -121,7 +121,8 @@ object ZTest extends App {
   trait Trying extends DFDesign {
     val i = DFBool() <> IN
     val o = DFBool() <> OUT
-    o := i.rising()
+    val r = i.rising()
+    o := r
   }
 
   val top = new BBB {}
@@ -129,7 +130,7 @@ object ZTest extends App {
   import DFCompiler._
   val trying = new Trying {}
 
-  trying.printCodeString()
+  trying.flattenInline.printCodeString()
 
 //  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
 //  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
