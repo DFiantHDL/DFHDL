@@ -7,7 +7,7 @@ import scala.collection.mutable
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
   val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
-  private val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
+  private[ZFiant] val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
   protected implicit val __getset : MemberGetSet = ctx.db.getset
 
   ///////////////////////////////////////////////////////////////////
