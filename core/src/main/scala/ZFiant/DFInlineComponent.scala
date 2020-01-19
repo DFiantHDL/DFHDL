@@ -4,7 +4,7 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   implicit ctx : ContextOf[DFInlineComponent[Type]]
 ) extends DFDesign with DFAny.DefaultRet[Type] {
   override private[ZFiant] lazy val inlinedRep : Option[MemberGetSet => String] = Some(_ => inlineCodeString)
-  final protected val outPort = DFAny.Port.Out(dfType)
+  final val outPort = DFAny.Port.Out(dfType)
   def inlineCodeString(implicit getset : MemberGetSet) : String
   final def thisVal(implicit getSet: MemberGetSet): DFAny.Of[Type] = outPort
   protected def atOwnerDo(block : => Unit) : Unit = ownerInjector.injectOwnerAndRun(ctx.owner)(block)

@@ -121,8 +121,7 @@ object ZTest extends App {
   trait Trying extends DFDesign {
     val i = DFBool() <> IN
     val o = DFBool() <> OUT
-    val r = Rising(i)
-    o := r
+    o := i.rising()
   }
 
   val top = new BBB {}
