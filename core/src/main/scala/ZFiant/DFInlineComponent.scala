@@ -19,5 +19,5 @@ case class Rising(bool : DFBool)(
     boolIn.connectWith(bool)
   }
   override def inlineCodeString(implicit getset : MemberGetSet) : String =
-    s"${bool.refCodeString(ctx.owner, getset)}.rising"
+    s"${bool.refCodeString(ctx.owner, getset)}.rising()"
 }
