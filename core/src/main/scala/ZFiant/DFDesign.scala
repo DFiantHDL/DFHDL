@@ -5,7 +5,8 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
-  val block : DFDesign.Block = DFDesign.Block.Internal(typeName)(ctx)
+  private[ZFiant] lazy val inlinedRep : Option[MemberGetSet => String] = None
+  final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
   protected implicit val __getset : MemberGetSet = ctx.db.getset
@@ -64,15 +65,14 @@ object DFDesign {
     def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
   }
   object Block {
-    final case class Internal(ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic)(designType: String) extends Block {
+    final case class Internal(ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[MemberGetSet => String])(designType: String) extends Block {
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
       override lazy val typeName : String = designType
     }
     object Internal {
-      def apply(designType : String)(implicit ctx : Context) : Block = ctx.db.addMember(
-        if (ctx.ownerInjector == null) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta)(designType))
+      def apply(designType : String, inlinedRep : Option[MemberGetSet => String])(implicit ctx : Context) : Block = ctx.db.addMember(
+        if (ctx.ownerInjector == null) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta, inlinedRep)(designType))
     }
-
     final case class Top(tags : DFMember.Tags.Basic)(db: DB.Mutable, designType: String) extends Block {
       override lazy val ownerRef : DFBlock.Ref = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this

@@ -260,6 +260,10 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
     ) extends Value[Type, Mod] {
       type TMod = Mod
+      override def refCodeString(implicit callOwner: DFBlock, getset: MemberGetSet): String = (ownerRef.get) match {
+        case DFDesign.Block.Internal(_,_, Some(f)) => f(getset)
+        case _ => super.refCodeString(callOwner, getset)
+      }
       def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> OUT${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> OUT"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))

@@ -248,11 +248,15 @@ object DFCompiler {
     import fixedDB.getset
 
     def blockBodyCodeString(block : DFBlock, members : List[DFMember])(implicit printConfig : PrintConfig) : String = {
-      val membersCodeString = members.collect {
-        case mh : ConditionalBlock.MatchHeader => mh.codeString
-        case cb : ConditionalBlock => cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb)))
-        case d : DFDesign.Block => s"final val ${d.name} = new ${d.typeName} {}" //TODO: fix
-        case n : DFNet => n.codeString
+      val membersCodeString = members.flatMap {
+        case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
+        case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb))))
+        case DFDesign.Block.Internal(_,_,Some(_)) => None
+        case d : DFDesign.Block => Some(s"final val ${d.name} = new ${d.typeName} {}") //TODO: fix
+        case n : DFNet => n.toRef.get.getOwner match {
+          case DFDesign.Block.Internal(_,_,Some(_)) => None //ignoring inlined block connection
+          case _ => Some(n.codeString)
+        }
         case a : DFAny if !a.isAnonymous =>
           val initInfo = printConfig match {
             case PrintConfig.Default => ""
@@ -261,7 +265,8 @@ object DFCompiler {
               case None => "//init = Unknown"
             }
           }
-          s"final val ${a.name} = ${a.codeString}$initInfo"
+          Some(s"final val ${a.name} = ${a.codeString}$initInfo")
+        case _ => None
       }
       membersCodeString.mkString("\n")
     }
@@ -271,6 +276,7 @@ object DFCompiler {
           s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(delim)}\n}"
       }
       fixedDB.ownerMemberList.foreach {
+        case (DFDesign.Block.Internal(_,_,Some(_)), _) =>
         case (block : DFDesign.Block, members) =>
           bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members), block)
         case _ =>

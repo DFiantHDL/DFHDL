@@ -118,10 +118,21 @@ object ZTest extends App {
     val c = new CCC() {}
   }
 
+  trait Trying extends DFDesign {
+    val i = DFBool() <> IN
+    val o = DFBool() <> OUT
+    val r = Rising(i)
+    o := r
+  }
+
   val top = new BBB {}
 
   import DFCompiler._
-  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
+  val trying = new Trying {}
+
+  trying.printCodeString()
+
+//  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
 //  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
 //  top.db.patch(Map(top.i -> top.i.copy(meta = top.i.meta.copy(top.i.meta.name.copy(value = "HAHA"))))).printOwnerMemberList()
 
