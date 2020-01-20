@@ -18,7 +18,7 @@
 package ZFiant
 import DFiant.internals._
 import DFDesign.DB.Patch
-
+import collection.immutable
 import scala.annotation.tailrec
 
 trait Compilable[-T] {
@@ -92,6 +92,13 @@ object DFCompiler {
         case Nil => retList.reverse
       }
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
+    //retrieves a list of variables that are consumed as their implicit previous value.
+    //the assignment stack map is pushed on every conditional block entry and popped on the block exit
+    private def getImplicitPrevVars(remaining : List[DFMember], assignStackMap : List[Map[DFAny, immutable.BitSet]], retSet : Set[Any]) : Set[DFAny] = ???
+    def explicitPrev : DFDesign.DB = {
+
+      ???
+    }
   }
 
   implicit class Flatten[C](c : C)(implicit comp : Compilable[C]) {
