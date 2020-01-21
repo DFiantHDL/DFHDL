@@ -432,6 +432,22 @@ object DFAny {
     }
   }
 
+  //TODO: Mutable concat
+//  final case class ConcatBits[W, Mod <: Modifier](
+//    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
+//  ) extends Value[DFBits.Type[W], Mod] with CanBeAnonymous {
+//    type TMod = Mod
+//    override def codeString(implicit getset: MemberGetSet): String =
+//      relValRefs.map(rvr => rvr.get.refCodeString).mkString(" ## ")
+//    def setTags(tags : DFAny.Tags[DFBits.Type[W]#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+//  }
+//  object ConcatBits {
+//    def mutable[LW, RW](
+//      leftArg : DFAny.Value[DFBits.Type[LW], Modifier.Assignable],
+//      rightArg : DFAny.Value[DFBits.Type[RW], Modifier.Assignable]
+//    )(implicit ctx: Context, ) : ConcatBits
+//  }
+
   sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val

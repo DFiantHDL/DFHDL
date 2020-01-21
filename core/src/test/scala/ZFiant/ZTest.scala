@@ -122,6 +122,12 @@ object ZTest extends App {
     val i = DFBool() <> IN
     val o = DFBool() <> OUT
     val r = i.rising()
+//    val temp = DFBool() init 0
+//    ifdf(i) {
+//      temp := 1
+//    }.elsedf {
+//      temp := 1
+//    }
     o := r
   }
 
@@ -130,7 +136,7 @@ object ZTest extends App {
   import DFCompiler._
   val trying = new Trying {}
 
-  trying.flattenInline.printCodeString()
+  trying.printCodeString().explicitPrev
 
 //  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
 //  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
