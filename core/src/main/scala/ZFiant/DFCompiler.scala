@@ -94,6 +94,7 @@ object DFCompiler {
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
 
+//  type Version = List[Either[immutable.BitSet, (DFBlock, List[Version])]]
   implicit class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
     import designDB.getset
