@@ -234,9 +234,9 @@ object DFCompiler {
           getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
         case _ => //existing child block or no more members
           val exitingBlock = remaining match {
-            case r :: _ if r.ownerRef.get != currentBlock => true
-            case Nil if (currentBlock != designDB.top) => true
-            case _ => false
+            case r :: _ if r.ownerRef.get != currentBlock => true //another member but not a child of current
+            case Nil if (currentBlock != designDB.top) => true //there are no more members, but still not at top
+            case _ => false //no more members and we are currently back at top
           }
           if (exitingBlock) {
             val updatedScopeMap = currentBlock match {
