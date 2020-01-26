@@ -208,19 +208,13 @@ object DFCompiler {
           val updatedScopeMap = nextBlock match {
             case cb : ConditionalBlock =>
               println(s"entering $cb", cb.isFirstCB)
-              scopeMap.branchEntry(cb.isFirstCB)
+              val ret = scopeMap.branchEntry(cb.isFirstCB)
+              println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
+              ret
             case _ => scopeMap
           }
           getImplicitPrevVars(rs, nextBlock, updatedScopeMap, currentSet)
-        case r :: _ if r.ownerRef.get != currentBlock => //existing child block
-          val updatedScopeMap = currentBlock match {
-            case cb : ConditionalBlock =>
-              println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
-              scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
-            case _ => scopeMap
-          }
-          getImplicitPrevVars(remaining, currentBlock.getOwner, updatedScopeMap, currentSet)
-        case r :: rs => //checking member consumers
+        case r :: rs if r.ownerRef.get == currentBlock => //checking member consumers
           val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
             case net : DFNet =>
               (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
@@ -238,8 +232,23 @@ object DFCompiler {
               (currentSet, scopeMap)
           }
           getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
-        case Nil =>
-          currentSet
+        case _ => //existing child block or no more members
+          val exitingBlock = remaining match {
+            case r :: _ if r.ownerRef.get != currentBlock => true
+            case Nil if (currentBlock != designDB.top) => true
+            case _ => false
+          }
+          if (exitingBlock) {
+            val updatedScopeMap = currentBlock match {
+              case cb : ConditionalBlock =>
+                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
+                val ret = scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
+                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
+                ret
+              case _ => scopeMap
+            }
+            getImplicitPrevVars(remaining, currentBlock.getOwner, updatedScopeMap, currentSet)
+          } else currentSet
       }
     }
     def explicitPrev : DFDesign.DB = {
