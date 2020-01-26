@@ -18,6 +18,7 @@
 package ZFiant
 import DFiant.internals._
 import DFDesign.DB.Patch
+
 import collection.immutable
 import scala.annotation.tailrec
 
@@ -94,10 +95,74 @@ object DFCompiler {
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
 
-//  type Version = List[Either[immutable.BitSet, (DFBlock, List[Version])]]
+  final case class AssignedScope(latest : immutable.BitSet, branchHistory : immutable.BitSet, parentScopeOption : Option[AssignedScope]) {
+//    def isAssignedAt(bitSet : immutable.BitSet) : Boolean = {
+//
+//    }
+    def assign(bitSet : immutable.BitSet) : AssignedScope = copy(latest = latest | bitSet)
+    def branchEntry(firstBranch : Boolean) : AssignedScope = {
+      val parentScope = if (firstBranch) this.copy(branchHistory = latest) else this
+      AssignedScope(latest, immutable.BitSet(), Some(parentScope))
+    }
+    def branchExit(lastBranch : Boolean, exhaustive : Boolean) : AssignedScope = parentScopeOption match {
+      case Some(parentScope) =>
+        if (lastBranch) {
+          if (exhaustive) AssignedScope(parentScope.latest | branchHistory, immutable.BitSet(), parentScope.parentScopeOption)
+          else AssignedScope(parentScope.latest, immutable.BitSet(), parentScope.parentScopeOption)
+        } else AssignedScope(parentScope.latest, parentScope.branchHistory & latest, parentScope.parentScopeOption)
+      case None => this
+    }
+  }
+  object AssignedScope {
+  }
+
+  type Version = (immutable.BitSet, List[immutable.BitSet])
   implicit class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
     import designDB.getset
+    implicit class ConditionalBlockExtension(cb : ConditionalBlock) {
+      def isFirstCB : Boolean = cb match {
+        case _ : ConditionalBlock.IfBlock => true
+        case x : ConditionalBlock.CasePatternBlock[_] if x.prevCaseRef.isEmpty => true
+        case _ => false
+      }
+      def isLastCB : Boolean = {
+        val refs = designDB.memberTable(cb)
+        //the conditional block is last if there is no reference to it as a previous block
+        refs.map{case r : ConditionalBlock.PrevBlockRef[_] => r}.isEmpty
+      }
+      @tailrec private def getPatterns(casePattenBlock : ConditionalBlock.CasePatternBlock[_], patterns : List[DFAny.Pattern[_]]) : List[DFAny.Pattern[_]] = {
+        val updatedPattens = casePattenBlock.pattern :: patterns
+        casePattenBlock.prevCaseRef match {
+          case Some(r) => getPatterns(r.get, updatedPattens)
+          case None => updatedPattens
+        }
+      }
+      def isExhaustive : Boolean = cb match {
+        case _ : ConditionalBlock.ElseBlock => true
+        case _ : ConditionalBlock.Case_Block => true
+        case x : ConditionalBlock.CasePatternBlock[_] if x.isLastCB =>
+          val matchVal = x.matchHeaderRef.matchValRef.get
+          val patterns = getPatterns(x, List())
+          matchVal.dfType match {
+            case _ : DFUInt.Type[_] =>
+              val union = patterns.asInstanceOf[List[DFUInt.Pattern]].foldLeft(IntervalSet.empty[BigInt]){case (is, p) => is | p.patternSet}
+              val fullRange = Interval.closed(BigInt(0), BigInt.maxUnsignedFromWidth(matchVal.width))
+              union.contains(fullRange)
+            case _ : DFBits.Type[_] =>
+              val union = patterns.asInstanceOf[List[DFBits.Pattern]].foldLeft(Set.empty[BitVector]){case (s, p) => s | p.patternSet}
+              union.size == BigInt.maxUnsignedFromWidth(matchVal.width).toInt
+            case _ : DFBool.Type =>
+              val union = patterns.asInstanceOf[List[DFBool.Pattern]].foldLeft(Set.empty[Boolean]){case (s, p) => s | p.patternSet}
+              union.size == 2
+            case e : DFEnum.Type[_] =>
+              val union = patterns.asInstanceOf[List[DFEnum.Pattern[Enum]]].foldLeft(Set.empty[Enum#Entry]){case (s, p) => s | p.patternSet}
+              union.size == e.enumType.entries.size
+          }
+        case _ => false
+      }
+    }
+
     @tailrec private def consumeFrom(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, immutable.BitSet], currentSet : Set[DFAny]) : Set[DFAny] = {
       val access = immutable.BitSet.empty ++ (relBitLow until relWidth)
       value match {
