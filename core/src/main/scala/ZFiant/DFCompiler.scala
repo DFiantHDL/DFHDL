@@ -95,24 +95,35 @@ object DFCompiler {
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
 
-  protected final case class AssignedScope(latest : immutable.BitSet, branchHistory : immutable.BitSet, parentScopeOption : Option[AssignedScope]) {
-    def isConsumingPrevAt(consumeBitSet : immutable.BitSet) : Boolean = (consumeBitSet &~ latest).nonEmpty
-    def assign(assignBitSet : immutable.BitSet) : AssignedScope = copy(latest = latest | assignBitSet)
+  protected final case class AssignedScope(latest : immutable.BitSet, branchHistory : Option[immutable.BitSet], parentScopeOption : Option[AssignedScope]) {
+    @tailrec private def getLatest(latest : immutable.BitSet, parentScopeOption : Option[AssignedScope]) : immutable.BitSet =
+      parentScopeOption match {
+        case Some(s) => getLatest(latest | s.latest, s.parentScopeOption)
+        case None => latest
+      }
+    def getLatest : immutable.BitSet = getLatest(latest, parentScopeOption)
+    def isConsumingPrevAt(consumeBitSet : immutable.BitSet) : Boolean = (consumeBitSet &~ getLatest).nonEmpty
+    def assign(assignBitSet : immutable.BitSet) : AssignedScope = copy(latest | assignBitSet)
     def branchEntry(firstBranch : Boolean) : AssignedScope = {
-      val parentScope = if (firstBranch) this.copy(branchHistory = latest) else this
-      AssignedScope(latest, immutable.BitSet(), Some(parentScope))
+      val parentScope = if (firstBranch) this.copy(branchHistory = Some(getLatest)) else this
+      AssignedScope(immutable.BitSet(), None, Some(this))
     }
     def branchExit(lastBranch : Boolean, exhaustive : Boolean) : AssignedScope = parentScopeOption match {
       case Some(parentScope) =>
+        val updatedHistory = parentScope.branchHistory match {
+          case Some(h) => latest & h
+          case None => latest
+        }
         if (lastBranch) {
-          if (exhaustive) AssignedScope(parentScope.latest | branchHistory, immutable.BitSet(), parentScope.parentScopeOption)
-          else AssignedScope(parentScope.latest, immutable.BitSet(), parentScope.parentScopeOption)
-        } else AssignedScope(parentScope.latest, parentScope.branchHistory & latest, parentScope.parentScopeOption)
+          if (exhaustive) AssignedScope(parentScope.latest | updatedHistory, None, parentScope.parentScopeOption)
+          else AssignedScope(parentScope.latest, None, parentScope.parentScopeOption)
+        } else
+          AssignedScope(parentScope.latest, Some(updatedHistory), parentScope.parentScopeOption)
       case None => this
     }
   }
   protected object AssignedScope {
-    val empty : AssignedScope = AssignedScope(immutable.BitSet(), immutable.BitSet(), None)
+    val empty : AssignedScope = AssignedScope(immutable.BitSet(), None, None)
   }
 
   implicit class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
@@ -165,13 +176,13 @@ object DFCompiler {
     }
 
     @tailrec private def consumeFrom(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
-      val access = immutable.BitSet.empty ++ (relBitLow until relWidth)
+      val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
       value match {
         case DFAny.Alias.AsIs(_,_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
         case DFAny.Alias.Invert(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
         case DFAny.Alias.BitsWL(_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
         case x if x.modifier.isInstanceOf[DFAny.Modifier.Assignable] =>
-          val scope = assignMap.getOrElse(value, AssignedScope.empty)
+          val scope = assignMap(value)
           if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet
         case _ => currentSet
       }
@@ -180,7 +191,7 @@ object DFCompiler {
       consumeFrom(value, value.width, 0, assignMap, currentSet)
 
     @tailrec private def assignTo(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope]) : Map[DFAny, AssignedScope] = {
-      val access = immutable.BitSet.empty ++ (relBitLow until relWidth)
+      val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
       value match {
         case DFAny.Alias.AsIs(_,_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
         case DFAny.Alias.Invert(_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
@@ -228,11 +239,15 @@ object DFCompiler {
               (consumeFrom(elseIfBlock.condRef.get, scopeMap, currentSet), scopeMap)
             case matchBlock : ConditionalBlock.MatchHeader =>
               (consumeFrom(matchBlock.matchValRef.get, scopeMap, currentSet), scopeMap)
+            case outPort : DFAny.Port.Out[_,_] =>
+              (currentSet, scopeMap + (outPort -> AssignedScope.empty))
+            case anyVar : DFAny.NewVar[_,_] =>
+              (currentSet, scopeMap + (anyVar -> AssignedScope.empty))
             case _ =>
               (currentSet, scopeMap)
           }
           getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
-        case _ => //existing child block or no more members
+        case _ => //exiting child block or no more members
           val exitingBlock = remaining match {
             case r :: _ if r.ownerRef.get != currentBlock => true //another member but not a child of current
             case Nil if (currentBlock != designDB.top) => true //there are no more members, but still not at top

@@ -119,11 +119,14 @@ object ZTest extends App {
   }
 
   trait Trying extends DFDesign {
-    val i = DFBool() <> IN
-    val o = DFBool() <> OUT
-    ifdf(i) {
+    val i = DFBits(8) <> IN
+    val o = DFBits(8) <> OUT
+    ifdf(i === b0s) {
+      o.bits(3,0) := b0s
+      o.bits(7,4) := b0s
+      o.bits(3,0) := o.bits(7,4)
     }.elsedf {
-      o := 1
+      o := i
     }
     o := o
   }
