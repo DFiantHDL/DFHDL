@@ -218,10 +218,11 @@ object DFCompiler {
         case (nextBlock : DFBlock) :: rs if nextBlock.ownerRef.get == currentBlock => //entering child block
           val updatedScopeMap = nextBlock match {
             case cb : ConditionalBlock =>
-              println(s"entering $cb", cb.isFirstCB)
-              val ret = scopeMap.branchEntry(cb.isFirstCB)
-              println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
-              ret
+//              println(s"entering $cb", cb.isFirstCB)
+//              val ret =
+              scopeMap.branchEntry(cb.isFirstCB)
+//              println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
+//              ret
             case _ => scopeMap
           }
           getImplicitPrevVars(rs, nextBlock, updatedScopeMap, currentSet)
@@ -256,14 +257,20 @@ object DFCompiler {
           if (exitingBlock) {
             val updatedScopeMap = currentBlock match {
               case cb : ConditionalBlock =>
-                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
-                val ret = scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
-                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
-                ret
+//                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
+//                val ret =
+                scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
+//                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
+//                ret
               case _ => scopeMap
             }
             getImplicitPrevVars(remaining, currentBlock.getOwner, updatedScopeMap, currentSet)
-          } else currentSet
+          } else {
+            assert(currentBlock == designDB.top)
+            val outPorts : List[DFAny] = designDB.ownerMemberTable(designDB.top).collect{case p : DFAny.Port.Out[_,_] => p}
+            //consuming from top-level output ports
+            outPorts.foldLeft(currentSet){case (cs, p) => consumeFrom(p, scopeMap, cs)}
+          }
       }
     }
     def explicitPrev : DFDesign.DB = {

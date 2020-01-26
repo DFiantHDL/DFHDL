@@ -118,6 +118,13 @@ object ZTest extends App {
     val c = new CCC() {}
   }
 
+  trait ID extends DFDesign {
+    val i = DFBits(8) <> IN
+    val o = DFBits(8) <> IN
+    val trying = new Trying {}
+    trying.i <> i
+    trying.o <> o
+  }
   trait Trying extends DFDesign {
     val i = DFBits(8) <> IN
     val o = DFBits(8) <> OUT
@@ -128,7 +135,7 @@ object ZTest extends App {
     }.elsedf {
       o := i
     }
-    o := o
+//    o := o
   }
 
   val top = new BBB {}
