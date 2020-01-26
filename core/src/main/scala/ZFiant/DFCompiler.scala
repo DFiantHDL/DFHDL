@@ -95,11 +95,9 @@ object DFCompiler {
     def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
   }
 
-  final case class AssignedScope(latest : immutable.BitSet, branchHistory : immutable.BitSet, parentScopeOption : Option[AssignedScope]) {
-//    def isAssignedAt(bitSet : immutable.BitSet) : Boolean = {
-//
-//    }
-    def assign(bitSet : immutable.BitSet) : AssignedScope = copy(latest = latest | bitSet)
+  protected final case class AssignedScope(latest : immutable.BitSet, branchHistory : immutable.BitSet, parentScopeOption : Option[AssignedScope]) {
+    def isConsumingPrevAt(consumeBitSet : immutable.BitSet) : Boolean = (consumeBitSet &~ latest).nonEmpty
+    def assign(assignBitSet : immutable.BitSet) : AssignedScope = copy(latest = latest | assignBitSet)
     def branchEntry(firstBranch : Boolean) : AssignedScope = {
       val parentScope = if (firstBranch) this.copy(branchHistory = latest) else this
       AssignedScope(latest, immutable.BitSet(), Some(parentScope))
@@ -113,10 +111,10 @@ object DFCompiler {
       case None => this
     }
   }
-  object AssignedScope {
+  protected object AssignedScope {
+    val empty : AssignedScope = AssignedScope(immutable.BitSet(), immutable.BitSet(), None)
   }
 
-  type Version = (immutable.BitSet, List[immutable.BitSet])
   implicit class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
     import designDB.getset
@@ -127,9 +125,12 @@ object DFCompiler {
         case _ => false
       }
       def isLastCB : Boolean = {
-        val refs = designDB.memberTable(cb)
+        val refs = designDB.memberTable.getOrElse(cb, Set())
         //the conditional block is last if there is no reference to it as a previous block
-        refs.map{case r : ConditionalBlock.PrevBlockRef[_] => r}.isEmpty
+        refs.flatMap {
+          case r : ConditionalBlock.PrevBlockRef[_] => Some(r)
+          case _ => None
+        }.isEmpty
       }
       @tailrec private def getPatterns(casePattenBlock : ConditionalBlock.CasePatternBlock[_], patterns : List[DFAny.Pattern[_]]) : List[DFAny.Pattern[_]] = {
         val updatedPattens = casePattenBlock.pattern :: patterns
@@ -163,71 +164,86 @@ object DFCompiler {
       }
     }
 
-    @tailrec private def consumeFrom(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, immutable.BitSet], currentSet : Set[DFAny]) : Set[DFAny] = {
+    @tailrec private def consumeFrom(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
       val access = immutable.BitSet.empty ++ (relBitLow until relWidth)
       value match {
         case DFAny.Alias.AsIs(_,_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
         case DFAny.Alias.Invert(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
         case DFAny.Alias.BitsWL(_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
         case x if x.modifier.isInstanceOf[DFAny.Modifier.Assignable] =>
-          val assigned = assignMap.getOrElse(value, immutable.BitSet())
-          if ((access &~ assigned).nonEmpty) currentSet union Set(value) else currentSet
+          val scope = assignMap.getOrElse(value, AssignedScope.empty)
+          if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet
         case _ => currentSet
       }
     }
-    private def consumeFrom(value : DFAny, assignMap : Map[DFAny, immutable.BitSet], currentSet : Set[DFAny]) : Set[DFAny] =
+    private def consumeFrom(value : DFAny, assignMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] =
       consumeFrom(value, value.width, 0, assignMap, currentSet)
 
-    @tailrec private def assignTo(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, immutable.BitSet]) : Map[DFAny, immutable.BitSet] = {
+    @tailrec private def assignTo(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope]) : Map[DFAny, AssignedScope] = {
       val access = immutable.BitSet.empty ++ (relBitLow until relWidth)
       value match {
         case DFAny.Alias.AsIs(_,_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
         case DFAny.Alias.Invert(_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
         case DFAny.Alias.BitsWL(_,rv,rw,rbl,_,_) => assignTo(rv.get, relWidth, rbl + relBitLow, assignMap)
-        case x =>
-          val assigned = assignMap.getOrElse(value, immutable.BitSet())
-          assignMap + (x -> (access | assigned))
+        case x => assignMap.assignTo(x, access)
       }
     }
-    private def assignTo(value : DFAny, assignMap : Map[DFAny, immutable.BitSet]) : Map[DFAny, immutable.BitSet] =
+    implicit class ScopeMap(sm : Map[DFAny, AssignedScope]) {
+      def assignTo(toVal : DFAny, assignBitSet : immutable.BitSet) : Map[DFAny, AssignedScope] = {
+        val scope = sm.getOrElse(toVal, AssignedScope.empty)
+        sm + (toVal -> scope.assign(assignBitSet))
+      }
+      def branchEntry(firstBranch : Boolean) : Map[DFAny, AssignedScope] =
+        sm.view.mapValues(_.branchEntry(firstBranch)).toMap
+      def branchExit(lastBranch : Boolean, exhaustive : Boolean) : Map[DFAny, AssignedScope] =
+        sm.view.mapValues(_.branchExit(lastBranch, exhaustive)).toMap
+    }
+    private def assignTo(value : DFAny, assignMap : Map[DFAny, AssignedScope]) : Map[DFAny, AssignedScope] =
       assignTo(value, value.width, 0, assignMap)
     //retrieves a list of variables that are consumed as their implicit previous value.
     //the assignment stack map is pushed on every conditional block entry and popped on the block exit
-    @tailrec private def getImplicitPrevVars(remaining : List[DFMember], currentBlock : DFBlock, assignMapStack : List[Map[DFAny, immutable.BitSet]], currentSet : Set[DFAny]) : Set[DFAny] = {
-      val currentAssignMap = assignMapStack.head
+    @tailrec private def getImplicitPrevVars(remaining : List[DFMember], currentBlock : DFBlock, scopeMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
       remaining match {
-        case (nextBlock : DFBlock) :: rs if nextBlock.ownerRef.get == currentBlock => //child block
-          getImplicitPrevVars(rs, nextBlock, currentAssignMap :: assignMapStack, currentSet)
-        case (nextBlock : DFBlock) :: rs if nextBlock.ownerRef.get != currentBlock => //sibling block
-          getImplicitPrevVars(remaining, currentBlock.getOwner, assignMapStack.drop(1), currentSet)
-        case r :: rs if r.ownerRef.get != currentBlock => //navigating outside the block
-          getImplicitPrevVars(remaining, currentBlock.getOwner, assignMapStack.drop(1), currentSet)
-        case r :: rs => //checking member consumers
-          val (updatedSet, updatedAssignMap) : (Set[DFAny], Map[DFAny, immutable.BitSet]) = r match {
-            case net : DFNet =>
-              (consumeFrom(net.fromRef.get, currentAssignMap, currentSet), assignTo(net.toRef.get, currentAssignMap))
-            case func : DFAny.Func2[_,_,_,_] =>
-              val left = consumeFrom(func.leftArgRef.get, currentAssignMap, currentSet)
-              val right = consumeFrom(func.rightArgRef.get, currentAssignMap, currentSet)
-              (left union right, currentAssignMap)
-            case ifBlock : ConditionalBlock.IfBlock =>
-              (consumeFrom(ifBlock.condRef.get, currentAssignMap, currentSet), currentAssignMap)
-            case elseIfBlock : ConditionalBlock.ElseIfBlock =>
-              (consumeFrom(elseIfBlock.condRef.get, currentAssignMap, currentSet), currentAssignMap)
-            case matchBlock : ConditionalBlock.MatchHeader =>
-              (consumeFrom(matchBlock.matchValRef.get, currentAssignMap, currentSet), currentAssignMap)
-            case _ =>
-              (currentSet, currentAssignMap)
+        case (nextBlock : DFBlock) :: rs if nextBlock.ownerRef.get == currentBlock => //entering child block
+          val updatedScopeMap = nextBlock match {
+            case cb : ConditionalBlock =>
+              println(s"entering $cb", cb.isFirstCB)
+              scopeMap.branchEntry(cb.isFirstCB)
+            case _ => scopeMap
           }
-          val updatedAssignMapStack = updatedAssignMap :: assignMapStack.drop(1)
-          getImplicitPrevVars(rs, currentBlock, updatedAssignMapStack, updatedSet)
+          getImplicitPrevVars(rs, nextBlock, updatedScopeMap, currentSet)
+        case r :: _ if r.ownerRef.get != currentBlock => //existing child block
+          val updatedScopeMap = currentBlock match {
+            case cb : ConditionalBlock =>
+              println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
+              scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
+            case _ => scopeMap
+          }
+          getImplicitPrevVars(remaining, currentBlock.getOwner, updatedScopeMap, currentSet)
+        case r :: rs => //checking member consumers
+          val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
+            case net : DFNet =>
+              (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
+            case func : DFAny.Func2[_,_,_,_] =>
+              val left = consumeFrom(func.leftArgRef.get, scopeMap, currentSet)
+              val right = consumeFrom(func.rightArgRef.get, scopeMap, currentSet)
+              (left union right, scopeMap)
+            case ifBlock : ConditionalBlock.IfBlock =>
+              (consumeFrom(ifBlock.condRef.get, scopeMap, currentSet), scopeMap)
+            case elseIfBlock : ConditionalBlock.ElseIfBlock =>
+              (consumeFrom(elseIfBlock.condRef.get, scopeMap, currentSet), scopeMap)
+            case matchBlock : ConditionalBlock.MatchHeader =>
+              (consumeFrom(matchBlock.matchValRef.get, scopeMap, currentSet), scopeMap)
+            case _ =>
+              (currentSet, scopeMap)
+          }
+          getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
         case Nil =>
-          assert(assignMapStack.size == 1)
           currentSet
       }
     }
     def explicitPrev : DFDesign.DB = {
-      val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, List(Map()), Set())
+      val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
       println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
       designDB
     }

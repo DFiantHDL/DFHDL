@@ -122,13 +122,12 @@ object ZTest extends App {
     val i = DFBool() <> IN
     val o = DFBool() <> OUT
     val r = i.rising()
-//    val temp = DFBool() init 0
-//    ifdf(i) {
-//      temp := 1
-//    }.elsedf {
-//      temp := 1
-//    }
-    o := r
+    val temp = DFBool() init 0
+    ifdf(i) {
+      temp := 1
+    }.elsedf {
+    }
+    o := temp
   }
 
   val top = new BBB {}
