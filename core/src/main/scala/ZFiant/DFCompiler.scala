@@ -27,13 +27,6 @@ trait Compilable[-T] {
 }
 object Compilable {
   def apply[T](implicit comp : Compilable[T]) : Compilable[T] = comp
-  implicit class CompilerOps[T : Compilable](t : T) {
-    private val designDB : DFDesign.DB = Compilable[T].apply(t)
-    def boom : DFDesign.DB = {
-      ???
-    }
-  }
-
   implicit val fromDB : Compilable[DFDesign.DB] = t => t
   implicit val fromDFDesign : Compilable[DFDesign] = t => t.db
 }
@@ -200,10 +193,8 @@ object DFCompiler {
       }
     }
     implicit class ScopeMap(sm : Map[DFAny, AssignedScope]) {
-      def assignTo(toVal : DFAny, assignBitSet : immutable.BitSet) : Map[DFAny, AssignedScope] = {
-        val scope = sm.getOrElse(toVal, AssignedScope.empty)
-        sm + (toVal -> scope.assign(assignBitSet))
-      }
+      def assignTo(toVal : DFAny, assignBitSet : immutable.BitSet) : Map[DFAny, AssignedScope] =
+        sm + (toVal -> sm(toVal).assign(assignBitSet))
       def branchEntry(firstBranch : Boolean) : Map[DFAny, AssignedScope] =
         sm.view.mapValues(_.branchEntry(firstBranch)).toMap
       def branchExit(lastBranch : Boolean, exhaustive : Boolean) : Map[DFAny, AssignedScope] =
