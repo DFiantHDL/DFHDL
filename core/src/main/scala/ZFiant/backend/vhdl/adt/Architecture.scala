@@ -1,4 +1,4 @@
-package ZFiant.backend.vhdl.ast
+package ZFiant.backend.vhdl.adt
 
 import ZFiant.backend.utils._
 final case class Architecture(name : Name, entityName : Name, declarations : List[Declaration], statements : List[Statement]) {

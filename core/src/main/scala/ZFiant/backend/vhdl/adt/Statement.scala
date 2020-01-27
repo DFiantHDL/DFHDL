@@ -1,3 +1,3 @@
-package ZFiant.backend.vhdl.ast
+package ZFiant.backend.vhdl.adt
 
 trait Statement extends Product with Serializable

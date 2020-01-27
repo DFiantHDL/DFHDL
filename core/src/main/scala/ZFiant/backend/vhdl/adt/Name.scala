@@ -1,4 +1,4 @@
-package ZFiant.backend.vhdl.ast
+package ZFiant.backend.vhdl.adt
 
 final case class Name(value : String) {
   val isAnonymous : Boolean = value.isEmpty

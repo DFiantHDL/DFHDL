@@ -1,4 +1,4 @@
 package ZFiant.backend.vhdl
 
-package object ast {
+package object adt {
 }
