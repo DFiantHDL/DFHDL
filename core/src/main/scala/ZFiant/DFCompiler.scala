@@ -273,10 +273,15 @@ object DFCompiler {
           }
       }
     }
+
     def explicitPrev : DFDesign.DB = {
       val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
-      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
-      designDB
+      val patchList = explicitPrevSet.toList.map(e => e -> Patch.Add(new DFDesign() {
+        DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
+      }, Patch.Add.Config.After))
+
+//      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
+      designDB.patch(patchList)
     }
   }
 
