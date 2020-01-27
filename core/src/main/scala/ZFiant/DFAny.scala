@@ -22,8 +22,10 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   protected type This = DFAny.Of[TType]
   def codeString(implicit getset : MemberGetSet) : String
   def refCodeString(implicit callOwner : DFBlock, getset : MemberGetSet) : String =
-    if (tags.meta.name.anonymous) codeString
-    else getRelativeName(callOwner, getset)
+    if (tags.meta.name.anonymous) tags.codeStringOverride match {
+      case Some(func) => func(getset)
+      case None => codeString
+    } else getRelativeName(callOwner, getset)
 }
 
 object DFAny {
@@ -47,11 +49,6 @@ object DFAny {
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
-  }
-
-  trait PostConnectionTags extends DFMember.Tags {
-    val init : Option[Seq[Token]]
-    val const : Option[Token]
   }
 
   @implicitNotFound(Context.MissingError.msg)
@@ -89,6 +86,7 @@ object DFAny {
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
     ) : AsType[DFBits.Type[relWidth.Out]] =
       DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow)
+        .overrideCodeString(implicit getset => s"$refCodeString.bits($relBitHigh, $relBitLow)")
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
@@ -193,12 +191,17 @@ object DFAny {
   sealed trait CanBeAnonymous extends DFMember
 
   final case class Tags[Token <: DFAny.Token](
-    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag]
+    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag], codeStringOverride : Option[MemberGetSet => String]
   ) extends DFMember.Tags.CC[Tags[Token]] {
     def setInit(init : Seq[Token]) : Tags[Token] = copy(init = Some(init))
+    def overrideCodeString(func : MemberGetSet => String) : Tags[Token] = copy(codeStringOverride = Some(func))
   }
   object Tags {
-    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, List())
+    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, List(), None)
+  }
+
+  implicit class AnyExtender[T <: DFAny](member : T)(implicit getset : MemberGetSet) {
+    def overrideCodeString(func : MemberGetSet => String) : T = member.setTags(member.tags.overrideCodeString(func)).asInstanceOf[T]
   }
 
   final case class Const[Type <: DFAny.Type](

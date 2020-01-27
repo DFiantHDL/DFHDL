@@ -51,6 +51,6 @@ object SimpleHDLApp extends App {
   }
   import DFCompiler._
   val res= scalar_hdl.maxJNode
-  res.db.printCodeString()
+  res.db.explicitPrev.printCodeString()
   println(res.nodeMaxJString)
 }

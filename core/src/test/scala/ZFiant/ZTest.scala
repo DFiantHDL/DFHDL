@@ -133,7 +133,7 @@ object ZTest extends App {
       o.bits(7,4) := b0s
       o.bits(3,0) := o.bits(7,4)
     }.elsedf {
-//      o := i
+      o := i
     }
 //    o := o
   }
