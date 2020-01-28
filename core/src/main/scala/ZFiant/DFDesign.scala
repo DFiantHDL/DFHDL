@@ -173,15 +173,18 @@ object DFDesign {
 
     //replaces all members and references according to the patch list
     def patch(patchList : List[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
-      //If we attempt to replace with an existing member, then we convert the patch to remove
-      //the old member just for the member list (references are replaced).
       val patchTable = patchList.map {
-        case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement)) if memberTable.contains(r) => (m, DB.Patch.Remove)
+        //If we attempt to replace with an existing member, then we convert the patch to remove
+        //the old member just for the member list (references are replaced).
+        case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => (m, DB.Patch.Remove)
+        //If we add after a design block, we need to actually place after the last member of the block
+        case (m : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
+          (ownerMemberTable(m).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
         case x => x
       }.toMap
       //Patching member list
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
-        case Some(DB.Patch.Replace(r, config)) => config match {
+        case Some(DB.Patch.Replace(r, config, _)) => config match {
           case DB.Patch.Replace.Config.ChangeRefOnly => Some(m)
           case DB.Patch.Replace.Config.FullReplacement => Some(r)
         }
@@ -199,7 +202,7 @@ object DFDesign {
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
-        case (rt, (origMember, DB.Patch.Replace(repMember, _))) => rt.replaceMember(origMember, repMember)
+        case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) => rt.replaceMember(origMember, repMember)
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(origMember.getOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
@@ -291,7 +294,7 @@ object DFDesign {
     sealed trait Patch extends Product with Serializable
     object Patch {
       final case object Remove extends Patch
-      final case class Replace(updatedMember : DFMember, config : Replace.Config) extends Patch
+      final case class Replace(updatedMember : DFMember, config : Replace.Config, scope : Replace.Scope = Replace.Scope.All) extends Patch
       object Replace {
         sealed trait Config extends Product with Serializable
         object Config {
@@ -303,6 +306,13 @@ object DFDesign {
           //If the updated member already exists in the member list (at a different position), then the original member is
           //removed from the list without being replaced in its position.
           case object FullReplacement extends Config
+        }
+        sealed trait Scope extends Product with Serializable
+        object Scope {
+          //All references are replaced
+          case object All extends Scope
+          //Only references from outside the given block are replaced
+          case class Outside(block : DFDesign.Block.Internal) extends Scope
         }
       }
       final case class Add(db : DB, config : Add.Config) extends Patch

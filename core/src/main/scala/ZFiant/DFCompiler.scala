@@ -45,13 +45,13 @@ object DFCompiler {
     def fixAnonymous : DFDesign.DB = {
       val anonymizeList = designDB.ownerMemberList.flatMap {
         case (block, members) =>
-          members.filterNot(m => m.isAnonymous).groupBy(m => m.tags.meta.namePosition).flatMap {
+          members.filterNot(m => m.isAnonymous).groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
           //In case an anonymous member got a name from its owner. For example:
           //val ret = DFBits(8).ifdf(cond) {
           //  i & i
           //}
           //The `i & i` function would also get the `ret` name just as the if block itself
-          case (pos, gm) if (pos == block.tags.meta.namePosition) => gm
+          case ((pos, _), gm) if (pos == block.tags.meta.namePosition) => gm
           case (_, gm) if (gm.length > 1) =>
             //In case an anonymous member was used as an argument to an owner. For example:
             //val ret = DFBits(8).ifdf(i & i) {
@@ -376,19 +376,33 @@ object DFCompiler {
       id1_o <> id2_i
       id2_o <> y
     }
-
   */
-
   implicit class ViaPortConnection[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
-    import designDB.getset
     def viaPortConnection : DFDesign.DB = {
-      val internalBlocks = designDB.members.collect{case d : DFDesign.Block.Internal => d}
-
-      //      designDB.members.collect {
-      //
-      //      }
-      ???
+      val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect{case d : DFDesign.Block.Internal => d}
+      val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
+        val ports : List[DFAny] = designDB.ownerMemberTable(ib).collect {
+          case p : DFAny.Port.Out[_,_] => p
+          case p : DFAny.Port.In[_,_] => p
+        }
+        trait PatchDesign extends DFDesign {
+          val refPatches : List[(DFMember, Patch)]
+        }
+        val dsn : PatchDesign = new PatchDesign {
+          val refPatches : List[(DFMember, Patch)] = ports.map {p =>
+            val v = DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}")
+            p match {
+              case _ : DFAny.Port.Out[_,_] => DFNet.Connection(v, p)
+              case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
+              case _ => ???
+            }
+            (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly))
+          }
+        }
+        (ib -> Patch.Add(dsn, Patch.Add.Config.After)) :: dsn.refPatches
+      }
+      designDB.patch(patchList)
     }
   }
 

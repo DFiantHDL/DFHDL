@@ -24,33 +24,34 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   o <> i //Trivial direct input-to-output connection
 }
 
-//trait IDTop extends DFDesign { //This our `IDTop` dataflow design
-//  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
-//  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
-//  val id1 = new ID {} //First instance of the `ID` design
+trait IDTop extends DFDesign { //This our `IDTop` dataflow design
+  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
+  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
+  val id1 = new ID {} //First instance of the `ID` design
 //  val id2 = new ID {} //Second instance of the `ID` design
-//  id1.i <> x      //Connecting parent input port to child input port
+  id1.i <> x      //Connecting parent input port to child input port
+  id1.o <> y      //Connecting parent input port to child input port
 //  id1.o <> id2.i  //Connecting sibling instance ports
 //  id2.o <> y      //Connecting parent output port to child output port
-//}
-
-trait IDTop extends DFDesign {
-  val x = DFUInt(8) <> IN
-  val y = DFUInt(8) <> OUT
-  val id1 = new ID {}
-  val id1_i = DFUInt(8)
-  val id1_o = DFUInt(8)
-  id1.i <> id1_i
-  id1_o <> id1.o
-  val id2 = new ID {}
-  val id2_i = DFUInt(8)
-  val id2_o = DFUInt(8)
-  id2.i <> id2_i
-  id2_o <> id2.o
-  id1_i <> x
-  id1_o <> id2_i
-  id2_o <> y
 }
+
+//trait IDTop extends DFDesign {
+//  val x = DFUInt(8) <> IN
+//  val y = DFUInt(8) <> OUT
+//  val id1 = new ID {}
+//  val id1_i = DFUInt(8)
+//  val id1_o = DFUInt(8)
+//  id1.i <> id1_i
+//  id1_o <> id1.o
+//  val id2 = new ID {}
+//  val id2_i = DFUInt(8)
+//  val id2_o = DFUInt(8)
+//  id2.i <> id2_i
+//  id2_o <> id2.o
+//  id1_i <> x
+//  id1_o <> id2_i
+//  id2_o <> y
+//}
 
 trait ContainerConnLoop extends DFDesign {
   val i = DFUInt(8) <> IN
@@ -64,7 +65,7 @@ trait ContainerConnLoop extends DFDesign {
 object IDTopApp extends App {
   val top = new IDTop {}
   import DFCompiler._
-  top.db.calcInit.printCodeString()(PrintConfig.ShowInits) //.flatten(top.id1)
+  top.viaPortConnection.printCodeString() //.flatten(top.id1)
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point
