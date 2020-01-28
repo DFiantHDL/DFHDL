@@ -140,11 +140,21 @@ object DFMember {
       implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
 //      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
     }
-//    class CO2[R[T <: DFMember] <: Ref[T]](newR : => R[_]) {
-//      implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : R[T] = DFMember.Ref.newRefFor(newR, member)
-      //      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
-//    }
   }
+
+  trait RefOwner
+  object RefOwner {
+    def apply[T <: DFMember](member : T) : T with RefOwner = member.asInstanceOf[T with RefOwner]
+  }
+  trait OwnedRef[+T <: DFMember] extends Ref[T] {
+    val owner : Ref[DFMember]
+  }
+  object OwnedRef {
+    implicit def apply[T <: DFMember](member : T)(implicit refOwner : => T with RefOwner, ctx : DFMember.Context)
+    : OwnedRef[T] = Ref.newRefFor(new OwnedRef[T] {
+        lazy val owner : Ref[DFMember] = Ref.newRefFor(new Ref[T with RefOwner]{}, refOwner)
+      }, member)
+    }
 }
 
 
