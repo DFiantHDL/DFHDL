@@ -567,6 +567,7 @@ object DFAny {
     private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
+      import ctx.db.getset
       if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally)) (in, dfVar)
       //Connecting a an input port to a variable internally
       else if ((in isSameOwnerDesignAs dfVar) && (in.isConnectingInternally)) (dfVar, in)
@@ -619,10 +620,10 @@ object DFAny {
         case (p@Out(), v) => connectValWithPortOut(v, p)
         case (v, p@Out()) => connectValWithPortOut(v, p)
         case _ => throwConnectionError(
-          s"""Connection must be made between the following either of the following options:
+          s"""Connection must be made between either of the following options:
              |* A port and a value
              |* Two ports
-             |* Between vars that their direction was already determined by a previous connection""".stripMargin
+             |* Two vars where only one variables already received an incoming connection""".stripMargin
         )
       }
       DFNet.Connection(toPort, from)

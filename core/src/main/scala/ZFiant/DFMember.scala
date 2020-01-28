@@ -50,7 +50,11 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
   final def isMemberOfDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that
   final def isSameOwnerDesignAs(that : DFMember)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that.getOwnerDesign
-  final def isOneLevelBelow(that : DFMember)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign isSameOwnerDesignAs that
+  final def isOneLevelBelow(that : DFMember)(implicit getset : MemberGetSet) : Boolean =
+    getOwnerDesign match {
+      case _ : DFDesign.Block.Top =>false
+      case od => od isSameOwnerDesignAs that
+    }
 
   //  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
     //      (nonTransparentOwnerOption, that) match {
