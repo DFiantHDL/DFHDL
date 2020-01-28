@@ -333,6 +333,65 @@ object DFCompiler {
     }
   }
 
+  /*
+  Internal design blocks will be connected via dedicated "wiring" variables.
+  This is very useful when compiling to the basic RTL languages (VHDL/Verilog) that require extra signaling
+  and cannot directly connect between sibling design blocks or use output ports. So each port PPP for block BBB
+  becomes a connection PPP.BBB <> PPP_BBB, where the extra variable `PPP_BBB` is used to represent an RTL
+  signal. This of course does not change the correctness of any DFiant design, but is required for later phase
+  where the code is compiled to RTL.
+
+  For example:
+    trait ID extends DFDesign {
+      val i = DFUInt(8) <> IN
+      val o = DFUInt(8) <> OUT
+      o <> i
+    }
+
+    trait IDTop extends DFDesign {
+      val x = DFUInt(8) <> IN
+      val y = DFUInt(8) <> OUT
+      val id1 = new ID {}
+      val id2 = new ID {}
+      id1.i <> x
+      id1.o <> id2.i //This cannot be done in VHDL/Verilog
+      id2.o <> y
+    }
+
+    Will become:
+    trait IDTop extends DFDesign {
+      val x = DFUInt(8) <> IN
+      val y = DFUInt(8) <> OUT
+      val id1 = new ID {}
+      val id1_i = DFUInt(8)
+      val id1_o = DFUInt(8)
+      id1.i <> id1_i
+      id1_o <> id1.o
+      val id2 = new ID {}
+      val id2_i = DFUInt(8)
+      val id2_o = DFUInt(8)
+      id2.i <> id2_i
+      id2_o <> id2.o
+      id1_i <> x
+      id1_o <> id2_i
+      id2_o <> y
+    }
+
+  */
+
+  implicit class ViaPortConnection[C](c : C)(implicit comp : Compilable[C]) {
+    private val designDB = comp(c)
+    import designDB.getset
+    def viaPortConnection : DFDesign.DB = {
+      val internalBlocks = designDB.members.collect{case d : DFDesign.Block.Internal => d}
+
+      //      designDB.members.collect {
+      //
+      //      }
+      ???
+    }
+  }
+
   implicit class Calculator[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
     import designDB.getset

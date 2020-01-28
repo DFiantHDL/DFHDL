@@ -21,22 +21,35 @@ import ZFiant._ //Required in any DFiant compilation program
 trait ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
   val o = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
-//  val tempX = DFUInt(16)
-//  val tempY = DFUInt(16)
-//  tempX <> x
-//  tempY := tempX
-//  tempY <> y
   o <> i //Trivial direct input-to-output connection
 }
 
-trait IDTop extends DFDesign { //This our `IDTop` dataflow design
-  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
-  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
-  val id1 = new ID {} //First instance of the `ID` design
-  val id2 = new ID {} //Second instance of the `ID` design
-  id1.i <> x      //Connecting parent input port to child input port
-  id1.o <> id2.i  //Connecting sibling instance ports
-  id2.o <> y      //Connecting parent output port to child output port
+//trait IDTop extends DFDesign { //This our `IDTop` dataflow design
+//  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
+//  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
+//  val id1 = new ID {} //First instance of the `ID` design
+//  val id2 = new ID {} //Second instance of the `ID` design
+//  id1.i <> x      //Connecting parent input port to child input port
+//  id1.o <> id2.i  //Connecting sibling instance ports
+//  id2.o <> y      //Connecting parent output port to child output port
+//}
+
+trait IDTop extends DFDesign {
+  val x = DFUInt(8) <> IN
+  val y = DFUInt(8) <> OUT
+  val id1 = new ID {}
+  val id1_i = DFUInt(8)
+  val id1_o = DFUInt(8)
+  id1.i <> id1_i
+  id1_o <> id1.o
+  val id2 = new ID {}
+  val id2_i = DFUInt(8)
+  val id2_o = DFUInt(8)
+  id2.i <> id2_i
+  id2_o <> id2.o
+  id1_i <> x
+  id1_o <> id2_i
+  id2_o <> y
 }
 
 trait ContainerConnLoop extends DFDesign {

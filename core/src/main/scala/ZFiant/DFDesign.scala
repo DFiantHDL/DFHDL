@@ -338,6 +338,11 @@ object DFDesign {
       }
       private val memberTable : mutable.Map[DFMember, (Int, Set[DFMember.Ref[_]])] = mutable.Map()
       private val refTable : mutable.Map[DFMember.Ref[_], DFMember] = mutable.Map()
+      def hasToConnectionFor(dfVar : DFAny) : Boolean = {
+        memberTable.getOrElse(dfVar, (0, Set()))._2.collectFirst {
+          case _ : DFNet.ToRef => true
+        }.nonEmpty
+      }
       def getMember[T <: DFMember](ref : DFMember.Ref[T]) : T = refTable(ref).asInstanceOf[T]
       def setMember[T <: DFMember](originalMember : T, newMember : T) : T = {
         val x = memberTable.remove(originalMember).get

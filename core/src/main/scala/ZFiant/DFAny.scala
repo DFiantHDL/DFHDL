@@ -311,7 +311,7 @@ object DFAny {
         newMember
       } else ctx.db.addMember(newMember)
     }
-    def <>[R](right: DFAny.PortOf[Type])(
+    def <>[R](right: DFAny.ConnOf[Type])(
       implicit ctx: DFNet.Context, op: dfType.`Op<>Builder`[Type, DFAny.Of[Type]]
     ): Unit = left.connectWith(op(dfType, right))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
@@ -489,6 +489,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Extension Classes
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     private[ZFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit =
@@ -591,6 +592,15 @@ object DFAny {
       if ((dfVal isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVal)
       else throwConnectionError("Unsupported connection")
     }
+    private def connectVarWithVar(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
+      (ctx.db.hasToConnectionFor(left), ctx.db.hasToConnectionFor(right)) match {
+        case (true, false) => (right, left)
+        case (false, true) => (left, right)
+        case (true, true) => throwConnectionError("Both variables already have source connections")
+        case (false, false) => throwConnectionError("Both variables do not have a source connection")
+      }
+    }
 
     protected[ZFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
@@ -603,11 +613,17 @@ object DFAny {
         case (v@Var(), p@In()) => connectVarWithPortIn(v, p)
         case (p@Out(), v@Var()) => connectVarWithPortOut(v, p)
         case (v@Var(), p@Out()) => connectVarWithPortOut(v, p)
+        case (v1@Var(), v2@Var()) => connectVarWithVar(v1, v2)
         case (p@In(), v) => connectValWithPortIn(v, p)
         case (v, p@In()) => connectValWithPortIn(v, p)
         case (p@Out(), v) => connectValWithPortOut(v, p)
         case (v, p@Out()) => connectValWithPortOut(v, p)
-        case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
+        case _ => throwConnectionError(
+          s"""Connection must be made between the following either of the following options:
+             |* A port and a value
+             |* Two ports
+             |* Between vars that their direction was already determined by a previous connection""".stripMargin
+        )
       }
       DFNet.Connection(toPort, from)
     }
