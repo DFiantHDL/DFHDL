@@ -167,7 +167,10 @@ object DFDesign {
           case Some(refs) =>
             val scopeRefs = scope match {
               case DB.Patch.Replace.Scope.All => refs
-              case DB.Patch.Replace.Scope.Outside(block) => refs.collect{case r : DFMember.OwnedRef => r.owner}.filter(r => r.get.isOutsideDesign(block))
+              case DB.Patch.Replace.Scope.Outside(block) =>
+                //for references that have owner references of their own, we check the owners location with respect
+                //to the requested scope
+                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isOutsideDesign(block) => r}
             }
             scopeRefs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None =>
