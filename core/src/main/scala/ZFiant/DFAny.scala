@@ -62,15 +62,19 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  class Ref[+T <: DFAny] extends DFMember.Ref[T]
+  type Ref[+M <: DFAny] = DFMember.Ref.Of[Ref.Type, M]
   object Ref {
-    class ConsumeFrom[+T <: DFAny] extends Ref[T]
-    object ConsumeFrom  {
-      class CO[T <: DFAny, R <: ConsumeFrom[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    trait Type extends DFMember.Ref.Type
+    implicit val ev : Type = new Type {}
+    type ConsumeFrom[+M <: DFAny] = DFMember.Ref.Of[ConsumeFrom.Type, M]
+    object ConsumeFrom {
+      trait Type extends DFMember.Ref.Type
+      implicit val ev : Type = new Type {}
     }
-    class ProduceTo[+T <: DFAny] extends Ref[T]
-    object ProduceTo  {
-      class CO[T <: DFAny, R <: ProduceTo[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    type ProduceTo[+M <: DFAny] = DFMember.Ref.Of[ProduceTo.Type, M]
+    object ProduceTo {
+      trait Type extends DFMember.Ref.Type
+      implicit val ev : Type = new Type {}
     }
   }
 
@@ -358,10 +362,10 @@ object DFAny {
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
   }
   object Alias {
-    class RelValRef[+RelVal <: DFAny] extends DFAny.Ref[RelVal]
+    type RelValRef[+M <: DFAny] = DFMember.Ref.Of[RelValRef.Type, M]
     object RelValRef {
-      implicit def refOf[RelVal <: DFAny](member : RelVal)(implicit ctx : DFMember.Context) : RelValRef[RelVal] =
-        DFMember.Ref.newRefFor(new RelValRef[RelVal], member)
+      trait Type extends DFMember.Ref.Type
+      implicit val ev : Type = new Type {}
     }
 
     final case class AsIs[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
@@ -457,7 +461,7 @@ object DFAny {
   }
 
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArgRef : Func2.LeftArgRef[L], op : Op, rightArgRef : Func2.RightArgRef[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+    dfType: Type, leftArgRef : Func2.Ref.LeftArg[L], op : Op, rightArgRef : Func2.Ref.RightArg[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
   )(func0 : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     val func : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func0(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(func)
@@ -466,16 +470,19 @@ object DFAny {
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func0))
   }
   object Func2 {
-    sealed class Ref[+T <: DFAny] extends DFAny.Ref.ConsumeFrom[T]
-    class LeftArgRef[+T <: DFAny] extends Ref[T] 
-    object LeftArgRef {
-      implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : LeftArgRef[T] =
-        DFMember.Ref.newRefFor(new LeftArgRef[T], member)
-    }
-    class RightArgRef[+T <: DFAny] extends Ref[T]
-    object RightArgRef {
-      implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : RightArgRef[T] =
-        DFMember.Ref.newRefFor(new RightArgRef[T], member)
+    type Ref[+M <: DFAny] = DFMember.Ref.Of[Ref.Type, M]
+    object Ref {
+      trait Type extends DFAny.Ref.ConsumeFrom.Type
+      type LeftArg[+M <: DFAny] = DFMember.Ref.Of[LeftArg.Type, M]
+      object LeftArg {
+        trait Type extends Ref.Type
+        implicit val ev : Type = new Type {}
+      }
+      type RightArg[+M <: DFAny] = DFMember.Ref.Of[RightArg.Type, M]
+      object RightArg {
+        trait Type extends Ref.Type
+        implicit val ev : Type = new Type {}
+      }
     }
 
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](

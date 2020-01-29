@@ -34,10 +34,11 @@ object DFBlock {
       new Context(meta, null, new DFDesign.DB.Mutable)
   }
 
-  class Ref extends DFMember.Ref[DFBlock]
-  object Ref extends DFMember.Ref.CO[DFBlock, Ref](new Ref)
-
-
+  type Ref = DFMember.Ref.Of[Ref.Type, DFBlock]
+  object Ref {
+    trait Type extends DFMember.Ref.Type
+    implicit val ev : Type = new Type {}
+  }
 }
 
 

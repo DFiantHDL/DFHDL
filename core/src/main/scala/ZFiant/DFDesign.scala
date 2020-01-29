@@ -86,15 +86,15 @@ object DFDesign {
   implicit class DevAccess(design : DFDesign) {
     def db : DB = design.__db.immutable
   }
-  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref[_], DFMember]) {
+  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember]) {
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
     implicit val getset : MemberGetSet = new MemberGetSet {
-      def apply[T <: DFMember](ref: DFMember.Ref[T]): T = refTable(ref).asInstanceOf[T]
-      def set[T <: DFMember](originalMember : T, newMember: T): T = newMember
+      def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
+      def set[M <: DFMember](originalMember : M, newMember: M): M = newMember
     }
-    lazy val memberTable : Map[DFMember, Set[DFMember.Ref[_]]] = refTable.invert
+    lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
 
     //There can only be a single connection to a value (but multiple assignments are possible)
     //                              To    From
@@ -161,8 +161,8 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
-    private implicit class RefTableOps(rt : Map[DFMember.Ref[_], DFMember]) {
-      def replaceMember(origMember : DFMember, repMember : DFMember) : Map[DFMember.Ref[_], DFMember] =
+    private implicit class RefTableOps(rt : Map[DFMember.Ref, DFMember]) {
+      def replaceMember(origMember : DFMember, repMember : DFMember) : Map[DFMember.Ref, DFMember] =
         memberTable.get(origMember) match {
           case Some(refs) =>
             refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
@@ -332,7 +332,7 @@ object DFDesign {
           case object Via extends Config
         }
       }
-      final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref[_ <: DFMember], updatedRefMember : DFMember) extends Patch
+      final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref, updatedRefMember : DFMember) extends Patch
     }
     class Mutable {
       private val members : mutable.ArrayBuffer[DFMember] = mutable.ArrayBuffer()
@@ -346,22 +346,22 @@ object DFDesign {
         members += member
         member
       }
-      private val memberTable : mutable.Map[DFMember, (Int, Set[DFMember.Ref[_]])] = mutable.Map()
-      private val refTable : mutable.Map[DFMember.Ref[_], DFMember] = mutable.Map()
+      private val memberTable : mutable.Map[DFMember, (Int, Set[DFMember.Ref])] = mutable.Map()
+      private val refTable : mutable.Map[DFMember.Ref, DFMember] = mutable.Map()
       def hasToConnectionFor(dfVar : DFAny) : Boolean = {
         memberTable.getOrElse(dfVar, (0, Set()))._2.collectFirst {
-          case _ : DFNet.ToRef => true
+          case DFNet.ToRef() => true
         }.nonEmpty
       }
-      def getMember[T <: DFMember](ref : DFMember.Ref[T]) : T = refTable(ref).asInstanceOf[T]
-      def setMember[T <: DFMember](originalMember : T, newMember : T) : T = {
+      def getMember[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
+      def setMember[M <: DFMember](originalMember : M, newMember : M) : M = {
         val x = memberTable.remove(originalMember).get
         x._2.foreach(r => refTable.update(r, newMember))
         memberTable.update(newMember, x)
         members.update(x._1, newMember)
         newMember
       }
-      def newRefFor[T <: DFMember, R <: DFMember.Ref[T]](ref : R, member : T) : R = {
+      def newRefFor[M <: DFMember, T <: DFMember.Ref.Type](ref : DFMember.Ref.Of[T, M], member : M) : DFMember.Ref.Of[T, M] = {
         memberTable.get(member) match {
           case Some(x) => memberTable.update(member, x.copy(_2 = x._2 + ref))
           case _ =>
@@ -374,8 +374,8 @@ object DFDesign {
       def immutable : DB = DB(members.toList, refTable.toMap)
 
       implicit val getset : MemberGetSet = new MemberGetSet {
-        def apply[T <: DFMember](ref: DFMember.Ref[T]): T = getMember(ref)
-        def set[T <: DFMember](originalMember : T, newMember: T): T = setMember(originalMember, newMember)
+        def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
+        def set[M <: DFMember](originalMember : M, newMember: M): M = setMember(originalMember, newMember)
       }
     }
   }

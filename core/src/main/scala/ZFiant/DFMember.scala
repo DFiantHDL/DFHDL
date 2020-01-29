@@ -127,40 +127,45 @@ object DFMember {
     }
   }
 
-  class Ref[+T <: DFMember] extends HasTypeName {
-    def get(implicit getset: MemberGetSet) : T = getset(this)
+  sealed trait Ref extends HasTypeName {
+    type TType <: Ref.Type
+    type TMember <: DFMember
+    val refType : TType
+    def get[M0 >: TMember](implicit getset: MemberGetSet) : M0
     override def toString: String = s"$typeName<${hashCode.toHexString}>"
   }
   object Ref {
-    def newRefFor[T <: DFMember, R <: Ref[T]](ref : R, member: T)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor(ref, member)
-    implicit def memberOf[T <: DFMember](ref : Ref[T])(implicit getset : MemberGetSet) : T = getset(ref)
-    implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : Ref[T] = Ref.newRefFor(new Ref[T], member)
-    def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = newRefFor(new Ref[T], member)
-    class CO[T <: DFMember, R <: Ref[T]](newR : => R) {
-      implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
-//      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
+    trait Type
+    final class Of[T <: Type, +M <: DFMember](val refType : T) extends Ref {
+      type TType = T
+      type TMember <: M
+      def get[M0 >: TMember](implicit getset: MemberGetSet) : M0 = getset(this)
     }
+
+    def newRefFor[M <: DFMember, T <: Type](ref : Ref.Of[T, M], member: M)(implicit ctx : DFMember.Context) : Ref.Of[T, M] = ctx.db.newRefFor(ref, member)
+    implicit def memberOf[M <: DFMember, T <: Type](ref : Ref.Of[T, M])(implicit getset : MemberGetSet) : M = getset(ref)
+    implicit def apply[M <: DFMember, T <: Type](member: M)(implicit ctx : DFMember.Context, rt : T) : Ref.Of[T, M] = newRefFor(new Ref.Of[T, M](rt), member)
   }
 
-  trait RefOwner
-  object RefOwner {
-    def apply[T <: DFMember](member : T) : T with RefOwner = member.asInstanceOf[T with RefOwner]
-  }
-  trait OwnedRef[+T <: DFMember] extends Ref[T] {
-    val owner : Ref[DFMember]
-  }
-  object OwnedRef {
-    implicit def apply[T <: DFMember](member : T)(implicit refOwner : => T with RefOwner, ctx : DFMember.Context)
-    : OwnedRef[T] = Ref.newRefFor(new OwnedRef[T] {
-        lazy val owner : Ref[DFMember] = Ref.newRefFor(new Ref[T with RefOwner]{}, refOwner)
-      }, member)
-    }
+//  trait RefOwner
+//  object RefOwner {
+//    def apply[T <: DFMember](member : T) : T with RefOwner = member.asInstanceOf[T with RefOwner]
+//  }
+//  trait OwnedRef[+T <: DFMember] extends Ref[T] {
+//    val owner : Ref[DFMember]
+//  }
+//  object OwnedRef {
+//    implicit def apply[T <: DFMember](member : T)(implicit refOwner : => T with RefOwner, ctx : DFMember.Context)
+//    : OwnedRef[T] = Ref.newRefFor(new OwnedRef[T] {
+//        lazy val owner : Ref[DFMember] = Ref.newRefFor(new Ref[T with RefOwner]{}, refOwner)
+//      }, member)
+//    }
 }
 
 
 trait MemberGetSet {
-  def apply[T <: DFMember](ref : DFMember.Ref[T]) : T
-  def set[T <: DFMember](originalMember : T, newMember : T) : T
+  def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0
+  def set[M <: DFMember](originalMember : M, newMember : M) : M
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset

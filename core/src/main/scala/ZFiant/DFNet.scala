@@ -12,10 +12,20 @@ sealed abstract class DFNet(op : String) extends DFMember {
 object DFNet {
   type Context = DFAny.Context
 
-  class ToRef extends DFAny.Ref.ProduceTo[DFAny]
-  object ToRef extends DFAny.Ref.ProduceTo.CO[DFAny, ToRef](new ToRef)
-  class FromRef extends DFAny.Ref.ConsumeFrom[DFAny]
-  object FromRef extends DFAny.Ref.ConsumeFrom.CO[DFAny, FromRef](new FromRef)
+  type ToRef = DFMember.Ref.Of[ToRef.Type, DFAny]
+  object ToRef {
+    trait Type extends DFAny.Ref.ProduceTo.Type
+    implicit val ev : Type = new Type {}
+    def unapply(ref : DFMember.Ref): Boolean = ref.refType match {
+      case _ : Type => true
+      case _ => false
+    }
+  }
+  type FromRef = DFMember.Ref.Of[FromRef.Type, DFAny]
+  object FromRef {
+    trait Type extends DFAny.Ref.ConsumeFrom.Type
+    implicit val ev : Type = new Type {}
+  }
 
   final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet(":=") with CanBeGuarded {
     def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))

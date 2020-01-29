@@ -32,18 +32,27 @@ object MatchConfig {
 
 object ConditionalBlock {
   trait Of[Ret] extends ConditionalBlock{type TRet = Ret}
-  class PrevBlockRef[+CB <: ConditionalBlock] extends DFMember.Ref[CB]
+  type PrevBlockRef[+CB <: ConditionalBlock] = DFMember.Ref.Of[PrevBlockRef.Type, CB]
   object PrevBlockRef {
-    implicit def apply[CB <: ConditionalBlock](member : CB)(implicit ctx : DFMember.Context) : PrevBlockRef[CB] =
-      DFMember.Ref.newRefFor(new PrevBlockRef[CB], member)
+    trait Type extends DFMember.Ref.Type
+    implicit val ev : Type = new Type {}
+    def apply[CB <: ConditionalBlock](member : CB)(implicit ctx : DFMember.Context): PrevBlockRef[CB] = DFMember.Ref(member)
+    def unapply(ref : DFMember.Ref): Boolean = ref.refType match {
+      case _ : Type => true
+      case _ => false
+    }
   }
-  class CondRef extends DFAny.Ref.ConsumeFrom[DFBool]
-  object CondRef extends DFAny.Ref.ConsumeFrom.CO[DFBool, CondRef](new CondRef)
 
-  class MatchValRef[MVType <: DFAny.Type] extends DFAny.Ref[DFAny.Of[MVType]]
+  type CondRef = DFMember.Ref.Of[CondRef.Type, DFBool]
+  object CondRef {
+    trait Type extends DFAny.Ref.ConsumeFrom.Type
+    implicit val ev : Type = new Type {}
+  }
+
+  type MatchValRef[MVType <: DFAny.Type] = DFMember.Ref.Of[MatchValRef.Type, DFAny.Of[MVType]]
   object MatchValRef {
-    implicit def refOf[MVType <: DFAny.Type](member : DFAny.Of[MVType])(implicit ctx : DFMember.Context) : MatchValRef[MVType] =
-      DFMember.Ref.newRefFor(new MatchValRef[MVType], member)
+    trait Type extends DFAny.Ref.ConsumeFrom.Type
+    implicit val ev : Type = new Type {}
   }
 
   sealed trait MatchHeader extends CanBeGuarded {
@@ -58,10 +67,10 @@ object ConditionalBlock {
   }
   object MatchHeader {
     trait Of[MVType <: DFAny.Type] extends MatchHeader{type TMVType = MVType}
-    class Ref[+MH <: MatchHeader] extends DFMember.Ref[MH]
+    type Ref[+MH <: MatchHeader] = DFMember.Ref.Of[Ref.Type, MH]
     object Ref {
-      implicit def apply[MH <: MatchHeader](member : MH)(implicit ctx : DFMember.Context) : Ref[MH] =
-        DFMember.Ref.newRefFor(new Ref[MH], member)
+      trait Type extends DFAny.Ref.ConsumeFrom.Type
+      implicit val ev : Type = new Type {}
     }
   }
   sealed trait IfBlock extends ConditionalBlock {
@@ -102,10 +111,10 @@ object ConditionalBlock {
     }
   }
   object WithRetVal {
-    class RetVarRef[Type <: DFAny.Type] extends DFMember.Ref[DFAny.VarOf[Type]]
+    type RetVarRef[Type <: DFAny.Type] = DFMember.Ref.Of[RetVarRef.Type, DFAny.VarOf[Type]]
     object RetVarRef {
-      implicit def apply[Type <: DFAny.Type](member : DFAny.VarOf[Type])(implicit ctx : DFMember.Context) : RetVarRef[Type] =
-        DFMember.Ref.newRefFor(new RetVarRef[Type], member)
+      trait Type extends DFAny.Ref.Type
+      implicit val ev : Type = new Type {}
     }
     final case class IfBlock[Type <: DFAny.Type](
       dfType : Type, retVarRef : RetVarRef[Type], condRef : CondRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic

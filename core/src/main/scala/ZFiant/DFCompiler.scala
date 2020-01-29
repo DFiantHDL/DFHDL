@@ -132,7 +132,7 @@ object DFCompiler {
         val refs = designDB.memberTable.getOrElse(cb, Set())
         //the conditional block is last if there is no reference to it as a previous block
         refs.flatMap {
-          case r : ConditionalBlock.PrevBlockRef[_] => Some(r)
+          case r@ConditionalBlock.PrevBlockRef() => Some(r)
           case _ => None
         }.isEmpty
       }
