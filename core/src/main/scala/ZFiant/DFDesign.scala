@@ -162,10 +162,14 @@ object DFDesign {
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
     private implicit class RefTableOps(rt : Map[DFMember.Ref, DFMember]) {
-      def replaceMember(origMember : DFMember, repMember : DFMember) : Map[DFMember.Ref, DFMember] =
+      def replaceMember(origMember : DFMember, repMember : DFMember, scope : DB.Patch.Replace.Scope) : Map[DFMember.Ref, DFMember] =
         memberTable.get(origMember) match {
           case Some(refs) =>
-            refs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+            val scopeRefs = scope match {
+              case DB.Patch.Replace.Scope.All => refs
+              case DB.Patch.Replace.Scope.Outside(block) => refs.collect{case r : DFMember.OwnedRef => r.owner}.filter(r => r.get.isOutsideDesign(block))
+            }
+            scopeRefs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None =>
             rt
         }
@@ -202,16 +206,16 @@ object DFDesign {
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
-        case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) => rt.replaceMember(origMember, repMember)
+        case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) => rt.replaceMember(origMember, repMember, scope)
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(origMember.getOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
             case DB.Patch.Add.Config.Replace =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
-              rt.replaceMember(origMember, repMember)
+              rt.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
             case DB.Patch.Add.Config.Via =>
               val repMember = db.members.last //The last member is used for Via addition.
-              rt.replaceMember(origMember, repMember)
+              rt.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
             case _ => rt
           }
           repRT ++ dbPatched.refTable

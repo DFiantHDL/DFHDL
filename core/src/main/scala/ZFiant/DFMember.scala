@@ -52,17 +52,19 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   final def isSameOwnerDesignAs(that : DFMember)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that.getOwnerDesign
   final def isOneLevelBelow(that : DFMember)(implicit getset : MemberGetSet) : Boolean =
     getOwnerDesign match {
-      case _ : DFDesign.Block.Top =>false
+      case _ : DFDesign.Block.Top => false
       case od => od isSameOwnerDesignAs that
     }
-
-  //  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
-    //      (nonTransparentOwnerOption, that) match {
-    //        case (None, _) => false
-    //        case (Some(a), b) if a == b => true
-    //        case (Some(a), b) => a.isDownstreamMemberOf(that)
-    //      }
-//  }
+  //true if and only if the member is outside the design at any level
+  final def isOutsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = !isInsideDesign(that)
+  //true if and only if the member is inside the design at any level
+  final def isInsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = {
+    (getOwnerDesign, that) match {
+      case (_ : DFDesign.Block.Top, _) => false
+      case (a, b) if a == b => true
+      case (a, b) => a.isInsideDesign(that)
+    }
+  }
 
   def setTags(tags : TTags)(implicit getset : MemberGetSet) : DFMember
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"

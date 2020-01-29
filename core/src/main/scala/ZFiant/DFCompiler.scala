@@ -397,7 +397,7 @@ object DFCompiler {
               case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
               case _ => ???
             }
-            (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly))
+            (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Outside(ib)))
           }
         }
         (ib -> Patch.Add(dsn, Patch.Add.Config.After)) :: dsn.refPatches

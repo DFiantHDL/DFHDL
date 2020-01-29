@@ -28,11 +28,10 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
   val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
   val id1 = new ID {} //First instance of the `ID` design
-//  val id2 = new ID {} //Second instance of the `ID` design
+  val id2 = new ID {} //Second instance of the `ID` design
   id1.i <> x      //Connecting parent input port to child input port
-  id1.o <> y      //Connecting parent input port to child input port
-//  id1.o <> id2.i  //Connecting sibling instance ports
-//  id2.o <> y      //Connecting parent output port to child output port
+  id1.o <> id2.i  //Connecting sibling instance ports
+  id2.o <> y      //Connecting parent output port to child output port
 }
 
 //trait IDTop extends DFDesign {
