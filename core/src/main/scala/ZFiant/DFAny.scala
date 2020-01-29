@@ -62,18 +62,18 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  type Ref[+M <: DFAny] = DFMember.Ref.Of[Ref.Type, M]
+  type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
   object Ref {
-    trait Type extends DFMember.Ref.Type
+    trait Type extends DFMember.OwnedRef.Type
     implicit val ev : Type = new Type {}
-    type ConsumeFrom[+M <: DFAny] = DFMember.Ref.Of[ConsumeFrom.Type, M]
+    type ConsumeFrom[+M <: DFAny] = DFMember.OwnedRef.Of[ConsumeFrom.Type, M]
     object ConsumeFrom {
-      trait Type extends DFMember.Ref.Type
+      trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
-    type ProduceTo[+M <: DFAny] = DFMember.Ref.Of[ProduceTo.Type, M]
+    type ProduceTo[+M <: DFAny] = DFMember.OwnedRef.Of[ProduceTo.Type, M]
     object ProduceTo {
-      trait Type extends DFMember.Ref.Type
+      trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
   }
@@ -362,9 +362,9 @@ object DFAny {
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
   }
   object Alias {
-    type RelValRef[+M <: DFAny] = DFMember.Ref.Of[RelValRef.Type, M]
+    type RelValRef[+M <: DFAny] = DFMember.OwnedRef.Of[RelValRef.Type, M]
     object RelValRef {
-      trait Type extends DFMember.Ref.Type
+      trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
 
@@ -380,8 +380,11 @@ object DFAny {
     object AsIs {
       def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, refVal: RelVal)(
         implicit ctx: Context
-      ): AsIs[Type, RelVal, refVal.TMod] =
-        ctx.db.addMember(AsIs[Type, RelVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
+      ): AsIs[Type, RelVal, refVal.TMod] = {
+        implicit lazy val ret : AsIs[Type, RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(AsIs[Type, RelVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
     final case class BitsWL[W, L, RelVal <: DFAny, Mod <: Modifier](
       modifier : Mod, relValRef : RelValRef[RelVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Token[W]]
@@ -396,8 +399,11 @@ object DFAny {
     object BitsWL {
       def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
         implicit ctx: Context
-      ): BitsWL[W, L, RelVal, refVal.TMod] =
-        ctx.db.addMember(BitsWL[W, L, RelVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+      ): BitsWL[W, L, RelVal, refVal.TMod] = {
+        implicit lazy val ret : BitsWL[W, L, RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(BitsWL[W, L, RelVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
     final case class Prev[RelVal <: DFAny](
       dfType : RelVal#TType, relValRef : RelValRef[RelVal], step : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
@@ -413,7 +419,10 @@ object DFAny {
     object Prev {
       def apply[RelVal <: DFAny](refVal: RelVal, step: Int)(
         implicit ctx: Context
-      ): Prev[RelVal] = ctx.db.addMember(Prev[RelVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta))
+      ): Prev[RelVal] = {
+        implicit lazy val ret : Prev[RelVal] with DFMember.RefOwner = ctx.db.addMember(Prev[RelVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
     final case class Invert[RelVal <: DFAny](
       dfType : RelVal#TType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
@@ -435,7 +444,11 @@ object DFAny {
     object Invert {
       def apply[RelVal <: DFAny](refVal: RelVal)(
         implicit ctx: Context
-      ): Invert[RelVal] = ctx.db.addMember(Invert[RelVal](refVal.dfType, refVal, ctx.owner, ctx.meta))
+      ): Invert[RelVal] = {
+        implicit lazy val ret : Invert[RelVal] with DFMember.RefOwner =
+          ctx.db.addMember(Invert[RelVal](refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
   }
 
@@ -470,15 +483,15 @@ object DFAny {
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func0))
   }
   object Func2 {
-    type Ref[+M <: DFAny] = DFMember.Ref.Of[Ref.Type, M]
+    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
     object Ref {
       trait Type extends DFAny.Ref.ConsumeFrom.Type
-      type LeftArg[+M <: DFAny] = DFMember.Ref.Of[LeftArg.Type, M]
+      type LeftArg[+M <: DFAny] = DFMember.OwnedRef.Of[LeftArg.Type, M]
       object LeftArg {
         trait Type extends Ref.Type
         implicit val ev : Type = new Type {}
       }
-      type RightArg[+M <: DFAny] = DFMember.Ref.Of[RightArg.Type, M]
+      type RightArg[+M <: DFAny] = DFMember.OwnedRef.Of[RightArg.Type, M]
       object RightArg {
         trait Type extends Ref.Type
         implicit val ev : Type = new Type {}
@@ -488,7 +501,11 @@ object DFAny {
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
-    : Func2[Type, L, Op, R] = ctx.db.addMember(Func2[Type, L, Op, R](dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
+    : Func2[Type, L, Op, R] = {
+      implicit lazy val ret : Func2[Type, L, Op, R] with DFMember.RefOwner =
+        ctx.db.addMember(Func2[Type, L, Op, R](dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func)).asRefOwner
+      ret
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

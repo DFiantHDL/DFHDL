@@ -70,13 +70,14 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
 
 object DFMember {
-  implicit class MemberExtender[T <: DFMember](member : T)(implicit getset : MemberGetSet) {
-    def setName(value : String) : T = member.setTags(member.tags.setName(value)).asInstanceOf[T]
-    def setNameSuffix(value : String) : T = setName(s"${member.name}$value")
-    def setNamePrefix(value : String) : T = setName(s"$value${member.name}")
-    def anonymize : T = member.setTags(member.tags.anonymize).asInstanceOf[T]
-    def keep : T = member.setTags(member.tags.setKeep(true)).asInstanceOf[T]
-    def addCustomTag(customTag : CustomTag) : T = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[T]
+  implicit class MemberExtender[M <: DFMember](member : M)(implicit getset : MemberGetSet) {
+    def setName(value : String) : M = member.setTags(member.tags.setName(value)).asInstanceOf[M]
+    def setNameSuffix(value : String) : M = setName(s"${member.name}$value")
+    def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
+    def anonymize : M = member.setTags(member.tags.anonymize).asInstanceOf[M]
+    def keep : M = member.setTags(member.tags.setKeep(true)).asInstanceOf[M]
+    def addCustomTag(customTag : CustomTag) : M = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[M]
+    def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
   trait CustomTag extends Product with Serializable
@@ -152,7 +153,6 @@ object DFMember {
   object RefOwner {
     trait Type extends Ref.Type
     implicit val ev : Type = new Type {}
-    def @@[M <: DFMember](member : M) : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
   sealed trait OwnedRef extends Ref {
     val owner : Ref.Of[RefOwner.Type, DFMember]
@@ -161,8 +161,8 @@ object DFMember {
     trait Type extends Ref.Type
     implicit val ev : Type = new Type {}
     sealed trait Of[T <: Type, +M <: DFMember] extends OwnedRef with Ref.Of[T, M]
-    implicit def apply[M <: DFMember, T <: Type](member: M)(
-      implicit ctx : DFMember.Context, rt : T, refOwner : => M with RefOwner
+    implicit def apply[M <: DFMember, T <: Type, O <: DFMember](member: M)(
+      implicit ctx : DFMember.Context, rt : T, refOwner : => O with RefOwner
     ) : OwnedRef.Of[T, M] =
       Ref.newRefFor[M, T, OwnedRef.Of[T, M]](
         new OwnedRef.Of[T, M]{

@@ -371,7 +371,13 @@ object DFDesign {
         refTable += (ref -> member)
         ref
       }
-      def immutable : DB = DB(members.toList, refTable.toMap)
+      def immutable : DB = {
+        refTable.keys.foreach{
+          case or : DFMember.OwnedRef => or.owner  //touching all lazy owner refs to cause force their addition
+          case _ => //do nothing
+        }
+        DB(members.toList, refTable.toMap)
+      }
 
       implicit val getset : MemberGetSet = new MemberGetSet {
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)

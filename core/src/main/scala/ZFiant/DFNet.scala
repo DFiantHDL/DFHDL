@@ -12,7 +12,7 @@ sealed abstract class DFNet(op : String) extends DFMember {
 object DFNet {
   type Context = DFAny.Context
 
-  type ToRef = DFMember.Ref.Of[ToRef.Type, DFAny]
+  type ToRef = DFMember.OwnedRef.Of[ToRef.Type, DFAny]
   object ToRef {
     trait Type extends DFAny.Ref.ProduceTo.Type
     implicit val ev : Type = new Type {}
@@ -21,7 +21,7 @@ object DFNet {
       case _ => false
     }
   }
-  type FromRef = DFMember.Ref.Of[FromRef.Type, DFAny]
+  type FromRef = DFMember.OwnedRef.Of[FromRef.Type, DFAny]
   object FromRef {
     trait Type extends DFAny.Ref.ConsumeFrom.Type
     implicit val ev : Type = new Type {}
@@ -32,7 +32,11 @@ object DFNet {
   }
   object Assignment {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
-    : Assignment = ctx.db.addMember(Assignment(to, from, ctx.owner, ctx.meta))
+    : Assignment = {
+      implicit lazy val ret : Assignment with DFMember.RefOwner =
+        ctx.db.addMember(Assignment(to, from, ctx.owner, ctx.meta)).asRefOwner
+      ret
+    }
   }
 
   final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet("<>") {
@@ -40,6 +44,10 @@ object DFNet {
   }
   object Connection {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
-    : Connection = ctx.db.addMember(Connection(to, from, ctx.owner, ctx.meta))
+    : Connection = {
+      implicit lazy val ret : Connection with DFMember.RefOwner =
+        ctx.db.addMember(Connection(to, from, ctx.owner, ctx.meta)).asRefOwner
+      ret
+    }
   }
 }
