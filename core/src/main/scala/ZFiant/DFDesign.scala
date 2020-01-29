@@ -361,7 +361,7 @@ object DFDesign {
         members.update(x._1, newMember)
         newMember
       }
-      def newRefFor[M <: DFMember, T <: DFMember.Ref.Type](ref : DFMember.Ref.Of[T, M], member : M) : DFMember.Ref.Of[T, M] = {
+      def newRefFor[M <: DFMember, T <: DFMember.Ref.Type, R <: DFMember.Ref.Of[T, M]](ref : R, member : M) : R = {
         memberTable.get(member) match {
           case Some(x) => memberTable.update(member, x.copy(_2 = x._2 + ref))
           case _ =>

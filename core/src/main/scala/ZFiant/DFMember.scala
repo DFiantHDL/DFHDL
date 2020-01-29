@@ -136,30 +136,42 @@ object DFMember {
   }
   object Ref {
     trait Type
-    final class Of[T <: Type, +M <: DFMember](val refType : T) extends Ref {
+    sealed trait Of[T <: Type, +M <: DFMember] extends Ref {
       type TType = T
       type TMember <: M
       def get[M0 >: TMember](implicit getset: MemberGetSet) : M0 = getset(this)
     }
 
-    def newRefFor[M <: DFMember, T <: Type](ref : Ref.Of[T, M], member: M)(implicit ctx : DFMember.Context) : Ref.Of[T, M] = ctx.db.newRefFor(ref, member)
+    def newRefFor[M <: DFMember, T <: Type, R <: Ref.Of[T, M]](ref : R, member: M)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor[M, T, R](ref, member)
     implicit def memberOf[M <: DFMember, T <: Type](ref : Ref.Of[T, M])(implicit getset : MemberGetSet) : M = getset(ref)
-    implicit def apply[M <: DFMember, T <: Type](member: M)(implicit ctx : DFMember.Context, rt : T) : Ref.Of[T, M] = newRefFor(new Ref.Of[T, M](rt), member)
+    implicit def apply[M <: DFMember, T <: Type](member: M)(implicit ctx : DFMember.Context, rt : T)
+    : Ref.Of[T, M] = newRefFor[M, T, Ref.Of[T, M]](new Ref.Of[T, M]{val refType : T = rt}, member)
   }
 
-//  trait RefOwner
-//  object RefOwner {
-//    def apply[T <: DFMember](member : T) : T with RefOwner = member.asInstanceOf[T with RefOwner]
-//  }
-//  trait OwnedRef[+T <: DFMember] extends Ref[T] {
-//    val owner : Ref[DFMember]
-//  }
-//  object OwnedRef {
-//    implicit def apply[T <: DFMember](member : T)(implicit refOwner : => T with RefOwner, ctx : DFMember.Context)
-//    : OwnedRef[T] = Ref.newRefFor(new OwnedRef[T] {
-//        lazy val owner : Ref[DFMember] = Ref.newRefFor(new Ref[T with RefOwner]{}, refOwner)
-//      }, member)
-//    }
+  sealed trait RefOwner
+  object RefOwner {
+    trait Type extends Ref.Type
+    implicit val ev : Type = new Type {}
+    def @@[M <: DFMember](member : M) : M with RefOwner = member.asInstanceOf[M with RefOwner]
+  }
+  sealed trait OwnedRef extends Ref {
+    val owner : Ref.Of[RefOwner.Type, DFMember]
+  }
+  object OwnedRef {
+    trait Type extends Ref.Type
+    implicit val ev : Type = new Type {}
+    sealed trait Of[T <: Type, +M <: DFMember] extends OwnedRef with Ref.Of[T, M]
+    implicit def apply[M <: DFMember, T <: Type](member: M)(
+      implicit ctx : DFMember.Context, rt : T, refOwner : => M with RefOwner
+    ) : OwnedRef.Of[T, M] =
+      Ref.newRefFor[M, T, OwnedRef.Of[T, M]](
+        new OwnedRef.Of[T, M]{
+          val refType: T = rt
+          lazy val owner: Ref.Of[RefOwner.Type, DFMember] = refOwner
+        },
+        member
+      )
+  }
 }
 
 
