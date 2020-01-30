@@ -389,8 +389,10 @@ object DFCompiler {
             if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None
             else Some(p)
           case p : DFAny.Port.In[_,_] =>
+            import designDB.getset
             designDB.getConnectionTo(p) match {
               case Some(x : DFAny.NewVar[_,_]) => None
+              case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
               case _ => Some(p)
             }
           case _ => None
