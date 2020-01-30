@@ -632,20 +632,20 @@ object DFAny {
     protected[ZFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
       val (toPort, from) : (DFAny, DFAny) = (left, right) match {
-        case (p1@In(), p2@In()) => connectPortInWithPortIn(p1, p2)
+        case (p1@In(),  p2@In())  => connectPortInWithPortIn(p1, p2)
         case (p1@Out(), p2@Out()) => connectPortOutWithPortOut(p1, p2)
-        case (p1@Out(), p2@In()) => connectPortOutWithPortIn(p1, p2)
-        case (p1@In(), p2@Out()) => connectPortOutWithPortIn(p2, p1)
-        case (p@In(), v@Var()) => connectVarWithPortIn(v, p)
-        case (v@Var(), p@In()) => connectVarWithPortIn(v, p)
-        case (p@Out(), v@Var()) => connectVarWithPortOut(v, p)
-        case (v@Var(), p@Out()) => connectVarWithPortOut(v, p)
+        case (p1@Out(), p2@In())  => connectPortOutWithPortIn(p1, p2)
+        case (p1@In(),  p2@Out()) => connectPortOutWithPortIn(p2, p1)
+        case (p@In(),   v@Var())  => connectVarWithPortIn(v, p)
+        case (v@Var(),  p@In())   => connectVarWithPortIn(v, p)
+        case (p@Out(),  v@Var())  => connectVarWithPortOut(v, p)
+        case (v@Var(),  p@Out())  => connectVarWithPortOut(v, p)
         case (v1@Var(), v2@Var()) => connectVarWithVar(v1, v2)
-        case (p@In(), v) => connectValWithPortIn(v, p)
-        case (v, p@In()) => connectValWithPortIn(v, p)
-        case (p@Out(), v) => connectValWithPortOut(v, p)
-        case (v, p@Out()) => connectValWithPortOut(v, p)
-        case _ => throwConnectionError(
+        case (p@In(),   v)        => connectValWithPortIn(v, p)
+        case (v,        p@In())   => connectValWithPortIn(v, p)
+        case (p@Out(),  v)        => connectValWithPortOut(v, p)
+        case (v,        p@Out())  => connectValWithPortOut(v, p)
+        case _                    => throwConnectionError(
           s"""Connection must be made between either of the following options:
              |* A port and a value
              |* Two ports
