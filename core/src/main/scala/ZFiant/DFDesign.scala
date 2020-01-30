@@ -194,8 +194,14 @@ object DFDesign {
         //the old member just for the member list (references are replaced).
         case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => (m, DB.Patch.Remove)
         //If we add after a design block, we need to actually place after the last member of the block
-        case (m : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
-          (ownerMemberTable(m).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+        case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
+          (ownerMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+        //If we add inside a design block, we need to actually place after the last member of the block
+        case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
+          ownerMemberTable(block).lastOption match {
+            case Some(l) => (l, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+            case None => (block, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+          }
         case x => x
       }.toMap
       //Patching member list
@@ -211,6 +217,7 @@ object DFDesign {
             case DB.Patch.Add.Config.Before => notTop :+ m
             case DB.Patch.Add.Config.Replace => notTop
             case DB.Patch.Add.Config.Via => m :: notTop
+            case DB.Patch.Add.Config.Inside => ??? //Not possible since we replaced it to an `After`
           }
         case Some(DB.Patch.Remove) => None
         case Some(_ : DB.Patch.ChangeRef[_]) => Some(m)
@@ -220,7 +227,11 @@ object DFDesign {
       val patchedRefTable = patchList.foldLeft(refTable) {
         case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) => rt.replaceMember(origMember, repMember, scope)
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
-          val dbPatched = db.patch(db.top -> DB.Patch.Replace(origMember.getOwner, DB.Patch.Replace.Config.ChangeRefOnly))
+          val newOwner = config match {
+            case DB.Patch.Add.Config.Inside => origMember
+            case _ => origMember.getOwner
+          }
+          val dbPatched = db.patch(db.top -> DB.Patch.Replace(newOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
             case DB.Patch.Add.Config.Replace =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
@@ -340,6 +351,8 @@ object DFDesign {
           case object Before extends Config
           //adds members after the patched member
           case object After extends Config
+          //adds members inside the given block (appends elements at the end)
+          case object Inside extends Config
           //adds members replacing the patched member.
           //The FIRST (non-Top) member is considered the reference replacement member
           case object Replace extends Config

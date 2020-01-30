@@ -24,36 +24,35 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   o <> i //Trivial direct input-to-output connection
 }
 
-trait IDTop extends DFDesign { //This our `IDTop` dataflow design
-  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
-  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
-  val id1 = new ID {} //First instance of the `ID` design
-  val id2 = new ID {} //Second instance of the `ID` design
-  id1.i <> x      //Connecting parent input port to child input port
-  id1.o <> id2.i  //Connecting sibling instance ports
-  id2.o <> y      //Connecting parent output port to child output port
-}
-
-//trait IDTop extends DFDesign {
-//  final val x = DFUInt(8) <> IN
-//  final val y = DFUInt(8) <> OUT
-//  final val id1_i = DFUInt(8)
-//  final val id1_o = DFUInt(8)
-//  final val id1 = new ID {
-//    i <> id1_i
-//    o <> id1_o
-//  }
-////  id1.i <> id1_i
-////  id1_o <> id1.o
-//  final val id2 = new ID {}
-//  final val id2_i = DFUInt(8)
-//  final val id2_o = DFUInt(8)
-//  id2.i <> id2_i
-//  id2_o <> id2.o
-//  id1_i <> x
-//  id2_i <> id1_o
-//  y <> id2_o
+//trait IDTop extends DFDesign { //This our `IDTop` dataflow design
+//  val x = DFUInt(8) <> IN  //The input port is a signed 16-bit integer
+//  val y = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
+//  val id1 = new ID {} //First instance of the `ID` design
+//  val id2 = new ID {} //Second instance of the `ID` design
+//  id1.i <> x      //Connecting parent input port to child input port
+//  id1.o <> id2.i  //Connecting sibling instance ports
+//  id2.o <> y      //Connecting parent output port to child output port
 //}
+
+trait IDTop extends DFDesign {
+  final val x = DFUInt(8) <> IN
+  final val y = DFUInt(8) <> OUT
+  final val id1_i = DFUInt(8)
+  final val id1_o = DFUInt(8)
+  final val id1 = new ID {
+    i <> id1_i
+    id1_o <> o
+  }
+  final val id2_i = DFUInt(8)
+  final val id2_o = DFUInt(8)
+  final val id2 = new ID {
+    i <> id2_i
+    id2_o <> o
+  }
+  id1_i <> x
+  id2_i <> id1_o
+  y <> id2_o
+}
 
 trait ContainerConnLoop extends DFDesign {
   val i = DFUInt(8) <> IN

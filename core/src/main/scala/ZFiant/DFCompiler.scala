@@ -395,20 +395,13 @@ object DFCompiler {
             }
           case _ => None
         }
-        val addVars = new MetaDesign() {
+        val addVarsDsn = new MetaDesign() {
           val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
             p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
           }
         }
-        ib -> Patch.Add(addVars, Patch.Add.Config.Before)
-        abstract class PatchDesign(implicit ctx : ContextOf[PatchDesign]) extends MetaDesign(false) {
-          val refPatches : List[(DFMember, Patch)]
-        }
-        val dsn : PatchDesign = new PatchDesign {
-          private val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
-            p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
-          }
-          val refPatches : List[(DFMember, Patch)] = portsToVars.map {case (p, v) =>
+        val connectDsn = new MetaDesign(true) {
+          val refPatches : List[(DFMember, Patch)] = addVarsDsn.portsToVars.map {case (p, v) =>
             p match {
               case _ : DFAny.Port.Out[_,_] => DFNet.Connection(v, p)
               case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
@@ -417,7 +410,8 @@ object DFCompiler {
             (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Outside(ib)))
           }
         }
-        (ib -> Patch.Add(dsn, Patch.Add.Config.After)) :: dsn.refPatches
+        (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
+          (ib -> Patch.Add(connectDsn, Patch.Add.Config.Inside)) :: connectDsn.refPatches
       }
       designDB.patch(patchList)
     }
