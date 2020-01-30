@@ -592,7 +592,6 @@ object DFAny {
     private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
-      import ctx.db.getset
       if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally || in.isConnectingInternally)) (in, dfVar)
       //Connecting a an input port to a variable internally
       else if ((in isSameOwnerDesignAs dfVar) && (in.isConnectingInternally)) (dfVar, in)
