@@ -390,8 +390,10 @@ object DFCompiler {
           val refPatches : List[(DFMember, Patch)]
         }
         val dsn : PatchDesign = new PatchDesign {
-          val refPatches : List[(DFMember, Patch)] = ports.map {p =>
-            val v = DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}")
+          private val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
+            p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
+          }
+          val refPatches : List[(DFMember, Patch)] = portsToVars.map {case (p, v) =>
             p match {
               case _ : DFAny.Port.Out[_,_] => DFNet.Connection(v, p)
               case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
