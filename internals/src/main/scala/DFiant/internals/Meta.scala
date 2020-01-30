@@ -9,11 +9,8 @@ object LateConstructionConfig {
   implicit case object Auto extends LateConstructionConfig {
     def apply(value: Boolean): Boolean = value
   }
-  case object ForceFalse extends LateConstructionConfig {
-    def apply(value: Boolean): Boolean = false
-  }
-  case object ForceTrue extends LateConstructionConfig {
-    def apply(value: Boolean): Boolean = true
+  case class Force(forcedValue : Boolean) extends LateConstructionConfig {
+    def apply(value: Boolean): Boolean = forcedValue
   }
 }
 case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position, lateConstruction : Boolean) {

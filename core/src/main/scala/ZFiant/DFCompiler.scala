@@ -395,7 +395,13 @@ object DFCompiler {
             }
           case _ => None
         }
-        trait PatchDesign extends DFDesign {
+        val addVars = new MetaDesign() {
+          val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
+            p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
+          }
+        }
+        ib -> Patch.Add(addVars, Patch.Add.Config.Before)
+        abstract class PatchDesign(implicit ctx : ContextOf[PatchDesign]) extends MetaDesign(false) {
           val refPatches : List[(DFMember, Patch)]
         }
         val dsn : PatchDesign = new PatchDesign {
