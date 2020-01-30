@@ -267,7 +267,7 @@ object DFCompiler {
 
     def explicitPrev : DFDesign.DB = {
       val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
-      val patchList = explicitPrevSet.toList.map(e => e -> Patch.Add(new DFDesign() {
+      val patchList = explicitPrevSet.toList.map(e => e -> Patch.Add(new MetaDesign() {
         DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
       }, Patch.Add.Config.After))
 
@@ -519,12 +519,16 @@ object DFCompiler {
     private val fixedDB = designDB.fixAnonymous
     import fixedDB.getset
 
-    def blockBodyCodeString(block : DFBlock, members : List[DFMember])(implicit printConfig : PrintConfig) : String = {
+    def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : PrintConfig) : String = {
       val membersCodeString = members.flatMap {
+        case m if m.hasLateConstruction != lateConstruction => None
         case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
-        case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb))))
+        case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb), lateConstruction)))
         case DFDesign.Block.Internal(_,_,Some(_)) => None
-        case d : DFDesign.Block => Some(s"final val ${d.name} = new ${d.typeName} {}") //TODO: fix
+        case d : DFDesign.Block =>
+          val body = blockBodyCodeString(d, designDB.ownerMemberTable(d), lateConstruction = true)
+          val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(delim)}\n}"
+          Some(s"final val ${d.name} = new ${d.typeName} $bodyBrackets") //TODO: fix
         case n : DFNet => n.toRef.get.getOwner match {
           case DFDesign.Block.Internal(_,_,Some(_)) => None //ignoring inlined block connection
           case _ => Some(n.codeString)
@@ -550,7 +554,7 @@ object DFCompiler {
       fixedDB.ownerMemberList.foreach {
         case (DFDesign.Block.Internal(_,_,Some(_)), _) =>
         case (block : DFDesign.Block, members) =>
-          bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members), block)
+          bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members, lateConstruction = false), block)
         case _ =>
       }
       bodyDB.dbString

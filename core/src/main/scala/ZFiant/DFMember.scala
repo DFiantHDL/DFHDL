@@ -33,12 +33,14 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   }
   final val name : String = tags.meta.name
   final val isAnonymous : Boolean = tags.meta.name.anonymous
+  final val hasLateConstruction : Boolean = tags.meta.lateConstruction
   def getFullName(implicit getset : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain(implicit getset : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
   def getRelativeName(implicit callOwner : DFBlock, getset : MemberGetSet) : String = {
     val designOwner = callOwner.getThisOrOwnerDesign
     if (this isMemberOfDesign designOwner) name
     else if (this isOneLevelBelow designOwner) s"${getOwner.name}.$name"
+    else if (callOwner isInsideDesign this.getOwnerDesign) name
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
@@ -60,9 +62,9 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   //true if and only if the member is inside the design at any level
   final def isInsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = {
     (getOwnerDesign, that) match {
-      case (_ : DFDesign.Block.Top, _) => false
       case (a, b) if a == b => true
-      case (a, b) => a.isInsideDesign(that)
+      case (_ : DFDesign.Block.Top, _) => false
+      case _ => isInsideDesign(that)
     }
   }
 
@@ -79,6 +81,7 @@ object DFMember {
     def anonymize : M = member.setTags(member.tags.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(member.tags.setKeep(true)).asInstanceOf[M]
     def addCustomTag(customTag : CustomTag) : M = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[M]
+    def setLateContruction(value : Boolean) : M = member.setTags(member.tags.setLateContruction(value)).asInstanceOf[M]
     def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
@@ -92,6 +95,7 @@ object DFMember {
     def setKeep(keep : Boolean) : TTags
     def addCustomTag(customTag : CustomTag) : TTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
+    final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
     final def anonymize : TTags = setMeta(meta.copy(name = meta.name.copy(anonymous = true)))
   }
   object Tags {

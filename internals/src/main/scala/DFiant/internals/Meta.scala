@@ -2,8 +2,21 @@ package DFiant.internals
 
 import scala.annotation.tailrec
 import scala.reflect.macros.blackbox
-
-case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position) {
+sealed trait LateConstructionConfig {
+  def apply(value : Boolean) : Boolean
+}
+object LateConstructionConfig {
+  implicit case object Auto extends LateConstructionConfig {
+    def apply(value: Boolean): Boolean = value
+  }
+  case object ForceFalse extends LateConstructionConfig {
+    def apply(value: Boolean): Boolean = false
+  }
+  case object ForceTrue extends LateConstructionConfig {
+    def apply(value: Boolean): Boolean = true
+  }
+}
+case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position, lateConstruction : Boolean) {
   def anonymize : Meta = copy(name = name.copy(anonymous = true))
 }
 
@@ -18,6 +31,14 @@ object Meta {
     else owner
   }
   private def getValidOwner(c : blackbox.Context) = _getValidOwner(c)(c.internal.enclosingOwner)
+
+  @tailrec private def _isOwnedByAnonymousClass(c : blackbox.Context)(owner : c.Symbol) : Boolean = {
+    if (owner.isClass) owner.name.toString.contains("$")
+    else if (owner.isConstructor) _isOwnedByAnonymousClass(c)(owner.owner.owner) //jumping above the current class that belongs to this constructor
+    else if (owner.isPackage) false
+    else _isOwnedByAnonymousClass(c)(owner.owner)
+  }
+  private def isOwnedByAnonymousClass(c : blackbox.Context) = _isOwnedByAnonymousClass(c)(c.internal.enclosingOwner)
   /////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////
@@ -86,19 +107,20 @@ object Meta {
   }
   /////////////////////////////////////////////////////////
 
-  implicit def ev : Meta = macro evMacro
-  def evMacro(c: blackbox.Context): c.Expr[Meta] = {
+  implicit def ev(implicit lateConstructionConfig: LateConstructionConfig) : Meta = macro evMacro
+  def evMacro(c: blackbox.Context)(lateConstructionConfig : c.Tree): c.Expr[Meta] = {
     import c.universe._
     val file = c.enclosingPosition.source.path
     val line = c.enclosingPosition.line
     val column = c.enclosingPosition.column
     val owner = getValidOwner(c)
     val name = getOwnerName(c)(owner)
+    val lateConstruction = isOwnedByAnonymousClass(c)
     val nameFile = owner.pos.source.path
     val nameLine = owner.pos.line
     val nameColumn = owner.pos.column
-    val anonymous = !(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
-    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous, 0, 0), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn))""")
+    val anonymous = c.internal.enclosingOwner.name.toString.contains("<local")//!(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
+    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous, 0, 0), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
   }
 
   import singleton.ops._

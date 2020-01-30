@@ -26,33 +26,33 @@ final case class MaxJNode(designDB : DFDesign.DB) {
     case p : DFAny.Port.Out[_,_] if p.tags.customTags.contains(MaxelerScalarIO) => p
   }
 
-  private val pullInZ = (pullInputs, pullInputs.map(p => new DFDesign() {
+  private val pullInZ = (pullInputs, pullInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
   })).zipped
-  private val pullOutZ = (pullOutputs, pullOutputs.map(p => new DFDesign() {
+  private val pullOutZ = (pullOutputs, pullOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
-  private val pushInZ = (pushInputs, pushInputs.map(p => new DFDesign() {
+  private val pushInZ = (pushInputs, pushInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
-  private val pushOutZ = (pushOutputs, pushOutputs.map(p => new DFDesign() {
+  private val pushOutZ = (pushOutputs, pushOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
   })).zipped
-  private val scalaInZ = (scalarInputs, scalarInputs.map(p => new DFDesign() {
+  private val scalaInZ = (scalarInputs, scalarInputs.map(p => new MetaDesign() {
     final val reg = p.prev() setNamePrefix(s"${p.name}_")
   })).zipped
 
-  private val control = new DFDesign() {
+  private val control = new MetaDesign() {
     val empties : List[DFBool] = pullInZ.map{case (_,d) => d.empty}
     val stalls : List[DFBool] = pushOutZ.map{case (_,d) => d.stall}
 
@@ -79,7 +79,7 @@ final case class MaxJNode(designDB : DFDesign.DB) {
       .moveConnectableFirst
     val guardedMembers = topMembers.collect{case m : CanBeGuarded => m}
     val guardedDB = extendedPortsDB
-      .patch(guardedMembers.head -> Patch.Add(control.db, Patch.Add.Config.Before))
+      .patch(guardedMembers.head -> Patch.Add(control, Patch.Add.Config.Before))
       .patch(guardedMembers.map(m => m -> Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
     guardedDB
   }

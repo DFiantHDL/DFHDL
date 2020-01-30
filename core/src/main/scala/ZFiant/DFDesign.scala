@@ -34,6 +34,10 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
   ///////////////////////////////////////////////////////////////////
 }
 
+trait MetaDesign extends DFDesign {
+  protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.ForceFalse
+}
+
 @implicitNotFound(ContextOf.MissingError.msg)
 final class ContextOf[T <: DFDesign](val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val db: DFDesign.DB.Mutable) extends DFMember.Context {
   lazy val owner : DFBlock = ownerInjector.get
@@ -327,9 +331,20 @@ object DFDesign {
           case class Outside(block : DFDesign.Block.Internal) extends Scope
         }
       }
-      final case class Add(db : DB, config : Add.Config) extends Patch
+      final case class Add private (db : DB, config : Add.Config) extends Patch
       object Add {
-        def apply(design : DFDesign, config : Add.Config) : Add = Add(design.db, config)
+        def apply(design : DFDesign, config : Add.Config, lateConstruction : Boolean = false) : Add = {
+          val designDB = design.db
+          import designDB.getset
+          val patchList = designDB.members.flatMap{
+            case _ : DFDesign.Block.Top => None
+            case m if (m.hasLateConstruction != lateConstruction) =>
+              Some(m -> Patch.Replace(m.setLateContruction(lateConstruction), Patch.Replace.Config.FullReplacement))
+            case _ => None
+          }
+          Add(designDB, config) //.patch(patchList)
+        }
+
         sealed trait Config extends Product with Serializable
         object Config {
           //adds members before the patched member

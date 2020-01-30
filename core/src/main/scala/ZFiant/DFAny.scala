@@ -592,7 +592,7 @@ object DFAny {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
       import ctx.db.getset
-      if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally)) (in, dfVar)
+      if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally || in.isConnectingInternally)) (in, dfVar)
       //Connecting a an input port to a variable internally
       else if ((in isSameOwnerDesignAs dfVar) && (in.isConnectingInternally)) (dfVar, in)
       else throwConnectionError("Unsupported connection")
@@ -602,7 +602,7 @@ object DFAny {
       //Connecting a value to an output port internally
       if ((dfVar isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVar)
       //Connecting a an output port to a variable externally
-      else if ((out isOneLevelBelow dfVar) && (out.isConnectingExternally)) (dfVar, out)
+      else if ((out isOneLevelBelow dfVar) && (out.isConnectingExternally || out.isConnectingInternally)) (dfVar, out)
       else throwConnectionError("Unsupported connection")
     }
     private def connectValWithPortIn(dfVal : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
