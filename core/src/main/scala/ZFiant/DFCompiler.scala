@@ -382,9 +382,18 @@ object DFCompiler {
     def viaPortConnection : DFDesign.DB = {
       val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect{case d : DFDesign.Block.Internal => d}
       val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
-        val ports : List[DFAny] = designDB.ownerMemberTable(ib).collect {
-          case p : DFAny.Port.Out[_,_] => p
-          case p : DFAny.Port.In[_,_] => p
+        //getting only ports that are not already connected to variables
+        val ports : List[DFAny] = designDB.ownerMemberTable(ib).flatMap {
+          case p : DFAny.Port.Out[_,_] =>
+            val conns = designDB.getConnectionFrom(p)
+            if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None
+            else Some(p)
+          case p : DFAny.Port.In[_,_] =>
+            designDB.getConnectionTo(p) match {
+              case Some(x : DFAny.NewVar[_,_]) => None
+              case _ => Some(p)
+            }
+          case _ => None
         }
         trait PatchDesign extends DFDesign {
           val refPatches : List[(DFMember, Patch)]

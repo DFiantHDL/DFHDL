@@ -101,6 +101,9 @@ object DFDesign {
     lazy val connectionTable : Map[DFAny, DFAny] =
       members.collect{case n : DFNet.Connection => (n.toRef.get, n.fromRef.get)}.toMap
 
+    lazy val connectionTableInverted : Map[DFAny, Set[DFAny]] =
+      connectionTable.invert
+
     //we reserve the order of assignments within the list
     lazy val assignmentsTable : Map[DFAny, List[DFAny]] =
       members.reverse.foldLeft(Map.empty[DFAny, List[DFAny]]){
@@ -121,6 +124,8 @@ object DFDesign {
 //      }
 
     def getConnectionTo(v : DFAny) : Option[DFAny] = connectionTable.get(v)
+    def getConnectionFrom(v : DFAny) : Set[DFAny] = connectionTableInverted.getOrElse(v, Set())
+
     def getAssignmentsTo(v : DFAny) : List[DFAny] = assignmentsTable.getOrElse(v, List())
 
     def getAliasesTo(v : DFAny) : Option[DFAny] =
