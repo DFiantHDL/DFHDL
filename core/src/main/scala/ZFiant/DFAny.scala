@@ -83,6 +83,9 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
+    final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : AsType[DFBool.Type] =
+      DFAny.Alias.BitsWL.bit(this, relBit.unsafeCheck(width))
+
     final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
       DFAny.Alias.BitsWL(this, dfType.width, 0)
         .overrideCodeString(implicit getset => s"$refCodeString.bits()")
@@ -387,22 +390,30 @@ object DFAny {
         ret
       }
     }
-    final case class BitsWL[W, L, RelVal <: DFAny, Mod <: Modifier](
-      modifier : Mod, relValRef : RelValRef[RelVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Token[W]]
-    ) extends Alias[DFBits.Type[W], RelVal, Mod]{
+    final case class BitsWL[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
+      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], relWidth : Int, relBitLow : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+    ) extends Alias[Type, RelVal, Mod]{
       type TMod = Mod
-      val dfType : TType = DFBits.Type(relWidth)
       def constFunc(t : DFAny.Token) : DFAny.Token = t.bitsWL(relWidth, relBitLow)
-      def codeString(implicit getset : MemberGetSet) : String =
-        s"${relValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
-      def setTags(tags : DFAny.Tags[DFBits.Token[W]])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def codeString(implicit getset : MemberGetSet) : String = dfType match {
+        case _ : DFBits.Type[_] => s"${relValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
+        case _ : DFBool.Type => s"${relValRef.refCodeString}.bit($relBitLow)"
+      }
+      def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object BitsWL {
       def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
         implicit ctx: Context
-      ): BitsWL[W, L, RelVal, refVal.TMod] = {
-        implicit lazy val ret : BitsWL[W, L, RelVal, refVal.TMod] with DFMember.RefOwner =
-          ctx.db.addMember(BitsWL[W, L, RelVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
+      ): BitsWL[DFBits.Type[W], RelVal, refVal.TMod] = {
+        implicit lazy val ret : BitsWL[DFBits.Type[W], RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(BitsWL[DFBits.Type[W], RelVal, refVal.TMod](DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+      def bit[I, RelVal <: DFAny](refVal: RelVal, relBit: TwoFace.Int[I])(
+        implicit ctx: Context
+      ): BitsWL[DFBool.Type, RelVal, refVal.TMod] = {
+        implicit lazy val ret : BitsWL[DFBool.Type, RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(BitsWL[DFBool.Type, RelVal, refVal.TMod](DFBool.Type(), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
         ret
       }
     }

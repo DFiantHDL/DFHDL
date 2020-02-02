@@ -173,7 +173,7 @@ object DFCompiler {
       value match {
         case DFAny.Alias.AsIs(_,_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
         case DFAny.Alias.Invert(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
-        case DFAny.Alias.BitsWL(_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
+        case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
         case x if x.modifier.isInstanceOf[DFAny.Modifier.Assignable] =>
           val scope = assignMap(value)
           if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet
@@ -188,7 +188,7 @@ object DFCompiler {
       value match {
         case DFAny.Alias.AsIs(_,_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
         case DFAny.Alias.Invert(_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
-        case DFAny.Alias.BitsWL(_,rv,rw,rbl,_,_) => assignTo(rv.get, relWidth, rbl + relBitLow, assignMap)
+        case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => assignTo(rv.get, relWidth, rbl + relBitLow, assignMap)
         case x => assignMap.assignTo(x, access)
       }
     }

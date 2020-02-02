@@ -97,12 +97,12 @@ object DFBits extends DFAny.Companion {
       val outBubble = isBubble
       DFUInt.Token(outWidth, outValueUInt, outBubble)
     }
-    //    def toSInt : DFSInt.Token = {
-    //      val outWidth = this.width
-    //      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
-    //      val outBubble = isBubble
-    //      new DFSInt.Token(outWidth, outValueSInt, outBubble)
-    //    }
+    def toSInt : DFSInt.Token[W] = {
+      val outWidth = this.width
+      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
+      val outBubble = isBubble
+      new DFSInt.Token(outWidth, outValueSInt, outBubble)
+    }
     def codeString : String = value.codeString
   }
   object Token {
