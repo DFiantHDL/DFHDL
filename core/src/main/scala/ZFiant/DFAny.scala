@@ -436,6 +436,28 @@ object DFAny {
         ret
       }
     }
+    final case class Resize[RelVal <: DFAny](
+      dfType : RelVal#TType, relValRef : RelValRef[RelVal], toWidth : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
+    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
+      type TMod = Modifier.Val
+      val modifier : TMod = Modifier.Val
+      def constFunc(t : DFAny.Token) : DFAny.Token = t match {
+        case b : DFBits.Token[_] => b.resize(toWidth)
+        case u : DFUInt.Token[_] => u.resize(toWidth)
+        case s : DFSInt.Token[_] => s.resize(toWidth)
+      }
+      def codeString(implicit getset : MemberGetSet) : String =
+        s"${relValRef.refCodeString}.resize($toWidth)"
+      def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+    }
+    object Resize {
+      def apply[RelVal <: DFAny](refVal: RelVal, toWidth: Int)(
+        implicit ctx: Context
+      ): Resize[RelVal] = {
+        implicit lazy val ret : Resize[RelVal] with DFMember.RefOwner = ctx.db.addMember(Resize[RelVal](refVal.dfType, refVal, toWidth, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+    }
     final case class Invert[RelVal <: DFAny](
       dfType : RelVal#TType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
     ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {

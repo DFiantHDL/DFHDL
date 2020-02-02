@@ -245,19 +245,21 @@ object DFSInt extends DFAny.Companion {
         final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFSInt[LW], true, R]) = op(left, right)
         final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFSInt[LW], true, R]) = op(left, right)
       }
-      implicit class DFSIntOps[LW](val left : DFSInt[LW]){
-        final def maxValue : BigInt = BigInt(2) << (left.width - 1) - 1
-        final def sign(implicit ctx : DFAny.Context) : DFBool = left.asInstanceOf[DFSInt[Int]].bit(left.width-1)
-        final def unary_- (implicit op: `Op-`.Builder[0, false, DFSInt[LW]]) = op(0, left)
-        final def +   [R](right : Able[R])(implicit op: `Op+`.Builder[DFSInt[LW], false, R]) = op(left, right)
-        final def -   [R](right : Able[R])(implicit op: `Op-`.Builder[DFSInt[LW], false, R]) = op(left, right)
-        final def <   [R](right : Able[R])(implicit op: `Op<`.Builder[DFSInt[LW], R]) = op(left, right)
-        final def >   [R](right : Able[R])(implicit op: `Op>`.Builder[DFSInt[LW], R]) = op(left, right)
-        final def <=  [R](right : Able[R])(implicit op: `Op<=`.Builder[DFSInt[LW], R]) = op(left, right)
-        final def >=  [R](right : Able[R])(implicit op: `Op>=`.Builder[DFSInt[LW], R]) = op(left, right)
-        final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFSInt[LW], R]) = op(left, right)
-        final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFSInt[LW], R]) = op(left, right)
-        final def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
+      final implicit class DFSIntOps[LW](val left : DFSInt[LW]){
+        def maxValue : BigInt = BigInt(2) << (left.width - 1) - 1
+        def sign(implicit ctx : DFAny.Context) : DFBool = left.asInstanceOf[DFSInt[Int]].bit(left.width-1)
+        def unary_- (implicit op: `Op-`.Builder[0, false, DFSInt[LW]]) = op(0, left)
+        def +   [R](right : Able[R])(implicit op: `Op+`.Builder[DFSInt[LW], false, R]) = op(left, right)
+        def -   [R](right : Able[R])(implicit op: `Op-`.Builder[DFSInt[LW], false, R]) = op(left, right)
+        def <   [R](right : Able[R])(implicit op: `Op<`.Builder[DFSInt[LW], R]) = op(left, right)
+        def >   [R](right : Able[R])(implicit op: `Op>`.Builder[DFSInt[LW], R]) = op(left, right)
+        def <=  [R](right : Able[R])(implicit op: `Op<=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def >=  [R](right : Able[R])(implicit op: `Op>=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFSInt[LW], R]) = op(left, right)
+        def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def resize[RW](toWidth : SIntWidth.Checked[RW])(implicit ctx : DFAny.Context) =
+          DFAny.Alias.Resize(left, toWidth)
+        def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
       }
     }
     object Able extends Implicits
