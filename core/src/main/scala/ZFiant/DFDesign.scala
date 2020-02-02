@@ -132,8 +132,8 @@ object DFDesign {
 
     def getAssignmentsTo(v : DFAny) : List[DFAny] = assignmentsTable.getOrElse(v, List())
 
-    def getAliasesTo(v : DFAny) : Option[DFAny] =
-      members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}
+//    def getAliasesTo(v : DFAny) : Option[DFAny] =
+//      members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}
 
     //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
     @tailrec private def OMLGen(

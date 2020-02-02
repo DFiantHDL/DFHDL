@@ -10,7 +10,7 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   protected def atOwnerDo(block : => Unit) : Unit = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
 }
 
-case class Rising(bool : DFBool)(
+final case class Rising(bool : DFBool)(
   implicit ctx : ContextOf[Rising]
 ) extends DFInlineComponent[DFBool.Type](DFBool.Type()) {
   private val boolIn = DFBool() <> IN
