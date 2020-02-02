@@ -57,20 +57,20 @@ object DFBits extends DFAny.Companion {
       val outBubbleMask = this.bubbleMask ++ that.bubbleMask
       Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W + RW]], outBubbleMask.asInstanceOf[XBitVector[W + RW]])
     }
-//    def << [RW](that : DFUInt.Token[RW]) : Token[W] = {
-//      val shift = that.value.toInt
-//      val outWidth = this.width
-//      val outBitsValue = this.valueBits << shift
-//      val outBubbleMask = this.bubbleMask << shift
-//      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
-//    }
-//    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = {
-//      val shift = that.value.toInt
-//      val outWidth = this.width
-//      val outBitsValue = this.valueBits >>> shift
-//      val outBubbleMask = this.bubbleMask >>> shift
-//      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
-//    }
+    def << [RW](that : DFUInt.Token[RW]) : Token[W] = {
+      val shift = that.value.toInt
+      val outWidth = this.width
+      val outBitsValue = this.valueBits << shift
+      val outBubbleMask = this.bubbleMask << shift
+      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+    }
+    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = {
+      val shift = that.value.toInt
+      val outWidth = this.width
+      val outBitsValue = this.valueBits >>> shift
+      val outBubbleMask = this.bubbleMask >>> shift
+      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+    }
     def unary_~ : Token[W] = {
       val outWidth = this.width
       val outBitsValue = ~this.valueBits
@@ -88,7 +88,6 @@ object DFBits extends DFAny.Companion {
       else if (toWidth > width) (Token(toWidth - width, 0) ## this).asInstanceOf[Token[RW]]
       else this.asInstanceOf[Token[RW]]
     }
-    def shift[RW](dir : DFAny.Alias.Shift.Direction, count : DFUInt.Token[RW]) : Token[W] = ???
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
 

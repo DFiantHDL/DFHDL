@@ -38,7 +38,7 @@ object DFSInt extends DFAny.Companion {
   final case class Token[W](width : TwoFace.Int[W], value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, W] { //with DFAny.Token.Resizable
     lazy val valueBits : XBitVector[W] = value.toBitVector(width)
     lazy val bubbleMask: XBitVector[W] = bubble.toBitVector(width)
-    def mkTokenS[RW, OW](that : Token[RW], result : BigInt, resultWidth : TwoFace.Int[OW]) : Token[OW] = {
+    def mkTokenS[T <: DFAny.Token, OW](that : T, result : BigInt, resultWidth : TwoFace.Int[OW]) : Token[OW] = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result)
     }
@@ -58,7 +58,8 @@ object DFSInt extends DFAny.Companion {
     def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
-    def shift[RW](dir : DFAny.Alias.Shift.Direction, count : DFUInt.Token[RW]) : Token[W] = ???
+    def << [RW](that : DFUInt.Token[RW]) : Token[W] = mkTokenS(that, this.value << that.value.toInt, this.width)
+    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = mkTokenS(that, this.value >> that.value.toInt, this.width)
     def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = {
       if (toWidth > width) Token(toWidth, value, bubble)
       else if (toWidth < width) bits.resize(toWidth).toSInt
