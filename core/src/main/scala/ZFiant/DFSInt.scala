@@ -58,6 +58,7 @@ object DFSInt extends DFAny.Companion {
     def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def shift[RW](dir : DFAny.Alias.Shift.Direction, count : DFUInt.Token[RW]) : Token[W] = ???
     def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = {
       if (toWidth > width) Token(toWidth, value, bubble)
       else if (toWidth < width) bits.resize(toWidth).toSInt

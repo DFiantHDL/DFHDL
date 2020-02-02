@@ -88,6 +88,7 @@ object DFBits extends DFAny.Companion {
       else if (toWidth > width) (Token(toWidth - width, 0) ## this).asInstanceOf[Token[RW]]
       else this.asInstanceOf[Token[RW]]
     }
+    def shift[RW](dir : DFAny.Alias.Shift.Direction, count : DFUInt.Token[RW]) : Token[W] = ???
     def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
     def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
 
