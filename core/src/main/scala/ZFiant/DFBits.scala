@@ -27,6 +27,9 @@ object DFBits extends DFAny.Companion {
     def codeString(implicit getset : MemberGetSet) : String = s"DFBits($width)"
   }
   def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
+  def apply[W](
+    implicit ctx : DFAny.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
+  ) = DFAny.NewVar(Type(checkedWidth))
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
@@ -248,7 +251,12 @@ object DFBits extends DFAny.Companion {
         def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
+//        def <<  [R](right : DFUInt.Op.Able[R])(implicit op: )
         def uint(implicit ctx : DFAny.Context) = left.as(DFUInt.Type(left.width))
+        def sint(implicit ctx : DFAny.Context) = left.as(DFSInt.Type(left.width))
+        def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
+          implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
+        ) = left.bits(relBitHigh, relBitLow)
         def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) =
           DFAny.Alias.Resize(left, toWidth)

@@ -50,8 +50,9 @@ object DiSoOp {
   sealed trait |  extends DiSoOp
   sealed trait &  extends DiSoOp
   sealed trait ^  extends DiSoOp
-  sealed trait << extends DiSoOp
-  sealed trait >> extends DiSoOp
+  sealed trait Shift extends DiSoOp
+  sealed trait << extends Shift
+  sealed trait >> extends Shift
   sealed trait || extends DiSoOp
   sealed trait && extends DiSoOp
   implicit case object +  extends +

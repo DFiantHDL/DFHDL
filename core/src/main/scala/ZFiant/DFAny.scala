@@ -18,7 +18,7 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   final protected val left : this.type = this
   protected type AsVal = DFAny.Value[TType, DFAny.Modifier.Val]
   protected type AsVar = DFAny.VarOf[TType]
-  protected type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
+  protected[ZFiant] type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
   def codeString(implicit getset : MemberGetSet) : String
   def refCodeString(implicit callOwner : DFBlock, getset : MemberGetSet) : String =
