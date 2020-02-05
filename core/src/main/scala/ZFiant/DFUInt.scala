@@ -210,12 +210,12 @@ object DFUInt extends DFAny.Companion {
         }
       }
     }
-    trait PosOnly[Sym, N] {
+    trait NatOnly[Sym, N] {
       type W
       def apply(value : N) : DFUInt[W]
     }
-    object PosOnly {
-      type Aux[Sym, N, W0] = PosOnly[Sym, N]{type W = W0}
+    object NatOnly {
+      type Aux[Sym, N, W0] = NatOnly[Sym, N]{type W = W0}
       object `N >= 0` extends `N >= 0` {
         type MsgCommon[N] = "Operation or assignment do not permit a negative number. Found literal: " + ToString[N]
       }
@@ -224,7 +224,7 @@ object DFUInt extends DFAny.Companion {
         ctx : DFAny.Context,
         checkPos : `N >= 0`.Int.CheckedShellSym[Sym, N],
         w : BitsWidthOf.Int[N]
-      ) : Aux[Sym, N, w.Out] = new PosOnly[Sym, N] {
+      ) : Aux[Sym, N, w.Out] = new NatOnly[Sym, N] {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
           checkPos.unsafeCheck(value)
@@ -237,7 +237,7 @@ object DFUInt extends DFAny.Companion {
         ctx : DFAny.Context,
         checkPos : `N >= 0`.Long.CheckedShellSym[Sym, N],
         w : BitsWidthOf.Long[N]
-      ) : Aux[Sym, N, w.Out] = new PosOnly[Sym, N] {
+      ) : Aux[Sym, N, w.Out] = new NatOnly[Sym, N] {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
           checkPos.unsafeCheck(value)
@@ -246,7 +246,7 @@ object DFUInt extends DFAny.Companion {
         }
       }
       implicit def fromBigInt[Sym, N <: BigInt](implicit ctx : DFAny.Context)
-      : Aux[Sym, N, Int] = new PosOnly[Sym, N] {
+      : Aux[Sym, N, Int] = new NatOnly[Sym, N] {
         type W = Int
         def apply(value : N) : DFUInt[W] = {
           `N >= 0`.BigInt.unsafeCheck(value)
@@ -302,6 +302,8 @@ object DFUInt extends DFAny.Companion {
         def >=  [R](right : Able[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFUInt[LW], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFUInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) =
           DFAny.Alias.Resize(left, toWidth)
         def extendable : DFUInt[LW] with Extendable = left.asInstanceOf[DFUInt[LW] with Extendable]
@@ -340,7 +342,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.PosOnly.Aux[Builder[_,_], R, RW],
+        rConst : Const.NatOnly.Aux[Builder[_,_], R, RW],
         checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
       ) : Builder[Type[LW], R] = (left, rightNum) => {
         val right = rConst(rightNum)
@@ -394,7 +396,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.PosOnly.Aux[ErrorSym, R, RW],
+        rConst : Const.NatOnly.Aux[ErrorSym, R, RW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
       ) : Builder[DFUInt[LW], R] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
@@ -405,7 +407,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evConst_op_DFUInt[L, LW, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        lConst : Const.PosOnly.Aux[ErrorSym, L, LW],
+        lConst : Const.NatOnly.Aux[ErrorSym, L, LW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
       ) : Builder[L, DFUInt[RW]] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
@@ -514,7 +516,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        lConst : Const.PosOnly.Aux[Builder[_,_,_], L, LW],
+        lConst : Const.NatOnly.Aux[Builder[_,_,_], L, LW],
         detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => {
         (op, lConst(leftNum), right)
@@ -523,6 +525,18 @@ object DFUInt extends DFAny.Companion {
   }
   object `Op+`  extends `Ops+Or-`(DiSoOp.+)
   object `Op-`  extends `Ops+Or-`(DiSoOp.-)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Shift operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op<<` extends OpsShift[Type](DiSoOp.<<) {
+    def tokenFunc[LW, RW](left: DFUInt.Token[LW], right: DFUInt.Token[RW]) : DFUInt.Token[LW] = left << right
+  }
+  object `Op>>` extends OpsShift[Type](DiSoOp.>>) {
+    def tokenFunc[LW, RW](left: DFUInt.Token[LW], right: DFUInt.Token[RW]) : DFUInt.Token[LW] = left >> right
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

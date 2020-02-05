@@ -128,6 +128,7 @@ object ZTest extends App {
   trait Trying extends DFDesign {
     val i = DFBits(8) <> IN
     val o = DFBits(8) <> OUT
+
     ifdf(i === b0s) {
       o.bits(3,0) := b0s
       o.bits(7,4) := b0s

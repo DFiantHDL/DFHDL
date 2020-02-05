@@ -259,6 +259,8 @@ object DFSInt extends DFAny.Companion {
         def >=  [R](right : Able[R])(implicit op: `Op>=`.Builder[DFSInt[LW], R]) = op(left, right)
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFSInt[LW], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFSInt[LW], R]) = op(left, right)
+        def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFSInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : SIntWidth.Checked[RW])(implicit ctx : DFAny.Context) =
           DFAny.Alias.Resize(left, toWidth)
         def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
@@ -481,5 +483,16 @@ object DFSInt extends DFAny.Companion {
   object `Op-`  extends `Ops+Or-`(DiSoOp.-)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Shift operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op<<` extends OpsShift[Type](DiSoOp.<<) {
+    def tokenFunc[LW, RW](left: DFSInt.Token[LW], right: DFUInt.Token[RW]) : DFSInt.Token[LW] = left << right
+  }
+  object `Op>>` extends OpsShift[Type](DiSoOp.>>) {
+    def tokenFunc[LW, RW](left: DFSInt.Token[LW], right: DFUInt.Token[RW]) : DFSInt.Token[LW] = left >> right
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }
