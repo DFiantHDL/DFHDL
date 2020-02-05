@@ -262,7 +262,7 @@ object DFSInt extends DFAny.Companion {
         def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFSInt[LW], R]) = op(left, right)
         def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFSInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : SIntWidth.Checked[RW])(implicit ctx : DFAny.Context) =
-          DFAny.Alias.Resize(left, toWidth)
+          DFAny.Alias.Resize.sint(left, toWidth)
         def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
       }
     }

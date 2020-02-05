@@ -305,7 +305,7 @@ object DFUInt extends DFAny.Companion {
         def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFUInt[LW], R]) = op(left, right)
         def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFUInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) =
-          DFAny.Alias.Resize(left, toWidth)
+          DFAny.Alias.Resize.uint(left, toWidth)
         def extendable : DFUInt[LW] with Extendable = left.asInstanceOf[DFUInt[LW] with Extendable]
       }
     }

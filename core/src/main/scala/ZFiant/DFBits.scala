@@ -251,8 +251,8 @@ object DFBits extends DFAny.Companion {
         def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
-        def uint(implicit ctx : DFAny.Context) = left.as(DFUInt.Type(left.width))
-        def sint(implicit ctx : DFAny.Context) = left.as(DFSInt.Type(left.width))
+        def uint()(implicit ctx : DFAny.Context) = left.as(DFUInt.Type(left.width))
+        def sint()(implicit ctx : DFAny.Context) = left.as(DFSInt.Type(left.width))
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
         ) = left.bits(relBitHigh, relBitLow)
@@ -260,7 +260,7 @@ object DFBits extends DFAny.Companion {
         def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
         def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) =
-          DFAny.Alias.Resize(left, toWidth)
+          DFAny.Alias.Resize.bits(left, toWidth)
       }
     }
     object Able extends Implicits

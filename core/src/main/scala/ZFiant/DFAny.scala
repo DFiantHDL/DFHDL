@@ -436,11 +436,12 @@ object DFAny {
         ret
       }
     }
-    final case class Resize[RelVal <: DFAny](
-      dfType : RelVal#TType, relValRef : RelValRef[RelVal], toWidth : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
-    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
+    final case class Resize[RelVal <: DFAny, ResizedType <: DFAny.Type](
+      dfType : ResizedType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[ResizedType#TToken]
+    ) extends Alias[ResizedType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
+      private val toWidth : Int = dfType.width
       def constFunc(t : DFAny.Token) : DFAny.Token = t match {
         case b : DFBits.Token[_] => b.resize(toWidth)
         case u : DFUInt.Token[_] => u.resize(toWidth)
@@ -448,13 +449,28 @@ object DFAny {
       }
       def codeString(implicit getset : MemberGetSet) : String =
         s"${relValRef.refCodeString}.resize($toWidth)"
-      def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags[ResizedType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Resize {
-      def apply[RelVal <: DFAny](refVal: RelVal, toWidth: Int)(
+      def bits[LW, RW](refVal: DFBits[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
-      ): Resize[RelVal] = {
-        implicit lazy val ret : Resize[RelVal] with DFMember.RefOwner = ctx.db.addMember(Resize[RelVal](refVal.dfType, refVal, toWidth, ctx.owner, ctx.meta)).asRefOwner
+      ): Resize[DFBits[LW], DFBits.Type[RW]] = {
+        implicit lazy val ret : Resize[DFBits[LW], DFBits.Type[RW]] with DFMember.RefOwner =
+          ctx.db.addMember(Resize[DFBits[LW], DFBits.Type[RW]](DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+      def uint[LW, RW](refVal: DFUInt[LW], toWidth: TwoFace.Int[RW])(
+        implicit ctx: Context
+      ): Resize[DFUInt[LW], DFUInt.Type[RW]] = {
+        implicit lazy val ret : Resize[DFUInt[LW], DFUInt.Type[RW]] with DFMember.RefOwner =
+          ctx.db.addMember(Resize[DFUInt[LW], DFUInt.Type[RW]](DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+      def sint[LW, RW](refVal: DFSInt[LW], toWidth: TwoFace.Int[RW])(
+        implicit ctx: Context
+      ): Resize[DFSInt[LW], DFSInt.Type[RW]] = {
+        implicit lazy val ret : Resize[DFSInt[LW], DFSInt.Type[RW]] with DFMember.RefOwner =
+          ctx.db.addMember(Resize[DFSInt[LW], DFSInt.Type[RW]](DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret
       }
     }
