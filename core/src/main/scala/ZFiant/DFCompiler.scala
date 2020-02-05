@@ -31,6 +31,23 @@ object Compilable {
   implicit val fromDFDesign : Compilable[DFDesign] = t => t.db
 }
 
+object Print {
+  trait Context {
+    val callOwner : DFBlock
+    val getset : MemberGetSet
+  }
+  object Context {
+    implicit def evContext(implicit ctx : DFMember.Context) : Context = new Context {
+      override val callOwner: DFBlock = ctx.owner
+      override val getset: MemberGetSet = ctx.db.getset
+    }
+    implicit def ev(implicit co : DFBlock, gs : MemberGetSet, lp : shapeless.LowPriority) : Context = new Context {
+      override val callOwner: DFBlock = co
+      override val getset: MemberGetSet = gs
+    }
+  }
+}
+
 object DFCompiler {
   val delim : String = "  "
   implicit class Discovery(designDB : DFDesign.DB) {
@@ -43,7 +60,7 @@ object DFCompiler {
     private val designDB = comp(c)
     import designDB.getset
     def fixAnonymous : DFDesign.DB = {
-      val anonymizeList = designDB.ownerMemberList.flatMap {
+      val anonymizeList = designDB.designMemberList.flatMap {
         case (block, members) =>
           members.filterNot(m => m.isAnonymous).groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
           //In case an anonymous member got a name from its owner. For example:
@@ -543,11 +560,11 @@ object DFCompiler {
               case None => "//init = Unknown"
             }
           }
-          val cs = a.tags.codeStringOverride match {
-            case Some(f) => f(fixedDB.getset)
-            case None => a.codeString
-          }
-          Some(s"final val ${a.name} = $cs$initInfo")
+//          val cs = a.tags.codeStringOverride match {
+//            case Some(f) => f(a.codeString)
+//            case None => a.codeString
+//          }
+          Some(s"final val ${a.name} = ${a.codeString}$initInfo")
         case _ => None
       }
       membersCodeString.mkString("\n")

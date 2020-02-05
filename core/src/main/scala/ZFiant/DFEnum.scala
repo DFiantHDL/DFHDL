@@ -43,7 +43,7 @@ object DFEnum extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
       Token[E](enumType, enumType.entries(fromToken.valueBits.toBigInt).asInstanceOf[E#Entry])
     override def toString: String = s"DFEnum[$enumType]"
-    def codeString(implicit getset : MemberGetSet) : String = s"DFEnum($enumType)"
+    def codeString : String = s"DFEnum($enumType)"
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

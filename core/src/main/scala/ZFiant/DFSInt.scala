@@ -21,7 +21,7 @@ object DFSInt extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken.toSInt
     override def toString: String = s"DFSInt[$width]"
-    def codeString(implicit getset : MemberGetSet) : String = s"DFSInt($width)"
+    def codeString : String = s"DFSInt($width)"
   }
   trait Extendable
 

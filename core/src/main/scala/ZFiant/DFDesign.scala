@@ -170,6 +170,35 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
 
+    //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
+    @tailrec private def DMLGen(
+      oml : List[(DFDesign.Block, List[DFMember])], globalMembers : List[DFMember], localStack : List[(DFDesign.Block, List[DFMember])]
+    ) : List[(DFDesign.Block, List[DFMember])] = {
+      val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
+      globalMembers match {
+        case m :: mList if m.getOwnerDesign == localOwner => //current member indeed belongs to current owner
+          val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
+          m match {
+            case o : DFDesign.Block => //Deep borrowing into block as the new owner
+              val updatedStack2 = (o -> List()) :: updatedStack1
+              DMLGen(oml, mList, updatedStack2)
+            case _ => //Just a member
+              DMLGen(oml, mList, updatedStack1)
+          }
+        case x :: xs => //current member does not belong to current owner
+          val updatedOML = (localOwner -> localMembers.reverse) :: oml
+          DMLGen(updatedOML, globalMembers, updatedStack0)
+        case Nil if updatedStack0.nonEmpty =>
+          val updatedOML = (localOwner -> localMembers.reverse) :: oml
+          DMLGen(updatedOML, globalMembers, updatedStack0)
+        case Nil =>
+          (localOwner -> localMembers.reverse) :: oml
+      }
+    }
+    //holds the topological order of design block dependency
+    lazy val designMemberList : List[(DFDesign.Block, List[DFMember])] =
+      DMLGen(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
+
     private implicit class RefTableOps(rt : Map[DFMember.Ref, DFMember]) {
       def replaceMember(origMember : DFMember, repMember : DFMember, scope : DB.Patch.Replace.Scope) : Map[DFMember.Ref, DFMember] =
         memberTable.get(origMember) match {
