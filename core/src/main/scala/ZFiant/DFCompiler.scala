@@ -543,7 +543,11 @@ object DFCompiler {
               case None => "//init = Unknown"
             }
           }
-          Some(s"final val ${a.name} = ${a.codeString}$initInfo")
+          val cs = a.tags.codeStringOverride match {
+            case Some(f) => f(fixedDB.getset)
+            case None => a.codeString
+          }
+          Some(s"final val ${a.name} = $cs$initInfo")
         case _ => None
       }
       membersCodeString.mkString("\n")

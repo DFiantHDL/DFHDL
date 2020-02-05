@@ -88,7 +88,7 @@ object DFAny {
 
     final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
       DFAny.Alias.BitsWL(this, dfType.width, 0)
-        .overrideCodeString(implicit getset => s"$refCodeString.bits()")
+        .overrideCodeString(implicit getset => s"$refCodeString.bits")
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context

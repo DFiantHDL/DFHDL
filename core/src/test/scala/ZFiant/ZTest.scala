@@ -144,7 +144,7 @@ object ZTest extends App {
   import DFCompiler._
   val trying = new Trying {}
 
-  trying.printCodeString().explicitPrev.printCodeString()
+//  trying.printCodeString().explicitPrev.printCodeString()
 
 //  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
 //  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
@@ -193,7 +193,7 @@ object ZTest extends App {
     private val shamt = op2(4, 0).uint
 
     private val outCalc = DFBits[32].matchdf(aluSel)
-      .casedf(ALUSel.ADD){(op1u + op2u).bits & h"12345678"}
+      .casedf(ALUSel.ADD){(op1u + op2u).bits}
       .casedf(ALUSel.SUB){(op1u - op2u).bits}
       .casedf(ALUSel.AND){op1 & op2}
       .casedf(ALUSel.OR){op1 | op2}
@@ -217,6 +217,10 @@ object ZTest extends App {
 //      this.aluOut
 //    }
   }
+
+  val alu = new ALU {}
+  alu.printCodeString()
+
 
 }
 
