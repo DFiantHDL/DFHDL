@@ -31,22 +31,6 @@ object Compilable {
   implicit val fromDFDesign : Compilable[DFDesign] = t => t.db
 }
 
-object Print {
-  trait Context {
-    val callOwner : DFBlock
-    val getset : MemberGetSet
-  }
-  object Context {
-    implicit def evContext(implicit ctx : DFMember.Context) : Context = new Context {
-      override val callOwner: DFBlock = ctx.owner
-      override val getset: MemberGetSet = ctx.db.getset
-    }
-    implicit def ev(implicit co : DFBlock, gs : MemberGetSet, lp : shapeless.LowPriority) : Context = new Context {
-      override val callOwner: DFBlock = co
-      override val getset: MemberGetSet = gs
-    }
-  }
-}
 
 object DFCompiler {
   val delim : String = "  "
@@ -528,17 +512,13 @@ object DFCompiler {
     }
   }
 
-  sealed trait PrintConfig
-  object PrintConfig {
-    implicit case object Default extends PrintConfig
-    case object ShowInits extends PrintConfig
-  }
-  final implicit class CodeString[C](c : C)(implicit comp : Compilable[C]) {
+
+  final implicit class CodeStringPrinter[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
     private val fixedDB = designDB.fixAnonymous
     import fixedDB.getset
 
-    def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : PrintConfig) : String = {
+    def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : CodeString.Config) : String = {
       val membersCodeString = members.flatMap {
         case m if m.hasLateConstruction != lateConstruction => None
         case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
@@ -554,22 +534,18 @@ object DFCompiler {
         }
         case a : DFAny if !a.isAnonymous =>
           val initInfo = printConfig match {
-            case PrintConfig.Default => ""
-            case PrintConfig.ShowInits => a.tags.init match {
+            case CodeString.Config.Default => ""
+            case CodeString.Config.ShowInits => a.tags.init match {
               case Some(init) => s"//init = ${init.codeString}"
               case None => "//init = Unknown"
             }
           }
-//          val cs = a.tags.codeStringOverride match {
-//            case Some(f) => f(a.codeString)
-//            case None => a.codeString
-//          }
           Some(s"final val ${a.name} = ${a.codeString}$initInfo")
         case _ => None
       }
       membersCodeString.mkString("\n")
     }
-    def codeString(implicit printConfig : PrintConfig) : String = {
+    def codeString(implicit printConfig : CodeString.Config) : String = {
       val bodyDB = new DSLOwnerConstruct.DB[DFBlock, String]{
         override def ownerToString(ownerTypeName: String, ownerBody: String): String =
           s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(delim)}\n}"
@@ -582,7 +558,7 @@ object DFCompiler {
       }
       bodyDB.dbString
     }
-    def printCodeString()(implicit printConfig : PrintConfig) : DFDesign.DB = {
+    def printCodeString()(implicit printConfig : CodeString.Config) : DFDesign.DB = {
       println(codeString)
       fixedDB
     }
