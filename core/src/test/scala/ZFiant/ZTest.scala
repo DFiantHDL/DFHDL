@@ -186,14 +186,14 @@ object ZTest extends App {
     private val aluOut  = DFBits[32]      <> OUT
 
     //helper casted values
-    private val op1u = op1.uint()
-    private val op2u = op2.uint()
-    private val op1s = op1.sint()
-    private val op2s = op2.sint()
-    private val shamt = op2(4, 0).uint()
+    private val op1u = op1.uint
+    private val op2u = op2.uint
+    private val op1s = op1.sint
+    private val op2s = op2.sint
+    private val shamt = op2(4, 0).uint
 
     private val outCalc = DFBits[32].matchdf(aluSel)
-      .casedf(ALUSel.ADD){(op1u + op2u).bits}
+      .casedf(ALUSel.ADD){(op1u + op2u).bits & h"12345678"}
       .casedf(ALUSel.SUB){(op1u - op2u).bits}
       .casedf(ALUSel.AND){op1 & op2}
       .casedf(ALUSel.OR){op1 | op2}
