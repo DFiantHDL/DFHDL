@@ -27,6 +27,8 @@ package object ZFiant {
   type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
   type DFEnum[E <: Enum] = DFAny.Of[DFEnum.Type[E]]
 
+  implicit def evCodeString[C : Compilable](c : C) : CodeString[C] = new CodeString[C](c)
+
   ////////////////////////////////////////////////////////////////////////////////////
   // A Dataflow Bubble
   ////////////////////////////////////////////////////////////////////////////////////
