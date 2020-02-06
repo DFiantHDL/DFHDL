@@ -1,6 +1,6 @@
-package ZFiant.backend.vhdl.adt
+package ZFiant.compiler.backend.vhdl.adt
 
-import ZFiant.backend.utils._
+import ZFiant.compiler.backend.utils._
 final case class Architecture(name : Name, entityName : Name, declarations : List[Declaration], statements : List[Statement]) {
   override def toString: String =
     s"""architecture $name of $entityName is

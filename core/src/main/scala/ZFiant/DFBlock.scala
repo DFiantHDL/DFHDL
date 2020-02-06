@@ -2,6 +2,7 @@ package ZFiant
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
+import compiler.printer.CodeString
 
 trait DFBlock extends DFMember {
   ///////////////////////////////////////////////////////////////////

@@ -1,6 +1,6 @@
 package ZFiant
 import DFiant.internals.Meta
-
+import compiler.printer.CodeString
 import scala.annotation.tailrec
 
 trait HasTypeName {

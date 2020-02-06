@@ -1,6 +1,6 @@
-package ZFiant.backend.vhdl.adt
+package ZFiant.compiler.backend.vhdl.adt
 
-import ZFiant.backend.utils._
+import ZFiant.compiler.backend.utils._
 
 final case class If(cond : Value, statements : List[Statement], closing : If.Closing) extends Statement {
   cond.rtType match {

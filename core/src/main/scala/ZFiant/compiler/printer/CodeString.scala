@@ -1,7 +1,8 @@
 package ZFiant
+package compiler
+package printer
 
 import DFiant.internals._
-import DFCompiler.Utils
 
 final class CodeString[C](c : C)(implicit comp : Compilable[C]) {
   private val designDB = comp(c)

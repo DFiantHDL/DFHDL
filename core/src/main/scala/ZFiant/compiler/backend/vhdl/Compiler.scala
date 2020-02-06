@@ -1,7 +1,7 @@
-package ZFiant.backend.vhdl
+package ZFiant.compiler.backend.vhdl
 
 import ZFiant._
-import ZFiant.backend.utils._
+import ZFiant.compiler.backend.utils._
 
 class Compiler(design : DFDesign) {
   private implicit def getVHDLType(from : DFAny) : adt.Value.Type = from.dfType match {

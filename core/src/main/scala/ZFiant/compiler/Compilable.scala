@@ -1,26 +1,7 @@
-/*
- *     This file is part of DFiant.
- *
- *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the Lesser GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     any later version.
- *
- *     DFiant is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     Lesser GNU General Public License for more details.
- *
- *     You should have received a copy of the Lesser GNU General Public License
- *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package ZFiant
-import DFiant.internals._
-import DFDesign.DB.Patch
 
-import collection.immutable
-import scala.annotation.tailrec
+package compiler
+import DFiant.internals._
 
 trait Compilable[-T] {
   def apply(t : T) : DFDesign.DB
@@ -32,6 +13,11 @@ object Compilable {
 }
 
 
+import DFDesign.DB.Patch
+
+import collection.immutable
+import scala.annotation.tailrec
+
 object DFCompiler {
   implicit class Discovery(designDB : DFDesign.DB) {
     def discovery : DFDesign.DB = {
@@ -39,85 +25,7 @@ object DFCompiler {
     }
   }
 
-  implicit class Utils[C](c : C)(implicit comp : Compilable[C]) {
-    private val designDB = comp(c)
-    import designDB.getset
-    def fixAnonymous : DFDesign.DB = {
-      val anonymizeList = designDB.designMemberList.flatMap {
-        case (block, members) =>
-          members.filterNot(m => m.isAnonymous).groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
-          //In case an anonymous member got a name from its owner. For example:
-          //val ret = DFBits(8).ifdf(cond) {
-          //  i & i
-          //}
-          //The `i & i` function would also get the `ret` name just as the if block itself
-          case ((pos, _), gm) if (pos == block.tags.meta.namePosition) => gm
-          case (_, gm) if (gm.length > 1) =>
-            //In case an anonymous member was used as an argument to an owner. For example:
-            //val ret = DFBits(8).ifdf(i & i) {
-            //}
-            //The `i & i` function would also get the `ret` name just as the if block itself
-            if (gm.collectFirst{case x : DFBlock => x}.isDefined) gm.collect {case a : DFAny.CanBeAnonymous => a}
-            //In case an anonymous member inside a composition, we anonymize all but the last. For example:
-            //val ret = i & i | i
-            //Only the final 'Or' operation would be considered for the name `ret`
-            else gm.dropRight(1)
-          case _ => List()
-        }
-      }
-      designDB.patch(anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement)))
-    }
-    def uniqueNames : DFDesign.DB = ???
-    @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
-      remaining match {
-        case (block : DFBlock) :: mList =>
-          val members = designDB.ownerMemberTable(block)
-          val sortedMembers = block match {
-            case _ : DFDesign.Block =>
-              val split = members.partition {
-                case _ : CanBeGuarded => false
-                case _ => true
-              }
-              split._1 ++ split._2
-            case _ => members
-          }
-          mcf(sortedMembers ++ mList, block :: retList)
-        case m :: mList => mcf(mList, m :: retList)
-        case Nil => retList.reverse
-      }
-    def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
-  }
 
-  protected final case class AssignedScope(latest : immutable.BitSet, branchHistory : Option[immutable.BitSet], parentScopeOption : Option[AssignedScope]) {
-    @tailrec private def getLatest(latest : immutable.BitSet, parentScopeOption : Option[AssignedScope]) : immutable.BitSet =
-      parentScopeOption match {
-        case Some(s) => getLatest(latest | s.latest, s.parentScopeOption)
-        case None => latest
-      }
-    def getLatest : immutable.BitSet = getLatest(latest, parentScopeOption)
-    def isConsumingPrevAt(consumeBitSet : immutable.BitSet) : Boolean = (consumeBitSet &~ getLatest).nonEmpty
-    def assign(assignBitSet : immutable.BitSet) : AssignedScope = copy(latest | assignBitSet)
-    def branchEntry(firstBranch : Boolean) : AssignedScope = {
-      val parentScope = if (firstBranch) this.copy(branchHistory = Some(getLatest)) else this
-      AssignedScope(immutable.BitSet(), None, Some(this))
-    }
-    def branchExit(lastBranch : Boolean, exhaustive : Boolean) : AssignedScope = parentScopeOption match {
-      case Some(parentScope) =>
-        val updatedHistory = parentScope.branchHistory match {
-          case Some(h) => latest & h
-          case None => latest
-        }
-        if (lastBranch) {
-          if (exhaustive) AssignedScope(parentScope.latest | updatedHistory, None, parentScope.parentScopeOption)
-          else AssignedScope(parentScope.latest, None, parentScope.parentScopeOption)
-        } else
-          AssignedScope(parentScope.latest, Some(updatedHistory), parentScope.parentScopeOption)
-      case None => this
-    }
-  }
-  protected object AssignedScope {
-    val empty : AssignedScope = AssignedScope(immutable.BitSet(), None, None)
-  }
 
   implicit class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
     private val designDB = comp(c)
@@ -209,11 +117,11 @@ object DFCompiler {
         case (nextBlock : DFBlock) :: rs if nextBlock.ownerRef.get == currentBlock => //entering child block
           val updatedScopeMap = nextBlock match {
             case cb : ConditionalBlock =>
-//              println(s"entering $cb", cb.isFirstCB)
-//              val ret =
+              //              println(s"entering $cb", cb.isFirstCB)
+              //              val ret =
               scopeMap.branchEntry(cb.isFirstCB)
-//              println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
-//              ret
+            //              println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
+            //              ret
             case _ => scopeMap
           }
           getImplicitPrevVars(rs, nextBlock, updatedScopeMap, currentSet)
@@ -248,11 +156,11 @@ object DFCompiler {
           if (exitingBlock) {
             val updatedScopeMap = currentBlock match {
               case cb : ConditionalBlock =>
-//                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
-//                val ret =
+                //                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
+                //                val ret =
                 scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
-//                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
-//                ret
+              //                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
+              //                ret
               case _ => scopeMap
             }
             getImplicitPrevVars(remaining, currentBlock.getOwner, updatedScopeMap, currentSet)
@@ -271,7 +179,7 @@ object DFCompiler {
         DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
       }, Patch.Add.Config.After))
 
-//      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
+      //      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
       designDB.patch(patchList)
     }
   }
@@ -326,9 +234,9 @@ object DFCompiler {
     private val designDB = comp(c)
     import designDB.getset
     def connectionCheck : DFDesign.DB = {
-//      designDB.members.collect {
-//
-//      }
+      //      designDB.members.collect {
+      //
+      //      }
       ???
     }
   }
@@ -469,18 +377,18 @@ object DFCompiler {
           case rv@DFAny.NewVar(_,DFAny.Modifier.MatchRetVar, _, _) =>
             calcInit(mList, calc + (m -> Seq()), requestedCalc)
           case rv@DFAny.NewVar(_,DFAny.Modifier.IfRetVar, _, _) =>
-//            val members = designDB.ownerMemberTable(rv.getOwner)
-//            val cbs = members.collect{case m : ConditionalBlock.WithRetVal[_] if m.retVarRef.get == rv => m}
-//            val ifConds : List[Either[(DFBool, DFAny), DFAny]] = cbs.collect {
-//              case b : ConditionalBlock.IfBlock => Left(b.condRef.get, getRetVal(b))
-//              case b : ConditionalBlock.ElseIfBlock => Left(b.condRef.get, getRetVal(b))
-//              case b : ConditionalBlock.ElseBlock => Right(getRetVal(b))
-//            }
-//            DFBool.Token.select()
-//            val ifInits : List[Either[(Option[Seq[DFBool.Token]], Option[Seq[DFAny.Token]]), Option[Seq[DFAny.Token]]]] = ifConds.map {
-//              case Left((cond, retVal)) => Left(getInit(cond), getInit(retVal))
-//              case Right(retVal) => Right(getInit(retVal))
-//            }
+            //            val members = designDB.ownerMemberTable(rv.getOwner)
+            //            val cbs = members.collect{case m : ConditionalBlock.WithRetVal[_] if m.retVarRef.get == rv => m}
+            //            val ifConds : List[Either[(DFBool, DFAny), DFAny]] = cbs.collect {
+            //              case b : ConditionalBlock.IfBlock => Left(b.condRef.get, getRetVal(b))
+            //              case b : ConditionalBlock.ElseIfBlock => Left(b.condRef.get, getRetVal(b))
+            //              case b : ConditionalBlock.ElseBlock => Right(getRetVal(b))
+            //            }
+            //            DFBool.Token.select()
+            //            val ifInits : List[Either[(Option[Seq[DFBool.Token]], Option[Seq[DFAny.Token]]), Option[Seq[DFAny.Token]]]] = ifConds.map {
+            //              case Left((cond, retVal)) => Left(getInit(cond), getInit(retVal))
+            //              case Right(retVal) => Right(getInit(retVal))
+            //            }
             calcInit(mList, calc + (m -> Seq()), requestedCalc)
           case v : DFAny.Value[_,_] => v.modifier match { //Handles NewVar, Port.In, Port.Out
             //external init has priority over connection init

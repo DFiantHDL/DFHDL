@@ -16,6 +16,8 @@
  */
 
 import DFiant.internals._
+import ZFiant.compiler.Compilable
+import ZFiant.compiler.printer.CodeString
 
 import scala.language.experimental.macros
 import singleton.ops._

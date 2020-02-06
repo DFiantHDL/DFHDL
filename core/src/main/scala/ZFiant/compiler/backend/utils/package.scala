@@ -1,4 +1,4 @@
-package ZFiant.backend
+package ZFiant.compiler.backend
 
 import collection.mutable
 

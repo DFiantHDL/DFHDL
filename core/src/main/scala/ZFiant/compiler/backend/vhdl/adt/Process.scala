@@ -1,6 +1,6 @@
-package ZFiant.backend.vhdl.adt
+package ZFiant.compiler.backend.vhdl.adt
 
-import ZFiant.backend.utils._
+import ZFiant.compiler.backend.utils._
 
 final case class Process(sensitivity : Process.Sensitivity, variables : List[Value.Dcl[Value.Dcl.Modifier.Port]], statements : List[Statement]) extends Statement {
   override def toString: String =

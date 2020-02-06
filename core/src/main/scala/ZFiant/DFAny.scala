@@ -5,6 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
+import compiler.printer.CodeString
 
 sealed trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
