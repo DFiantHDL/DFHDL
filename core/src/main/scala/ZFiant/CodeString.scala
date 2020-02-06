@@ -8,7 +8,7 @@ final class CodeString[C](c : C)(implicit comp : Compilable[C]) {
   private val fixedDB = designDB.fixAnonymous
   import fixedDB.getset
 
-  def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : CodeString.Config) : String = {
+  private def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : CodeString.Config) : String = {
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)

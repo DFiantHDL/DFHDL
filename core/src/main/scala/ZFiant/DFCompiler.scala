@@ -360,21 +360,23 @@ object DFCompiler {
 
     Will become:
     trait IDTop extends DFDesign {
-      val x = DFUInt(8) <> IN
-      val y = DFUInt(8) <> OUT
-      val id1 = new ID {}
-      val id1_i = DFUInt(8)
-      val id1_o = DFUInt(8)
-      id1.i <> id1_i
-      id1_o <> id1.o
-      val id2 = new ID {}
-      val id2_i = DFUInt(8)
-      val id2_o = DFUInt(8)
-      id2.i <> id2_i
-      id2_o <> id2.o
+      final val x = DFUInt(8) <> IN
+      final val y = DFUInt(8) <> OUT
+      final val id1_i = DFUInt(8)
+      final val id1_o = DFUInt(8)
+      final val id1 = new ID {
+        i <> id1_i
+        id1_o <> o
+      }
+      final val id2_i = DFUInt(8)
+      final val id2_o = DFUInt(8)
+      final val id2 = new ID {
+        i <> id2_i
+        id2_o <> o
+      }
       id1_i <> x
-      id1_o <> id2_i
-      id2_o <> y
+      id2_i <> id1_o
+      y <> id2_o
     }
   */
   implicit class ViaPortConnection[C](c : C)(implicit comp : Compilable[C]) {
@@ -391,7 +393,8 @@ object DFCompiler {
           case p : DFAny.Port.In[_,_] =>
             import designDB.getset
             designDB.getConnectionTo(p) match {
-              case Some(x : DFAny.NewVar[_,_]) => None
+              case Some(_ : DFAny.NewVar[_,_]) => None
+              case Some(_ : DFAny.Port.In[_,_]) => Some(p)
               case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
               case _ => Some(p)
             }
