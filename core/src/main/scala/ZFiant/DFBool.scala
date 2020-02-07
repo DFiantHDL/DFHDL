@@ -3,6 +3,7 @@ package ZFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
+import DFAny.Func2
 
 object DFBool extends DFAny.Companion {
   final case class Type() extends DFAny.Type {
@@ -245,7 +246,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class BoolOps[Op <: DiSoOp](op : Op)(func : (Token, Token) => DFBool.Token) {
+  protected abstract class BoolOps[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
@@ -282,13 +283,13 @@ object DFBool extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends BoolOps(DiSoOp.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=` extends BoolOps(DiSoOp.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends BoolOps(DiSoOp.==)((l, r) => l == r) {type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends BoolOps(DiSoOp.!=)((l, r) => l != r) {type ErrorSym = Builder[_,_]}
-  object `Op||` extends BoolOps(DiSoOp.||)((l, r) => l || r){type ErrorSym = Builder[_,_]}
-  object `Op&&` extends BoolOps(DiSoOp.&&)((l, r) => l && r){type ErrorSym = Builder[_,_]}
-  object `Op^` extends BoolOps(DiSoOp.^)((l, r) => l ^ r){type ErrorSym = Builder[_,_]}
+  object `Op==` extends BoolOps(Func2.Op.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends BoolOps(Func2.Op.==)((l, r) => l == r) {type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r) {type ErrorSym = Builder[_,_]}
+  object `Op||` extends BoolOps(Func2.Op.||)((l, r) => l || r){type ErrorSym = Builder[_,_]}
+  object `Op&&` extends BoolOps(Func2.Op.&&)((l, r) => l && r){type ErrorSym = Builder[_,_]}
+  object `Op^` extends BoolOps(Func2.Op.^)((l, r) => l ^ r){type ErrorSym = Builder[_,_]}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

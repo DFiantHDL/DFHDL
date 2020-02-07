@@ -4,7 +4,7 @@ import DFiant.internals._
 import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
 
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with Implicits {
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with DFDesign.Implicits {
   private[ZFiant] lazy val inlinedRep : Option[MemberGetSet => String] = None
   final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
@@ -56,6 +56,14 @@ object ContextOf {
 }
 object DFDesign {
   protected[ZFiant] type Context = DFBlock.Context
+
+  trait Implicits extends
+    DFBits.Op.Implicits with
+    DFUInt.Op.Implicits with
+    DFSInt.Op.Implicits with
+    DFEnum.Op.Implicits with
+    DFBool.Op.Implicits
+
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getset

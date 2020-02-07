@@ -3,11 +3,11 @@ package ZFiant
 import DFiant.internals._
 import singleton.twoface._
 import singleton.ops._
-
+import DFAny.Func2
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Shift operations
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : DiSoOp.Shift) {
+protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : Func2.Op.Shift) {
   def tokenFunc[LW, RW](left : T[LW]#TToken, right : DFUInt.Token[RW]) : T[LW]#TToken
 
   @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")

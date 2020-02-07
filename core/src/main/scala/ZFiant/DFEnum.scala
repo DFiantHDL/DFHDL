@@ -22,7 +22,8 @@ import singleton.twoface._
 import DFiant.internals._
 
 import scala.collection.mutable
-
+import DFAny.Func2
+import DFAny.Func2
 
 object DFEnum extends DFAny.Companion {
   final case class Type[E <: Enum](enumType : E) extends DFAny.Type {
@@ -175,7 +176,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: DiSoOp](op : Op) {
+  protected abstract class OpsCompare[Op <: Func2.Op](op : Op) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
@@ -185,8 +186,8 @@ object DFEnum extends DFAny.Companion {
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
         val func : (left.TToken, right.TToken) => DFBool.Token = op match {
-          case _ : DiSoOp.== => _ == _
-          case _ : DiSoOp.!= => _ != _
+          case _ : Func2.Op.== => _ == _
+          case _ : Func2.Op.!= => _ != _
         }
         DFAny.Func2(DFBool.Type(), left, op, right)(func)
       }
@@ -203,10 +204,10 @@ object DFEnum extends DFAny.Companion {
         (DFAny.Const[Type[E]](Type(right.dfType.enumType), Token[E](right.dfType.enumType, leftEntry)), right))
     }
   }
-  object `Op==` extends OpsCompare(DiSoOp.==) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=` extends OpsCompare(DiSoOp.!=) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(DiSoOp.==){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(DiSoOp.!=){type ErrorSym = Builder[_,_]}
+  object `Op==` extends OpsCompare(Func2.Op.==) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op!=` extends OpsCompare(Func2.Op.!=) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends OpsCompare(Func2.Op.==){type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends OpsCompare(Func2.Op.!=){type ErrorSym = Builder[_,_]}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

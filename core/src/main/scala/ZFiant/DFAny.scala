@@ -549,7 +549,7 @@ object DFAny {
     val modifier : TMod = Modifier.Val
   }
 
-  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](
     dfType: Type, leftArgRef : Func2.Ref.LeftArg[L], op : Op, rightArgRef : Func2.Ref.RightArg[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
   )(func0 : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     val func : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func0(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
@@ -574,7 +574,66 @@ object DFAny {
       }
     }
 
-    def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+    sealed trait Op
+    //Dual Input, Single Output Operation
+    object Op {
+      sealed trait Negateable extends Op {
+        def negate : Negateable
+      }
+      sealed trait +  extends Negateable {
+        def negate : - = -
+      }
+      sealed trait -  extends Negateable {
+        def negate : + = +
+      }
+      sealed trait *  extends Op
+      sealed trait +^  extends Negateable {
+        def negate : -^ = -^
+      }
+      sealed trait -^  extends Negateable {
+        def negate : +^ = +^
+      }
+      sealed trait *^  extends Op
+      sealed trait == extends Op {
+        override def toString: String = "==="
+      }
+      sealed trait != extends Op {
+        override def toString: String = "=!="
+      }
+      sealed trait <  extends Op
+      sealed trait >  extends Op
+      sealed trait <= extends Op
+      sealed trait >= extends Op
+      sealed trait |  extends Op
+      sealed trait &  extends Op
+      sealed trait ^  extends Op
+      sealed trait Shift extends Op
+      sealed trait << extends Shift
+      sealed trait >> extends Shift
+      sealed trait || extends Op
+      sealed trait && extends Op
+      implicit case object +  extends +
+      implicit case object -  extends -
+      implicit case object *  extends *
+      implicit case object +^  extends +^
+      implicit case object -^  extends -^
+      implicit case object *^  extends *^
+      implicit case object == extends ==
+      implicit case object != extends !=
+      implicit case object <  extends <
+      implicit case object >  extends >
+      implicit case object <= extends <=
+      implicit case object >= extends >=
+      implicit case object |  extends |
+      implicit case object &  extends &
+      implicit case object ^  extends ^
+      implicit case object << extends <<
+      implicit case object >> extends >>
+      implicit case object || extends ||
+      implicit case object && extends &&
+    }
+
+    def apply[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
     : Func2[Type, L, Op, R] = {

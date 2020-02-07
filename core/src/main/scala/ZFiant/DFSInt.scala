@@ -3,6 +3,7 @@ package ZFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
+import DFAny.Func2
 
 object DFSInt extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
@@ -316,7 +317,7 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
+  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
@@ -373,21 +374,21 @@ object DFSInt extends DFAny.Companion {
       })
     }
   }
-  object `Op==`  extends OpsCompare(DiSoOp.==)(_ == _) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=`  extends OpsCompare(DiSoOp.!=)(_ != _) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(DiSoOp.==)(_ == _){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(DiSoOp.!=)(_ != _){type ErrorSym = Builder[_,_]}
-  object `Op<`   extends OpsCompare(DiSoOp.< )(_ <  _){type ErrorSym = Builder[_,_]}
-  object `Op>`   extends OpsCompare(DiSoOp.> )(_ >  _){type ErrorSym = Builder[_,_]}
-  object `Op<=`  extends OpsCompare(DiSoOp.<=)(_ <= _){type ErrorSym = Builder[_,_]}
-  object `Op>=`  extends OpsCompare(DiSoOp.>=)(_ >= _){type ErrorSym = Builder[_,_]}
+  object `Op==`  extends OpsCompare(Func2.Op.==)(_ == _) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op!=`  extends OpsCompare(Func2.Op.!=)(_ != _) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends OpsCompare(Func2.Op.==)(_ == _){type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)(_ != _){type ErrorSym = Builder[_,_]}
+  object `Op<`   extends OpsCompare(Func2.Op.< )(_ <  _){type ErrorSym = Builder[_,_]}
+  object `Op>`   extends OpsCompare(Func2.Op.> )(_ >  _){type ErrorSym = Builder[_,_]}
+  object `Op<=`  extends OpsCompare(Func2.Op.<=)(_ <= _){type ErrorSym = Builder[_,_]}
+  object `Op>=`  extends OpsCompare(Func2.Op.>=)(_ >= _){type ErrorSym = Builder[_,_]}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // +/- operation
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class `Ops+Or-`[Op <: DiSoOp.Negateable](op : Op) {
+  protected abstract class `Ops+Or-`[Op <: Func2.Op.Negateable](op : Op) {
     //NCW = No-carry width
     //WCW = With-carry width
 //    final class Component[NCW, WCW](_wc : DFFunc2[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Context) extends
@@ -444,8 +445,8 @@ object DFSInt extends DFAny.Companion {
                   val opWidth = ncW(left.width, right.width)
                   val out = Type(opWidth)
                   val func : (left.TToken, right.TToken) => out.TToken = op match {
-                    case _ : DiSoOp.+ => _ + _
-                    case _ : DiSoOp.- => _ - _
+                    case _ : Func2.Op.+ => _ + _
+                    case _ : Func2.Op.- => _ - _
                     case _ => ???
                   }
                   DFAny.Func2(out, left, op, right)(func)
@@ -479,18 +480,18 @@ object DFSInt extends DFAny.Companion {
       })
     }
   }
-  object `Op+`  extends `Ops+Or-`(DiSoOp.+)
-  object `Op-`  extends `Ops+Or-`(DiSoOp.-)
+  object `Op+`  extends `Ops+Or-`(Func2.Op.+)
+  object `Op-`  extends `Ops+Or-`(Func2.Op.-)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Shift operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<<` extends OpsShift[Type](DiSoOp.<<) {
+  object `Op<<` extends OpsShift[Type](Func2.Op.<<) {
     def tokenFunc[LW, RW](left: DFSInt.Token[LW], right: DFUInt.Token[RW]) : DFSInt.Token[LW] = left << right
   }
-  object `Op>>` extends OpsShift[Type](DiSoOp.>>) {
+  object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
     def tokenFunc[LW, RW](left: DFSInt.Token[LW], right: DFUInt.Token[RW]) : DFSInt.Token[LW] = left >> right
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

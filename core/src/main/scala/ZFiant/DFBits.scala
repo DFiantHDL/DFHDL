@@ -3,7 +3,7 @@ package ZFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
-
+import DFAny.Func2
 object b0s extends DFBits.SameBitsVector(false)
 object b1s extends DFBits.SameBitsVector(true)
 
@@ -341,7 +341,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: DiSoOp](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
+  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
     type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
@@ -410,29 +410,18 @@ object DFBits extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends OpsCompare(DiSoOp.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(DiSoOp.==)((l, r) => l == r){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(DiSoOp.!=)((l, r) => l != r){type ErrorSym = Builder[_,_]}
+  object `Op==` extends OpsCompare(Func2.Op.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
+  object `Op===` extends OpsCompare(Func2.Op.==)((l, r) => l == r){type ErrorSym = Builder[_,_]}
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r){type ErrorSym = Builder[_,_]}
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Logic operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected trait LogicOp[-Op <: DiSoOp] {
-    def apply[LW, RW](left : Token[LW], right : Token[RW]) : Token[LW]
-  }
-  protected val `TokenOp|` : LogicOp[DiSoOp.|] = new LogicOp[DiSoOp.|] {
-    def apply[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left | right
-  }
-  protected val `TokenOp&` : LogicOp[DiSoOp.&] = new LogicOp[DiSoOp.&] {
-    def apply[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left & right
-  }
-  protected val `TokenOp^` : LogicOp[DiSoOp.^] = new LogicOp[DiSoOp.^] {
-    def apply[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left ^ right
-  }
-  protected abstract class OpsLogic[Op <: DiSoOp](op : Op)(tokenOp : LogicOp[Op]) {
+  protected abstract class OpsLogic[Op <: Func2.Op](op : Op) {
+    def tokenOp[LW, RW](left : Token[LW], right : Token[RW]) : Token[LW]
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -467,7 +456,7 @@ object DFBits extends DFAny.Companion {
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
-                  DFAny.Func2[Type[LW], DFBits[LW], Op, DFBits[RW]](Type[LW](left.width), left, op, right)((l, r) => tokenOp(l, r))
+                  DFAny.Func2[Type[LW], DFBits[LW], Op, DFBits[RW]](Type[LW](left.width), left, op, right)(tokenOp)
                 }
               }
           }
@@ -501,19 +490,25 @@ object DFBits extends DFAny.Companion {
       : Aux[SBV, DFBits[RW], DFBits[RW]] = ???
     }
   }
-  object `Op|` extends OpsLogic(DiSoOp.|)(`TokenOp|`)
-  object `Op&` extends OpsLogic(DiSoOp.&)(`TokenOp&`)
-  object `Op^` extends OpsLogic(DiSoOp.^)(`TokenOp^`)
+  object `Op|` extends OpsLogic(Func2.Op.|) {
+    def tokenOp[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left | right
+  }
+  object `Op&` extends OpsLogic(Func2.Op.&) {
+    def tokenOp[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left & right
+  }
+  object `Op^` extends OpsLogic(Func2.Op.^) {
+    def tokenOp[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left ^ right
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Shift operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<<` extends OpsShift[Type](DiSoOp.<<) {
+  object `Op<<` extends OpsShift[Type](Func2.Op.<<) {
     def tokenFunc[LW, RW](left: DFBits.Token[LW], right: DFUInt.Token[RW]) : DFBits.Token[LW] = left << right
   }
-  object `Op>>` extends OpsShift[Type](DiSoOp.>>) {
+  object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
     def tokenFunc[LW, RW](left: DFBits.Token[LW], right: DFUInt.Token[RW]) : DFBits.Token[LW] = left >> right
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
