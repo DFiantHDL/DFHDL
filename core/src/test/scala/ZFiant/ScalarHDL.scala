@@ -49,7 +49,7 @@ object SimpleHDLApp extends App {
     count.setMaxelerStreamIOPush
     hold_count.setMaxelerScalarIO
   }
-  import compiler.DFCompiler._
+  import compiler._
   val res= scalar_hdl.maxJNode
   res.db.explicitPrev.printCodeString()
   println(res.nodeMaxJString)

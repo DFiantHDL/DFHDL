@@ -45,7 +45,7 @@ trait ContainerConnLoop extends DFDesign {
 
 object IDTopApp extends App {
   val top = new IDTop {}
-  import compiler.DFCompiler._
+  import compiler._
   top.viaPortConnection.printCodeString() //.flatten(top.id1)
 
 }

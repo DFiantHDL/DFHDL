@@ -71,7 +71,7 @@ final case class MaxJNode(designDB : DFDesign.DB) {
 
   val db : DFDesign.DB = {
     import DFDesign.DB.Patch
-    import compiler.Utils
+    import compiler._
     val extendedPortsDB = designDB
       .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
       .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
