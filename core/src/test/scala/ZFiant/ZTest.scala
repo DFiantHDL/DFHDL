@@ -131,7 +131,7 @@ object ZTest extends App {
 
     ifdf(i === b0s) {
       o.bits(3,0) := b0s
-      o.bits(7,4) := b0s
+      o.bits(7,4) := b"11111"
       o.bits(3,0) := o.bits(7,4)
     }.elsedf {
       o := i
@@ -141,7 +141,6 @@ object ZTest extends App {
 
   val top = new BBB {}
 
-  import DFCompiler._
   val trying = new Trying {}
 
 //  trying.printCodeString().explicitPrev.printCodeString()
@@ -170,56 +169,6 @@ object ZTest extends App {
     val z = b == b1s
   }
 
-
-
-  implicit object ALUSel extends Enum.Manual(4) {
-    val ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
-    val DontCare = ADD
-  }
-  type ALUSel = ALUSel.type
-
-
-  trait ALU extends DFDesign {
-    private val op1     = DFBits[32]      <> IN
-    private val op2     = DFBits[32]      <> IN
-    private val aluSel  = DFEnum(ALUSel)  <> IN
-    private val aluOut  = DFBits[32]      <> OUT
-
-    //helper casted values
-    private val op1u = op1.uint
-    private val op2u = op2.uint
-    private val op1s = op1.sint
-    private val op2s = op2.sint
-    private val shamt = op2(4, 0).uint
-
-    private val outCalc = DFBits[32].matchdf(aluSel)
-      .casedf(ALUSel.ADD){(op1u + op2u).bits}
-      .casedf(ALUSel.SUB){(op1u - op2u).bits}
-      .casedf(ALUSel.AND){op1 & op2}
-      .casedf(ALUSel.OR){op1 | op2}
-      .casedf(ALUSel.XOR){op1 ^ op2}
-      .casedf(ALUSel.SLT){(op1s < op2s).bits.resize(32)}
-      .casedf(ALUSel.SLTU){(op1u < op2u).bits.resize(32)}
-      .casedf(ALUSel.SLL){op1 << shamt}
-      .casedf(ALUSel.SRL){op1 >> shamt}
-      .casedf(ALUSel.SRA){(op1s >> shamt).bits}
-      .casedf(ALUSel.COPY1){op1}
-      .casedf_{b0s}
-
-    aluOut <> outCalc
-
-//    def calcConn(op1 : DFBits[32], op2 : DFBits[32], aluSel : DFEnum[ALUSel])(
-//      implicit ctx : DFAny.Op.Context
-//    ) : DFBits[32] = {
-//      this.op1 <> op1
-//      this.op2 <> op2
-//      this.aluSel <> aluSel
-//      this.aluOut
-//    }
-  }
-
-  val alu = new ALU {}
-  alu.printCodeString()
 
 
 }
