@@ -82,7 +82,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
   }
   implicit class ScopeMap(sm : Map[DFAny, AssignedScope]) {
     def assignTo(toVal : DFAny, assignBitSet : immutable.BitSet) : Map[DFAny, AssignedScope] =
-      sm + (toVal -> sm(toVal).assign(assignBitSet))
+      sm + (toVal -> sm.getOrElse(toVal, AssignedScope.empty).assign(assignBitSet))
     def branchEntry(firstBranch : Boolean) : Map[DFAny, AssignedScope] =
       sm.view.mapValues(_.branchEntry(firstBranch)).toMap
     def branchExit(lastBranch : Boolean, exhaustive : Boolean) : Map[DFAny, AssignedScope] =

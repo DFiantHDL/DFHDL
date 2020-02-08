@@ -29,7 +29,7 @@ package object ZFiant {
   type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
   type DFEnum[E <: Enum] = DFAny.Of[DFEnum.Type[E]]
 
-  implicit def evCodeString[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  implicit def evPrinterOps[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : PrinterOps[D, S] = new PrinterOps[D, S](c)
 
   ////////////////////////////////////////////////////////////////////////////////////
