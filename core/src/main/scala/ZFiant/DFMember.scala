@@ -1,6 +1,6 @@
 package ZFiant
 import DFiant.internals.Meta
-import compiler.printer.CodeString
+import compiler.printer.Printer
 import scala.annotation.tailrec
 
 trait HasTypeName {
@@ -187,7 +187,7 @@ trait MemberGetSet {
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset
-  implicit def evGetSet(implicit ctx : CodeString.Context, lp : shapeless.LowPriority) : MemberGetSet = ctx.getset
+  implicit def evGetSet(implicit ctx : Printer.Context, lp : shapeless.LowPriority) : MemberGetSet = ctx.getset
 }
 
 trait CanBeGuarded extends DFMember

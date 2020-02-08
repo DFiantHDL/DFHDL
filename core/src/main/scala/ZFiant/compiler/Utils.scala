@@ -4,8 +4,8 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class Utils[C](c : C)(implicit comp : Compilable[C]) {
-  private val designDB = comp(c)
+final class UtilsOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+  private val designDB = c.db
   import designDB.getset
   def fixAnonymous : DFDesign.DB = {
     val anonymizeList = designDB.designMemberList.flatMap {
@@ -33,22 +33,6 @@ final class Utils[C](c : C)(implicit comp : Compilable[C]) {
     designDB.patch(anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement)))
   }
   def uniqueNames : DFDesign.DB = ???
-  @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
-    remaining match {
-      case (block : DFBlock) :: mList =>
-        val members = designDB.ownerMemberTable(block)
-        val sortedMembers = block match {
-          case _ : DFDesign.Block =>
-            val split = members.partition {
-              case _ : CanBeGuarded => false
-              case _ => true
-            }
-            split._1 ++ split._2
-          case _ => members
-        }
-        mcf(sortedMembers ++ mList, block :: retList)
-      case m :: mList => mcf(mList, m :: retList)
-      case Nil => retList.reverse
-    }
-  def moveConnectableFirst : DFDesign.DB = designDB.copy(members = mcf(List(designDB.top), List()))
 }
+
+trait Utils extends Compilable.Stage

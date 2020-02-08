@@ -51,6 +51,5 @@ object SimpleHDLApp extends App {
   }
   import compiler._
   val res= scalar_hdl.maxJNode
-  res.db.explicitPrev.printCodeString()
-  println(res.nodeMaxJString)
+  res.explicitPrev.printCodeString().printGenFiles()
 }

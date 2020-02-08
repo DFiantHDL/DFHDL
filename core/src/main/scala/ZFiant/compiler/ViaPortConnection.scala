@@ -49,46 +49,46 @@ For example:
     y <> id2_o
   }
 */
-final class ViaPortConnection[C](c : C)(implicit comp : Compilable[C]) {
-  private val designDB = comp(c)
-  def viaPortConnection : DFDesign.DB = {
-    val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect{case d : DFDesign.Block.Internal => d}
-    val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
-      //getting only ports that are not already connected to variables
-      val ports : List[DFAny] = designDB.ownerMemberTable(ib).flatMap {
-        case p : DFAny.Port.Out[_,_] =>
-          val conns = designDB.getConnectionFrom(p)
-          if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None
-          else Some(p)
-        case p : DFAny.Port.In[_,_] =>
-          import designDB.getset
-          designDB.getConnectionTo(p) match {
-            case Some(_ : DFAny.NewVar[_,_]) => None
-            case Some(_ : DFAny.Port.In[_,_]) => Some(p)
-            case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
-            case _ => Some(p)
-          }
-        case _ => None
-      }
-      val addVarsDsn = new MetaDesign() {
-        val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
-          p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
-        }
-      }
-      val connectDsn = new MetaDesign(true) {
-        val refPatches : List[(DFMember, Patch)] = addVarsDsn.portsToVars.map {case (p, v) =>
-          p match {
-            case _ : DFAny.Port.Out[_,_] => DFNet.Connection(v, p)
-            case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
-            case _ => ???
-          }
-          (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Outside(ib)))
-        }
-      }
-      (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
-        (ib -> Patch.Add(connectDsn, Patch.Add.Config.Inside)) :: connectDsn.refPatches
-    }
-    designDB.patch(patchList)
-  }
-}
+//final class ViaPortConnection[C](c : C)(implicit comp : Compilable[C]) {
+//  private val designDB = comp(c)
+//  def viaPortConnection : DFDesign.DB = {
+//    val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect{case d : DFDesign.Block.Internal => d}
+//    val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
+//      //getting only ports that are not already connected to variables
+//      val ports : List[DFAny] = designDB.ownerMemberTable(ib).flatMap {
+//        case p : DFAny.Port.Out[_,_] =>
+//          val conns = designDB.getConnectionFrom(p)
+//          if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None
+//          else Some(p)
+//        case p : DFAny.Port.In[_,_] =>
+//          import designDB.getset
+//          designDB.getConnectionTo(p) match {
+//            case Some(_ : DFAny.NewVar[_,_]) => None
+//            case Some(_ : DFAny.Port.In[_,_]) => Some(p)
+//            case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
+//            case _ => Some(p)
+//          }
+//        case _ => None
+//      }
+//      val addVarsDsn = new MetaDesign() {
+//        val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
+//          p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
+//        }
+//      }
+//      val connectDsn = new MetaDesign(true) {
+//        val refPatches : List[(DFMember, Patch)] = addVarsDsn.portsToVars.map {case (p, v) =>
+//          p match {
+//            case _ : DFAny.Port.Out[_,_] => DFNet.Connection(v, p)
+//            case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
+//            case _ => ???
+//          }
+//          (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Outside(ib)))
+//        }
+//      }
+//      (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
+//        (ib -> Patch.Add(connectDsn, Patch.Add.Config.Inside)) :: connectDsn.refPatches
+//    }
+//    designDB.patch(patchList)
+//  }
+//}
 

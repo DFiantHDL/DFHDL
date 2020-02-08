@@ -7,8 +7,8 @@ import DFDesign.DB.Patch
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-final class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
-  private val designDB = comp(c)
+final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+  private val designDB = c.db
   import designDB.getset
   implicit class ConditionalBlockExtension(cb : ConditionalBlock) {
     def isFirstCB : Boolean = cb match {
@@ -153,14 +153,15 @@ final class ExplicitPrev[C](c : C)(implicit comp : Compilable[C]) {
     }
   }
 
-  def explicitPrev : DFDesign.DB = {
+  def explicitPrev = {
     val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
     val patchList = explicitPrevSet.toList.map(e => e -> Patch.Add(new MetaDesign() {
       DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
     }, Patch.Add.Config.After))
 
     //      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
-    designDB.patch(patchList)
+    c.newStage[ExplicitPrev](designDB.patch(patchList), Seq())
   }
 }
 
+trait ExplicitPrev extends Compilable.Stage

@@ -21,7 +21,7 @@ class Compiler(design : DFDesign) {
       adt.Name(nameDB.getUniqueName(modifiedName))
     }
 
-  private val designDB = design.db
+  private val designDB = design.getDB
   implicit val nameDB : NameDB = new NameDB(reservedKeywords, false)
   private val members = designDB.ownerMemberTable(design.block)
 //  private val clkPort = ast.Clock()

@@ -96,7 +96,7 @@ object DFDesign {
   }
 
   implicit class DevAccess(design : DFDesign) {
-    def db : DB = design.__db.immutable
+    def getDB : DB = design.__db.immutable
   }
   final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember]) {
     lazy val top : Block.Top = members.head match {
@@ -331,6 +331,26 @@ object DFDesign {
       })
     }
 
+    @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
+      remaining match {
+        case (block : DFBlock) :: mList =>
+          val members = ownerMemberTable(block)
+          val sortedMembers = block match {
+            case _ : DFDesign.Block =>
+              val split = members.partition {
+                case _ : CanBeGuarded => false
+                case _ => true
+              }
+              split._1 ++ split._2
+            case _ => members
+          }
+          mcf(sortedMembers ++ mList, block :: retList)
+        case m :: mList => mcf(mList, m :: retList)
+        case Nil => retList.reverse
+      }
+    def moveConnectableFirst : DFDesign.DB = copy(members = mcf(List(top), List()))
+
+
     //for a given producer, we get a set of its consumers
     lazy val producerDependencyTable : Map[DFAny, Set[DFAny]] = {
       consumerDependencyTable.foldLeft(Map.empty[DFAny, Set[DFAny]]){case (dt, (consumer, producerSet)) =>
@@ -381,7 +401,7 @@ object DFDesign {
       }
       final case class Add private (db : DB, config : Add.Config) extends Patch
       object Add {
-        def apply(design : MetaDesign, config : Add.Config) : Add = Add(design.db, config)
+        def apply(design : MetaDesign, config : Add.Config) : Add = Add(design.getDB, config)
         sealed trait Config extends Product with Serializable
         object Config {
           //adds members before the patched member

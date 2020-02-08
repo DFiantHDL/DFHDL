@@ -17,7 +17,7 @@
 
 import DFiant.internals._
 import ZFiant.compiler.Compilable
-import ZFiant.compiler.printer.CodeString
+import ZFiant.compiler.printer.PrinterOps
 
 import scala.language.experimental.macros
 import singleton.ops._
@@ -29,7 +29,8 @@ package object ZFiant {
   type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
   type DFEnum[E <: Enum] = DFAny.Of[DFEnum.Type[E]]
 
-  implicit def evCodeString[C : Compilable](c : C) : CodeString[C] = new CodeString[C](c)
+  implicit def evCodeString[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : PrinterOps[D, S] = new PrinterOps[D, S](c)
 
   ////////////////////////////////////////////////////////////////////////////////////
   // A Dataflow Bubble

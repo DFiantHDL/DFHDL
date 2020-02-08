@@ -1,7 +1,9 @@
 package ZFiant.maxeler
 import ZFiant._
+import compiler.Compilable
 
-final case class MaxJNode(designDB : DFDesign.DB) {
+final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+  private val designDB = c.db
   private val topMembers = designDB.ownerMemberTable(designDB.top)
   private val topPorts : List[DFAny.PortOf[_ <: DFAny.Type]] = topMembers.collect{
     case p : DFAny.Port.In[_,_] => p
@@ -69,9 +71,9 @@ final case class MaxJNode(designDB : DFDesign.DB) {
     }
   }
 
-  val db : DFDesign.DB = {
+
+  private val db : DFDesign.DB = {
     import DFDesign.DB.Patch
-    import compiler._
     val extendedPortsDB = designDB
       .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
       .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
@@ -91,16 +93,15 @@ final case class MaxJNode(designDB : DFDesign.DB) {
   private val clkName : String = "clk"
   private val rstName : String = "rst"
 
-  val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
-  val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
-  val pushInStr : String = pushInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
-  val pushOutStr : String = pushOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
-  val scalarInStr : String = scalarInputs.map(p => s"""\n\t\taddScalarInput("${p.name}", ${p.width});""").mkString
-  val scalarOutStr : String = scalarOutputs.map(p => s"""\n\t\taddScalarOutput("${p.name}", ${p.width});""").mkString
+  private val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
+  private val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
+  private val pushInStr : String = pushInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
+  private val pushOutStr : String = pushOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
+  private val scalarInStr : String = scalarInputs.map(p => s"""\n\t\taddScalarInput("${p.name}", ${p.width});""").mkString
+  private val scalarOutStr : String = scalarOutputs.map(p => s"""\n\t\taddScalarOutput("${p.name}", ${p.width});""").mkString
 
-  val nodeMaxJString : String =
-    s"""
-       |package $packName;
+  private val nodeMaxJString : String =
+    s"""package $packName;
        |
        |import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
        |import com.maxeler.maxcompiler.v2.managers.custom.blocks.CustomHDLNode;
@@ -117,4 +118,10 @@ final case class MaxJNode(designDB : DFDesign.DB) {
        |	}
        |}
        |""".stripMargin
+
+  private val addedFile = Seq(Compilable.Cmd.GenFile(s"$className.maxj", nodeMaxJString))
+
+  def maxJNode = c.newStage[MaxJNode](db, addedFile)
 }
+
+trait MaxJNode extends Compilable.Stage

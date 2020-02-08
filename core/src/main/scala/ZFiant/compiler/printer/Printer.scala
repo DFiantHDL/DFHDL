@@ -4,20 +4,19 @@ package printer
 
 import DFiant.internals._
 
-final class CodeString[C](c : C)(implicit comp : Compilable[C]) {
-  private val designDB = comp(c)
-  private val fixedDB = designDB.fixAnonymous
+final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+  private val fixedDB = c.fixAnonymous
   import fixedDB.getset
 
-  private def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : CodeString.Config) : String = {
+  private def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
       case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb), lateConstruction)))
       case DFDesign.Block.Internal(_,_,Some(_)) => None
       case d : DFDesign.Block =>
-        val body = blockBodyCodeString(d, designDB.ownerMemberTable(d), lateConstruction = true)
-        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(CodeString.delim)}\n}"
+        val body = blockBodyCodeString(d, fixedDB.ownerMemberTable(d), lateConstruction = true)
+        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(Printer.delim)}\n}"
         Some(s"final val ${d.name} = new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.get.getOwner match {
         case DFDesign.Block.Internal(_,_,Some(_)) => None //ignoring inlined block connection
@@ -25,8 +24,8 @@ final class CodeString[C](c : C)(implicit comp : Compilable[C]) {
       }
       case a : DFAny if !a.isAnonymous =>
         val initInfo = printConfig match {
-          case CodeString.Config.Default => ""
-          case CodeString.Config.ShowInits => a.tags.init match {
+          case Printer.Config.Default => ""
+          case Printer.Config.ShowInits => a.tags.init match {
             case Some(init) => s"//init = ${init.codeString}"
             case None => "//init = Unknown"
           }
@@ -36,10 +35,10 @@ final class CodeString[C](c : C)(implicit comp : Compilable[C]) {
     }
     membersCodeString.mkString("\n")
   }
-  def codeString(implicit printConfig : CodeString.Config) : String = {
+  def codeString(implicit printConfig : Printer.Config) : String = {
     val bodyDB = new DSLOwnerConstruct.DB[DFBlock, String]{
       override def ownerToString(ownerTypeName: String, ownerBody: String): String =
-        s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(CodeString.delim)}\n}"
+        s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(Printer.delim)}\n}"
     }
     fixedDB.ownerMemberList.foreach {
       case (DFDesign.Block.Internal(_,_,Some(_)), _) =>
@@ -49,13 +48,25 @@ final class CodeString[C](c : C)(implicit comp : Compilable[C]) {
     }
     bodyDB.dbString
   }
-  def printCodeString()(implicit printConfig : CodeString.Config) : DFDesign.DB = {
+  def printCodeString()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
     println(codeString)
-    fixedDB
+    c
+  }
+  def printGenFiles()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
+    c.cmdSeq.foreach{
+      case Compilable.Cmd.GenFile(fileName, contents) => println(
+        s"""@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+           |@ Contents of $fileName
+           |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+           |$contents
+           |""".stripMargin
+      )
+    }
+    c
   }
 }
 
-object CodeString {
+object Printer {
   val delim : String = "  "
   trait Context {
     val callOwner : DFBlock

@@ -5,7 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
-import compiler.printer.CodeString
+import compiler.printer.Printer
 
 sealed trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
@@ -22,7 +22,7 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   protected[ZFiant] type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
   def codeString(implicit getset : MemberGetSet) : String
-  def refCodeString(implicit ctx : CodeString.Context) : String =
+  def refCodeString(implicit ctx : Printer.Context) : String =
     if (tags.meta.name.anonymous) codeString
     else getRelativeName(ctx.callOwner, ctx.getset)
 }
@@ -218,7 +218,7 @@ object DFAny {
     val modifier : TMod = Modifier.Constant(token)
 
     def codeString(implicit getset : MemberGetSet) : String = token.codeString
-    override def refCodeString(implicit ctx : CodeString.Context) : String = codeString
+    override def refCodeString(implicit ctx : Printer.Context) : String = codeString
     override def show(implicit getset : MemberGetSet) : String = s"Const($token) : $dfType"
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
@@ -270,7 +270,7 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
     ) extends Value[Type, Mod] {
       type TMod = Mod
-      override def refCodeString(implicit ctx : CodeString.Context): String = (ownerRef.get) match {
+      override def refCodeString(implicit ctx : Printer.Context): String = (ownerRef.get) match {
         case DFDesign.Block.Internal(_,_, Some(f)) => f(ctx.getset)
         case _ => super.refCodeString
       }
