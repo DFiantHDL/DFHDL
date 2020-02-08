@@ -211,21 +211,21 @@ object DFUInt extends DFAny.Companion {
         }
       }
     }
-    trait NatOnly[Sym, N] {
+    trait NatOnly[N] {
       type W
       def apply(value : N) : DFUInt[W]
     }
     object NatOnly {
-      type Aux[Sym, N, W0] = NatOnly[Sym, N]{type W = W0}
+      type Aux[N, W0] = NatOnly[N]{type W = W0}
       object `N >= 0` extends `N >= 0` {
         type MsgCommon[N] = "Operation or assignment do not permit a negative number. Found literal: " + ToString[N]
       }
-      implicit def fromInt[Sym, N <: Int](
+      implicit def fromInt[N <: Int](
         implicit
         ctx : DFAny.Context,
-        checkPos : `N >= 0`.Int.CheckedShellSym[Sym, N],
+        checkPos : `N >= 0`.Int.CheckedShell[N],
         w : BitsWidthOf.Int[N]
-      ) : Aux[Sym, N, w.Out] = new NatOnly[Sym, N] {
+      ) : Aux[N, w.Out] = new NatOnly[N] {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
           checkPos.unsafeCheck(value)
@@ -233,12 +233,12 @@ object DFUInt extends DFAny.Companion {
           DFAny.Const[Type[W]](Type(width), Token(width, value))
         }
       }
-      implicit def fromLong[Sym, N <: Long](
+      implicit def fromLong[N <: Long](
         implicit
         ctx : DFAny.Context,
-        checkPos : `N >= 0`.Long.CheckedShellSym[Sym, N],
+        checkPos : `N >= 0`.Long.CheckedShell[N],
         w : BitsWidthOf.Long[N]
-      ) : Aux[Sym, N, w.Out] = new NatOnly[Sym, N] {
+      ) : Aux[N, w.Out] = new NatOnly[N] {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
           checkPos.unsafeCheck(value)
@@ -246,8 +246,8 @@ object DFUInt extends DFAny.Companion {
           DFAny.Const[Type[W]](Type(width), Token(width, value))
         }
       }
-      implicit def fromBigInt[Sym, N <: BigInt](implicit ctx : DFAny.Context)
-      : Aux[Sym, N, Int] = new NatOnly[Sym, N] {
+      implicit def fromBigInt[N <: BigInt](implicit ctx : DFAny.Context)
+      : Aux[N, Int] = new NatOnly[N] {
         type W = Int
         def apply(value : N) : DFUInt[W] = {
           `N >= 0`.BigInt.unsafeCheck(value)
@@ -334,7 +334,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_DFUInt[LW, RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
       ) : Builder[Type[LW], DFUInt[RW]] = (left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         right.asInstanceOf[DFAny.Of[Type[LW]]]
@@ -343,8 +343,8 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.NatOnly.Aux[Builder[_,_], R, RW],
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        rConst : Const.NatOnly.Aux[R, RW],
+        checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
       ) : Builder[Type[LW], R] = (left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -361,7 +361,6 @@ object DFUInt extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
-    type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -388,7 +387,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[DFUInt[LW], DFUInt[RW]] = create[DFUInt[LW], LW, DFUInt[RW], RW]((left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
@@ -397,7 +396,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, R, RW](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.NatOnly.Aux[ErrorSym, R, RW],
+        rConst : Const.NatOnly.Aux[R, RW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
       ) : Builder[DFUInt[LW], R] = create[DFUInt[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
@@ -408,7 +407,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evConst_op_DFUInt[L, LW, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        lConst : Const.NatOnly.Aux[ErrorSym, L, LW],
+        lConst : Const.NatOnly.Aux[L, LW],
         checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
       ) : Builder[L, DFUInt[RW]] = create[L, LW, DFUInt[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
@@ -417,14 +416,14 @@ object DFUInt extends DFAny.Companion {
       })
     }
   }
-  object `Op==`  extends OpsCompare(Func2.Op.==)(_ == _) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=`  extends OpsCompare(Func2.Op.!=)(_ != _) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(Func2.Op.==)(_ == _){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(Func2.Op.!=)(_ != _){type ErrorSym = Builder[_,_]}
-  object `Op<`   extends OpsCompare(Func2.Op.< )(_ <  _){type ErrorSym = Builder[_,_]}
-  object `Op>`   extends OpsCompare(Func2.Op.> )(_ >  _){type ErrorSym = Builder[_,_]}
-  object `Op<=`  extends OpsCompare(Func2.Op.<=)(_ <= _){type ErrorSym = Builder[_,_]}
-  object `Op>=`  extends OpsCompare(Func2.Op.>=)(_ >= _){type ErrorSym = Builder[_,_]}
+  object `Op==`  extends OpsCompare(Func2.Op.==)(_ == _) with `Op==`
+  object `Op!=`  extends OpsCompare(Func2.Op.!=)(_ != _) with `Op!=`
+  object `Op===` extends OpsCompare(Func2.Op.==)(_ == _)
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)(_ != _)
+  object `Op<`   extends OpsCompare(Func2.Op.< )(_ <  _)
+  object `Op>`   extends OpsCompare(Func2.Op.> )(_ >  _)
+  object `Op<=`  extends OpsCompare(Func2.Op.<=)(_ <= _)
+  object `Op>=`  extends OpsCompare(Func2.Op.>=)(_ >= _)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -455,7 +454,7 @@ object DFUInt extends DFAny.Companion {
         type Cond[LW, RW] = LW >= RW
         type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
         type ParamFace = Int
-        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[LE, 0, RW]]
+        type CheckedExtendable[LW, LE, RW] = CheckedShell[LW, ITE[LE, 0, RW]]
       }
 
       object Inference {
@@ -473,7 +472,7 @@ object DFUInt extends DFAny.Companion {
           implicit
           ctx : DFAny.Context,
           ncW : Inference.NCW[LW, RW, NCW],
-          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
+          checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW]
         ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = DFUInt[NCW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
             type Out = DFUInt[NCW]
@@ -517,7 +516,7 @@ object DFUInt extends DFAny.Companion {
       implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        lConst : Const.NatOnly.Aux[Builder[_,_,_], L, LW],
+        lConst : Const.NatOnly.Aux[L, LW],
         detailedBuilder: DetailedBuilder[L, LW, LE, DFUInt[RW], RW]
       ) = detailedBuilder((leftNum, right) => {
         (op, lConst(leftNum), right)

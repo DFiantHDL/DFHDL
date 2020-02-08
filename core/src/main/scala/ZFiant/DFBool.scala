@@ -153,17 +153,17 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   type Const = DFAny.Const[Type]
   object Const {
-    trait Builder[Sym, C] {
+    trait Builder[C] {
       def apply(value : C) : Const
     }
     object Builder {
-      implicit def fromInt[Sym, C <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShellSym[Sym, C])
-      : Builder[Sym, C] = value => {
+      implicit def fromInt[C <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShell[C])
+      : Builder[C] = value => {
         checkBin.unsafeCheck(value)
         DFAny.Const[Type](Type(),Token(value))
       }
-      implicit def fromBoolean[Sym, C <: Boolean](implicit ctx : DFAny.Context)
-      : Builder[Sym, C] = value => DFAny.Const[Type](Type(), Token(value))
+      implicit def fromBoolean[C <: Boolean](implicit ctx : DFAny.Context)
+      : Builder[C] = value => DFAny.Const[Type](Type(), Token(value))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -231,7 +231,7 @@ object DFBool extends DFAny.Companion {
       implicit def evDFBool_op_Const[L <: DFBool, R](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.Builder[Builder[_,_], R]
+        rConst : Const.Builder[R]
       ) : Builder[Type, R] = (left, rightNum) => {
         val right = rConst(rightNum)
         right
@@ -247,7 +247,6 @@ object DFBool extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class BoolOps[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
-    type ErrorSym
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -267,7 +266,7 @@ object DFBool extends DFAny.Companion {
       implicit def evDFBool_op_Const[L <: DFBool, R](
         implicit
         ctx : DFAny.Context,
-        rConst : Const.Builder[ErrorSym, R]
+        rConst : Const.Builder[R]
       ) : Builder[DFBool, R] = create[DFBool, R]((left, rightNum) => {
         val right = rConst(rightNum)
         (left, right)
@@ -276,20 +275,20 @@ object DFBool extends DFAny.Companion {
       implicit def evConst_op_DFBool[L, R <: DFBool](
         implicit
         ctx : DFAny.Context,
-        lConst : Const.Builder[ErrorSym, L]
+        lConst : Const.Builder[L]
       ) : Builder[L, DFBool] = create[L, DFBool]((leftNum, right) => {
         val left = lConst(leftNum)
         (left, right)
       })
     }
   }
-  object `Op==` extends BoolOps(Func2.Op.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends BoolOps(Func2.Op.==)((l, r) => l == r) {type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r) {type ErrorSym = Builder[_,_]}
-  object `Op||` extends BoolOps(Func2.Op.||)((l, r) => l || r){type ErrorSym = Builder[_,_]}
-  object `Op&&` extends BoolOps(Func2.Op.&&)((l, r) => l && r){type ErrorSym = Builder[_,_]}
-  object `Op^` extends BoolOps(Func2.Op.^)((l, r) => l ^ r){type ErrorSym = Builder[_,_]}
+  object `Op==` extends BoolOps(Func2.Op.==)((l, r) => l == r) with `Op==`
+  object `Op!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r) with `Op!=`
+  object `Op===` extends BoolOps(Func2.Op.==)((l, r) => l == r)
+  object `Op=!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r)
+  object `Op||` extends BoolOps(Func2.Op.||)((l, r) => l || r)
+  object `Op&&` extends BoolOps(Func2.Op.&&)((l, r) => l && r)
+  object `Op^` extends BoolOps(Func2.Op.^)((l, r) => l ^ r)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

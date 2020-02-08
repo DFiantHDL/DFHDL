@@ -307,7 +307,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[Type[LW], DFBits[RW]] = (left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         right.asInstanceOf[DFAny.Of[Type[LW]]]
@@ -342,7 +342,6 @@ object DFBits extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
-    type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
     object Builder {
@@ -362,7 +361,7 @@ object DFBits extends DFAny.Companion {
       implicit def evDFBits_op_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[DFBits[LW], DFBits[RW]] =
         create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
           checkLWvRW.unsafeCheck(left.width, right.width)
@@ -373,7 +372,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[DFBits[LW], R] = create[DFBits[LW], LW, R, RW]((left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -384,7 +383,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         lConst : Const.Builder.Aux[L, LW],
-        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[L, DFBits[RW]] = create[L, LW, DFBits[RW], RW]((leftNum, right) => {
         val left = lConst(leftNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -410,10 +409,10 @@ object DFBits extends DFAny.Companion {
       })
     }
   }
-  object `Op==` extends OpsCompare(Func2.Op.==)((l, r) => l == r) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(Func2.Op.==)((l, r) => l == r){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r){type ErrorSym = Builder[_,_]}
+  object `Op==` extends OpsCompare(Func2.Op.==)((l, r) => l == r) with `Op==`
+  object `Op!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r) with `Op!=`
+  object `Op===` extends OpsCompare(Func2.Op.==)((l, r) => l == r)
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -444,7 +443,7 @@ object DFBits extends DFAny.Companion {
         implicit def ev[L, LW, R, RW](
           implicit
           ctx : DFAny.Context,
-          checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+          checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
         ) : DetailedBuilder[L, LW, R, RW]{type Out = DFBits[LW]} =
           new DetailedBuilder[L, LW, R, RW]{
             type Out = DFBits[LW]
@@ -482,7 +481,7 @@ object DFBits extends DFAny.Companion {
       ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
 
       type UnconstrainedLiteralError =
-        RequireMsgSym[false, "An unconstrained-width literal cannot be used in a logic operation", Builder[_,_]]
+        RequireMsg[false, "An unconstrained-width literal cannot be used in a logic operation"]
 
       implicit def evDFBits_op_SBV[LW, SBV <: SameBitsVector](implicit error : UnconstrainedLiteralError)
       : Aux[DFBits[LW], SBV, DFBits[LW]] = ???

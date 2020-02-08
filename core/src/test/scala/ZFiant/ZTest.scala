@@ -131,7 +131,7 @@ object ZTest extends App {
 
     ifdf(i === b0s) {
       o.bits(3,0) := b0s
-      o.bits(7,4) := b"11111"
+      o.bits(7,4) := b0s
       o.bits(3,0) := o.bits(7,4)
     }.elsedf {
       o := i

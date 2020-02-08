@@ -291,7 +291,7 @@ object DFSInt extends DFAny.Companion {
       implicit def evDFSInt_op_DFSInt[LW, RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
       ) : Builder[Type[LW], DFSInt[RW]] = (left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         right.asInstanceOf[DFAny.Of[Type[LW]]]
@@ -301,7 +301,7 @@ object DFSInt extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
       ) : Builder[Type[LW], R] = (left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
@@ -318,7 +318,6 @@ object DFSInt extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
-    type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -345,7 +344,7 @@ object DFSInt extends DFAny.Companion {
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[ErrorSym, LW, RW]
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[DFSInt[LW], DFSInt[RW]] = create[DFSInt[LW], LW, DFSInt[RW], RW]((left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
@@ -374,14 +373,14 @@ object DFSInt extends DFAny.Companion {
       })
     }
   }
-  object `Op==`  extends OpsCompare(Func2.Op.==)(_ == _) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=`  extends OpsCompare(Func2.Op.!=)(_ != _) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(Func2.Op.==)(_ == _){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(Func2.Op.!=)(_ != _){type ErrorSym = Builder[_,_]}
-  object `Op<`   extends OpsCompare(Func2.Op.< )(_ <  _){type ErrorSym = Builder[_,_]}
-  object `Op>`   extends OpsCompare(Func2.Op.> )(_ >  _){type ErrorSym = Builder[_,_]}
-  object `Op<=`  extends OpsCompare(Func2.Op.<=)(_ <= _){type ErrorSym = Builder[_,_]}
-  object `Op>=`  extends OpsCompare(Func2.Op.>=)(_ >= _){type ErrorSym = Builder[_,_]}
+  object `Op==`  extends OpsCompare(Func2.Op.==)(_ == _) with `Op==`
+  object `Op!=`  extends OpsCompare(Func2.Op.!=)(_ != _) with `Op!=`
+  object `Op===` extends OpsCompare(Func2.Op.==)(_ == _)
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)(_ != _)
+  object `Op<`   extends OpsCompare(Func2.Op.< )(_ <  _)
+  object `Op>`   extends OpsCompare(Func2.Op.> )(_ >  _)
+  object `Op<=`  extends OpsCompare(Func2.Op.<=)(_ <= _)
+  object `Op>=`  extends OpsCompare(Func2.Op.>=)(_ >= _)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -412,7 +411,7 @@ object DFSInt extends DFAny.Companion {
         type Cond[LW, RW] = LW >= RW
         type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
         type ParamFace = Int
-        type CheckedExtendable[Sym, LW, LE, RW] = CheckedShellSym[Sym, LW, ITE[LE, 0, RW]]
+        type CheckedExtendable[LW, LE, RW] = CheckedShell[LW, ITE[LE, 0, RW]]
       }
 
       object Inference {
@@ -430,7 +429,7 @@ object DFSInt extends DFAny.Companion {
           implicit
           ctx : DFAny.Context,
           ncW : Inference.NCW[LW, RW, NCW],
-          checkLWvRW : `LW >= RW`.CheckedExtendable[Builder[_,_,_], LW, LE, RW]
+          checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW]
         ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = DFSInt[NCW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
             type Out = DFSInt[NCW]

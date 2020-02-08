@@ -177,7 +177,6 @@ object DFEnum extends DFAny.Companion {
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: Func2.Op](op : Op) {
-    type ErrorSym
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -204,10 +203,10 @@ object DFEnum extends DFAny.Companion {
         (DFAny.Const[Type[E]](Type(right.dfType.enumType), Token[E](right.dfType.enumType, leftEntry)), right))
     }
   }
-  object `Op==` extends OpsCompare(Func2.Op.==) with `Op==`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op!=` extends OpsCompare(Func2.Op.!=) with `Op!=`{type ErrorSym = CaseClassSkipper[_]}
-  object `Op===` extends OpsCompare(Func2.Op.==){type ErrorSym = Builder[_,_]}
-  object `Op=!=` extends OpsCompare(Func2.Op.!=){type ErrorSym = Builder[_,_]}
+  object `Op==` extends OpsCompare(Func2.Op.==) with `Op==`
+  object `Op!=` extends OpsCompare(Func2.Op.!=) with `Op!=`
+  object `Op===` extends OpsCompare(Func2.Op.==)
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

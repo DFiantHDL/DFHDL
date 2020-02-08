@@ -24,7 +24,7 @@ protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : Func2
     def create[LW, RW](left : DFAny.Of[T[LW]], right : DFUInt[RW])(
       implicit
       ctx : DFAny.Context,
-      checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
+      checkLWvRW : SmallShift.CheckedShell[LW, RW]
     ) : DFAny.Of[T[LW]] = {
       checkLWvRW.unsafeCheck(left.width, right.width)
 
@@ -34,14 +34,14 @@ protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : Func2
     implicit def evDFSInt_op_DFUInt[LW, RW](
       implicit
       ctx : DFAny.Context,
-      checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
+      checkLWvRW : SmallShift.CheckedShell[LW, RW]
     ) : Builder[DFAny.Of[T[LW]], DFUInt[RW]] = (left, right) => create(left, right)
 
     implicit def evDFSInt_op_Const[LW, R <: Int, RW](
       implicit
       ctx : DFAny.Context,
-      rConst : DFUInt.Const.NatOnly.Aux[Builder[_,_], R, RW],
-      checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
+      rConst : DFUInt.Const.NatOnly.Aux[R, RW],
+      checkLWvRW : SmallShift.CheckedShell[LW, RW]
     ) : Builder[DFAny.Of[T[LW]], R] = (left, rightR) => create(left, rConst(rightR))
   }
 }
