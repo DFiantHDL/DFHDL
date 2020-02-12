@@ -1,8 +1,8 @@
 package ZFiant
 
 package object compiler {
-  implicit def evUtils[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
-  : UtilsOps[D, S] = new UtilsOps[D, S](c)
+  implicit def evFixAnonymous[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : FixAnonymousOps[D, S] = new FixAnonymousOps[D, S](c)
   implicit def evExplicitPrev[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S]) 
   : ExplicitPrevOps[D, S] = new ExplicitPrevOps[D, S](c)
   implicit def evViaPortConnection[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])

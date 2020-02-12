@@ -4,10 +4,10 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class UtilsOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
   import designDB.getset
-  def fixAnonymous : DFDesign.DB = {
+  def fixAnonymous = {
     val anonymizeList = designDB.designMemberList.flatMap {
       case (block, members) =>
         members.filterNot(m => m.isAnonymous).groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
@@ -30,9 +30,10 @@ final class UtilsOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) 
           case _ => List()
         }
     }
-    designDB.patch(anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement)))
+    val patchList = anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement))
+    c.newStage[FixAnonymous](designDB.patch(patchList), Seq())
   }
   def uniqueNames : DFDesign.DB = ???
 }
 
-trait Utils extends Compilable.Stage
+trait FixAnonymous extends Compilable.Stage

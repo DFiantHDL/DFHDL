@@ -5,7 +5,7 @@ package printer
 import DFiant.internals._
 
 final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val fixedDB = c.fixAnonymous
+  private val fixedDB = c.fixAnonymous.db
   import fixedDB.getset
 
   private def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
