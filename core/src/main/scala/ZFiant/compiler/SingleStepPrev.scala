@@ -9,13 +9,18 @@ import scala.collection.immutable
 
 final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.explicitPrev.fixAnonymous.db
-  import designDB.getset
+//  import designDB.getset
 
   def singleStepPrev = {
     designDB.members.collect {
-      case p @ DFAny.Alias.Prev(_, relValRef, step, _, tags) =>
-        val relVal = relValRef.get
-//        if (p.isAnonymous)
+      case p @ DFAny.Alias.Prev(_, relValRef, step, _, _) if (step > 1) || p.isAnonymous =>
+        val relVal = relValRef.get.asInstanceOf[DFAny.Of[DFAny.Type]]
+        val dsn = new MetaDesign() {
+          val prevVals = (1 to step).foldLeft(relVal) {case (rv, s) =>
+            val prevName = s"${relVal.name}_prev$s"
+            rv.prev().setName(prevName)
+          }
+        }
     }
 //    val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
 //    val patchList = explicitPrevSet.toList.map(e => e -> Patch.Add(new MetaDesign() {
