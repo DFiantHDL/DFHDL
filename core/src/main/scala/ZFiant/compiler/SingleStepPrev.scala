@@ -9,7 +9,7 @@ import scala.collection.immutable
 
 final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.explicitPrev.fixAnonymous.db
-//  import designDB.getset
+  import designDB.__getset
 
   def singleStepPrev = {
     designDB.members.collect {

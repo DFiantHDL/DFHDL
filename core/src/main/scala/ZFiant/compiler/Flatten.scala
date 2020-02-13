@@ -5,7 +5,7 @@ import DFDesign.DB.Patch
 
 final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
-  import designDB.getset
+  import designDB.__getset
   private def flattenName(member : DFMember) : DFMember = member.setName(s"${member.getOwner.name}_${member.name}")
   private def flattenPort(port : DFAny) : List[(DFMember, Patch)] = {
     val incomingBlock = port match {

@@ -9,7 +9,7 @@ import scala.collection.immutable
 
 final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
-  import designDB.getset
+  import designDB.__getset
   implicit class ConditionalBlockExtension(cb : ConditionalBlock) {
     def isFirstCB : Boolean = cb match {
       case _ : ConditionalBlock.IfBlock => true

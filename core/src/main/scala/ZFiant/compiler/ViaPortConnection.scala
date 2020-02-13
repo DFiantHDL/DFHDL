@@ -61,7 +61,7 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
           if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None
           else Some(p)
         case p : DFAny.Port.In[_,_] =>
-          import designDB.getset
+          import designDB.__getset
           designDB.getConnectionTo(p) match {
             case Some(_ : DFAny.NewVar[_,_]) => None
             case Some(_ : DFAny.Port.In[_,_]) => Some(p)

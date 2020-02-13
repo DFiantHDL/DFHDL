@@ -6,7 +6,7 @@ import DFiant.internals._
 
 final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val fixedDB = c.fixAnonymous.db
-  import fixedDB.getset
+  import fixedDB.__getset
 
   private def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
     val membersCodeString = members.flatMap {

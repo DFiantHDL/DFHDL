@@ -102,7 +102,7 @@ object DFDesign {
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
-    implicit val getset : MemberGetSet = new MemberGetSet {
+    implicit val __getset : MemberGetSet = new MemberGetSet {
       def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def set[M <: DFMember](originalMember : M, newMember: M): M = newMember
     }

@@ -6,7 +6,7 @@ import scala.annotation.tailrec
 
 final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
-  import designDB.getset
+  import designDB.__getset
   def fixAnonymous = {
     val anonymizeList = designDB.designMemberList.flatMap {
       case (block, members) =>

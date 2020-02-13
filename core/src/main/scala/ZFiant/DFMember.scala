@@ -31,8 +31,8 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     case d : DFDesign.Block => d
     case x => x.getOwnerDesign
   }
-  final val name : String = tags.meta.name
   final val isAnonymous : Boolean = tags.meta.name.anonymous
+  final val name : String = if (isAnonymous) s"anon$hashCode()" else tags.meta.name
   final val hasLateConstruction : Boolean = tags.meta.lateConstruction
   def getFullName(implicit getset : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain(implicit getset : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner

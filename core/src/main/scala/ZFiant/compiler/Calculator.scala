@@ -6,7 +6,7 @@ import scala.annotation.tailrec
 
 final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
-  import designDB.getset
+  import designDB.__getset
   @tailrec private def calcInitRec(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]], requestedCalc : Set[DFAny]) : Map[DFAny, Seq[DFAny.Token]] = {
     def getInit[T <: DFAny](member : T) : Option[Seq[member.TToken]] = member.tags.init match {
       case Some(init) => Some(init).asInstanceOf[Option[Seq[member.TToken]]]
