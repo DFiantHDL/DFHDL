@@ -421,35 +421,42 @@ object DFDesign {
       final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref, updatedRefMember : DFMember) extends Patch
     }
     class Mutable {
-      private val members : mutable.ArrayBuffer[DFMember] = mutable.ArrayBuffer()
+      private val members : mutable.ArrayBuffer[(DFMember, Set[DFMember.Ref])] = mutable.ArrayBuffer()
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
         cb.applyBlock(block)
         cb
       }
       def addMember[M <: DFMember](member : M) : M = {
-        memberTable += (member -> (members.length, Set()))
-        members += member
+        memberTable += (member -> members.length)
+        members += (member -> Set())
         member
       }
-      private val memberTable : mutable.Map[DFMember, (Int, Set[DFMember.Ref])] = mutable.Map()
+      private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
       private val refTable : mutable.Map[DFMember.Ref, DFMember] = mutable.Map()
       def hasToConnectionFor(dfVar : DFAny) : Boolean = {
-        memberTable.getOrElse(dfVar, (0, Set()))._2.collectFirst {
+        members(memberTable.getOrElse(dfVar, 0))._2.collectFirst {
           case DFNet.ToRef() => true
         }.nonEmpty
       }
       def getMember[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def setMember[M <: DFMember](originalMember : M, newMember : M) : M = {
-        val x = memberTable.remove(originalMember).get
-        x._2.foreach(r => refTable.update(r, newMember))
-        memberTable.update(newMember, x)
-        members.update(x._1, newMember)
+        val idx = memberTable(originalMember)
+        val (_, refSet) = members(idx)
+        //update all references to the new member
+        refSet.foreach(r => refTable.update(r, newMember))
+        //add the member to the table with the position index
+        //(we don't remove the old member since it might still be used as a user-reference in a mutable DB)
+        memberTable.update(newMember, idx)
+        //update the member in the member position array
+        members.update(idx, (newMember, refSet))
         newMember
       }
       def newRefFor[M <: DFMember, T <: DFMember.Ref.Type, R <: DFMember.Ref.Of[T, M]](ref : R, member : M) : R = {
         memberTable.get(member) match {
-          case Some(x) => memberTable.update(member, x.copy(_2 = x._2 + ref))
+          case Some(x) =>
+            val (member, refSet) = members(x)
+            members.update(x, (member, refSet + ref))
           case _ =>
           //In case where we do meta programming and planting one design into another,
           //we may not have the member available at the table. This is OK.
@@ -459,10 +466,10 @@ object DFDesign {
       }
       def immutable : DB = {
         refTable.keys.foreach{
-          case or : DFMember.OwnedRef => or.owner  //touching all lazy owner refs to cause force their addition
+          case or : DFMember.OwnedRef => or.owner  //touching all lazy owner refs to force their addition
           case _ => //do nothing
         }
-        DB(members.toList, refTable.toMap)
+        DB(members.iterator.map(e => e._1).toList, refTable.toMap)
       }
 
       implicit val getset : MemberGetSet = new MemberGetSet {
