@@ -33,7 +33,7 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
                   case prevNamePattern(pre, num) =>
                     s"$pre${num.toInt + 1}"
                   case _ =>
-                    s"${relVal.name}_prev$s"
+                    s"${rv.name}_prev${s - prevList.length}"
                 }
                 val newPrev = rv.asInstanceOf[DFAny.Of[DFAny.Type]].prev().setName(prevName)
                 (newPrev, newPrev :: list)

@@ -175,7 +175,8 @@ object ZTest extends App {
   trait SingleStepPrevTest extends DFDesign {
     val i = DFUInt(8) <> IN
     val o = DFUInt(8) <> OUT
-    o := i.prev.prev.prev(2)
+    val c = i.prev.prev
+    o := c.prev(2)
   }
 
   val sspt = new SingleStepPrevTest {}
