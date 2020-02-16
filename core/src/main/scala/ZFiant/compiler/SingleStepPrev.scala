@@ -30,10 +30,8 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
             val dsn = new MetaDesign() {
               val (_, updatedPrevList) = (prevList.length + 1 to step).foldLeft((prevList.headOption.getOrElse(relVal), prevList)) { case ((rv, list), s) =>
                 val prevName = if ((step == s) & !p.isAnonymous) p.name else rv.name match {
-                  case prevNamePattern(pre, num) =>
-                    s"$pre${num.toInt + 1}"
-                  case _ =>
-                    s"${rv.name}_prev${s - prevList.length}"
+                  case prevNamePattern(pre, num) => s"$pre${num.toInt + 1}"
+                  case _ => s"${rv.name}_prev${s - prevList.length}"
                 }
                 val newPrev = rv.asInstanceOf[DFAny.Of[DFAny.Type]].prev().setName(prevName)
                 (newPrev, newPrev :: list)
