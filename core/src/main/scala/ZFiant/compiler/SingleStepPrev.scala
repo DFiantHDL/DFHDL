@@ -12,21 +12,26 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
   import designDB.__getset
 
   def singleStepPrev = {
-    val prevTable : mutable.Map[DFAny, List[DFAny]] = mutable.Map()
+    val namedPrevTable : mutable.Map[DFAny, List[DFAny]] = mutable.Map()
     designDB.members.flatMap {
-      case p @ DFAny.Alias.Prev(_, relValRef, step, _, _) if (step > 1) || p.isAnonymous =>
+      case p @ DFAny.Alias.Prev(_, relValRef, step, _, _) =>
         val relVal = relValRef.get.asInstanceOf[DFAny.Of[DFAny.Type]]
-        val prevList = prevTable.getOrElse(relVal, List())
-        if (step > prevList.length) {
-          val dsn = new MetaDesign() {
-            val prevVals = (prevList.length + 1 to step).foldLeft(relVal) { case (rv, s) =>
-              val prevName = s"${relVal.name}_prev$s"
-              rv.prev().setName(prevName)
+        if ((step > 1) || p.isAnonymous) { //steps require naming
+          val prevList = namedPrevTable.getOrElse(relVal, List())
+          if (step > prevList.length) {
+            val dsn = new MetaDesign() {
+              val prevVals = (prevList.length + 1 to step).foldLeft(relVal) { case (rv, s) =>
+                val prevName = s"${relVal.name}_prev$s"
+                rv.prev().setName(prevName)
+              }
             }
-          }
 
+          }
+          None
+        } else { //single name prev step
+          namedPrevTable.update(relVal, List(p))
+          None
         }
-        None
       case _ => None
     }
 //    val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
