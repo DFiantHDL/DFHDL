@@ -46,7 +46,7 @@ trait ContainerConnLoop extends DFDesign {
 object IDTopApp extends App {
   val top = new IDTop {}
   import compiler._
-  top.explicitPrev.printCodeString() //.flatten(top.id1)
+  top.singleStepPrev.printCodeString() //.flatten(top.id1)
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

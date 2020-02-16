@@ -42,7 +42,7 @@ trait ScalarHDL extends DFDesign {
   count := counter.prev.bits
 }
 
-object SimpleHDLApp extends App {
+object ScalaHDLApp extends App {
   import maxeler._
   val scalar_hdl = new ScalarHDL {
     max.setMaxelerStreamIOPull
@@ -51,5 +51,5 @@ object SimpleHDLApp extends App {
   }
   import compiler._
   val res= scalar_hdl.maxJNode
-  res.explicitPrev.printCodeString().printGenFiles()
+  res.singleStepPrev.printCodeString().printGenFiles()
 }
