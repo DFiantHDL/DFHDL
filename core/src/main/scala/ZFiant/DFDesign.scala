@@ -252,7 +252,8 @@ object DFDesign {
           config match {
             case DB.Patch.Add.Config.After => m :: notTop
             case DB.Patch.Add.Config.Before => notTop :+ m
-            case DB.Patch.Add.Config.Replace => notTop
+            case DB.Patch.Add.Config.ReplaceWithFirst => notTop
+            case DB.Patch.Add.Config.ReplaceWithLast => notTop
             case DB.Patch.Add.Config.Via => m :: notTop
             case DB.Patch.Add.Config.Inside => ??? //Not possible since we replaced it to an `After`
           }
@@ -270,8 +271,11 @@ object DFDesign {
           }
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(newOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
-            case DB.Patch.Add.Config.Replace =>
+            case DB.Patch.Add.Config.ReplaceWithFirst =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
+              rt.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
+            case DB.Patch.Add.Config.ReplaceWithLast =>
+              val repMember = db.members.last
               rt.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
             case DB.Patch.Add.Config.Via =>
               val repMember = db.members.last //The last member is used for Via addition.
@@ -412,7 +416,10 @@ object DFDesign {
           case object Inside extends Config
           //adds members replacing the patched member.
           //The FIRST (non-Top) member is considered the reference replacement member
-          case object Replace extends Config
+          case object ReplaceWithFirst extends Config
+          //adds members replacing the patched member.
+          //The LAST member is considered the reference replacement member
+          case object ReplaceWithLast extends Config
           //adds members after the patched member.
           //The LAST member is considered the reference replacement member
           case object Via extends Config

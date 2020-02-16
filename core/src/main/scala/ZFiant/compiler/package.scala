@@ -11,4 +11,6 @@ package object compiler {
   : FlattenOps[D, S] = new FlattenOps[D, S](c)
   implicit def evCalculator[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : CalculatorOps[D, S] = new CalculatorOps[D, S](c)
+  implicit def evSingleStepPrev[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : SingleStepPrevOps[D, S] = new SingleStepPrevOps[D, S](c)
 }
