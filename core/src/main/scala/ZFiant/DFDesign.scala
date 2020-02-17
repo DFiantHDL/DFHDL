@@ -207,6 +207,9 @@ object DFDesign {
     lazy val designMemberList : List[(DFDesign.Block, List[DFMember])] =
       DMLGen(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
 
+    //holds a hash table that lists members of each owner block. The member list order is maintained.
+    lazy val designMemberTable : Map[DFDesign.Block, List[DFMember]] = Map(designMemberList : _*)
+
     private implicit class RefTableOps(rt : Map[DFMember.Ref, DFMember]) {
       def replaceMember(origMember : DFMember, repMember : DFMember, scope : DB.Patch.Replace.Scope) : Map[DFMember.Ref, DFMember] =
         memberTable.get(origMember) match {
@@ -234,10 +237,10 @@ object DFDesign {
         case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => (m, DB.Patch.Remove)
         //If we add after a design block, we need to actually place after the last member of the block
         case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
-          (ownerMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+          (designMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
         //If we add inside a design block, we need to actually place after the last member of the block
         case (block : DFDesign.Block, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
-          ownerMemberTable(block).lastOption match {
+          designMemberTable(block).lastOption match {
             case Some(l) => (l, DB.Patch.Add(db, DB.Patch.Add.Config.After))
             case None => (block, DB.Patch.Add(db, DB.Patch.Add.Config.After))
           }

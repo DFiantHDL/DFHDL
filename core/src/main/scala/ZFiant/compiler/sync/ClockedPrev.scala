@@ -20,14 +20,24 @@ package compiler
 package sync
 
 import DFDesign.DB.Patch
+import collection.mutable
 
 final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.singleStepPrev.calcInit.db
   import designDB.__getset
 
+  trait ClkRstDesign extends MetaDesign {
+    val clk = DFBool() <> IN
+    val rst = DFBool() <> IN
+  }
+  private val addedClkRst : mutable.Map[DFDesign.Block, (DFBool, Option[DFBool])] = mutable.Map()
 
+  //
+  private def addClkRst : Unit = {
 
+  }
   def clockedPrev = {
+//    val addedClockRst
     val patchList = designDB.designMemberList.flatMap {case(block, members) =>
       val prevTpls = members.collect {
         case p @ DFAny.Alias.Prev(dfType, relValRef, step, ownerRef, tags) =>
@@ -58,7 +68,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
             }
           }
         }
-        members(1) -> Patch.Add(dsn, Patch.Add.Config.Before) ::
+        (block -> Patch.Add(dsn, Patch.Add.Config.Inside)) ::
           prevTpls.map{case (p, _, prevVar) => p -> Patch.Replace(prevVar, Patch.Replace.Config.FullReplacement)}
       } else None
     }
