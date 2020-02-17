@@ -227,6 +227,8 @@ object DFDesign {
     //replaces all members and references according to the patch list
     def patch(patchList : List[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
       val patchTable = patchList.map {
+        //On change ref and remove replacement we setup the original member for removal here
+        case (m, DB.Patch.Replace(_, DB.Patch.Replace.Config.ChangeRefAndRemove, _)) => (m, DB.Patch.Remove)
         //If we attempt to replace with an existing member, then we convert the patch to remove
         //the old member just for the member list (references are replaced).
         case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => (m, DB.Patch.Remove)
@@ -234,7 +236,7 @@ object DFDesign {
         case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
           (ownerMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
         //If we add inside a design block, we need to actually place after the last member of the block
-        case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
+        case (block : DFDesign.Block, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
           ownerMemberTable(block).lastOption match {
             case Some(l) => (l, DB.Patch.Add(db, DB.Patch.Add.Config.After))
             case None => (block, DB.Patch.Add(db, DB.Patch.Add.Config.After))
@@ -245,6 +247,7 @@ object DFDesign {
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
         case Some(DB.Patch.Replace(r, config, _)) => config match {
           case DB.Patch.Replace.Config.ChangeRefOnly => Some(m)
+          case DB.Patch.Replace.Config.ChangeRefAndRemove => Some(r)
           case DB.Patch.Replace.Config.FullReplacement => Some(r)
         }
         case Some(DB.Patch.Add(db, config)) =>
@@ -386,9 +389,12 @@ object DFDesign {
       object Replace {
         sealed trait Config extends Product with Serializable
         object Config {
-          //only modifies the reference table so that all members currently referencing the original member will reference
+          //Only modifies the reference table so that all members currently referencing the original member will reference
           //the updated member.
           case object ChangeRefOnly extends Config
+          //Modifies the reference table so that all members currently referencing the original member will reference
+          //the updated member, and removes the original member
+          case object ChangeRefAndRemove extends Config
           //The updated member is replacing the original member in the member list and all members currently
           //referencing the existing member will reference the updated member.
           //If the updated member already exists in the member list (at a different position), then the original member is

@@ -3,6 +3,7 @@ package compiler
 
 import DFiant.internals._
 import DFDesign.DB.Patch
+import ZFiant.compiler.printer.Printer
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -39,7 +40,8 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
             }
             namedPrevTable.update(relVal, dsn.updatedPrevList)
             Some(p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast))
-          } else Some(p -> Patch.Replace(prevList(prevList.length - step), Patch.Replace.Config.ChangeRefOnly))
+          } else
+            Some(p -> Patch.Replace(prevList(prevList.length - step), Patch.Replace.Config.ChangeRefAndRemove))
         } else { //single name prev step
           namedPrevTable.update(relVal, List(p))
           None

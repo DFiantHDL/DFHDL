@@ -198,7 +198,7 @@ object DFBool extends DFAny.Companion {
       sealed class DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) extends AbleOps[DFBool](left)
       final implicit def DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) : DFBoolFromDefaultRet = new DFBoolFromDefaultRet(left)
       final implicit def ofDFBool(left : DFBool) : Able[DFBool] = new Able(left)
-      implicit class DFBoolOps[LW](val left : DFBool) {
+      implicit class DFBoolOps(val left : DFBool) {
         final def rising()(implicit ctx : ContextOf[Rising]) : DFBool = Rising(left).outPort
         final def ||  [R](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
         final def &&  [R](right : Able[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
