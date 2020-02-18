@@ -67,8 +67,12 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
       case DFAny.Alias.Invert(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
       case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
       case x if x.modifier.isInstanceOf[DFAny.Modifier.Assignable] =>
-        val scope = assignMap(value)
-        if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet
+        designDB.getConnectionTo(value) match {
+          case Some(v) => consumeFrom(v, relWidth, relBitLow, assignMap, currentSet)
+          case None =>
+            val scope = assignMap(value)
+            if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet
+        }
       case _ => currentSet
     }
   }
