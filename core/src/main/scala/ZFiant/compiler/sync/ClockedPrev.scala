@@ -27,8 +27,8 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
   import designDB.__getset
 
   trait ClkRstDesign extends MetaDesign {
-    val clk = DFBool() <> IN
-    val rst = DFBool() <> IN
+    val clk = DFBool() <> IN addCustomTag(SyncCustomTag.Clock)
+    val rst = DFBool() <> IN addCustomTag(SyncCustomTag.Reset)
   }
 
   def clockedPrev = {
