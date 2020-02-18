@@ -52,10 +52,12 @@ For example:
 final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
   def viaPortConnection = {
-    val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect{case d : DFDesign.Block.Internal => d}
+    val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect {
+      case d : DFDesign.Block.Internal if d.inlinedRep.isEmpty => d
+    }
     val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
       //getting only ports that are not already connected to variables
-      val ports : List[DFAny] = designDB.ownerMemberTable(ib).flatMap {
+      val ports : List[DFAny] = designDB.designMemberTable(ib).flatMap {
         case p : DFAny.Port.Out[_,_] =>
           val conns = designDB.getConnectionFrom(p)
           if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None

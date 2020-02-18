@@ -48,7 +48,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       if (prevTpls.nonEmpty || clockedBlocks.nonEmpty) {
         val dsn = new ClkRstDesign {
           if (prevTpls.nonEmpty) {
-            ifdf(rst === true) {
+            ifdf(!rst) {
               prevTpls.foreach {
                 case (_, _, prevVar) => prevVar.tags.init match {
                   case Some(i :: _) =>
@@ -57,7 +57,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
                   case _ =>
                 }
               }
-            }.elseifdf(clk.rising) {
+            }.elseifdf(clk.rising()) {
               prevTpls.foreach {
                 case (p, rv, prevVar) =>
                   prevVar.assign(rv)
