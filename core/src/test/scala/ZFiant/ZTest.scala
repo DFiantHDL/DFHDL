@@ -118,10 +118,34 @@ object ZTest extends App {
     val c = new CCC() {}
   }
 
+  trait ID extends DFDesign {
+    val i = DFBits(8) <> IN
+    val o = DFBits(8) <> IN
+    val trying = new Trying {}
+    trying.i <> i
+    trying.o <> o
+  }
+  trait Trying extends DFDesign {
+    val i = DFBits(8) <> IN
+    val o = DFBits(8) <> OUT
+
+    ifdf(i === b0s) {
+      o.bits(3,0) := b0s
+      o.bits(7,4) := b0s
+      o.bits(3,0) := o.bits(7,4)
+    }.elsedf {
+      o := i
+    }
+//    o := o
+  }
+
   val top = new BBB {}
 
-  import DFCompiler._
-  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
+  val trying = new Trying {}
+
+//  trying.printCodeString().explicitPrev.printCodeString()
+
+//  top.db.calcInit.printCodeString()(PrintConfig.ShowInits)
 //  top.db.patch(Map(top.i -> top.i.setName("bobby"))).printOwnerMemberList()
 //  top.db.patch(Map(top.i -> top.i.copy(meta = top.i.meta.copy(top.i.meta.name.copy(value = "HAHA"))))).printOwnerMemberList()
 
@@ -145,5 +169,17 @@ object ZTest extends App {
     val z = b == b1s
   }
 
+
+  import compiler._
+
+  trait SingleStepPrevTest extends DFDesign {
+    val i = DFUInt(8) <> IN
+    val o = DFUInt(8) <> OUT
+    val c = i.prev.prev
+    o := c.prev(2)
+  }
+
+  val sspt = new SingleStepPrevTest {}
+  sspt.singleStepPrev.printCodeString()
 }
 

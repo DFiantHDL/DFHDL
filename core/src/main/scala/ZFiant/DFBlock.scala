@@ -2,6 +2,7 @@ package ZFiant
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
+import compiler.printer.Printer
 
 trait DFBlock extends DFMember {
   ///////////////////////////////////////////////////////////////////
@@ -13,7 +14,7 @@ trait DFBlock extends DFMember {
   final def codeString(body : String)(implicit getset : MemberGetSet) : String = {
     //if the body is a single row then no need for delimiters and extra new lines
     //otherwise, we add delimitation and new lines
-    val delimitedBody = if (!body.contains("\n")) body else s"\n${body.delimRowsBy(DFCompiler.delim)}\n"
+    val delimitedBody = if (!body.contains("\n")) body else s"\n${body.delimRowsBy(Printer.delim)}\n"
     s"$headerCodeString {$delimitedBody}"
   }
 }
@@ -34,10 +35,11 @@ object DFBlock {
       new Context(meta, null, new DFDesign.DB.Mutable)
   }
 
-  class Ref extends DFMember.Ref[DFBlock]
-  object Ref extends DFMember.Ref.CO[DFBlock, Ref](new Ref)
-
-
+  type Ref = DFMember.Ref.Of[Ref.Type, DFBlock]
+  object Ref {
+    trait Type extends DFMember.Ref.Type
+    implicit val ev : Type = new Type {}
+  }
 }
 
 

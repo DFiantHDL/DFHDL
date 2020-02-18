@@ -5,6 +5,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
+import compiler.printer.Printer
 
 sealed trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
@@ -18,12 +19,12 @@ sealed trait DFAny extends DFMember with Product with Serializable {
   final protected val left : this.type = this
   protected type AsVal = DFAny.Value[TType, DFAny.Modifier.Val]
   protected type AsVar = DFAny.VarOf[TType]
-  protected type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
+  protected[ZFiant] type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
   def codeString(implicit getset : MemberGetSet) : String
-  def refCodeString(implicit callOwner : DFBlock, getset : MemberGetSet) : String =
+  def refCodeString(implicit ctx : Printer.Context) : String =
     if (tags.meta.name.anonymous) codeString
-    else getRelativeName(callOwner, getset)
+    else getRelativeName(ctx.callOwner, ctx.getset)
 }
 
 object DFAny {
@@ -43,15 +44,10 @@ object DFAny {
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
     def getBubbleToken : TToken
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token
-    def codeString(implicit getset : MemberGetSet) : String
+    def codeString : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
-  }
-
-  trait PostConnectionTags extends DFMember.Tags {
-    val init : Option[Seq[Token]]
-    val const : Option[Token]
   }
 
   @implicitNotFound(Context.MissingError.msg)
@@ -65,15 +61,19 @@ object DFAny {
     ) {final val msg = getMsg}
   }
 
-  class Ref[+T <: DFAny] extends DFMember.Ref[T]
+  type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
   object Ref {
-    class ConsumeFrom[+T <: DFAny] extends Ref[T]
-    object ConsumeFrom  {
-      class CO[T <: DFAny, R <: ConsumeFrom[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    trait Type extends DFMember.OwnedRef.Type
+    implicit val ev : Type = new Type {}
+    type ConsumeFrom[+M <: DFAny] = DFMember.OwnedRef.Of[ConsumeFrom.Type, M]
+    object ConsumeFrom {
+      trait Type extends DFMember.OwnedRef.Type
+      implicit val ev : Type = new Type {}
     }
-    class ProduceTo[+T <: DFAny] extends Ref[T]
-    object ProduceTo  {
-      class CO[T <: DFAny, R <: ProduceTo[T]](newR : => R) extends DFMember.Ref.CO[T, R](newR)
+    type ProduceTo[+M <: DFAny] = DFMember.OwnedRef.Of[ProduceTo.Type, M]
+    object ProduceTo {
+      trait Type extends DFMember.OwnedRef.Type
+      implicit val ev : Type = new Type {}
     }
   }
 
@@ -82,13 +82,18 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
+    final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : AsType[DFBool.Type] =
+      DFAny.Alias.BitsWL.bit(this, relBit.unsafeCheck(width))
+
     final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
       DFAny.Alias.BitsWL(this, dfType.width, 0)
+        .overrideCodeString(rs => s"$rs.bits")
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
     ) : AsType[DFBits.Type[relWidth.Out]] =
       DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow)
+        .overrideCodeString(rs => s"$rs.bits($relBitHigh, $relBitLow)")
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
@@ -193,12 +198,17 @@ object DFAny {
   sealed trait CanBeAnonymous extends DFMember
 
   final case class Tags[Token <: DFAny.Token](
-    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag]
+    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag], codeStringOverride : Option[String => String]
   ) extends DFMember.Tags.CC[Tags[Token]] {
     def setInit(init : Seq[Token]) : Tags[Token] = copy(init = Some(init))
+    def overrideCodeString(func : String => String) : Tags[Token] = copy(codeStringOverride = Some(func))
   }
   object Tags {
-    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, List())
+    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, List(), None)
+  }
+
+  implicit class AnyExtender[T <: DFAny](member : T)(implicit getset : MemberGetSet) {
+    def overrideCodeString(func : String => String) : T = member.setTags(member.tags.overrideCodeString(func)).asInstanceOf[T]
   }
 
   final case class Const[Type <: DFAny.Type](
@@ -208,7 +218,7 @@ object DFAny {
     val modifier : TMod = Modifier.Constant(token)
 
     def codeString(implicit getset : MemberGetSet) : String = token.codeString
-    override def refCodeString(implicit callOwner : DFBlock, getset : MemberGetSet) : String = codeString
+    override def refCodeString(implicit ctx : Printer.Context) : String = codeString
     override def show(implicit getset : MemberGetSet) : String = s"Const($token) : $dfType"
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
@@ -260,6 +270,10 @@ object DFAny {
       dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
     ) extends Value[Type, Mod] {
       type TMod = Mod
+      override def refCodeString(implicit ctx : Printer.Context): String = (ownerRef.get) match {
+        case DFDesign.Block.Internal(_,_, Some(f)) => f(ctx.getset)
+        case _ => super.refCodeString
+      }
       def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> OUT${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> OUT"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
@@ -304,7 +318,7 @@ object DFAny {
         newMember
       } else ctx.db.addMember(newMember)
     }
-    def <>[R](right: DFAny.PortOf[Type])(
+    def <>[R](right: DFAny.ConnOf[Type])(
       implicit ctx: DFNet.Context, op: dfType.`Op<>Builder`[Type, DFAny.Of[Type]]
     ): Unit = left.connectWith(op(dfType, right))
     def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
@@ -349,12 +363,17 @@ object DFAny {
     val relValRef : Alias.RelValRef[RelVal]
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
+    def relCodeString(cs : String) : String
+    def codeString(implicit getset: MemberGetSet): String = tags.codeStringOverride match {
+      case Some(func) => func(relValRef.refCodeString.applyBrackets())
+      case None => relCodeString(relValRef.refCodeString.applyBrackets())
+    }
   }
   object Alias {
-    class RelValRef[+RelVal <: DFAny] extends DFAny.Ref[RelVal]
+    type RelValRef[+M <: DFAny] = DFMember.OwnedRef.Of[RelValRef.Type, M]
     object RelValRef {
-      implicit def refOf[RelVal <: DFAny](member : RelVal)(implicit ctx : DFMember.Context) : RelValRef[RelVal] =
-        DFMember.Ref.newRefFor(new RelValRef[RelVal], member)
+      trait Type extends DFMember.OwnedRef.Type
+      implicit val ev : Type = new Type {}
     }
 
     final case class AsIs[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
@@ -362,31 +381,44 @@ object DFAny {
     ) extends Alias[Type, RelVal, Mod] {
       type TMod = Mod
       def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
-      def codeString(implicit getset : MemberGetSet) : String =
-        s"${relValRef.refCodeString}.as(${dfType.codeString})"
+      def relCodeString(cs : String) : String = s"$cs.as(${dfType.codeString})"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, refVal: RelVal)(
         implicit ctx: Context
-      ): AsIs[Type, RelVal, refVal.TMod] =
-        ctx.db.addMember(AsIs[Type, RelVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
+      ): AsIs[Type, RelVal, refVal.TMod] = {
+        implicit lazy val ret : AsIs[Type, RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(AsIs[Type, RelVal, refVal.TMod](dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
-    final case class BitsWL[W, L, RelVal <: DFAny, Mod <: Modifier](
-      modifier : Mod, relValRef : RelValRef[RelVal], relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Token[W]]
-    ) extends Alias[DFBits.Type[W], RelVal, Mod]{
+    final case class BitsWL[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
+      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], relWidth : Int, relBitLow : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+    ) extends Alias[Type, RelVal, Mod]{
       type TMod = Mod
-      val dfType : TType = DFBits.Type(relWidth)
       def constFunc(t : DFAny.Token) : DFAny.Token = t.bitsWL(relWidth, relBitLow)
-      def codeString(implicit getset : MemberGetSet) : String =
-        s"${relValRef.refCodeString}.bitsWL($relWidth, $relBitLow)"
-      def setTags(tags : DFAny.Tags[DFBits.Token[W]])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def relCodeString(cs : String) : String = dfType match {
+        case _ : DFBits.Type[_] => s"$cs.bitsWL($relWidth, $relBitLow)"
+        case _ : DFBool.Type => s"$cs.bit($relBitLow)"
+      }
+      def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object BitsWL {
       def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
         implicit ctx: Context
-      ): BitsWL[W, L, RelVal, refVal.TMod] =
-        ctx.db.addMember(BitsWL[W, L, RelVal, refVal.TMod](refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta))
+      ): BitsWL[DFBits.Type[W], RelVal, refVal.TMod] = {
+        implicit lazy val ret : BitsWL[DFBits.Type[W], RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(BitsWL[DFBits.Type[W], RelVal, refVal.TMod](DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+      def bit[I, RelVal <: DFAny](refVal: RelVal, relBit: TwoFace.Int[I])(
+        implicit ctx: Context
+      ): BitsWL[DFBool.Type, RelVal, refVal.TMod] = {
+        implicit lazy val ret : BitsWL[DFBool.Type, RelVal, refVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(BitsWL[DFBool.Type, RelVal, refVal.TMod](DFBool.Type(), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
     final case class Prev[RelVal <: DFAny](
       dfType : RelVal#TType, relValRef : RelValRef[RelVal], step : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
@@ -395,15 +427,80 @@ object DFAny {
       val modifier : TMod = Modifier.Val
       def constFunc(t : DFAny.Token) : DFAny.Token = t
       override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
-      def codeString(implicit getset : MemberGetSet) : String =
-        s"${relValRef.refCodeString}.prev($step)"
+      def relCodeString(cs : String) : String = if (step == 1) s"$cs.prev" else s"$cs.prev($step)"
       def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Prev {
       def apply[RelVal <: DFAny](refVal: RelVal, step: Int)(
         implicit ctx: Context
-      ): Prev[RelVal] = ctx.db.addMember(Prev[RelVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta))
+      ): Prev[RelVal] = {
+        implicit lazy val ret : Prev[RelVal] with DFMember.RefOwner = ctx.db.addMember(Prev[RelVal](refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
+    final case class Resize[RelVal <: DFAny, ResizedType <: DFAny.Type](
+      dfType : ResizedType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[ResizedType#TToken]
+    ) extends Alias[ResizedType, RelVal, Modifier.Val] {
+      type TMod = Modifier.Val
+      val modifier : TMod = Modifier.Val
+      private val toWidth : Int = dfType.width
+      def constFunc(t : DFAny.Token) : DFAny.Token = t match {
+        case b : DFBits.Token[_] => b.resize(toWidth)
+        case u : DFUInt.Token[_] => u.resize(toWidth)
+        case s : DFSInt.Token[_] => s.resize(toWidth)
+      }
+      def relCodeString(cs : String) : String = s"$cs.resize($toWidth)"
+      def setTags(tags : DFAny.Tags[ResizedType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+    }
+    object Resize {
+      def bits[LW, RW](refVal: DFBits[LW], toWidth: TwoFace.Int[RW])(
+        implicit ctx: Context
+      ): Resize[DFBits[LW], DFBits.Type[RW]] = {
+        implicit lazy val ret : Resize[DFBits[LW], DFBits.Type[RW]] with DFMember.RefOwner =
+          ctx.db.addMember(Resize[DFBits[LW], DFBits.Type[RW]](DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+      def uint[LW, RW](refVal: DFUInt[LW], toWidth: TwoFace.Int[RW])(
+        implicit ctx: Context
+      ): Resize[DFUInt[LW], DFUInt.Type[RW]] = {
+        implicit lazy val ret : Resize[DFUInt[LW], DFUInt.Type[RW]] with DFMember.RefOwner =
+          ctx.db.addMember(Resize[DFUInt[LW], DFUInt.Type[RW]](DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+      def sint[LW, RW](refVal: DFSInt[LW], toWidth: TwoFace.Int[RW])(
+        implicit ctx: Context
+      ): Resize[DFSInt[LW], DFSInt.Type[RW]] = {
+        implicit lazy val ret : Resize[DFSInt[LW], DFSInt.Type[RW]] with DFMember.RefOwner =
+          ctx.db.addMember(Resize[DFSInt[LW], DFSInt.Type[RW]](DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+    }
+//    final case class Shift[RelVal <: DFAny](
+//      dfType : RelVal#TType, relValRef : RelValRef[RelVal], dir : Shift.Direction, count : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
+//    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
+//      type TMod = Modifier.Val
+//      val modifier : TMod = Modifier.Val
+//      def constFunc(t : DFAny.Token) : DFAny.Token = ???
+//      def codeString(implicit getset : MemberGetSet) : String = s"${relValRef.refCodeString} $dir $count"
+//      def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+//    }
+//    object Shift {
+//      sealed trait Direction
+//      object Direction {
+//        case object Left extends Direction {
+//          override def toString: String = "<<"
+//        }
+//        case object Right extends Direction {
+//          override def toString: String = ">>"
+//        }
+//      }
+//      def apply[RelVal <: DFAny](refVal: RelVal, dir : Shift.Direction, count: Int)(
+//        implicit ctx: Context
+//      ): Shift[RelVal] = {
+//        implicit lazy val ret : Shift[RelVal] with DFMember.RefOwner = ctx.db.addMember(Shift[RelVal](refVal.dfType, refVal, dir, count, ctx.owner, ctx.meta)).asRefOwner
+//        ret
+//      }
+//    }
     final case class Invert[RelVal <: DFAny](
       dfType : RelVal#TType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
     ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
@@ -417,24 +514,43 @@ object DFAny {
         case _ : DFBits.Type[_] => "~"
         case _ : DFBool.Type => "!"
       }
-      def codeString(implicit getset : MemberGetSet) : String =
-        s"$op${relValRef.refCodeString}"
+      def relCodeString(cs : String) : String = s"$op$cs"
       def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Invert {
       def apply[RelVal <: DFAny](refVal: RelVal)(
         implicit ctx: Context
-      ): Invert[RelVal] = ctx.db.addMember(Invert[RelVal](refVal.dfType, refVal, ctx.owner, ctx.meta))
+      ): Invert[RelVal] = {
+        implicit lazy val ret : Invert[RelVal] with DFMember.RefOwner =
+          ctx.db.addMember(Invert[RelVal](refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
   }
+
+  //TODO: Mutable concat
+//  final case class ConcatBits[W, Mod <: Modifier](
+//    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
+//  ) extends Value[DFBits.Type[W], Mod] with CanBeAnonymous {
+//    type TMod = Mod
+//    override def codeString(implicit getset: MemberGetSet): String =
+//      relValRefs.map(rvr => rvr.get.refCodeString).mkString(" ## ")
+//    def setTags(tags : DFAny.Tags[DFBits.Type[W]#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+//  }
+//  object ConcatBits {
+//    def mutable[LW, RW](
+//      leftArg : DFAny.Value[DFBits.Type[LW], Modifier.Assignable],
+//      rightArg : DFAny.Value[DFBits.Type[RW], Modifier.Assignable]
+//    )(implicit ctx: Context, ) : ConcatBits
+//  }
 
   sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
   }
 
-  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
-    dfType: Type, leftArgRef : Func2.LeftArgRef[L], op : Op, rightArgRef : Func2.RightArgRef[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+  final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](
+    dfType: Type, leftArgRef : Func2.Ref.LeftArg[L], op : Op, rightArgRef : Func2.Ref.RightArg[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
   )(func0 : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     val func : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func0(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(func)
@@ -443,22 +559,88 @@ object DFAny {
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func0))
   }
   object Func2 {
-    sealed class Ref[+T <: DFAny] extends DFAny.Ref.ConsumeFrom[T]
-    class LeftArgRef[+T <: DFAny] extends Ref[T] 
-    object LeftArgRef {
-      implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : LeftArgRef[T] =
-        DFMember.Ref.newRefFor(new LeftArgRef[T], member)
-    }
-    class RightArgRef[+T <: DFAny] extends Ref[T]
-    object RightArgRef {
-      implicit def refOf[T <: DFAny](member : T)(implicit ctx : DFMember.Context) : RightArgRef[T] =
-        DFMember.Ref.newRefFor(new RightArgRef[T], member)
+    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+    object Ref {
+      trait Type extends DFAny.Ref.ConsumeFrom.Type
+      type LeftArg[+M <: DFAny] = DFMember.OwnedRef.Of[LeftArg.Type, M]
+      object LeftArg {
+        trait Type extends Ref.Type
+        implicit val ev : Type = new Type {}
+      }
+      type RightArg[+M <: DFAny] = DFMember.OwnedRef.Of[RightArg.Type, M]
+      object RightArg {
+        trait Type extends Ref.Type
+        implicit val ev : Type = new Type {}
+      }
     }
 
-    def apply[Type <: DFAny.Type, L <: DFAny, Op <: DiSoOp, R <: DFAny](
+    sealed trait Op
+    //Dual Input, Single Output Operation
+    object Op {
+      sealed trait Negateable extends Op {
+        def negate : Negateable
+      }
+      sealed trait +  extends Negateable {
+        def negate : - = -
+      }
+      sealed trait -  extends Negateable {
+        def negate : + = +
+      }
+      sealed trait *  extends Op
+      sealed trait +^  extends Negateable {
+        def negate : -^ = -^
+      }
+      sealed trait -^  extends Negateable {
+        def negate : +^ = +^
+      }
+      sealed trait *^  extends Op
+      sealed trait == extends Op {
+        override def toString: String = "==="
+      }
+      sealed trait != extends Op {
+        override def toString: String = "=!="
+      }
+      sealed trait <  extends Op
+      sealed trait >  extends Op
+      sealed trait <= extends Op
+      sealed trait >= extends Op
+      sealed trait |  extends Op
+      sealed trait &  extends Op
+      sealed trait ^  extends Op
+      sealed trait Shift extends Op
+      sealed trait << extends Shift
+      sealed trait >> extends Shift
+      sealed trait || extends Op
+      sealed trait && extends Op
+      implicit case object +  extends +
+      implicit case object -  extends -
+      implicit case object *  extends *
+      implicit case object +^  extends +^
+      implicit case object -^  extends -^
+      implicit case object *^  extends *^
+      implicit case object == extends ==
+      implicit case object != extends !=
+      implicit case object <  extends <
+      implicit case object >  extends >
+      implicit case object <= extends <=
+      implicit case object >= extends >=
+      implicit case object |  extends |
+      implicit case object &  extends &
+      implicit case object ^  extends ^
+      implicit case object << extends <<
+      implicit case object >> extends >>
+      implicit case object || extends ||
+      implicit case object && extends &&
+    }
+
+    def apply[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
-    : Func2[Type, L, Op, R] = ctx.db.addMember(Func2[Type, L, Op, R](dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func))
+    : Func2[Type, L, Op, R] = {
+      implicit lazy val ret : Func2[Type, L, Op, R] with DFMember.RefOwner =
+        ctx.db.addMember(Func2[Type, L, Op, R](dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func)).asRefOwner
+      ret
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -466,6 +648,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Extension Classes
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     private[ZFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit =
@@ -543,7 +726,7 @@ object DFAny {
     private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
-      if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally)) (in, dfVar)
+      if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally || in.isConnectingInternally)) (in, dfVar)
       //Connecting a an input port to a variable internally
       else if ((in isSameOwnerDesignAs dfVar) && (in.isConnectingInternally)) (dfVar, in)
       else throwConnectionError("Unsupported connection")
@@ -553,13 +736,14 @@ object DFAny {
       //Connecting a value to an output port internally
       if ((dfVar isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVar)
       //Connecting a an output port to a variable externally
-      else if ((out isOneLevelBelow dfVar) && (out.isConnectingExternally)) (dfVar, out)
+      else if ((out isOneLevelBelow dfVar) && (out.isConnectingExternally || out.isConnectingInternally)) (dfVar, out)
       else throwConnectionError("Unsupported connection")
     }
     private def connectValWithPortIn(dfVal : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVal.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
-      if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally)) (in, dfVal)
+      if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally || in.isConnectingInternally)) (in, dfVal)
+      else if ((in isSameOwnerDesignAs dfVal) && (in.isConnectingInternally) && dfVal.isAnonymous) (in, dfVal)
       else throwConnectionError("Unsupported connection")
     }
     private def connectValWithPortOut(dfVal : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
@@ -568,23 +752,38 @@ object DFAny {
       if ((dfVal isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVal)
       else throwConnectionError("Unsupported connection")
     }
+    private def connectVarWithVar(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+      def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
+      (ctx.db.hasToConnectionFor(left), ctx.db.hasToConnectionFor(right)) match {
+        case (true, false) => (right, left)
+        case (false, true) => (left, right)
+        case (true, true) => throwConnectionError("Both variables already have source connections")
+        case (false, false) => throwConnectionError("Both variables do not have a source connection")
+      }
+    }
 
     protected[ZFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
       val (toPort, from) : (DFAny, DFAny) = (left, right) match {
-        case (p1@In(), p2@In()) => connectPortInWithPortIn(p1, p2)
+        case (p1@In(),  p2@In())  => connectPortInWithPortIn(p1, p2)
         case (p1@Out(), p2@Out()) => connectPortOutWithPortOut(p1, p2)
-        case (p1@Out(), p2@In()) => connectPortOutWithPortIn(p1, p2)
-        case (p1@In(), p2@Out()) => connectPortOutWithPortIn(p2, p1)
-        case (p@In(), v@Var()) => connectVarWithPortIn(v, p)
-        case (v@Var(), p@In()) => connectVarWithPortIn(v, p)
-        case (p@Out(), v@Var()) => connectVarWithPortOut(v, p)
-        case (v@Var(), p@Out()) => connectVarWithPortOut(v, p)
-        case (p@In(), v) => connectValWithPortIn(v, p)
-        case (v, p@In()) => connectValWithPortIn(v, p)
-        case (p@Out(), v) => connectValWithPortOut(v, p)
-        case (v, p@Out()) => connectValWithPortOut(v, p)
-        case _ => throwConnectionError(s"Connection must be made between a port and a value or between ports. No ports found.")
+        case (p1@Out(), p2@In())  => connectPortOutWithPortIn(p1, p2)
+        case (p1@In(),  p2@Out()) => connectPortOutWithPortIn(p2, p1)
+        case (p@In(),   v@Var())  => connectVarWithPortIn(v, p)
+        case (v@Var(),  p@In())   => connectVarWithPortIn(v, p)
+        case (p@Out(),  v@Var())  => connectVarWithPortOut(v, p)
+        case (v@Var(),  p@Out())  => connectVarWithPortOut(v, p)
+        case (v1@Var(), v2@Var()) => connectVarWithVar(v1, v2)
+        case (p@In(),   v)        => connectValWithPortIn(v, p)
+        case (v,        p@In())   => connectValWithPortIn(v, p)
+        case (p@Out(),  v)        => connectValWithPortOut(v, p)
+        case (v,        p@Out())  => connectValWithPortOut(v, p)
+        case _                    => throwConnectionError(
+          s"""Connection must be made between either of the following options:
+             |* A port and a value
+             |* Two ports
+             |* Two vars where only one variables already received an incoming connection""".stripMargin
+        )
       }
       DFNet.Connection(toPort, from)
     }

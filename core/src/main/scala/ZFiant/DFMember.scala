@@ -1,6 +1,6 @@
 package ZFiant
 import DFiant.internals.Meta
-
+import compiler.printer.Printer
 import scala.annotation.tailrec
 
 trait HasTypeName {
@@ -31,14 +31,16 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     case d : DFDesign.Block => d
     case x => x.getOwnerDesign
   }
-  final val name : String = tags.meta.name
   final val isAnonymous : Boolean = tags.meta.name.anonymous
+  final val name : String = if (isAnonymous) s"anon$hashCode()" else tags.meta.name
+  final val hasLateConstruction : Boolean = tags.meta.lateConstruction
   def getFullName(implicit getset : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
   final private[ZFiant] def getOwnerChain(implicit getset : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
   def getRelativeName(implicit callOwner : DFBlock, getset : MemberGetSet) : String = {
     val designOwner = callOwner.getThisOrOwnerDesign
     if (this isMemberOfDesign designOwner) name
     else if (this isOneLevelBelow designOwner) s"${getOwner.name}.$name"
+    else if (callOwner isInsideDesign this.getOwnerDesign) name
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
@@ -50,15 +52,21 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
   final def isMemberOfDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that
   final def isSameOwnerDesignAs(that : DFMember)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that.getOwnerDesign
-  final def isOneLevelBelow(that : DFMember)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign isSameOwnerDesignAs that
-
-  //  final def isDownstreamMemberOf(that : DFBlock) : Boolean = {
-    //      (nonTransparentOwnerOption, that) match {
-    //        case (None, _) => false
-    //        case (Some(a), b) if a == b => true
-    //        case (Some(a), b) => a.isDownstreamMemberOf(that)
-    //      }
-//  }
+  final def isOneLevelBelow(that : DFMember)(implicit getset : MemberGetSet) : Boolean =
+    getOwnerDesign match {
+      case _ : DFDesign.Block.Top => false
+      case od => od isSameOwnerDesignAs that
+    }
+  //true if and only if the member is outside the design at any level
+  final def isOutsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = !isInsideDesign(that)
+  //true if and only if the member is inside the design at any level
+  final def isInsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = {
+    (getOwnerDesign, that) match {
+      case (a, b) if a == b => true
+      case (_ : DFDesign.Block.Top, _) => false
+      case _ => isInsideDesign(that)
+    }
+  }
 
   def setTags(tags : TTags)(implicit getset : MemberGetSet) : DFMember
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"
@@ -66,13 +74,15 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
 
 object DFMember {
-  implicit class MemberExtender[T <: DFMember](member : T)(implicit getset : MemberGetSet) {
-    def setName(value : String) : T = member.setTags(member.tags.setName(value)).asInstanceOf[T]
-    def setNameSuffix(value : String) : T = setName(s"${member.name}$value")
-    def setNamePrefix(value : String) : T = setName(s"$value${member.name}")
-    def anonymize : T = member.setTags(member.tags.anonymize).asInstanceOf[T]
-    def keep : T = member.setTags(member.tags.setKeep(true)).asInstanceOf[T]
-    def addCustomTag(customTag : CustomTag) : T = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[T]
+  implicit class MemberExtender[M <: DFMember](member : M)(implicit getset : MemberGetSet) {
+    def setName(value : String) : M = member.setTags(member.tags.setName(value)).asInstanceOf[M]
+    def setNameSuffix(value : String) : M = setName(s"${member.name}$value")
+    def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
+    def anonymize : M = member.setTags(member.tags.anonymize).asInstanceOf[M]
+    def keep : M = member.setTags(member.tags.setKeep(true)).asInstanceOf[M]
+    def addCustomTag(customTag : CustomTag) : M = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[M]
+    def setLateContruction(value : Boolean) : M = member.setTags(member.tags.setLateContruction(value)).asInstanceOf[M]
+    def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
   trait CustomTag extends Product with Serializable
@@ -85,6 +95,7 @@ object DFMember {
     def setKeep(keep : Boolean) : TTags
     def addCustomTag(customTag : CustomTag) : TTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
+    final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
     final def anonymize : TTags = setMeta(meta.copy(name = meta.name.copy(anonymous = true)))
   }
   object Tags {
@@ -123,33 +134,60 @@ object DFMember {
     }
   }
 
-  class Ref[+T <: DFMember] extends HasTypeName {
-    def get(implicit getset: MemberGetSet) : T = getset(this)
+  sealed trait Ref extends HasTypeName {
+    type TType <: Ref.Type
+    type TMember <: DFMember
+    val refType : TType
+    def get[M0 >: TMember](implicit getset: MemberGetSet) : M0
     override def toString: String = s"$typeName<${hashCode.toHexString}>"
   }
   object Ref {
-    def newRefFor[T <: DFMember, R <: Ref[T]](ref : R, member: T)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor(ref, member)
-    implicit def memberOf[T <: DFMember](ref : Ref[T])(implicit getset : MemberGetSet) : T = getset(ref)
-    implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : Ref[T] = Ref.newRefFor(new Ref[T], member)
-    def apply[T <: DFMember](member: T)(implicit ctx : DFMember.Context) : Ref[T] = newRefFor(new Ref[T], member)
-    class CO[T <: DFMember, R <: Ref[T]](newR : => R) {
-      implicit def refOf(member : T)(implicit ctx : DFMember.Context) : R = DFMember.Ref.newRefFor(newR, member)
-//      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
+    trait Type
+    sealed trait Of[T <: Type, +M <: DFMember] extends Ref {
+      type TType = T
+      type TMember <: M
+      def get[M0 >: TMember](implicit getset: MemberGetSet) : M0 = getset(this)
     }
-//    class CO2[R[T <: DFMember] <: Ref[T]](newR : => R[_]) {
-//      implicit def refOf[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : R[T] = DFMember.Ref.newRefFor(newR, member)
-      //      def apply(member: T)(implicit ctx : DFMember.Context) : R = refOf(member)
-//    }
+
+    def newRefFor[M <: DFMember, T <: Type, R <: Ref.Of[T, M]](ref : R, member: M)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor[M, T, R](ref, member)
+    implicit def memberOf[M <: DFMember, T <: Type](ref : Ref.Of[T, M])(implicit getset : MemberGetSet) : M = getset(ref)
+    implicit def apply[M <: DFMember, T <: Type](member: M)(implicit ctx : DFMember.Context, rt : T)
+    : Ref.Of[T, M] = newRefFor[M, T, Ref.Of[T, M]](new Ref.Of[T, M]{val refType : T = rt}, member)
+  }
+
+  sealed trait RefOwner
+  object RefOwner {
+    trait Type extends Ref.Type
+    implicit val ev : Type = new Type {}
+  }
+  sealed trait OwnedRef extends Ref {
+    val owner : Ref.Of[RefOwner.Type, DFMember]
+  }
+  object OwnedRef {
+    trait Type extends Ref.Type
+    implicit val ev : Type = new Type {}
+    sealed trait Of[T <: Type, +M <: DFMember] extends OwnedRef with Ref.Of[T, M]
+    implicit def apply[M <: DFMember, T <: Type, O <: DFMember](member: M)(
+      implicit ctx : DFMember.Context, rt : T, refOwner : => O with RefOwner
+    ) : OwnedRef.Of[T, M] =
+      Ref.newRefFor[M, T, OwnedRef.Of[T, M]](
+        new OwnedRef.Of[T, M]{
+          val refType: T = rt
+          lazy val owner: Ref.Of[RefOwner.Type, DFMember] = refOwner
+        },
+        member
+      )
   }
 }
 
 
 trait MemberGetSet {
-  def apply[T <: DFMember](ref : DFMember.Ref[T]) : T
-  def set[T <: DFMember](originalMember : T, newMember : T) : T
+  def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0
+  def set[M <: DFMember](originalMember : M, newMember : M) : M
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset
+  implicit def evGetSet(implicit ctx : Printer.Context, lp : shapeless.LowPriority) : MemberGetSet = ctx.getset
 }
 
 trait CanBeGuarded extends DFMember

@@ -1,7 +1,9 @@
 package ZFiant.maxeler
 import ZFiant._
+import compiler.Compilable
 
-final case class MaxJNode(designDB : DFDesign.DB) {
+final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+  private val designDB = c.db
   private val topMembers = designDB.ownerMemberTable(designDB.top)
   private val topPorts : List[DFAny.PortOf[_ <: DFAny.Type]] = topMembers.collect{
     case p : DFAny.Port.In[_,_] => p
@@ -26,33 +28,33 @@ final case class MaxJNode(designDB : DFDesign.DB) {
     case p : DFAny.Port.Out[_,_] if p.tags.customTags.contains(MaxelerScalarIO) => p
   }
 
-  private val pullInZ = (pullInputs, pullInputs.map(p => new DFDesign() {
+  private val pullInZ = (pullInputs, pullInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
   })).zipped
-  private val pullOutZ = (pullOutputs, pullOutputs.map(p => new DFDesign() {
+  private val pullOutZ = (pullOutputs, pullOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
-  private val pushInZ = (pushInputs, pushInputs.map(p => new DFDesign() {
+  private val pushInZ = (pushInputs, pushInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> IN setNamePrefix(s"${p.name}_")
   })).zipped
-  private val pushOutZ = (pushOutputs, pushOutputs.map(p => new DFDesign() {
+  private val pushOutZ = (pushOutputs, pushOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
   })).zipped
-  private val scalaInZ = (scalarInputs, scalarInputs.map(p => new DFDesign() {
+  private val scalaInZ = (scalarInputs, scalarInputs.map(p => new MetaDesign() {
     final val reg = p.prev() setNamePrefix(s"${p.name}_")
   })).zipped
 
-  private val control = new DFDesign() {
+  private val control = new MetaDesign() {
     val empties : List[DFBool] = pullInZ.map{case (_,d) => d.empty}
     val stalls : List[DFBool] = pushOutZ.map{case (_,d) => d.stall}
 
@@ -69,17 +71,17 @@ final case class MaxJNode(designDB : DFDesign.DB) {
     }
   }
 
-  val db : DFDesign.DB = {
+
+  private val db : DFDesign.DB = {
     import DFDesign.DB.Patch
-    import DFCompiler._
     val extendedPortsDB = designDB
-      .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
-      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Replace)))
+      .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst)))
+      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst)))
       .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Via)))
       .moveConnectableFirst
     val guardedMembers = topMembers.collect{case m : CanBeGuarded => m}
     val guardedDB = extendedPortsDB
-      .patch(guardedMembers.head -> Patch.Add(control.db, Patch.Add.Config.Before))
+      .patch(guardedMembers.head -> Patch.Add(control, Patch.Add.Config.Before))
       .patch(guardedMembers.map(m => m -> Patch.ChangeRef(m, (m : DFMember) => m.ownerRef, control.guard)))
     guardedDB
   }
@@ -91,16 +93,15 @@ final case class MaxJNode(designDB : DFDesign.DB) {
   private val clkName : String = "clk"
   private val rstName : String = "rst"
 
-  val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
-  val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
-  val pushInStr : String = pushInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
-  val pushOutStr : String = pushOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
-  val scalarInStr : String = scalarInputs.map(p => s"""\n\t\taddScalarInput("${p.name}", ${p.width});""").mkString
-  val scalarOutStr : String = scalarOutputs.map(p => s"""\n\t\taddScalarOutput("${p.name}", ${p.width});""").mkString
+  private val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
+  private val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
+  private val pushInStr : String = pushInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
+  private val pushOutStr : String = pushOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PUSH, 2);""").mkString
+  private val scalarInStr : String = scalarInputs.map(p => s"""\n\t\taddScalarInput("${p.name}", ${p.width});""").mkString
+  private val scalarOutStr : String = scalarOutputs.map(p => s"""\n\t\taddScalarOutput("${p.name}", ${p.width});""").mkString
 
-  val nodeMaxJString : String =
-    s"""
-       |package $packName;
+  private val nodeMaxJString : String =
+    s"""package $packName;
        |
        |import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
        |import com.maxeler.maxcompiler.v2.managers.custom.blocks.CustomHDLNode;
@@ -117,4 +118,10 @@ final case class MaxJNode(designDB : DFDesign.DB) {
        |	}
        |}
        |""".stripMargin
+
+  private val addedFile = Seq(Compilable.Cmd.GenFile(s"$className.maxj", nodeMaxJString))
+
+  def maxJNode = c.newStage[MaxJNode](db, addedFile)
 }
+
+trait MaxJNode extends Compilable.Stage
