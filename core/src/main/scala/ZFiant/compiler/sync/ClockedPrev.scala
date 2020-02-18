@@ -65,11 +65,10 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
             }
           }
           clockedBlocks.foreach {
-            case cb =>
+            cb =>
               val d = addedClkRst(cb)
               DFNet.Connection(d.clk, clk)
               DFNet.Connection(d.rst, rst)
-//              rst.connectWith(d.rst)
           }
         }
         addedClkRst.update(block, dsn)
