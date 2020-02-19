@@ -30,46 +30,52 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
     val clk = DFBool() <> IN
     val rst = DFBool() <> IN
   }
-  private val addedClkRst : mutable.Map[DFDesign.Block, (DFBool, Option[DFBool])] = mutable.Map()
 
-  //
-  private def addClkRst : Unit = {
-
-  }
   def clockedPrev = {
-//    val addedClockRst
+    val addedClkRst : mutable.Map[DFDesign.Block, ClkRstDesign] = mutable.Map()
     val patchList = designDB.designMemberList.flatMap {case(block, members) =>
+      val clockedBlocks = members.collect {
+        case b : DFDesign.Block if (addedClkRst.contains(b)) => b
+      }
       val prevTpls = members.collect {
-        case p @ DFAny.Alias.Prev(dfType, relValRef, step, ownerRef, tags) =>
+        case p @ DFAny.Alias.Prev(dfType, relValRef, _, ownerRef, tags) =>
           val modifier = tags.init match {
             case Some(i :: _) => DFAny.NewVar.Initialized(Seq(i))
             case _ => DFAny.NewVar.Uninitialized
           }
           (p, relValRef.get, DFAny.NewVar(dfType, modifier, ownerRef, tags))
       }
-      if (prevTpls.nonEmpty) {
-        val dsn = new MetaDesign() {
-          val clk = DFBool() <> IN
-          val rst = DFBool() <> IN
-
-          ifdf(rst === true) {
-            prevTpls.foreach {
-              case (_, _, prevVar) => prevVar.tags.init match {
-                case Some(i :: _) =>
-                  val initConst = DFAny.Const(prevVar.dfType, i)
-                  prevVar.assign(initConst)
-                case _ =>
+      if (prevTpls.nonEmpty || clockedBlocks.nonEmpty) {
+        val dsn = new ClkRstDesign {
+          if (prevTpls.nonEmpty) {
+            ifdf(rst === true) {
+              prevTpls.foreach {
+                case (_, _, prevVar) => prevVar.tags.init match {
+                  case Some(i :: _) =>
+                    val initConst = DFAny.Const(prevVar.dfType, i)
+                    prevVar.assign(initConst)
+                  case _ =>
+                }
+              }
+            }.elseifdf(clk.rising) {
+              prevTpls.foreach {
+                case (p, rv, prevVar) =>
+                  prevVar.assign(rv)
               }
             }
-          }.elseifdf(clk.rising) {
-            prevTpls.foreach {
-              case (p, rv, prevVar) =>
-                prevVar.assign(rv)
-            }
+          }
+          clockedBlocks.foreach {
+            case cb =>
+              val d = addedClkRst(cb)
+              DFNet.Connection(d.clk, clk)
+              DFNet.Connection(d.rst, rst)
+//              rst.connectWith(d.rst)
           }
         }
-        (block -> Patch.Add(dsn, Patch.Add.Config.Inside)) ::
-          prevTpls.map{case (p, _, prevVar) => p -> Patch.Replace(prevVar, Patch.Replace.Config.FullReplacement)}
+        addedClkRst.update(block, dsn)
+//        (members.head -> Patch.Add(clkDsn, Patch.Add.Config.Before)) ::
+        (block -> Patch.Add(dsn.getDB, Patch.Add.Config.Inside)) ::
+        prevTpls.map{case (p, _, prevVar) => p -> Patch.Replace(prevVar, Patch.Replace.Config.FullReplacement)}
       } else None
     }
     c.newStage[ClockedPrev](designDB.patch(patchList), Seq())
