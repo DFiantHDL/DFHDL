@@ -26,7 +26,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
   private val designDB = c.singleStepPrev.calcInit.db
   import designDB.__getset
 
-  def getClockedDB = {
+  private def getClockedDB : (DFDesign.DB, Map[DFDesign.Block, ClkRstDesign]) = {
     val addedClkRst : mutable.Map[DFDesign.Block, ClkRstDesign] = mutable.Map()
     val patchList = designDB.designMemberList.flatMap {case(block, members) =>
       val clockedBlocks = members.collect {
@@ -62,56 +62,54 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         (members.head -> Patch.Add(dsnClkRst, Patch.Add.Config.Before)) :: connPatchList
       } else None
     }
-    c.newStage[ClockedPrev](designDB.patch(patchList), Seq())
+    (designDB.patch(patchList), addedClkRst.toMap)
   }
 
   def clockedPrev = {
-    val addedClkRst : mutable.Map[DFDesign.Block, ClkRstDesign] = mutable.Map()
-    val patchList = designDB.designMemberList.flatMap {case(block, members) =>
-      val clockedBlocks = members.collect {
-        case b : DFDesign.Block if (addedClkRst.contains(b)) => b
-      }
+    val (clockedDB, addedClkRst) = getClockedDB
+    val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
+      var hasPrevRst = false
       val prevTpls = members.collect {
         case p @ DFAny.Alias.Prev(dfType, relValRef, _, ownerRef, tags) =>
           val modifier = tags.init match {
-            case Some(i :: _) => DFAny.NewVar.Initialized(Seq(i))
+            case Some(i :: _) =>
+              hasPrevRst = true
+              DFAny.NewVar.Initialized(Seq(i))
             case _ => DFAny.NewVar.Uninitialized
           }
           (p, relValRef.get, DFAny.NewVar(dfType, modifier, ownerRef, tags))
       }
-      if (prevTpls.nonEmpty || clockedBlocks.nonEmpty) {
-        val dsn = new ClkRstDesign {
-          if (prevTpls.nonEmpty) {
-            ifdf(!rst) {
-              prevTpls.foreach {
-                case (_, _, prevVar) => prevVar.tags.init match {
-                  case Some(i :: _) =>
-                    val initConst = DFAny.Const(prevVar.dfType, i)
-                    prevVar.assign(initConst)
-                  case _ =>
-                }
-              }
-            }.elseifdf(clk.rising()) {
-              prevTpls.foreach {
-                case (p, rv, prevVar) =>
-                  prevVar.assign(rv)
-              }
+      val clockedDsn = addedClkRst(block)
+      if (prevTpls.nonEmpty) {
+        val prevDsn = new ClkRstDesign {
+          private def rstBlock : Unit = prevTpls.foreach {
+            case (_, _, prevVar) => prevVar.tags.init match {
+              case Some(i :: _) =>
+                val initConst = DFAny.Const(prevVar.dfType, i)
+                prevVar.assign(initConst)
+              case _ =>
             }
           }
-          clockedBlocks.foreach {
-            cb =>
-              val d = addedClkRst(cb)
-              DFNet.Connection(d.clk, clk)
-              DFNet.Connection(d.rst, rst)
+          private def clkBlock : Unit = prevTpls.foreach {
+            case (_, rv, prevVar) =>
+              prevVar.assign(rv)
           }
+          if (hasPrevRst)
+            ifdf(!rst)(rstBlock).elseifdf(clk.rising())(clkBlock)
+          else
+            ifdf(clk.rising())(clkBlock)
         }
-        addedClkRst.update(block, dsn)
-//        (members.head -> Patch.Add(clkDsn, Patch.Add.Config.Before)) ::
-        (block -> Patch.Add(dsn.getDB, Patch.Add.Config.Inside)) ::
+        //replacing the clock and reset with the ones already added in clockedDB
+        val clkPatch = (prevDsn.clk -> Patch.Replace(clockedDsn.clk, Patch.Replace.Config.ChangeRefAndRemove))
+        val rstPatch = if (hasPrevRst) List(prevDsn.rst -> Patch.Replace(clockedDsn.rst, Patch.Replace.Config.ChangeRefAndRemove)) else List()
+        val prevPatchList = clkPatch :: rstPatch
+        val prevDB = prevDsn.getDB.patch(prevPatchList)
+        //adding the clocked prev "signaling" with the clk-rst guards
+        (block -> Patch.Add(prevDB, Patch.Add.Config.Inside)) ::
         prevTpls.map{case (p, _, prevVar) => p -> Patch.Replace(prevVar, Patch.Replace.Config.FullReplacement)}
       } else None
     }
-    c.newStage[ClockedPrev](designDB.patch(patchList), Seq())
+    c.newStage[ClockedPrev](clockedDB.patch(patchList), Seq())
   }
 }
 
