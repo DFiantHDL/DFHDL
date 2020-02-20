@@ -26,9 +26,43 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
   private val designDB = c.singleStepPrev.calcInit.db
   import designDB.__getset
 
-  trait ClkRstDesign extends MetaDesign {
-    val clk = DFBool() <> IN addCustomTag(SyncCustomTag.Clock)
-    val rst = DFBool() <> IN addCustomTag(SyncCustomTag.Reset)
+  def getClockedDB = {
+    val addedClkRst : mutable.Map[DFDesign.Block, ClkRstDesign] = mutable.Map()
+    val patchList = designDB.designMemberList.flatMap {case(block, members) =>
+      val clockedBlocks = members.collect {
+        case b : DFDesign.Block if (addedClkRst.contains(b)) => b
+      }
+      val hasBlockClk = clockedBlocks.exists{b => addedClkRst(b).hasClk}
+      val hasBlockRst = clockedBlocks.exists{b => addedClkRst(b).hasRst}
+      lazy val hasPrevClk = members.exists{
+        case _ : DFAny.Alias.Prev[_] => true
+        case _ => false
+      }
+      lazy val hasPrevRst = members.exists{
+        case p : DFAny.Alias.Prev[_] => p.tags.init match {
+          case Some(_ :: _) => true
+          case _ => false
+        }
+        case _ => false
+      }
+      if (hasBlockClk || hasBlockRst || hasPrevClk || hasPrevRst) {
+        val dsnClkRst = new ClkRstDesign {
+          if (hasBlockClk || hasPrevClk) clk //touch lazy clock
+          if (hasBlockRst || hasPrevRst) rst //touch lazy reset
+        }
+        val connPatchList = clockedBlocks.map {cb =>
+          val d = addedClkRst(cb)
+          cb -> Patch.Add(new MetaDesign {
+            if (d.hasClk) DFNet.Connection(d.clk, dsnClkRst.clk)
+            if (d.hasRst) DFNet.Connection(d.rst, dsnClkRst.rst)
+          }, Patch.Add.Config.After)
+        }
+
+        addedClkRst.update(block, dsnClkRst)
+        (members.head -> Patch.Add(dsnClkRst, Patch.Add.Config.Before)) :: connPatchList
+      } else None
+    }
+    c.newStage[ClockedPrev](designDB.patch(patchList), Seq())
   }
 
   def clockedPrev = {
