@@ -79,8 +79,8 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           }
           (p, relValRef.get, DFAny.NewVar(dfType, modifier, ownerRef, tags))
       }
-      val clockedDsn = addedClkRst(block)
       if (prevTpls.nonEmpty) {
+        val clockedDsn = addedClkRst(block)
         val prevDsn = new ClkRstDesign {
           private def rstBlock : Unit = prevTpls.foreach {
             case (_, _, prevVar) => prevVar.tags.init match {
