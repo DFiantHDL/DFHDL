@@ -1,5 +1,5 @@
 package ZFiant.compiler.backend.vhdl.adt
-
+import ZFiant.Enum
 import DFiant.internals.StringExtras
 
 sealed trait Value extends Product with Serializable {
@@ -50,7 +50,7 @@ object Value {
       }
       object Port {
         case object In extends Port {
-          val portDirStr : String = "in "
+          val portDirStr : String = "in  "
         }
         case object Out extends Port {
           val portDirStr : String = "out "
@@ -137,20 +137,18 @@ object Value {
     }
     ///////////////////////////////////////////////////////////
 
-    //  case class enumeration(enum : Enum) extends Type {
-    //    final val width = enum.width
-    //    override def toString: String = db.Package.declarations.enums(enum).name.toString
-    //  }
-    //
-    //  def apply(member : DFAny) : Type = member match {
-    //    case x : DFBits[_] => std_logic_vector(x.width)
-    //    case x : DFUInt[_] => unsigned(x.width)
-    //    case x : DFSInt[_] => signed(x.width)
-    //    case x : DFBool => std_logic
-    //    case x : DFEnum[_] => enumeration(x.enum)
-    //    case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
-    //  }
-    //  def apply(value : Value) : Type = value.typeS
+    ///////////////////////////////////////////////////////////
+    // enumeration
+    ///////////////////////////////////////////////////////////
+    case class enumeration(name: Name, width : Int, entries : List[enumeration.entry]) extends Type {
+      override def toString: String = ???
+    }
+    object enumeration {
+      final case class entry(name : Name) {
+        override def toString: String = s"$name"
+      }
+    }
+    ///////////////////////////////////////////////////////////
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
