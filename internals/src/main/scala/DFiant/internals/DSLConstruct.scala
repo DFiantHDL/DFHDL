@@ -284,7 +284,7 @@ object DSLOwnerConstruct {
       override val meta: Meta = self.meta.anonymize
     }
   }
-  trait DB[Owner, Body <: AnyVal] {
+  trait DB[Owner, Body <: Any] {
     private case class Info(id : Int, order : Int, owners : ListBuffer[Owner])
     private val db = mutable.HashMap.empty[String, mutable.HashMap[Body, Info]]
 //    private var dbString = ""
