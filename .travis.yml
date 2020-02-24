@@ -1,82 +1,124 @@
-language: scala
-jdk: openjdk11
-scala:
-  - 2.13.1
-before_install:
-  - git fetch --tags
-stages:
-  - name: test
-  - name: release
-    if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
+
 jobs:
   include:
-    - stage: test
+    - stage: compile
       name: compile
+      language: scala
+      jdk: openjdk11
+      scala:
+        - 2.13.1
+      before_install:
+        - git fetch --tags
+      before_cache:
+        - du -h -d 1 $HOME/.ivy2/cache
+        - du -h -d 2 $HOME/.sbt/
+        - rm -rf $HOME/.ivy2/local
+        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -type f -delete
+        - find $HOME/.sbt -name "*.lock" -type f -delete
+      cache:
+        directories:
+          - $HOME/.sbt/1.0/dependency
+          - $HOME/.sbt/boot/scala*
+          - $HOME/.sbt/launchers
+          - $HOME/.ivy2/cache
+          - $HOME/.coursier
       script: sbt compile
+
     - stage: release
+      if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
       name: release
+      language: scala
+      jdk: openjdk11
+      scala:
+        - 2.13.1
+      before_install:
+        - git fetch --tags
+      before_cache:
+        - du -h -d 1 $HOME/.ivy2/cache
+        - du -h -d 2 $HOME/.sbt/
+        - rm -rf $HOME/.ivy2/local
+        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -type f -delete
+        - find $HOME/.sbt -name "*.lock" -type f -delete
+      cache:
+        directories:
+          - $HOME/.sbt/1.0/dependency
+          - $HOME/.sbt/boot/scala*
+          - $HOME/.sbt/launchers
+          - $HOME/.ivy2/cache
+          - $HOME/.coursier
       script: sbt ci-release
-before_cache:
-  - du -h -d 1 $HOME/.ivy2/cache
-  - du -h -d 2 $HOME/.sbt/
-  - rm -rf $HOME/.ivy2/local
-  - find $HOME/.ivy2/cache -name "ivydata-*.properties" -type f -delete
-  - find $HOME/.sbt -name "*.lock" -type f -delete
-cache:
-  directories:
-    - $HOME/.sbt/1.0/dependency
-    - $HOME/.sbt/boot/scala*
-    - $HOME/.sbt/launchers
-    - $HOME/.ivy2/cache
-    - $HOME/.coursier
 
+    - stage: dfdocs
+      name: dfdocs
+      language: python
+      install:
+        - pip install pygments
+        - pip install mkdocs
+        - pip install mkdocs-material
+        - pip install pymdown-extensions
+        - pip install mkdocs-redirects
+      script:
+        - mkdocs build --verbose --clean #--strict
+      deploy:
+        provider: pages
+        repo: DFiantHDL/DFiantHDL.github.io
+        skip_cleanup: true
+        github_token: $GITHUB_TOKEN # Set in travis-ci.org dashboard
+        local_dir: site
+        target_branch: master
+        on:
+          branch: legato
 
+        
+# matrix:
+ # include:
+  # - language: scala
+    # jdk: openjdk11
+    # scala:
+      # - 2.13.1
+    # before_install:
+      # - git fetch --tags
+    # stages:
+      # - name: compile
+      # - name: release
+        # if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
+    # jobs:
+      # include:
+        # - stage: compile
+          # name: compile
+          # script: sbt compile
+        # - stage: release
+          # name: release
+          # script: sbt ci-release
+    # before_cache:
+      # - du -h -d 1 $HOME/.ivy2/cache
+      # - du -h -d 2 $HOME/.sbt/
+      # - rm -rf $HOME/.ivy2/local
+      # - find $HOME/.ivy2/cache -name "ivydata-*.properties" -type f -delete
+      # - find $HOME/.sbt -name "*.lock" -type f -delete
+    # cache:
+      # directories:
+        # - $HOME/.sbt/1.0/dependency
+        # - $HOME/.sbt/boot/scala*
+        # - $HOME/.sbt/launchers
+        # - $HOME/.ivy2/cache
+        # - $HOME/.coursier
 
-
-#matrix:
-#  include:
-#    - language: scala
-#      jdk: openjdk11
-#      scala:
-#        - 2.13.1
-#      before_install:
-#        - git fetch --tags
-#      stages:
-#        - name: release
-#          if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
-#      jobs:
-#        include:
-#          - stage: release
-#            name: release
-#            script: sbt ci-release
-#      before_cache:
-#        - du -h -d 1 $HOME/.ivy2/cache
-#        - du -h -d 2 $HOME/.sbt/
-#        - rm -rf $HOME/.ivy2/local
-#        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -type f -delete
-#        - find $HOME/.sbt -name "*.lock" -type f -delete
-#      cache:
-#        directories:
-#          - $HOME/.sbt/1.0/dependency
-#          - $HOME/.sbt/boot/scala*
-#          - $HOME/.sbt/launchers
-#          - $HOME/.ivy2/cache
-#          - $HOME/.coursier
-#
-#    - language: python
-#      install:
-#        - pip install pygments
-#        - pip install mkdocs
-#        - pip install mkdocs-material
-#        - pip install pymdown-extensions
-#      script:
-#        - mkdocs build --verbose --clean #--strict
-#      deploy:
-#        provider: pages
-#        repo: DFiantHDL/DFiantHDL.github.io
-#        skip_cleanup: true
-#        github_token: $GITHUB_TOKEN # Set in travis-ci.org dashboard
-#        local_dir: site
-#        target_branch: master
-#        on:
-#          branch: legato
+  # - language: python
+    # install:
+      # - pip install pygments
+      # - pip install mkdocs
+      # - pip install mkdocs-material
+      # - pip install pymdown-extensions
+      # - pip install mkdocs-redirects
+    # script:
+      # - mkdocs build --verbose --clean #--strict
+    # deploy:
+      # provider: pages
+      # repo: DFiantHDL/DFiantHDL.github.io
+      # skip_cleanup: true
+      # github_token: $GITHUB_TOKEN # Set in travis-ci.org dashboard
+      # local_dir: site
+      # target_branch: master
+      # on:
+        # branch: legato

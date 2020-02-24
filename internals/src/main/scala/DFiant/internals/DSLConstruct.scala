@@ -291,7 +291,7 @@ object DSLOwnerConstruct {
     private var order = 0
     private def actualTypeName(ownerTypeName : String, info : Info) : String =
       if (info.id == 0) ownerTypeName else ownerTypeName + Meta.Name.Separator + info.id
-    def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
+    final def addOwnerBody(ownerTypeName : String, ownerBody : Body, owner : Owner) : String = {
       var newBody : Boolean = false
       val csHM = db.getOrElseUpdate(ownerTypeName, {newBody = true; mutable.HashMap.empty[Body, Info]})
       val info = csHM.getOrElseUpdate(ownerBody, {newBody = true; Info(csHM.size, order, ListBuffer.empty)})

@@ -116,7 +116,7 @@ DFiant is a Scala library and thus possesses various rich type safe language con
 
 
 \subsection{Hello DFiant World!}
-The DFiant code in \fig{fig:MADFiant} demonstrates the structure of any DFiant program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} abstract class (lines 3--26), and creates a runnable application that instantiates the top design trait, and compiles it into a VHDL file (linees 32--33).
+The DFiant code in \fig{fig:MADFiant} demonstrates the structure of any DFiant program: it imports the \code{DFiant} library (line 1), creates the top-level design by extending the \code{DFDesign} abstract class (lines 3--26), and creates a runnable application that instantiates the top design trait, and compiles it into a VHDL file (lines 32--33).
 
 The MA4 design is fairly straightforward. Lines 4--8 generate the signed dataflow ports and include a \code{0} value initialization (see Section~\ref{sec:state_constructs}). 
 Lines 10--14 define the function \code{ma} that generates a single four-sample moving average, while lines 15--19 define the function \code{avg2} that generates a two-input average unit. Finally, lines 22--25 compose \code{avg2} and \code{ma} to generate the entire MA4 functionality and assign it to the output port \code{o}. We elaborate on the unique DFiant constructs and semantics in the next sections.

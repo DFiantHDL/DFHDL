@@ -1,15 +1,23 @@
-package ZFiant.compiler.backend.vhdl
+package ZFiant
+package compiler
+package backend
+package vhdl
 
-import ZFiant._
-import ZFiant.compiler.backend.utils._
+import backend.utils._
 
-class Compiler(design : DFDesign) {
-  private implicit def getVHDLType(from : DFAny) : adt.Value.Type = from.dfType match {
+final class Compiled(designDB : DFDesign.DB, block : DFDesign.Block) {
+  import designDB.__getset
+  private val nameDB : NameDB[adt.Name] = new NameDB[adt.Name](reservedKeywords, false, adt.Name(_))
+  private val enumerations : Map[Enum, adt.Value.Type.enumeration] = Map()
+  private def getVHDLType(from : DFAny) : adt.Value.Type = from.dfType match {
     case DFBits.Type(width) => adt.Value.Type.std_logic_vector(width)
     case DFUInt.Type(width) => adt.Value.Type.unsigned(width)
+    case DFSInt.Type(width) => adt.Value.Type.signed(width)
+    case DFEnum.Type(enumType) => enumerations(enumType)
     case DFBool.Type() => adt.Value.Type.std_logic
+    case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${from.getFullName} has type ${from.typeName}")
   }
-  private implicit def getName(from : DFAny)(implicit nameDB : NameDB) : adt.Name =
+  private def getVHDLName(from : DFMember) : adt.Name =
     if (from.isAnonymous) adt.Name.anonymous
     else {
       //port names are capitalized to make ports more visible
@@ -18,17 +26,29 @@ class Compiler(design : DFDesign) {
         case DFAny.Out() => from.name.toUpperCase
         case _ => from.name
       }
-      adt.Name(nameDB.getUniqueName(modifiedName))
+      adt.Name(modifiedName)
     }
 
-  private val designDB = design.getDB
-  implicit val nameDB : NameDB = new NameDB(reservedKeywords, false)
-  private val members = designDB.ownerMemberTable(design.block)
-//  private val clkPort = ast.Clock()
-  private val portMap : Map[DFAny, adt.Value] = Map.from(members.map {
-    case p@DFAny.In() => p -> adt.Value.Dcl.Port.In(p, p, None)
-    case p@DFAny.Out() => p -> adt.Value.Dcl.Port.Out(p, p, None)
+  private val members = designDB.ownerMemberTable(block)
+  private val portMap : Map[DFAny, adt.Value.Dcl[adt.Value.Dcl.Modifier.Port]] = Map.from(members.collect {
+    case p@DFAny.In() => p -> adt.Value.Dcl.Port.In(getVHDLName(p), getVHDLType(p), None)
+    case p@DFAny.Out() => p -> adt.Value.Dcl.Port.Out(getVHDLName(p), getVHDLType(p), None)
   })
 
+  private val entityName = nameDB(block.typeName)
+  private val archName = adt.Name(s"${entityName}_arch")
+  val entity = adt.Entity(entityName, portMap.values.toList)
+  val componentDecls = members.collect {
+    case b : DFDesign.Block =>
+//      adt.Component()
+  }
 
+  val architecture = adt.Architecture(archName, entityName, List(), List())
+
+}
+
+final class Compiler[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+  private val designDB = c.viaPortConnection.db
+
+  def testVHDL : Compiled = new Compiled(designDB, designDB.top)
 }
