@@ -2,7 +2,7 @@
 jobs:
   include:
     - stage: compile
-      name: compile
+      name: Compile
       language: scala
       jdk: openjdk11
       scala:
@@ -26,7 +26,7 @@ jobs:
 
     - stage: release
       if: ((branch = master AND type = push) OR (tag IS present)) AND NOT fork
-      name: release
+      name: Release
       language: scala
       jdk: openjdk11
       scala:
@@ -49,7 +49,7 @@ jobs:
       script: sbt ci-release
 
     - stage: dfdocs
-      name: dfdocs
+      name: DFDocs
       language: python
       install:
         - pip install pygments
@@ -67,7 +67,7 @@ jobs:
         local_dir: site
         target_branch: master
         on:
-          branch: legato
+          branch: master
 
         
 # matrix:
