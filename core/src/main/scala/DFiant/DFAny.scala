@@ -542,7 +542,9 @@ object DFAny {
     override private[DFiant] lazy val __dev : __DevConnectable = ???
     import __dev._
 
-    final def <> [RDIR <: DFDir](right: TVal)(implicit ctx : DFNet.Context) : Unit = self.connectWith(right)
+    final def <> [R](right: OpAble[R])(
+      implicit op: `Op<>Builder`[R], ctx : DFNet.Context
+    ) = self.connectWith(op(left, right))
   }
   object Connectable {
     implicit def fetchDev(from : Connectable[_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev

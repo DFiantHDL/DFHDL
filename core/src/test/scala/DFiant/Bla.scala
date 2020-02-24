@@ -147,7 +147,7 @@ trait IODesignConn2 extends DFDesign{
   val r = DFUInt(8) <> IN init 1
   val o = DFUInt(8) <> OUT
 
-  o <> (l `RT+` r)
+//  o <> (l `RT+` r)
 //  val io = new Comp {}
 //  i <> io.i
 //  o <> io.o
