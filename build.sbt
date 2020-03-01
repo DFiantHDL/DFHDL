@@ -14,8 +14,9 @@ inThisBuild(List(
 
 name := projectName
 organization in ThisBuild := "io.github.dfianthdl"
-scalaVersion in ThisBuild := "2.13.2-bin-8cd15db-SNAPSHOT" //2.12.4-bin-typelevel-4
+scalaVersion in ThisBuild := "2.13.1" //2.12.4-bin-typelevel-4
 resolvers in ThisBuild += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
+enablePlugins(ScalaJSPlugin)
 //version in ThisBuild := "0.0.12-SNAPSHOT"
 
 // PROJECTS

@@ -12,3 +12,5 @@ addSbtPlugin("com.lucidchart" % "sbt-scalafmt-coursier" % "1.12")
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.5")
 
 addSbtPlugin("com.geirsson" % "sbt-ci-release" % "1.4.31")
+
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.0.0")
