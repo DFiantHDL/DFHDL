@@ -22,12 +22,16 @@ object DB {
           enumMap + (enumType -> vhdlEnum)
         case _ => enumMap
       }
-      case (e, _) => e
+      case (enumMap, _) => enumMap
     }
 
 //    final case class FileBody(ports : )
 
-//    designDB.designMemberList.foldLeft(Map.empty[DFDesign.Block, adt.File], Map.)
+    val files = designDB.designMemberList.foldLeft(Map.empty[DFDesign.Block, adt.File]) {
+      case (designMap, (block, members)) =>
+        designMap
+      case (designMap, _) => designMap
+    }
     ???
   }
 }
