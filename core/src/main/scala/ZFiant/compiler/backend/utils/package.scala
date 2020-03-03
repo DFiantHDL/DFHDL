@@ -25,5 +25,7 @@ package object utils {
       }
     }
     def apply(value : String) : N = gen(getUniqueName(value))
+
+    override def clone(): NameDB[N] = new NameDB[N](nameTable.view.keys.toList, caseSensitive, gen)
   }
 }
