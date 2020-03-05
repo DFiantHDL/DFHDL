@@ -79,6 +79,11 @@ object DFDesign {
   }
   object Block {
     final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[MemberGetSet => String]) extends Block {
+      protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+        case Internal(designType, _, tags, inlinedRep) =>
+          this.designType == designType && this.tags == tags && this.inlinedRep == inlinedRep
+        case _ => false
+      }
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
       override lazy val typeName : String = designType
     }
@@ -90,6 +95,11 @@ object DFDesign {
       override lazy val ownerRef : DFBlock.Ref = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
+      protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+        case Top(designType, tags) =>
+          this.designType == designType && this.tags == tags
+        case _ => false
+      }
       override lazy val typeName : String = designType
       override def getFullName(implicit getset : MemberGetSet): String = name
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db))

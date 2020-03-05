@@ -28,6 +28,11 @@ object DFNet {
   }
 
   final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet(":=") with CanBeGuarded {
+    protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+      case Assignment(toRef, fromRef, _, tags) =>
+        this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags == tags
+      case _ => false
+    }
     def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object Assignment {
@@ -40,6 +45,11 @@ object DFNet {
   }
 
   final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet("<>") {
+    protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+      case Connection(toRef, fromRef, _, tags) =>
+        this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags == tags
+      case _ => false
+    }
     def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object Connection {

@@ -67,7 +67,8 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
       case _ => isInsideDesign(that)
     }
   }
-//  def isSimilarTo(that : DFMember) : Boolean
+  //true if and only if the two members are equivalent in relation to their design construction context
+  protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean
 
   def setTags(tags : TTags)(implicit getset : MemberGetSet) : DFMember
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"

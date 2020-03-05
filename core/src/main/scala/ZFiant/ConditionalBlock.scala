@@ -21,6 +21,12 @@ import DFiant.internals._
 sealed trait ConditionalBlock extends DFBlock with CanBeGuarded {
   type TTags = DFMember.Tags.Basic
   type TRet
+  protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = ???
+//    that match {
+//    case Top(designType, tags) =>
+//      this.designType == designType && this.tags == tags
+//    case _ => false
+//  }
   private[ZFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
 }
 
@@ -177,6 +183,12 @@ object ConditionalBlock {
       ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
         retVarRef, this, None, patternBld(mvType, pattern)
       )(retBld(dfType, block))(ctx)
+      protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+        case MatchHeader(dfType, retVarRef, mvType, matchValRef, matchConfig, _, tags) =>
+          this.dfType == dfType && this.retVarRef =~ retVarRef && this.mvType == mvType &&
+          this.matchValRef =~ matchValRef && this.matchConfig == matchConfig && this.tags == tags
+        case _ => false
+      }
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object MatchHeader {
@@ -287,6 +299,12 @@ object ConditionalBlock {
       ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
         this, None, patternBld(mvType, pattern)
       )(block)(ctx)
+      protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+        case MatchHeader(mvType, matchValRef, matchConfig, _, tags) =>
+          this.mvType == mvType && this.matchValRef =~ matchValRef && this.matchConfig == matchConfig &&
+            this.tags == tags
+        case _ => false
+      }
       def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object MatchHeader {
