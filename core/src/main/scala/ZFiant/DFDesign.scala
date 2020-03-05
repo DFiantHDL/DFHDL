@@ -74,24 +74,25 @@ object DFDesign {
 
   sealed trait Block extends DFBlock {
     type TTags = DFMember.Tags.Basic
-    def headerCodeString(implicit getset: MemberGetSet): String = s"trait $typeName extends DFDesign"
+    val designType: String
+    def headerCodeString(implicit getset: MemberGetSet): String = s"trait $designType extends DFDesign"
   }
   object Block {
-    final case class Internal(ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[MemberGetSet => String])(designType: String) extends Block {
-      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(designType))
+    final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[MemberGetSet => String]) extends Block {
+      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
       override lazy val typeName : String = designType
     }
     object Internal {
       def apply(designType : String, inlinedRep : Option[MemberGetSet => String])(implicit ctx : Context) : Block = ctx.db.addMember(
-        if (ctx.ownerInjector == null) Top(ctx.meta)(ctx.db, designType) else Internal(ctx.owner, ctx.meta, inlinedRep)(designType))
+        if (ctx.ownerInjector == null) Top(designType, ctx.meta)(ctx.db) else Internal(designType, ctx.owner, ctx.meta, inlinedRep))
     }
-    final case class Top(tags : DFMember.Tags.Basic)(db: DB.Mutable, designType: String) extends Block {
+    final case class Top(designType: String, tags : DFMember.Tags.Basic)(db: DB.Mutable) extends Block {
       override lazy val ownerRef : DFBlock.Ref = ???
       override def getOwner(implicit getset : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       override lazy val typeName : String = designType
       override def getFullName(implicit getset : MemberGetSet): String = name
-      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db, designType))
+      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db))
     }
   }
 

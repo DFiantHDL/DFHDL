@@ -13,13 +13,13 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
       case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb), lateConstruction)))
-      case DFDesign.Block.Internal(_,_,Some(_)) => None
+      case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
         val body = blockBodyCodeString(d, fixedDB.ownerMemberTable(d), lateConstruction = true)
         val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(Printer.delim)}\n}"
         Some(s"final val ${d.name} = new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.get.getOwner match {
-        case DFDesign.Block.Internal(_,_,Some(_)) => None //ignoring inlined block connection
+        case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
         case _ => Some(n.codeString)
       }
       case a : DFAny if !a.isAnonymous =>
@@ -41,7 +41,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
         s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(Printer.delim)}\n}"
     }
     fixedDB.ownerMemberList.foreach {
-      case (DFDesign.Block.Internal(_,_,Some(_)), _) =>
+      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) =>
       case (block : DFDesign.Block, members) =>
         bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members, lateConstruction = false), block)
       case _ =>

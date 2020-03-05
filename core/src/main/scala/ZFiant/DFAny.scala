@@ -271,7 +271,7 @@ object DFAny {
     ) extends Value[Type, Mod] {
       type TMod = Mod
       override def refCodeString(implicit ctx : Printer.Context): String = (ownerRef.get) match {
-        case DFDesign.Block.Internal(_,_, Some(f)) => f(ctx.getset)
+        case DFDesign.Block.Internal(_,_,_,Some(f)) => f(ctx.getset)
         case _ => super.refCodeString
       }
       def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> OUT${modifier.codeString}"

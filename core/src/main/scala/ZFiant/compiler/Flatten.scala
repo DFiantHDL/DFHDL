@@ -41,7 +41,7 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     }
   }
   def flattenInline = {
-    val inlineBlocks = designDB.members.collect{case ib@DFDesign.Block.Internal(_,_,Some(_)) => ib}
+    val inlineBlocks = designDB.members.collect{case ib@DFDesign.Block.Internal(_,_,_,Some(_)) => ib}
     val patchList = inlineBlocks.flatMap(ib => flattenPatch(ib))
     c.newStage[Flatten](designDB.patch(patchList), Seq())
   }

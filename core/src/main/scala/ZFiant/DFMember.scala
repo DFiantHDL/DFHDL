@@ -67,6 +67,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
       case _ => isInsideDesign(that)
     }
   }
+//  def isSimilarTo(that : DFMember) : Boolean
 
   def setTags(tags : TTags)(implicit getset : MemberGetSet) : DFMember
   def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"
