@@ -12,7 +12,7 @@ final case class Component(entityName : Name, ports : List[Value.Dcl[Value.Dcl.M
 
 }
 
-final case class ComponentInstance(name : Name, entityName : Name, connections : List[(Name, Value)]) extends Statement {
+final case class ComponentInstance(name : Name, entityName : Name, connections : List[(Name, Value)]) extends HasName with Statement {
   override def toString: String =
     s"""$name : $entityName
        |port map (

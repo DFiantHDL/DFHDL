@@ -14,7 +14,7 @@ object DB {
   def apply(designDB : DFDesign.DB) : DB = {
     import designDB.__getset
     val globalNameDB : NameDB[adt.Name] = new NameDB[adt.Name](reservedKeywords, false, adt.Name(_))
-
+    val packName = globalNameDB(s"${designDB.top.typeName}_pack")
     val enums = designDB.members.foldLeft(Map.empty[Enum, adt.Value.Type.enumeration]) {
       case (enumMap, member : DFAny) => member.dfType match {
         case DFEnum.Type(enumType) if (!enumMap.contains(enumType)) =>
@@ -32,7 +32,7 @@ object DB {
         case x : DFUInt.Token[_] => s"""${x.width}d"${x.value}""""
         case x : DFSInt.Token[_] => s"""${x.width}d"${x.value}""""
         case x : DFBool.Token => if (x.value) "'1'" else "'0'"
-        case x : DFEnum.Token[_] => ??? //enums(x.enumType).entries(x.enumType.entries(x.value.get.value))
+        case x : DFEnum.Token[_] => s"${x.enumType.name}_${x.value.get.name}"
         case _ => ??? //throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
       }
     }
@@ -48,16 +48,61 @@ object DB {
         case DFBool.Type() => adt.Value.Type.std_logic
         case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.getFullName} has type ${member.typeName}")
       }
-      def getVHDLInit : Option[String] = member.tags.init.map(i => i.head.getVHDLConst)
+      def getVHDLInit : Option[String] = member.tags.init match {
+        case Some(token :: _) if !token.isBubble => Some(token.getVHDLConst)
+        case _ => None
+      }
+    }
+    object RefMap {
+      private val refMap = mutable.Map.empty[DFMember, adt.HasName]
+      def add[V <: adt.Value](member : DFAny, value : V) : V = {
+        refMap += member -> value
+        value
+      }
+      def add(member : DFDesign.Block, value : adt.ComponentInstance) : adt.ComponentInstance = {
+        refMap += member -> value
+        value
+      }
+      def get(member : DFAny) : adt.Value = refMap(member).asInstanceOf[adt.Value]
+      def get(member : DFDesign.Block) : adt.ComponentInstance = refMap(member).asInstanceOf[adt.ComponentInstance]
     }
 
     val files = designDB.designMemberList.foldLeft(Map.empty[DFDesign.Block, adt.File]) {
       case (designMap, (block, members)) =>
         implicit val nameDB : NameDB[adt.Name] = globalNameDB.clone()
-        val portMap : Map[DFAny, adt.Value.Dcl[adt.Value.Dcl.Modifier.Port]] = Map.from(members.collect {
-          case p@DFAny.In() => p -> adt.Value.Dcl.Port.In(p.getVHDLName, p.getVHDLType, p.getVHDLInit)
-          case p@DFAny.Out() => p -> adt.Value.Dcl.Port.Out(p.getVHDLName, p.getVHDLType, p.getVHDLInit)
-        })
+        val namedValues = members.collect {
+          case v : DFAny if !v.isAnonymous =>
+            val modifier : adt.Value.Dcl.Modifier = v.modifier match {
+              case _ : DFAny.Modifier.Port.In => adt.Value.Dcl.Modifier.Port.In
+              case _ : DFAny.Modifier.Port.Out => adt.Value.Dcl.Modifier.Port.Out
+              case _ : DFAny.Modifier.NewVar =>
+                if (designDB.getConnectionTo(v).isDefined) adt.Value.Dcl.Modifier.Signal
+                else adt.Value.Dcl.Modifier.Variable
+              case _ => adt.Value.Dcl.Modifier.Signal
+            }
+            RefMap.add(v, adt.Value.Dcl(modifier, v.getVHDLName, v.getVHDLType, v.getVHDLInit))
+        }
+        val ports = namedValues.collect {
+          case p @ adt.Value.Dcl.Port.In() => p
+          case p @ adt.Value.Dcl.Port.Out() => p
+        }
+        val signals = namedValues.collect {
+          case s @ adt.Value.Dcl.Signal() => s
+        }
+        val variables = namedValues.collect {
+          case v @ adt.Value.Dcl.Variable() => v
+        }
+        val componentInsts = members.collect {
+          case b : DFDesign.Block =>
+            val connections : List[(adt.Name, adt.Value)] = designDB.designMemberTable(b).collect {
+              case n @ DFNet.Connection(toRef, fromRef, _, _) if n.hasLateConstruction =>
+                val toVal = toRef.get
+                val fromVal = fromRef.get
+                if (toVal.isMemberOfDesign(b)) (RefMap.get(toVal).name, RefMap.get(fromVal))
+                else (RefMap.get(fromVal).name, RefMap.get(toVal))
+            }
+            adt.ComponentInstance(b.getVHDLName, ???, connections)
+        }
 
         designMap
       case (designMap, _) => designMap

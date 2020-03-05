@@ -7,3 +7,7 @@ final case class Name(value : String) {
 object Name {
   def anonymous : Name = Name("")
 }
+
+trait HasName {
+  val name : Name
+}

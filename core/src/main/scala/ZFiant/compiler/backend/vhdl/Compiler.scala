@@ -30,20 +30,9 @@ final class Compiled(designDB : DFDesign.DB, block : DFDesign.Block) {
     }
 
   private val members = designDB.ownerMemberTable(block)
-  private val portMap : Map[DFAny, adt.Value.Dcl[adt.Value.Dcl.Modifier.Port]] = Map.from(members.collect {
-    case p@DFAny.In() => p -> adt.Value.Dcl.Port.In(getVHDLName(p), getVHDLType(p), None)
-    case p@DFAny.Out() => p -> adt.Value.Dcl.Port.Out(getVHDLName(p), getVHDLType(p), None)
-  })
 
   private val entityName = nameDB(block.typeName)
   private val archName = adt.Name(s"${entityName}_arch")
-  val entity = adt.Entity(entityName, portMap.values.toList)
-  val componentDecls = members.collect {
-    case b : DFDesign.Block =>
-//      adt.Component()
-  }
-
-  val architecture = adt.Architecture(archName, entityName, List(), List())
 
 }
 

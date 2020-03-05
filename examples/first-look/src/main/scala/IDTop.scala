@@ -67,9 +67,9 @@ object IDTopApp extends App {
   import compiler._
   import sync.ClockedPrevOps._
   import backend.vhdl._
-  val designDB = top.clockedPrev.viaPortConnection.db
-  val cmp = new Compiled(designDB, designDB.top)
-  println(cmp.entity)
+  val designDB = top.clockedPrev.viaPortConnection.printCodeString()
+//  val cmp = new Compiled(designDB, designDB.top)
+//  println(cmp.entity)
 
 }
 //object IDTopApp extends DFApp.VHDLCompiler[IDTop] //The IDTop compilation program entry-point

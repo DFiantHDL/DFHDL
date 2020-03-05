@@ -2,7 +2,7 @@ package ZFiant.compiler.backend.vhdl.adt
 import ZFiant.Enum
 import DFiant.internals.StringExtras
 
-sealed trait Value extends Product with Serializable {
+sealed trait Value extends HasName with Product with Serializable {
   val rtType : Value.Type
   val name : Name
   def refString : String
@@ -16,9 +16,7 @@ object Value {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Declaration
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
-  sealed trait Dcl[+Mod <: Dcl.Modifier] extends Value with Declaration {
-    val modifier : Mod
-    val initStrOption : Option[String]
+  final case class Dcl[+Mod <: Dcl.Modifier](modifier : Mod, name : Name, rtType : Type, initStrOption : Option[String]) extends Value with Declaration {
     private val initStr = initStrOption match {
       case Some(i) => s" := $i"
       case None => ""
@@ -58,18 +56,30 @@ object Value {
       }
     }
     object Port {
-      final case class In(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Port.In.type] {
-        val modifier = Dcl.Modifier.Port.In
+      object In {
+        def unapply(arg: Dcl[_]): Boolean = arg.modifier match {
+          case Modifier.Port.In => true
+          case _ => false
+        }
       }
-      final case class Out(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Port.Out.type] {
-        val modifier = Dcl.Modifier.Port.Out
+      object Out {
+        def unapply(arg: Dcl[_]): Boolean = arg.modifier match {
+          case Modifier.Port.Out => true
+          case _ => false
+        }
       }
     }
-    final case class Signal(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Signal.type] {
-      val modifier = Dcl.Modifier.Signal
+    object Signal {
+      def unapply(arg: Dcl[_]): Boolean = arg.modifier match {
+        case Modifier.Signal => true
+        case _ => false
+      }
     }
-    final case class Variable(name : Name, rtType : Type, initStrOption : Option[String]) extends Dcl[Dcl.Modifier.Variable.type] {
-      val modifier = Dcl.Modifier.Variable
+    object Variable {
+      def unapply(arg: Dcl[_]): Boolean = arg.modifier match {
+        case Modifier.Variable => true
+        case _ => false
+      }
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -173,15 +183,15 @@ object Value {
     final case class Invert(name : Name, refVal : Value) extends Reference {
       val rtType: Type = refVal.rtType
     }
-    final case class EdgeCheck(clock : Clock) extends Reference {
-      clock.rtType match {
-        case Type.std_logic => //OK
-        case _ => ??? //Bad
-      }
-      val rtType: Type = Type.boolean
-      override val name: Name = Name.anonymous
-      override def toString: String = s"${clock.edge}(${clock.refString})"
-    }
+//    final case class EdgeCheck(clock : Clock) extends Reference {
+//      clock.rtType match {
+//        case Type.std_logic => //OK
+//        case _ => ??? //Bad
+//      }
+//      val rtType: Type = Type.boolean
+//      override val name: Name = Name.anonymous
+//      override def toString: String = s"${clock.edge}(${clock.refString})"
+//    }
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -195,42 +205,42 @@ object Value {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
-final case class Clock(
-  name : Name, modifier : Value.Dcl.Modifier, edge : Clock.Edge
-) extends Value.Dcl[Value.Dcl.Modifier] with Value.Active {
-  val rtType: Value.Type = Value.Type.std_logic
-  val initStrOption: Option[String] = None
-  def active : Value = Value.Reference.EdgeCheck(this)
-}
-object Clock {
-  sealed trait Edge extends Product with Serializable
-  object Edge {
-    case object Rising extends Edge {
-      override def toString: String = "rising_edge"
-    }
-    case object Falling extends Edge {
-      override def toString: String = "falling_edge"
-    }
-  }
-}
-
-final case class Reset(
-  name : Name, modifier : Value.Dcl.Modifier, polarity : Reset.Polarity
-) extends Value.Dcl[Value.Dcl.Modifier] with Value.Active {
-  val rtType: Value.Type = Value.Type.std_logic
-  val initStrOption: Option[String] = None
-  def active : Value = Value.Func2(Name.anonymous, Value.Type.boolean, this, "=", polarity.compareVal)
-}
-object Reset {
-  sealed trait Polarity extends Product with Serializable {
-    def compareVal : Value
-  }
-  object Polarity {
-    case object Low extends Polarity {
-      override def compareVal: Value = Value.Const("'0'", Value.Type.std_logic)
-    }
-    case object High extends Polarity {
-      override def compareVal: Value = Value.Const("'1'", Value.Type.std_logic)
-    }
-  }
-}
+//final case class Clock(
+//  name : Name, modifier : Value.Dcl.Modifier, edge : Clock.Edge
+//) extends Value.Dcl[Value.Dcl.Modifier] with Value.Active {
+//  val rtType: Value.Type = Value.Type.std_logic
+//  val initStrOption: Option[String] = None
+//  def active : Value = Value.Reference.EdgeCheck(this)
+//}
+//object Clock {
+//  sealed trait Edge extends Product with Serializable
+//  object Edge {
+//    case object Rising extends Edge {
+//      override def toString: String = "rising_edge"
+//    }
+//    case object Falling extends Edge {
+//      override def toString: String = "falling_edge"
+//    }
+//  }
+//}
+//
+//final case class Reset(
+//  name : Name, modifier : Value.Dcl.Modifier, polarity : Reset.Polarity
+//) extends Value.Dcl[Value.Dcl.Modifier] with Value.Active {
+//  val rtType: Value.Type = Value.Type.std_logic
+//  val initStrOption: Option[String] = None
+//  def active : Value = Value.Func2(Name.anonymous, Value.Type.boolean, this, "=", polarity.compareVal)
+//}
+//object Reset {
+//  sealed trait Polarity extends Product with Serializable {
+//    def compareVal : Value
+//  }
+//  object Polarity {
+//    case object Low extends Polarity {
+//      override def compareVal: Value = Value.Const("'0'", Value.Type.std_logic)
+//    }
+//    case object High extends Polarity {
+//      override def compareVal: Value = Value.Const("'1'", Value.Type.std_logic)
+//    }
+//  }
+//}
