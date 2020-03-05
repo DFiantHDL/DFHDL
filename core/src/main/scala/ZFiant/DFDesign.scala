@@ -319,7 +319,7 @@ object DFDesign {
         case cb : ConditionalBlock.ElseIfBlock => getGuards(cb.prevBlockRef, targetOwner, cb.condRef.get :: currentGuards)
         case cb : ConditionalBlock.ElseBlock => getGuards(cb.prevBlockRef, targetOwner, currentGuards)
         case cb : ConditionalBlock.CasePatternBlock[_] => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
-        case cb : ConditionalBlock.Case_Block => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
+        case cb : ConditionalBlock.Case_Block[_] => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
       }
 
     //for a given consumer, we get a set of its producers

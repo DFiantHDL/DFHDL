@@ -13,7 +13,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
   implicit class ConditionalBlockExtension(cb : ConditionalBlock) {
     def isFirstCB : Boolean = cb match {
       case _ : ConditionalBlock.IfBlock => true
-      case x : ConditionalBlock.CasePatternBlock[_] if x.prevCaseRef.isEmpty => true
+      case x : ConditionalBlock.CasePatternBlock[_] if x.prevCaseRefOption.isEmpty => true
       case _ => false
     }
     def isLastCB : Boolean = {
@@ -26,14 +26,14 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
     }
     @tailrec private def getPatterns(casePattenBlock : ConditionalBlock.CasePatternBlock[_], patterns : List[DFAny.Pattern[_]]) : List[DFAny.Pattern[_]] = {
       val updatedPattens = casePattenBlock.pattern :: patterns
-      casePattenBlock.prevCaseRef match {
+      casePattenBlock.prevCaseRefOption match {
         case Some(r) => getPatterns(r.get, updatedPattens)
         case None => updatedPattens
       }
     }
     def isExhaustive : Boolean = cb match {
       case _ : ConditionalBlock.ElseBlock => true
-      case _ : ConditionalBlock.Case_Block => true
+      case _ : ConditionalBlock.Case_Block[_] => true
       case x : ConditionalBlock.CasePatternBlock[_] if x.isLastCB =>
         val matchVal = x.matchHeaderRef.matchValRef.get
         val patterns = getPatterns(x, List())
