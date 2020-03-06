@@ -3,19 +3,20 @@ package compiler
 package printer
 
 import DFiant.internals._
+import collection.mutable
 
 final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val fixedDB = c.fixAnonymous.db
+  private val fixedDB = c.fixAnonymous.uniqueDesigns.db
   import fixedDB.__getset
 
-  private def blockBodyCodeString(block : DFBlock, members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
+  private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
-      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.ownerMemberTable(cb), lateConstruction)))
+      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(fixedDB.ownerMemberTable(cb), lateConstruction)))
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
-        val body = blockBodyCodeString(d, fixedDB.ownerMemberTable(d), lateConstruction = true)
+        val body = blockBodyCodeString(fixedDB.ownerMemberTable(d), lateConstruction = true)
         val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(Printer.delim)}\n}"
         Some(s"final val ${d.name} = new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.get.getOwner match {
@@ -35,18 +36,20 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     }
     membersCodeString.mkString("\n")
   }
+  private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(implicit printConfig : Printer.Config) : String = {
+    val body = blockBodyCodeString(members, lateConstruction = false)
+    s"trait ${block.designType} extends DFDesign {\n${body.delimRowsBy(Printer.delim)}\n}"
+  }
   def codeString(implicit printConfig : Printer.Config) : String = {
-    val bodyDB = new DSLOwnerConstruct.DB[DFBlock, String]{
-      override def ownerToString(ownerTypeName: String, ownerBody: String): String =
-        s"trait $ownerTypeName extends DFDesign {\n${ownerBody.delimRowsBy(Printer.delim)}\n}"
+    val uniqueDesigns = mutable.Set.empty[String]
+    val codeStringList = fixedDB.ownerMemberList.flatMap {
+      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
+      case (block : DFDesign.Block, members) if !uniqueDesigns.contains(block.designType) =>
+        uniqueDesigns += block.designType
+        Some(designBlockCodeString(block, members))
+      case _ => None
     }
-    fixedDB.ownerMemberList.foreach {
-      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) =>
-      case (block : DFDesign.Block, members) =>
-        bodyDB.addOwnerBody(block.typeName, blockBodyCodeString(block, members, lateConstruction = false), block)
-      case _ =>
-    }
-    bodyDB.dbString
+    codeStringList.mkString("\n")
   }
   def printCodeString()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
     println(codeString)

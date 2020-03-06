@@ -67,7 +67,7 @@ object IDTopApp extends App {
   import compiler._
   import sync.ClockedPrevOps._
   import backend.vhdl._
-  val designDB = top.uniqueDesigns.printCodeString()
+  val designDB = top.printCodeString()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 
