@@ -23,6 +23,11 @@ object DFUInt extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken.toUInt
     override def toString: String = s"DFUInt[$width]"
     def codeString : String = s"DFUInt($width)"
+
+    override def equals(obj: Any): Boolean = obj match {
+      case Type(width) => this.width.getValue == width.getValue
+      case _ => false
+    }
   }
   trait Extendable
 

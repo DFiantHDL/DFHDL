@@ -45,6 +45,10 @@ object DFEnum extends DFAny.Companion {
       Token[E](enumType, enumType.entries(fromToken.valueBits.toBigInt).asInstanceOf[E#Entry])
     override def toString: String = s"DFEnum[$enumType]"
     def codeString : String = s"DFEnum($enumType)"
+    override def equals(obj: Any): Boolean = obj match {
+      case Type(enumType) => this.enumType == enumType
+      case _ => false
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

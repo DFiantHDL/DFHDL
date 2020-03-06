@@ -200,6 +200,10 @@ object DFAny {
   final case class Tags[Token <: DFAny.Token](
     meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag], codeStringOverride : Option[String => String]
   ) extends DFMember.Tags.CC[Tags[Token]] {
+    override def =~(that : DFMember.Tags) : Boolean = that match {
+      case Tags(_,_,init,_,_,_) => this.init == init && super.=~(that)
+      case _ => false
+    }
     def setInit(init : Seq[Token]) : Tags[Token] = copy(init = Some(init))
     def overrideCodeString(func : String => String) : Tags[Token] = copy(codeStringOverride = Some(func))
   }
@@ -219,7 +223,7 @@ object DFAny {
 
     protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
       case Const(dfType, token, _, tags) =>
-        this.dfType == dfType && this.token == token && this.tags == tags
+        this.dfType == dfType && this.token == token && this.tags =~ tags
       case _ => false
     }
     def codeString(implicit getset : MemberGetSet) : String = token.codeString
@@ -249,7 +253,7 @@ object DFAny {
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case In(dfType, modifier, _, tags) =>
-          this.dfType == dfType && this.modifier == modifier && this.tags == tags
+          this.dfType == dfType && this.modifier == modifier && this.tags =~ tags
         case _ => false
       }
       def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> IN${modifier.codeString}"
@@ -281,7 +285,7 @@ object DFAny {
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case Out(dfType, modifier, _, tags) =>
-          this.dfType == dfType && this.modifier == modifier && this.tags == tags
+          this.dfType == dfType && this.modifier == modifier && this.tags =~ tags
         case _ => false
       }
       override def refCodeString(implicit ctx : Printer.Context): String = (ownerRef.get) match {
@@ -320,7 +324,7 @@ object DFAny {
 
     protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
       case NewVar(dfType, modifier, _, tags) =>
-        this.dfType == dfType && this.modifier == modifier && this.tags == tags
+        this.dfType == dfType && this.modifier == modifier && this.tags =~ tags
       case _ => false
     }
     def <> (in : IN)(implicit ctx : DFAny.Context) : Port.In[Type, Port.In.Uninitialized] = {
@@ -401,7 +405,7 @@ object DFAny {
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case AsIs(dfType, modifier, relValRef, _, tags) =>
-          this.dfType == dfType && this.modifier == modifier && this.relValRef =~ relValRef && this.tags == tags
+          this.dfType == dfType && this.modifier == modifier && this.relValRef =~ relValRef && this.tags =~ tags
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
@@ -424,7 +428,7 @@ object DFAny {
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case BitsWL(dfType, modifier, relValRef, relWidth, relBitLow, _, tags) =>
           this.dfType == dfType && this.modifier == modifier && this.relWidth == relWidth &&
-            this.relBitLow == relBitLow && this.relValRef =~ relValRef && this.tags == tags
+            this.relBitLow == relBitLow && this.relValRef =~ relValRef && this.tags =~ tags
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t.bitsWL(relWidth, relBitLow)
@@ -457,7 +461,7 @@ object DFAny {
       val modifier : TMod = Modifier.Val
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case Prev(dfType, relValRef, step, _, tags) =>
-          this.dfType == dfType && this.relValRef =~ relValRef && this.step == step && this.tags == tags
+          this.dfType == dfType && this.relValRef =~ relValRef && this.step == step && this.tags =~ tags
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t
@@ -481,7 +485,7 @@ object DFAny {
       private val toWidth : Int = dfType.width
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case Resize(dfType, relValRef, _, tags) =>
-          this.dfType == dfType && this.relValRef =~ relValRef && this.tags == tags
+          this.dfType == dfType && this.relValRef =~ relValRef && this.tags =~ tags
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t match {
@@ -548,7 +552,7 @@ object DFAny {
       val modifier : TMod = Modifier.Val
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case Invert(dfType, relValRef, _, tags) =>
-          this.dfType == dfType && this.relValRef =~ relValRef && this.tags == tags
+          this.dfType == dfType && this.relValRef =~ relValRef && this.tags =~ tags
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t match {
@@ -601,7 +605,7 @@ object DFAny {
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(func)
     protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
       case Func2(dfType, leftArgRef, op, rightArgRef, _, tags) =>
-        this.dfType == dfType && this.leftArgRef =~ leftArgRef && this.op == op && this.rightArgRef =~ rightArgRef && this.tags == tags
+        this.dfType == dfType && this.leftArgRef =~ leftArgRef && this.op == op && this.rightArgRef =~ rightArgRef && this.tags =~ tags
       case _ => false
     }
     def codeString(implicit getset : MemberGetSet) : String = s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"

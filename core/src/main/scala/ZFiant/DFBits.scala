@@ -25,6 +25,10 @@ object DFBits extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken
     override def toString: String = s"DFBits[$width]"
     def codeString : String = s"DFBits($width)"
+    override def equals(obj: Any): Boolean = obj match {
+      case Type(width) => this.width.getValue == width.getValue
+      case _ => false
+    }
   }
   def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
   def apply[W](

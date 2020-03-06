@@ -96,6 +96,7 @@ object DFMember {
     def setMeta(meta : Meta) : TTags
     def setKeep(keep : Boolean) : TTags
     def addCustomTag(customTag : CustomTag) : TTags
+    def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
     final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
     final def anonymize : TTags = setMeta(meta.copy(name = meta.name.copy(anonymous = true)))
