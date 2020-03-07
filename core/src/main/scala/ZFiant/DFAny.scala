@@ -256,7 +256,7 @@ object DFAny {
           this.dfType == dfType && this.modifier == modifier && this.tags =~ tags
         case _ => false
       }
-      def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> IN${modifier.codeString}"
+      def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> IN ${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> IN"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }

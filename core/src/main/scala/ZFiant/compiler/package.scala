@@ -5,6 +5,8 @@ package object compiler {
   : FixAnonymousOps[D, S] = new FixAnonymousOps[D, S](c)
   implicit def evUniqueDesigns[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : UniqueDesignsOps[D, S] = new UniqueDesignsOps[D, S](c)
+  implicit def evUniqueNames[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : UniqueNamesOps[D, S] = new UniqueNamesOps[D, S](c)
   implicit def evExplicitPrev[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S]) 
   : ExplicitPrevOps[D, S] = new ExplicitPrevOps[D, S](c)
   implicit def evViaPortConnection[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])

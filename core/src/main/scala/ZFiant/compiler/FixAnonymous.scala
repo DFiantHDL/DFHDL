@@ -33,7 +33,6 @@ final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
     val patchList = anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement))
     c.newStage[FixAnonymous](designDB.patch(patchList), Seq())
   }
-  def uniqueNames : DFDesign.DB = ???
 }
 
 trait FixAnonymous extends Compilable.Stage
