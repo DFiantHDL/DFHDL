@@ -25,7 +25,7 @@ object DFBool extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
       Token(fromToken.valueBits(0), fromToken.bubbleMask(0))
     override def toString: String = "DFBool"
-    def codeString(implicit printConfig : Printer.Config) : String = "DFBool()"
+    def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFBool()"
   }
   def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
 
