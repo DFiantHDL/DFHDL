@@ -61,7 +61,10 @@ object DFBool extends DFAny.Companion {
     def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
 
-    def codeString : String = value.codeString
+    def codeString(implicit printConfig : Printer.Config) : String = {
+      import printConfig._
+      s"$LIT$value"
+    }
   }
 
   object Token {

@@ -93,6 +93,7 @@ object Printer {
     import io.AnsiColor._
     val DELIM : String = "  "
     val LIT : String = BLUE
+    val STR : String = s"\u001B[38;5;34m$BOLD"
     val SC : String = s"$BLUE$BOLD"
     val DF : String = s"\u001B[38;5;92m$BOLD"
     val TP : String = "\u001B[38;5;94m"

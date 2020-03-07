@@ -70,7 +70,12 @@ object DFUInt extends DFAny.Companion {
     def << [RW](that : DFUInt.Token[RW]) : Token[W] = (bits << that).toUInt
     def >> [RW](that : DFUInt.Token[RW]) : Token[W] = (bits >> that).toUInt
     def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = bits.resize(toWidth).toUInt
-    def codeString : String = value.codeString
+    def codeString(implicit printConfig : Printer.Config) : String = {
+      import printConfig._
+      if (value.isValidInt) s"$LIT$value"
+      else if (value.isValidLong) s"$LIT${value}L"
+      else s"""$LIT BigInt($STR"$value")"""
+    }
   }
 
   object Token {

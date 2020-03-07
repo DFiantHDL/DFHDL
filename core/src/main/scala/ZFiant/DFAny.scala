@@ -229,10 +229,7 @@ object DFAny {
         this.dfType == dfType && this.token == token && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
-      import printConfig._
-      s"$LIT${token.codeString}"
-    }
+    def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = token.codeString
     override def refCodeString(implicit ctx : Printer.Context) : String = codeString
     override def show(implicit getset : MemberGetSet) : String = s"Const($token) : $dfType"
     def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
@@ -881,7 +878,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(relWidth, outBitsValue, outBubbleMask)
     }
-    def codeString : String
+    def codeString(implicit printConfig : Printer.Config) : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {

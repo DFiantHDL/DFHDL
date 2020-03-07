@@ -45,7 +45,7 @@ object DFEnum extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
       Token[E](enumType, enumType.entries(fromToken.valueBits.toBigInt).asInstanceOf[E#Entry])
     override def toString: String = s"DFEnum[$enumType]"
-    def codeString(implicit printConfig : Printer.Config) : String = s"DFEnum($enumType)"
+    def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFEnum($enumType)"
     override def equals(obj: Any): Boolean = obj match {
       case Type(enumType) => this.enumType == enumType
       case _ => false
@@ -71,7 +71,7 @@ object DFEnum extends DFAny.Companion {
 
     def == [RE <: Enum](that : Token[RE]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
     def != [RE <: Enum](that : Token[RE]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
-    def codeString : String = value.get.codeString
+    def codeString(implicit printConfig : Printer.Config) : String = value.get.codeString
   }
 
   object Token {

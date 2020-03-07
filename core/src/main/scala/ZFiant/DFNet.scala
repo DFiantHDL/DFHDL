@@ -7,8 +7,7 @@ sealed abstract class DFNet(op : String) extends DFMember {
   val fromRef : DFNet.FromRef
   def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
     import printConfig._
-    import io.AnsiColor.BOLD
-    s"${toRef.refCodeString} ${ALGN(0)}$BOLD$op ${fromRef.refCodeString}"
+    s"${toRef.refCodeString} ${ALGN(0)}$DF$op ${fromRef.refCodeString}"
   }
   override def show(implicit getset : MemberGetSet) : String = codeString
 }

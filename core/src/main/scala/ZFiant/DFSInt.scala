@@ -23,7 +23,10 @@ object DFSInt extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken.toSInt
     override def toString: String = s"DFSInt[$width]"
-    def codeString(implicit printConfig : Printer.Config) : String = s"DFSInt($width)"
+    def codeString(implicit printConfig : Printer.Config) : String = {
+      import printConfig._
+      s"$TP DFSInt($LIT$width)"
+    }
     override def equals(obj: Any): Boolean = obj match {
       case Type(width) => this.width.getValue == width.getValue
       case _ => false
@@ -71,7 +74,12 @@ object DFSInt extends DFAny.Companion {
       else if (toWidth < width) bits.resize(toWidth).toSInt
       else this.asInstanceOf[Token[RW]]
     }
-    def codeString : String = value.codeString
+    def codeString(implicit printConfig : Printer.Config) : String = {
+      import printConfig._
+      if (value.isValidInt) s"$LIT$value"
+      else if (value.isValidLong) s"$LIT${value}L"
+      else s"""$LIT BigInt($STR"$value")"""
+    }
   }
 
   object Token {
