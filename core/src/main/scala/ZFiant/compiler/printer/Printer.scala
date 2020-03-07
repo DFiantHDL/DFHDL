@@ -5,19 +5,20 @@ package printer
 import DFiant.internals._
 import collection.mutable
 
-private object Formating {
+object Formating {
   import io.AnsiColor._
   final val LIT = BLUE
   final val SC = s"$BLUE$BOLD"
   final val DF = "\u001B[38;5;94m"
-  final val ALGN1 = "$$1$$"
-  final val ALGN1_MAX = 20
-  final val ALGN2 = "$$2$$"
-  final val ALGN2_MAX = 20
+  private def ALGN(arg : Int) = s"$$$$${arg}$$$$"
+  private def ALGN_KINDS = 2
+  final val ALGN1 = ALGN(1)
+  final val ALGN2 = ALGN(2)
+  private val ALGN_MAX = 25
   private val colorCode = "\u001B\\[[;\\d]*m"
   private val optionalSpaces = "[ ]*"
   private val word = "([0-9a-zA-Z_]+)"
-  private val operator = "([<>+\\-*/=:!^&%|]+)"
+  private val operator = "([<>+\\-*/=:!^&%|#]+)"
   private val string = """(".*")"""
   private val noreset = "\u001B{0}"
   private val coloredSymbol = s"($colorCode)$optionalSpaces(($word|$operator|$string){1})$noreset".r.unanchored
@@ -25,14 +26,19 @@ private object Formating {
     def colored : String = coloredSymbol.replaceAllIn(text, m => s"${m.group(1)}${m.group(2)}$RESET")
     def uncolor : String = text.replaceAll(colorCode, "")
     def aligned : String = {
-      val uncolored = text.uncolor
-      val posList : List[Int] = uncolored.linesIterator.map(l => l.indexOf(ALGN1)).toList
-      val maxPos = posList.max
-      val addedSpaceList = posList.map {
-        case i if i >= 0 => (maxPos - i) min ALGN1_MAX
-        case _ => 0
+      (1 to ALGN_KINDS).foldLeft(text){case (algnText, algnIdx) =>
+        val uncolored = algnText.uncolor
+        val posList : List[Int] = uncolored.linesIterator.map(l => l.indexOf(ALGN(algnIdx))).toList
+        val maxPos = posList.max
+        val minPos = posList.filter(_ >= 0).min
+        val maxAddedSpaces = (maxPos - minPos) min ALGN_MAX
+        val alignPos = minPos + maxAddedSpaces
+        val addedSpaceList = posList.map {
+          case i if i >= 0 && i < alignPos => (alignPos - i)// min maxAddedSpaces
+          case _ => 0
+        }
+        (algnText.linesIterator zip addedSpaceList).map{case (line, space) => line.replace(ALGN(algnIdx), " "*space)}.mkString("\n")
       }
-      (text.linesIterator zip addedSpaceList).map{case (line, space) => line.replace(ALGN1, " "*space)}.mkString("\n")
     }
   }
 }

@@ -6,6 +6,7 @@ import DFiant.internals._
 
 import scala.annotation.implicitNotFound
 import compiler.printer.Printer
+import compiler.printer.Formating._
 
 sealed trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
@@ -256,7 +257,7 @@ object DFAny {
           this.dfType == dfType && this.modifier == modifier && this.tags =~ tags
         case _ => false
       }
-      def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> IN ${modifier.codeString}"
+      def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} $ALGN2<> IN ${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> IN"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
@@ -292,7 +293,7 @@ object DFAny {
         case DFDesign.Block.Internal(_,_,_,Some(f)) => f(ctx.getset)
         case _ => super.refCodeString
       }
-      def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} <> OUT${modifier.codeString}"
+      def codeString(implicit getset : MemberGetSet) : String = s"${dfType.codeString} $ALGN2<> OUT${modifier.codeString}"
       override lazy val typeName: String = s"$dfType <> OUT"
       def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
@@ -387,7 +388,7 @@ object DFAny {
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
     def relCodeString(cs : String) : String
-    def codeString(implicit getset: MemberGetSet): String = tags.codeStringOverride match {
+    def codeString(implicit getset : MemberGetSet): String = tags.codeStringOverride match {
       case Some(func) => func(relValRef.refCodeString.applyBrackets())
       case None => relCodeString(relValRef.refCodeString.applyBrackets())
     }
@@ -582,7 +583,7 @@ object DFAny {
 //    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
 //  ) extends Value[DFBits.Type[W], Mod] with CanBeAnonymous {
 //    type TMod = Mod
-//    override def codeString(implicit getset: MemberGetSet): String =
+//    override def codeString(implicit getset : MemberGetSet): String =
 //      relValRefs.map(rvr => rvr.get.refCodeString).mkString(" ## ")
 //    def setTags(tags : DFAny.Tags[DFBits.Type[W]#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
 //  }
