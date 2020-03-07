@@ -4,6 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
+import ZFiant.compiler.printer.Printer
 
 object DFBool extends DFAny.Companion {
   final case class Type() extends DFAny.Type {
@@ -24,7 +25,7 @@ object DFBool extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
       Token(fromToken.valueBits(0), fromToken.bubbleMask(0))
     override def toString: String = "DFBool"
-    def codeString : String = "DFBool()"
+    def codeString(implicit printConfig : Printer.Config) : String = "DFBool()"
   }
   def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
 

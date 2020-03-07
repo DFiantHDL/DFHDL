@@ -3,6 +3,7 @@ import DFiant.internals._
 
 import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
+import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with DFDesign.Implicits {
   private[ZFiant] lazy val inlinedRep : Option[MemberGetSet => String] = None
@@ -75,7 +76,7 @@ object DFDesign {
   sealed trait Block extends DFBlock {
     type TTags = DFMember.Tags.Basic
     val designType: String
-    def headerCodeString(implicit getset: MemberGetSet): String = s"trait $designType extends DFDesign"
+    def headerCodeString(implicit getset : MemberGetSet, printConfig : Printer.Config): String = s"trait $designType extends DFDesign"
   }
   object Block {
     final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[MemberGetSet => String]) extends Block {

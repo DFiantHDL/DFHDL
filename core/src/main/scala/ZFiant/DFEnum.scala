@@ -24,6 +24,7 @@ import DFiant.internals._
 import scala.collection.mutable
 import DFAny.Func2
 import DFAny.Func2
+import ZFiant.compiler.printer.Printer
 
 object DFEnum extends DFAny.Companion {
   final case class Type[E <: Enum](enumType : E) extends DFAny.Type {
@@ -44,7 +45,7 @@ object DFEnum extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
       Token[E](enumType, enumType.entries(fromToken.valueBits.toBigInt).asInstanceOf[E#Entry])
     override def toString: String = s"DFEnum[$enumType]"
-    def codeString : String = s"DFEnum($enumType)"
+    def codeString(implicit printConfig : Printer.Config) : String = s"DFEnum($enumType)"
     override def equals(obj: Any): Boolean = obj match {
       case Type(enumType) => this.enumType == enumType
       case _ => false

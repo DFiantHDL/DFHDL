@@ -10,11 +10,11 @@ trait DFBlock extends DFMember {
   ///////////////////////////////////////////////////////////////////
   val isTop : Boolean = false
   ///////////////////////////////////////////////////////////////////
-  def headerCodeString(implicit getset : MemberGetSet) : String
-  final def codeString(body : String)(implicit getset : MemberGetSet) : String = {
+  def headerCodeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String
+  final def codeString(body : String)(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
     //if the body is a single row then no need for delimiters and extra new lines
     //otherwise, we add delimitation and new lines
-    val delimitedBody = if (!body.contains("\n")) body else s"\n${body.delimRowsBy(Printer.delim)}\n"
+    val delimitedBody = if (!body.contains("\n")) body else s"\n${body.delimRowsBy(printConfig.DELIM)}\n"
     s"$headerCodeString {$delimitedBody}"
   }
 }

@@ -5,50 +5,12 @@ package printer
 import DFiant.internals._
 import collection.mutable
 
-object Formating {
-  import io.AnsiColor._
-  final val LIT = BLUE
-  final val SC = s"$BLUE$BOLD"
-  final val DF = "\u001B[38;5;94m"
-  private def ALGN(arg : Int) = s"$$$$${arg}$$$$"
-  private def ALGN_KINDS = 2
-  final val ALGN1 = ALGN(1)
-  final val ALGN2 = ALGN(2)
-  private val ALGN_MAX = 25
-  private val colorCode = "\u001B\\[[;\\d]*m"
-  private val optionalSpaces = "[ ]*"
-  private val word = "([0-9a-zA-Z_]+)"
-  private val operator = "([<>+\\-*/=:!^&%|#]+)"
-  private val string = """(".*")"""
-  private val noreset = "\u001B{0}"
-  private val coloredSymbol = s"($colorCode)$optionalSpaces(($word|$operator|$string){1})$noreset".r.unanchored
-  implicit class ColoringString(text : String) {
-    def colored : String = coloredSymbol.replaceAllIn(text, m => s"${m.group(1)}${m.group(2)}$RESET")
-    def uncolor : String = text.replaceAll(colorCode, "")
-    def aligned : String = {
-      (1 to ALGN_KINDS).foldLeft(text){case (algnText, algnIdx) =>
-        val uncolored = algnText.uncolor
-        val posList : List[Int] = uncolored.linesIterator.map(l => l.indexOf(ALGN(algnIdx))).toList
-        val maxPos = posList.max
-        val minPos = posList.filter(_ >= 0).min
-        val maxAddedSpaces = (maxPos - minPos) min ALGN_MAX
-        val alignPos = minPos + maxAddedSpaces
-        val addedSpaceList = posList.map {
-          case i if i >= 0 && i < alignPos => (alignPos - i)// min maxAddedSpaces
-          case _ => 0
-        }
-        (algnText.linesIterator zip addedSpaceList).map{case (line, space) => line.replace(ALGN(algnIdx), " "*space)}.mkString("\n")
-      }
-    }
-  }
-}
-
-import Formating._
 final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val fixedDB = c.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
   private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
+    import printConfig._
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
@@ -56,8 +18,8 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
         val body = blockBodyCodeString(fixedDB.ownerMemberTable(d), lateConstruction = true)
-        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(Printer.delim)}\n}"
-        Some(s"$SC final $SC val ${d.name} $ALGN1= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
+        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(DELIM)}\n}"
+        Some(s"$SC final $SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.get.getOwner match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
         case _ => Some(n.codeString)
@@ -70,16 +32,19 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
             case None => "//init = Unknown"
           }
         }
-        Some(s"$SC final $SC val ${a.name} $ALGN1= ${a.codeString}$initInfo")
+        Some(s"$SC final $SC val ${a.name} ${ALGN(0)}= ${a.codeString}$initInfo")
       case _ => None
     }
     membersCodeString.mkString("\n")
   }
   private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(implicit printConfig : Printer.Config) : String = {
+    import printConfig._
     val body = blockBodyCodeString(members, lateConstruction = false)
-    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delimRowsBy(Printer.delim)}\n}"
+    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delimRowsBy(DELIM)}\n}"
   }
   def codeString(implicit printConfig : Printer.Config) : String = {
+    import printConfig._
+    import formatter._
     val uniqueDesigns = mutable.Set.empty[String]
     val codeStringList = fixedDB.ownerMemberList.flatMap {
       case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
@@ -109,7 +74,6 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
 }
 
 object Printer {
-  val delim : String = "  "
   trait Context {
     val callOwner : DFBlock
     val getset : MemberGetSet
@@ -125,7 +89,16 @@ object Printer {
     }
   }
 
-  sealed trait Config
+  sealed trait Config {
+    import io.AnsiColor._
+    val DELIM : String = "  "
+    val LIT : String = BLUE
+    val SC : String = s"$BLUE$BOLD"
+    val DF : String = s"\u001B[38;5;92m$BOLD"
+    val TP : String = "\u001B[38;5;94m"
+    val formatter : Formatter = new Formatter(List(25, 25))
+    def ALGN(idx : Int) : String = formatter.ALGN(idx)
+  }
   object Config {
     implicit case object Default extends Config
     case object ShowInits extends Config

@@ -1,11 +1,15 @@
 package ZFiant
 import DFiant.internals._
-import ZFiant.compiler.printer.Formating._
+import ZFiant.compiler.printer.Printer
 sealed abstract class DFNet(op : String) extends DFMember {
   type TTags = DFMember.Tags.Basic
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef
-  def codeString(implicit getset : MemberGetSet) : String = s"${toRef.refCodeString} $ALGN1$op ${fromRef.refCodeString}"
+  def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
+    import printConfig._
+    import io.AnsiColor.BOLD
+    s"${toRef.refCodeString} ${ALGN(0)}$BOLD$op ${fromRef.refCodeString}"
+  }
   override def show(implicit getset : MemberGetSet) : String = codeString
 }
 

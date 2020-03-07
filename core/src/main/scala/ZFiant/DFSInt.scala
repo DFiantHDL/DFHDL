@@ -4,6 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
+import ZFiant.compiler.printer.Printer
 
 object DFSInt extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
@@ -22,7 +23,7 @@ object DFSInt extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken.toSInt
     override def toString: String = s"DFSInt[$width]"
-    def codeString : String = s"DFSInt($width)"
+    def codeString(implicit printConfig : Printer.Config) : String = s"DFSInt($width)"
     override def equals(obj: Any): Boolean = obj match {
       case Type(width) => this.width.getValue == width.getValue
       case _ => false

@@ -28,31 +28,31 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     case p : DFAny.Port.Out[_,_] if p.tags.customTags.contains(MaxelerScalarIO) => p
   }
 
-  private val pullInZ = (pullInputs, pullInputs.map(p => new MetaDesign() {
+  private val pullInZ = (pullInputs lazyZip pullInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
-  })).zipped
-  private val pullOutZ = (pullOutputs, pullOutputs.map(p => new MetaDesign() {
+  }))
+  private val pullOutZ = (pullOutputs lazyZip pullOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val almost_empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val read = DFBool() <> IN setNamePrefix(s"${p.name}_")
-  })).zipped
-  private val pushInZ = (pushInputs, pushInputs.map(p => new MetaDesign() {
+  }))
+  private val pushInZ = (pushInputs lazyZip pushInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> IN setNamePrefix(s"${p.name}_")
-  })).zipped
-  private val pushOutZ = (pushOutputs, pushOutputs.map(p => new MetaDesign() {
+  }))
+  private val pushOutZ = (pushOutputs lazyZip pushOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
     final val stall = DFBool() <> IN setNamePrefix(s"${p.name}_")
     final val valid = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
-  })).zipped
-  private val scalaInZ = (scalarInputs, scalarInputs.map(p => new MetaDesign() {
+  }))
+  private val scalaInZ = (scalarInputs lazyZip scalarInputs.map(p => new MetaDesign() {
     final val reg = p.prev() setNamePrefix(s"${p.name}_")
-  })).zipped
+  }))
 
   private val control = new MetaDesign() {
     val empties : List[DFBool] = pullInZ.map{case (_,d) => d.empty}

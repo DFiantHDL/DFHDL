@@ -4,6 +4,8 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
+import ZFiant.compiler.printer.Printer
+
 object b0s extends DFBits.SameBitsVector(false)
 object b1s extends DFBits.SameBitsVector(true)
 
@@ -24,7 +26,7 @@ object DFBits extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken
     override def toString: String = s"DFBits[$width]"
-    def codeString : String = s"DFBits($width)"
+    def codeString(implicit printConfig : Printer.Config) : String = s"DFBits($width)"
     override def equals(obj: Any): Boolean = obj match {
       case Type(width) => this.width.getValue == width.getValue
       case _ => false
