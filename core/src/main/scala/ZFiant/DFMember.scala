@@ -92,7 +92,7 @@ object DFMember {
     type TTags <: Tags
     val meta : Meta
     val keep : Boolean
-    val customTags : List[CustomTag]
+    val customTags : Set[CustomTag]
     def setMeta(meta : Meta) : TTags
     def setKeep(keep : Boolean) : TTags
     def addCustomTag(customTag : CustomTag) : TTags
@@ -107,16 +107,16 @@ object DFMember {
     final protected val keepP = ^.keep
     final protected val customTagsP = ^.customTags
     abstract class CC[P <: CC[P]](
-      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean], customTagsL : customTagsP.Lens[P, List[CustomTag]]
+      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean], customTagsL : customTagsP.Lens[P, Set[CustomTag]]
     ) extends Tags {self : P =>
       type TTags = P
       final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
       final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
-      final def addCustomTag(customTag : CustomTag) : P = customTagsL().modify(self)(tList => customTag :: tList)
+      final def addCustomTag(customTag : CustomTag) : P = customTagsL().modify(self)(tList => tList + customTag)
     }
 
-    final case class Basic(meta : Meta, keep : Boolean, customTags : List[CustomTag]) extends Tags.CC[Basic]
-    implicit def fromMeta(meta : Meta) : Basic = Basic(meta, keep = false, List())
+    final case class Basic(meta : Meta, keep : Boolean, customTags : Set[CustomTag]) extends Tags.CC[Basic]
+    implicit def fromMeta(meta : Meta) : Basic = Basic(meta, keep = false, Set())
   }
 
   trait Context {

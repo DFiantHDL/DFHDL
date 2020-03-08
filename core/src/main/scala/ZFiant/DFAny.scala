@@ -201,7 +201,7 @@ object DFAny {
   sealed trait CanBeAnonymous extends DFMember
 
   final case class Tags[Token <: DFAny.Token](
-    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : List[DFMember.CustomTag], codeStringOverride : Option[String => String]
+    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : Set[DFMember.CustomTag], codeStringOverride : Option[String => String]
   ) extends DFMember.Tags.CC[Tags[Token]] {
     override def =~(that : DFMember.Tags) : Boolean = that match {
       case Tags(_,_,init,_,_,_) => this.init == init && super.=~(that)
@@ -211,7 +211,7 @@ object DFAny {
     def overrideCodeString(func : String => String) : Tags[Token] = copy(codeStringOverride = Some(func))
   }
   object Tags {
-    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, List(), None)
+    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, Set(), None)
   }
 
   implicit class AnyExtender[T <: DFAny](member : T)(implicit getset : MemberGetSet) {

@@ -22,4 +22,6 @@ protected[sync] sealed trait SyncCustomTag extends DFMember.CustomTag
 protected[sync] object SyncCustomTag {
   case object Clock extends SyncCustomTag
   case object Reset extends SyncCustomTag
+  case object Signal extends SyncCustomTag
+  case object Variable extends SyncCustomTag
 }
