@@ -8,7 +8,10 @@ import scala.annotation.tailrec
 private final class UniqueBlock(val block : DFDesign.Block.Internal, val members : List[DFMember])(implicit getset: MemberGetSet) {
   override def equals(obj : Any): Boolean = obj match {
     case that : UniqueBlock if this.block.designType == that.block.designType =>
-      (this.members lazyZip that.members).forall(_ =~ _)
+      (this.members lazyZip that.members).forall {
+        case (l, r) if l.hasLateConstruction && r.hasLateConstruction => true
+        case (l, r) => l =~ r
+      }
     case _ => false
   }
   override def hashCode(): Int = block.designType.hashCode

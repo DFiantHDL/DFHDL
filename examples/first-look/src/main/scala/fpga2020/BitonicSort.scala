@@ -19,8 +19,10 @@ object BitonicSort {
         val split = swapped.splitAt(dist)
         split._1.merge(lowToHigh) ++ split._2.merge(!lowToHigh)
       }
-    private[BitonicSort] def cas(lowToHigh : Boolean) : List[DFSInt[8]] =
-      list.splitAt(dist).zipped.toList.flatMap(e => cas(lowToHigh, e))
+    private[BitonicSort] def cas(lowToHigh : Boolean) : List[DFSInt[8]] = {
+      val split = list.splitAt(dist)
+      (split._1 lazyZip split._2).toList.flatMap(e => cas(lowToHigh, e))
+    }
     private def cas(lowToHigh : Boolean, tuple : (DFSInt[8], DFSInt[8])) : List[DFSInt[8]] = {
       val swap = if (lowToHigh) tuple._1 > tuple._2 else tuple._2 > tuple._1
       val sel1 = DFSInt[8].ifdf(swap){tuple._2}.elsedf{tuple._1}
