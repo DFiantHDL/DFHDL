@@ -3,7 +3,7 @@ package ZFiant.compiler.backend
 import ZFiant._
 
 package object vhdl {
-  private[vhdl] val reservedKeywords : List[String] = List(
+  private[vhdl] val reservedKeywords : Set[String] = Set(
     "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin",
     "block", "body", "buffer", "bus", "case", "component", "configuration", "constant", "disconnect", "downto",
     "else", "elsif", "end", "entity", "exit", "file", "for", "function", "generate", "generic", "group",
