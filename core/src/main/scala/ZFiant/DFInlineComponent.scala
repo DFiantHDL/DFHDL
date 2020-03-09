@@ -12,7 +12,7 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
 
 final case class Rising(bool : DFBool)(
   implicit ctx : ContextOf[Rising]
-) extends DFInlineComponent[DFBool.Type](DFBool.Type()) {
+) extends DFInlineComponent[DFBool.Type](DFBool.Type(logical = true)) {
   private val boolIn = DFBool() <> IN
   outPort <> (boolIn && !boolIn.prev())
   atOwnerDo {

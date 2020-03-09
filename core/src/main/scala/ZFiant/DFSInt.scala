@@ -67,12 +67,12 @@ object DFSInt extends DFAny.Companion {
 //    final def * [RW](that : Token[RW]) : Token = mkTokenU(that, this.value * that.value, this.width + that.width)
 //    final def / [RW](that : Token[RW]) : Token = mkTokenU(that, this.value / that.value, this.width)
 //    final def % [RW](that : Token[RW]) : Token = mkTokenU(that, this.value % that.value, that.width)
-    def <  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value < that.value, this.isBubble || that.isBubble)
-    def >  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value > that.value, this.isBubble || that.isBubble)
-    def <= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value <= that.value, this.isBubble || that.isBubble)
-    def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
-    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
-    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def <  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value < that.value, this.isBubble || that.isBubble)
+    def >  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value > that.value, this.isBubble || that.isBubble)
+    def <= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value <= that.value, this.isBubble || that.isBubble)
+    def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value >= that.value, this.isBubble || that.isBubble)
+    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
+    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
     def << [RW](that : DFUInt.Token[RW]) : Token[W] = mkTokenS(that, this.value << that.value.toInt, this.width)
     def >> [RW](that : DFUInt.Token[RW]) : Token[W] = mkTokenS(that, this.value >> that.value.toInt, this.width)
     def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = {
@@ -357,7 +357,7 @@ object DFSInt extends DFAny.Companion {
         implicit ctx : DFAny.Context
       ) : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        DFAny.Func2(DFBool.Type(), left, op, right)(func)
+        DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
       }
 
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](

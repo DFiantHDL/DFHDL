@@ -112,8 +112,8 @@ object DFBits extends DFAny.Companion {
       else if (toWidth > width) (Token(toWidth - width, 0) ## this).asInstanceOf[Token[RW]]
       else this.asInstanceOf[Token[RW]]
     }
-    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits == that.valueBits, this.isBubble || that.isBubble)
-    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(this.valueBits != that.valueBits, this.isBubble || that.isBubble)
+    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.valueBits == that.valueBits, this.isBubble || that.isBubble)
+    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.valueBits != that.valueBits, this.isBubble || that.isBubble)
 
     def toUInt : DFUInt.Token[W] = {
       val outWidth = this.width
@@ -381,7 +381,7 @@ object DFBits extends DFAny.Companion {
         implicit ctx : DFAny.Context
       ) : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        DFAny.Func2(DFBool.Type(), left, op, right)(func)
+        DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
       }
 
       implicit def evDFBits_op_DFBits[LW, RW](

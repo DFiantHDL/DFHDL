@@ -7,7 +7,7 @@ import DFAny.Func2
 import ZFiant.compiler.printer.Printer
 
 object DFBool extends DFAny.Companion {
-  final case class Type(logical : Boolean = false) extends DFAny.Type {
+  final case class Type(logical : Boolean) extends DFAny.Type {
     type Width = 1
     type TToken = Token
     type TPattern = DFBool.Pattern
@@ -23,7 +23,7 @@ object DFBool extends DFAny.Companion {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
-      Token(fromToken.valueBits(0), fromToken.bubbleMask(0))
+      Token(logical = false, fromToken.valueBits(0), fromToken.bubbleMask(0))
     override def toString: String = "DFBool"
     def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFBool()"
   }
@@ -31,7 +31,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
+  def apply(logical : Boolean = false)(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(logical))
   def unapply(arg: Any): Option[Boolean] = arg match {
     case dfAny : DFAny => dfAny.dfType match {
       case Type(logical) => Some(logical)
@@ -45,25 +45,28 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token(value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean, 1] {
+  final case class Token(logical : Boolean, value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean, 1] {
     val width: TwoFace.Int[1] = 1
     lazy val valueBits : XBitVector[1] = XBitVector.bit(value)
     lazy val bubbleMask: XBitVector[1] = XBitVector.bit(bubble)
     def && (that : Token) : Token = {
-      if (this.isBubble || that.isBubble) Token(Bubble)
-      else Token(this.value && that.value)
+      val logicalResult = this.logical || that.logical
+      if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)
+      else Token.fromValue(logicalResult, this.value && that.value)
     }
     def || (that : Token) : Token = {
-      if (this.isBubble || that.isBubble) Token(Bubble)
-      else Token(this.value || that.value)
+      val logicalResult = this.logical || that.logical
+      if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)
+      else Token.fromValue(logicalResult, this.value || that.value)
     }
     def ^ (that : Token) : Token = {
-      if (this.isBubble || that.isBubble) Token(Bubble)
-      else Token(this.value ^ that.value)
+      val logicalResult = this.logical || that.logical
+      if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)
+      else Token.fromValue(logicalResult, this.value ^ that.value)
     }
     def unary_! : Token = {
-      if (this.isBubble) Token(Bubble)
-      else Token(!this.value)
+      if (this.isBubble) Token(logical, Bubble)
+      else Token.fromValue(logical, !this.value)
     }
     def select[ST <: DFAny.Token](thenSel : ST, elseSel : ST)(
       implicit bubbleOf : DFAny.Token.BubbleOfToken[ST]
@@ -71,24 +74,27 @@ object DFBool extends DFAny.Companion {
       if (this.value) if (this.isBubble) bubbleOf(thenSel) else thenSel
       else if (this.isBubble) bubbleOf(elseSel) else elseSel
     }
-    def == (that : Token) : Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
-    def != (that : Token) : Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def == (that : Token) : Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
+    def != (that : Token) : Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
 
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
-      s"$LIT$value"
+      val valueStr = if (logical) {
+        if (value) "1" else "0"
+      } else value.toString
+      s"$LIT$valueStr"
     }
   }
 
   object Token {
-    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = _ => Token(Bubble)
-    implicit val bubbleOfDFType : DFAny.Token.BubbleOfDFType[DFBool.Type] = _ => Token(Bubble)
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.logical, Bubble)
+    implicit val bubbleOfDFType : DFAny.Token.BubbleOfDFType[DFBool.Type] = t => Token(t.logical, Bubble)
     def apply(value : Int) : Token = value match {
-      case 0 => Token(false)
-      case 1 => Token(true)
+      case 0 => Token(logical = false, value = false, bubble = false)
+      case 1 => Token(logical = false, value = true, bubble = false)
     }
-    def apply(value : Boolean) : Token = new Token(value, false)
-    def apply(value : Bubble) : Token = new Token(false, true)
+    def fromValue(logical : Boolean, value : Boolean) : Token = new Token(logical, value, false)
+    def apply(logical : Boolean, value : Bubble) : Token = new Token(logical, false, true)
 
     import DFAny.TokenSeq
     val || : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l || r)
@@ -151,10 +157,10 @@ object DFBool extends DFAny.Companion {
 
       def toTokenSeq(right : Seq[Able[DFBool]]) : Seq[DFBool.Token] =
         right.toSeqAny.map {
-          case t : Bubble => DFBool.Token(t)
+          case t : Bubble => DFBool.Token(logical = false, t)
           case t : DFBool.Token => t
           case t : Int => DFBool.Token(t)
-          case t : Boolean => DFBool.Token(t)
+          case t : Boolean => DFBool.Token.fromValue(logical = true, t)
         }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
@@ -177,10 +183,10 @@ object DFBool extends DFAny.Companion {
       implicit def fromInt[C <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShell[C])
       : Builder[C] = value => {
         checkBin.unsafeCheck(value)
-        DFAny.Const[Type](Type(),Token(value))
+        DFAny.Const[Type](Type(logical = false),Token(value))
       }
       implicit def fromBoolean[C <: Boolean](implicit ctx : DFAny.Context)
-      : Builder[C] = value => DFAny.Const[Type](Type(), Token(value))
+      : Builder[C] = value => DFAny.Const[Type](Type(logical = true), Token.fromValue(logical = true, value))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -208,7 +214,7 @@ object DFBool extends DFAny.Companion {
       final implicit def DFBoolFromBoolean[L <: Boolean](left: L): DFBoolFromBoolean[L] = new DFBoolFromBoolean[L](left)
       sealed class DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
-      ) extends AbleOps[DFBool](DFAny.Alias.AsIs(Type(), left))
+      ) extends AbleOps[DFBool](DFAny.Alias.AsIs(Type(logical = false), left))
       final implicit def DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
       ) : DFBoolFromDFBitsW1[LW] = new DFBoolFromDFBitsW1[LW](left)
@@ -272,7 +278,11 @@ object DFBool extends DFAny.Companion {
         implicit ctx : DFAny.Context
       ) : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        DFAny.Func2(Type(), left, op, right)(func)
+        val logicalResult = op match {
+          case _ : Func2.Op.== | _ : Func2.Op.!= => true
+          case _ =>  left.dfType.logical || right.dfType.logical
+        }
+        DFAny.Func2(Type(logicalResult), left, op, right)(func)
       }
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](

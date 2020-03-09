@@ -75,8 +75,10 @@ object DFEnum extends DFAny.Companion {
       if (value.isDefined) (value.get.value.toBitVector(width), false.toBitVector(width))
       else (0.toBitVector(width), true.toBitVector(width))
 
-    def == [RE <: EnumType](that : Token[RE]) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
-    def != [RE <: EnumType](that : Token[RE]) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
+    def == [RE <: EnumType](that : Token[RE]) : DFBool.Token =
+      DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
+    def != [RE <: EnumType](that : Token[RE]) : DFBool.Token =
+      DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
     def codeString(implicit printConfig : Printer.Config) : String = value.get.codeString
   }
 
@@ -199,7 +201,7 @@ object DFEnum extends DFAny.Companion {
           case _ : Func2.Op.== => _ == _
           case _ : Func2.Op.!= => _ != _
         }
-        DFAny.Func2(DFBool.Type(), left, op, right)(func)
+        DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
       }
 
       implicit def evDFEnum_op_DFEnum[E <: EnumType](implicit ctx : DFAny.Context)

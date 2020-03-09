@@ -144,7 +144,7 @@ object ConditionalBlock {
       ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(logical = true), cond), this)(blockConv(dfType, block))(ctx)
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case IfBlock(dfType, retVarRef, condRef, _, tags) =>
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.tags =~ tags
@@ -169,7 +169,7 @@ object ConditionalBlock {
       ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(), cond), this)(blockConv(dfType, block))(ctx)
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(logical = true), cond), this)(blockConv(dfType, block))(ctx)
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case ElseIfBlock(dfType, retVarRef, condRef, prevBlockRef, _, tags) =>
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
@@ -298,7 +298,7 @@ object ConditionalBlock {
       ) : ElseBlock = ElseBlock(this)(block)(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), this)(block)(ctx)
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(logical = true), cond), this)(block)(ctx)
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case IfBlock(condRef, _, tags) =>
           this.condRef =~ condRef && this.tags =~ tags
@@ -320,7 +320,7 @@ object ConditionalBlock {
       ) : ElseBlock = ElseBlock(this)(block)(ctx)
       def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
         implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(), cond), this)(block)(ctx)
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(logical = true), cond), this)(block)(ctx)
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case ElseIfBlock(condRef, prevBlockRef, _, tags) =>
           this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags

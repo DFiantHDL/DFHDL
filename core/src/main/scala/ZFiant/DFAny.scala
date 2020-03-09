@@ -358,7 +358,7 @@ object DFAny {
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = {
       val newMember = NewVar(dfType, Modifier.IfRetVar, ownerRef, tags) //setting a RetVar modifier
       implicitly[MemberGetSet].set(this, newMember)
-      ConditionalBlock.WithRetVal.IfBlock[Type](newMember, condConv(DFBool.Type(),cond))(blockConv(dfType, block))(ctx)
+      ConditionalBlock.WithRetVal.IfBlock[Type](newMember, condConv(DFBool.Type(logical = true),cond))(blockConv(dfType, block))(ctx)
     }
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
@@ -459,7 +459,7 @@ object DFAny {
         implicit ctx: Context
       ): BitsWL[DFBool.Type, RelVal, refVal.TMod] = {
         implicit lazy val ret : BitsWL[DFBool.Type, RelVal, refVal.TMod] with DFMember.RefOwner =
-          ctx.db.addMember(BitsWL[DFBool.Type, RelVal, refVal.TMod](DFBool.Type(), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(BitsWL[DFBool.Type, RelVal, refVal.TMod](DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
         ret
       }
     }
@@ -871,7 +871,7 @@ object DFAny {
     final def bit(relBit : Int) : DFBool.Token = {
       val outBitsValue = valueBits.bit(relBit)
       val outBubbleMask = bubbleMask.bit(relBit)
-      DFBool.Token(outBitsValue, outBubbleMask)
+      DFBool.Token(logical = false, outBitsValue, outBubbleMask)
     }
     final def bitsWL[W](relWidth : TwoFace.Int[W], relBitLow : Int) : DFBits.Token[W] = {
       val outBitsValue = valueBits.bitsWL(relWidth, relBitLow)
