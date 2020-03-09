@@ -45,7 +45,7 @@ object DB {
         case DFUInt.Type(width) => adt.Value.Type.unsigned(width)
         case DFSInt.Type(width) => adt.Value.Type.signed(width)
         case DFEnum.Type(enumType) => enums(enumType)
-        case DFBool.Type() => adt.Value.Type.std_logic
+        case DFBool.Type(logical) => adt.Value.Type.std_logic
         case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.getFullName} has type ${member.typeName}")
       }
       def getVHDLInit : Option[String] = member.tags.init match {

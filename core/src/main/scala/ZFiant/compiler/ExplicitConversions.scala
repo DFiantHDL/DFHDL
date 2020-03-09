@@ -14,7 +14,16 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
         (toVal, fromVal) match {
           case (DFUInt(toWidth), DFUInt(fromWidth)) if toWidth > fromWidth => Nil
           case (DFSInt(toWidth), DFSInt(fromWidth)) if toWidth > fromWidth => Nil
-          case (DFBool(), DFBool()) => Nil
+          case (DFBool(toLogical), DFBool(fromLogical)) =>
+            //TODO: conversion between a logical boolean and a single bit
+            Nil
+        }
+      case func : DFAny.Func2[_,_,_,_] =>
+        val leftArg = func.leftArgRef.get
+        val rightArg = func.rightArgRef.get
+        (leftArg, rightArg) match {
+          case (DFBool(toLogical), DFBool(fromLogical)) => Nil
+          case _ => Nil
         }
       case _ => Nil
     }

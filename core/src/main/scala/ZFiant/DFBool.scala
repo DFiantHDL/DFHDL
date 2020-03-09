@@ -7,7 +7,7 @@ import DFAny.Func2
 import ZFiant.compiler.printer.Printer
 
 object DFBool extends DFAny.Companion {
-  final case class Type() extends DFAny.Type {
+  final case class Type(logical : Boolean = false) extends DFAny.Type {
     type Width = 1
     type TToken = Token
     type TPattern = DFBool.Pattern
@@ -32,14 +32,15 @@ object DFBool extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type())
-  def unapply(arg: Any): Boolean = arg match {
+  def unapply(arg: Any): Option[Boolean] = arg match {
     case dfAny : DFAny => dfAny.dfType match {
-      case Type() => true
-      case _ => false
+      case Type(logical) => Some(logical)
+      case _ => None
     }
-    case _ => false
+    case _ => None
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
