@@ -28,11 +28,12 @@ object DB {
 
     implicit class TokenExtension(token : DFAny.Token) {
       def getVHDLConst : String = token match {
-        case x : DFBits.Token[_] => if (x.width % 4 == 0) s"""x"${x.value.toHex}"""" else s""""${x.value.toBin}""""
-        case x : DFUInt.Token[_] => s"""${x.width}d"${x.value}""""
-        case x : DFSInt.Token[_] => s"""${x.width}d"${x.value}""""
-        case x : DFBool.Token => if (x.value) "'1'" else "'0'"
-        case x : DFEnum.Token[_] => s"${x.enumType.name}_${x.value.get.name}"
+        case DFBits.Token(width, value, _) => if (width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
+        case DFUInt.Token(width, value, _) => s"""$width"$value""""
+        case DFSInt.Token(width, value, _) => s"""$width"$value""""
+        case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
+        case DFBool.Token(true, value, _) => value.toString
+        case DFEnum.Token(enumType, value) => s"${enumType.name}_${value.get.name}"
         case _ => ??? //throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.fullName} has type ${member.typeName}")
       }
     }
@@ -40,12 +41,13 @@ object DB {
       def getVHDLName(implicit nameDB: NameDB[adt.Name]) : adt.Name = nameDB(member.name)
     }
     implicit class DFAnyExtension(member : DFAny) {
-      def getVHDLType : adt.Value.Type = member.dfType match {
-        case DFBits.Type(width) => adt.Value.Type.std_logic_vector(width)
-        case DFUInt.Type(width) => adt.Value.Type.unsigned(width)
-        case DFSInt.Type(width) => adt.Value.Type.signed(width)
-        case DFEnum.Type(enumType) => enums(enumType)
-        case DFBool.Type(logical) => adt.Value.Type.std_logic
+      def getVHDLType : adt.Value.Type = member match {
+        case DFBits(width) => adt.Value.Type.std_logic_vector(width)
+        case DFUInt(width) => adt.Value.Type.unsigned(width)
+        case DFSInt(width) => adt.Value.Type.signed(width)
+        case DFEnum(enumType) => enums(enumType)
+        case DFBit() => adt.Value.Type.std_logic
+        case DFBool() => adt.Value.Type.boolean
         case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. The variable ${member.getFullName} has type ${member.typeName}")
       }
       def getVHDLInit : Option[String] = member.tags.init match {
