@@ -10,10 +10,10 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   protected def atOwnerDo(block : => Unit) : Unit = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
 }
 
-final case class Rising(bool : DFBool)(
+final case class Rising(bool : DFBit)(
   implicit ctx : ContextOf[Rising]
 ) extends DFInlineComponent[DFBool.Type](DFBool.Type(logical = true)) {
-  private val boolIn = DFBool() <> IN
+  private val boolIn = DFBit() <> IN
   outPort <> (boolIn && !boolIn.prev())
   atOwnerDo {
     boolIn.connectWith(bool)

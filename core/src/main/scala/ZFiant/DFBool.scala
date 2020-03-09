@@ -24,20 +24,21 @@ object DFBool extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
       Token(logical = false, fromToken.valueBits(0), fromToken.bubbleMask(0))
-    override def toString: String = "DFBool"
-    def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFBool()"
+    override def toString: String = if (logical) "DFBool" else "DFBit"
+    def codeString(implicit printConfig : Printer.Config) : String =
+      if (logical) s"${printConfig.TP}DFBool()" else s"${printConfig.TP}DFBit()"
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply(logical : Boolean = false)(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(logical))
-  def unapply(arg: Any): Option[Boolean] = arg match {
+  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(logical = true))
+  def unapply(arg: Any): Boolean = arg match {
     case dfAny : DFAny => dfAny.dfType match {
-      case Type(logical) => Some(logical)
-      case _ => None
+      case Type(logical) if logical => true
+      case _ => false
     }
-    case _ => None
+    case _ => false
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

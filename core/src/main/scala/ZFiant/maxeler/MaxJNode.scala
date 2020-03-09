@@ -30,25 +30,25 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
 
   private val pullInZ = (pullInputs lazyZip pullInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
-    final val empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
-    final val almost_empty = DFBool() <> IN setNamePrefix(s"${p.name}_")
-    final val read = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
+    final val empty = DFBit() <> IN setNamePrefix(s"${p.name}_")
+    final val almost_empty = DFBit() <> IN setNamePrefix(s"${p.name}_")
+    final val read = DFBit() <> OUT init false setNamePrefix(s"${p.name}_")
   }))
   private val pullOutZ = (pullOutputs lazyZip pullOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
-    final val empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
-    final val almost_empty = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
-    final val read = DFBool() <> IN setNamePrefix(s"${p.name}_")
+    final val empty = DFBit() <> OUT init true setNamePrefix(s"${p.name}_")
+    final val almost_empty = DFBit() <> OUT init true setNamePrefix(s"${p.name}_")
+    final val read = DFBit() <> IN setNamePrefix(s"${p.name}_")
   }))
   private val pushInZ = (pushInputs lazyZip pushInputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.In(p.dfType) setNamePrefix(s"${p.name}_")
-    final val stall = DFBool() <> OUT init true setNamePrefix(s"${p.name}_")
-    final val valid = DFBool() <> IN setNamePrefix(s"${p.name}_")
+    final val stall = DFBit() <> OUT init true setNamePrefix(s"${p.name}_")
+    final val valid = DFBit() <> IN setNamePrefix(s"${p.name}_")
   }))
   private val pushOutZ = (pushOutputs lazyZip pushOutputs.map(p => new MetaDesign() {
     final val data = DFAny.Port.Out(p.dfType) setNamePrefix(s"${p.name}_")
-    final val stall = DFBool() <> IN setNamePrefix(s"${p.name}_")
-    final val valid = DFBool() <> OUT init false setNamePrefix(s"${p.name}_")
+    final val stall = DFBit() <> IN setNamePrefix(s"${p.name}_")
+    final val valid = DFBit() <> OUT init false setNamePrefix(s"${p.name}_")
   }))
   private val scalaInZ = (scalarInputs lazyZip scalarInputs.map(p => new MetaDesign() {
     final val reg = p.prev() setNamePrefix(s"${p.name}_")
