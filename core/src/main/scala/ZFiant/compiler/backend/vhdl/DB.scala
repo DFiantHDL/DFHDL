@@ -4,7 +4,7 @@ package compiler.backend.vhdl
 import collection.mutable
 import compiler.backend.utils.NameDB
 
-final case class DB(enums : Map[Enum, adt.Value.Type.enumeration], files : Map[DFDesign.Block, adt.File])
+final case class DB(enums : Map[EnumType, adt.Value.Type.enumeration], files : Map[DFDesign.Block, adt.File])
 
 object DB {
   final case class Body()
@@ -15,7 +15,7 @@ object DB {
     import designDB.__getset
     val globalNameDB : NameDB[adt.Name] = new NameDB[adt.Name](reservedKeywords, false, adt.Name(_))
     val packName = globalNameDB(s"${designDB.top.typeName}_pack")
-    val enums = designDB.members.foldLeft(Map.empty[Enum, adt.Value.Type.enumeration]) {
+    val enums = designDB.members.foldLeft(Map.empty[EnumType, adt.Value.Type.enumeration]) {
       case (enumMap, member : DFAny) => member.dfType match {
         case DFEnum.Type(enumType) if (!enumMap.contains(enumType)) =>
           val vhdlEntries = enumType.entries.values.toList.map(entry => adt.Value.Type.enumeration.entry(globalNameDB(s"${enumType.name}_${entry.name}")))

@@ -1,7 +1,7 @@
 package ZFiant
 import scala.language.postfixOps
 
-object ModeType extends Enum.Auto {
+object ModeType extends EnumType.Auto {
   val COUNTING_UP, COUNTING_DOWN, HOLD = Entry()
 }
 trait ScalarHDL extends DFDesign {

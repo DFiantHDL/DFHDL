@@ -1,5 +1,5 @@
 package ZFiant.compiler.backend.vhdl.adt
-import ZFiant.Enum
+import ZFiant.EnumType
 import DFiant.internals.StringExtras
 
 sealed trait Value extends HasName with Product with Serializable {

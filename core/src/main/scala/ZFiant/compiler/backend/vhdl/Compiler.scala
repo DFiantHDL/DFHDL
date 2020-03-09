@@ -8,7 +8,7 @@ import backend.utils._
 final class Compiled(designDB : DFDesign.DB, block : DFDesign.Block) {
   import designDB.__getset
   private val nameDB : NameDB[adt.Name] = new NameDB[adt.Name](reservedKeywords, false, adt.Name(_))
-  private val enumerations : Map[Enum, adt.Value.Type.enumeration] = Map()
+  private val enumerations : Map[EnumType, adt.Value.Type.enumeration] = Map()
   private def getVHDLType(from : DFAny) : adt.Value.Type = from.dfType match {
     case DFBits.Type(width) => adt.Value.Type.std_logic_vector(width)
     case DFUInt.Type(width) => adt.Value.Type.unsigned(width)
