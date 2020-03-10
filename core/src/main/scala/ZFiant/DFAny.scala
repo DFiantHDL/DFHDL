@@ -237,8 +237,8 @@ object DFAny {
   object Const {
     type Of[Type <: DFAny.Type] = Value[Type, Modifier.Constant[Type#TToken]]{type TMod = Modifier.Constant[Type#TToken]}
     def apply[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
-    : Const with Of[Type] =
-      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Const with Of[Type]]
+    : Of[Type] =
+      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
   }
 
 //  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
