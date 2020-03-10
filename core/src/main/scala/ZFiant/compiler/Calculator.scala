@@ -20,7 +20,7 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D,
     }
     remaining match {
       case m :: mList => if (getInit(m).isDefined) calcInitRec(mList, calc, requestedCalc) else m match {
-        case c : DFAny.Const[_] => calcInitRec(mList, calc + (m -> Seq(c.token)), requestedCalc)
+        case c : DFAny.Const => calcInitRec(mList, calc + (m -> Seq(c.token)), requestedCalc)
         case f : DFAny.Func2[_,_,_,_] =>
           val leftArg = f.leftArgRef.get
           val rightArg = f.rightArgRef.get

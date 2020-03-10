@@ -10,7 +10,7 @@ import compiler.printer.Printer
 sealed trait DFAny extends DFMember with Product with Serializable {
   type TType <: DFAny.Type
   type TMod <: DFAny.Modifier
-  type TTags = DFAny.Tags[TType#TToken]
+  type TTags = DFAny.Tags
   val dfType : TType
   val modifier : TMod
   type Width = dfType.Width
@@ -200,28 +200,28 @@ object DFAny {
 
   sealed trait CanBeAnonymous extends DFMember
 
-  final case class Tags[Token <: DFAny.Token](
+  final case class Tags(
     meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : Set[DFMember.CustomTag], codeStringOverride : Option[String => String]
-  ) extends DFMember.Tags.CC[Tags[Token]] {
+  ) extends DFMember.Tags.CC[Tags] {
     override def =~(that : DFMember.Tags) : Boolean = that match {
       case Tags(_,_,init,_,_,_) => this.init == init && super.=~(that)
       case _ => false
     }
-    def setInit(init : Seq[Token]) : Tags[Token] = copy(init = Some(init))
-    def overrideCodeString(func : String => String) : Tags[Token] = copy(codeStringOverride = Some(func))
+    def setInit(init : Seq[Token]) : Tags = copy(init = Some(init))
+    def overrideCodeString(func : String => String) : Tags = copy(codeStringOverride = Some(func))
   }
   object Tags {
-    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags[Token] = Tags(meta, keep = false, None, None, Set(), None)
+    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags = Tags(meta, keep = false, None, None, Set(), None)
   }
 
   implicit class AnyExtender[T <: DFAny](member : T)(implicit getset : MemberGetSet) {
     def overrideCodeString(func : String => String) : T = member.setTags(member.tags.overrideCodeString(func)).asInstanceOf[T]
   }
 
-  final case class Const[Type <: DFAny.Type](
-    dfType : Type, token : Type#TToken, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
-  ) extends Value[Type, Modifier.Constant[Type#TToken]] {
-    type TMod = Modifier.Constant[Type#TToken]
+  final case class Const(
+    dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFBlock.Ref, tags : DFAny.Tags
+  ) extends Value[DFAny.Type, Modifier.Constant[DFAny.Token]] {
+    type TMod = Modifier.Constant[DFAny.Token]
     val modifier : TMod = Modifier.Constant(token)
 
     protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
@@ -232,11 +232,13 @@ object DFAny {
     def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = token.codeString
     override def refCodeString(implicit ctx : Printer.Context) : String = codeString
     override def show(implicit getset : MemberGetSet) : String = s"Const($token) : $dfType"
-    def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+    def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object Const {
-    def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
-    : Const[Type] = ctx.db.addMember(Const[Type](dfType, token, ctx.owner, ctx.meta.anonymize))
+    type Of[Type <: DFAny.Type] = Value[Type, Modifier.Constant[Type#TToken]]{type TMod = Modifier.Constant[Type#TToken]}
+    def apply[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
+    : Const with Of[Type] =
+      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Const with Of[Type]]
   }
 
 //  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
@@ -251,7 +253,7 @@ object DFAny {
 //
   object Port {
     final case class In[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.In](
-      dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+      dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Value[Type, Mod] {
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
@@ -264,7 +266,7 @@ object DFAny {
         s"${dfType.codeString} ${ALGN(1)}$DF<> $DF IN ${modifier.codeString}"
       }
       override lazy val typeName: String = s"$dfType <> IN"
-      def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object In {
       sealed trait Uninitialized extends DFAny.Modifier.Port.In
@@ -286,7 +288,7 @@ object DFAny {
       ): In[Type, Uninitialized] = ctx.db.addMember(In[Type, Uninitialized](dfType, Uninitialized, ctx.owner, ctx.meta))
     }
     final case class Out[Type <: DFAny.Type, Mod <: DFAny.Modifier.Port.Out](
-      dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+      dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Value[Type, Mod] {
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
@@ -303,7 +305,7 @@ object DFAny {
         s"${dfType.codeString} ${ALGN(1)}$DF<> $DF OUT${modifier.codeString}"
       }
       override lazy val typeName: String = s"$dfType <> OUT"
-      def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Out {
       sealed trait Uninitialized extends DFAny.Modifier.Port.Out
@@ -327,7 +329,7 @@ object DFAny {
   }
 
   final case class NewVar[Type <: DFAny.Type, Mod <: DFAny.Modifier.NewVar](
-    dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+    dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags
   ) extends Value[Type, Mod] {
     type TMod = Mod
 
@@ -369,7 +371,7 @@ object DFAny {
     }
 
     def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = s"${dfType.codeString}${modifier.codeString}"
-    def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+    def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
   }
   object NewVar {
     sealed trait Uninitialized extends DFAny.Modifier.NewVar
@@ -409,7 +411,7 @@ object DFAny {
     }
 
     final case class AsIs[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
-      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Alias[Type, RelVal, Mod] {
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
@@ -419,7 +421,7 @@ object DFAny {
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
       def relCodeString(cs : String) : String = s"$cs.as(${dfType.codeString})"
-      def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, refVal: RelVal)(
@@ -431,7 +433,7 @@ object DFAny {
       }
     }
     final case class BitsWL[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier](
-      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], relWidth : Int, relBitLow : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+      dfType : Type, modifier : Mod, relValRef : RelValRef[RelVal], relWidth : Int, relBitLow : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Alias[Type, RelVal, Mod]{
       type TMod = Mod
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
@@ -445,7 +447,7 @@ object DFAny {
         case _ : DFBits.Type[_] => s"$cs.bitsWL($relWidth, $relBitLow)"
         case _ : DFBool.Type => s"$cs.bit($relBitLow)"
       }
-      def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object BitsWL {
       def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
@@ -464,7 +466,7 @@ object DFAny {
       }
     }
     final case class Prev[RelVal <: DFAny](
-      dfType : RelVal#TType, relValRef : RelValRef[RelVal], step : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
+      dfType : RelVal#TType, relValRef : RelValRef[RelVal], step : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -476,7 +478,7 @@ object DFAny {
       def constFunc(t : DFAny.Token) : DFAny.Token = t
       override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
       def relCodeString(cs : String) : String = if (step == 1) s"$cs.prev" else s"$cs.prev($step)"
-      def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Prev {
       def apply[RelVal <: DFAny](refVal: RelVal, step: Int)(
@@ -487,7 +489,7 @@ object DFAny {
       }
     }
     final case class Resize[RelVal <: DFAny, ResizedType <: DFAny.Type](
-      dfType : ResizedType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[ResizedType#TToken]
+      dfType : ResizedType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Alias[ResizedType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -503,7 +505,7 @@ object DFAny {
         case s : DFSInt.Token[_] => s.resize(toWidth)
       }
       def relCodeString(cs : String) : String = s"$cs.resize($toWidth)"
-      def setTags(tags : DFAny.Tags[ResizedType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Resize {
       def bits[LW, RW](refVal: DFBits[LW], toWidth: TwoFace.Int[RW])(
@@ -555,7 +557,7 @@ object DFAny {
 //      }
 //    }
     final case class Invert[RelVal <: DFAny](
-      dfType : RelVal#TType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
+      dfType : RelVal#TType, relValRef : RelValRef[RelVal], ownerRef : DFBlock.Ref, tags : DFAny.Tags
     ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -573,7 +575,7 @@ object DFAny {
         case _ : DFBool.Type => "!"
       }
       def relCodeString(cs : String) : String = s"$op$cs"
-      def setTags(tags : DFAny.Tags[RelVal#TType#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
     }
     object Invert {
       def apply[RelVal <: DFAny](refVal: RelVal)(
@@ -608,7 +610,7 @@ object DFAny {
   }
 
   final case class Func2[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](
-    dfType: Type, leftArgRef : Func2.Ref.LeftArg[L], op : Op, rightArgRef : Func2.Ref.RightArg[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+    dfType: Type, leftArgRef : Func2.Ref.LeftArg[L], op : Op, rightArgRef : Func2.Ref.RightArg[R], ownerRef : DFBlock.Ref, tags : DFAny.Tags
   )(func0 : (L#TToken, R#TToken) => Type#TToken) extends Func[Type] {
     val func : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func0(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(func)
@@ -619,7 +621,7 @@ object DFAny {
     }
     def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
     override def show(implicit getset : MemberGetSet) : String = s"$codeString : $dfType"
-    def setTags(tags : DFAny.Tags[Type#TToken])(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func0))
+    def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func0))
   }
   object Func2 {
     type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
