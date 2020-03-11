@@ -117,7 +117,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
           case net : DFNet =>
             (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
-          case func : DFAny.Func2[_,_,_,_] =>
+          case func : DFAny.Func2 =>
             val left = consumeFrom(func.leftArgRef.get, scopeMap, currentSet)
             val right = consumeFrom(func.rightArgRef.get, scopeMap, currentSet)
             (left union right, scopeMap)

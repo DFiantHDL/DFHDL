@@ -35,7 +35,7 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
           case (DFBit(), DFBool()) => Some(as(fromVal, toVal.dfType))
           case _ => None
         }
-      case func : DFAny.Func2[_,_,_,_] =>
+      case func : DFAny.Func2 =>
         val leftArg = func.leftArgRef.get
         val rightArg = func.rightArgRef.get
         (leftArg, rightArg) match {

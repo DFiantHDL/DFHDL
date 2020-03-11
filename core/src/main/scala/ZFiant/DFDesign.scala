@@ -339,7 +339,7 @@ object DFDesign {
         case _ => dt
       })
       members.foldLeft(netPass)((dt, m) => m match {
-        case f : DFAny.Func2[_,_,_,_] => dt + (f-> Set(f.leftArgRef.get, f.rightArgRef.get))
+        case f : DFAny.Func2 => dt + (f-> Set(f.leftArgRef.get, f.rightArgRef.get))
         case a : DFAny.Alias[_,_,_] =>
           val relVal = a.relValRef.get
           (dt.get(a), dt.get(relVal)) match {

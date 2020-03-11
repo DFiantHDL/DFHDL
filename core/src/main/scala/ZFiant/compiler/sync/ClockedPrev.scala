@@ -35,11 +35,11 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       val hasBlockClk = clockedBlocks.exists{b => addedClkRst(b).hasClk}
       val hasBlockRst = clockedBlocks.exists{b => addedClkRst(b).hasRst}
       lazy val hasPrevClk = members.exists{
-        case _ : DFAny.Alias.Prev[_] => true
+        case _ : DFAny.Alias.Prev => true
         case _ => false
       }
       lazy val hasPrevRst = members.exists{
-        case p : DFAny.Alias.Prev[_] => p.tags.init match {
+        case p : DFAny.Alias.Prev => p.tags.init match {
           case Some(_ :: _) => true
           case _ => false
         }
