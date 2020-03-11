@@ -273,7 +273,7 @@ object DFAny {
     def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
       import printConfig._
       val initStr = externalInit match {
-        case Some(token :: Nil) => s" $DF init ${token.codeString}"
+        case Some(token +: Nil) => s" $DF init ${token.codeString}"
         case Some(tokens) => s" $DF init ${tokens.codeString}"
         case None => ""
       }
