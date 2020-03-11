@@ -182,14 +182,14 @@ object DFAny {
       }
     }
     object Port {
-      case object In extends Port {
+      sealed trait In extends Port
+      case object In extends In {
         final def directionString : String = " IN" //IN has a prefix space to align with the three letters of OUT
       }
-      type In = In.type
-      case object Out extends Port with Assignable {
+      sealed trait Out extends Port with Assignable
+      case object Out extends Out {
         final def directionString : String = "OUT"
       }
-      type Out = Out.type
     }
     sealed trait NewVar extends Connectable with Assignable
     case object NewVar extends NewVar
@@ -716,21 +716,26 @@ object DFAny {
       implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, L]
     ): Unit = right.connectWith(op(right.dfType, left))
   }
+  implicit class PortOps3[Type <: DFAny.Type](left : Of[Type]) {
+    def <>(right: PortOf[Type])(
+      implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, Of[Type]]
+    ): Unit = right.connectWith(op(right.dfType, left))
+  }
 
   object In {
-    def unapply(arg: DFAny): Boolean = arg.modifier match {
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
       case _ : Modifier.Port.In => true
       case _ => false
     }
   }
   object Out {
-    def unapply(arg: DFAny): Boolean = arg.modifier match {
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
       case _ : Modifier.Port.Out => true
       case _ => false
     }
   }
   object Var {
-    def unapply(arg: DFAny): Boolean = arg.modifier match {
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
       case _ : Modifier.NewVar => true
       case _ => false
     }
