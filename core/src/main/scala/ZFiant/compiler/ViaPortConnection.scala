@@ -58,15 +58,17 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
     val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
       //getting only ports that are not already connected to variables
       val ports : List[DFAny] = designDB.designMemberTable(ib).flatMap {
-        case p : DFAny.Port.Out[_,_] =>
+        case p @ DFAny.Out() =>
           val conns = designDB.getConnectionFrom(p)
-          if ((conns.size == 1) && conns.head.isInstanceOf[DFAny.NewVar[_,_]]) None
-          else Some(p)
-        case p : DFAny.Port.In[_,_] =>
+          conns.headOption match {
+            case Some(DFAny.Var()) if conns.size == 1 => None
+            case _ => Some(p)
+          }
+        case p @ DFAny.In() =>
           import designDB.__getset
           designDB.getConnectionTo(p) match {
-            case Some(_ : DFAny.NewVar[_,_]) => None
-            case Some(_ : DFAny.Port.In[_,_]) => Some(p)
+            case Some(DFAny.Var()) => None
+            case Some(DFAny.In()) => Some(p)
             case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
             case _ => Some(p)
           }
@@ -80,8 +82,8 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
       val connectDsn = new MetaDesign(true) {
         val refPatches : List[(DFMember, Patch)] = addVarsDsn.portsToVars.map {case (p, v) =>
           p match {
-            case _ : DFAny.Port.Out[_,_] => DFNet.Connection(v, p)
-            case _ : DFAny.Port.In[_,_] => DFNet.Connection(p, v)
+            case DFAny.Out() => DFNet.Connection(v, p)
+            case DFAny.In() => DFNet.Connection(p, v)
             case _ => ???
           }
           (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Outside(ib)))

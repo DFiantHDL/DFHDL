@@ -48,9 +48,9 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D,
               case None => calcInitRec(relVal :: remaining, calc, requestedCalc + m)
             }
         }
-        case rv@DFAny.NewVar(_,DFAny.Modifier.MatchRetVar, _, _) =>
+        case rv@DFAny.NewVar(_,DFAny.Modifier.MatchRetVar, _, _, _) =>
           calcInitRec(mList, calc + (m -> Seq()), requestedCalc)
-        case rv@DFAny.NewVar(_,DFAny.Modifier.IfRetVar, _, _) =>
+        case rv@DFAny.NewVar(_,DFAny.Modifier.IfRetVar, _, _, _) =>
           //            val members = designDB.ownerMemberTable(rv.getOwner)
           //            val cbs = members.collect{case m : ConditionalBlock.WithRetVal[_] if m.retVarRef.get == rv => m}
           //            val ifConds : List[Either[(DFBool, DFAny), DFAny]] = cbs.collect {
@@ -64,21 +64,20 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D,
           //              case Right(retVal) => Right(getInit(retVal))
           //            }
           calcInitRec(mList, calc + (m -> Seq()), requestedCalc)
-        case v : DFAny.Value[_,_] => v.modifier match { //Handles NewVar, Port.In, Port.Out
+        case DFAny.Dcl(_,_,Some(init),_,_) =>
           //external init has priority over connection init
-          case i : DFAny.Modifier.Initialized[_] => calcInitRec(mList, calc + (m -> i.externalInit), requestedCalc)
-          case _ => designDB.getConnectionTo(v) match {
-            //uses connection init
-            case Some(s) => getInit(s) match {
-              case Some(init) => calcInitRec(mList, calc + (m -> init), requestedCalc)
-              case None if requestedCalc.contains(m) => calcInitRec(mList, calc + (m -> Seq()), requestedCalc - m)
-              case None => calcInitRec(s :: remaining, calc, requestedCalc + m)
-            }
-            //no connection and no external init, so use an empty sequence
-            case None =>
-              //TODO: add connection via alias init fetch support here
-              calcInitRec(mList, calc + (m -> Seq()), requestedCalc)
+          calcInitRec(mList, calc + (m -> init), requestedCalc)
+        case v : DFAny.Value[_,_] =>  designDB.getConnectionTo(v) match {
+          //uses connection init
+          case Some(s) => getInit(s) match {
+            case Some(init) => calcInitRec(mList, calc + (m -> init), requestedCalc)
+            case None if requestedCalc.contains(m) => calcInitRec(mList, calc + (m -> Seq()), requestedCalc - m)
+            case None => calcInitRec(s :: remaining, calc, requestedCalc + m)
           }
+          //no connection and no external init, so use an empty sequence
+          case None =>
+            //TODO: add connection via alias init fetch support here
+            calcInitRec(mList, calc + (m -> Seq()), requestedCalc)
         }
       }
       case Nil => calc

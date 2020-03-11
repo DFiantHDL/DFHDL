@@ -55,7 +55,7 @@ object ZTest extends App {
     b | b"11111111"
 
     b0s <> c
-    b <> c
+//    b <> c
     z <> c
     ifdf(true){
       b := b0s

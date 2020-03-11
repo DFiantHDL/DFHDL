@@ -71,13 +71,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       var hasPrevRst = false
       val prevTpls = members.collect {
         case p @ DFAny.Alias.Prev(dfType, relValRef, _, ownerRef, tags) =>
-          val modifier = tags.init match {
-            case Some(i :: _) =>
-              hasPrevRst = true
-              DFAny.NewVar.Initialized(Seq(i))
-            case _ => DFAny.NewVar.Uninitialized
-          }
-          (p, relValRef.get, DFAny.NewVar(dfType, modifier, ownerRef, tags.addCustomTag(SyncCustomTag.Reg)))
+          (p, relValRef.get, DFAny.Dcl(dfType, DFAny.Modifier.NewVar, tags.init, ownerRef, tags.addCustomTag(SyncCustomTag.Reg)).asInstanceOf[DFAny.VarOf[DFAny.Type]])
       }
       if (prevTpls.nonEmpty) {
         val clockedDsn = addedClkRst(block)

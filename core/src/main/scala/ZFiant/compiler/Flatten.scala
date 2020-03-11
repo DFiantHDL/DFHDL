@@ -25,7 +25,7 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       } else producerToPort
       List((port : DFMember, Patch.Replace(replacement, Patch.Replace.Config.FullReplacement)), (unusedNet, Patch.Remove))
     } else {
-      List(port -> Patch.Replace(flattenName(DFAny.NewVar(port.dfType, DFAny.NewVar.Uninitialized, port.ownerRef, port.tags)), Patch.Replace.Config.FullReplacement))
+      List(port -> Patch.Replace(flattenName(DFAny.Dcl(port.dfType, DFAny.Modifier.NewVar, None, port.ownerRef, port.tags)), Patch.Replace.Config.FullReplacement))
     }
   }
   private def flattenPatch(block : DFBlock) : List[(DFMember, Patch)] = {
@@ -33,8 +33,8 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       val members = designDB.ownerMemberTable(block)
       val owner = block.getOwnerDesign
       (block -> Patch.Replace(owner, Patch.Replace.Config.FullReplacement)) :: members.flatMap {
-        case p : DFAny.Port.In[_,_] => flattenPort(p)
-        case p : DFAny.Port.Out[_,_] => flattenPort(p)
+        case p @ DFAny.In() => flattenPort(p)
+        case p @ DFAny.Out() => flattenPort(p)
         case m if !m.isAnonymous => List(m -> Patch.Replace(flattenName(m), Patch.Replace.Config.FullReplacement))
         case _ => None
       }
