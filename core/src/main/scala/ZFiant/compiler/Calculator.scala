@@ -48,9 +48,9 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D,
               case None => calcInitRec(relVal :: remaining, calc, requestedCalc + m)
             }
         }
-        case rv@DFAny.NewVar(_,DFAny.Modifier.MatchRetVar, _, _, _) =>
+        case rv@DFAny.Dcl(_,DFAny.Modifier.MatchRetVar, _, _, _) =>
           calcInitRec(mList, calc + (m -> Seq()), requestedCalc)
-        case rv@DFAny.NewVar(_,DFAny.Modifier.IfRetVar, _, _, _) =>
+        case rv@DFAny.Dcl(_,DFAny.Modifier.IfRetVar, _, _, _) =>
           //            val members = designDB.ownerMemberTable(rv.getOwner)
           //            val cbs = members.collect{case m : ConditionalBlock.WithRetVal[_] if m.retVarRef.get == rv => m}
           //            val ifConds : List[Either[(DFBool, DFAny), DFAny]] = cbs.collect {

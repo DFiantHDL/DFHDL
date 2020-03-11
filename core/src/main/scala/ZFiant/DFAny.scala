@@ -236,7 +236,10 @@ object DFAny {
   }
   object Const {
     type Of[Type <: DFAny.Type] = Value[Type, Modifier.Val]{type TMod = Modifier.Val}
-    def apply[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
+    def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
+    : Of[Type] =
+      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
+    def forced[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
     : Of[Type] =
       ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
   }
@@ -307,11 +310,19 @@ object DFAny {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
       ) = Dcl(dfType, Modifier.Port.In)
+      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]) : Boolean = arg match {
+        case Dcl(_, Modifier.Port.In, _, _, _) => true
+        case _ => false
+      }
     }
     object Out {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
       ) = Dcl(dfType, Modifier.Port.Out)
+      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]) : Boolean = arg match {
+        case Dcl(_, Modifier.Port.Out, _, _, _) => true
+        case _ => false
+      }
     }
   }
 
@@ -319,11 +330,9 @@ object DFAny {
     def apply[Type <: DFAny.Type](dfType: Type)(
       implicit ctx: Context
     ) = Dcl(dfType, Modifier.NewVar)
-
-    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M])
-    : Option[(DFAny.Type, DFAny.Modifier, Option[Seq[DFAny.Token]], DFBlock.Ref, DFAny.Tags)] = arg match {
-      case Dcl(dfType, modifier, externalInit, ownerRef, tags) => Some(dfType, modifier, externalInit, ownerRef, tags)
-      case _ => None
+    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]) : Boolean = arg match {
+      case Dcl(_, Modifier.NewVar, _, _, _) => true
+      case _ => false
     }
   }
   implicit class NewVarOps[Type <: DFAny.Type](val left : Value[Type, Modifier.NewVar] with Dcl.Uninitialized) {

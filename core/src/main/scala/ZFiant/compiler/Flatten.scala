@@ -33,8 +33,8 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       val members = designDB.ownerMemberTable(block)
       val owner = block.getOwnerDesign
       (block -> Patch.Replace(owner, Patch.Replace.Config.FullReplacement)) :: members.flatMap {
-        case p @ DFAny.In() => flattenPort(p)
-        case p @ DFAny.Out() => flattenPort(p)
+        case p @ DFAny.Port.In() => flattenPort(p)
+        case p @ DFAny.Port.Out() => flattenPort(p)
         case m if !m.isAnonymous => List(m -> Patch.Replace(flattenName(m), Patch.Replace.Config.FullReplacement))
         case _ => None
       }

@@ -127,12 +127,10 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
             (consumeFrom(elseIfBlock.condRef.get, scopeMap, currentSet), scopeMap)
           case matchBlock : ConditionalBlock.MatchHeader =>
             (consumeFrom(matchBlock.matchValRef.get, scopeMap, currentSet), scopeMap)
-          case dcl : DFAny.Dcl => dcl.modifier match {
-            case DFAny.Modifier.Port.Out | DFAny.Modifier.NewVar =>
-              (currentSet, scopeMap + (dcl -> AssignedScope.empty))
-            case _ =>
-              (currentSet, scopeMap)
-          }
+          case outPort @ DFAny.Port.Out() =>
+            (currentSet, scopeMap + (outPort -> AssignedScope.empty))
+          case anyVar @ DFAny.NewVar() =>
+            (currentSet, scopeMap + (anyVar -> AssignedScope.empty))
           case _ =>
             (currentSet, scopeMap)
         }
@@ -156,7 +154,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
           getImplicitPrevVars(remaining, currentBlock.getOwner, updatedScopeMap, currentSet)
         } else {
           assert(currentBlock == designDB.top)
-          val outPorts : List[DFAny] = designDB.ownerMemberTable(designDB.top).collect{case p @ DFAny.Out() => p}
+          val outPorts : List[DFAny] = designDB.ownerMemberTable(designDB.top).collect{case p @ DFAny.Port.Out() => p}
           //consuming from top-level output ports
           outPorts.foldLeft(currentSet){case (cs, p) => consumeFrom(p, scopeMap, cs)}
         }
