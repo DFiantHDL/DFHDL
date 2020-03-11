@@ -19,7 +19,7 @@ package ZFiant
 import DFiant.internals._
 import ZFiant.compiler.printer.Printer
 
-sealed trait ConditionalBlock extends DFBlock with CanBeGuarded {
+sealed trait ConditionalBlock extends DFBlock with CanBeGuarded with DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
   type TRet
   private[ZFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
@@ -56,7 +56,7 @@ object ConditionalBlock {
     implicit val ev : Type = new Type {}
   }
 
-  sealed trait MatchHeader extends CanBeGuarded {
+  sealed trait MatchHeader extends CanBeGuarded with DFAny.CanBeAnonymous {
     type TTags = DFMember.Tags.Basic
     type TMVType <: DFAny.Type
     val matchValRef : MatchValRef[TMVType]

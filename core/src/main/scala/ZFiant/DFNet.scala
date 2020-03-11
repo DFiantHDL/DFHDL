@@ -1,7 +1,7 @@
 package ZFiant
 import DFiant.internals._
 import ZFiant.compiler.printer.Printer
-sealed abstract class DFNet(op : String) extends DFMember {
+sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef

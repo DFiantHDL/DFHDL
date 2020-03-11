@@ -198,7 +198,7 @@ object DFAny {
     case object MatchRetVar extends RetVar
   }
 
-  sealed trait CanBeAnonymous extends DFMember
+  trait CanBeAnonymous extends DFMember
 
   final case class Tags(
     meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : Set[DFMember.CustomTag], codeStringOverride : Option[String => String]
@@ -832,7 +832,7 @@ object DFAny {
           s"""Connection must be made between either of the following options:
              |* A port and a value
              |* Two ports
-             |* Two vars where only one variables already received an incoming connection""".stripMargin
+             |* Two vars where one variable already received an incoming connection""".stripMargin
         )
       }
       DFNet.Connection(toPort, from)

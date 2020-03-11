@@ -27,7 +27,7 @@ final class UniqueDesignsOps[D <: DFDesign, S <: shapeless.HList](c : Compilable
     val uniqueTypeMap : Map[String, List[UniqueBlock]] = uniqueBlockMap.keys.toList.groupBy(ub => ub.block.designType)
     val patchList = uniqueTypeMap.flatMap {
       case (designType, list) if list.size > 1 => list.zipWithIndex.flatMap{case (ub, i) =>
-        val suffix = s"%0${(list.size-1)/10+1}d".format(i)
+        val suffix = s"%0${list.size.toString.length}d".format(i)
         val updatedDesignType = s"${designType}_$suffix"
         uniqueBlockMap(ub).map(block => block -> Patch.Replace(block.copy(designType = updatedDesignType), Patch.Replace.Config.FullReplacement))
       }
