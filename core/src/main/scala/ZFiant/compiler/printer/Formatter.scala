@@ -22,17 +22,17 @@ class Formatter(maxAlignments : List[Int]) {
         val uncolored = algnText.uncolor
         val posList : List[Int] = uncolored.linesIterator.map(l => l.indexOf(ALGN(algnIdx))).toList
         val maxPos = posList.max
-        val foundList = posList.filter(_ >= 0)
-        if (foundList.nonEmpty) {
-          val minPos = posList.filter(_ >= 0).min
-          val maxAddedSpaces = (maxPos - minPos) min algnMax
-          val alignPos = minPos + maxAddedSpaces
-          val addedSpaceList = posList.map {
-            case i if i >= 0 && i < alignPos => (alignPos - i)// min maxAddedSpaces
-            case _ => 0
-          }
-          (algnText.linesIterator zip addedSpaceList).map{case (line, space) => line.replace(ALGN(algnIdx), " "*space)}.mkString("\n")
-        } else algnText
+        posList.filter(_ >= 0).minOption match {
+          case Some(minPos) =>
+            val maxAddedSpaces = (maxPos - minPos) min algnMax
+            val alignPos = minPos + maxAddedSpaces
+            val addedSpaceList = posList.map {
+              case i if i >= 0 && i < alignPos => (alignPos - i)// min maxAddedSpaces
+              case _ => 0
+            }
+            (algnText.linesIterator zip addedSpaceList).map{case (line, space) => line.replace(ALGN(algnIdx), " "*space)}.mkString("\n")
+          case None => algnText
+        }
       }
     }
   }
