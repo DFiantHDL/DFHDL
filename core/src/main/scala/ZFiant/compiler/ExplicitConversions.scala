@@ -8,19 +8,26 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
   import designDB.__getset
   private def resizeUInt(dfVal : DFAny, updatedWidth : Int) : (DFAny, Patch) = dfVal match {
     case DFAny.Const(dfType, token : DFUInt.Token[_], ownerRef, tags) =>
-      val updatedConst : DFAny = ??? //DFAny.Const[DFAny.Type](dfType, token.resize(updatedWidth), ownerRef, tags)
+      val updatedConst : DFAny = DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
       dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
-    case _ => dfVal -> Patch.Add(new MetaDesign() {
-      dfVal.asInstanceOf[DFUInt[Int]].resize(updatedWidth)
-    }, Patch.Add.Config.Via)
+    case _ =>
+      dfVal -> Patch.Add(new MetaDesign() {
+        dfVal.asInstanceOf[DFUInt[Int]].resize(updatedWidth)
+      }, Patch.Add.Config.Via)
   }
-  private def resizeSInt(dfVal : DFAny, updatedWidth : Int) : (DFAny, Patch) = {
-    dfVal -> Patch.Add(new MetaDesign() {
-      dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth)
-    }, Patch.Add.Config.Via)
+  private def resizeSInt(dfVal : DFAny, updatedWidth : Int) : (DFAny, Patch) = dfVal match {
+    case DFAny.Const(dfType, token : DFSInt.Token[_], ownerRef, tags) =>
+      val updatedConst : DFAny = DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
+      dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
+    case _ =>
+      dfVal -> Patch.Add(new MetaDesign() {
+        dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth)
+      }, Patch.Add.Config.Via)
   }
   private def as(dfVal : DFAny, updateDFType : DFAny.Type) : (DFAny, Patch) = {
-    ???
+    dfVal -> Patch.Add(new MetaDesign() {
+      dfVal.asInstanceOf[DFAny.Of[DFAny.Type]].as(updateDFType)
+    }, Patch.Add.Config.Via)
   }
 
   def explicitResizes = {

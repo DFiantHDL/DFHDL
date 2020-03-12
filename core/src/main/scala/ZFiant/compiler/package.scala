@@ -9,6 +9,8 @@ package object compiler {
   : UniqueNamesOps[D, S] = new UniqueNamesOps[D, S](c)
   implicit def evExplicitPrev[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S]) 
   : ExplicitPrevOps[D, S] = new ExplicitPrevOps[D, S](c)
+  implicit def evExplicitConversions[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : ExplicitConversionsOps[D, S] = new ExplicitConversionsOps[D, S](c)
   implicit def evViaPortConnection[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : ViaPortConnectionOps[D, S] = new ViaPortConnectionOps[D, S](c)
   implicit def evFlatten[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
