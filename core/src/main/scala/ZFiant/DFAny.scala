@@ -178,13 +178,13 @@ object DFAny {
       def directionString : String
       final override def codeString(implicit printConfig : Printer.Config) : String = {
         import printConfig._
-        s" ${ALGN(1)}$DF<> $DF $directionString"
+        s" ${ALGN(1)}$DF<> $directionString"
       }
     }
     object Port {
       sealed trait In extends Port
       case object In extends In {
-        final def directionString : String = " IN" //IN has a prefix space to align with the three letters of OUT
+        final def directionString : String = "IN " //IN has a suffix space to align with the three letters of OUT
       }
       sealed trait Out extends Port with Assignable
       case object Out extends Out {
