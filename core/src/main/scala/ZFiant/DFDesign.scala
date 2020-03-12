@@ -493,9 +493,15 @@ object DFDesign {
         ref
       }
       def immutable : DB = {
-        refTable.keys.foreach{
-          case or : DFMember.OwnedRef => or.owner  //touching all lazy owner refs to force their addition
-          case _ => //do nothing
+        var size = -1
+        //Touching all lazy owner refs to force their addition.
+        //During this procedure it is possible that new reference are added. If so, we re-iterate
+        while (refTable.size != size) {
+          size = refTable.size
+          refTable.keys.foreach {
+            case or : DFMember.OwnedRef => or.owner
+            case _ => //do nothing
+          }
         }
         DB(members.iterator.map(e => e._1).toList, refTable.toMap)
       }

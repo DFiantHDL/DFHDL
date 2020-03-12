@@ -74,11 +74,13 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
           }
         case _ => None
       }
+      //Meta design to construct the variables to be connected to the ports
       val addVarsDsn = new MetaDesign() {
         val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
           p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
         }
       }
+      //Meta design for connections between ports and the added variables
       val connectDsn = new MetaDesign(true) {
         val refPatches : List[(DFMember, Patch)] = addVarsDsn.portsToVars.map {case (p, v) =>
           p match {

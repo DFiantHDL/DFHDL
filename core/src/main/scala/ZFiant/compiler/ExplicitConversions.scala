@@ -30,14 +30,14 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
     }, Patch.Add.Config.Via)
   }
 
-  def explicitResizes = {
+  def explicitConversions = {
     val patchList = designDB.members.flatMap {
       case net : DFNet =>
         val toVal = net.toRef.get
         val fromVal = net.fromRef.get
         (toVal, fromVal) match {
-          case (DFUInt(toWidth), DFUInt(fromWidth)) if toWidth > fromWidth => Some(resizeUInt(fromVal, fromWidth))
-          case (DFSInt(toWidth), DFSInt(fromWidth)) if toWidth > fromWidth => Some(resizeSInt(fromVal, fromWidth))
+          case (DFUInt(toWidth), DFUInt(fromWidth)) if toWidth > fromWidth => Some(resizeUInt(fromVal, toWidth))
+          case (DFSInt(toWidth), DFSInt(fromWidth)) if toWidth > fromWidth => Some(resizeSInt(fromVal, toWidth))
           case (DFBool(), DFBit()) => Some(as(fromVal, toVal.dfType))
           case (DFBit(), DFBool()) => Some(as(fromVal, toVal.dfType))
           case _ => None
