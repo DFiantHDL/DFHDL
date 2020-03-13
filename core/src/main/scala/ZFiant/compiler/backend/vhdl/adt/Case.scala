@@ -2,9 +2,9 @@ package ZFiant.compiler.backend.vhdl.adt
 
 import ZFiant.compiler.backend.utils._
 
-final case class Case(expression : Value, whens : List[Case.When]) extends Statement {
+final case class Case(expression : String, whens : List[Case.When]) extends Statement {
   override def toString: String =
-    s"""case ${expression.refString} is
+    s"""case $expression is
        |${whens.mkString("\n").delim}
        |end case;""".stripMargin
 

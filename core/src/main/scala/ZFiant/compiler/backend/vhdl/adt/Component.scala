@@ -2,7 +2,7 @@ package ZFiant.compiler.backend.vhdl.adt
 
 import ZFiant.compiler.backend.utils._
 
-final case class Component(entityName : Name, ports : List[Value.Dcl[Value.Dcl.Modifier.Port]]) extends Declaration {
+final case class Component(entityName : String, ports : List[ValueDcl[ValueDcl.Modifier.Port]]) extends Declaration {
   override def toString: String =
     s"""component $entityName is
        |port (
@@ -12,11 +12,11 @@ final case class Component(entityName : Name, ports : List[Value.Dcl[Value.Dcl.M
 
 }
 
-final case class ComponentInstance(name : Name, entityName : Name, connections : List[(Name, Value)]) extends HasName with Statement {
+final case class ComponentInstance(name : String, entityName : String, connections : List[(String, String)]) extends Statement {
   override def toString: String =
     s"""$name : $entityName
        |port map (
-       |${connections.map(c => s"${c._1} => ${c._2.refString}").mkString(",\n").delim}
+       |${connections.map(c => s"${c._1} => ${c._2}").mkString(",\n").delim}
        |);""".stripMargin
 }
 
