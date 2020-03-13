@@ -51,6 +51,6 @@ object ScalarHDLApp extends App {
   }
   import compiler._
   val res= scalar_hdl.maxJNode
-  import sync.ClockedPrevOps._
+  import sync._
   res.clockedPrev.printCodeString().printGenFiles()
 }

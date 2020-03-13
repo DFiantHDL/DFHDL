@@ -19,9 +19,9 @@ package example2
 import ZFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
-  val i = DFUInt(8) <> IN //The input port is a signed 16-bit integer
+  val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
   val o = DFUInt(8) <> OUT	//The output port is a signed 16-bit integer
-  o <> i //Trivial direct input-to-output connection
+  o <> i.prev //Trivial direct input-to-output connection
 }
 
 trait IDTop extends DFDesign { //This our `IDTop` dataflow design
@@ -65,9 +65,8 @@ trait ContainerConnLoop extends DFDesign {
 object IDTopApp extends App {
   val top = new IDTop {}
   import compiler._
-  import sync.ClockedPrevOps._
   import backend.vhdl._
-  val designDB = top.viaPortConnection.printCodeString()
+  val designDB = top.compile.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

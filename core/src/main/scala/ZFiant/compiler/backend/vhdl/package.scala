@@ -1,6 +1,7 @@
-package ZFiant.compiler.backend
+package ZFiant
+package compiler
+package backend
 
-import ZFiant._
 
 package object vhdl {
   private[vhdl] val reservedKeywords : Set[String] = Set(
@@ -14,4 +15,7 @@ package object vhdl {
     "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable",
     "wait", "when", "while", "with", "xnor", "xor",
   )
+  implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : VHDLBackend[D, S] = new VHDLBackend[D, S](c)
+
 }

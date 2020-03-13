@@ -22,7 +22,7 @@ final class UniqueDesignsOps[D <: DFDesign, S <: shapeless.HList](c : Compilable
   import designDB.__getset
   def uniqueDesigns = {
     val uniqueBlockMap : Map[UniqueBlock, List[DFDesign.Block.Internal]] = designDB.members.collect {
-      case block : DFDesign.Block.Internal => block
+      case block : DFDesign.Block.Internal if block.inlinedRep.isEmpty => block
     }.groupBy(b => new UniqueBlock(b, designDB.designMemberTable(b)))
     val uniqueTypeMap : Map[String, List[UniqueBlock]] = uniqueBlockMap.keys.toList.groupBy(ub => ub.block.designType)
     val patchList = uniqueTypeMap.flatMap {

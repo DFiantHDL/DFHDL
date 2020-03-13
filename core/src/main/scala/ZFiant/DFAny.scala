@@ -126,8 +126,12 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Casting/Aliasing
     //////////////////////////////////////////////////////////////////////////
-    final def as[AT <: DFAny.Type](aliasType : AT)(implicit ctx : DFAny.Context) : AsType[AT] =
+    final def as[AT <: DFAny.Type](aliasType : AT)(
+      implicit ctx : DFAny.Context, equalWidth : AsWidth.CheckedShell[aliasType.Width, Width]
+    ) : AsType[AT] = {
+      equalWidth.unsafeCheck(aliasType.width, width)
       DFAny.Alias.AsIs(aliasType, this)
+    }
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////

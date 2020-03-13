@@ -14,8 +14,7 @@ final case class Component(entityName : String, ports : List[ValueDcl[ValueDcl.M
 
 final case class ComponentInstance(name : String, entityName : String, connections : List[(String, String)]) extends Statement {
   override def toString: String =
-    s"""$name : $entityName
-       |port map (
+    s"""$name : entity work.$entityName(${entityName}_arch) port map (
        |${connections.map(c => s"${c._1} => ${c._2}").mkString(",\n").delim}
        |);""".stripMargin
 }

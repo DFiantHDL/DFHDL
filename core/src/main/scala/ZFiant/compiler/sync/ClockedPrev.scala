@@ -113,10 +113,6 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
   }
 }
 
-object ClockedPrevOps {
-  implicit def evClockedPrevOps[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
-  : ClockedPrevOps[D, S] = new ClockedPrevOps[D, S](c)
-}
 
 trait ClockedPrev extends Compilable.Stage
 

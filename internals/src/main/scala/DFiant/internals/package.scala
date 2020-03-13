@@ -337,6 +337,12 @@ package object internals {
     type ParamFace = Int
   }
 
+  object AsWidth extends Checked1Param.Int {
+    type Cond[AW, CW] = AW == CW
+    type Msg[AW, CW] = "The aliased type width " + ToString[AW] + " is not equal to the current width " + ToString[CW]
+    type ParamFace = Int
+  }
+
   object BitsWidth extends Checked0Param.Int {
     type Cond[W] = (W > 0)
     type Msg[W] = "DFBits/DFUInt width must be positive. Found width = " + ToString[W]
