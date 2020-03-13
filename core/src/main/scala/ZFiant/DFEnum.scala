@@ -80,6 +80,10 @@ object DFEnum extends DFAny.Companion {
     def != [RE <: EnumType](that : Token[RE]) : DFBool.Token =
       DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
     def codeString(implicit printConfig : Printer.Config) : String = value.get.codeString
+    override def equals(obj: Any): Boolean = obj match {
+      case Token(enumType, value) => this.enumType == enumType && this.value == value
+      case _ => false
+    }
   }
 
   object Token {

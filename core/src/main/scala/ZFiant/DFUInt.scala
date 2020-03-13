@@ -82,6 +82,11 @@ object DFUInt extends DFAny.Companion {
       else if (value.isValidLong) s"$LIT${value}L"
       else s"""$LIT BigInt($STR"$value")"""
     }
+
+    override def equals(obj: Any): Boolean = obj match {
+      case Token(width, value, bubble) => this.width.getValue == width.getValue && this.value == value && this.bubble == bubble
+      case _ => false
+    }
   }
 
   object Token {

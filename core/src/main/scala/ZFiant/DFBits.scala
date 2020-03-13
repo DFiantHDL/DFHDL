@@ -133,6 +133,10 @@ object DFBits extends DFAny.Companion {
       if (value.length % 4 == 0) s"""$BOLD h$STR"${value.toHex}""""
       else s"""$BOLD b$STR"${value.toBin}""""
     }
+    override def equals(obj: Any): Boolean = obj match {
+      case Token(width, value, bubbleMask) => this.width.getValue == width.getValue && this.value == value && this.bubbleMask == bubbleMask
+      case _ => false
+    }
   }
   object Token {
     implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
