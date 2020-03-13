@@ -78,7 +78,7 @@ object DB {
               case _ : DFAny.Modifier.Port.In => adt.Value.Dcl.Modifier.Port.In
               case _ : DFAny.Modifier.Port.Out => adt.Value.Dcl.Modifier.Port.Out
               case _ : DFAny.Modifier.NewVar =>
-                if (v.tags.customTags.contains(compiler.sync.SyncTags.Reg)) adt.Value.Dcl.Modifier.Signal
+                if (v.tags.customTags.contains(compiler.sync.SyncTag.Reg)) adt.Value.Dcl.Modifier.Signal
                 else if (designDB.getConnectionTo(v).isDefined) adt.Value.Dcl.Modifier.Signal
                 else adt.Value.Dcl.Modifier.Variable
               case _ => adt.Value.Dcl.Modifier.Signal

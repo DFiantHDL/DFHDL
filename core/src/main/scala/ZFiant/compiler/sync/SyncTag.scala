@@ -18,9 +18,9 @@
 package ZFiant
 package compiler.sync
 
-sealed trait SyncTags extends DFMember.CustomTag
-object SyncTags {
-  case object Clock extends SyncTags
-  case object Reset extends SyncTags
-  case object Reg extends SyncTags
+sealed trait SyncTag extends DFMember.CustomTag
+object SyncTag {
+  case object Clock extends SyncTag
+  case object Reset extends SyncTag
+  case object Reg extends SyncTag
 }
