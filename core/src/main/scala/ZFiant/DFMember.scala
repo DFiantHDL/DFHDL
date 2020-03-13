@@ -82,7 +82,7 @@ object DFMember {
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
     def anonymize : M = member.setTags(member.tags.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(member.tags.setKeep(true)).asInstanceOf[M]
-    def addCustomTag(customTag : CustomTag) : M = member.setTags(member.tags.addCustomTag(customTag)).asInstanceOf[M]
+    def !!(customTag : CustomTag) : M = member.setTags(member.tags.!!(customTag)).asInstanceOf[M]
     def setLateContruction(value : Boolean) : M = member.setTags(member.tags.setLateContruction(value)).asInstanceOf[M]
     def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
@@ -95,7 +95,7 @@ object DFMember {
     val customTags : Set[CustomTag]
     def setMeta(meta : Meta) : TTags
     def setKeep(keep : Boolean) : TTags
-    def addCustomTag(customTag : CustomTag) : TTags
+    def !!(customTag : CustomTag) : TTags
     def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
     final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
@@ -112,7 +112,7 @@ object DFMember {
       type TTags = P
       final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
       final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
-      final def addCustomTag(customTag : CustomTag) : P = customTagsL().modify(self)(tList => tList + customTag)
+      final def !!(customTag : CustomTag) : P = customTagsL().modify(self)(tList => tList + customTag)
     }
 
     final case class Basic(meta : Meta, keep : Boolean, customTags : Set[CustomTag]) extends Tags.CC[Basic]

@@ -178,7 +178,7 @@ object DFAny {
       def directionString : String
       final override def codeString(implicit printConfig : Printer.Config) : String = {
         import printConfig._
-        s" ${ALGN(1)}$DF<> $directionString"
+        s" ${ALGN(1)}$DF<> $DF$directionString"
       }
     }
     object Port {

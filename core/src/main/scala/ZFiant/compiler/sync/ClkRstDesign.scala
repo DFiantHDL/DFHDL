@@ -6,11 +6,11 @@ protected[sync] trait ClkRstDesign extends MetaDesign {
   private var _hasRst = false
   final lazy val clk = {
     _hasClk = true
-    DFBit() <> IN addCustomTag(SyncTag.Clock)
+    DFBit() <> IN !! SyncTag.Clk
   }
   final lazy val rst = {
     _hasRst = true
-    DFBit() <> IN addCustomTag(SyncTag.Reset)
+    DFBit() <> IN !! SyncTag.Rst
   }
   final def hasClk : Boolean = _hasClk
   final def hasRst : Boolean = _hasRst

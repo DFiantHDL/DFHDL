@@ -25,14 +25,15 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
         case _ => Some(n.codeString)
       }
       case a : DFAny if !a.isAnonymous =>
-        val initInfo = printConfig match {
-          case Printer.Config.Default => ""
-          case Printer.Config.ShowInits => a.tags.init match {
-            case Some(init) => s"//init = ${init.codeString}"
-            case None => "//init = Unknown"
-          }
-        }
-        Some(s"$SC final $SC val ${a.name} ${ALGN(0)}= ${a.codeString}$initInfo")
+        val initInfo = if (printConfig.showInits) a.tags.init match {
+          case Some(init) => s"//init = ${init.codeString}"
+          case None => "//init = Unknown"
+        } else ""
+        val customTagInfo =
+          if (printConfig.showCustomTags && a.tags.customTags.nonEmpty)
+            a.tags.customTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
+          else ""
+        Some(s"$SC final $SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
       case _ => None
     }
     membersCodeString.mkString("\n")
@@ -91,6 +92,8 @@ object Printer {
 
   sealed trait Config {
     import io.AnsiColor._
+    val showCustomTags : Boolean = true
+    val showInits : Boolean = false
     val DELIM : String = "  "
     val LIT : String = BLUE
     val STR : String = s"\u001B[38;5;34m$BOLD"
@@ -102,6 +105,8 @@ object Printer {
   }
   object Config {
     implicit case object Default extends Config
-    case object ShowInits extends Config
+    case object ShowInits extends Config {
+      override val showInits: Boolean = true
+    }
   }
 }

@@ -20,7 +20,13 @@ package compiler.sync
 
 sealed trait SyncTag extends DFMember.CustomTag
 object SyncTag {
-  case object Clock extends SyncTag
-  case object Reset extends SyncTag
-  case object Reg extends SyncTag
+  case object Clk extends SyncTag {
+    override def toString: String = "SyncTag.Clk"
+  }
+  case object Rst extends SyncTag {
+    override def toString: String = "SyncTag.Rst"
+  }
+  case object Reg extends SyncTag {
+    override def toString: String = "SyncTag.Reg"
+  }
 }
