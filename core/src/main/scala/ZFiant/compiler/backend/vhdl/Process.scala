@@ -1,7 +1,7 @@
 package ZFiant
 package compiler.backend.vhdl
 
-object Process {
+private object Process {
   def apply(sensitivity : String, variables : List[String], statements : List[String])(
     implicit printer : Printer
   ) : String = {

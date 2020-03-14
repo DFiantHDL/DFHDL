@@ -1,7 +1,7 @@
 package ZFiant
 package compiler.backend.vhdl
 
-object If {
+private object If {
   def apply(cond : String, statements : List[String], closing : String)(
     implicit printer : Printer
   ) : String = {

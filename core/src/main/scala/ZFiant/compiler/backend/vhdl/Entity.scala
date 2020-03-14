@@ -1,7 +1,7 @@
 package ZFiant
 package compiler.backend.vhdl
 
-protected object Entity {
+private object Entity {
   def apply(name : String, ports : List[String])(implicit printer : Printer) : String = {
     import printer.config._
     import formatter._

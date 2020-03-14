@@ -1,7 +1,7 @@
 package ZFiant
 package compiler.backend.vhdl
 
-object Case {
+private object Case {
   def apply(expression : String, whens : List[String])(implicit printer : Printer) : String = {
     import printer.config._
     import formatter._

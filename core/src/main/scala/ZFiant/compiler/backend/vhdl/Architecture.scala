@@ -1,7 +1,7 @@
 package ZFiant
 package compiler.backend.vhdl
 
-object Architecture {
+private object Architecture {
   def apply(name : String, entityName : String, declarations : List[String], statements : List[String])(
     implicit printer : Printer
   )  : String = {
