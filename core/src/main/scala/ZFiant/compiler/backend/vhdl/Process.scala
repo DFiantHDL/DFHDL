@@ -7,11 +7,11 @@ private object Process {
   ) : String = {
     import printer.config._
     import formatter._
-    s"""$name : process ($sensitivity)
+    s"""$name : $KW process ($sensitivity)
        |${variables.mkString("\n").delim}
-       |begin
+       |$KW begin
        |${statements.mkString("\n").delim}
-       |end process;""".stripMargin
+       |$KW end $KW process;""".stripMargin
   }
   object Sensitivity {
     object List {

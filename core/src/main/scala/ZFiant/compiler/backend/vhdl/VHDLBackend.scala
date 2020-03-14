@@ -21,11 +21,11 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
 
   def compile = {
     val designTypes = mutable.Set.empty[String]
-    val files = designDB.designMemberList.flatMap {
+    val files = designDB.ownerMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
-      case (design, members) if !designTypes.contains(design.designType) =>
+      case (design : DFDesign.Block, members) if !designTypes.contains(design.designType) =>
         designTypes += design.designType
-        val (ports, signals, variables) = members.foldLeft((List.empty[String],List.empty[String],List.empty[String])){
+        val psv = members.foldLeft((List.empty[String],List.empty[String],List.empty[String])){
           case ((ports, signals, variables), p @ DFAny.Port.In()) =>
             (Port(p.name, Port.Dir.In(), Type(p), Init(p)) :: ports, signals, variables)
           case ((ports, signals, variables), p @ DFAny.Port.Out()) =>
@@ -36,6 +36,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
           case (psv, _) => psv
         }
+        val (ports, signals, variables) = (psv._1.reverse, psv._2.reverse, psv._3.reverse)
         val entityName = design.designType
         val entity = Entity(entityName, ports)
         val componentInstances = members.collect {
