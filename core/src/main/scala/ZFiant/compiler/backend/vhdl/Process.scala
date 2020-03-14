@@ -2,12 +2,12 @@ package ZFiant
 package compiler.backend.vhdl
 
 private object Process {
-  def apply(sensitivity : String, variables : List[String], statements : List[String])(
+  def apply(name : String, sensitivity : String, variables : List[String], statements : List[String])(
     implicit printer : Printer
   ) : String = {
     import printer.config._
     import formatter._
-    s"""process ($sensitivity)
+    s"""$name : process ($sensitivity)
        |${variables.mkString("\n").delim}
        |begin
        |${statements.mkString("\n").delim}
