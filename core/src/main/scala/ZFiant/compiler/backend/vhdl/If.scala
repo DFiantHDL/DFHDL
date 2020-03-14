@@ -8,7 +8,7 @@ private object If {
     import printer.config._
     import formatter._
     s"""$KW if $cond $KW then
-       |${statements.mkString("\n").delim}
+       |${statements.mkString("\n").delim()}
        |$closing""".stripMargin
   }
 
@@ -23,7 +23,7 @@ private object If {
       import printer.config._
       import formatter._
       s"""$KW elsif $cond $KW then
-         |${statements.mkString("\n").delim}
+         |${statements.mkString("\n").delim()}
          |$closing""".stripMargin
     }
   }
@@ -32,7 +32,7 @@ private object If {
       import printer.config._
       import formatter._
       s"""$KW else
-         |${statements.mkString("\n").delim}
+         |${statements.mkString("\n").delim()}
          |$End""".stripMargin
     }
   }

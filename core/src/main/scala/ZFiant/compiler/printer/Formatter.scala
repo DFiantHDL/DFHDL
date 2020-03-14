@@ -50,6 +50,6 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
     }
     def applyBrackets(onlyIfRequired : Boolean = true) : String =
       if (requiresBrackets || (!onlyIfRequired && !hasBrackets)) s"($text)" else text
-    def delim : String = text.replaceAll("(?m)^", delimiter);
+    def delim(count : Int = 1) : String = text.replaceAll("(?m)^", delimiter * count);
   }
 }

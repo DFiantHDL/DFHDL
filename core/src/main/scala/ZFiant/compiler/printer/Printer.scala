@@ -19,7 +19,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
         val body = blockBodyCodeString(fixedDB.ownerMemberTable(d), lateConstruction = true)
-        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim}\n}"
+        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
         Some(s"$SC final $SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.get.getOwner match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
@@ -43,7 +43,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     import printConfig._
     import formatter._
     val body = blockBodyCodeString(members, lateConstruction = false)
-    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delim}\n}"
+    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delim()}\n}"
   }
   def codeString(implicit printConfig : Printer.Config) : String = {
     import printConfig._

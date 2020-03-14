@@ -8,9 +8,9 @@ private object Process {
     import printer.config._
     import formatter._
     s"""$name : $KW process ($sensitivity)
-       |${variables.mkString("\n").delim}
+       |${variables.mkString("\n").delim()}
        |$KW begin
-       |${statements.mkString("\n").delim}
+       |${statements.mkString("\n").delim()}
        |$KW end $KW process;""".stripMargin
   }
   object Sensitivity {

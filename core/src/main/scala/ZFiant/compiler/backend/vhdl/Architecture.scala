@@ -8,9 +8,9 @@ private object Architecture {
     import printer.config._
     import formatter._
     s"""$KW architecture $name $KW of $entityName $KW is
-       |${declarations.mkString("\n").delim}
+       |${declarations.mkString("\n").delim()}
        |$KW begin
-       |${statements.mkString("\n").delim}
+       |${statements.mkString("\n").delim()}
        |$KW end $name;""".stripMargin
   }
 }

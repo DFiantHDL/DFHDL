@@ -6,7 +6,7 @@ private object Case {
     import printer.config._
     import formatter._
     s"""$KW case $expression $KW is
-       |${whens.mkString("\n").delim}
+       |${whens.mkString("\n").delim()}
        |$KW end $KW case;""".stripMargin
   }
 
@@ -15,7 +15,7 @@ private object Case {
       import printer.config._
       import formatter._
       s"""$KW when $choice =>
-         |${statements.mkString("\n").delim}""".stripMargin
+         |${statements.mkString("\n").delim()}""".stripMargin
     }
   }
   object Choice {

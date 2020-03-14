@@ -25,23 +25,22 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
       case (design : DFDesign.Block, members) if !designTypes.contains(design.designType) =>
         designTypes += design.designType
-        val psv = members.foldLeft((List.empty[String],List.empty[String],List.empty[String])){
-          case ((ports, signals, variables), p @ DFAny.Port.In()) =>
+        val (ports, signals, variables) = members.foldRight((List.empty[String],List.empty[String],List.empty[String])){
+          case (p @ DFAny.Port.In(), (ports, signals, variables)) =>
             (Port(p.name, Port.Dir.In(), Type(p), Init(p)) :: ports, signals, variables)
-          case ((ports, signals, variables), p @ DFAny.Port.Out()) =>
+          case (p @ DFAny.Port.Out(), (ports, signals, variables)) =>
             (Port(p.name, Port.Dir.Out(), Type(p), Init(p)) :: ports, signals, variables)
-          case ((ports, signals, variables), s : DFAny) if designDB.getConnectionTo(s).isDefined || s.tags.customTags.contains(SyncTag.Reg) =>
+          case (s : DFAny, (ports, signals, variables)) if designDB.getConnectionTo(s).isDefined || s.tags.customTags.contains(SyncTag.Reg) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
-          case ((ports, signals, variables), v @ DFAny.Var()) =>
+          case (v @ DFAny.Var(), (ports, signals, variables)) =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
-          case (psv, _) => psv
+          case (_, psv) => psv
         }
-        val (ports, signals, variables) = (psv._1.reverse, psv._2.reverse, psv._3.reverse)
         val entityName = design.designType
         val entity = Entity(entityName, ports)
         val componentInstances = members.collect {
           case x : DFDesign.Block.Internal if x.inlinedRep.isEmpty =>
-            val connections = designDB.designMemberTable(x).collect {
+            val connections = designDB.ownerMemberTable(x).collect {
               case net : DFNet.Connection if net.hasLateConstruction =>
                 val toVal = net.toRef.get
                 val fromVal = net.fromRef.get

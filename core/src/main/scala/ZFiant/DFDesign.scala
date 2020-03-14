@@ -130,12 +130,12 @@ object DFDesign {
 
     //we reserve the order of assignments within the list
     lazy val assignmentsTable : Map[DFAny, List[DFAny]] =
-      members.reverse.foldLeft(Map.empty[DFAny, List[DFAny]]){
-        case (at, n : DFNet.Assignment) =>
+      members.foldRight(Map.empty[DFAny, List[DFAny]]){
+        case (n : DFNet.Assignment, at) =>
           val toVal = n.toRef.get
           val fromVal = n.fromRef.get
           at + (toVal -> (fromVal :: at.getOrElse(toVal, List())))
-        case (at, _) => at
+        case (_, at) => at
       }
 
 //    lazy val aliasesTable : Map[DFAny, List[DFAny]] =
