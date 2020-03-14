@@ -3,11 +3,6 @@ package ZFiant.compiler.backend
 import collection.mutable
 
 package object utils {
-  implicit class Delimiter(s : String) {
-    import DFiant.internals.StringExtras
-    def delim : String = s.delimRowsBy("  ")
-  }
-
   final class NameDB[N](reservedNames : List[String], caseSensitive : Boolean, gen : String => N) {
     //initializing the table with reserved names
     //starting from -1 for reserved names, so the first indexed returned name value will be 0.

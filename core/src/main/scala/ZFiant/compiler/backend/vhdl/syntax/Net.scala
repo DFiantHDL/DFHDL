@@ -1,4 +1,4 @@
-package ZFiant.compiler.backend.vhdl.adt
+package ZFiant.compiler.backend.vhdl.syntax
 
 sealed trait Net extends Product with Serializable {
   val toVal : String

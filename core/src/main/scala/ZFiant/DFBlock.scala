@@ -14,7 +14,8 @@ trait DFBlock extends DFMember {
   final def codeString(body : String)(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
     //if the body is a single row then no need for delimiters and extra new lines
     //otherwise, we add delimitation and new lines
-    val delimitedBody = if (!body.contains("\n")) body else s"\n${body.delimRowsBy(printConfig.DELIM)}\n"
+    import printConfig.formatter._
+    val delimitedBody = if (!body.contains("\n")) body else s"\n${body.delim}\n"
     s"$headerCodeString {$delimitedBody}"
   }
 }

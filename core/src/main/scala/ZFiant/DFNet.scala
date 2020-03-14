@@ -7,6 +7,7 @@ sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   val fromRef : DFNet.FromRef
   def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
     import printConfig._
+    import formatter._
     s"${toRef.refCodeString} ${ALGN(0)}$DF$op ${fromRef.refCodeString}"
   }
   override def show(implicit getset : MemberGetSet) : String = codeString

@@ -1,20 +1,20 @@
 package ZFiant.compiler.printer
 
-class Formatter(maxAlignments : List[Int]) {
+class Formatter(delimiter : String, maxAlignments : List[Int]) {
   import io.AnsiColor._
-  private[printer] def ALGN(idx : Int) : String = {
+  def ALGN(idx : Int) : String = {
     assert(idx < maxAlignments.size)
     s"$$$$${idx}$$$$"
   }
   private val colorCode = "\u001B\\[[;\\d]*m"
-  private val optionalSpaces = "[ ]*"
+  private val optionalSpaces = "[ \t]*"
   private val word = "([0-9a-zA-Z_]+)"
   private val operator = "([<>+\\-*/=:!^&%|#]+)"
   private val string = """(".*")"""
   private val noreset = "\u001B{0}"
   private val singleChar = "([();{}\\[\\]])"
   private val coloredSymbol = s"($colorCode)$optionalSpaces(($word|$operator|$string|$singleChar){1})$noreset".r.unanchored
-  implicit class ColoringString(text : String) {
+  implicit class FormatString(text : String) {
     def colored : String = coloredSymbol.replaceAllIn(text, m => s"${m.group(1)}${m.group(2)}$RESET")
     def uncolor : String = text.replaceAll(colorCode, "")
     def aligned : String = {
@@ -35,5 +35,21 @@ class Formatter(maxAlignments : List[Int]) {
         }
       }
     }
+    private def hasBrackets : Boolean = text.startsWith("(") && text.endsWith(")")
+    private def requiresBrackets : Boolean = {
+      var count : Int = 0
+      for (i <- 0 until text.length) {
+        text.charAt(i) match {
+          case '(' => count += 1
+          case ')' => count -= 1
+          case ' ' => if (count == 0) return true
+          case _ =>
+        }
+      }
+      false
+    }
+    def applyBrackets(onlyIfRequired : Boolean = true) : String =
+      if (requiresBrackets || (!onlyIfRequired && !hasBrackets)) s"($text)" else text
+    def delim : String = text.replaceAll("(?m)^", delimiter);
   }
 }

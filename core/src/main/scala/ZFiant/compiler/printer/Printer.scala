@@ -11,6 +11,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
 
   private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
     import printConfig._
+    import formatter._
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
@@ -18,7 +19,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
         val body = blockBodyCodeString(fixedDB.ownerMemberTable(d), lateConstruction = true)
-        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delimRowsBy(DELIM)}\n}"
+        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim}\n}"
         Some(s"$SC final $SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.get.getOwner match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
@@ -40,8 +41,9 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
   }
   private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(implicit printConfig : Printer.Config) : String = {
     import printConfig._
+    import formatter._
     val body = blockBodyCodeString(members, lateConstruction = false)
-    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delimRowsBy(DELIM)}\n}"
+    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delim}\n}"
   }
   def codeString(implicit printConfig : Printer.Config) : String = {
     import printConfig._
@@ -61,13 +63,14 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     c
   }
   def printGenFiles()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
+    import printConfig.formatter._
     c.cmdSeq.foreach{
       case Compilable.Cmd.GenFile(fileName, contents) => println(
         s"""@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
            |@ Contents of $fileName
            |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
            |$contents
-           |""".stripMargin
+           |""".stripMargin.colored.aligned
       )
     }
     c
@@ -100,8 +103,7 @@ object Printer {
     val SC : String = s"$BLUE$BOLD"
     val DF : String = s"\u001B[38;5;92m$BOLD"
     val TP : String = "\u001B[38;5;94m"
-    val formatter : Formatter = new Formatter(List(25, 25))
-    def ALGN(idx : Int) : String = formatter.ALGN(idx)
+    val formatter : Formatter = new Formatter("  ", List(25, 25))
   }
   object Config {
     implicit case object Default extends Config

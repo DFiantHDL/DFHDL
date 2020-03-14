@@ -15,6 +15,9 @@ package object vhdl {
     "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable",
     "wait", "when", "while", "with", "xnor", "xor",
   )
+  private[vhdl] implicit def getsetFromPrinter(implicit printer : Printer, lp : shapeless.LowPriority)
+  : MemberGetSet = printer.getset
+
   implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : VHDLBackend[D, S] = new VHDLBackend[D, S](c)
 

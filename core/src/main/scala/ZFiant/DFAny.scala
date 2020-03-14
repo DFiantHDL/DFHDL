@@ -182,6 +182,7 @@ object DFAny {
       def directionString : String
       final override def codeString(implicit printConfig : Printer.Config) : String = {
         import printConfig._
+        import formatter._
         s" ${ALGN(1)}$DF<> $DF$directionString"
       }
     }
@@ -380,9 +381,12 @@ object DFAny {
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
     def relCodeString(cs : String) : String
-    def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config): String = tags.codeStringOverride match {
-      case Some(func) => func(relValRef.refCodeString.applyBrackets())
-      case None => relCodeString(relValRef.refCodeString.applyBrackets())
+    def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config): String = {
+      import printConfig.formatter._
+      tags.codeStringOverride match {
+        case Some(func) => func(relValRef.refCodeString.applyBrackets())
+        case None => relCodeString(relValRef.refCodeString.applyBrackets())
+      }
     }
   }
   object Alias {
@@ -602,7 +606,10 @@ object DFAny {
         this.dfType == dfType && this.leftArgRef =~ leftArgRef && this.op == op && this.rightArgRef =~ rightArgRef && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
+    def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig.formatter._
+      s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
+    }
     override def show(implicit getset : MemberGetSet) : String = s"$codeString : $dfType"
     def setTags(tags : DFAny.Tags)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(func))
   }

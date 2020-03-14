@@ -1,6 +1,6 @@
-package ZFiant.compiler.backend.vhdl.adt
+package ZFiant.compiler.backend.vhdl.syntax
 
-final case class ValueDcl[+Mod <: ValueDcl.Modifier](modifier : Mod, name : String, rtType : Type, initStrOption : Option[String]) extends Declaration {
+final case class ValueDcl[+Mod <: ValueDcl.Modifier](modifier : Mod, name : String, rtType : String, initStrOption : Option[String]) extends Declaration {
   private val initStr = initStrOption match {
     case Some(i) => s" := $i"
     case None => ""

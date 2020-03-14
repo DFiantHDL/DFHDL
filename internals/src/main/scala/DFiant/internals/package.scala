@@ -242,7 +242,7 @@ package object internals {
     def codeString : String = codeStringOf(t)
   }
 
-  implicit class StringExtras(value : String) {
+  private[DFiant] implicit class StringExtras(value : String) {
     private def hasBrackets : Boolean = value.startsWith("(") && value.endsWith(")")
     private def requiresBrackets : Boolean = {
       var count : Int = 0
