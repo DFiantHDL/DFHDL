@@ -2,11 +2,11 @@ package ZFiant
 package compiler.backend.vhdl
 
 private object Case {
-  def apply(expression : String, whens : List[String])(implicit printer : Printer) : String = {
+  def apply(expression : String, whens : String)(implicit printer : Printer) : String = {
     import printer.config._
     import formatter._
     s"""$KW case $expression $KW is
-       |${whens.mkString("\n").delim()}
+       |${whens.delim()}
        |$KW end $KW case;""".stripMargin
   }
 
@@ -22,8 +22,30 @@ private object Case {
     object Others {
       def apply()(implicit printer : Printer) : String = s"${printer.config.KW}others"
     }
-    object List {
-      def apply(values : scala.List[String])(implicit printer : Printer) : String = values.mkString("|")
+    object Pattern {
+      private def intervalBigIntToString(t : Interval[BigInt]) : String = {
+        import continuum.bound._
+        val lower = t.lower.bound match {
+          case Closed(v) => v
+          case Open(v) => v-1
+          case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
+        }
+        val upper = t.upper.bound match {
+          case Closed(v) => v
+          case Open(v) => v+1
+          case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
+        }
+        if (lower == upper) lower.toString()
+        else s"$lower to $upper"
+      }
+      def apply(pattern : DFAny.Pattern[_]) : String = pattern match {
+        case x : DFBits.Pattern => x.patternSet.map(p => s""""${p.toBin}"""").mkString("|")
+        case x : DFUInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
+        case x : DFSInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
+        case x : DFBool.Pattern => x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")
+        case x : DFEnum.Pattern[_] => x.patternSet.map(p => p.enumType.entries(p.value).name).mkString("|")
+        case _ => throw new IllegalArgumentException(s"\nUnsupported pattern type for VHDL compilation: $pattern")
+      }
     }
   }
 }

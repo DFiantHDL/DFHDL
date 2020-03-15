@@ -18,20 +18,27 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
      .db
 
   import designDB.__getset
-  private def getAsyncStatements(block : DFBlock) : List[String] = {
+  private def getProcessStatements(block : DFBlock) : List[String] = {
     val (_, statements) = designDB.ownerMemberTable(block).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
-        (If.Else(getAsyncStatements(cb)), statements)
+        (If.Else(getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
-        (If.ElsIf(Value.ref(cb.condRef.get), getAsyncStatements(cb), closing), statements)
+        (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
       case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
-        ("", If(Value.ref(cb.condRef.get), getAsyncStatements(cb), closing) :: statements)
+        ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
+      case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
+        (Case.When(Case.Choice.Others(), getProcessStatements(cb)), statements)
+      case (cb : ConditionalBlock.CasePatternBlock[_], (whens, statements)) =>
+        (s"${Case.When(Case.Choice.Pattern(cb.pattern), getProcessStatements(cb))}\n$whens", statements)
+      case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
+        ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
       case (net : DFNet, ("", statements)) =>
         val toValue = Value.ref(net.toRef.get)
         val fromValue = Value.ref(net.fromRef.get)
         val netStr = net match {
-          case a : DFNet.Assignment => Net.Assignment(toValue, fromValue)
-          case c : DFNet.Connection => Net.Connection(toValue, fromValue)
+          case a : DFNet.Assignment if !net.toRef.get.tags.customTags.contains(SyncTag.Reg) =>
+            Net.Assignment(toValue, fromValue)
+          case _ => Net.Connection(toValue, fromValue)
         }
         ("", netStr :: statements)
       case (_, keep) => keep
@@ -67,7 +74,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             }
             ComponentInstance(x.name, x.designType, connections)
         }
-        val asyncStatements = getAsyncStatements(design)
+        val asyncStatements = getProcessStatements(design)
         val asyncProcess = Process("async_proc", Process.Sensitivity.All(), variables, asyncStatements)
         val statements = componentInstances :+ asyncProcess
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
