@@ -6,7 +6,7 @@ import scala.collection.mutable
 import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with DFDesign.Implicits {
-  private[ZFiant] lazy val inlinedRep : Option[MemberGetSet => String] = None
+  private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
   final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
@@ -79,7 +79,7 @@ object DFDesign {
     def headerCodeString(implicit getset : MemberGetSet, printConfig : Printer.Config): String = s"trait $designType extends DFDesign"
   }
   object Block {
-    final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[MemberGetSet => String]) extends Block {
+    final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
       protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>
           this.designType == designType && this.tags =~ tags && this.inlinedRep == inlinedRep
@@ -89,7 +89,7 @@ object DFDesign {
       override lazy val typeName : String = designType
     }
     object Internal {
-      def apply(designType : String, inlinedRep : Option[MemberGetSet => String])(implicit ctx : Context) : Block = ctx.db.addMember(
+      def apply(designType : String, inlinedRep : Option[DFInlineComponent.Rep])(implicit ctx : Context) : Block = ctx.db.addMember(
         if (ctx.ownerInjector == null) Top(designType, ctx.meta)(ctx.db) else Internal(designType, ctx.owner, ctx.meta, inlinedRep))
     }
     final case class Top(designType: String, tags : DFMember.Tags.Basic)(db: DB.Mutable) extends Block {

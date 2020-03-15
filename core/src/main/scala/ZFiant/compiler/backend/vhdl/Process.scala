@@ -7,8 +7,8 @@ private object Process {
   ) : String = {
     import printer.config._
     import formatter._
-    s"""$name : $KW process ($sensitivity)
-       |${variables.mkString("\n").delim()}
+    val variablesStr = if (variables.isEmpty) "" else variables.mkString("\n","\n","").delim()
+    s"""$name : $KW process ($sensitivity)$variablesStr
        |$KW begin
        |${statements.mkString("\n").delim()}
        |$KW end $KW process;""".stripMargin

@@ -74,7 +74,13 @@ private object Value {
 
   def ref(member : DFAny)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
-//    case Rising(bit) => s"rising_edge(${ref(bit)})"
+    case d : DFAny.Dcl => d.ownerRef.get match {
+      case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep match {
+        case Rising.Rep(bitRef) => s"rising_edge(${ref(bitRef)})"
+        case _ => ??? //missing support for other inlined options
+      }
+      case _ => d.name
+    }
     case m if m.isAnonymous => Value(m)
     case m => m.name
   }
@@ -82,7 +88,7 @@ private object Value {
     case c : DFAny.Const => const(c.token)
     case f : DFAny.Func2 => func2(f).toString
     case a : DFAny.Alias[_,_,_] => alias(a)
-    case _ : DFAny.Dcl => ???
+    case _ : DFAny.Dcl => ??? //shouldn't occur
   }
   def foo(implicit printer : Printer) : String = {
     implicitly[MemberGetSet]

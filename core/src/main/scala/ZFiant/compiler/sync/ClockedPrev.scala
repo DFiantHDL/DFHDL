@@ -95,7 +95,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
               prevVar.assign(rv)
           }
           if (hasPrevRst)
-            ifdf(!rst)(rstBlock).elseifdf(clk.rising())(clkBlock)
+            ifdf(rst === 0)(rstBlock).elseifdf(clk.rising())(clkBlock)
           else
             ifdf(clk.rising())(clkBlock)
         }

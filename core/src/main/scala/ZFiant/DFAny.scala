@@ -272,7 +272,7 @@ object DFAny {
       case _ => false
     }
     override def refCodeString(implicit ctx : Printer.Context): String = (ownerRef.get) match {
-      case DFDesign.Block.Internal(_,_,_,Some(f)) => f(ctx.getset)
+      case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep.inlineCodeString
       case _ => super.refCodeString
     }
     def codeString(implicit getset : MemberGetSet, printConfig : Printer.Config) : String = {
