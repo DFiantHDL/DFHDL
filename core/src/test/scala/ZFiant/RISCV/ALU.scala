@@ -41,6 +41,7 @@ trait ALU extends DFDesign {
 
 object ALUApp extends App {
   val alu = new ALU {}
-  alu.printCodeString()
+  import compiler.backend.vhdl._
+  alu.compile.printGenFiles()
 }
 

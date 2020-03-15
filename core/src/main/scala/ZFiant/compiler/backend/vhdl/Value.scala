@@ -12,7 +12,8 @@ private object Value {
     case _ => ???
   }
   def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {
-    import printer.config.formatter._
+    import printer.config._
+    import formatter._
     val leftArg = member.leftArgRef.get
     val rightArg = member.rightArgRef.get
     import DFAny.Func2.Op
@@ -42,12 +43,12 @@ private object Value {
     val leftArgStr = ref(leftArg)
     val rightArgStr = (member.op, rightArg) match {
       case (Op.<< | Op.>>, ra : DFAny.Const) => ra.token match {
-        case DFUInt.Token(_,value,false) => value.toString()
+        case DFUInt.Token(_,value,false) => s"$LIT$value"
       }
-      case (Op.<< | Op.>>, ra) => s"to_integer(${ref(ra)})"
+      case (Op.<< | Op.>>, ra) => s"$FN to_integer(${ref(ra)})"
       case (_, ra) => ref(ra)
     }
-    s"${leftArgStr.applyBrackets()} $opStr ${rightArgStr.applyBrackets()}"
+    s"${leftArgStr.applyBrackets()} $OP$opStr ${rightArgStr.applyBrackets()}"
   }
   def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer) : String = {
     import printer.config._
@@ -57,42 +58,46 @@ private object Value {
     member match {
       case toVal : DFAny.Alias.AsIs => (toVal, relVal) match {
         case (l, r) if (l.dfType == r.dfType) => relValStr
-        case (DFBits(_), _) => s"std_logic_vector($relValStr)"
-        case (DFUInt(_), _) => s"unsigned($relValStr)"
-        case (DFSInt(_), _) => s"signed($relValStr)"
+        case (DFBits(_), _) => s"$FN to_slv($relValStr)"
+        case (DFUInt(_), _) => s"$TP unsigned($relValStr)"
+        case (DFSInt(_), _) => s"$TP signed($relValStr)"
         case (DFEnum(_), _) => ???
-        case (DFBit(), DFBits(w)) if (w.getValue == 1) => s"${relValStr.applyBrackets()}(0)"
+        case (DFBit(), DFBits(w)) if (w.getValue == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
       }
       case DFAny.Alias.BitsWL(_, _, _, relWidth, relBitLow, _, _) =>
         val relBitHigh = relBitLow + relWidth - 1
-        s"${relValStr.applyBrackets()}($relBitHigh, $relBitLow)"
-      case DFAny.Alias.Resize(dfType, _, _, _) => s"resize($relValStr, ${dfType.width})"
-      case _ : DFAny.Alias.Invert => s"not ${relValStr.applyBrackets()}"
+        val bitsConv = relVal match {
+          case DFBits(_) => relValStr
+          case _ => s"$FN to_slv($relValStr)"
+        }
+        if (relVal.width.getValue == relWidth) bitsConv
+        else s"${bitsConv.applyBrackets()}($LIT$relBitHigh, $LIT$relBitLow)"
+      case DFAny.Alias.Resize(dfType, _, _, _) => s"$FN resize($relValStr, $LIT${dfType.width})"
+      case _ : DFAny.Alias.Invert => s"$OP not ${relValStr.applyBrackets()}"
       case _ : DFAny.Alias.Prev => ??? //should not happen since prev is removed via clocking phase
     }
   }
 
-  def ref(member : DFAny)(implicit printer : Printer) : String = member match {
-    case c : DFAny.Const => const(c.token)
-    case d : DFAny.Dcl => d.ownerRef.get match {
-      case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep match {
-        case Rising.Rep(bitRef) => s"rising_edge(${ref(bitRef)})"
-        case _ => ??? //missing support for other inlined options
+  def ref(member : DFAny)(implicit printer : Printer) : String = {
+    import printer.config._
+    member match {
+      case c : DFAny.Const => const(c.token)
+      case d : DFAny.Dcl => d.ownerRef.get match {
+        case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep match {
+          case Rising.Rep(bitRef) => s"$OP rising_edge(${ref(bitRef)})"
+          case _ => ??? //missing support for other inlined options
+        }
+        case _ => d.name
       }
-      case _ => d.name
+      case m if m.isAnonymous => Value(m)
+      case m => m.name
     }
-    case m if m.isAnonymous => Value(m)
-    case m => m.name
   }
   def apply(member : DFAny)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
     case f : DFAny.Func2 => func2(f).toString
     case a : DFAny.Alias[_,_,_] => alias(a)
     case _ : DFAny.Dcl => ??? //shouldn't occur
-  }
-  def foo(implicit printer : Printer) : String = {
-    implicitly[MemberGetSet]
-    ""
   }
 }
 

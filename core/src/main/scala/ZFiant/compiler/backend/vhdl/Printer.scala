@@ -14,9 +14,11 @@ object Printer {
   }
   sealed trait Config {
     import io.AnsiColor._
-    val LIT : String = BLUE
-    val STR : String = s"\u001B[38;5;34m$BOLD"
+    val LIT : String = "\u001B[38;5;5m"
     val KW : String = s"$BLUE$BOLD"
+    val OP : String = s"$BOLD"
+    val FN : String = "\u001B[38;5;54m"
+    val TP : String = "\u001B[38;5;94m"
     final val formatter = new compiler.printer.Formatter("  ", List(25, 25))
   }
   object Config {

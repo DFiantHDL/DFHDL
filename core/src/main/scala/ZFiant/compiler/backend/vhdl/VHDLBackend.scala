@@ -18,8 +18,28 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
      .db
 
   import designDB.__getset
-  private def getProcessStatements(block : DFBlock) : List[String] = {
-    val (_, statements) = designDB.ownerMemberTable(block).foldRight(("", List.empty[String])) {
+  private val isSyncMember : DFMember => Boolean = {
+    case cb: ConditionalBlock.IfBlock => cb.condRef.get.asInstanceOf[DFAny] match {
+      case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(SyncTag.Rst)
+      case _ => false
+    }
+    case cb: ConditionalBlock.ElseIfBlock => cb.condRef.get.getOwner match {
+      case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
+        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(SyncTag.Clk)
+        case _ => false
+      }
+    }
+    case net: DFNet => net.toRef.get.getOwner match {
+      case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
+        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(SyncTag.Clk)
+        case _ => false
+      }
+      case _ => false
+    }
+    case _ => false
+  }
+  private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true) : List[String] = {
+    val (_, statements) = designDB.ownerMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
@@ -29,14 +49,15 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
       case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
         (Case.When(Case.Choice.Others(), getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.CasePatternBlock[_], (whens, statements)) =>
-        (s"${Case.When(Case.Choice.Pattern(cb.pattern), getProcessStatements(cb))}\n$whens", statements)
+        val when = Case.When(Case.Choice.Pattern(cb.pattern), getProcessStatements(cb))
+        (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
-      case (net : DFNet, ("", statements)) =>
+      case (net : DFNet, ("", statements)) if !net.hasLateConstruction =>
         val toValue = Value.ref(net.toRef.get)
         val fromValue = Value.ref(net.fromRef.get)
         val netStr = net match {
-          case a : DFNet.Assignment if !net.toRef.get.tags.customTags.contains(SyncTag.Reg) =>
+          case _ : DFNet.Assignment if !net.toRef.get.tags.customTags.contains(SyncTag.Reg) =>
             Net.Assignment(toValue, fromValue)
           case _ => Net.Connection(toValue, fromValue)
         }
@@ -74,9 +95,11 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             }
             ComponentInstance(x.name, x.designType, connections)
         }
-        val asyncStatements = getProcessStatements(design)
+        val asyncStatements = getProcessStatements(design, !isSyncMember(_))
         val asyncProcess = Process("async_proc", Process.Sensitivity.All(), variables, asyncStatements)
-        val statements = componentInstances :+ asyncProcess
+        val syncStatements = getProcessStatements(design, isSyncMember)
+        val syncProcess = Process("sync_proc", Process.Sensitivity.All(), List(), syncStatements)
+        val statements = componentInstances ++ List(asyncProcess, syncProcess)
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
         val file = File(entity, architecture)
         Some(Compilable.Cmd.GenFile(s"${design.designType}.vhdl", s"$file"))
