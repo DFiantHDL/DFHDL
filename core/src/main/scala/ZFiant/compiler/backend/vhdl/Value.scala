@@ -74,6 +74,7 @@ private object Value {
 
   def ref(member : DFAny)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
+//    case Rising(bit) => s"rising_edge(${ref(bit)})"
     case m if m.isAnonymous => Value(m)
     case m => m.name
   }

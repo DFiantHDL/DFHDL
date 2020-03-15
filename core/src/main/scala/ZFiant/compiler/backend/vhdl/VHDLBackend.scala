@@ -18,7 +18,26 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
      .db
 
   import designDB.__getset
-
+  private def getAsyncStatements(block : DFBlock) : List[String] = {
+    val (_, statements) = designDB.ownerMemberTable(block).foldRight(("", List.empty[String])) {
+      case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
+        (If.Else(getAsyncStatements(cb)), statements)
+      case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
+        (If.ElsIf(Value.ref(cb.condRef.get), getAsyncStatements(cb), closing), statements)
+      case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
+        ("", If(Value.ref(cb.condRef.get), getAsyncStatements(cb), closing) :: statements)
+      case (net : DFNet, ("", statements)) =>
+        val toValue = Value.ref(net.toRef.get)
+        val fromValue = Value.ref(net.fromRef.get)
+        val netStr = net match {
+          case a : DFNet.Assignment => Net.Assignment(toValue, fromValue)
+          case c : DFNet.Connection => Net.Connection(toValue, fromValue)
+        }
+        ("", netStr :: statements)
+      case (_, keep) => keep
+    }
+    statements
+  }
   def compile = {
     val designTypes = mutable.Set.empty[String]
     val files = designDB.ownerMemberList.flatMap {
@@ -48,7 +67,8 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             }
             ComponentInstance(x.name, x.designType, connections)
         }
-        val asyncProcess = Process("async_proc", Process.Sensitivity.All(), variables, List())
+        val asyncStatements = getAsyncStatements(design)
+        val asyncProcess = Process("async_proc", Process.Sensitivity.All(), variables, asyncStatements)
         val statements = componentInstances :+ asyncProcess
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
         val file = File(entity, architecture)

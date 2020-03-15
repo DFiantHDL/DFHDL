@@ -24,7 +24,7 @@ private object If {
       import formatter._
       s"""$KW elsif $cond $KW then
          |${statements.mkString("\n").delim()}
-         |$closing""".stripMargin
+         |${if(closing.isEmpty) End() else closing}""".stripMargin
     }
   }
   object Else {
@@ -33,7 +33,7 @@ private object If {
       import formatter._
       s"""$KW else
          |${statements.mkString("\n").delim()}
-         |$End""".stripMargin
+         |${End()}""".stripMargin
     }
   }
 }

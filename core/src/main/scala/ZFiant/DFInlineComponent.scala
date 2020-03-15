@@ -10,14 +10,14 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   protected def atOwnerDo(block : => Unit) : Unit = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
 }
 
-final case class Rising(bool : DFBit)(
+final case class Rising(bit : DFBit)(
   implicit ctx : ContextOf[Rising]
 ) extends DFInlineComponent[DFBool.Type](DFBool.Type(logical = true)) {
   private val boolIn = DFBit() <> IN
   outPort <> (boolIn && !boolIn.prev())
   atOwnerDo {
-    boolIn.connectWith(bool)
+    boolIn.connectWith(bit)
   }
   override def inlineCodeString(implicit getset : MemberGetSet) : String =
-    s"${bool.refCodeString}.rising()"
+    s"${bit.refCodeString}.rising()"
 }
