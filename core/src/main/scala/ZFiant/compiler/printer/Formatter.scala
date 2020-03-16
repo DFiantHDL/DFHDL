@@ -35,8 +35,8 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
         }
       }
     }
-    private def hasBrackets : Boolean = text.startsWith("(") && text.endsWith(")")
-    private def requiresBrackets : Boolean = {
+    private[FormatString] def hasBrackets : Boolean = text.startsWith("(") && text.endsWith(")")
+    private[FormatString] def requiresBrackets : Boolean = {
       var count : Int = 0
       for (i <- 0 until text.length) {
         text.charAt(i) match {
@@ -48,8 +48,11 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
       }
       false
     }
-    def applyBrackets(onlyIfRequired : Boolean = true) : String =
-      if (requiresBrackets || (!onlyIfRequired && !hasBrackets)) s"($text)" else text
+    def applyBrackets(onlyIfRequired : Boolean = true) : String = {
+      val uncolored = text.replaceAll(s"($colorCode)$optionalSpaces", "")
+      if (uncolored.requiresBrackets || (!onlyIfRequired && !uncolored.hasBrackets)) s"($text)" else text
+    }
+
     def delim(count : Int = 1) : String = text.replaceAll("(?m)^", delimiter * count);
   }
 }
