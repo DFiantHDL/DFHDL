@@ -21,7 +21,12 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   private val isSyncMember : DFMember => Boolean = {
     case cb: ConditionalBlock.IfBlock => cb.condRef.get.asInstanceOf[DFAny] match {
       case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(SyncTag.Rst)
-      case _ => false
+      case x => x.getOwner match {
+        case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
+          case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(SyncTag.Clk)
+          case _ => false
+        }
+      }
     }
     case cb: ConditionalBlock.ElseIfBlock => cb.condRef.get.getOwner match {
       case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {

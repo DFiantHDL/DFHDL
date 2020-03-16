@@ -72,7 +72,7 @@ private object Value {
         }
         if (relVal.width.getValue == relWidth) bitsConv
         else s"${bitsConv.applyBrackets()}($LIT$relBitHigh, $LIT$relBitLow)"
-      case DFAny.Alias.Resize(dfType, _, _, _) => s"$FN resize($relValStr, $LIT${dfType.width})"
+      case DFAny.Alias.Resize(dfType, _, _, _) => s"$FN resize($relValStr $KW downto $LIT${dfType.width})"
       case _ : DFAny.Alias.Invert => s"$OP not ${relValStr.applyBrackets()}"
       case _ : DFAny.Alias.Prev => ??? //should not happen since prev is removed via clocking phase
     }

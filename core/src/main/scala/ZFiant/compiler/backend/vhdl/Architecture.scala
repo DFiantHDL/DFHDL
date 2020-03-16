@@ -7,8 +7,8 @@ private object Architecture {
   )  : String = {
     import printer.config._
     import formatter._
-    s"""$KW architecture $name $KW of $entityName $KW is
-       |${declarations.mkString("\n").delim()}
+    val declarationStr = if (declarations.isEmpty) "" else declarations.mkString("\n","\n","").delim()
+    s"""$KW architecture $name $KW of $entityName $KW is$declarationStr
        |$KW begin
        |${statements.mkString("\n").delim()}
        |$KW end $name;""".stripMargin

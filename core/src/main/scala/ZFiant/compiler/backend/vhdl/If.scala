@@ -9,7 +9,7 @@ private object If {
     import formatter._
     s"""$KW if $cond $KW then
        |${statements.mkString("\n").delim()}
-       |$closing""".stripMargin
+       |${if(closing.isEmpty) End() else closing}""".stripMargin
   }
 
   object End {
