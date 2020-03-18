@@ -22,21 +22,21 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   type TTags <: DFMember.Tags{type TTags = self.TTags}
   val ownerRef : DFBlock.Ref
   val tags : TTags
-  implicit def getOwner(implicit getset : MemberGetSet) : DFBlock = ownerRef
-  final def getOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = getOwner match {
+  implicit def getOwner(implicit getSet : MemberGetSet) : DFBlock = ownerRef
+  final def getOwnerDesign(implicit getSet : MemberGetSet) : DFDesign.Block = getOwner match {
     case d : DFDesign.Block => d
     case b : DFBlock => b.getOwnerDesign
   }
-  final def getThisOrOwnerDesign(implicit getset : MemberGetSet) : DFDesign.Block = this match {
+  final def getThisOrOwnerDesign(implicit getSet : MemberGetSet) : DFDesign.Block = this match {
     case d : DFDesign.Block => d
     case x => x.getOwnerDesign
   }
   final val isAnonymous : Boolean = tags.meta.name.anonymous
   final val name : String = if (isAnonymous) s"anon${hashCode.toHexString}" else tags.meta.name
   final val hasLateConstruction : Boolean = tags.meta.lateConstruction
-  def getFullName(implicit getset : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
-  final private[ZFiant] def getOwnerChain(implicit getset : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
-  def getRelativeName(implicit callOwner : DFBlock, getset : MemberGetSet) : String = {
+  def getFullName(implicit getSet : MemberGetSet) : String = s"${getOwner.getFullName}.${name}"
+  final private[ZFiant] def getOwnerChain(implicit getSet : MemberGetSet) : List[DFBlock] = if (getOwner.isTop) List(getOwner) else getOwner.getOwnerChain :+ getOwner
+  def getRelativeName(implicit callOwner : DFBlock, getSet : MemberGetSet) : String = {
     val designOwner = callOwner.getThisOrOwnerDesign
     if (this isMemberOfDesign designOwner) name
     else if (this isOneLevelBelow designOwner) s"${getOwner.name}.$name"
@@ -50,17 +50,17 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     }
   }
 
-  final def isMemberOfDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that
-  final def isSameOwnerDesignAs(that : DFMember)(implicit getset : MemberGetSet) : Boolean = getOwnerDesign == that.getOwnerDesign
-  final def isOneLevelBelow(that : DFMember)(implicit getset : MemberGetSet) : Boolean =
+  final def isMemberOfDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean = getOwnerDesign == that
+  final def isSameOwnerDesignAs(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = getOwnerDesign == that.getOwnerDesign
+  final def isOneLevelBelow(that : DFMember)(implicit getSet : MemberGetSet) : Boolean =
     getOwnerDesign match {
       case _ : DFDesign.Block.Top => false
       case od => od isSameOwnerDesignAs that
     }
   //true if and only if the member is outside the design at any level
-  final def isOutsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = !isInsideDesign(that)
+  final def isOutsideDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean = !isInsideDesign(that)
   //true if and only if the member is inside the design at any level
-  final def isInsideDesign(that : DFDesign.Block)(implicit getset : MemberGetSet) : Boolean = {
+  final def isInsideDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean = {
     (getOwnerDesign, that) match {
       case (a, b) if a == b => true
       case (_ : DFDesign.Block.Top, _) => false
@@ -68,15 +68,15 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     }
   }
   //true if and only if the two members are equivalent in relation to their design construction context
-  protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean
+  protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean
 
-  def setTags(tags : TTags)(implicit getset : MemberGetSet) : DFMember
-  def show(implicit getset : MemberGetSet) : String = s"$getFullName : $typeName"
+  def setTags(tags : TTags)(implicit getSet : MemberGetSet) : DFMember
+  def show(implicit getSet : MemberGetSet) : String = s"$getFullName : $typeName"
 }
 
 
 object DFMember {
-  implicit class MemberExtender[M <: DFMember](member : M)(implicit getset : MemberGetSet) {
+  implicit class MemberExtender[M <: DFMember](member : M)(implicit getSet : MemberGetSet) {
     def setName(value : String) : M = member.setTags(member.tags.setName(value)).asInstanceOf[M]
     def setNameSuffix(value : String) : M = setName(s"${member.name}$value")
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
@@ -141,7 +141,7 @@ object DFMember {
     type TType <: Ref.Type
     type TMember <: DFMember
     val refType : TType
-    def get[M0 >: TMember](implicit getset: MemberGetSet) : M0
+    def get[M0 >: TMember](implicit getSet: MemberGetSet) : M0
     override def toString: String = s"$typeName<${hashCode.toHexString}>"
   }
   object Ref {
@@ -149,11 +149,11 @@ object DFMember {
     sealed trait Of[T <: Type, +M <: DFMember] extends Ref {
       type TType = T
       type TMember <: M
-      def get[M0 >: TMember](implicit getset: MemberGetSet) : M0 = getset(this)
+      def get[M0 >: TMember](implicit getSet: MemberGetSet) : M0 = getSet(this)
     }
 
     def newRefFor[M <: DFMember, T <: Type, R <: Ref.Of[T, M]](ref : R, member: M)(implicit ctx : DFMember.Context) : R = ctx.db.newRefFor[M, T, R](ref, member)
-    implicit def memberOf[M <: DFMember, T <: Type](ref : Ref.Of[T, M])(implicit getset : MemberGetSet) : M = getset(ref)
+    implicit def memberOf[M <: DFMember, T <: Type](ref : Ref.Of[T, M])(implicit getSet : MemberGetSet) : M = getSet(ref)
     implicit def apply[M <: DFMember, T <: Type](member: M)(implicit ctx : DFMember.Context, rt : T)
     : Ref.Of[T, M] = newRefFor[M, T, Ref.Of[T, M]](new Ref.Of[T, M]{val refType : T = rt}, member)
   }
@@ -189,8 +189,8 @@ trait MemberGetSet {
   def set[M <: DFMember](originalMember : M, newMember : M) : M
 }
 object MemberGetSet {
-  implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getset
-  implicit def evGetSet(implicit ctx : Printer.Context, lp : shapeless.LowPriority) : MemberGetSet = ctx.getset
+  implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet
+  implicit def evGetSet(implicit ctx : Printer.Context, lp : shapeless.LowPriority) : MemberGetSet = ctx.getSet
 }
 
 trait CanBeGuarded extends DFMember

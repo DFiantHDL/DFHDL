@@ -10,7 +10,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
   final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
-  protected implicit val __getset : MemberGetSet = ctx.db.getset
+  protected implicit val __getset : MemberGetSet = ctx.db.getSet
 
   ///////////////////////////////////////////////////////////////////
   // Context implicits
@@ -67,7 +67,7 @@ object DFDesign {
 
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
-    import design.__db.getset
+    import design.__db.getSet
     private def onBlock(b : Block => Unit) : T = {b(design.block); design}
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
@@ -76,16 +76,16 @@ object DFDesign {
   sealed trait Block extends DFBlock {
     type TTags = DFMember.Tags.Basic
     val designType: String
-    def headerCodeString(implicit getset : MemberGetSet, printConfig : Printer.Config): String = s"trait $designType extends DFDesign"
+    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = s"trait $designType extends DFDesign"
   }
   object Block {
     final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
-      protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+      protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>
           this.designType == designType && this.tags =~ tags && this.inlinedRep == inlinedRep
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags))
+      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
       override lazy val typeName : String = designType
     }
     object Internal {
@@ -94,16 +94,16 @@ object DFDesign {
     }
     final case class Top(designType: String, tags : DFMember.Tags.Basic)(db: DB.Mutable) extends Block {
       override lazy val ownerRef : DFBlock.Ref = ???
-      override def getOwner(implicit getset : MemberGetSet): DFBlock = this
+      override def getOwner(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
-      protected[ZFiant] def =~(that : DFMember)(implicit getset : MemberGetSet) : Boolean = that match {
+      protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Top(designType, tags) =>
           this.designType == designType && this.tags =~ tags
         case _ => false
       }
       override lazy val typeName : String = designType
-      override def getFullName(implicit getset : MemberGetSet): String = name
-      def setTags(tags : DFMember.Tags.Basic)(implicit getset : MemberGetSet) : DFMember = getset.set(this, copy(tags = tags)(db))
+      override def getFullName(implicit getSet : MemberGetSet): String = name
+      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags)(db))
     }
   }
 
@@ -506,7 +506,7 @@ object DFDesign {
         DB(members.iterator.map(e => e._1).toList, refTable.toMap)
       }
 
-      implicit val getset : MemberGetSet = new MemberGetSet {
+      implicit val getSet : MemberGetSet = new MemberGetSet {
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
         def set[M <: DFMember](originalMember : M, newMember: M): M = setMember(originalMember, newMember)
       }

@@ -19,24 +19,16 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
-    case cb: ConditionalBlock.IfBlock => cb.condRef.get.asInstanceOf[DFAny] match {
-      case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(SyncTag.Rst)
-      case x => x.getOwner match {
-        case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
-          case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(SyncTag.Clk)
-          case _ => false
-        }
-      }
-    }
+    case Sync.IfBlock() => true
     case cb: ConditionalBlock.ElseIfBlock => cb.condRef.get.getOwner match {
       case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
-        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(SyncTag.Clk)
+        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(Sync.Tag.Clk)
         case _ => false
       }
     }
     case net: DFNet => net.toRef.get.getOwner match {
       case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
-        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(SyncTag.Clk)
+        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(Sync.Tag.Clk)
         case _ => false
       }
       case _ => false
@@ -58,20 +50,21 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
-      case (a : DFAny.Dcl, keep) => keep
+      case (_ : DFAny.Dcl, nochange) => nochange //declarations do not appear in processes
       case (a : DFAny, (closing, statements)) if !a.isAnonymous =>
         val netStr = Net.Assignment(a.name, Value(a))
         (closing, netStr :: statements)
+      case (DFNet.Inlined(), nochange) => nochange //Inlined nets (connected to inlined blocks) do not appear in processes
       case (net : DFNet, (closing, statements)) if !net.hasLateConstruction =>
         val toValue = Value.ref(net.toRef.get)
         val fromValue = Value.ref(net.fromRef.get)
         val netStr = net match {
-          case _ : DFNet.Assignment if !net.toRef.get.tags.customTags.contains(SyncTag.Reg) =>
+          case _ : DFNet.Assignment if !net.toRef.get.tags.customTags.contains(Sync.Tag.Reg) =>
             Net.Assignment(toValue, fromValue)
           case _ => Net.Connection(toValue, fromValue)
         }
         (closing, netStr :: statements)
-      case (_, keep) => keep
+      case (_, nochange) => nochange
     }
     statements
   }
@@ -86,7 +79,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             (Port(p.name, Port.Dir.In(), Type(p), Init(p)) :: ports, signals, variables)
           case (p @ DFAny.Port.Out(), (ports, signals, variables)) =>
             (Port(p.name, Port.Dir.Out(), Type(p), Init(p)) :: ports, signals, variables)
-          case (s : DFAny, (ports, signals, variables)) if designDB.getConnectionTo(s).isDefined || s.tags.customTags.contains(SyncTag.Reg) =>
+          case (s : DFAny, (ports, signals, variables)) if designDB.getConnectionTo(s).isDefined || s.tags.customTags.contains(Sync.Tag.Reg) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
           case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)

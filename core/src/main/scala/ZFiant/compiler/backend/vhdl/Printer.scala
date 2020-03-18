@@ -4,12 +4,12 @@ package backend
 package vhdl
 
 sealed trait Printer {
-  val getset : MemberGetSet
+  val getSet : MemberGetSet
   val config : Printer.Config
 }
 object Printer {
   implicit def ev(implicit config0: Config, getset0: MemberGetSet) : Printer = new Printer {
-    val getset: MemberGetSet = getset0
+    val getSet: MemberGetSet = getset0
     val config: Config = config0
   }
   sealed trait Config {

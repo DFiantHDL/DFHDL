@@ -19,6 +19,13 @@ object DFInlineComponent {
     trait Type extends DFMember.Ref.Type
     implicit val ev : Type = new Type {}
   }
+
+  object Block {
+    def unapply(arg : DFDesign.Block) : Option[Rep] = arg match {
+      case DFDesign.Block.Internal(_,_,_,someRep) => someRep
+      case _ => None
+    }
+  }
 }
 
 final case class Rising(bit : DFBit)(

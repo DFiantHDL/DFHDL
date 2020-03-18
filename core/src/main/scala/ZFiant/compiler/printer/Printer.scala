@@ -80,16 +80,16 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
 object Printer {
   trait Context {
     val callOwner : DFBlock
-    val getset : MemberGetSet
+    val getSet : MemberGetSet
   }
   object Context {
     implicit def evContext(implicit ctx : DFMember.Context) : Context = new Context {
       override val callOwner: DFBlock = ctx.owner
-      override val getset: MemberGetSet = ctx.db.getset
+      override val getSet: MemberGetSet = ctx.db.getSet
     }
     implicit def ev(implicit co : DFBlock, gs : MemberGetSet, lp : shapeless.LowPriority) : Context = new Context {
       override val callOwner: DFBlock = co
-      override val getset: MemberGetSet = gs
+      override val getSet: MemberGetSet = gs
     }
   }
 

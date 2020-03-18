@@ -5,7 +5,7 @@ import DFDesign.DB.Patch
 import collection.immutable
 import scala.annotation.tailrec
 
-private final class UniqueBlock(val block : DFDesign.Block.Internal, val members : List[DFMember])(implicit getset: MemberGetSet) {
+private final class UniqueBlock(val block : DFDesign.Block.Internal, val members : List[DFMember])(implicit getSet: MemberGetSet) {
   override def equals(obj : Any): Boolean = obj match {
     case that : UniqueBlock if this.block.designType == that.block.designType =>
       (this.members lazyZip that.members).forall {
