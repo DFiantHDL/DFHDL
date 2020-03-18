@@ -155,6 +155,7 @@ lazy val dependencies =
     val shapelessV      = "2.3.3"
     val scodecV         = "1.1.12"
     val sourcecodeV     = "0.1.9"
+    val oslibV          = "0.6.3"
     val continuumV      = "0.4-SNAPSHOT"
     val macroParadiseV  = "2.1.1"
     val macroCompatV    = "1.1.1"
@@ -171,6 +172,7 @@ lazy val dependencies =
     val shapeless      = "com.chuusai"                %% "shapeless"               % shapelessV
     val scodec         = "org.scodec"                 %% "scodec-bits"             % scodecV
     val sourcecode     = "com.lihaoyi"                %% "sourcecode"              % sourcecodeV // Scala-JVM
+    val oslib          = "com.lihaoyi"                %% "os-lib"                  % oslibV
     val continuum      = "danburkert"                 %% "continuum"               % continuumV
     val macroCompat    = "org.typelevel"              %% "macro-compat"            % macroCompatV
     val macroParadise  = compilerPlugin("org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch)
@@ -179,6 +181,7 @@ lazy val dependencies =
 lazy val commonDependencies = Seq(
   dependencies.singletonOps,
   dependencies.sourcecode,
+  dependencies.oslib,
   //  dependencies.continuum,
   dependencies.shapeless,
   dependencies.scodec,
