@@ -156,17 +156,17 @@ object DFBool extends DFAny.Companion {
       implicit class DFBoolXInt[T <: XInt](val right : T)(implicit chk : IntIsBoolean) extends Able[DFBool]
       implicit class DFBoolBoolean(val right : Boolean) extends Able[DFBool]
 
-      def toTokenSeq(right : Seq[Able[DFBool]]) : Seq[DFBool.Token] =
+      def toTokenSeq(left : DFBool, right : Seq[Able[DFBool]]) : Seq[DFBool.Token] =
         right.toSeqAny.map {
-          case t : Bubble => DFBool.Token(logical = false, t)
-          case t : DFBool.Token => t
-          case t : Int => DFBool.Token(t)
-          case t : Boolean => DFBool.Token.fromValue(logical = true, t)
+          case t : Bubble => DFBool.Token(left.dfType.logical, t)
+          case t : DFBool.Token => t.copy(logical = left.dfType.logical)
+          case t : Int => DFBool.Token(t).copy(logical = left.dfType.logical)
+          case t : Boolean => DFBool.Token.fromValue(left.dfType.logical, t)
         }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev : Builder[DFBool, Token] = (left, right) => Able.toTokenSeq(right)
+      implicit def ev : Builder[DFBool, Token] = (left, right) => Able.toTokenSeq(left, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

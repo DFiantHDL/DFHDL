@@ -78,13 +78,13 @@ object PackageFile {
        |  end if;
        |end to_slv;
        |function to_slv(arg : unsigned) return std_logic_vector is
-       |  variable slv : std_logic_vector(arg'length-1 downto $LIT 0);
+       |  variable slv : std_logic_vector(arg'length-${LIT}1 downto $LIT 0);
        |begin
        |  slv := std_logic_vector(arg);
        |  return slv;
        |end to_slv;
        |function to_slv(arg : signed) return std_logic_vector is
-       |  variable slv : std_logic_vector(arg'length-1 downto $LIT 0);
+       |  variable slv : std_logic_vector(arg'length-${LIT}1 downto $LIT 0);
        |begin
        |  slv := std_logic_vector(arg);
        |  return slv;
