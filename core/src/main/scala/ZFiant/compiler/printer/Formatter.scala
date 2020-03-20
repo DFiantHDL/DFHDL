@@ -16,6 +16,9 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
   private val coloredSymbol = s"($colorCode)$optionalSpaces(($word|$operator|$string|$singleChar){1})$noreset".r.unanchored
   implicit class FormatString(text : String) {
     def colored : String = coloredSymbol.replaceAllIn(text, m => s"${m.group(1)}${m.group(2)}$RESET")
+    def colorWords(wordSet : Set[String], color : String) : String = {
+      wordSet.foldLeft(text){case (t, w) => t.replaceAll(s"\\b$w\\b", s"$color$w")}
+    }
     def uncolor : String = text.replaceAll(colorCode, "")
     def aligned : String = {
       maxAlignments.zipWithIndex.foldLeft(text){case (algnText, (algnMax, algnIdx)) =>

@@ -39,10 +39,6 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
-//      case (_ : DFAny.Dcl, nochange) => nochange //declarations do not appear in processes
-//      case (a : DFAny, (closing, statements)) if !a.isAnonymous =>
-//        val netStr = Net.Assignment(a.name, Value(a))
-//        (closing, netStr :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (_, nochange) => nochange
     }
@@ -84,7 +80,8 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         Some(Compilable.Cmd.GenFile(s"${design.designType}.vhdl", s"$file"))
       case _ => None
     }
-    c.newStage[VHDLCompiler](designDB, c.cmdSeq ++ files)
+    val packageFile = Compilable.Cmd.GenFile(s"${PackageFile.Name()}.vhdl", PackageFile())
+    c.newStage[VHDLCompiler](designDB, c.cmdSeq ++ (packageFile :: files))
   }
 }
 

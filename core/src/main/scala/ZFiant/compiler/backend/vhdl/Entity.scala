@@ -9,6 +9,7 @@ private object Entity {
        |$KW port (
        |${ports.mkString(";\n").delim()}
        |);
-       |$KW end $name;""".stripMargin
+       |$KW end $name;
+       |""".stripMargin
   }
 }

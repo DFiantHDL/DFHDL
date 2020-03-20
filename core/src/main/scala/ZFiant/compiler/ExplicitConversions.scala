@@ -25,12 +25,19 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
       }, Patch.Add.Config.Via)
   }
   private def as(dfVal : DFAny, updateDFType : DFAny.Type) : (DFAny, Patch) = dfVal match {
-    case DFAny.Const(_, DFBool.Token(logical, value, bubble), ownerRef, tags) =>
-      val updatedConst : DFAny = DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value, bubble), ownerRef, tags)
+    case DFAny.Const(_, DFBool.Token(true, value, bubble), ownerRef, tags) =>
+      val updatedConst : DFAny = DFAny.Const(DFBool.Type(false), DFBool.Token(logical=false, value, bubble), ownerRef, tags)
       dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
-    case _ =>
+    case DFAny.Const(_, DFBool.Token(false, value, bubble), ownerRef, tags) =>
+      val updatedConst : DFAny = DFAny.Const(DFBool.Type(true), DFBool.Token(logical=true, value, bubble), ownerRef, tags)
+      dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
+    case DFBit() =>
       dfVal -> Patch.Add(new MetaDesign() {
-        dfVal.asInstanceOf[DFAny.Of[DFAny.Type]].as(updateDFType)
+        dfVal.asInstanceOf[DFBit] === 1
+      }, Patch.Add.Config.Via)
+    case DFBool() =>
+      dfVal -> Patch.Add(new MetaDesign() {
+        dfVal.asInstanceOf[DFBool].as(updateDFType)
       }, Patch.Add.Config.Via)
   }
 

@@ -1,6 +1,3 @@
-val s : Set[Int] = Set(1)
+val x = "oron is oronim lovigng oron"
 
-val x : Int = s match {
-  case o => o
-  case _ => 0
-}
+x.replaceAll("\\boron\\b", "fountain")

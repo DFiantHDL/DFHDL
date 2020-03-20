@@ -23,8 +23,9 @@ private object Case {
       def apply()(implicit printer : Printer) : String = s"${printer.config.KW}others"
     }
     object Pattern {
-      private def intervalBigIntToString(t : Interval[BigInt]) : String = {
+      private def intervalBigIntToString(t : Interval[BigInt])(implicit printer : Printer) : String = {
         import continuum.bound._
+        import printer.config._
         val lower = t.lower.bound match {
           case Closed(v) => v
           case Open(v) => v-1
@@ -36,14 +37,14 @@ private object Case {
           case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
         }
         if (lower == upper) lower.toString()
-        else s"$lower to $upper"
+        else s"$LIT$lower ${printer.config.KW}to $LIT$upper"
       }
-      def apply(pattern : DFAny.Pattern[_]) : String = pattern match {
+      def apply(pattern : DFAny.Pattern[_])(implicit printer : Printer) : String = pattern match {
         case x : DFBits.Pattern => x.patternSet.map(p => s""""${p.toBin}"""").mkString("|")
         case x : DFUInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
         case x : DFSInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
         case x : DFBool.Pattern => x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")
-        case x : DFEnum.Pattern[_] => x.patternSet.map(p => p.enumType.entries(p.value).name).mkString("|")
+        case x : DFEnum.Pattern[_] => x.patternSet.map(p => s"${p.enumType.name}_${p.enumType.entries(p.value).name}").mkString("|")
         case _ => throw new IllegalArgumentException(s"\nUnsupported pattern type for VHDL compilation: $pattern")
       }
     }

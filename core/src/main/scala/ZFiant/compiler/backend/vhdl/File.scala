@@ -3,7 +3,7 @@ package compiler.backend.vhdl
 
 private object File {
   def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer) : String = {
-    s"${Library(packageName)}$entity\n\n$architecture"
+    s"${Library(packageName)}\n$entity\n$architecture"
   }
 }
 

@@ -57,11 +57,9 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  def apply[E <: Enum](implicit ctx : DFAny.Context, e : E) : NewVar[E] = new NewVar[E]()
   def apply[E <: EnumType](enumType : E)(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(enumType))
-  def unapply(arg: Any): Option[EnumType] = arg match {
-    case dfAny : DFAny => dfAny.dfType match {
-      case Type(enumType) => Some(enumType)
-      case _ => None
-    }
+  def unapply(arg: DFAny): Option[EnumType] = arg.dfType match {
+    case Type(enumType) => Some(enumType)
+    case _ => None
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
