@@ -62,7 +62,9 @@ private object Value {
         case (DFUInt(_), _) => s"$TP unsigned($relValStr)"
         case (DFSInt(_), _) => s"$TP signed($relValStr)"
         case (DFEnum(_), _) => ???
+        case (DFBool(), DFBit()) => s"$FN to_bool($relValStr)"
         case (DFBit(), DFBits(w)) if (w.getValue == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
+        case (DFBit(), DFBool()) => s"$FN to_sl($relValStr)"
       }
       case DFAny.Alias.BitsWL(_, _, _, relWidth, relBitLow, _, _) =>
         val relBitHigh = relBitLow + relWidth - 1

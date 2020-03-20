@@ -24,10 +24,14 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
         dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth)
       }, Patch.Add.Config.Via)
   }
-  private def as(dfVal : DFAny, updateDFType : DFAny.Type) : (DFAny, Patch) = {
-    dfVal -> Patch.Add(new MetaDesign() {
-      dfVal.asInstanceOf[DFAny.Of[DFAny.Type]].as(updateDFType)
-    }, Patch.Add.Config.Via)
+  private def as(dfVal : DFAny, updateDFType : DFAny.Type) : (DFAny, Patch) = dfVal match {
+    case DFAny.Const(_, DFBool.Token(logical, value, bubble), ownerRef, tags) =>
+      val updatedConst : DFAny = DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value, bubble), ownerRef, tags)
+      dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
+    case _ =>
+      dfVal -> Patch.Add(new MetaDesign() {
+        dfVal.asInstanceOf[DFAny.Of[DFAny.Type]].as(updateDFType)
+      }, Patch.Add.Config.Via)
   }
 
   def explicitConversions = {
