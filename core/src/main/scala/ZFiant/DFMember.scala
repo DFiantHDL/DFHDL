@@ -185,6 +185,7 @@ object DFMember {
 
 
 trait MemberGetSet {
+  def designDB : DFDesign.DB
   def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0
   def set[M <: DFMember](originalMember : M, newMember : M) : M
 }

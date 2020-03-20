@@ -110,11 +110,12 @@ object DFDesign {
   implicit class DevAccess(design : DFDesign) {
     def getDB : DB = design.__db.immutable
   }
-  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember]) {
+  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember]) {self =>
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
     implicit val __getset : MemberGetSet = new MemberGetSet {
+      def designDB : DFDesign.DB = self
       def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def set[M <: DFMember](originalMember : M, newMember: M): M = newMember
     }
@@ -507,6 +508,7 @@ object DFDesign {
       }
 
       implicit val getSet : MemberGetSet = new MemberGetSet {
+        def designDB : DFDesign.DB = immutable
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
         def set[M <: DFMember](originalMember : M, newMember: M): M = setMember(originalMember, newMember)
       }

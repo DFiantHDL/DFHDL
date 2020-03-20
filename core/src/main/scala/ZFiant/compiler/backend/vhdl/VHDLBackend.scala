@@ -20,19 +20,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
     case Sync.IfBlock() => true
-    case cb: ConditionalBlock.ElseIfBlock => cb.condRef.get.getOwner match {
-      case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
-        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(Sync.Tag.Clk)
-        case _ => false
-      }
-    }
-    case net: DFNet => net.toRef.get.getOwner match {
-      case DFDesign.Block.Internal(_, _, _, Some(rep)) => rep match {
-        case Rising.Rep(bitRef) => bitRef.get.tags.customTags.contains(Sync.Tag.Clk)
-        case _ => false
-      }
-      case _ => false
-    }
+    case Sync.ElseIfBlock() => true
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true) : List[String] = {
@@ -54,16 +42,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
       case (a : DFAny, (closing, statements)) if !a.isAnonymous =>
         val netStr = Net.Assignment(a.name, Value(a))
         (closing, netStr :: statements)
-      case (DFNet.Inlined(), nochange) => nochange //Inlined nets (connected to inlined blocks) do not appear in processes
-      case (net : DFNet, (closing, statements)) if !net.hasLateConstruction =>
-        val toValue = Value.ref(net.toRef.get)
-        val fromValue = Value.ref(net.fromRef.get)
-        val netStr = net match {
-          case _ : DFNet.Assignment if !net.toRef.get.tags.customTags.contains(Sync.Tag.Reg) =>
-            Net.Assignment(toValue, fromValue)
-          case _ => Net.Connection(toValue, fromValue)
-        }
-        (closing, netStr :: statements)
+      case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (_, nochange) => nochange
     }
     statements
@@ -90,10 +69,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         val componentInstances = members.collect {
           case x : DFDesign.Block.Internal if x.inlinedRep.isEmpty =>
             val connections = designDB.ownerMemberTable(x).collect {
-              case net : DFNet.Connection if net.hasLateConstruction =>
-                val toVal = net.toRef.get
-                val fromVal = net.fromRef.get
-                if (toVal.isMemberOfDesign(x)) (toVal.name, fromVal.name) else (fromVal.name, toVal.name)
+              case Net.External(netStr) => netStr
             }
             ComponentInstance(x.name, x.designType, connections)
         }

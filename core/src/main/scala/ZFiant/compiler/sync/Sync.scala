@@ -41,4 +41,13 @@ object Sync {
       }
     }
   }
+  object ElseIfBlock {
+    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Boolean = cb.condRef.get.getOwner match {
+      case DFInlineComponent.Block(Rising.Rep(bitRef)) => bitRef.get.tags.customTags.contains(Tag.Clk)
+      case _ => false
+    }
+  }
+  object Net {
+    def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.tags.customTags.contains(Sync.Tag.Reg)
+  }
 }
