@@ -8,9 +8,9 @@ import ZFiant.compiler.printer.Printer
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with DFDesign.Implicits {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
   final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
-  private[DFDesign] val __db: DFDesign.DB.Mutable = ctx.db
-  private[ZFiant] val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
-  protected implicit val __getset : MemberGetSet = ctx.db.getSet
+  private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
+  private[ZFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
+  final protected implicit val __getset : MemberGetSet = ctx.db.getSet
 
   ///////////////////////////////////////////////////////////////////
   // Context implicits
@@ -36,7 +36,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName wit
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
-  protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
+  final def addMember[T <: DFMember](member : T) : T = __db.addMember(member)
+  final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
