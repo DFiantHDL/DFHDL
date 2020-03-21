@@ -29,18 +29,18 @@ trait IMem_Bram_Ifc extends DFInterface {
   final val addra = DFBits[12] <> IN
   final val douta = DFBits[32] <> OUT
 }
-//
-//class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : RTComponent.Context) extends RTComponent with IMem_Bram_Ifc {
-//  final val clka = Clock()
-//  //need to generate COE file
-//}
-//
-//class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : DFDesign.ContextOf[IMem_Bram_Sim]) extends DFDesign with IMem_Bram_Ifc {
-//  private val temp = DFBits[32] init b0s
-//  temp := b0s
-//  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
-//  douta := temp
-//}
+
+class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bram]) extends DFDesign with IMem_Bram_Ifc {
+  final val clka = DFBit() !! compiler.sync.Sync.Tag.Clk
+  //need to generate COE file
+}
+
+class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bram_Sim]) extends DFDesign with IMem_Bram_Ifc {
+  private val temp = DFBits[32] init b0s
+  temp := b0s
+  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
+  douta := temp
+}
 //
 //class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
 //  private val pc      = DFBits[32] <> IN
