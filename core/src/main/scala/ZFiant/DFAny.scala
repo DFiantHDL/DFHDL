@@ -666,6 +666,7 @@ object DFAny {
       sealed trait >> extends Shift
       sealed trait || extends Op
       sealed trait && extends Op
+      sealed trait ~~ extends Op
       implicit case object +  extends +
       implicit case object -  extends -
       implicit case object *  extends *
@@ -685,6 +686,7 @@ object DFAny {
       implicit case object >> extends >>
       implicit case object || extends ||
       implicit case object && extends &&
+      implicit case object ~~ extends ~~
     }
 
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](

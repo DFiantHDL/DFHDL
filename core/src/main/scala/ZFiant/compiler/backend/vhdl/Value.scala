@@ -38,6 +38,7 @@ private object Value {
         case DFSInt(_) => "sra"
         case _ => "srl"
       }
+      case Op.~~ => "&"
       case _ => ???
     }
     val leftArgStr = ref(leftArg)

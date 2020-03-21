@@ -23,7 +23,7 @@ object PackageFile {
        |package body $name is
        |${helperFunctionsBody.delim()}
        |end package body $name;
-       |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN)
+       |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN).colored
   }
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pack"
 

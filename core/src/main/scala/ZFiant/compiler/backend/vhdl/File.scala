@@ -3,7 +3,8 @@ package compiler.backend.vhdl
 
 private object File {
   def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer) : String = {
-    s"${Library(packageName)}\n$entity\n$architecture"
+    import printer.config.formatter._
+    s"${Library(packageName)}\n$entity\n$architecture".aligned.colored
   }
 }
 

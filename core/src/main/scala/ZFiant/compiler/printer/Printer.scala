@@ -70,8 +70,22 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
            |@ Contents of $fileName
            |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
            |$contents
-           |""".stripMargin.colored.aligned
+           |""".stripMargin
       )
+    }
+    c
+  }
+  def toFolder(folderName : String)(implicit printConfig : Printer.Config) : Compilable[D, S] = {
+    import java.io._
+    import printConfig.formatter._
+    new File(folderName).mkdirs()
+    //writing entity and architecture files
+    c.cmdSeq.foreach{
+      case Compilable.Cmd.GenFile(fileName, contents) =>
+        val uncolored = contents.uncolor
+        val pw = new FileWriter(new File(s"$folderName/$fileName"))
+        pw.write(uncolored)
+        pw.close()
     }
     c
   }

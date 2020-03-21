@@ -19,7 +19,7 @@ package RISCV
 
 import ZFiant._
 
-class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends DFDesign {
+trait Decoder extends DFDesign {
   private val instRaw   = DFBits[32]            <> IN
 
   //Register File Addresses & Control
@@ -44,10 +44,14 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
   private val func7     = instRaw(31, 25)
   private val func3     = instRaw(14, 12)
   private val immIType  = instRaw(31, 20).sint.resize(32).bits
-  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.resize(32).bits
-  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.resize(32).bits
+//  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.resize(32).bits
+//  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.resize(32).bits
+//  private val immUType  = (instRaw(31, 12).resize(32) << 12)
+//  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.resize(32).bits
+  private val immSType  = (instRaw(31, 25) ~~ instRaw(11, 7)).sint.resize(32).bits
+  private val immBType  = (instRaw(31, 31) ~~ instRaw(7, 7) ~~ instRaw(30, 25) ~~ instRaw(11, 8) ~~ b"0").sint.resize(32).bits
   private val immUType  = (instRaw(31, 12).resize(32) << 12)
-  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.resize(32).bits
+  private val immJType  = (instRaw(31, 31) ~~ instRaw(19, 12) ~~ instRaw(20, 20) ~~ instRaw(30, 21) ~~ b"0").sint.resize(32).bits
   private val notOpCode = instRaw(31, 7)
   rs1_addr := instRaw(19, 15)
   rs2_addr := instRaw(24, 20)
@@ -245,21 +249,21 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
     }
     .casedf(b"0001111"){debugOp := DebugOp.FENCE;}//FENCE
 
-  final val inst = {
-    import fetchInst._
-    DecodedInst(
-      //IMem
-      pc = pc, instRaw = fetchInst.instRaw,
-      //Decoder
-      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
-    )
-  }
-
-  atOwnerDo {
-    this.instRaw <> fetchInst.instRaw
-  }
+//  final val inst = {
+//    import fetchInst._
+//    DecodedInst(
+//      //IMem
+//      pc = pc, instRaw = fetchInst.instRaw,
+//      //Decoder
+//      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+//      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+//      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
+//    )
+//  }
+//
+//  atOwnerDo {
+//    this.instRaw <> fetchInst.instRaw
+//  }
 }
 
 case class DecodedInst(
@@ -281,3 +285,9 @@ case class DecodedInst(
   dmemSel   : DFEnum[DMemSel],
   debugOp   : DFEnum[DebugOp]
 )
+
+object DecoderApp extends App {
+  val dec = new Decoder {}
+  import compiler.backend.vhdl._
+  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
+}
