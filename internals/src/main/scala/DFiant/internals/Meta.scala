@@ -30,7 +30,7 @@ object Meta {
   private def getValidOwner(c : blackbox.Context) = _getValidOwner(c)(c.internal.enclosingOwner)
 
   @tailrec private def _isOwnedByAnonymousClass(c : blackbox.Context)(owner : c.Symbol) : Boolean = {
-    if (owner.isClass) owner.name.toString.contains("$")
+    if (owner.isClass && owner.name.toString != "$anonfun") owner.name.toString.contains("$")
     else if (owner.isConstructor) _isOwnedByAnonymousClass(c)(owner.owner.owner) //jumping above the current class that belongs to this constructor
     else if (owner.isPackage) false
     else _isOwnedByAnonymousClass(c)(owner.owner)

@@ -19,7 +19,7 @@ package RISCV
 
 import ZFiant._
 
-trait Decoder extends DFDesign {
+class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends DFDesign {
   private val instRaw   = DFBits[32]            <> IN
 
   //Register File Addresses & Control
@@ -245,21 +245,21 @@ trait Decoder extends DFDesign {
     }
     .casedf(b"0001111"){debugOp := DebugOp.FENCE;}//FENCE
 
-//  final val inst = {
-//    import fetchInst._
-//    DecodedInst(
-//      //IMem
-//      pc = pc, instRaw = fetchInst.instRaw,
-//      //Decoder
-//      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-//      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-//      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
-//    )
-//  }
-//
-//  atOwnerDo {
-//    this.instRaw <> fetchInst.instRaw
-//  }
+  final val inst = {
+    import fetchInst._
+    DecodedInst(
+      //IMem
+      pc = pc, instRaw = fetchInst.instRaw,
+      //Decoder
+      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
+      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
+    )
+  }
+
+  atOwnerDo {
+    this.instRaw <> fetchInst.instRaw
+  }
 }
 
 case class DecodedInst(
@@ -282,8 +282,8 @@ case class DecodedInst(
   debugOp   : DFEnum[DebugOp]
 )
 
-object DecoderApp extends App {
-  val dec = new Decoder {}
-  import compiler.backend.vhdl._
-  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
-}
+//object DecoderApp extends App {
+//  val dec = new Decoder {}
+//  import compiler.backend.vhdl._
+//  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
+//}
