@@ -46,7 +46,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
   private val immIType  = instRaw(31, 20).sint.resize(32).bits
   private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.resize(32).bits
   private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.resize(32).bits
-  private val immUType  = (instRaw(31, 12).resize(32) << 12).sint.bits
+  private val immUType  = (instRaw(31, 12).resize(32) << 12)
   private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.resize(32).bits
   private val notOpCode = instRaw(31, 7)
   rs1_addr := instRaw(19, 15)
