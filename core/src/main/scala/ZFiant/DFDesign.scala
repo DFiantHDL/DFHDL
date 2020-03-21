@@ -5,7 +5,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
 import ZFiant.compiler.printer.Printer
 
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends HasTypeName with DFDesign.Implicits {
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
   final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
