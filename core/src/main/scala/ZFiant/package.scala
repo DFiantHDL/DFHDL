@@ -102,6 +102,10 @@ package object ZFiant {
   val BitVector = scodec.bits.BitVector
   type XBitVector[W] = DFiant.internals.XBitVector[W]
   final val XBitVector = DFiant.internals.XBitVector
+  implicit class XBitVectorExtras[LW](left : XBitVector[LW]) {
+    def ~~[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
+      (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
+  }
   /**
     * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
@@ -219,11 +223,6 @@ package object ZFiant {
       //      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
       q"$buildTree"
     }
-  }
-
-  implicit class XBitVectorExtras[LW](left : XBitVector[LW]) {
-    def ##[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
-      (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
   }
   ////////////////////////////////////////////////////////////////////////////////////
 

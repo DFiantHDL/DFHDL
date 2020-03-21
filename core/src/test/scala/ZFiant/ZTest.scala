@@ -55,6 +55,8 @@ object ZTest extends App {
     val z = b | b
     b | b"11111111"
 
+    b ~~ b
+
     b0s <> c
     b <> c
     z <> c

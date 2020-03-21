@@ -261,7 +261,7 @@ object DFBits extends DFAny.Companion {
       final def ^   [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
       final def === [RW](right : DFBits[RW])(implicit op: `Op===`.Builder[L, DFBits[RW]]) = op(left, right)
       final def =!= [RW](right : DFBits[RW])(implicit op: `Op=!=`.Builder[L, DFBits[RW]]) = op(left, right)
-//      final def ## [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def ~~  [RW](right : DFBits[RW])(implicit op: `Op##`.Builder[L, DFBits[RW]]) = op(left, right)
     }
     trait Implicits {
       sealed class DFBitsFromBitVector(left : BitVector) extends AbleOps[BitVector](left)
@@ -281,6 +281,7 @@ object DFBits extends DFAny.Companion {
         def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
+        def ~~  [R](right : Able[R])(implicit op: `Op##`.Builder[DFBits[LW], R]) = op(left, right)
         def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
         def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
         def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
@@ -294,12 +295,16 @@ object DFBits extends DFAny.Companion {
           left.as(DFSInt.Type(left.width)).overrideCodeString(rs => s"$rs.sint")
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-        ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] = left.bits(relBitHigh, relBitLow)
+        ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] =
+          left.bits(relBitHigh, relBitLow).overrideCodeString(rs => s"$rs($relBitHigh, $relBitLow)")
         def apply[I](relBit: BitIndex.Checked[I, left.Width])(
           implicit ctx : DFAny.Context
-        ) : DFAny.Value[DFBool.Type, Mod] = left.bit(relBit)
-        def msbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] = DFAny.Alias.BitsWL.bit(left, left.width-1)
-        def lsbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] = DFAny.Alias.BitsWL.bit(left, 0)
+        ) : DFAny.Value[DFBool.Type, Mod] =
+          left.bit(relBit).overrideCodeString(rs => s"$rs($relBit)")
+        def msbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
+          DFAny.Alias.BitsWL.bit(left, left.width-1).overrideCodeString(rs => s"$rs.msbit")
+        def lsbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
+          DFAny.Alias.BitsWL.bit(left, 0).overrideCodeString(rs => s"$rs.lsbit")
       }
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -650,6 +655,80 @@ object DFBits extends DFAny.Companion {
   }
   object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
     def tokenFunc[LW, RW](left: DFBits.Token[LW], right: DFUInt.Token[RW]) : DFBits.Token[LW] = left >> right
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Concatenation operation
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op##` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, R, Comp0] = Builder[L, R] {
+        type Out = Comp0
+      }
+
+      object Inference {
+        type CalcW[LW, RW] = LW + RW
+        type OW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcW, LW, Int, RW, Int, ResW]
+      }
+
+      trait DetailedBuilder[L, LW, R, RW] {
+        type Out
+        def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Out]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LW, R, RW, OW](
+          implicit
+          ctx : DFAny.Context,
+          oW : Inference.OW[LW, RW, OW],
+        ) : DetailedBuilder[L, LW, R, RW]{type Out = DFBits[OW]} =
+          new DetailedBuilder[L, LW, R, RW]{
+            type Out = DFBits[OW]
+            def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Out] =
+              new Builder[L, R] {
+                type Out = DFBits[OW]
+                def apply(leftL : L, rightR : R) : Out = {
+                  val (left, right) = properLR(leftL, rightR)
+                  // Constructing op
+                  val oWidth = oW(left.width, right.width)
+                  ??? //val out = new DFBits.Alias[OW](DFAny.Alias.Reference.Concat(List(left, right), ".bits"))
+                  ??? //out
+                }
+              }
+          }
+      }
+
+      implicit def evDFBits_op_DFBits[L <: DFBits[LW], LW, R <: DFBits[RW], RW](
+        implicit
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, DFBits[RW], RW]
+      ) = detailedBuilder((left, right) => (left, right))
+
+      implicit def evDFBits_op_Const[L <: DFBits[LW], LW, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.Builder.Aux[R, RW],
+        detailedBuilder: DetailedBuilder[DFBits[LW], LW, R, RW]
+      ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
+
+      implicit def evConst_op_DFBits[L, LW, LE, R <: DFBits[RW], RW](
+        implicit
+        ctx : DFAny.Context,
+        lConst : Const.Builder.Aux[L, LW],
+        detailedBuilder: DetailedBuilder[L, LW, DFBits[RW], RW]
+      ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
+
+      type UnconstrainedLiteralError =
+        RequireMsgSym[false, "An unconstrained-width literal cannot be used in a concatenation operation", Builder[_,_]]
+
+      implicit def evDFBits_op_SBV[LW](implicit error : UnconstrainedLiteralError)
+      : Aux[DFBits[LW], SameBitsVector, DFBits[LW]] = ???
+      implicit def evSBV_op_DFBits[RW](implicit error : UnconstrainedLiteralError)
+      : Aux[SameBitsVector, DFBits[RW], DFBits[RW]] = ???
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

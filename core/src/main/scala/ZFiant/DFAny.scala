@@ -77,8 +77,9 @@ object DFAny {
     }
   }
 
-  sealed trait Of[Type <: DFAny.Type] extends DFAny {
+  sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny {
     type TType = Type
+    type TMod <: Mod
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
@@ -148,9 +149,7 @@ object DFAny {
     override lazy val typeName: String = dfType.toString
   }
 
-  sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny.Of[Type] {
-    type TMod <: Mod
-  }
+  type Of[Type <: DFAny.Type] = Value[Type, Modifier]
 
   trait DefaultRet[Type <: DFAny.Type] {
     def thisVal(implicit getSet: MemberGetSet) : DFAny.Of[Type]
