@@ -26,26 +26,12 @@ private object Net {
       net match {
         case DFNet.Inlined() => None
         case _ if net.hasLateConstruction => None
-        case _ : DFNet.Connection | Sync.Net() =>
+        case _ : DFNet.Connection | Sync.Net() | DFNet.Assignment.Unref(DFAny.In() | DFAny.Out(),_,_,_) =>
           Some(s"$toVal ${ALGN(0)}<= $fromVal;")
         case _ : DFNet.Assignment =>
           Some(s"$toVal ${ALGN(0)}:= $fromVal;")
         case _ => None
       }
-    }
-  }
-  object Assignment {
-    def apply(toVal : String, fromVal : String)(implicit printer: Printer) : String = {
-      import printer.config._
-      import formatter._
-      s"$toVal ${ALGN(0)}:= $fromVal;"
-    }
-  }
-  object Connection {
-    def apply(toVal : String, fromVal : String)(implicit printer : Printer) : String = {
-      import printer.config._
-      import formatter._
-      s"$toVal ${ALGN(0)}<= $fromVal;"
     }
   }
 }
