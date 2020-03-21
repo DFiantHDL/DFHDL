@@ -7,7 +7,7 @@ import DFiant.internals._
 import scala.annotation.implicitNotFound
 import compiler.printer.Printer
 
-sealed trait DFAny extends DFMember with Product with Serializable {
+sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {
   type TType <: DFAny.Type
   type TMod <: DFAny.Modifier
   type TTags = DFAny.Tags

@@ -19,15 +19,14 @@
 //
 //import ZFiant._
 //
-//
-//class Decoder(fetchInst : IMemInst)(implicit ctx : DFDesign.ContextOf[Decoder]) extends DFDesign {
+//class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends DFDesign {
 //  private val instRaw   = DFBits[32]            <> IN
 //
 //  //Register File Addresses & Control
 //  private val rs1_addr  = DFBits[5]             <> OUT
 //  private val rs2_addr  = DFBits[5]             <> OUT
 //  private val rd_addr   = DFBits[5]             <> OUT
-//  private val rd_wren   = DFBool()              <> OUT
+//  private val rd_wren   = DFBit()               <> OUT
 //
 //  //Immediate values for ALU execution
 //  private val imm       = DFBits[32]            <> OUT
@@ -44,11 +43,11 @@
 //  private val opcode    = instRaw(6, 0)
 //  private val func7     = instRaw(31, 25)
 //  private val func3     = instRaw(14, 12)
-//  private val immIType  = instRaw(31, 20).sint.toWidth(32).bits
-//  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.toWidth(32).bits
-//  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.toWidth(32).bits
-//  private val immUType  = instRaw(31, 12).extendRightTo(32).sint.bits
-//  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.toWidth(32).bits
+//  private val immIType  = instRaw(31, 20).sint.resize(32).bits
+//  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.resize(32).bits
+//  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.resize(32).bits
+//  private val immUType  = (instRaw(31, 12) << 12).bits.bits
+//  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.resize(32).bits
 //  private val notOpCode = instRaw(31, 7)
 //  rs1_addr := instRaw(19, 15)
 //  rs2_addr := instRaw(24, 20)
@@ -263,7 +262,6 @@
 //  }
 //}
 //
-//import DFDesign.allowTop._
 //case class DecodedInst(
 //  //IMem
 //  pc        : DFBits[32],
@@ -273,7 +271,7 @@
 //  rs1_addr  : DFBits[5],
 //  rs2_addr  : DFBits[5],
 //  rd_addr   : DFBits[5],
-//  rd_wren   : DFBool,
+//  rd_wren   : DFBit,
 //  imm       : DFBits[32],
 //  branchSel : DFEnum[BranchSel],
 //  rs1OpSel  : DFEnum[RS1OpSel],

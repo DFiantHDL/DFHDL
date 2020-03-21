@@ -295,7 +295,118 @@ object DFBits extends DFAny.Companion {
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
         ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] = left.bits(relBitHigh, relBitLow)
+        def apply[I](relBit: BitIndex.Checked[I, left.Width])(
+          implicit ctx : DFAny.Context
+        ) : DFAny.Value[DFBool.Type, Mod] = left.bit(relBit)
+        def msbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] = DFAny.Alias.BitsWL.bit(left, left.width-1)
+        def lsbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] = DFAny.Alias.BitsWL.bit(left, 0)
       }
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // Tuple-handling Implicits
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      sealed abstract class VarProductExtender(e : Product) {
+        type WSum
+        protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
+        def bits(implicit ctx : DFAny.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFAny.VarOf[Type[w.Out]] = ???
+//          new DFBits.Alias[w.Out](DFAny.Alias.Reference.Concat(e.productIterator.toList.asInstanceOf[List[DFAny]], ".bits"))
+      }
+
+      sealed abstract class ValProductExtender(e : Product) {
+        type WSum
+        protected val wsum : Int = e.productIterator.toList.collect{
+          case dfAny : DFAny => dfAny.width.getValue
+          case bv : BitVector => bv.length.toInt
+        }.sum
+        def bits(implicit ctx : DFAny.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFAny.Of[Type[w.Out]] = {
+          val list : List[DFAny] = e.productIterator.toList.collect{
+            case dfAny : DFAny => dfAny
+            case bv : BitVector => DFAny.Const.forced(Type(bv.length.toInt), DFBits.Token(bv.length.toInt, bv))
+          }
+          ??? //new DFBits.Alias[w.Out](DFAny.Alias.Reference.Concat(list, ".bits"))
+        }
+      }
+
+      /////////////////////////////////////////////////////////////////////////////////////
+      // Tuple 1
+      /////////////////////////////////////////////////////////////////////////////////////
+      implicit class VarTuple1[T1 <: DFAny.Type](
+        val e : Tuple1[DFAny.VarOf[T1]]
+      ) extends VarProductExtender(e) {
+        type WSum = e._1.Width
+      }
+
+      implicit class ValTuple1[T1 <: HasWidth](
+        val e : Tuple1[T1]
+      ) extends ValProductExtender(e){
+        type WSum = e._1.Width
+      }
+      /////////////////////////////////////////////////////////////////////////////////////
+
+      /////////////////////////////////////////////////////////////////////////////////////
+      // Tuple 2
+      /////////////////////////////////////////////////////////////////////////////////////
+      implicit class VarTuple2[T1 <: DFAny.Type, T2 <: DFAny.Type](
+        val e : Tuple2[DFAny.VarOf[T1], DFAny.VarOf[T2]]
+      ) extends VarProductExtender(e) {
+        type WSum = e._1.Width + e._2.Width
+      }
+
+      implicit class ValTuple2[T1 <: HasWidth, T2 <: HasWidth](
+        val e : Tuple2[T1, T2]
+      ) extends ValProductExtender(e){
+        type WSum = e._1.Width + e._2.Width
+      }
+      /////////////////////////////////////////////////////////////////////////////////////
+
+      /////////////////////////////////////////////////////////////////////////////////////
+      // Tuple 3
+      /////////////////////////////////////////////////////////////////////////////////////
+      implicit class VarTuple3[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type](
+        val e : Tuple3[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3]]
+      ) extends VarProductExtender(e) {
+        type WSum = e._1.Width + e._2.Width + e._3.Width
+      }
+
+      implicit class ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](
+        val e : Tuple3[T1, T2, T3]
+      ) extends ValProductExtender(e){
+        type WSum = e._1.Width + e._2.Width + e._3.Width
+      }
+      /////////////////////////////////////////////////////////////////////////////////////
+
+      /////////////////////////////////////////////////////////////////////////////////////
+      // Tuple 4
+      /////////////////////////////////////////////////////////////////////////////////////
+      implicit class VarTuple4[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type, T4 <: DFAny.Type](
+        val e : Tuple4[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3], DFAny.VarOf[T4]]
+      ) extends VarProductExtender(e) {
+        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
+      }
+
+      implicit class ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](
+        val e : Tuple4[T1, T2, T3, T4]
+      ) extends ValProductExtender(e){
+        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
+      }
+      /////////////////////////////////////////////////////////////////////////////////////
+
+      /////////////////////////////////////////////////////////////////////////////////////
+      // Tuple 5
+      /////////////////////////////////////////////////////////////////////////////////////
+      implicit class VarTuple5[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type, T4 <: DFAny.Type, T5 <: DFAny.Type](
+        val e : Tuple5[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3], DFAny.VarOf[T4], DFAny.VarOf[T5]]
+      ) extends VarProductExtender(e) {
+        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
+      }
+
+      implicit class ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](
+        val e : Tuple5[T1, T2, T3, T4, T5]
+      ) extends ValProductExtender(e){
+        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
+      }
+      /////////////////////////////////////////////////////////////////////////////////////
+
     }
     object Able extends Implicits
   }
