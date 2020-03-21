@@ -48,7 +48,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
             union.contains(fullRange)
           case _ : DFBits.Type[_] =>
             val union = patterns.asInstanceOf[List[DFBits.Pattern]].foldLeft(Set.empty[BitVector]){case (s, p) => s | p.patternSet}
-            union.size == BigInt.maxUnsignedFromWidth(matchVal.width).toInt
+            union.size == BigInt.maxUnsignedFromWidth(matchVal.width).toInt + 1
           case _ : DFBool.Type =>
             val union = patterns.asInstanceOf[List[DFBool.Pattern]].foldLeft(Set.empty[Boolean]){case (s, p) => s | p.patternSet}
             union.size == 2
