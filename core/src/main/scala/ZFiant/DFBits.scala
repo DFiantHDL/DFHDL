@@ -285,8 +285,18 @@ object DFBits extends DFAny.Companion {
         def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
         def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
         def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
-        def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) =
+        def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] =
           DFAny.Alias.Resize.bits(left, toWidth)
+        def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = {
+          val ret = if (left.width < toWidth) {
+            val zeroWidth = toWidth - left.width
+            val zeros = DFAny.Const.forced(Type(zeroWidth), Token(zeroWidth, 0))
+            `Op~~`.forced(left, zeros)
+          }
+          else if (left.width > toWidth) DFAny.Alias.BitsWL(left, toWidth, left.width - toWidth)
+          else left
+          ret.asInstanceOf[DFBits[RW]]
+        }
       }
       final implicit class DFBitsAliases[LW, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LW], Mod]) {
         def uint(implicit ctx : DFAny.Context) : DFAny.Value[DFUInt.Type[LW], Mod] =
@@ -328,7 +338,7 @@ object DFBits extends DFAny.Companion {
             case dfAny : DFAny.Value[_,_] => dfAny.bits.asInstanceOf[DFBits[Int]]
             case bv : BitVector => DFAny.Const.forced(Type(bv.length.toInt), DFBits.Token(bv.length.toInt, bv))
           }
-          ??? //list.reduce((l, r) => l ~~ r).asInstanceOf[DFBits[w.Out]]
+          list.reduce((l, r) => `Op~~`.forced(l, r)).asInstanceOf[DFBits[w.Out]]
         }
       }
 
@@ -665,8 +675,10 @@ object DFBits extends DFAny.Companion {
   object `Op~~` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-    def tokenFunc[LW, RW, OW](left: Token[LW], right: Token[RW]) : Token[OW] = (left ~~ right).asInstanceOf[Token[OW]]
+    private def tokenFunc[LW, RW, OW](left: Token[LW], right: Token[RW]) : Token[OW] = (left ~~ right).asInstanceOf[Token[OW]]
 
+    def forced[LW, RW](left : DFBits[LW], right : DFBits[RW])(implicit ctx : DFAny.Context) : DFBits[Int] =
+      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.~~, right)(tokenFunc).asInstanceOf[DFBits[Int]]
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
         type Out = Comp0
