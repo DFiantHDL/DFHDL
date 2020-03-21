@@ -30,14 +30,12 @@ trait ALU extends DFDesign {
 
   aluOut <> outCalc
 
-//  def calcConn(op1 : DFBits[32], op2 : DFBits[32], aluSel : DFEnum[ALUSel])(
-//    implicit ctx : DFDesign.Context
-//  ) : DFBits[32] = {
-//    this.op1 <> op1
-//    this.op2 <> op2
-//    this.aluSel <> aluSel
-//    this.aluOut
-//  }
+  def calcConn(op1 : DFBits[32], op2 : DFBits[32], aluSel : DFEnum[ALUSel]) : DFBits[32] = atOwnerDo {
+    this.op1 <> op1
+    this.op2 <> op2
+    this.aluSel <> aluSel
+    this.aluOut
+  }
 }
 
 object ALUApp extends App {

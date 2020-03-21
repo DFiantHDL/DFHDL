@@ -13,6 +13,7 @@ package object RISCV {
 
   val caseIMem : Boolean = true //when true, implements the IMem for synthesis as a case statement
   val caseDMem : Boolean = true //when true, implements the DMem for synthesis as a case statement
+  val inSimulation : Boolean = true
 
   final val NOPInst = h"00000013"
   implicit object DebugOp extends EnumType.Auto {

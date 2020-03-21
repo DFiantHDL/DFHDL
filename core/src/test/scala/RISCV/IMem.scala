@@ -41,28 +41,27 @@ class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bra
   programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
   douta := temp
 }
-//
-//class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : DFDesign.ContextOf[IMem]) extends DFDesign {
-//  private val pc      = DFBits[32] <> IN
-//  private val instRaw = DFBits[32] <> OUT
-//
-//  private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
-//
-//  bram.addra <> pc(13, 2)
-//  bram.douta <> instRaw
-//
-//  final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
-//
-//  atOwnerDo {
-//    pc <> incomingPC
-//  }
-//}
-//
-//import DFDesign.allowTop._
-//case class IMemInst(
-//  pc      : DFBits[32],
-//  instRaw : DFBits[32]
-//)
-//
+
+class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : ContextOf[IMem]) extends DFDesign {
+  private val pc      = DFBits[32] <> IN
+  private val instRaw = DFBits[32] <> OUT
+
+  private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
+
+  bram.addra <> pc(13, 2)
+  bram.douta <> instRaw
+
+  final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
+
+  atOwnerDo {
+    pc <> incomingPC
+  }
+}
+
+case class IMemInst(
+  pc      : DFBits[32],
+  instRaw : DFBits[32]
+)
+
 
 

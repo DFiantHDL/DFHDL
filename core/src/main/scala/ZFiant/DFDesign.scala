@@ -33,6 +33,12 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
     implicit ctx : DFBlock.Context
   ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
   ///////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////
+  // Ability to run construction at the owner's context
+  ///////////////////////////////////////////////////////////////////
+  final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
+  ///////////////////////////////////////////////////////////////////
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {

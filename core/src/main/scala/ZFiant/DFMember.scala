@@ -129,11 +129,12 @@ object DFMember {
     private var value : DFBlock = designBlock
     def inject(newOwner : DFBlock) : Unit = value = newOwner
     def get : DFBlock = value
-    def injectOwnerAndRun(injectedOwner : DFBlock)(block : => Unit) : Unit = {
+    def injectOwnerAndRun[T](injectedOwner : DFBlock)(block : => T) : T = {
       val injectedOwnerBackup = get
       inject(injectedOwner)
-      block
+      val ret = block
       inject(injectedOwnerBackup)
+      ret
     }
   }
 

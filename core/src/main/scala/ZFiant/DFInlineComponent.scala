@@ -8,7 +8,6 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   override private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = Some(rep)
   final val outPort = DFAny.Port.Out(dfType)
   final def thisVal(implicit getSet: MemberGetSet): DFAny.Of[Type] = outPort
-  protected def atOwnerDo(block : => Unit) : Unit = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
 }
 object DFInlineComponent {
   trait Rep extends Product with Serializable {
