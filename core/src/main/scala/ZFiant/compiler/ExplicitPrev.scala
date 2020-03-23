@@ -163,9 +163,17 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
 
   def explicitPrev = {
     val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
-    val patchList = explicitPrevSet.toList.map(e => e -> Patch.Add(new MetaDesign() {
-      DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
-    }, Patch.Add.Config.After))
+    val patchList = explicitPrevSet.toList.map {
+//      case p @ DFAny.Port.Out() => p -> Patch.Add(new MetaDesign() {
+//        val p_var_noinit = DFAny.NewVar(p.dfType) setName(s"${p.name}_var")
+//        final val p_var = __getset.set(p_var_noinit, p_var_noinit.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
+//        DFNet.Assignment(p_var, DFAny.Alias.Prev(p_var, 1))
+//        DFNet.Assignment(p, p_var)
+//      }, Patch.Add.Config.After)
+      case e => e -> Patch.Add(new MetaDesign() {
+        DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
+      }, Patch.Add.Config.After)
+    }
 
     //      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
     c.newStage[ExplicitPrev](designDB.patch(patchList), Seq())

@@ -314,8 +314,8 @@ object DFAny {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
       ) = Dcl(dfType, Modifier.Port.In)
-      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]) : Boolean = arg match {
-        case Dcl(_, Modifier.Port.In, _, _, _) => true
+      def unapply(arg: Dcl) : Boolean = arg.modifier match {
+        case Modifier.Port.In => true
         case _ => false
       }
     }
@@ -323,8 +323,8 @@ object DFAny {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
       ) = Dcl(dfType, Modifier.Port.Out)
-      def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]) : Boolean = arg match {
-        case Dcl(_, Modifier.Port.Out, _, _, _) => true
+      def unapply(arg: Dcl) : Boolean = arg.modifier match {
+        case Modifier.Port.Out => true
         case _ => false
       }
     }
@@ -334,8 +334,8 @@ object DFAny {
     def apply[Type <: DFAny.Type](dfType: Type)(
       implicit ctx: Context
     ) = Dcl(dfType, Modifier.NewVar)
-    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]) : Boolean = arg match {
-      case Dcl(_, Modifier.NewVar, _, _, _) => true
+    def unapply(arg: Dcl) : Boolean = arg.modifier match {
+      case Modifier.NewVar => true
       case _ => false
     }
   }

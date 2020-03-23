@@ -81,8 +81,8 @@ object DFBool extends DFAny.Companion {
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
       val valueStr = if (logical) {
-        if (value) "1" else "0"
-      } else value.toString
+        value.toString
+      } else if (value) "1" else "0"
       s"$LIT$valueStr"
     }
   }

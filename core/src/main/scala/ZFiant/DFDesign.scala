@@ -89,7 +89,12 @@ object DFDesign {
     final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
       protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>
-          this.designType == designType && this.tags =~ tags && this.inlinedRep == inlinedRep
+          val inlineRepEq = (this.inlinedRep, inlinedRep) match {
+            case (Some(l), Some(r)) => l =~ r
+            case (None, None) => true
+            case _ => false
+          }
+          this.designType == designType && this.tags =~ tags && inlineRepEq
         case _ => false
       }
       def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))

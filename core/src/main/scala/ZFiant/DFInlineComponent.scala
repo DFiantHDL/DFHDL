@@ -11,6 +11,7 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
 }
 object DFInlineComponent {
   trait Rep extends Product with Serializable {
+    protected[ZFiant] def =~(that : DFInlineComponent.Rep)(implicit getSet : MemberGetSet) : Boolean
     def inlineCodeString(implicit ctx : Printer.Context) : String
   }
   type Ref = DFMember.Ref.Of[Ref.Type, DFAny]
@@ -39,6 +40,10 @@ final case class Rising(bit : DFBit)(
 }
 object Rising {
   final case class Rep(bitRef : DFInlineComponent.Ref) extends DFInlineComponent.Rep {
+    protected[ZFiant] def =~(that : DFInlineComponent.Rep)(implicit getSet : MemberGetSet) : Boolean = that match {
+      case Rep(bitRef) => this.bitRef =~ bitRef
+      case _ => false
+    }
     def inlineCodeString(implicit ctx : Printer.Context) : String =
       s"${bitRef.refCodeString}.rising()"
   }
