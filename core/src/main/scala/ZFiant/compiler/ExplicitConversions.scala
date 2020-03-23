@@ -24,12 +24,9 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
         dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth)
       }, Patch.Add.Config.Via)
   }
-  private def as(dfVal : DFAny, updateDFType : DFAny.Type) : (DFAny, Patch) = dfVal match {
-    case DFAny.Const(_, DFBool.Token(true, value, bubble), ownerRef, tags) =>
-      val updatedConst : DFAny = DFAny.Const(DFBool.Type(false), DFBool.Token(logical=false, value, bubble), ownerRef, tags)
-      dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
-    case DFAny.Const(_, DFBool.Token(false, value, bubble), ownerRef, tags) =>
-      val updatedConst : DFAny = DFAny.Const(DFBool.Type(true), DFBool.Token(logical=true, value, bubble), ownerRef, tags)
+  private def toggleLogical(dfVal : DFAny) : (DFAny, Patch) = dfVal match {
+    case DFAny.Const(_, DFBool.Token(logical, value, bubble), ownerRef, tags) =>
+      val updatedConst : DFAny = DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value, bubble), ownerRef, tags)
       dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
     case DFBit() =>
       dfVal -> Patch.Add(new MetaDesign() {
@@ -37,7 +34,7 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
       }, Patch.Add.Config.Via)
     case DFBool() =>
       dfVal -> Patch.Add(new MetaDesign() {
-        dfVal.asInstanceOf[DFBool].as(updateDFType)
+        dfVal.asInstanceOf[DFBool].as(DFBool.Type(false))
       }, Patch.Add.Config.Via)
   }
 
@@ -49,28 +46,28 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
         (toVal, fromVal) match {
           case (DFUInt(toWidth), DFUInt(fromWidth)) if toWidth > fromWidth => Some(resizeUInt(fromVal, toWidth))
           case (DFSInt(toWidth), DFSInt(fromWidth)) if toWidth > fromWidth => Some(resizeSInt(fromVal, toWidth))
-          case (DFBool(), DFBit()) => Some(as(fromVal, toVal.dfType))
-          case (DFBit(), DFBool()) => Some(as(fromVal, toVal.dfType))
+          case (DFBool(), DFBit()) => Some(toggleLogical(fromVal))
+          case (DFBit(), DFBool()) => Some(toggleLogical(fromVal))
           case _ => None
         }
       case func : DFAny.Func2 =>
         val leftArg = func.leftArgRef.get
         val rightArg = func.rightArgRef.get
         (leftArg, rightArg) match {
-          case (DFBit(), DFBool()) => Some(as(leftArg, DFBool.Type(true)))
-          case (DFBool(), DFBit()) => Some(as(rightArg, DFBool.Type(true)))
+          case (DFBit(), DFBool()) => Some(toggleLogical(leftArg))
+          case (DFBool(), DFBit()) => Some(toggleLogical(rightArg))
           case _ => None
         }
       case cb : ConditionalBlock.IfBlock =>
         val cond = cb.condRef.get
         cond match {
-          case DFBit() => Some(as(cond, DFBool.Type(true)))
+          case DFBit() => Some(toggleLogical(cond))
           case _ => None
         }
       case cb : ConditionalBlock.ElseIfBlock =>
         val cond = cb.condRef.get
         cond match {
-          case DFBit() => Some(as(cond, DFBool.Type(true)))
+          case DFBit() => Some(toggleLogical(cond))
           case _ => None
         }
       case _ => None

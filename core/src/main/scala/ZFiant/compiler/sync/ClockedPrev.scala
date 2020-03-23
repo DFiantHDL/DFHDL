@@ -82,6 +82,13 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       if (prevTpls.nonEmpty) {
         val clockedDsn = addedClkRst(block)
         val prevDsn = new ClkRstDesign {
+          val sigs : List[DFAny] = prevTpls.map {
+            case (_,rv,prevVar) =>
+              val sig = DFAny.NewVar(prevVar.dfType) setName s"${rv.name}_sig"
+              sig.assign(rv)
+              sig
+            case (_,rv,_) => rv
+          }
           private def rstBlock : Unit = prevTpls.foreach {
             case (_, _, prevVar) => prevVar.tags.init match {
               case Some(i :: _) =>
@@ -90,9 +97,8 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
               case _ =>
             }
           }
-          private def clkBlock : Unit = prevTpls.foreach {
-            case (_, rv, prevVar) =>
-              prevVar.assign(rv)
+          private def clkBlock : Unit = (prevTpls lazyZip sigs).foreach {
+            case ((_, _, prevVar), sig) => prevVar.assign(sig)
           }
           if (hasPrevRst)
             ifdf(rst === 0)(rstBlock).elseifdf(clk.rising())(clkBlock)

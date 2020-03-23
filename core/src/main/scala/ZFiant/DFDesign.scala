@@ -136,29 +136,27 @@ object DFDesign {
     lazy val connectionTableInverted : Map[DFAny, Set[DFAny]] =
       connectionTable.invert
 
-    //we reserve the order of assignments within the list
-    lazy val assignmentsTable : Map[DFAny, List[DFAny]] =
-      members.foldRight(Map.empty[DFAny, List[DFAny]]){
-        case (n : DFNet.Assignment, at) =>
-          val toVal = n.toRef.get
-          val fromVal = n.fromRef.get
-          at + (toVal -> (fromVal :: at.getOrElse(toVal, List())))
-        case (_, at) => at
+    //                               To      From
+    lazy val assignmentsTable : Map[DFAny, Set[DFAny]] =
+      members.foldLeft(Map.empty[DFAny, Set[DFAny]]){
+        case (at, DFNet.Assignment.Unref(toVal, fromVal, _, _)) =>
+          at + (toVal -> (at.getOrElse(toVal, Set()) + fromVal))
+        case (at, _) => at
       }
 
-//    lazy val aliasesTable : Map[DFAny, List[DFAny]] =
-//      members.foldLeft(Map.empty[DFAny, List[DFAny]]){
-//        case (at, a : DFAny.Alias[_,_,_]) => connectionTable.get(a)
-//          val toVal = a
-//          val fromVal = n.fromRef.get
-//          at + (toVal -> (at.getOrElse(toVal, List()) :+ fromVal))
-//        case (at, _) => at
-//      }
+    //                                       From      To
+    lazy val assignmentsTableInverted : Map[DFAny, Set[DFAny]] =
+      members.foldLeft(Map.empty[DFAny, Set[DFAny]]){
+        case (at, DFNet.Assignment.Unref(toVal, fromVal, _, _)) =>
+          at + (fromVal -> (at.getOrElse(fromVal, Set()) + toVal))
+        case (at, _) => at
+      }
 
     def getConnectionTo(v : DFAny) : Option[DFAny] = connectionTable.get(v)
     def getConnectionFrom(v : DFAny) : Set[DFAny] = connectionTableInverted.getOrElse(v, Set())
 
-    def getAssignmentsTo(v : DFAny) : List[DFAny] = assignmentsTable.getOrElse(v, List())
+    def getAssignmentsTo(v : DFAny) : Set[DFAny] = assignmentsTable.getOrElse(v, Set())
+    def getAssignmentsFrom(v : DFAny) : Set[DFAny] = assignmentsTableInverted.getOrElse(v, Set())
 
 //    def getAliasesTo(v : DFAny) : Option[DFAny] =
 //      members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}

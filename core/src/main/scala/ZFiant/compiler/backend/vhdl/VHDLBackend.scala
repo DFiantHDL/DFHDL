@@ -55,7 +55,10 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             (Port(p.name, Port.Dir.In(), Type(p), Init(p)) :: ports, signals, variables)
           case (p @ DFAny.Port.Out(), (ports, signals, variables)) =>
             (Port(p.name, Port.Dir.Out(), Type(p), Init(p)) :: ports, signals, variables)
-          case (s : DFAny, (ports, signals, variables)) if designDB.getConnectionTo(s).isDefined || s.tags.customTags.contains(Sync.Tag.Reg) =>
+          case (s : DFAny, (ports, signals, variables))
+            if designDB.getConnectionTo(s).isDefined
+              || s.tags.customTags.contains(Sync.Tag.Reg)
+              || designDB.getAssignmentsFrom(s).exists(x => x.tags.customTags.contains(Sync.Tag.Reg)) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
           case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
