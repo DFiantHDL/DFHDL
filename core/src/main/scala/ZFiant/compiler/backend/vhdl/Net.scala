@@ -28,6 +28,8 @@ private object Net {
         case _ if net.hasLateConstruction => None
         case _ : DFNet.Connection | Sync.Net() | DFNet.Assignment.Unref(DFAny.In() | DFAny.Out(),_,_,_) =>
           Some(s"$toVal ${ALGN(0)}<= $fromVal;")
+        case _ if printer.getSet.designDB.getAssignmentsFrom(net.toRef.get).exists(x => x.tags.customTags.contains(Sync.Tag.Reg)) =>
+          Some(s"$toVal ${ALGN(0)}<= $fromVal;")
         case _ : DFNet.Assignment =>
           Some(s"$toVal ${ALGN(0)}:= $fromVal;")
         case _ => None

@@ -69,7 +69,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
     val (clockedDB, addedClkRst) = getClockedDB
     val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
       var hasPrevRst = false
-      val prevTpls = members.collect {
+      val prevTpls : List[(DFAny, DFAny, DFAny.VarOf[DFAny.Type])] = members.collect {
         case p @ DFAny.Alias.Prev(dfType, relValRef, _, ownerRef, tags) =>
           val externalInit = tags.init match {
             case Some(i :: _) =>
@@ -83,11 +83,12 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         val clockedDsn = addedClkRst(block)
         val prevDsn = new ClkRstDesign {
           val sigs : List[DFAny] = prevTpls.map {
+            case (_,rv @ DFAny.Port.In(), _) => rv
+            case (_,rv @ DFAny.Port.Out(), _) => rv
             case (_,rv,prevVar) =>
               val sig = DFAny.NewVar(prevVar.dfType) setName s"${rv.name}_sig"
               sig.assign(rv)
               sig
-            case (_,rv,_) => rv
           }
           private def rstBlock : Unit = prevTpls.foreach {
             case (_, _, prevVar) => prevVar.tags.init match {
