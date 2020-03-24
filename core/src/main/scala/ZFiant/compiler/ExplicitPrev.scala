@@ -163,17 +163,33 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
 
   def explicitPrev = {
     val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
-    val patchList = explicitPrevSet.toList.map {
-//      case p @ DFAny.Port.Out() => p -> Patch.Add(new MetaDesign() {
-//        val p_var_noinit = DFAny.NewVar(p.dfType) setName(s"${p.name}_var")
-//        final val p_var = __getset.set(p_var_noinit, p_var_noinit.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
-//        DFNet.Assignment(p_var, DFAny.Alias.Prev(p_var, 1))
-//        DFNet.Assignment(p, p_var)
-//      }, Patch.Add.Config.After)
-      case e => e -> Patch.Add(new MetaDesign() {
-        DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
-      }, Patch.Add.Config.After)
+    val outs = explicitPrevSet.collect{case p @ DFAny.Port.Out() => p}.toList.groupBy(p => p.getOwnerDesign)
+    val outPatchList = outs.flatMap {
+      case (block, portSet) =>
+        val portDsns = portSet.map { p =>
+          val dsn = new MetaDesign() {
+            final val p_var = DFAny.NewVar(p.dfType) setName (s"${p.name}_var")
+            //        final val p_var = __getset.set(p_var_noinit, p_var_noinit.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
+            DFNet.Assignment(p_var, DFAny.Alias.Prev(p, 1))
+          }
+          (p, dsn)
+        }
+        val addedVarPatches = portDsns.map {
+          case (p, dsn) => p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst, Patch.Replace.Scope.Inside(block))
+        }
+        val addedAssignments = block -> Patch.Add(new MetaDesign() {
+          portDsns.foreach {
+            case (p, dsn) => DFNet.Assignment(p, dsn.p_var)
+          }
+        }, Patch.Add.Config.Inside)
+        addedAssignments :: addedVarPatches
     }
+    val patchList = explicitPrevSet.toList.flatMap {
+      case p @ DFAny.Port.Out() => None
+      case e => Some(e -> Patch.Add(new MetaDesign() {
+        DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
+      }, Patch.Add.Config.After))
+    } ++ outPatchList
 
     //      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
     c.newStage[ExplicitPrev](designDB.patch(patchList), Seq())

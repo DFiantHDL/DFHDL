@@ -66,7 +66,7 @@ object IDTopApp extends App {
   val top = new IDTop {}
   import compiler._
   import backend.vhdl._
-  val designDB = top.compile.printCodeString()//.printGenFiles()
+  val designDB = top.compile.printCodeString().printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 
