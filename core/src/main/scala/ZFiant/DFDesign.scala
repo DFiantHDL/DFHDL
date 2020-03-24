@@ -263,10 +263,10 @@ object DFDesign {
         //the old member just for the member list (references are replaced).
         case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => (m, DB.Patch.Remove)
         //If we add after a design block, we need to actually place after the last member of the block
-        case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After, _)) =>
+        case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
           (designMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
         //If we add inside a design block, we need to actually place after the last member of the block
-        case (block : DFDesign.Block, DB.Patch.Add(db, DB.Patch.Add.Config.Inside, _)) =>
+        case (block : DFDesign.Block, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
           designMemberTable(block).lastOption match {
             case Some(l) => (l, DB.Patch.Add(db, DB.Patch.Add.Config.After))
             case None => (block, DB.Patch.Add(db, DB.Patch.Add.Config.After))
@@ -280,13 +280,15 @@ object DFDesign {
           case DB.Patch.Replace.Config.ChangeRefAndRemove => Some(r)
           case DB.Patch.Replace.Config.FullReplacement => Some(r)
         }
-        case Some(DB.Patch.Add(db, config, _)) =>
+        case Some(DB.Patch.Add(db, config)) =>
           val notTop = db.members.drop(1) //adding the members without the Top design block
           config match {
             case DB.Patch.Add.Config.After => m :: notTop
             case DB.Patch.Add.Config.Before => notTop :+ m
-            case DB.Patch.Add.Config.ReplaceWithFirst => notTop
-            case DB.Patch.Add.Config.ReplaceWithLast => notTop
+            case DB.Patch.Add.Config.ReplaceWithFirst(DB.Patch.Replace.Config.ChangeRefOnly, _) => m :: notTop
+            case DB.Patch.Add.Config.ReplaceWithLast(DB.Patch.Replace.Config.ChangeRefOnly, _) => notTop :+ m
+            case DB.Patch.Add.Config.ReplaceWithFirst(_, _) => notTop
+            case DB.Patch.Add.Config.ReplaceWithLast(_, _) => notTop
             case DB.Patch.Add.Config.Via => m :: notTop
             case DB.Patch.Add.Config.Inside => ??? //Not possible since we replaced it to an `After`
           }
@@ -297,22 +299,22 @@ object DFDesign {
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
         case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) => rt.replaceMember(origMember, repMember, scope)
-        case (rt, (origMember, DB.Patch.Add(db, config, replacementScope))) =>
+        case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val newOwner = config match {
             case DB.Patch.Add.Config.Inside => origMember
             case _ => origMember.getOwner
           }
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(newOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
-            case DB.Patch.Add.Config.ReplaceWithFirst =>
+            case DB.Patch.Add.Config.ReplaceWithFirst(_, replacementScope) =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
               rt.replaceMember(origMember, repMember, replacementScope)
-            case DB.Patch.Add.Config.ReplaceWithLast =>
+            case DB.Patch.Add.Config.ReplaceWithLast(_, replacementScope) =>
               val repMember = db.members.last
               rt.replaceMember(origMember, repMember, replacementScope)
             case DB.Patch.Add.Config.Via =>
               val repMember = db.members.last //The last member is used for Via addition.
-              rt.replaceMember(origMember, repMember, replacementScope)
+              rt.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
             case _ => rt
           }
           repRT ++ dbPatched.refTable
@@ -441,32 +443,27 @@ object DFDesign {
           case class Inside(block : DFDesign.Block) extends Scope
         }
       }
-      final case class Add private (db : DB, config : Add.Config, replacementScope : Replace.Scope) extends Patch
+      final case class Add private (db : DB, config : Add.Config) extends Patch
       object Add {
-        def apply(db : DB, config : Add.Config) : Add = Add(db, config, Replace.Scope.All)
-        def apply(design : MetaDesign, config : Add.Config, replacementScope : Replace.Scope = Replace.Scope.All) : Add = Add(design.getDB, config, replacementScope)
+        def apply(design : MetaDesign, config : Add.Config) : Add = Add(design.getDB, config)
         sealed trait Config extends Product with Serializable
         object Config {
           //adds members before the patched member
-          //scope argument is ignored
           case object Before extends Config
           //adds members after the patched member
-          //scope argument is ignored
           case object After extends Config
           //adds members inside the given block (appends elements at the end)
-          //scope argument is ignored
           case object Inside extends Config
-          //adds members replacing the patched member.
+          //adds members after the patched member, which will be replaced.
           //The FIRST (non-Top) member is considered the reference replacement member
           //Replacement is done as specified by the scope argument
-          case object ReplaceWithFirst extends Config
-          //adds members replacing the patched member.
+          final case class ReplaceWithFirst(replacementConfig : Replace.Config = Replace.Config.ChangeRefAndRemove, replacementScope : Replace.Scope = Replace.Scope.All) extends Config
+          //adds members before the patched member, which will be replaced.
           //The LAST member is considered the reference replacement member
           //Replacement is done as specified by the scope argument
-          case object ReplaceWithLast extends Config
+          final case class ReplaceWithLast(replacementConfig : Replace.Config = Replace.Config.ChangeRefAndRemove, replacementScope : Replace.Scope = Replace.Scope.All) extends Config
           //adds members after the patched member.
           //The LAST member is considered the reference replacement member
-          //Replacement is done as specified by the scope argument
           case object Via extends Config
         }
       }

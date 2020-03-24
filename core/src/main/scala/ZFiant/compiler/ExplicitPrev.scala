@@ -175,7 +175,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
           (p, dsn)
         }
         val addedVarPatches = portDsns.map {
-          case (p, dsn) => p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst, Patch.Replace.Scope.Inside(block))
+          case (p, dsn) => p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Inside(block)))
         }
         val addedAssignments = block -> Patch.Add(new MetaDesign() {
           portDsns.foreach {

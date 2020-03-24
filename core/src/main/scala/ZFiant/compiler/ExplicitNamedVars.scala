@@ -16,7 +16,7 @@ final class ExplicitNamedVarsOps[D <: DFDesign, S <: shapeless.HList](c : Compil
           final val newVar = DFAny.NewVar(named.dfType) setName(named.name)
           newVar.assign(addMember(anon))
         }
-        Some(named -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst))
+        Some(named -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()))
       case _ => None
     }
     c.newStage[ExplicitNamedVars](designDB.patch(patchList), Seq())

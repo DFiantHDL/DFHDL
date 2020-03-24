@@ -75,8 +75,8 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   private val db : DFDesign.DB = {
     import DFDesign.DB.Patch
     val extendedPortsDB = designDB
-      .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst)))
-      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst)))
+      .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst())))
+      .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst())))
       .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Via)))
       .moveConnectableFirst
     val guardedMembers = topMembers.collect{case m : CanBeGuarded => m}
