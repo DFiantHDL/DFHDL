@@ -11,22 +11,22 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     case p @ DFAny.Port.Out() => p
   }
     private val pullInputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPull) => p
+    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.StreamIOPull) => p
   }
   private val pullOutputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPull) => p
+    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.StreamIOPull) => p
   }
   private val pushInputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPush) => p
+    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.StreamIOPush) => p
   }
   private val pushOutputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPush) => p
+    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.StreamIOPush) => p
   }
   private val scalarInputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.Tag.ScalarIO) => p
+    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.ScalarIO) => p
   }
   private val scalarOutputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.Tag.ScalarIO) => p
+    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.ScalarIO) => p
   }
 
   private val pullInZ = (pullInputs lazyZip pullInputs.map(p => new MetaDesign() {
