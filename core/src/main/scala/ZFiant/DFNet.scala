@@ -5,6 +5,7 @@ import ZFiant.DFMember.Tags
 import ZFiant.compiler.printer.Printer
 sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
+  type TCustomTag = DFMember.CustomTag
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef
   def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {

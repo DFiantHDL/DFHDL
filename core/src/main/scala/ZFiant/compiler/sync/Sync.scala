@@ -18,28 +18,13 @@
 package ZFiant
 package compiler.sync
 
-object Sync {
+private[compiler] object Sync {
   sealed trait Tag extends DFMember.CustomTag
   object Tag {
     case object Clk extends Tag {
-      trait Edge extends Product with Serializable
-      object Edge {
-        case object Rising extends Edge
-        case object Falling extends Edge
-      }
       override def toString: String = "Sync.Tag.Clk"
     }
     case object Rst extends Tag {
-      trait Mode extends Product with Serializable
-      object Mode {
-        case object Async extends Mode
-        case object Sync extends Mode
-      }
-      trait Active extends Product with Serializable
-      object Active {
-        case object Low extends Active
-        case object High extends Active
-      }
       override def toString: String = "Sync.Tag.Rst"
     }
     case object Reg extends Tag {
@@ -47,7 +32,7 @@ object Sync {
     }
   }
 
-  private[compiler] object IfBlock {
+  object IfBlock {
     def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Boolean = (cb.condRef.get : DFAny) match {
       case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(Tag.Rst)
       case x => x.getOwner match {
@@ -56,13 +41,38 @@ object Sync {
       }
     }
   }
-  private[compiler] object ElseIfBlock {
+  object ElseIfBlock {
     def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Boolean = cb.condRef.get.getOwner match {
       case DFInlineComponent.Block(Rising.Rep(bitRef)) => bitRef.get.tags.customTags.contains(Tag.Clk)
       case _ => false
     }
   }
-  private[compiler] object Net {
+  object Net {
     def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.tags.customTags.contains(Sync.Tag.Reg)
   }
+}
+
+final case class ClockParams(name : String, edge : ClockParams.Edge = ClockParams.Edge.Rising) extends DFDesign.Block.CustomTag
+object ClockParams {
+  trait Edge extends Product with Serializable
+  object Edge {
+    case object Rising extends Edge
+    case object Falling extends Edge
+  }
+  final val default = ClockParams("clk", Edge.Rising)
+}
+
+final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFDesign.Block.CustomTag
+object ResetParams {
+  trait Mode extends Product with Serializable
+  object Mode {
+    case object Async extends Mode
+    case object Sync extends Mode
+  }
+  trait Active extends Product with Serializable
+  object Active {
+    case object Low extends Active
+    case object High extends Active
+  }
+  final val default = ResetParams("rst", Mode.Async, Active.Low)
 }

@@ -78,14 +78,17 @@ object DFDesign {
     private def onBlock(b : Block => Unit) : T = {b(design.block); design}
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
+    def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
   }
 
   sealed trait Block extends DFBlock {
     type TTags = DFMember.Tags.Basic
+    type TCustomTag = Block.CustomTag
     val designType: String
     def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = s"trait $designType extends DFDesign"
   }
   object Block {
+    trait CustomTag extends DFMember.CustomTag
     final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
       protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>

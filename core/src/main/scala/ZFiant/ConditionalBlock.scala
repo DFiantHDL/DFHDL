@@ -21,6 +21,7 @@ import ZFiant.compiler.printer.Printer
 
 sealed trait ConditionalBlock extends DFBlock with CanBeGuarded with DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
+  type TCustomTag = DFMember.CustomTag
   type TRet
   private[ZFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
 }
@@ -58,6 +59,7 @@ object ConditionalBlock {
 
   sealed trait MatchHeader extends CanBeGuarded with DFAny.CanBeAnonymous {
     type TTags = DFMember.Tags.Basic
+    type TCustomTag = DFMember.CustomTag
     type TMVType <: DFAny.Type
     val matchValRef : MatchValRef[TMVType]
     val matchConfig : MatchConfig

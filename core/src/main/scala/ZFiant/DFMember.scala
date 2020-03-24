@@ -20,6 +20,7 @@ trait HasTypeName {
 }
 trait DFMember extends HasTypeName with Product with Serializable {self =>
   type TTags <: DFMember.Tags{type TTags = self.TTags}
+  type TCustomTag <: DFMember.CustomTag
   val ownerRef : DFBlock.Ref
   val tags : TTags
   implicit def getOwner(implicit getSet : MemberGetSet) : DFBlock = ownerRef
@@ -82,7 +83,7 @@ object DFMember {
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
     def anonymize : M = member.setTags(member.tags.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(member.tags.setKeep(true)).asInstanceOf[M]
-    def !!(customTag : CustomTag) : M = member.setTags(member.tags.!!(customTag)).asInstanceOf[M]
+    def !!(customTag : member.TCustomTag) : M = member.setTags(member.tags.!!(customTag)).asInstanceOf[M]
     def setLateContruction(value : Boolean) : M = member.setTags(member.tags.setLateContruction(value)).asInstanceOf[M]
     def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }

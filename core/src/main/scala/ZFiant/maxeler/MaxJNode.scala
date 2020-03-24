@@ -1,6 +1,7 @@
 package ZFiant.maxeler
 import ZFiant._
 import compiler.Compilable
+import compiler.backend.vhdl.VHDLBackend
 
 final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
@@ -10,22 +11,22 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     case p @ DFAny.Port.Out() => p
   }
     private val pullInputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.In() if p.tags.customTags.contains(MaxelerTag.StreamIOPull) => p
+    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPull) => p
   }
   private val pullOutputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.Out() if p.tags.customTags.contains(MaxelerTag.StreamIOPull) => p
+    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPull) => p
   }
   private val pushInputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.In() if p.tags.customTags.contains(MaxelerTag.StreamIOPush) => p
+    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPush) => p
   }
   private val pushOutputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.Out() if p.tags.customTags.contains(MaxelerTag.StreamIOPush) => p
+    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.Tag.StreamIOPush) => p
   }
   private val scalarInputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.In() if p.tags.customTags.contains(MaxelerTag.ScalarIO) => p
+    case p @ DFAny.Port.In() if p.tags.customTags.contains(Maxeler.Tag.ScalarIO) => p
   }
   private val scalarOutputs : List[DFAny.Of[_ <: DFAny.Type]] = topPorts.collect {
-    case p @ DFAny.Port.Out() if p.tags.customTags.contains(MaxelerTag.ScalarIO) => p
+    case p @ DFAny.Port.Out() if p.tags.customTags.contains(Maxeler.Tag.ScalarIO) => p
   }
 
   private val pullInZ = (pullInputs lazyZip pullInputs.map(p => new MetaDesign() {
@@ -121,7 +122,9 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
 
   private val addedFile = Seq(Compilable.Cmd.GenFile(s"$className.maxj", nodeMaxJString))
 
-  def maxJNode = c.newStage[MaxJNode](db, addedFile)
+  def compile = {
+    new VHDLBackend(c.newStage[MaxJNode](db, addedFile)).compile
+  }
 }
 
 trait MaxJNode extends Compilable.Stage

@@ -46,12 +46,11 @@ object ScalarHDLApp extends App {
   import maxeler._
   import compiler.sync._
   val scalar_hdl = new ScalarHDL {
-    max !! MaxelerTag.StreamIOPull
-    count !! MaxelerTag.StreamIOPush
-    hold_count !! MaxelerTag.ScalarIO
-    this !! MaxelerTag.StreamIOPull
+    max !! Maxeler.Tag.StreamIOPull
+    count !! Maxeler.Tag.StreamIOPush
+    hold_count !! Maxeler.Tag.ScalarIO
+    this !! ClockParams("clk", ClockParams.Edge.Rising)
+    this !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.Low)
   }
-  val res= scalar_hdl.maxJNode
-  import compiler.backend.vhdl._
-  res.compile.printCodeString().printGenFiles()
+  scalar_hdl.compile.printCodeString().printGenFiles()
 }

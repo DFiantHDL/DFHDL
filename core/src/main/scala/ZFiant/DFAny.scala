@@ -11,6 +11,7 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
   type TType <: DFAny.Type
   type TMod <: DFAny.Modifier
   type TTags = DFAny.Tags
+  type TCustomTag = DFAny.CustomTag
   val dfType : TType
   val modifier : TMod
   type Width = dfType.Width
@@ -204,6 +205,7 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
+  trait CustomTag extends DFMember.CustomTag
   final case class Tags(
     meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : Set[DFMember.CustomTag], codeStringOverride : Option[String => String]
   ) extends DFMember.Tags.CC[Tags] {
