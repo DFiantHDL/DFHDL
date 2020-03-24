@@ -22,9 +22,24 @@ object Sync {
   sealed trait Tag extends DFMember.CustomTag
   object Tag {
     case object Clk extends Tag {
+      trait Edge extends Product with Serializable
+      object Edge {
+        case object Rising extends Edge
+        case object Falling extends Edge
+      }
       override def toString: String = "Sync.Tag.Clk"
     }
     case object Rst extends Tag {
+      trait Mode extends Product with Serializable
+      object Mode {
+        case object Async extends Mode
+        case object Sync extends Mode
+      }
+      trait Active extends Product with Serializable
+      object Active {
+        case object Low extends Active
+        case object High extends Active
+      }
       override def toString: String = "Sync.Tag.Rst"
     }
     case object Reg extends Tag {
