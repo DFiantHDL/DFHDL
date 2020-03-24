@@ -44,13 +44,14 @@ trait ScalarHDL extends DFDesign {
 
 object ScalarHDLApp extends App {
   import maxeler._
+  import compiler.sync._
   val scalar_hdl = new ScalarHDL {
     max !! MaxelerTag.StreamIOPull
     count !! MaxelerTag.StreamIOPush
     hold_count !! MaxelerTag.ScalarIO
+    this !! MaxelerTag.StreamIOPull
   }
-  import compiler._
   val res= scalar_hdl.maxJNode
-  import backend.vhdl._
+  import compiler.backend.vhdl._
   res.compile.printCodeString().printGenFiles()
 }

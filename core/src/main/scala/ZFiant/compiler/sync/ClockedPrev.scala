@@ -118,6 +118,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
     }
     c.newStage[ClockedPrev](clockedDB.patch(patchList), Seq())
   }
+  def setClock(clkName : String) : Compilable[D, S] = ???
 }
 
 

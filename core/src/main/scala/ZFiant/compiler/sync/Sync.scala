@@ -47,7 +47,7 @@ object Sync {
     }
   }
 
-  object IfBlock {
+  private[compiler] object IfBlock {
     def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Boolean = (cb.condRef.get : DFAny) match {
       case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(Tag.Rst)
       case x => x.getOwner match {
@@ -56,13 +56,13 @@ object Sync {
       }
     }
   }
-  object ElseIfBlock {
+  private[compiler] object ElseIfBlock {
     def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Boolean = cb.condRef.get.getOwner match {
       case DFInlineComponent.Block(Rising.Rep(bitRef)) => bitRef.get.tags.customTags.contains(Tag.Clk)
       case _ => false
     }
   }
-  object Net {
+  private[compiler] object Net {
     def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.tags.customTags.contains(Sync.Tag.Reg)
   }
 }
