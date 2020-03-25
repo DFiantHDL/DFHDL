@@ -7,7 +7,7 @@ import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-  final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
+  private[ZFiant] final var block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
   final protected implicit val __getset : MemberGetSet = ctx.db.getSet
@@ -38,6 +38,17 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   // Ability to run construction at the owner's context
   ///////////////////////////////////////////////////////////////////
   final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
+  ///////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////
+  // Design block tags mutating methods
+  ///////////////////////////////////////////////////////////////////
+  implicit class DesignExtender[T <: DFDesign](design : T) {
+    private def onBlock(b : DFDesign.Block => DFDesign.Block) : T = {design.block = b(design.block); design}
+    def setName(value : String) : T = onBlock(_.setName(value))
+    def keep : T = onBlock(_.keep)
+    def !!(customTag : DFDesign.Block.CustomTag) : T = onBlock(_.!!(customTag))
+  }
   ///////////////////////////////////////////////////////////////////
 }
 
@@ -73,13 +84,13 @@ object DFDesign {
     DFBool.Op.Implicits
 
 
-  implicit class DesignExtender[T <: DFDesign](design : T) {
-    import design.__db.getSet
-    private def onBlock(b : Block => Unit) : T = {b(design.block); design}
-    def setName(value : String) : T = onBlock(_.setName(value))
-    def keep : T = onBlock(_.keep)
-    def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
-  }
+//  implicit class DesignExtender[T <: DFDesign](design : T) {
+//    import design.__db.getSet
+//    private def onBlock(b : Block => Unit) : T = {b(design.block); design}
+//    def setName(value : String) : T = onBlock(_.setName(value))
+//    def keep : T = onBlock(_.keep)
+//    def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
+//  }
 
   sealed trait Block extends DFBlock {
     type TTags = DFMember.Tags.Basic

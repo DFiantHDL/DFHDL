@@ -46,7 +46,7 @@ class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bra
 
 
 class DMem_Bram(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bram]) extends DFDesign with DMem_Bram_Ifc {
-  final val clka  = DFBit() !! compiler.sync.Sync.Tag.Clk
+  final val clka  = DFBit() //!! compiler.sync.Sync.Tag.Clk
 }
 
 class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : ContextOf[DMem]) extends DFDesign {

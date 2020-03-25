@@ -2,6 +2,7 @@ package ZFiant.maxeler
 import ZFiant._
 import compiler.Compilable
 import compiler.backend.vhdl.VHDLBackend
+import compiler.sync._
 
 final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
@@ -90,9 +91,12 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   private val instName : String = designDB.top.name
   private val packName : String = designDB.top.name
   private val className : String = s"${designDB.top.typeName}Node"
-  private val vhdlName : String = s"${designDB.top.typeName}Source"
-  private val clkName : String = "clk"
-  private val rstName : String = "rst"
+  private val clkName : String = db.top.tags.customTags.collectFirst {
+    case cp : ClockParams => cp
+  }.getOrElse(ClockParams.default).name
+  private val rstName : String = db.top.tags.customTags.collectFirst {
+    case cp : ResetParams => cp
+  }.getOrElse(ResetParams.default).name
 
   private val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
   private val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
@@ -101,7 +105,8 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   private val scalarInStr : String = scalarInputs.map(p => s"""\n\t\taddScalarInput("${p.name}", ${p.width});""").mkString
   private val scalarOutStr : String = scalarOutputs.map(p => s"""\n\t\taddScalarOutput("${p.name}", ${p.width});""").mkString
 
-  private val nodeMaxJString : String =
+  private def nodeMaxJString(vhdlFileNames : Seq[String]) : String = {
+    val addVHDLSources = vhdlFileNames.map(v => s"""addVHDLSource("$v", false);""").mkString("\n\t\t")
     s"""package $packName;
        |
        |import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
@@ -115,15 +120,20 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
        |		nodeClock.setNeedsReset("$rstName");
        |		$pullInStr$pullOutStr$pushInStr$pushOutStr$scalarInStr$scalarOutStr
        |
-       |		addVHDLSource("$vhdlName.vhdl", false);
+       |		$addVHDLSources
        |	}
        |}
        |""".stripMargin
-
-  private val addedFile = Seq(Compilable.Cmd.GenFile(s"$className.maxj", nodeMaxJString))
+  }
 
   def compile = {
-    new VHDLBackend(c.newStage[MaxJNode](db, addedFile)).compile
+    import shapeless.{:: => #:}
+    val vhdlCompile = new VHDLBackend(c.newStage[MaxJNode](db, Seq())).compile
+    val vhdlFileNames = vhdlCompile.cmdSeq.collect {
+      case Compilable.Cmd.GenFile(fileName, _) if fileName.endsWith(".vhdl") => fileName
+    }
+    val addedFile = Compilable.Cmd.GenFile(s"$className.maxj", nodeMaxJString(vhdlFileNames))
+    vhdlCompile.copy[D, MaxJNode #: S](cmdSeq = vhdlCompile.cmdSeq :+ addedFile)
   }
 }
 
