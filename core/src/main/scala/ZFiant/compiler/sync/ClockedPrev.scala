@@ -84,11 +84,11 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         val prevDsn = new ClkRstDesign {
           val sigs : List[DFAny] = prevTpls.map {
             case (_,rv @ DFAny.In(), _) => rv
-            case (_,rv @ DFAny.Port.Out(), _) => rv
-            case (_,rv,prevVar) =>
+            case (_,rv,prevVar) if !rv.name.endsWith("_sig") =>
               val sig = DFAny.NewVar(prevVar.dfType) setName s"${rv.name}_sig"
               sig.assign(rv)
               sig
+            case (_, rv, _) => rv
           }
           private def rstBlock : Unit = prevTpls.foreach {
             case (_, _, prevVar) => prevVar.tags.init match {

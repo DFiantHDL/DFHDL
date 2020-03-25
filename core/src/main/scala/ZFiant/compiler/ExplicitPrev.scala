@@ -169,8 +169,9 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         val portDsns = portSet.map { p =>
           val dsn = new MetaDesign() {
             final val p_var = DFAny.NewVar(p.dfType) setName (s"${p.name}_var")
-            //        final val p_var = __getset.set(p_var_noinit, p_var_noinit.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
-            DFNet.Assignment(p_var, DFAny.Alias.Prev(p, 1))
+            private val p_sig_noinit = DFAny.NewVar(p.dfType) setName (s"${p.name}_sig")
+            final val p_sig = __getset.set[DFAny](p_sig_noinit)(_ => p_sig_noinit.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
+            DFNet.Assignment(p_var, DFAny.Alias.Prev(p_sig, 1))
           }
           (p, dsn)
         }
@@ -179,7 +180,9 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         }
         val addedAssignments = block -> Patch.Add(new MetaDesign() {
           portDsns.foreach {
-            case (p, dsn) => DFNet.Assignment(p, dsn.p_var)
+            case (p, dsn) =>
+              DFNet.Assignment(dsn.p_sig, dsn.p_var)
+              DFNet.Assignment(p, dsn.p_sig)
           }
         }, Patch.Add.Config.Inside)
         addedAssignments :: addedVarPatches
