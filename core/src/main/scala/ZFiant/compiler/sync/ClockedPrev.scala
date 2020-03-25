@@ -20,11 +20,17 @@ package compiler
 package sync
 
 import DFDesign.DB.Patch
+import ZFiant.EdgeDetect.Edge
+import ZFiant.compiler.sync.ResetParams.{Active, Mode}
+
 import collection.mutable
 
 final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.singleStepPrev.calcInit.db
   import designDB.__getset
+
+  private val clockParams = ClockParams.get
+  private val resetParams = ResetParams.get
 
   private def getClockedDB : (DFDesign.DB, Map[DFDesign.Block, ClkRstDesign]) = {
     val addedClkRst : mutable.Map[DFDesign.Block, ClkRstDesign] = mutable.Map()
@@ -46,7 +52,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         case _ => false
       }
       if (hasBlockClk || hasBlockRst || hasPrevClk || hasPrevRst) {
-        val dsnClkRst = new ClkRstDesign {
+        val dsnClkRst = new ClkRstDesign(clockParams.name, resetParams.name) {
           if (hasBlockClk || hasPrevClk) clk //touch lazy clock
           if (hasBlockRst || hasPrevRst) rst //touch lazy reset
         }
@@ -81,7 +87,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       }
       if (prevTpls.nonEmpty) {
         val clockedDsn = addedClkRst(block)
-        val prevDsn = new ClkRstDesign {
+        val prevDsn = new ClkRstDesign(clockParams.name, resetParams.name) {
           val sigs : List[DFAny] = prevTpls.map {
             case (_,rv @ DFAny.In(), _) => rv
             case (_,rv,prevVar) if !rv.name.endsWith("_sig") =>
@@ -101,9 +107,20 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           private def clkBlock : Unit = (prevTpls lazyZip sigs).foreach {
             case ((_, _, prevVar), sig) => prevVar.assign(sig)
           }
-          if (hasPrevRst)
-            ifdf(rst === 0)(rstBlock).elseifdf(clk.rising())(clkBlock)
-          else
+          val clkCond : DFBool = clockParams.edge match {
+            case Edge.Rising => clk.rising().anonymize
+            case Edge.Falling => clk.falling().anonymize
+          }
+          if (hasPrevRst) {
+            val rstCond : DFBool = resetParams.active match {
+              case Active.Low => (rst === 0).anonymize
+              case Active.High => (rst === 1).anonymize
+            }
+            resetParams.mode match {
+              case Mode.Async => ifdf(rstCond)(rstBlock).elseifdf(clkCond)(clkBlock)
+              case Mode.Sync => ifdf(clkCond)(ifdf(rstCond)(rstBlock).elsedf(clkBlock))
+            }
+          } else
             ifdf(clk.rising())(clkBlock)
         }
         //replacing the clock and reset with the ones already added in clockedDB

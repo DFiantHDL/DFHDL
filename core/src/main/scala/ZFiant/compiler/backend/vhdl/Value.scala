@@ -87,7 +87,8 @@ private object Value {
       case c : DFAny.Const => const(c.token)
       case d : DFAny.Dcl => d.ownerRef.get match {
         case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep match {
-          case Rising.Rep(bitRef) => s"$OP rising_edge(${ref(bitRef)})"
+          case EdgeDetect.Rep(bitRef, EdgeDetect.Edge.Rising) => s"$OP rising_edge(${ref(bitRef)})"
+          case EdgeDetect.Rep(bitRef, EdgeDetect.Edge.Falling) => s"$OP falling_edge(${ref(bitRef)})"
           case _ => ??? //missing support for other inlined options
         }
         case _ => d.name

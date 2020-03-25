@@ -19,7 +19,7 @@ package ZFiant
 package compiler.sync
 
 private[compiler] object Sync {
-  sealed trait Tag extends DFMember.CustomTag
+  sealed trait Tag extends DFAny.CustomTag
   object Tag {
     case object Clk extends Tag {
       override def toString: String = "Sync.Tag.Clk"
@@ -36,14 +36,14 @@ private[compiler] object Sync {
     def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Boolean = (cb.condRef.get : DFAny) match {
       case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(Tag.Rst)
       case x => x.getOwner match {
-        case DFInlineComponent.Block(Rising.Rep(bitRef)) => bitRef.get.tags.customTags.contains(Tag.Clk)
+        case DFInlineComponent.Block(EdgeDetect.Rep(bitRef, _)) => bitRef.get.tags.customTags.contains(Tag.Clk)
         case _ => false
       }
     }
   }
   object ElseIfBlock {
     def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Boolean = cb.condRef.get.getOwner match {
-      case DFInlineComponent.Block(Rising.Rep(bitRef)) => bitRef.get.tags.customTags.contains(Tag.Clk)
+      case DFInlineComponent.Block(EdgeDetect.Rep(bitRef, _)) => bitRef.get.tags.customTags.contains(Tag.Clk)
       case _ => false
     }
   }
@@ -54,25 +54,28 @@ private[compiler] object Sync {
 
 final case class ClockParams(name : String, edge : ClockParams.Edge = ClockParams.Edge.Rising) extends DFDesign.Block.CustomTag
 object ClockParams {
-  trait Edge extends Product with Serializable
-  object Edge {
-    case object Rising extends Edge
-    case object Falling extends Edge
-  }
+  type Edge = EdgeDetect.Edge
+  final val Edge = EdgeDetect.Edge
   final val default = ClockParams("clk", Edge.Rising)
+  def get(implicit getSet: MemberGetSet) : ClockParams = getSet.designDB.top.tags.customTags.collectFirst {
+    case cp : ClockParams => cp
+  }.getOrElse(default)
 }
 
 final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFDesign.Block.CustomTag
 object ResetParams {
-  trait Mode extends Product with Serializable
+  sealed trait Mode extends Product with Serializable
   object Mode {
     case object Async extends Mode
     case object Sync extends Mode
   }
-  trait Active extends Product with Serializable
+  sealed trait Active extends Product with Serializable
   object Active {
     case object Low extends Active
     case object High extends Active
   }
   final val default = ResetParams("rst", Mode.Async, Active.Low)
+  def get(implicit getSet: MemberGetSet) : ResetParams = getSet.designDB.top.tags.customTags.collectFirst {
+    case cp : ResetParams => cp
+  }.getOrElse(default)
 }

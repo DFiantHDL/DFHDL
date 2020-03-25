@@ -1,5 +1,6 @@
 package ZFiant
 
+import ZFiant.EdgeDetect.Edge
 import compiler.printer.Printer
 abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   implicit ctx : ContextOf[DFInlineComponent[Type]]
@@ -28,26 +29,36 @@ object DFInlineComponent {
   }
 }
 
-final case class Rising(bit : DFBit)(
-  implicit ctx : ContextOf[Rising]
+final case class EdgeDetect(bit : DFBit, edge : EdgeDetect.Edge)(
+  implicit ctx : ContextOf[EdgeDetect]
 ) extends DFInlineComponent[DFBool.Type](DFBool.Type(logical = true)) {
-  lazy val rep : DFInlineComponent.Rep = Rising.Rep(bit)
+  lazy val rep : DFInlineComponent.Rep = EdgeDetect.Rep(bit, edge)
   private val boolIn = DFBit() <> IN
-  outPort <> (boolIn && !boolIn.prev())
+  edge match {
+    case Edge.Falling => outPort <> (!boolIn && boolIn.prev())
+    case Edge.Rising => outPort <> (boolIn && !boolIn.prev())
+  }
   atOwnerDo {
     boolIn.connectWith(bit)
   }
 }
-object Rising {
-  final case class Rep(bitRef : DFInlineComponent.Ref) extends DFInlineComponent.Rep {
+object EdgeDetect {
+  sealed trait Edge extends Product with Serializable
+  object Edge {
+    case object Rising extends Edge
+    case object Falling extends Edge
+  }
+  final case class Rep(bitRef : DFInlineComponent.Ref, edge : EdgeDetect.Edge) extends DFInlineComponent.Rep {
     protected[ZFiant] def =~(that : DFInlineComponent.Rep)(implicit getSet : MemberGetSet) : Boolean = that match {
-      case Rep(bitRef) => this.bitRef =~ bitRef
+      case Rep(bitRef, edge) => this.bitRef =~ bitRef && this.edge == edge
       case _ => false
     }
-    def inlineCodeString(implicit ctx : Printer.Context) : String =
-      s"${bitRef.refCodeString}.rising()"
+    def inlineCodeString(implicit ctx : Printer.Context) : String = edge match {
+      case Edge.Rising => s"${bitRef.refCodeString}.rising()"
+      case Edge.Falling => s"${bitRef.refCodeString}.falling()"
+    }
   }
   object Rep {
-    def apply(bit : DFBit)(implicit ctx : DFNet.Context) : Rep = new Rep(bit)
+    def apply(bit : DFBit, edge : EdgeDetect.Edge)(implicit ctx : DFNet.Context) : Rep = new Rep(bit, edge)
   }
 }

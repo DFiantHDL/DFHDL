@@ -50,7 +50,7 @@ object ScalarHDLApp extends App {
     count !! Maxeler.StreamIOPush
     hold_count !! Maxeler.ScalarIO
     this !! ClockParams("clk", ClockParams.Edge.Rising)
-    this !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.Low)
+    this !! ResetParams("rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
   scalar_hdl.compile.printCodeString().printGenFiles()
 }
