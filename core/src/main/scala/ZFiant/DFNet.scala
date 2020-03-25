@@ -40,7 +40,7 @@ object DFNet {
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
       case _ => false
     }
-    def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Assignment {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
@@ -63,7 +63,7 @@ object DFNet {
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
       case _ => false
     }
-    def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Connection {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)

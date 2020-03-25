@@ -152,7 +152,7 @@ object ConditionalBlock {
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object IfBlock {
       def apply[Type <: DFAny.Type](retVar : DFAny.VarOf[Type], cond: DFBool)(block: => DFAny.Of[Type])(
@@ -177,7 +177,7 @@ object ConditionalBlock {
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseIfBlock {
       def apply[Type <: DFAny.Type](
@@ -196,7 +196,7 @@ object ConditionalBlock {
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseBlock {
       def apply[Type <: DFAny.Type](
@@ -220,7 +220,7 @@ object ConditionalBlock {
           this.matchValRef =~ matchValRef && this.matchConfig == matchConfig && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object MatchHeader {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -257,7 +257,7 @@ object ConditionalBlock {
           this.matchHeaderRef =~ matchHeaderRef && this.pattern == pattern && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCasePatternBlock {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -279,7 +279,7 @@ object ConditionalBlock {
             this.matchHeaderRef =~ matchHeaderRef && this.prevCaseRef =~ prevCaseRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCase_Block {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
@@ -306,7 +306,7 @@ object ConditionalBlock {
           this.condRef =~ condRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object IfBlock {
       def apply(cond: DFBool)(block: => Unit)(implicit ctx: DFBlock.Context)
@@ -328,7 +328,7 @@ object ConditionalBlock {
           this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseIfBlock {
       def apply(cond: DFBool, prevBlock: NoRetVal)(block: => Unit)(
@@ -345,7 +345,7 @@ object ConditionalBlock {
           this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseBlock {
       def apply(prevBlock: NoRetVal)(block: => Unit)(
@@ -368,7 +368,7 @@ object ConditionalBlock {
             this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object MatchHeader {
       def apply[MVType <: DFAny.Type](
@@ -404,7 +404,7 @@ object ConditionalBlock {
           prevCaseEq && this.mvType == mvType && this.matchHeaderRef =~ matchHeaderRef && this.pattern == pattern && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCasePatternBlock {
       def apply[MVType <: DFAny.Type](
@@ -426,7 +426,7 @@ object ConditionalBlock {
           this.mvType == mvType && this.matchHeaderRef =~ matchHeaderRef && this.prevCaseRef =~ prevCaseRef && this.tags =~ tags
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCase_Block {
       def apply[MVType <: DFAny.Type](

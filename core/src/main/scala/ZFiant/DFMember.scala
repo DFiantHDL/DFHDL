@@ -71,20 +71,20 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   //true if and only if the two members are equivalent in relation to their design construction context
   protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean
 
-  def setTags(tags : TTags)(implicit getSet : MemberGetSet) : DFMember
+  def setTags(tagsFunc : TTags => TTags)(implicit getSet : MemberGetSet) : DFMember
   def show(implicit getSet : MemberGetSet) : String = s"$getFullName : $typeName"
 }
 
 
 object DFMember {
   implicit class MemberExtender[M <: DFMember](member : M)(implicit getSet : MemberGetSet) {
-    def setName(value : String) : M = member.setTags(member.tags.setName(value)).asInstanceOf[M]
+    def setName(value : String) : M = member.setTags(_.setName(value)).asInstanceOf[M]
     def setNameSuffix(value : String) : M = setName(s"${member.name}$value")
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
-    def anonymize : M = member.setTags(member.tags.anonymize).asInstanceOf[M]
-    def keep : M = member.setTags(member.tags.setKeep(true)).asInstanceOf[M]
-    def !!(customTag : member.TCustomTag) : M = member.setTags(member.tags.!!(customTag)).asInstanceOf[M]
-    def setLateContruction(value : Boolean) : M = member.setTags(member.tags.setLateContruction(value)).asInstanceOf[M]
+    def anonymize : M = member.setTags(_.anonymize).asInstanceOf[M]
+    def keep : M = member.setTags(_.setKeep(true)).asInstanceOf[M]
+    def !!(customTag : member.TCustomTag) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def setLateContruction(value : Boolean) : M = member.setTags(_.setLateContruction(value)).asInstanceOf[M]
     def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
@@ -189,7 +189,7 @@ object DFMember {
 trait MemberGetSet {
   def designDB : DFDesign.DB
   def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0
-  def set[M <: DFMember](originalMember : M, newMember : M) : M
+  def set[M <: DFMember](originalMember : M)(newMemberFunc : M => M) : M
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet

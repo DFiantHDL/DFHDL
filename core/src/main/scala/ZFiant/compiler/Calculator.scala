@@ -90,7 +90,7 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D,
     val calcMembers = designDB.members.collect{case v : DFAny if v.tags.init.isEmpty => v}
     val initMap = calcInitRec(calcMembers, Map(), Set())
     val patchList = initMap.toList.map{
-      case (v, init) => v -> Patch.Replace(v.setTags(v.tags.setInit(init.asInstanceOf[Seq[v.TToken]])), Patch.Replace.Config.FullReplacement)
+      case (v, init) => v -> Patch.Replace(v.setTags(_.setInit(init.asInstanceOf[Seq[v.TToken]])), Patch.Replace.Config.FullReplacement)
     }
     c.newStage[Calculator](designDB.patch(patchList), Seq())
   }

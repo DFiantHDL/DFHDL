@@ -7,7 +7,7 @@ import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-  private[ZFiant] final var block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
+  private[ZFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
   private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
   final protected implicit val __getset : MemberGetSet = ctx.db.getSet
@@ -38,17 +38,6 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   // Ability to run construction at the owner's context
   ///////////////////////////////////////////////////////////////////
   final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
-  ///////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////
-  // Design block tags mutating methods
-  ///////////////////////////////////////////////////////////////////
-  implicit class DesignExtender[T <: DFDesign](design : T) {
-    private def onBlock(b : DFDesign.Block => DFDesign.Block) : T = {design.block = b(design.block); design}
-    def setName(value : String) : T = onBlock(_.setName(value))
-    def keep : T = onBlock(_.keep)
-    def !!(customTag : DFDesign.Block.CustomTag) : T = onBlock(_.!!(customTag))
-  }
   ///////////////////////////////////////////////////////////////////
 }
 
@@ -83,14 +72,13 @@ object DFDesign {
     DFEnum.Op.Implicits with
     DFBool.Op.Implicits
 
-
-//  implicit class DesignExtender[T <: DFDesign](design : T) {
-//    import design.__db.getSet
-//    private def onBlock(b : Block => Unit) : T = {b(design.block); design}
-//    def setName(value : String) : T = onBlock(_.setName(value))
-//    def keep : T = onBlock(_.keep)
-//    def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
-//  }
+  implicit class DesignExtender[T <: DFDesign](design : T) {
+    import design.__db.getSet
+    private def onBlock(b : Block => Unit) : T = {b(design.block); design}
+    def setName(value : String) : T = onBlock(_.setName(value))
+    def keep : T = onBlock(_.keep)
+    def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
+  }
 
   sealed trait Block extends DFBlock {
     type TTags = DFMember.Tags.Basic
@@ -111,7 +99,7 @@ object DFDesign {
           this.designType == designType && this.tags =~ tags && inlineRepEq
         case _ => false
       }
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
       override lazy val typeName : String = designType
     }
     object Internal {
@@ -129,7 +117,7 @@ object DFDesign {
       }
       override lazy val typeName : String = designType
       override def getFullName(implicit getSet : MemberGetSet): String = name
-      def setTags(tags : DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this, copy(tags = tags)(db))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember =getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
     }
   }
 
@@ -143,7 +131,7 @@ object DFDesign {
     implicit val __getset : MemberGetSet = new MemberGetSet {
       def designDB : DFDesign.DB = self
       def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
-      def set[M <: DFMember](originalMember : M, newMember: M): M = newMember
+      def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = newMemberFunc(originalMember)
     }
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
 
@@ -503,8 +491,10 @@ object DFDesign {
         }.nonEmpty
       }
       def getMember[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
-      def setMember[M <: DFMember](originalMember : M, newMember : M) : M = {
+      def setMember[M <: DFMember](originalMember : M, newMemberFunc : M => M) : M = {
         val idx = memberTable(originalMember)
+        //get the most updated member currently positioned at the index of the original member
+        val newMember = newMemberFunc(members(idx)._1.asInstanceOf[M])
         val (_, refSet) = members(idx)
         //update all references to the new member
         refSet.foreach(r => refTable.update(r, newMember))
@@ -544,7 +534,7 @@ object DFDesign {
       implicit val getSet : MemberGetSet = new MemberGetSet {
         def designDB : DFDesign.DB = immutable
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
-        def set[M <: DFMember](originalMember : M, newMember: M): M = setMember(originalMember, newMember)
+        def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = setMember(originalMember, newMemberFunc)
       }
     }
   }
