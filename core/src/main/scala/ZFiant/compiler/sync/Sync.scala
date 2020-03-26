@@ -32,19 +32,26 @@ private[compiler] object Sync {
     }
   }
 
+  object IsReset {
+    def unapply(arg : DFAny) : Boolean = arg.tags.customTags.contains(Tag.Rst)
+  }
+  object IsClock {
+    def unapply(arg : DFAny) : Boolean = arg.tags.customTags.contains(Tag.Clk)
+  }
+
   object IfBlock {
-    def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Boolean = (cb.condRef.get : DFAny) match {
-      case DFAny.Func2(_, leftArgRef, _, _, _, _) => leftArgRef.get.tags.customTags.contains(Tag.Rst)
+    def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = (cb.condRef.get : DFAny) match {
+      case DFAny.Func2.Unref(_, rst @ IsReset(), DFAny.Func2.Op.==, _, _, _) => Some(rst)
       case x => x.getOwner match {
-        case DFInlineComponent.Block(EdgeDetect.Rep(bitRef, _)) => bitRef.get.tags.customTags.contains(Tag.Clk)
-        case _ => false
+        case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), _)) => Some(clk)
+        case _ => None
       }
     }
   }
   object ElseIfBlock {
-    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Boolean = cb.condRef.get.getOwner match {
-      case DFInlineComponent.Block(EdgeDetect.Rep(bitRef, _)) => bitRef.get.tags.customTags.contains(Tag.Clk)
-      case _ => false
+    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = cb.condRef.get.getOwner match {
+      case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), _)) => Some(clk)
+      case _ => None
     }
   }
   object Net {

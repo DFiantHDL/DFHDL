@@ -16,7 +16,7 @@ private object Process {
   }
   object Sensitivity {
     object List {
-      def apply(names : scala.List[String])(implicit printer : Printer) : String = names.mkString(",")
+      def apply(names : scala.List[String])(implicit printer : Printer) : String = names.mkString(", ")
     }
     object All {
       def apply()(implicit printer : Printer) : String = s"${printer.config.KW}all"

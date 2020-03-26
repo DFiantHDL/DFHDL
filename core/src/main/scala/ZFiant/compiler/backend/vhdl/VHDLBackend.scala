@@ -20,8 +20,8 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
-    case Sync.IfBlock() => true
-    case Sync.ElseIfBlock() => true
+    case Sync.IfBlock(_) => true
+    case Sync.ElseIfBlock(_) => true
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true) : List[String] = {
@@ -76,7 +76,11 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         val asyncStatements = getProcessStatements(design, !isSyncMember(_))
         val asyncProcess = Process("async_proc", Process.Sensitivity.All(), variables, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
-        val syncProcess = Process("sync_proc", Process.Sensitivity.All(), List(), syncStatements)
+        val syncSensitivityList = members.collect {
+          case Sync.IfBlock(clkOrReset) => clkOrReset.name
+          case Sync.ElseIfBlock(clk) => clk.name
+        }
+        val syncProcess = Process("sync_proc", Process.Sensitivity.List(syncSensitivityList), List(), syncStatements)
         val statements = componentInstances ++ List(asyncProcess, syncProcess)
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
         val file = File(s"${designDB.top.designType}_pack", entity, architecture)

@@ -697,6 +697,12 @@ object DFAny {
         ctx.db.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func0)).asRefOwner
       ret.asInstanceOf[Func[Type]]
     }
+    object Unref {
+      def unapply(arg : Func2)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Op, DFAny, DFBlock, DFAny.Tags)] = arg match {
+        case Func2(dfType, leftArgRef, op, rightArgRef, ownerRef, tags) => Some((dfType, leftArgRef.get, op, rightArgRef.get, ownerRef.get, tags))
+        case _ => None
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
