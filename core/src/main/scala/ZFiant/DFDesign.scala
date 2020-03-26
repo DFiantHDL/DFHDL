@@ -7,7 +7,8 @@ import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-  private[ZFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep)(ctx)
+  private[ZFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
+  private[ZFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(ctx)
   private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
   final protected implicit val __getset : MemberGetSet = ctx.db.getSet
@@ -38,6 +39,15 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   // Ability to run construction at the owner's context
   ///////////////////////////////////////////////////////////////////
   final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
+  ///////////////////////////////////////////////////////////////////
+
+  ///////////////////////////////////////////////////////////////////
+  // Simulation-related constructs
+  ///////////////////////////////////////////////////////////////////
+  lazy val inSimulation : Boolean = ctx.db.top.simMode match {
+    case DFSimulator.Mode.Off => false
+    case DFSimulator.Mode.On => true
+  }
   ///////////////////////////////////////////////////////////////////
 }
 
@@ -103,21 +113,25 @@ object DFDesign {
       override lazy val typeName : String = designType
     }
     object Internal {
-      def apply(designType : String, inlinedRep : Option[DFInlineComponent.Rep])(implicit ctx : Context) : Block = ctx.db.addMember(
-        if (ctx.ownerInjector == null) Top(designType, ctx.meta)(ctx.db) else Internal(designType, ctx.owner, ctx.meta, inlinedRep))
+      def apply(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimulator.Mode)(
+        implicit ctx : Context
+      ) : Block = ctx.db.addMember(
+        if (ctx.ownerInjector == null) Top(designType, ctx.meta, simMode)(ctx.db)
+        else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
+      )
     }
-    final case class Top(designType: String, tags : DFMember.Tags.Basic)(db: DB.Mutable) extends Block {
+    final case class Top(designType: String, tags : DFMember.Tags.Basic, simMode : DFSimulator.Mode)(db: DB.Mutable) extends Block {
       override lazy val ownerRef : DFBlock.Ref = ???
       override def getOwner(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
-        case Top(designType, tags) =>
-          this.designType == designType && this.tags =~ tags
+        case Top(designType, tags, simMode) =>
+          this.designType == designType && this.tags =~ tags && this.simMode == simMode
         case _ => false
       }
       override lazy val typeName : String = designType
       override def getFullName(implicit getSet : MemberGetSet): String = name
-      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember =getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
     }
   }
 
@@ -473,6 +487,9 @@ object DFDesign {
     }
     class Mutable {
       private val members : mutable.ArrayBuffer[(DFMember, Set[DFMember.Ref])] = mutable.ArrayBuffer()
+      lazy val top : Block.Top = members.head._1 match {
+        case m : Block.Top => m
+      }
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
         cb.applyBlock(block)
