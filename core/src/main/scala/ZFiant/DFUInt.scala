@@ -41,11 +41,9 @@ object DFUInt extends DFAny.Companion {
   def apply[W](
     implicit ctx : DFAny.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) = DFAny.NewVar(Type(checkedWidth))
-  def unapply(arg: Any): Option[TwoFace.Int[Int]] = arg match {
-    case dfAny : DFAny => dfAny.dfType match {
-      case Type(width) => Some(width)
-      case _ => None
-    }
+  def unapply(arg: DFAny): Option[TwoFace.Int[Int]] = arg.dfType match {
+    case Type(width) => Some(width)
+    case _ => None
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

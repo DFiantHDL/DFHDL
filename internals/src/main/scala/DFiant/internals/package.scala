@@ -133,6 +133,7 @@ package object internals {
 
   type XBitVector[W] = BitVector with WidthTag[W]
   object XBitVector {
+    def empty : XBitVector[0] = BitVector.empty.asInstanceOf[XBitVector[0]]
     def bit(high: Boolean): XBitVector[1] = BitVector.bit(high).asInstanceOf[XBitVector[1]]
     def fill[W](n: TwoFace.Int[W])(high: Boolean): XBitVector[W] = BitVector.fill(n.getValue)(high).asInstanceOf[XBitVector[W]]
     def low[W](n: TwoFace.Int[W]): XBitVector[W] = fill(n)(false)

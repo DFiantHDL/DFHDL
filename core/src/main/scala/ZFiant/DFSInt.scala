@@ -38,11 +38,12 @@ object DFSInt extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def apply[W](checkedWidth : SIntWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
-  def unapply(arg: Any): Option[TwoFace.Int[Int]] = arg match {
-    case dfAny : DFAny => dfAny.dfType match {
-      case Type(width) => Some(width)
-      case _ => None
-    }
+  def apply[W](
+    implicit ctx : DFAny.Context, checkedWidth : SIntWidth.Checked[W], di: DummyImplicit
+  ) = DFAny.NewVar(Type(checkedWidth))
+  def unapply(arg: DFAny): Option[TwoFace.Int[Int]] = arg.dfType match {
+    case Type(width) => Some(width)
+    case _ => None
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

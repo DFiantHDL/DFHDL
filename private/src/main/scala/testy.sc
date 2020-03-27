@@ -1,3 +1,4 @@
-val x = "oron is oronim lovigng oron"
+import scodec.bits
+import scodec.bits.BitVector
 
-x.replaceAll("\\boron\\b", "fountain")
+BitVector.fromBin("11") ++ BitVector.fromBin("0000")
