@@ -71,7 +71,7 @@ object DFBits extends DFAny.Companion {
       assert(that.width == width)
       Token(this.valueBits ^ that.valueBits, this.bubbleMask | that.bubbleMask)
     }
-    def ~~ (that : Token) : Token = {
+    def ++ (that : Token) : Token = {
       Token(this.valueBits ++ that.valueBits, this.bubbleMask ++ that.bubbleMask)
     }
     def << (that : DFUInt.Token) : Token = {
@@ -86,7 +86,7 @@ object DFBits extends DFAny.Companion {
     def reverse : Token = Token(valueBits.reverseBitOrder, bubbleMask.reverseBitOrder)
     def resize(toWidth : Int) : Token = {
       if (toWidth < width) bitsWL(toWidth, 0)
-      else if (toWidth > width) (Token(toWidth - width, 0) ~~ this)
+      else if (toWidth > width) (Token(toWidth - width, 0) ++ this)
       else this
     }
     def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.valueBits == that.valueBits, this.isBubble || that.isBubble)
@@ -230,7 +230,7 @@ object DFBits extends DFAny.Companion {
       final def ^   [RW](right : DFBits[RW])(implicit op: `Op^`.Builder[L, DFBits[RW]]) = op(left, right)
       final def === [RW](right : DFBits[RW])(implicit op: `Op===`.Builder[L, DFBits[RW]]) = op(left, right)
       final def =!= [RW](right : DFBits[RW])(implicit op: `Op=!=`.Builder[L, DFBits[RW]]) = op(left, right)
-      final def ~~  [RW](right : DFBits[RW])(implicit op: `Op~~`.Builder[L, DFBits[RW]]) = op(left, right)
+      final def ++  [RW](right : DFBits[RW])(implicit op: `Op++`.Builder[L, DFBits[RW]]) = op(left, right)
     }
     trait Implicits {
       sealed class DFBitsFromBitVector(left : BitVector) extends AbleOps[BitVector](left)
@@ -250,7 +250,7 @@ object DFBits extends DFAny.Companion {
         def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
-        def ~~  [R](right : Able[R])(implicit op: `Op~~`.Builder[DFBits[LW], R]) = op(left, right)
+        def ++  [R](right : Able[R])(implicit op: `Op++`.Builder[DFBits[LW], R]) = op(left, right)
         def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
         def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
         def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
@@ -260,7 +260,7 @@ object DFBits extends DFAny.Companion {
           val ret = if (left.width < toWidth) {
             val zeroWidth = toWidth - left.width
             val zeros = DFAny.Const.forced(Type(zeroWidth), Token(zeroWidth, 0))
-            `Op~~`.forced(left, zeros)
+            `Op++`.forced(left, zeros)
           }
           else if (left.width > toWidth) DFAny.Alias.BitsWL(left, toWidth, left.width - toWidth)
           else left
@@ -307,7 +307,7 @@ object DFBits extends DFAny.Companion {
             case dfAny : DFAny.Value[_,_] => dfAny.bits.asInstanceOf[DFBits[Int]]
             case bv : BitVector => DFAny.Const.forced(Type(bv.length.toInt), DFBits.Token(bv))
           }
-          list.reduce((l, r) => `Op~~`.forced(l, r)).asInstanceOf[DFBits[w.Out]]
+          list.reduce((l, r) => `Op++`.forced(l, r)).asInstanceOf[DFBits[w.Out]]
         }
       }
 
@@ -634,12 +634,12 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Concatenation operation
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op~~` {
+  object `Op++` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     def forced[LW, RW](left : DFBits[LW], right : DFBits[RW])(implicit ctx : DFAny.Context) : DFBits[Int] =
-      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.~~, right)(_ ~~ _).asInstanceOf[DFBits[Int]]
+      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.++, right)(_ ++ _).asInstanceOf[DFBits[Int]]
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
         type Out = Comp0
@@ -669,7 +669,7 @@ object DFBits extends DFAny.Companion {
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
                   val oWidth = oW(left.width, right.width)
-                  val out = DFAny.Func2(Type(oWidth), left, DFAny.Func2.Op.~~, right)(_ ~~ _)
+                  val out = DFAny.Func2(Type(oWidth), left, DFAny.Func2.Op.++, right)(_ ++ _)
                   out
                 }
               }

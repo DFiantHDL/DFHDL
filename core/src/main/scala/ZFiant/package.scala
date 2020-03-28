@@ -104,7 +104,7 @@ package object ZFiant {
   type XBitVector[W] = DFiant.internals.XBitVector[W]
   final val XBitVector = DFiant.internals.XBitVector
   implicit class XBitVectorExtras[LW](left : XBitVector[LW]) {
-    def ~~[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
+    def ++[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
       (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
   }
   /**

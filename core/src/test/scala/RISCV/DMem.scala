@@ -97,7 +97,7 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
         .casedf(b"11")    {wrEnToMem := b"1000"}
     }
     .casedf(DMemSel.SH) {
-      dataToMemBH := dataToMem(15,0) ~~ dataToMem(15,0)
+      dataToMemBH := dataToMem(15,0) ++ dataToMem(15,0)
       matchdf(addr(1, 1))
         .casedf(b"0")     {wrEnToMem := b"0011"}
         .casedf(b"1")     {wrEnToMem := b"1100"}

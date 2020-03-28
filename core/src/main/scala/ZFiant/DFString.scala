@@ -55,7 +55,7 @@ object DFString extends DFAny.Companion {
     val width : Int = value.length
     lazy val valueBits : BitVector = value.map(b => b.toInt.toBitVector(8) : BitVector).reduce(_ ++ _)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
-    def ~~ (that : Token) : Token = Token(this.value ++ that.value, this.isBubble || that.isBubble)
+    def ++ (that : Token) : Token = Token(this.value ++ that.value, this.isBubble || that.isBubble)
     def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
 
@@ -186,7 +186,7 @@ object DFString extends DFAny.Companion {
       final val left = value
       final def === [RL](right : DFString[RL])(implicit op: `Op===`.Builder[L, DFString[RL]]) = op(left, right)
       final def =!= [RL](right : DFString[RL])(implicit op: `Op=!=`.Builder[L, DFString[RL]]) = op(left, right)
-      final def ~~  [RL](right : DFString[RL])(implicit op: `Op~~`.Builder[L, DFString[RL]]) = op(left, right)
+      final def ++  [RL](right : DFString[RL])(implicit op: `Op++`.Builder[L, DFString[RL]]) = op(left, right)
     }
     trait Implicits {
       sealed class DFStringFromByteVector(left : Vector[Byte]) extends AbleOps[Vector[Byte]](left)
@@ -201,7 +201,7 @@ object DFString extends DFAny.Companion {
       final implicit class DFStringOps[LL](val left : DFString[LL]){
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFString[LL], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFString[LL], R]) = op(left, right)
-        def ~~  [R](right : Able[R])(implicit op: `Op~~`.Builder[DFString[LL], R]) = op(left, right)
+        def ++  [R](right : Able[R])(implicit op: `Op++`.Builder[DFString[LL], R]) = op(left, right)
       }
 //      final implicit class DFStringAliases[LL, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LL], Mod]) {
 //        def apply[H, L](relBitHigh : BitIndex.Checked[H, left.dfType.Length], relBitLow : BitIndex.Checked[L, left.dfType.Width])(
@@ -324,12 +324,12 @@ object DFString extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Concatenation operation
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op~~` {
+  object `Op++` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
     def forced[LL, RL](left : DFString[LL], right : DFString[RL])(implicit ctx : DFAny.Context) : DFString[Int] =
-      DFAny.Func2(Type(left.dfType.length + right.dfType.length), left, DFAny.Func2.Op.~~, right)(_ ~~ _).asInstanceOf[DFString[Int]]
+      DFAny.Func2(Type(left.dfType.length + right.dfType.length), left, DFAny.Func2.Op.++, right)(_ ++ _).asInstanceOf[DFString[Int]]
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
         type Out = Comp0
@@ -359,7 +359,7 @@ object DFString extends DFAny.Companion {
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
                   val oLength = oL(left.dfType.length, right.dfType.length)
-                  val out = DFAny.Func2(Type(oLength), left, DFAny.Func2.Op.~~, right)(_ ~~ _)
+                  val out = DFAny.Func2(Type(oLength), left, DFAny.Func2.Op.++, right)(_ ++ _)
                   out
                 }
               }

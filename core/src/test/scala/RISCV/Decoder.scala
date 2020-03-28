@@ -214,17 +214,17 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
       wbSel := WriteBackSel.ALU
       rd_wren := true
       dmemSel := DMemSel.DontCare
-      matchdf(func7 ~~ func3)
-        .casedf(b"0000000" ~~ b"000") {debugOp := DebugOp.ADD;    aluSel := ALUSel.ADD}
-        .casedf(b"0100000" ~~ b"000") {debugOp := DebugOp.SUB;    aluSel := ALUSel.SUB}
-        .casedf(b"0000000" ~~ b"001") {debugOp := DebugOp.SLL;    aluSel := ALUSel.SLL}
-        .casedf(b"0000000" ~~ b"010") {debugOp := DebugOp.SLT;    aluSel := ALUSel.SLT}
-        .casedf(b"0000000" ~~ b"011") {debugOp := DebugOp.SLTU;   aluSel := ALUSel.SLTU}
-        .casedf(b"0000000" ~~ b"100") {debugOp := DebugOp.XOR;    aluSel := ALUSel.XOR}
-        .casedf(b"0000000" ~~ b"101") {debugOp := DebugOp.SRL;    aluSel := ALUSel.SRL}
-        .casedf(b"0100000" ~~ b"101") {debugOp := DebugOp.SRA;    aluSel := ALUSel.SRA}
-        .casedf(b"0000000" ~~ b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
-        .casedf(b"0000000" ~~ b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
+      matchdf(func7 ++ func3)
+        .casedf(b"0000000" ++ b"000") {debugOp := DebugOp.ADD;    aluSel := ALUSel.ADD}
+        .casedf(b"0100000" ++ b"000") {debugOp := DebugOp.SUB;    aluSel := ALUSel.SUB}
+        .casedf(b"0000000" ++ b"001") {debugOp := DebugOp.SLL;    aluSel := ALUSel.SLL}
+        .casedf(b"0000000" ++ b"010") {debugOp := DebugOp.SLT;    aluSel := ALUSel.SLT}
+        .casedf(b"0000000" ++ b"011") {debugOp := DebugOp.SLTU;   aluSel := ALUSel.SLTU}
+        .casedf(b"0000000" ++ b"100") {debugOp := DebugOp.XOR;    aluSel := ALUSel.XOR}
+        .casedf(b"0000000" ++ b"101") {debugOp := DebugOp.SRL;    aluSel := ALUSel.SRL}
+        .casedf(b"0100000" ++ b"101") {debugOp := DebugOp.SRA;    aluSel := ALUSel.SRA}
+        .casedf(b"0000000" ++ b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
+        .casedf(b"0000000" ++ b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
     }
     //////////////////////////////////////////////
     // System
@@ -233,8 +233,8 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
       matchdf(func3)
         .casedf(b"000") { //ECALL/EBREAK
           matchdf(notOpCode)
-            .casedf(b"000000000000" ~~ b"00000" ~~ b"000" ~~ b"00000") {debugOp := DebugOp.ECALL;}
-            .casedf(b"000000000001" ~~ b"00000" ~~ b"000" ~~ b"00000") {debugOp := DebugOp.EBREAK;}
+            .casedf(b"000000000000" ++ b"00000" ++ b"000" ++ b"00000") {debugOp := DebugOp.ECALL;}
+            .casedf(b"000000000001" ++ b"00000" ++ b"000" ++ b"00000") {debugOp := DebugOp.EBREAK;}
         }
         .casedf(b"001")               {debugOp := DebugOp.CSRRW;  }
         .casedf(b"010")               {debugOp := DebugOp.CSRRS;  }

@@ -33,7 +33,7 @@ class RegFile(decodedInst : DecodedInst)(implicit ctx : DFDesign.ContextOf[RegFi
   regsWithIndex.foreachdf(rs1_addr) {case (r, ri) => rs1_data := r}
   regsWithIndex.foreachdf(rs2_addr) {case (r, ri) => rs2_data := r}
 
-//  sim.report(msg"RFile~~>rs1_addr: $rs1_addr, rs1_data: $rs1_data, rs2_addr: $rs2_addr, rs2_data: $rs2_data, rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
+//  sim.report(msg"RFile++>rs1_addr: $rs1_addr, rs1_data: $rs1_data, rs2_addr: $rs2_addr, rs2_data: $rs2_data, rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
 //  sim.report(msg"rd_addr: $rd_addr, rd_data: $rd_data, rd_wren: $rd_wren")
 
   regsWithIndex.foreachdf(rd_addr) {
