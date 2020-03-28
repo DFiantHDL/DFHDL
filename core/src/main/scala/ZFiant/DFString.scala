@@ -24,7 +24,7 @@ object DFString extends DFAny.Companion {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](length * 8)
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = {
-      assert(fromToken.width == width.getValue)
+      assert(fromToken.value.length == length.getValue)
       Token(fromToken.value.toByteArray.toVector, fromToken.isBubble)
     }
 
@@ -52,7 +52,7 @@ object DFString extends DFAny.Companion {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final case class Token(value : Vector[Byte], bubble : Boolean) extends DFAny.Token.Of[Vector[Byte]] {
-    val width : Int = value.length
+    val width : Int = value.length * 8
     lazy val valueBits : BitVector = value.map(b => b.toInt.toBitVector(8) : BitVector).reduce(_ ++ _)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
     def ++ (that : Token) : Token = Token(this.value ++ that.value, this.isBubble || that.isBubble)
@@ -98,8 +98,8 @@ object DFString extends DFAny.Companion {
       implicit def ev[LL] : Builder[Type[LL]] = new Builder[Type[LL]] {
         def apply[R](left: Type[LL], right: Seq[Able[R]]): Pattern = {
           val patternSet = right.map(e => e.byteVector).foldLeft(Set.empty[Vector[Byte]])((set, byteVector) => {
-            if (set.contains(byteVector)) throw new IllegalArgumentException(s"\nThe bitvector $byteVector already intersects with $set")
-            if (byteVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $byteVector is wider than ${left.width}")
+            if (set.contains(byteVector)) throw new IllegalArgumentException(s"\nThe string $byteVector already intersects with $set")
+            if (byteVector.length > left.length) throw new IllegalArgumentException(s"\nThe string $byteVector is longer than ${left.length}")
             set + byteVector
           })
 
@@ -287,7 +287,7 @@ object DFString extends DFAny.Companion {
         checkLWvRW : `LL == RL`.CheckedShell[LL, RL]
       ) : Builder[DFString[LL], DFString[RL]] =
         create[DFString[LL], LL, DFString[RL], RL]((left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
+          checkLWvRW.unsafeCheck(left.dfType.length, right.dfType.length)
           (left, right)
         })
 
@@ -298,7 +298,7 @@ object DFString extends DFAny.Companion {
         checkLWvRW : `LL == RL`.CheckedShell[LL, RL]
       ) : Builder[DFString[LL], R] = create[DFString[LL], LL, R, RL]((left, rightNum) => {
         val right = rConst(rightNum)
-        checkLWvRW.unsafeCheck(left.width, right.width)
+        checkLWvRW.unsafeCheck(left.dfType.length, right.dfType.length)
         (left, right)
       })
 
@@ -309,7 +309,7 @@ object DFString extends DFAny.Companion {
         checkLWvRW : `LL == RL`.CheckedShell[LL, RL]
       ) : Builder[L, DFString[RL]] = create[L, LL, DFString[RL], RL]((leftNum, right) => {
         val left = lConst(leftNum)
-        checkLWvRW.unsafeCheck(left.width, right.width)
+        checkLWvRW.unsafeCheck(left.dfType.length, right.dfType.length)
         (left, right)
       })
     }
