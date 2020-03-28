@@ -22,7 +22,7 @@ object DFBool extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
-    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       Token(logical = false, fromToken.valueBits(0), fromToken.bubbleMask(0))
     override def toString: String = if (logical) "DFBool" else "DFBit"
     def codeString(implicit printConfig : Printer.Config) : String =
@@ -46,10 +46,10 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token(logical : Boolean, value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean, 1] {
-    val width: TwoFace.Int[1] = 1
-    lazy val valueBits : XBitVector[1] = XBitVector.bit(value)
-    lazy val bubbleMask: XBitVector[1] = XBitVector.bit(bubble)
+  final case class Token(logical : Boolean, value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean] {
+    val width: Int = 1
+    lazy val valueBits : BitVector = XBitVector.bit(value)
+    lazy val bubbleMask: BitVector = XBitVector.bit(bubble)
     def && (that : Token) : Token = {
       val logicalResult = this.logical || that.logical
       if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)

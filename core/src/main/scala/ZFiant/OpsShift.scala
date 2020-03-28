@@ -8,7 +8,7 @@ import DFAny.Func2
 // Shift operations
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : Func2.Op.Shift) {
-  def tokenFunc[LW, RW](left : T[LW]#TToken, right : DFUInt.Token[RW]) : T[LW]#TToken
+  def tokenFunc[LW](left : T[LW]#TToken, right : DFUInt.Token) : T[LW]#TToken
 
   @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
   trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {

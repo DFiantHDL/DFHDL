@@ -7,7 +7,7 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
   private val designDB = c.db
   import designDB.__getset
   private def resizeUInt(dfVal : DFAny, updatedWidth : Int) : (DFAny, Patch) = dfVal match {
-    case DFAny.Const(dfType, token : DFUInt.Token[_], ownerRef, tags) =>
+    case DFAny.Const(dfType, token : DFUInt.Token, ownerRef, tags) =>
       val updatedConst : DFAny = DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
       dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
     case _ =>
@@ -16,7 +16,7 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
       }, Patch.Add.Config.Via)
   }
   private def resizeSInt(dfVal : DFAny, updatedWidth : Int) : (DFAny, Patch) = dfVal match {
-    case DFAny.Const(dfType, token : DFSInt.Token[_], ownerRef, tags) =>
+    case DFAny.Const(dfType, token : DFSInt.Token, ownerRef, tags) =>
       val updatedConst : DFAny = DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
       dfVal -> Patch.Replace(updatedConst, Patch.Replace.Config.FullReplacement)
     case _ =>

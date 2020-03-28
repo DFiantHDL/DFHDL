@@ -9,7 +9,7 @@ import ZFiant.compiler.printer.Printer
 object DFUInt extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
-    type TToken = Token[W]
+    type TToken = Token
     type TPattern = DFUInt.Pattern
     type TPatternAble[+R] = DFUInt.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFUInt.Pattern.Builder[LType]
@@ -21,7 +21,7 @@ object DFUInt extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFUInt.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFUInt.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
-    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken.toUInt
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken.toUInt
     override def toString: String = s"DFUInt[$width]"
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
@@ -51,58 +51,53 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token[W](width : TwoFace.Int[W], value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, W] { //with DFAny.Token.Resizable
-    lazy val valueBits : XBitVector[W] = value.toBitVector(width)
-    lazy val bubbleMask: XBitVector[W] = bubble.toBitVector(width)
-    def mkTokenU[RW, OW](that : Token[RW], result : BigInt, resultWidth : TwoFace.Int[OW]) : Token[OW] = {
+  final case class Token(width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt] {
+    lazy val valueBits : BitVector = value.toBitVector(width)
+    lazy val bubbleMask: BitVector = bubble.toBitVector(width)
+    def mkTokenU[RW, OW](that : Token, result : BigInt, resultWidth : Int) : Token = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result.asUnsigned(resultWidth))
     }
-    def + [RW](that : Token[RW])(
-      implicit ncW : `Op+`.Builder.Inference.NCW[W, RW, _]
-    ) : Token[ncW.Out] = mkTokenU(that, this.value + that.value, ncW(this.width, that.width))
-    def - [RW](that : Token[RW])(
-      implicit ncW : `Op-`.Builder.Inference.NCW[W, RW, _]
-    ) : Token[ncW.Out] = mkTokenU(that, this.value - that.value, ncW(this.width, that.width))
+    def + (that : Token) : Token = mkTokenU(that, this.value + that.value, this.width max that.width)
+    def - (that : Token) : Token = mkTokenU(that, this.value - that.value, this.width max that.width)
 
 //    final def * [RW](that : Token[RW]) : Token = mkTokenU(that, this.value * that.value, this.width + that.width)
 //    final def / [RW](that : Token[RW]) : Token = mkTokenU(that, this.value / that.value, this.width)
 //    final def % [RW](that : Token[RW]) : Token = mkTokenU(that, this.value % that.value, that.width)
-    def <  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value < that.value, this.isBubble || that.isBubble)
-    def >  [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value > that.value, this.isBubble || that.isBubble)
-    def <= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value <= that.value, this.isBubble || that.isBubble)
-    def >= [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value >= that.value, this.isBubble || that.isBubble)
-    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
-    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-    def << [RW](that : DFUInt.Token[RW]) : Token[W] = (bits << that).toUInt
-    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = (bits >> that).toUInt
-    def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = bits.resize(toWidth).toUInt
+    def <  (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value < that.value, this.isBubble || that.isBubble)
+    def >  (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value > that.value, this.isBubble || that.isBubble)
+    def <= (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value <= that.value, this.isBubble || that.isBubble)
+    def >= (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value >= that.value, this.isBubble || that.isBubble)
+    def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
+    def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
+    def << (that : DFUInt.Token) : Token = (bits << that).toUInt
+    def >> (that : DFUInt.Token) : Token = (bits >> that).toUInt
+    def resize(toWidth : Int) : Token = bits.resize(toWidth).toUInt
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
       if (value.isValidInt) s"$LIT$value"
       else if (value.isValidLong) s"$LIT${value}L"
       else s"""$LIT BigInt($STR"$value")"""
     }
-
-    override def equals(obj: Any): Boolean = obj match {
-      case Token(width, value, bubble) => this.width.getValue == width.getValue && this.value == value && this.bubble == bubble
-      case _ => false
-    }
+//    override def equals(obj: Any): Boolean = obj match {
+//      case Token(width, value, bubble) => this.width.getValue == width.getValue && this.value == value && this.bubble == bubble
+//      case _ => false
+//    }
   }
 
   object Token {
-    implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token[W](t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token[W](t.width, Bubble)
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.width, Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token(t.width, Bubble)
 
-    def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token(width, BigInt(value))
-    def apply[W](width : TwoFace.Int[W], value : Long) : Token[W] = Token(width, BigInt(value))
-    def apply[W](width : TwoFace.Int[W], value : BigInt) : Token[W] = {
+    def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
+    def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
+    def apply(width : Int, value : BigInt) : Token = {
       if (value < 0) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
       assert(value.bitsWidth <= width, s"\nThe init value $value width must smaller or equal to $width")
       new Token(width, value, false)
     }
-    def apply[W](width : TwoFace.Int[W], value : Bubble) : Token[W] = new Token(width, 0, true)
-    def apply[W](width : TwoFace.Int[W], token : Token[W]) : Token[W] = {
+    def apply(width : Int, value : Bubble) : Token = new Token(width, 0, true)
+    def apply(width : Int, token : Token) : Token = {
       assert(token.width <= width, s"\nThe init value $token width must smaller or equal to $width")
       new Token(width, token.value, token.bubble)
     }
@@ -170,8 +165,8 @@ object DFUInt extends DFAny.Companion {
       private type IntWithinWidth[LW] = CompileTime[Natural.Int.Cond[GetArg0] && (BitsWidthOf.CalcInt[GetArg0] <= LW)]
       private type LongWithinWidth[LW] = CompileTime[Natural.Long.Cond[GetArg0] && (BitsWidthOf.CalcLong[GetArg0] <= LW)]
       implicit class DFUIntBubble[LW](val right : Bubble) extends Able[DFUInt[LW]]
-      implicit class DFUIntToken[LW](val right : DFUInt.Token[LW]) extends Able[DFUInt[LW]]
-      implicit class DFUIntTokenSeq[LW](val right : Seq[DFUInt.Token[LW]]) extends Able[DFUInt[LW]]
+      implicit class DFUIntToken[LW](val right : DFUInt.Token) extends Able[DFUInt[LW]]
+      implicit class DFUIntTokenSeq[LW](val right : Seq[DFUInt.Token]) extends Able[DFUInt[LW]]
       implicit class DFUIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFUInt[LW]]
       implicit class DFUIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFUInt[LW]]
       implicit class DFUIntBigInt[LW](val right : BigInt) extends Able[DFUInt[LW]]
@@ -179,10 +174,10 @@ object DFUInt extends DFAny.Companion {
       implicit class DFUIntSeqOfLong[LW](val right : Seq[Long]) extends Able[DFUInt[LW]]
       implicit class DFUIntSeqOfBigInt[LW](val right : Seq[BigInt]) extends Able[DFUInt[LW]]
 
-      def toTokenSeq[LW](width : TwoFace.Int[LW], right : Seq[Able[DFUInt[LW]]]) : Seq[Token[LW]] =
+      def toTokenSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[Token] =
         right.toSeqAny.collect {
           case (t : Bubble) => DFUInt.Token(width, t)
-          case (t : Token[_]) => t.asInstanceOf[Token[LW]]
+          case (t : Token) => assert(t.width == width); t
           case (t : Int) => DFUInt.Token(width, t)
           case (t : Long) => DFUInt.Token(width, t)
           case (t : BigInt) => DFUInt.Token(width, t)
@@ -191,7 +186,7 @@ object DFUInt extends DFAny.Companion {
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev[LW] : Builder[DFUInt[LW], Token[LW]] = (left, right) => Able.toTokenSeq(left.width, right)
+      implicit def ev[LW] : Builder[DFUInt[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -385,7 +380,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
+  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -557,10 +552,10 @@ object DFUInt extends DFAny.Companion {
   // Shift operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object `Op<<` extends OpsShift[Type](Func2.Op.<<) {
-    def tokenFunc[LW, RW](left: DFUInt.Token[LW], right: DFUInt.Token[RW]) : DFUInt.Token[LW] = left << right
+    def tokenFunc[LW](left: DFUInt.Token, right: DFUInt.Token) : DFUInt.Token = left << right
   }
   object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
-    def tokenFunc[LW, RW](left: DFUInt.Token[LW], right: DFUInt.Token[RW]) : DFUInt.Token[LW] = left >> right
+    def tokenFunc[LW](left: DFUInt.Token, right: DFUInt.Token) : DFUInt.Token = left >> right
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

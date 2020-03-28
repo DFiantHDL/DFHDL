@@ -44,7 +44,7 @@ object DFAny {
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
     def getBubbleToken : TToken
-    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token
     def codeString(implicit printConfig : Printer.Config) : String
   }
   object Type {
@@ -488,9 +488,9 @@ object DFAny {
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t match {
-        case b : DFBits.Token[_] => b.resize(toWidth)
-        case u : DFUInt.Token[_] => u.resize(toWidth)
-        case s : DFSInt.Token[_] => s.resize(toWidth)
+        case b : DFBits.Token => b.resize(toWidth)
+        case u : DFUInt.Token => u.resize(toWidth)
+        case s : DFSInt.Token => s.resize(toWidth)
       }
       def relCodeString(cs : String) : String = s"$cs.resize($toWidth)"
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
@@ -555,7 +555,7 @@ object DFAny {
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t match {
         case t : DFBool.Token => !t
-        case t : DFBits.Token[_] => ~t
+        case t : DFBits.Token => ~t
       }
       private val op : String = dfType match {
         case _ : DFBits.Type[_] => "~"
@@ -864,31 +864,29 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Token extends Product with Serializable {
     type TValue
-    type Width
     //maximum token value width
-    val width : TwoFace.Int[Width]
+    val width : Int
     val value : TValue
-    val bubbleMask : XBitVector[Width]
-    val valueBits : XBitVector[Width]
-    final def isBubble : Boolean = !(bubbleMask === XBitVector.low(width))
-    final def bits : DFBits.Token[Width] = DFBits.Token(width, valueBits, bubbleMask)
+    val bubbleMask : BitVector
+    val valueBits : BitVector
+    final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
+    final def bits : DFBits.Token = DFBits.Token(valueBits, bubbleMask)
     final def bit(relBit : Int) : DFBool.Token = {
       val outBitsValue = valueBits.bit(relBit)
       val outBubbleMask = bubbleMask.bit(relBit)
       DFBool.Token(logical = false, outBitsValue, outBubbleMask)
     }
-    final def bitsWL[W](relWidth : TwoFace.Int[W], relBitLow : Int) : DFBits.Token[W] = {
+    final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = {
       val outBitsValue = valueBits.bitsWL(relWidth, relBitLow)
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
-      DFBits.Token(relWidth, outBitsValue, outBubbleMask)
+      DFBits.Token(outBitsValue, outBubbleMask)
     }
     def codeString(implicit printConfig : Printer.Config) : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
-    trait Of[Value, W] extends Token {
+    trait Of[Value] extends Token {
       type TValue = Value
-      type Width = W
     }
     trait BubbleOfToken[T <: Token] {
       def apply(t : T) : T
@@ -906,9 +904,9 @@ object DFAny {
         //More tokens are available than the step size, so we drop the first, according to the step count
         else tokenSeq.drop(step)
       }
-      def bits : Seq[DFBits.Token[T#Width]] =
-        tokenSeq.map(t => t.bits.asInstanceOf[DFBits.Token[T#Width]])
-      def bitsWL[W](relWidth : TwoFace.Int[W], relBitLow : Int) : Seq[DFBits.Token[W]] =
+      def bits : Seq[DFBits.Token] =
+        tokenSeq.map(t => t.bits)
+      def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
       def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
       //      def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))

@@ -12,7 +12,7 @@ object b1s extends DFBits.SameBitsVector(true)
 object DFBits extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
     type Width = W
-    type TToken = Token[W]
+    type TToken = Token
     type TPattern = DFBits.Pattern
     type TPatternAble[+R] = DFBits.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFBits.Pattern.Builder[LType]
@@ -24,7 +24,7 @@ object DFBits extends DFAny.Companion {
     type InitAble[L <: DFAny] = DFBits.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
-    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token = fromToken
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken
     override def toString: String = s"DFBits[$width]"
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
@@ -55,73 +55,50 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token[W](width : TwoFace.Int[W], value : XBitVector[W], bubbleMask : XBitVector[W]) extends DFAny.Token.Of[XBitVector[W], W] {
-    lazy val valueBits : XBitVector[W] = value
-    def |[RW] (that : Token[RW]) : Token[W] = {
+  final case class Token(value : BitVector, bubbleMask : BitVector) extends DFAny.Token.Of[BitVector] {
+    assert(value.length == bubbleMask.length)
+    val width : Int = value.length.toInt
+    lazy val valueBits : BitVector = value
+    def | (that : Token) : Token = {
       assert(that.width == width)
-      val outBitsValue = this.valueBits | that.valueBits
-      val outBubbleMask = this.bubbleMask | that.bubbleMask
-      Token(width, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+      Token(this.valueBits | that.valueBits, this.bubbleMask | that.bubbleMask)
     }
-    def &[RW] (that : Token[RW]) : Token[W] = {
+    def & (that : Token) : Token = {
       assert(that.width == width)
-      val outBitsValue = this.valueBits & that.valueBits
-      val outBubbleMask = this.bubbleMask | that.bubbleMask
-      Token(width, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+      Token(this.valueBits & that.valueBits, this.bubbleMask | that.bubbleMask)
     }
-    def ^[RW] (that : Token[RW]) : Token[W] = {
+    def ^ (that : Token) : Token = {
       assert(that.width == width)
-      val outBitsValue = this.valueBits ^ that.valueBits
-      val outBubbleMask = this.bubbleMask | that.bubbleMask
-      Token(width, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+      Token(this.valueBits ^ that.valueBits, this.bubbleMask | that.bubbleMask)
     }
-    def ~~ [RW](that : Token[RW]) : Token[W + RW] = {
-      val outWidth = this.width + that.width
-      val outBitsValue = this.valueBits ++ that.valueBits
-      val outBubbleMask = this.bubbleMask ++ that.bubbleMask
-      Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W + RW]], outBubbleMask.asInstanceOf[XBitVector[W + RW]])
+    def ~~ (that : Token) : Token = {
+      Token(this.valueBits ++ that.valueBits, this.bubbleMask ++ that.bubbleMask)
     }
-    def << [RW](that : DFUInt.Token[RW]) : Token[W] = {
+    def << (that : DFUInt.Token) : Token = {
       val shift = that.value.toInt
-      val outWidth = this.width
-      val outBitsValue = this.valueBits << shift
-      val outBubbleMask = this.bubbleMask << shift
-      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+      new Token(this.valueBits << shift, this.bubbleMask << shift)
     }
-    def >> [RW](that : DFUInt.Token[RW]) : Token[W] = {
+    def >> (that : DFUInt.Token) : Token = {
       val shift = that.value.toInt
-      val outWidth = this.width
-      val outBitsValue = this.valueBits >>> shift
-      val outBubbleMask = this.bubbleMask >>> shift
-      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask.asInstanceOf[XBitVector[W]])
+      new Token(this.valueBits >>> shift, this.bubbleMask >>> shift)
     }
-    def unary_~ : Token[W] = {
-      val outWidth = this.width
-      val outBitsValue = ~this.valueBits
-      val outBubbleMask = this.bubbleMask
-      new Token(outWidth, outBitsValue.asInstanceOf[XBitVector[W]], outBubbleMask)
-    }
-    def reverse : Token[W] = {
-      val outWidth = this.width
-      val outBitsValue = this.valueBits.reverseBitOrder.asInstanceOf[XBitVector[W]]
-      val outBubbleMask = this.bubbleMask.reverseBitOrder.asInstanceOf[XBitVector[W]]
-      new Token(outWidth, outBitsValue, outBubbleMask)
-    }
-    def resize[RW](toWidth : TwoFace.Int[RW]) : Token[RW] = {
+    def unary_~ : Token = Token(~this.valueBits, this.bubbleMask)
+    def reverse : Token = Token(valueBits.reverseBitOrder, bubbleMask.reverseBitOrder)
+    def resize(toWidth : Int) : Token = {
       if (toWidth < width) bitsWL(toWidth, 0)
-      else if (toWidth > width) (Token(toWidth - width, 0) ~~ this).asInstanceOf[Token[RW]]
-      else this.asInstanceOf[Token[RW]]
+      else if (toWidth > width) (Token(toWidth - width, 0) ~~ this)
+      else this
     }
-    def == [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.valueBits == that.valueBits, this.isBubble || that.isBubble)
-    def != [RW](that : Token[RW]) : DFBool.Token = DFBool.Token(logical = true, this.valueBits != that.valueBits, this.isBubble || that.isBubble)
+    def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.valueBits == that.valueBits, this.isBubble || that.isBubble)
+    def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.valueBits != that.valueBits, this.isBubble || that.isBubble)
 
-    def toUInt : DFUInt.Token[W] = {
+    def toUInt : DFUInt.Token = {
       val outWidth = this.width
       val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
       val outBubble = isBubble
       DFUInt.Token(outWidth, outValueUInt, outBubble)
     }
-    def toSInt : DFSInt.Token[W] = {
+    def toSInt : DFSInt.Token = {
       val outWidth = this.width
       val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
       val outBubble = isBubble
@@ -133,25 +110,17 @@ object DFBits extends DFAny.Companion {
       if (value.length % 4 == 0) s"""$BOLD h$STR"${value.toHex}""""
       else s"""$BOLD b$STR"${value.toBin}""""
     }
-    override def equals(obj: Any): Boolean = obj match {
-      case Token(width, value, bubbleMask) => this.width.getValue == width.getValue && this.value == value && this.bubbleMask == bubbleMask
-      case _ => false
-    }
+//    override def equals(obj: Any): Boolean = obj match {
+//      case Token(width, value, bubbleMask) => this.width.getValue == width.getValue && this.value == value && this.bubbleMask == bubbleMask
+//      case _ => false
+//    }
   }
   object Token {
-    implicit def bubbleOfToken[W] : DFAny.Token.BubbleOfToken[Token[W]] = t => Token(t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token[W](t.width, Bubble)
-    def apply[W](width : TwoFace.Int[W], value : Int) : Token[W] = Token[W](width, BigInt(value).toBitVector(width))
-    def apply[W](width : TwoFace.Int[W], value : BitVector) : Token[W] = {
-      assert(value.length == width.getValue, s"\nThe init vector $value must have a width of $width")
-      Token(width, value.toLength(width), XBitVector.low(width))
-    }
-    def apply[W](value : XBitVector[W]) : Token[W] = Token[W](TwoFace.Int.create[W](value.length.toInt), value)
-    def apply[W](width : TwoFace.Int[W], value : Bubble) : Token[W] = Token[W](width, XBitVector.low(width), XBitVector.high(width))
-    def apply[W](width : TwoFace.Int[W], value : Token[W]) : Token[W] = {
-      assert(value.width == width, s"\nThe init vector $value must have a width of $width")
-      value.bitsWL(width, 0)
-    }
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.width, Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token(t.width, Bubble)
+    def apply(width : Int, value : Int) : Token = Token(BigInt(value).toBitVector(width))
+    def apply(value : BitVector) : Token = Token(value, BitVector.low(value.length))
+    def apply(width : Int, value : Bubble) : Token = Token(BitVector.low(width), BitVector.high(width))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -195,23 +164,23 @@ object DFBits extends DFAny.Companion {
     object Able {
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
       implicit class DFBitsSameBitsVector[LW](val right : SameBitsVector) extends Able[DFBits[LW]]
-      implicit class DFBitsToken[LW](val right : Token[LW]) extends Able[DFBits[LW]]
-      implicit class DFBitsTokenSeq[LW](val right : Seq[Token[LW]]) extends Able[DFBits[LW]]
+      implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
+      implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
       implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
       implicit class DFBitsSeqOfBitVector[LW](val right : Seq[BitVector]) extends Able[DFBits[LW]]
       implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
 
-      def toTokenSeq[LW](width : TwoFace.Int[LW], right : Seq[Able[DFBits[LW]]]) : Seq[Token[LW]] =
+      def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
         right.toSeqAny.collect {
           case t : Bubble => Token(width, t)
-          case t : Token[_] => t.asInstanceOf[Token[LW]]
-          case t : BitVector => Token(width, t)
-          case t : SameBitsVector => Token(width, XBitVector.fill(width)(t.value))
+          case t : Token => assert(t.width == width); t
+          case t : BitVector => Token(t)
+          case t : SameBitsVector => Token(XBitVector.fill(width)(t.value))
         }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev[LW] : Builder[DFBits[LW], Token[LW]] = (left, right) => Able.toTokenSeq(left.width, right)
+      implicit def ev[LW] : Builder[DFBits[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,7 +202,7 @@ object DFBits extends DFAny.Companion {
         type W = Int
         def apply(value : BitVector) : Const[W] = {
           val width = TwoFace.Int(value.length.toInt)
-          DFAny.Const[Type[Int]](Type(width), Token(width, value))
+          DFAny.Const[Type[Int]](Type(width), Token(value))
         }
       }
       implicit def fromXBitVector[W0](implicit ctx : DFAny.Context)
@@ -241,7 +210,7 @@ object DFBits extends DFAny.Companion {
         type W = W0
         def apply(value : XBitVector[W0]) : Const[W] = {
           val width = TwoFace.Int.create[W0](value.length.toInt)
-          DFAny.Const[Type[W0]](Type(width), Token(width, value))
+          DFAny.Const[Type[W0]](Type(width), Token(value))
         }
       }
     }
@@ -336,7 +305,7 @@ object DFBits extends DFAny.Companion {
         def bits(implicit ctx : DFAny.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] = {
           val list : List[DFBits[Int]] = e.productIterator.toList.collect{
             case dfAny : DFAny.Value[_,_] => dfAny.bits.asInstanceOf[DFBits[Int]]
-            case bv : BitVector => DFAny.Const.forced(Type(bv.length.toInt), DFBits.Token(bv.length.toInt, bv))
+            case bv : BitVector => DFAny.Const.forced(Type(bv.length.toInt), DFBits.Token(bv))
           }
           list.reduce((l, r) => `Op~~`.forced(l, r)).asInstanceOf[DFBits[w.Out]]
         }
@@ -497,7 +466,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token[_], Token[_]) => DFBool.Token) {
+  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
     object Builder {
@@ -575,8 +544,7 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Logic operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsLogic[Op <: Func2.Op](op : Op) {
-    def tokenOp[LW, RW](left : Token[LW], right : Token[RW]) : Token[LW]
+  protected abstract class OpsLogic[Op <: Func2.Op](op : Op)(tokenOp : (Token, Token) => Token) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Logic Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
 
@@ -645,15 +613,9 @@ object DFBits extends DFAny.Companion {
       : Aux[SBV, DFBits[RW], DFBits[RW]] = ???
     }
   }
-  object `Op|` extends OpsLogic(Func2.Op.|) {
-    def tokenOp[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left | right
-  }
-  object `Op&` extends OpsLogic(Func2.Op.&) {
-    def tokenOp[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left & right
-  }
-  object `Op^` extends OpsLogic(Func2.Op.^) {
-    def tokenOp[LW, RW](left: Token[LW], right: Token[RW]): Token[LW] = left ^ right
-  }
+  object `Op|` extends OpsLogic(Func2.Op.|)(_ | _)
+  object `Op&` extends OpsLogic(Func2.Op.&)(_ & _)
+  object `Op^` extends OpsLogic(Func2.Op.^)(_ ^ _)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -661,10 +623,10 @@ object DFBits extends DFAny.Companion {
   // Shift operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object `Op<<` extends OpsShift[Type](Func2.Op.<<) {
-    def tokenFunc[LW, RW](left: DFBits.Token[LW], right: DFUInt.Token[RW]) : DFBits.Token[LW] = left << right
+    def tokenFunc[LW](left: DFBits.Token, right: DFUInt.Token) : DFBits.Token = left << right
   }
   object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
-    def tokenFunc[LW, RW](left: DFBits.Token[LW], right: DFUInt.Token[RW]) : DFBits.Token[LW] = left >> right
+    def tokenFunc[LW](left: DFBits.Token, right: DFUInt.Token) : DFBits.Token = left >> right
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -675,10 +637,9 @@ object DFBits extends DFAny.Companion {
   object `Op~~` {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-    private def tokenFunc[LW, RW, OW](left: Token[LW], right: Token[RW]) : Token[OW] = (left ~~ right).asInstanceOf[Token[OW]]
 
     def forced[LW, RW](left : DFBits[LW], right : DFBits[RW])(implicit ctx : DFAny.Context) : DFBits[Int] =
-      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.~~, right)(tokenFunc).asInstanceOf[DFBits[Int]]
+      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.~~, right)(_ ~~ _).asInstanceOf[DFBits[Int]]
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
         type Out = Comp0
@@ -708,7 +669,7 @@ object DFBits extends DFAny.Companion {
                   val (left, right) = properLR(leftL, rightR)
                   // Constructing op
                   val oWidth = oW(left.width, right.width)
-                  val out = DFAny.Func2(Type(oWidth), left, DFAny.Func2.Op.~~, right)(tokenFunc)
+                  val out = DFAny.Func2(Type(oWidth), left, DFAny.Func2.Op.~~, right)(_ ~~ _)
                   out
                 }
               }

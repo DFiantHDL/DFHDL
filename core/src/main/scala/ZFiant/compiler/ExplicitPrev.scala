@@ -53,7 +53,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
             val union = patterns.asInstanceOf[List[DFBool.Pattern]].foldLeft(Set.empty[Boolean]){case (s, p) => s | p.patternSet}
             union.size == 2
           case e : DFEnum.Type[_] =>
-            val union = patterns.asInstanceOf[List[DFEnum.Pattern[EnumType]]].foldLeft(Set.empty[EnumType#Entry]){case (s, p) => s | p.patternSet}
+            val union = patterns.asInstanceOf[List[DFEnum.Pattern]].foldLeft(Set.empty[EnumType.Entry]){case (s, p) => s | p.patternSet}
             union.size == e.enumType.entries.size
         }
       case _ => false

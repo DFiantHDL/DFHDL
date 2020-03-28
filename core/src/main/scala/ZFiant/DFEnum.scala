@@ -30,8 +30,8 @@ object DFEnum extends DFAny.Companion {
   final case class Type[E <: EnumType](enumType : E) extends DFAny.Type {
     type Width = enumType.EntryWidth
     val width : TwoFace.Int[Width] = enumType.width
-    type TToken = Token[E]
-    type TPattern = Pattern[E]
+    type TToken = Token
+    type TPattern = Pattern
     type TPatternAble[+R] = Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = Pattern.Builder[LType]
     type OpAble[R] = Op.Able[R]
@@ -42,8 +42,8 @@ object DFEnum extends DFAny.Companion {
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder[L <: DFAny] = Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
-    def getTokenFromBits(fromToken : DFBits.Token[_]) : DFAny.Token =
-      Token[E](enumType, enumType.entries(fromToken.valueBits.toBigInt).asInstanceOf[E#Entry])
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
+      Token(enumType, enumType.entries(fromToken.valueBits.toBigInt))
     override def toString: String = s"DFEnum[$enumType]"
     def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFEnum($enumType)"
     override def equals(obj: Any): Boolean = obj match {
@@ -67,31 +67,28 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token[E <: EnumType](enumType : E, value : Option[E#Entry]) extends DFAny.Token.Of[Option[E#Entry], E#EntryWidth] {
-    val width : TwoFace.Int[Width] = enumType.width.asInstanceOf[TwoFace.Int[E#EntryWidth]]
-    val (valueBits, bubbleMask) : (XBitVector[Width], XBitVector[Width]) =
+  final case class Token(enumType : EnumType, value : Option[EnumType.Entry]) extends DFAny.Token.Of[Option[EnumType.Entry]] {
+    val width : Int = enumType.width
+    val (valueBits, bubbleMask) : (BitVector, BitVector) =
       if (value.isDefined) (value.get.value.toBitVector(width), false.toBitVector(width))
       else (0.toBitVector(width), true.toBitVector(width))
 
-    def == [RE <: EnumType](that : Token[RE]) : DFBool.Token =
+    def == (that : Token) : DFBool.Token =
       DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
-    def != [RE <: EnumType](that : Token[RE]) : DFBool.Token =
+    def != (that : Token) : DFBool.Token =
       DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
     def codeString(implicit printConfig : Printer.Config) : String = value.get.codeString
-    override def equals(obj: Any): Boolean = obj match {
-      case Token(enumType, value) => this.enumType == enumType && this.value == value
-      case _ => false
-    }
+//    override def equals(obj: Any): Boolean = obj match {
+//      case Token(enumType, value) => this.enumType == enumType && this.value == value
+//      case _ => false
+//    }
   }
 
   object Token {
-    implicit def bubbleOfToken[E <: EnumType] : DFAny.Token.BubbleOfToken[Token[E]] = t => Token.bubble[E](t.enumType)
-    implicit def bubbleOfDFType[E <: EnumType] : DFAny.Token.BubbleOfDFType[Type[E]] = t => Token.bubble[E](t.enumType)
-    import DFAny.TokenSeq
-    def bubble[E <: EnumType](enumType : E) : Token[E] = Token[E](enumType, None)
-    def apply[E <: EnumType](enumType : E, entry : E#Entry) : Token[E] = Token[E](enumType, Some(entry))
-    def == [E <: EnumType](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)(_ == _)
-    def != [E <: EnumType](left : Seq[Token[E]], right : Seq[Token[E]]) : Seq[DFBool.Token] = TokenSeq(left, right)(_ == _)
+    implicit def bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token.bubble(t.enumType)
+    implicit def bubbleOfDFType[E <: EnumType] : DFAny.Token.BubbleOfDFType[Type[E]] = t => Token.bubble(t.enumType)
+    def bubble(enumType : EnumType) : Token = Token(enumType, None)
+    def apply(enumType : EnumType, entry : EnumType.Entry) : Token = Token(enumType, Some(entry))
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -99,7 +96,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Pattern[E <: EnumType](set : Set[E#Entry]) extends DFAny.Pattern.OfSet[E#Entry, Pattern[E]](set)
+  class Pattern(set : Set[EnumType.Entry]) extends DFAny.Pattern.OfSet[EnumType.Entry, Pattern](set)
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R]
     object Able {
@@ -108,9 +105,8 @@ object DFEnum extends DFAny.Companion {
     trait Builder[LType <: DFAny.Type] extends DFAny.Pattern.Builder[LType, Able]
     object Builder {
       implicit def ev[E <: EnumType] : Builder[Type[E]] = new Builder[Type[E]] {
-        def apply[R](left: Type[E], right: Seq[Able[R]]): Pattern[E] = {
-
-          new Pattern[E](right.map(e => e.right.asInstanceOf[E#Entry]).toSet)
+        def apply[R](left: Type[E], right: Seq[Able[R]]): Pattern = {
+          new Pattern(right.map(e => e.right.asInstanceOf[E#Entry]).toSet)
         }
       }
     }
@@ -125,20 +121,20 @@ object DFEnum extends DFAny.Companion {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
       implicit class DFEnumBubble[E <: EnumType](val right : Bubble) extends Able[DFEnum[E]]
-      implicit class DFEnumToken[E <: EnumType](val right : Token[E]) extends Able[DFEnum[E]]
-      implicit class DFEnumTokenSeq[E <: EnumType](val right : Seq[Token[E]]) extends Able[DFEnum[E]]
+      implicit class DFEnumToken[E <: EnumType](val right : Token) extends Able[DFEnum[E]]
+      implicit class DFEnumTokenSeq[E <: EnumType](val right : Seq[Token]) extends Able[DFEnum[E]]
       implicit class DFEnumEntry[E <: EnumType, R <: E#Entry](val right : R) extends Able[DFEnum[E]]
 
-      def toTokenSeq[E <: EnumType](enumType : E, right : Seq[Able[DFEnum[E]]]) : Seq[Token[E]] =
+      def toTokenSeq[E <: EnumType](enumType : EnumType, right : Seq[Able[DFEnum[E]]]) : Seq[Token] =
         right.toSeqAny.map {
-          case (t : Bubble) => Token.bubble[E](enumType)
-          case (t : EnumType.Entry) => Token[E](enumType, t.asInstanceOf[E#Entry])
-          case (t : Token[_]) => t.asInstanceOf[Token[E]]
+          case (t : Bubble) => Token.bubble(enumType)
+          case (t : EnumType.Entry) => assert(t.enumType == enumType); Token(enumType, t)
+          case (t : Token) => assert(t.enumType == enumType); t
         }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
     object Builder {
-      implicit def ev[E <: EnumType] : Builder[DFEnum[E], Token[E]] = (left, right) =>
+      implicit def ev[E <: EnumType] : Builder[DFEnum[E], Token] = (left, right) =>
         Able.toTokenSeq(left.dfType.enumType, right)
     }
   }
@@ -180,7 +176,7 @@ object DFEnum extends DFAny.Companion {
 
       implicit def evDFEnum_op_Entry[E <: EnumType, Entry <: E#Entry](implicit ctx : DFAny.Context)
       : Builder[Type[E], Entry] =
-        (left, rightEntry) => DFAny.Const[Type[E]](Type(left.enumType), Token[E](left.enumType, rightEntry))
+        (left, rightEntry) => DFAny.Const[Type[E]](Type(left.enumType), Token(left.enumType, rightEntry))
     }
   }
   object `Op:=` extends `Ops:=,<>`
@@ -211,11 +207,11 @@ object DFEnum extends DFAny.Companion {
 
       implicit def evDFEnum_op_Entry[E <: EnumType, R <: E#Entry](implicit ctx : DFAny.Context)
       : Builder[DFEnum[E], R] = create[E, DFEnum[E], R]((left, rightEntry) =>
-        (left, DFAny.Const[Type[E]](Type(left.dfType.enumType), Token[E](left.dfType.enumType, rightEntry))))
+        (left, DFAny.Const[Type[E]](Type(left.dfType.enumType), Token(left.dfType.enumType, rightEntry))))
 
       implicit def evEntry_op_DFEnum[E <: EnumType, L <: E#Entry](implicit ctx : DFAny.Context)
       : Builder[L, DFEnum[E]] = create[E, L, DFEnum[E]]((leftEntry, right) =>
-        (DFAny.Const[Type[E]](Type(right.dfType.enumType), Token[E](right.dfType.enumType, leftEntry)), right))
+        (DFAny.Const[Type[E]](Type(right.dfType.enumType), Token(right.dfType.enumType, leftEntry)), right))
     }
   }
   object `Op==` extends OpsCompare(Func2.Op.==) with `Op==`

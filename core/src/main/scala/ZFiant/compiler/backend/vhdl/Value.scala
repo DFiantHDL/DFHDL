@@ -3,7 +3,7 @@ package compiler.backend.vhdl
 
 private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = token match {
-    case DFBits.Token(width, value, _) => if (width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
+    case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
     case DFUInt.Token(width, value, _) => s"""$width"$value""""
     case DFSInt.Token(width, value, _) => s"""$width"$value""""
     case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
