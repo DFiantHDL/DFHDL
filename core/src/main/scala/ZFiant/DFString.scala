@@ -14,21 +14,19 @@ object DFString extends DFAny.Companion {
     type TPattern = DFString.Pattern
     type TPatternAble[+R] = DFString.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFString.Pattern.Builder[LType]
-//    type OpAble[R] = DFString.Op.Able[R]
-//    type `Op==Builder`[L0, R] = DFString.`Op==`.Builder[L0, R]
-//    type `Op!=Builder`[L0, R] = DFString.`Op!=`.Builder[L0, R]
-//    type `Op<>Builder`[LType <: DFAny.Type, R] = DFString.`Op<>`.Builder[LType, R]
-//    type `Op:=Builder`[LType <: DFAny.Type, R] = DFString.`Op:=`.Builder[LType, R]
-//    type InitAble[L0 <: DFAny] = DFString.Init.Able[L0]
-//    type InitBuilder[L0 <: DFAny] = DFString.Init.Builder[L0, TToken]
+    type OpAble[R] = DFString.Op.Able[R]
+    type `Op==Builder`[L0, R] = DFString.`Op==`.Builder[L0, R]
+    type `Op!=Builder`[L0, R] = DFString.`Op!=`.Builder[L0, R]
+    type `Op<>Builder`[LType <: DFAny.Type, R] = DFString.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, R] = DFString.`Op:=`.Builder[LType, R]
+    type InitAble[L0 <: DFAny] = DFString.Init.Able[L0]
+    type InitBuilder[L0 <: DFAny] = DFString.Init.Builder[L0, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](length * 8)
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = {
       assert(fromToken.value.length == length.getValue)
       Token(fromToken.value.toByteArray.toVector, fromToken.isBubble)
     }
-
-    //    override def toString: String = if (logical) "DFString" else "DFBit"
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
       s"$TP DFString($LIT$length)"

@@ -6,50 +6,53 @@ sealed trait DFSimMember extends DFMember {
   type TTags = DFMember.Tags.Basic
 }
 object DFSimMember {
-//  protected case class Assert(cond : Option[DFAny], msg : DFString, severity : Severity)(implicit ctx0 : DFAny.Op.Context) extends DFAnySimMember {
-//    final private[DFiant] override lazy val ctx = ctx0
-//    protected[DFiant] trait __DevAssert extends __DevDFAnyMember {
-//      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//      // Member discovery
-//      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//      @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-//        super.discoveryDependenciesStatic ++ cond.toList
-//
-//      final val condVersionedSource = cond.map(c => c.source.versioned)
-//
-//      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//      // Naming
-//      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//      override lazy val nameScala = s"${Meta.Name.Separator}assert"
-//      def codeString : String = cond match {
-//        case Some(c) =>
-//          s"""
-//             |sim.assert(${c.refCodeString}, ${msg.codeString}, ${severity.codeString})""".stripMargin
-//        case None =>
-//          s"""
-//             |sim.report(${msg.codeString}, ${severity.codeString})""".stripMargin
-//      }
-//    }
-//    override private[DFiant] lazy val __dev : __DevAssert = new __DevAssert {}
-//    import __dev._
-//    id
-//  }
-
-  sealed trait Severity extends Product with Serializable
-  object Severity {
-    case object Note extends Severity {
-      def codeString(implicit printConfig : Printer.Config): String = "sim.Note"
+  final case class Assert(condOptionRef : Option[Assert.CondRef], msgRef : Assert.MsgRef, severity : Assert.Severity, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFSimMember {
+    protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+      case Assert(condOptionRef, msgRef, severity, _, tags) =>
+        val condEq = (this.condOptionRef, condOptionRef) match {
+          case (Some(l), Some(r)) => l =~ r
+          case (None, None) => true
+          case _ => false
+        }
+        condEq && this.msgRef =~ msgRef && this.severity == severity && this.tags =~ tags
+      case _ => false
     }
-    case object Warning extends Severity {
-      def codeString(implicit printConfig : Printer.Config): String = "sim.Warning"
+    def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      condOptionRef match {
+        case Some(c) =>
+          s"$DF sim.$DF assert(${c.refCodeString}, ${msgRef.refCodeString}, ${severity.codeString})"
+        case None =>
+          s"$DF sim.$DF report(${msgRef.refCodeString}, ${severity.codeString})"
+      }
     }
-    case object Error extends Severity {
-      def codeString(implicit printConfig : Printer.Config): String = "sim.Error"
+    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+  }
+  object Assert {
+    type CondRef = DFMember.OwnedRef.Of[CondRef.Type, DFBool]
+    object CondRef {
+      trait Type extends DFAny.Ref.ConsumeFrom.Type
+      implicit val ev : Type = new Type {}
     }
-    case object Failure extends Severity {
-      def codeString(implicit printConfig : Printer.Config): String = "sim.Failure"
+    type MsgRef = DFMember.OwnedRef.Of[MsgRef.Type, DFString[Int]]
+    object MsgRef {
+      trait Type extends DFAny.Ref.ConsumeFrom.Type
+      implicit val ev : Type = new Type {}
+    }
+    sealed trait Severity extends Product with Serializable {
+      def codeString(implicit printConfig : Printer.Config) : String = {
+        import printConfig._
+        s"$DF sim.$DF ${this.toString}"
+      }
+    }
+    object Severity {
+      case object Note extends Severity
+      case object Warning extends Severity
+      case object Error extends Severity
+      case object Failure extends Severity
     }
   }
+
 
   final case class Finish(ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFSimMember {
     protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -63,7 +66,7 @@ object DFSimMember {
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Finish {
-    def apply(to: DFAny, from: DFAny)(implicit ctx: DFAny.Context)
+    def apply()(implicit ctx: DFAny.Context)
     : Finish = {
       implicit lazy val ret : Finish with DFMember.RefOwner =
         ctx.db.addMember(Finish(ctx.owner, ctx.meta)).asRefOwner
