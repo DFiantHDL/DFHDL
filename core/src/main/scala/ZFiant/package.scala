@@ -129,11 +129,14 @@ package object ZFiant {
       */
     def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
 
-//    def dfs(args : Any*)(implicit ctx0 : DFAny.Op.Context) : DFString =
-//      new DFString(List(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
-//        case x: String => x.nonEmpty
-//        case x => true
-//      }))
+    def msg(args : Any*) : DFSimMember.Assert.Message =
+      DFSimMember.Assert.Message(Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
+        case x: String => x.nonEmpty
+        case _ => true
+      }).map {
+        case x : DFAny => Left(x)
+        case x => Right(x.toString)
+      })
   }
 
   trait Interpolator[T] {

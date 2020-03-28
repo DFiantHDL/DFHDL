@@ -25,6 +25,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
         case _ => Some(n.codeString)
       }
+      case sim : DFSimMember => Some(sim.codeString)
       case a : DFAny if !a.isAnonymous =>
         val initInfo = if (printConfig.showInits) a.tags.init match {
           case Some(init) => s"//init = ${init.codeString}"

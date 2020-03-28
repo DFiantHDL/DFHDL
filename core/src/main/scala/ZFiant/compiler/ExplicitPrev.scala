@@ -121,6 +121,12 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
             val left = consumeFrom(func.leftArgRef.get, scopeMap, currentSet)
             val right = consumeFrom(func.rightArgRef.get, scopeMap, currentSet)
             (left union right, scopeMap)
+          case assert : DFSimMember.Assert =>
+            val dfAnySet : Seq[DFMember.Ref] = assert.msg.seq.collect{case Left(x) => x} ++ assert.condOptionRef
+            val consume = dfAnySet.foldLeft(Set.empty[DFAny]){
+              case (set, x) => set union consumeFrom(x.get.asInstanceOf[DFAny], scopeMap, currentSet)
+            }
+            (consume, scopeMap)
           case ifBlock : ConditionalBlock.IfBlock =>
             (consumeFrom(ifBlock.condRef.get, scopeMap, currentSet), scopeMap)
           case elseIfBlock : ConditionalBlock.ElseIfBlock =>

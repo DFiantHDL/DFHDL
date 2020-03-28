@@ -7,7 +7,7 @@ import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-  private[ZFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
+  private[ZFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.On
   private[ZFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(ctx)
   private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
@@ -44,9 +44,28 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   ///////////////////////////////////////////////////////////////////
   // Simulation-related constructs
   ///////////////////////////////////////////////////////////////////
-  lazy val inSimulation : Boolean = ctx.db.top.simMode match {
+  final protected lazy val inSimulation : Boolean = ctx.db.top.simMode match {
     case DFSimulator.Mode.Off => false
     case DFSimulator.Mode.On => true
+  }
+  final protected object sim {
+    import DFSimMember.{Assert, Finish}
+    import Assert._
+    final val Note = Severity.Note
+    final val Warning = Severity.Warning
+    final val Error = Severity.Error
+    final val Failure = Severity.Failure
+    def assert[C](cond : DFBool.Op.Able[C], msg : Message, severity : Severity = Warning)(
+      implicit ctx : DFAny.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+    ) : Unit = {
+      if (inSimulation) Assert(Some(condConv(DFBool.Type(logical = true),cond)), msg, severity)(ctx)
+    }
+    def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
+      if (inSimulation) Assert(None, msg, severity)(ctx)
+    }
+    def finish()(implicit ctx : DFAny.Context) : Unit = {
+      if (inSimulation) Finish()(ctx)
+    }
   }
   ///////////////////////////////////////////////////////////////////
 }
