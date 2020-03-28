@@ -429,7 +429,10 @@ object DFAny {
             this.relBitLow == relBitLow && this.relValRef =~ relValRef && this.tags =~ tags
         case _ => false
       }
-      def constFunc(t : DFAny.Token) : DFAny.Token = t.bitsWL(relWidth, relBitLow)
+      def constFunc(t : DFAny.Token) : DFAny.Token = dfType match {
+        case _ : DFBits.Type[_] => t.bitsWL(relWidth, relBitLow)
+        case _ : DFBool.Type => t.bit(relBitLow)
+      }
       def relCodeString(cs : String) : String = dfType match {
         case _ : DFBits.Type[_] => s"$cs.bitsWL($relWidth, $relBitLow)"
         case _ : DFBool.Type => s"$cs.bit($relBitLow)"
@@ -562,7 +565,7 @@ object DFAny {
         case _ : DFBool.Type => "!"
       }
       def relCodeString(cs : String) : String = s"$op$cs"
-  def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Invert {
       def apply[RelVal <: DFAny](refVal: RelVal)(
