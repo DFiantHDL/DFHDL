@@ -316,13 +316,13 @@ package object internals {
 
   object BitsHiLo extends Checked1Param.Int {
     type Cond[H, L] = H >= L
-    type Msg[H, L] = "Low bit index " + ToString[L] + " is bigger than High bit index " + ToString[H]
+    type Msg[H, L] = "Low index " + ToString[L] + " is bigger than High bit index " + ToString[H]
     type ParamFace = Int
   }
 
   object BitIndex extends Checked1Param.Int {
     type Cond[I, W] = (I < W) && (I >= 0)
-    type Msg[I, W] = "Bit index " + ToString[I] + " is out of range of width " + ToString[W]
+    type Msg[I, W] = "Index " + ToString[I] + " is out of range of width/length " + ToString[W]
     type ParamFace = Int
   }
 
