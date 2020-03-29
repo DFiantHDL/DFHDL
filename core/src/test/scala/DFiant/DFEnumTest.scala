@@ -136,7 +136,7 @@ class DFEnumManualTest extends Properties("DFEnumManualTest") {
     f := Foo.Bar1
     f == Foo.Bar2
     f.prev.bits(1,0)
-    illTyped("""f.bits(3,0)""", "Bit index 3 is out of range of width 2")
+    illTyped("""f.bits(3,0)""", "Index 3 is out of range of width/length 2")
   }
 
   property("MyDesign") = {
