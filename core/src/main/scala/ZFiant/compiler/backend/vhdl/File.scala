@@ -7,6 +7,8 @@ private object File {
     s"""
        |${Library(packageName)}
        |$EMPTY
+       |${SimLibrary()}
+       |$EMPTY
        |$entity
        |$EMPTY
        |$architecture""".stripMargin.formatted
@@ -28,11 +30,17 @@ private object Library {
   }
 }
 private object SimLibrary {
-  def apply(inSimulation : Boolean)(implicit printer: Printer) : String =
+  def apply()(implicit printer: Printer) : String = {
+    import printer.config._
+    val inSimulation : Boolean = printer.getSet.designDB.top.simMode match {
+      case DFSimulator.Mode.On => true
+      case _ => false
+    }
     if (inSimulation)
-      s"""library std;
-         |use std.env.all;
+      s"""$KW library $TP std;
+         |$KW use $TP std.$TP env.$KW all;
          |""".stripMargin
     else ""
+  }
 }
 //////////////////////////////////////////////////////////////////////////////////
