@@ -67,6 +67,7 @@ trait IDTopTest extends DFSimulator {
 //  val iii = DFUInt(8) <> IN
 //  val ooo = DFUInt(8) <> OUT
   val ididid = new IDTop {}
+  vhdl"clk <= clk after 1 ns"
 //  ididid.x <> iii
 //  ididid.y <> ooo
 }
