@@ -65,7 +65,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     (getOwnerDesign, that) match {
       case (a, b) if a == b => true
       case (_ : DFDesign.Block.Top, _) => false
-      case _ => isInsideDesign(that)
+      case (od, _) => od.isInsideDesign(that)
     }
   }
   //true if and only if the two members are equivalent in relation to their design construction context

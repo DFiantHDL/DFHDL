@@ -44,7 +44,11 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     import printConfig._
     import formatter._
     val body = blockBodyCodeString(members, lateConstruction = false)
-    s"$SC trait ${block.designType} $SC extends $DF DFDesign {\n${body.delim()}\n}"
+    val classStr = block match {
+      case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => "DFSimulator"
+      case _ => "DFDesign"
+    }
+    s"$SC trait ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
   }
   def codeString(implicit printConfig : Printer.Config) : String = {
     import printConfig._
