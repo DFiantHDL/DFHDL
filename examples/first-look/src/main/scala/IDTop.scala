@@ -63,12 +63,20 @@ trait ContainerConnLoop extends DFDesign {
   o <> io.o
 }
 
+trait IDTopTest extends DFSimulator {
+//  val iii = DFUInt(8) <> IN
+//  val ooo = DFUInt(8) <> OUT
+  val ididid = new IDTop {}
+//  ididid.x <> iii
+//  ididid.y <> ooo
+}
+
 
 object IDTopApp extends App {
-  val top = new IDTop {}
+  val top = new IDTopTest {}
   import compiler._
   import backend.vhdl._
-  val designDB = top.compile.printCodeString().printGenFiles()
+  val designDB = top.printCodeString()//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

@@ -7,7 +7,7 @@ import ZFiant.compiler.printer.Printer
 
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
   private[ZFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-  private[ZFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.On
+  private[ZFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
   private[ZFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(ctx)
   private[ZFiant] final val __db: DFDesign.DB.Mutable = ctx.db
   private[ZFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
