@@ -109,3 +109,12 @@ case class ExecuteInst(
   pcNext    : DFBits[32],
   pcPlus4   : DFBits[32]
 )
+
+//trait ExecuteTest extends DFSimulator {
+//  val execute = new Execute() {}
+//}
+//object ExecuteApp extends App {
+//  val exec = new Execute() {}
+//  import compiler.backend.vhdl._
+//  exec.compile.printCodeString().printGenFiles().toFolder("testProc")
+//}

@@ -19,7 +19,7 @@ package RISCV
 
 import ZFiant._
 
-abstract class RegFile()(implicit ctx : ContextOf[RegFile]) extends DFDesign {
+class RegFile(decodedInst : DecodedInst)(implicit ctx : ContextOf[RegFile]) extends DFDesign {
   private val rs1_addr  = DFBits[5]      <> IN
   private val rs1_data  = DFBits[XLEN]   <> OUT
   private val rs2_addr  = DFBits[5]      <> IN
@@ -44,37 +44,35 @@ abstract class RegFile()(implicit ctx : ContextOf[RegFile]) extends DFDesign {
       }
   }
 
+  final val inst = {
+    import decodedInst._
+    RegFileInst(
+      //IMem
+      pc = pc, instRaw = instRaw,
+      //Decoder
+      rs1_addr = decodedInst.rs1_addr, rs2_addr = decodedInst.rs2_addr, rd_addr = decodedInst.rd_addr, rd_wren = decodedInst.rd_wren,
+      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
+      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp,
+      //RegFile
+      rs1_data = rs1_data, rs2_data = rs2_data
+    )
+  }
 
-//
-//  final val inst = {
-//    import decodedInst._
-//    RegFileInst(
-//      //IMem
-//      pc = pc, instRaw = instRaw,
-//      //Decoder
-//      rs1_addr = decodedInst.rs1_addr, rs2_addr = decodedInst.rs2_addr, rd_addr = decodedInst.rd_addr, rd_wren = decodedInst.rd_wren,
-//      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-//      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp,
-//      //RegFile
-//      rs1_data = rs1_data, rs2_data = rs2_data
-//    )
-//  }
-//
-//  atOwnerDo {
-//    this.rs1_addr <> decodedInst.rs1_addr
-//    this.rs2_addr <> decodedInst.rs2_addr
-//  }
-//
-//  def writeBack(dmemInst : DMemInst) : Unit = atOwnerDo {
-//    val wbData = DFBits[32].matchdf(dmemInst.wbSel)
-//      .casedf(WriteBackSel.ALU)     {dmemInst.aluOut}
-//      .casedf(WriteBackSel.PCPlus4) {dmemInst.pcPlus4}
-//      .casedf_                      {dmemInst.dataFromMem}
-//
-//    this.rd_addr <> dmemInst.rd_addr
-//    this.rd_data <> wbData
-//    this.rd_wren <> dmemInst.rd_wren
-//  }
+  atOwnerDo {
+    this.rs1_addr <> decodedInst.rs1_addr
+    this.rs2_addr <> decodedInst.rs2_addr
+  }
+
+  def writeBack(dmemInst : DMemInst) : Unit = atOwnerDo {
+    val wbData = DFBits[32].matchdf(dmemInst.wbSel)
+      .casedf(WriteBackSel.ALU)     {dmemInst.aluOut}
+      .casedf(WriteBackSel.PCPlus4) {dmemInst.pcPlus4}
+      .casedf_                      {dmemInst.dataFromMem}
+
+    this.rd_addr <> dmemInst.rd_addr
+    this.rd_data <> wbData
+    this.rd_wren <> dmemInst.rd_wren
+  }
 }
 
 
@@ -102,8 +100,8 @@ case class RegFileInst(
   rs2_data  : DFBits[XLEN]
 )
 
-object RegFileApp extends App {
-  val dec = new RegFile() {}
-  import compiler.backend.vhdl._
-  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
-}
+//object RegFileApp extends App {
+//  val dec = new RegFile() {}
+//  import compiler.backend.vhdl._
+//  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
+//}

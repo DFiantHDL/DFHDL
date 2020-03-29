@@ -34,14 +34,15 @@ class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bra
   private val cellRange = 0 until cellNum
   private val initArr = programDMem.toInitArr(cellNum)
   private val cells = cellRange.map(ci => DFBits[32].setName(s"cell$ci").init(initArr(ci)))
-  cells.foreachdf(addra(7, 0)) {
-    case cell =>
-      douta := cell
-      ifdf (wea(0)) {cell( 7,  0) := dina( 7,  0)}
-      ifdf (wea(1)) {cell(15,  8) := dina(15,  8)}
-      ifdf (wea(2)) {cell(23, 16) := dina(23, 16)}
-      ifdf (wea(3)) {cell(31, 24) := dina(31, 24)}
-  }
+//  cells.foreachdf(addra(7, 0)) {
+//    case cell =>
+//      douta := cell
+//      ifdf (wea(0)) {cell( 7,  0) := dina( 7,  0)}
+//      ifdf (wea(1)) {cell(15,  8) := dina(15,  8)}
+//      ifdf (wea(2)) {cell(23, 16) := dina(23, 16)}
+//      ifdf (wea(3)) {cell(31, 24) := dina(31, 24)}
+//  }
+  douta := b0s
 }
 
 
