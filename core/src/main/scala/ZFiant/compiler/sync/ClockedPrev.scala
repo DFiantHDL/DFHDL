@@ -56,9 +56,14 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         case _ => false
       }
       if (hasBlockClk || hasBlockRst || hasPrevClk || hasPrevRst) {
-        val dsnClkRst = new ClkRstDesign(clockParams.name, resetParams.name, topSimulation) {
+        val dsnClkRst = new ClkRstDesign(clockParams, resetParams, topSimulation) {
           if (hasBlockClk || hasPrevClk) clk //touch lazy clock
           if (hasBlockRst || hasPrevRst) rst //touch lazy reset
+
+          if (topSimulation) {
+            vhdl"$clk <= $clk after 5000 ps;"
+            if (hasRst) vhdl"$rst <= '1' after 10000 ps;"
+          }
         }
         val connPatchList = clockedBlocks.map {cb =>
           val d = addedClkRst(cb)
@@ -95,7 +100,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       }
       if (prevTpls.nonEmpty) {
         val clockedDsn = addedClkRst(block)
-        val prevDsn = new ClkRstDesign(clockParams.name, resetParams.name, topSimulation) {
+        val prevDsn = new ClkRstDesign(clockParams, resetParams, topSimulation) {
           val sigs : List[DFAny] = prevTpls.map {
             case (_,rv @ DFAny.In(), _) => rv
             case (_,rv,prevVar) if !rv.name.endsWith("_sig") =>
@@ -131,6 +136,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           } else
             ifdf(clk.rising())(clkBlock)
         }
+
         //replacing the clock and reset with the ones already added in clockedDB
         val clkPatch = (prevDsn.clk -> Patch.Replace(clockedDsn.clk, Patch.Replace.Config.ChangeRefAndRemove))
         val rstPatch = if (hasPrevRst) List(prevDsn.rst -> Patch.Replace(clockedDsn.rst, Patch.Replace.Config.ChangeRefAndRemove)) else List()

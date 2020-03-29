@@ -2,6 +2,7 @@ package ZFiant
 package compiler
 
 import DFDesign.DB.Patch
+import ZFiant.compiler.sync.Sync
 
 /*
 Internal design blocks will be connected via dedicated "wiring" variables.
@@ -56,7 +57,7 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
       case d : DFDesign.Block.Internal if d.inlinedRep.isEmpty => d
     }
     val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
-      //getting only ports that are not already connected to variables
+      //getting only ports that are not already connected to variables unless these are clock variables
       val ports : List[DFAny] = designDB.designMemberTable(ib).flatMap {
         case p @ DFAny.Port.Out() =>
           val conns = designDB.getConnectionFrom(p)
@@ -67,7 +68,8 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
         case p @ DFAny.Port.In() =>
           import designDB.__getset
           designDB.getConnectionTo(p) match {
-            case Some(_ @ DFAny.NewVar()) => None
+            case Some(v @ DFAny.NewVar()) if v.tags.customTags.exists{case _ : Sync.Tag => true} => Some(p)
+            case Some(v @ DFAny.NewVar()) => None
             case Some(_ @ DFAny.Port.In()) => Some(p)
             case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
             case _ => Some(p)
