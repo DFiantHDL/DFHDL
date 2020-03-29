@@ -20,8 +20,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
-    case Sync.IfBlock(_) => true
-    case Sync.ElseIfBlock(_) => true
+    case Sync.IfBlock(_) | Sync.ElseIfBlock(_) => true
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true) : List[String] = {
@@ -40,6 +39,8 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
+      case (Sim.Assert(assertStr), (closing, statements)) => (closing, assertStr :: statements)
+      case (Sim.Finish(finishStr), (closing, statements)) => (closing, finishStr :: statements)
       case (_, nochange) => nochange
     }
     statements
