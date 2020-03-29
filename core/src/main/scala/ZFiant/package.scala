@@ -129,14 +129,16 @@ package object ZFiant {
       */
     def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
 
-    def msg(args : Any*) : DFSimMember.Assert.Message =
-      DFSimMember.Assert.Message(Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
+    private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny, String]] =
+      Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
         case x: String => x.nonEmpty
         case _ => true
       }).map {
         case x : DFAny => Left(x)
         case x => Right(x.toString)
-      })
+      }
+    def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
+    def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), "vhdl")
   }
 
   trait Interpolator[T] {
