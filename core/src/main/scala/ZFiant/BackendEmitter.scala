@@ -1,8 +1,11 @@
 package ZFiant
 
+import ZFiant.DFAny.CanBeAnonymous
 import ZFiant.compiler.printer.Printer
 
-final case class BackendEmitter(seq : Seq[Either[BackendEmitter.Ref, String]], backendID : String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFMember {
+final case class BackendEmitter(
+  seq : Seq[Either[BackendEmitter.Ref, String]], backendID : String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+) extends CanBeGuarded with CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
   type TCustomTag = DFMember.CustomTag
   override protected[ZFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -15,11 +18,13 @@ final case class BackendEmitter(seq : Seq[Either[BackendEmitter.Ref, String]], b
       !notEq && this.backendID == backendID && this.tags =~ tags
     case _ => false
   }
-  def codeString(implicit ctx : Printer.Context) : String = backendID + "\"" + seq.collect {
+  def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String = backendID + "\"" + seq.collect {
     case Left(x) => s"$${${x.refCodeString}}"
     case Right(x) => x
   }.mkString + "\""
-  def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+  def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
+    implicit getSet : MemberGetSet
+  ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
 }
 object BackendEmitter {
   type Ref = DFAny.Ref.ConsumeFrom[DFAny]
@@ -34,5 +39,4 @@ object BackendEmitter {
     }
     ret
   }
-
 }

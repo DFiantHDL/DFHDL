@@ -9,7 +9,9 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
   private val fixedDB = c.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
-  private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(implicit printConfig : Printer.Config) : String = {
+  private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(
+    implicit printConfig : Printer.Config
+  ) : String = {
     import printConfig._
     import formatter._
     val membersCodeString = members.flatMap {
@@ -26,6 +28,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
         case _ => Some(n.codeString)
       }
       case sim : DFSimMember => Some(sim.codeString)
+      case emitter : BackendEmitter => Some(emitter.codeString)
       case a : DFAny if !a.isAnonymous =>
         val initInfo = if (printConfig.showInits) a.tags.init match {
           case Some(init) => s"//init = ${init.codeString}"
@@ -40,7 +43,9 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     }
     membersCodeString.mkString("\n")
   }
-  private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(implicit printConfig : Printer.Config) : String = {
+  private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(
+    implicit printConfig : Printer.Config
+  ) : String = {
     import printConfig._
     import formatter._
     val body = blockBodyCodeString(members, lateConstruction = false)
