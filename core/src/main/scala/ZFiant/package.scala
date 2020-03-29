@@ -140,7 +140,6 @@ package object ZFiant {
     def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
     def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), "vhdl")
   }
-
   trait Interpolator[T] {
     type Out <: T
     def apply() : Out
