@@ -51,8 +51,12 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         }
         case _ => false
       }
+      val topSimulation = block match {
+        case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => true
+        case _ => false
+      }
       if (hasBlockClk || hasBlockRst || hasPrevClk || hasPrevRst) {
-        val dsnClkRst = new ClkRstDesign(clockParams.name, resetParams.name) {
+        val dsnClkRst = new ClkRstDesign(clockParams.name, resetParams.name, topSimulation) {
           if (hasBlockClk || hasPrevClk) clk //touch lazy clock
           if (hasBlockRst || hasPrevRst) rst //touch lazy reset
         }
@@ -85,9 +89,13 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           }
           (p, relValRef.get, DFAny.Dcl(dfType, DFAny.Modifier.NewVar, externalInit, ownerRef, tags !! Sync.Tag.Reg).asInstanceOf[DFAny.VarOf[DFAny.Type]])
       }
+      val topSimulation = block match {
+        case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => true
+        case _ => false
+      }
       if (prevTpls.nonEmpty) {
         val clockedDsn = addedClkRst(block)
-        val prevDsn = new ClkRstDesign(clockParams.name, resetParams.name) {
+        val prevDsn = new ClkRstDesign(clockParams.name, resetParams.name, topSimulation) {
           val sigs : List[DFAny] = prevTpls.map {
             case (_,rv @ DFAny.In(), _) => rv
             case (_,rv,prevVar) if !rv.name.endsWith("_sig") =>
