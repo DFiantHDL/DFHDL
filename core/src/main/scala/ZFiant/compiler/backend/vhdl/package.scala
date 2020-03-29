@@ -2,6 +2,8 @@ package ZFiant
 package compiler
 package backend
 
+import ZFiant.compiler.Compilable.Cmd
+
 
 package object vhdl {
   private[vhdl] val reservedKeywords : Set[String] = Set(
@@ -21,4 +23,10 @@ package object vhdl {
   implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : VHDLBackend[D, S] = new VHDLBackend[D, S](c)
 
+  import shapeless.{:: => #:}
+  sealed implicit class VHDLCompiled[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, VHDLCompiler #: S]) {
+    def getFileNames : List[String] = c.cmdSeq.collect {
+      case Cmd.GenFile(fileName, _) if fileName.endsWith(".vhdl") => fileName
+    }.toList
+  }
 }

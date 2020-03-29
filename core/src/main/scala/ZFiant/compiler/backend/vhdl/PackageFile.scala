@@ -33,12 +33,13 @@ object PackageFile {
     }.distinct
     enumTypes.map { enumType =>
       val typeList = enumType.entries.toList.sortBy(x => x._1).map(x => s"${enumType.name}_${x._2.name}")
-      s"type ${enumType.name} is (${typeList.mkString(", ")})"
+      s"type ${enumType.name} is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }
   private def helperFunctions()(implicit printer: Printer) : String = {
     import printer.config._
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector;
+       |function resize(arg : std_logic_vector; size : integer) return std_logic_vector;
        |function to_sl(b : boolean) return std_logic;
        |function to_sl(arg : std_logic_vector) return std_logic;
        |function to_slv(arg : std_logic) return std_logic_vector;
@@ -57,6 +58,10 @@ object PackageFile {
        |  end loop;
        |  return v_s;
        |end bit_reverse;
+       |function resize(arg : std_logic_vector; size : integer) return std_logic_vector is
+       |begin
+       |  return to_slv(resize(unsigned(arg), size));
+       |end resize;
        |function to_sl(b : boolean) return std_logic is
        |begin
        |  if (b) then

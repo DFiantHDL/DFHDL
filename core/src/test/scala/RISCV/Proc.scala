@@ -66,15 +66,17 @@ object ProcZTest extends App {
   val riscv_tb = new Proc_TB(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
   val risc_tbv = riscv_tb.compile.printCodeString.printGenFiles().toFolder("testProc")
 
-//  new java.io.File("testProc/work").mkdirs()
-//  val workDirFlag = "--workdir=testProc/work"
-//  val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
-//    val flags = s"$workDirFlag -P$libraryLocation -frelaxed-rules --ieee=synopsys --std=08"
-//  import sys.process._
-//  import scala.language.postfixOps
-//
-//  {s"ghdl --clean $workDirFlag" !!}
-//  {s"ghdl -a $flags ${risc_tbv.getFiles}" !!}
+  new java.io.File("testProc/work").mkdirs()
+  val workDirFlag = "--workdir=testProc/work"
+  val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
+  val librart = s"-P$libraryLocation"
+  val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys --std=08"
+  val files = risc_tbv.getFileNames.map(n => s"testProc/$n").mkString(" ")
+  import sys.process._
+  import scala.language.postfixOps
+
+  {s"ghdl --clean $workDirFlag" !!}
+  {s"ghdl -a $flags $files" !!}
 //  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
 
 

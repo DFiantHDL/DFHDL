@@ -96,4 +96,5 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   }
 }
 
+
 trait VHDLCompiler extends Compilable.Stage
