@@ -14,16 +14,16 @@ object PackageFile {
     s"""library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
-       |
+       |$EMPTY
        |package $name is
        |${helperFunctions.delim()}
        |${enumDcl.delim()}
        |end package $name;
-       |
+       |$EMPTY
        |package body $name is
        |${helperFunctionsBody.delim()}
        |end package body $name;
-       |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN).colored
+       |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN).formatted
   }
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pack"
 

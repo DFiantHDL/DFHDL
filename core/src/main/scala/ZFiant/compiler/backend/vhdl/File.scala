@@ -4,7 +4,12 @@ package compiler.backend.vhdl
 private object File {
   def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer) : String = {
     import printer.config.formatter._
-    s"${Library(packageName)}\n$entity\n$architecture".aligned.colored
+    s"""
+       |${Library(packageName)}
+       |$EMPTY
+       |$entity
+       |$EMPTY
+       |$architecture""".stripMargin.formatted
   }
 }
 

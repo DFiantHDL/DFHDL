@@ -2,10 +2,11 @@ package ZFiant.compiler.printer
 
 class Formatter(delimiter : String, maxAlignments : List[Int]) {
   import io.AnsiColor._
-  def ALGN(idx : Int) : String = {
+  final def ALGN(idx : Int) : String = {
     assert(idx < maxAlignments.size)
     s"$$$$${idx}$$$$"
   }
+  final val EMPTY = "$$EMPTY$$"
   private val colorCode = "\u001B\\[[;\\d]*m"
   private val optionalSpaces = "[ \t]*"
   private val word = "([0-9a-zA-Z_]+)"
@@ -15,13 +16,14 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
   private val singleChar = "([();{}\\[\\]])"
   private val coloredSymbol = s"($colorCode)$optionalSpaces(($word|$operator|$string|$singleChar){1})$noreset".r.unanchored
   implicit class FormatString(text : String) {
-    def colored : String = coloredSymbol.replaceAllIn(text, m => s"${m.group(1)}${m.group(2)}$RESET")
+    private[FormatString] def colored : String = coloredSymbol.replaceAllIn(text, m => s"${m.group(1)}${m.group(2)}$RESET")
     def colorWords(wordSet : Set[String], color : String) : String = {
       wordSet.foldLeft(text){case (t, w) => t.replaceAll(s"\\b$w\\b", s"$color$w")}
     }
     def uncolor : String = text.replaceAll(colorCode, "")
-    def aligned : String = {
-      maxAlignments.zipWithIndex.foldLeft(text){case (algnText, (algnMax, algnIdx)) =>
+    private[FormatString] def explicitEmptyLines : String = text.replaceAll("(?m)^\\s*$[\n\r]{1,}", "").replace(EMPTY, "")
+    def formatted : String = {
+      maxAlignments.zipWithIndex.foldLeft(text.colored.explicitEmptyLines){case (algnText, (algnMax, algnIdx)) =>
         val uncolored = algnText.uncolor
         val posList : List[Int] = uncolored.linesIterator.map(l => l.indexOf(ALGN(algnIdx))).toList
         val maxPos = posList.max

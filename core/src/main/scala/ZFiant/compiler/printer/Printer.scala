@@ -61,7 +61,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
         Some(designBlockCodeString(block, members))
       case _ => None
     }
-    codeStringList.mkString("\n").colored.aligned
+    codeStringList.mkString(s"\n$EMPTY\n").formatted
   }
   def printCodeString()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
     println(codeString)

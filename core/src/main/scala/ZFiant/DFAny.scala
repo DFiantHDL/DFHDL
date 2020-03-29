@@ -716,11 +716,11 @@ object DFAny {
   type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
-    private[ZFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : Unit =
+    private[ZFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment =
       DFNet.Assignment(left, that)
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : Unit = assign(op(left.dfType, right))
+    ) : DFNet.Assignment = assign(op(left.dfType, right))
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port]
