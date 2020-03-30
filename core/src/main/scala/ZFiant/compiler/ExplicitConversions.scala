@@ -58,24 +58,24 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
           case (DFBool(), DFBit()) => Some(toggleLogical(rightArg))
           case _ => None
         }
-      case cb : ConditionalBlock.IfBlock =>
-        val cond = cb.condRef.get
-        cond match {
-          case DFBit() => Some(toggleLogical(cond))
-          case _ => None
-        }
-      case cb : ConditionalBlock.ElseIfBlock =>
-        val cond = cb.condRef.get
-        cond match {
-          case DFBit() => Some(toggleLogical(cond))
-          case _ => None
-        }
-      case DFSimMember.Assert(Some(condRef), _, _, _, _) =>
-        val cond = condRef.get
-        cond match {
-          case DFBit() => Some(toggleLogical(cond))
-          case _ => None
-        }
+//      case cb : ConditionalBlock.IfBlock =>
+//        val cond = cb.condRef.get
+//        cond match {
+//          case DFBit() => Some(toggleLogical(cond))
+//          case _ => None
+//        }
+//      case cb : ConditionalBlock.ElseIfBlock =>
+//        val cond = cb.condRef.get
+//        cond match {
+//          case DFBit() => Some(toggleLogical(cond))
+//          case _ => None
+//        }
+//      case DFSimMember.Assert(Some(condRef), _, _, _, _) =>
+//        val cond = condRef.get
+//        cond match {
+//          case DFBit() => Some(toggleLogical(cond))
+//          case _ => None
+//        }
       case _ => None
     }
     c.newStage[ExplicitConversions](designDB.patch(patchList), Seq())

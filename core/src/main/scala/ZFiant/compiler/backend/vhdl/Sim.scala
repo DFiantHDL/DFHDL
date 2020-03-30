@@ -10,7 +10,13 @@ private object Sim {
       import formatter._
       val clkName = ClockParams.get.name
       val msg = assert.msg.seq.map {
-        case Left(v) => s"$FN to_hstring(${Value.ref(v)})"
+        case Left(v) =>
+          val convStr = v.get match {
+            case DFBits(w) if w % 8 == 0 => "to_hstring"
+            case DFUInt(w) if w % 8 == 0 => "to_hstring"
+            case _ => "to_string"
+          }
+          s"$FN $convStr(${Value.ref(v)})"
         case Right(s) => s""""$s""""
       }.mkString(" & ")
       val report = s"$KW report $msg $KW severity $TP${assert.severity};"

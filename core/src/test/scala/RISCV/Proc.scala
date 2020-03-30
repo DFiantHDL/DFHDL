@@ -32,7 +32,7 @@ abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends D
   ///////////////////////////////////////////////////////////////////////////////////////////////
   // Simulation Only
   ///////////////////////////////////////////////////////////////////////////////////////////////
-  private val done = DFBool() <> OUT init false
+  private val done = DFBit() <> OUT init false
   private val ppc =  pc.prev
   sim.report(msg"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
 
@@ -77,6 +77,8 @@ object ProcZTest extends App {
 
   {s"ghdl --clean $workDirFlag" !!}
   {s"ghdl -a $flags $files" !!}
+
+
 //  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
 
 

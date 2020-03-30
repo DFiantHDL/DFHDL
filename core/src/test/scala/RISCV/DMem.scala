@@ -34,9 +34,9 @@ class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bra
   private val cellRange = 0 until cellNum
   private val initArr = programDMem.toInitArr(cellNum)
   private val cells = cellRange.map(ci => DFBits[32].init(initArr(ci)).setName(s"cell$ci"))
+  cells.foreach(c => c := c.prev)
   cells.foreachdf(addra(7, 0)) {
     case cell =>
-      cell := cell.prev
       douta := cell
       ifdf (wea(0)) {cell( 7,  0) := dina( 7,  0)}
       ifdf (wea(1)) {cell(15,  8) := dina(15,  8)}
@@ -70,11 +70,13 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
         .casedf(b"01")    {dataFromMem := bram.douta(15,  8).sint.resize(32).bits}
         .casedf(b"10")    {dataFromMem := bram.douta(23, 16).sint.resize(32).bits}
         .casedf(b"11")    {dataFromMem := bram.douta(31, 24).sint.resize(32).bits}
+        .casedf_{}
     }
     .casedf(DMemSel.LH) {
       matchdf(addr(1, 1))
         .casedf(b"0")     {dataFromMem := bram.douta(15,  0).sint.resize(32).bits}
         .casedf(b"1")     {dataFromMem := bram.douta(31, 16).sint.resize(32).bits}
+        .casedf_{}
     }
     .casedf(DMemSel.LW)   {dataFromMem := bram.douta}
     .casedf(DMemSel.LBU) {
@@ -83,11 +85,13 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
         .casedf(b"01")    {dataFromMem := bram.douta(15,  8).resize(32)}
         .casedf(b"10")    {dataFromMem := bram.douta(23, 16).resize(32)}
         .casedf(b"11")    {dataFromMem := bram.douta(31, 24).resize(32)}
+        .casedf_{}
     }
     .casedf(DMemSel.LHU) {
       matchdf(addr(1, 1))
         .casedf(b"0")    {dataFromMem := bram.douta(15,  0).resize(32)}
         .casedf(b"1")    {dataFromMem := bram.douta(31, 16).resize(32)}
+        .casedf_{}
     }
     .casedf(DMemSel.SB) {
       dataToMemBH := (dataToMem(7,0), dataToMem(7,0), dataToMem(7,0), dataToMem(7,0)).bits
@@ -96,14 +100,17 @@ class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : 
         .casedf(b"01")    {wrEnToMem := b"0010"}
         .casedf(b"10")    {wrEnToMem := b"0100"}
         .casedf(b"11")    {wrEnToMem := b"1000"}
+        .casedf_{}
     }
     .casedf(DMemSel.SH) {
       dataToMemBH := dataToMem(15,0) ++ dataToMem(15,0)
       matchdf(addr(1, 1))
         .casedf(b"0")     {wrEnToMem := b"0011"}
         .casedf(b"1")     {wrEnToMem := b"1100"}
+        .casedf_{}
     }
     .casedf(DMemSel.SW)   {wrEnToMem := b"1111"}
+    .casedf_{}
 
   bram.addra <> addr(13, 2)
   bram.wea <> wrEnToMem
