@@ -110,11 +110,40 @@ case class ExecuteInst(
   pcPlus4   : DFBits[32]
 )
 
-//trait ExecuteTest extends DFSimulator {
-//  val execute = new Execute() {}
-//}
-//object ExecuteApp extends App {
-//  val exec = new Execute() {}
-//  import compiler.backend.vhdl._
-//  exec.compile.printCodeString().printGenFiles().toFolder("testProc")
-//}
+abstract class ExecuteT(implicit ctx : ContextOf[ExecuteT]) extends DFDesign {
+  private val branchSel = DFEnum[BranchSel] <> IN
+  private val rs1OpSel  = DFEnum[RS1OpSel]  <> IN
+  private val rs2OpSel  = DFEnum[RS2OpSel]  <> IN
+  private val aluSel    = DFEnum[ALUSel]    <> IN
+  private val rs1_data  = DFBits[XLEN]      <> IN
+  private val rs2_data  = DFBits[XLEN]      <> IN
+  private val pc        = DFBits[32]        <> IN
+  private val imm       = DFBits[32]        <> IN
+  private val pcNext    = DFBits[32]        <> OUT
+  private val pcPlus4   = DFBits[32]        <> OUT
+  private val aluOut    = DFBits[32]        <> OUT
+  final val mispredict  = DFBit()           <> OUT
+
+  private val aluOp1 = DFBits[32].matchdf(rs1OpSel)
+    .casedf(RS1OpSel.RegSource) {rs1_data}
+    .casedf_                    {imm}
+  private val aluOp2 = DFBits[32].matchdf(rs2OpSel)
+    .casedf(RS2OpSel.RegSource) {rs2_data}
+    .casedf(RS2OpSel.PC)        {pc}
+    .casedf_                    {imm}
+
+  private val alu = new ALU {}
+  private val aluCalc = alu.calcConn(aluOp1, aluOp2, aluSel)
+  private val pcGen = new PCGen(pc, branchSel, rs1_data, rs2_data, imm)
+  pcNext <> pcGen.pcNext
+  pcPlus4 <> pcGen.pcPlus4
+  aluOut <> aluCalc
+  mispredict <> pcGen.mispredict
+  //  sim.report(msg"rs1_data: $rs1_data, rs2_data: $rs2_data, imm: $imm, rs1OpSel: $rs1OpSel, aluOp1: $aluOp1, rs2OpSel: $rs2OpSel, aluOp2: $aluOp2, aluSel: $aluSel, aluCalc: $aluCalc")
+}
+
+object ExecuteApp extends App {
+  val exec = new ExecuteT() {}
+  import compiler.backend.vhdl._
+  exec.compile.printCodeString().printGenFiles().toFolder("testProc")
+}

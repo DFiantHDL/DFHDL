@@ -33,7 +33,7 @@ object PackageFile {
     }.distinct
     enumTypes.map { enumType =>
       val typeList = enumType.entries.toList.sortBy(x => x._1).map(x => s"${enumType.name}_${x._2.name}")
-      s"type ${enumType.name} is (${typeList.mkString(", ")});"
+      s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }
   private def helperFunctions()(implicit printer: Printer) : String = {

@@ -4,8 +4,8 @@ package compiler.backend.vhdl
 private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = token match {
     case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
-    case DFUInt.Token(width, value, _) => s"""$width"$value""""
-    case DFSInt.Token(width, value, _) => s"""$width"$value""""
+    case DFUInt.Token(width, value, _) => s"""${width}d"$value""""
+    case DFSInt.Token(width, value, _) => s"""${width}d"$value""""
     case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
     case DFBool.Token(true, value, _) => value.toString
     case DFEnum.Token(enumType, value) => s"${enumType.name}_${value.get.name}"
@@ -67,14 +67,18 @@ private object Value {
         case (DFBit(), DFBits(w)) if (w.getValue == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
         case (DFBit(), DFBool()) => s"$FN to_sl($relValStr)"
       }
-      case DFAny.Alias.BitsWL(_, _, _, relWidth, relBitLow, _, _) =>
+      case DFAny.Alias.BitsWL(dfType, _, _, relWidth, relBitLow, _, _) =>
         val relBitHigh = relBitLow + relWidth - 1
         val bitsConv = relVal match {
           case DFBits(_) => relValStr
           case _ => s"$FN to_slv($relValStr)"
         }
-        if (relVal.width.getValue == relWidth) bitsConv
-        else s"${bitsConv.applyBrackets()}($LIT$relBitHigh $KW downto $LIT$relBitLow)"
+        dfType match {
+          case DFBool.Type(false) => s"${bitsConv.applyBrackets()}($LIT$relBitLow)"
+          case DFBits.Type(_) =>
+            if (relVal.width.getValue == relWidth) bitsConv
+            else s"${bitsConv.applyBrackets()}($LIT$relBitHigh $KW downto $LIT$relBitLow)"
+        }
       case DFAny.Alias.Resize(dfType, _, _, _) => s"$FN resize($relValStr, $LIT${dfType.width})"
       case _ : DFAny.Alias.Invert => s"$OP not ${relValStr.applyBrackets()}"
       case _ : DFAny.Alias.Prev => ??? //should not happen since prev is removed via clocking phase

@@ -60,20 +60,22 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : Compil
       //getting only ports that are not already connected to variables unless these are clock variables
       val ports : List[DFAny] = designDB.designMemberTable(ib).flatMap {
         case p @ DFAny.Port.Out() =>
-          val conns = designDB.getConnectionFrom(p)
-          conns.headOption match {
-            case Some(DFAny.NewVar()) if conns.size == 1 => None
-            case _ => Some(p)
-          }
+//          val conns = designDB.getConnectionFrom(p)
+//          conns.headOption match {
+//            case Some(DFAny.NewVar()) if conns.size == 1 => None
+//            case _ => Some(p)
+//          }
+          Some(p)
         case p @ DFAny.Port.In() =>
-          import designDB.__getset
-          designDB.getConnectionTo(p) match {
-            case Some(v @ DFAny.NewVar()) if v.tags.customTags.exists{case _ : Sync.Tag => true} => Some(p)
-            case Some(v @ DFAny.NewVar()) => None
-            case Some(_ @ DFAny.Port.In()) => Some(p)
-            case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
-            case _ => Some(p)
-          }
+//          import designDB.__getset
+//          designDB.getConnectionTo(p) match {
+//            case Some(v @ DFAny.NewVar()) if v.tags.customTags.exists{case _ : Sync.Tag => true} => Some(p)
+//            case Some(v @ DFAny.NewVar()) => None
+//            case Some(_ @ DFAny.Port.In()) => Some(p)
+//            case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
+//            case _ => Some(p)
+//          }
+          Some(p)
         case _ => None
       }
       //Meta design to construct the variables to be connected to the ports

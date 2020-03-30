@@ -63,5 +63,20 @@ case class IMemInst(
   instRaw : DFBits[32]
 )
 
+abstract class IMemT(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMemT]) extends DFDesign {
+  private val pc      = DFBits[32] <> IN
+  private val instRaw = DFBits[32] <> OUT
+
+  private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
+
+  bram.addra <> pc(13, 2)
+  bram.douta <> instRaw
+}
+object IMemApp extends App {
+  val program = Program.fromFile("riscv-bmarks/towers.riscv.dump").imem
+  val imem = new IMemT(program) {}
+  import compiler.backend.vhdl._
+  imem.compile.printCodeString().printGenFiles()//.toFolder("testProc")
+}
 
 

@@ -122,6 +122,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
           branchSel := BranchSel.JALR
           debugOp := DebugOp.JALR
         }
+        .casedf_{}
     }
     //////////////////////////////////////////////
     // Branch
@@ -141,6 +142,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
         .casedf(b"101")               {debugOp := DebugOp.BGE;    branchSel := BranchSel.BGE}
         .casedf(b"110")               {debugOp := DebugOp.BLTU;   branchSel := BranchSel.BLTU}
         .casedf(b"111")               {debugOp := DebugOp.BGEU;   branchSel := BranchSel.BGEU}
+        .casedf_{}
     }
     //////////////////////////////////////////////
     // Load from Memory
@@ -159,6 +161,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
         .casedf(b"010")               {debugOp := DebugOp.LW;     dmemSel := DMemSel.LW}
         .casedf(b"100")               {debugOp := DebugOp.LBU;    dmemSel := DMemSel.LBU}
         .casedf(b"101")               {debugOp := DebugOp.LHU;    dmemSel := DMemSel.LHU}
+        .casedf_{}
     }
     //////////////////////////////////////////////
     // Store to Memory
@@ -175,6 +178,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
         .casedf(b"000")               {debugOp := DebugOp.SB;     dmemSel := DMemSel.SB}
         .casedf(b"001")               {debugOp := DebugOp.SH;     dmemSel := DMemSel.SH}
         .casedf(b"010")               {debugOp := DebugOp.SW;     dmemSel := DMemSel.SW}
+        .casedf_{}
     }
     //////////////////////////////////////////////
     // Immediate Calc
@@ -197,12 +201,15 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
         .casedf(b"001") {
           matchdf(func7)
             .casedf(b"0000000")       {debugOp := DebugOp.SLLI;   aluSel := ALUSel.SLL}
+            .casedf_{}
         }
         .casedf(b"101") {
           matchdf(func7)
             .casedf(b"0000000")       {debugOp := DebugOp.SRLI;   aluSel := ALUSel.SRL}
             .casedf(b"0100000")       {debugOp := DebugOp.SRAI;   aluSel := ALUSel.SRA}
+            .casedf_{}
         }
+        .casedf_{}
     }
     //////////////////////////////////////////////
     // R-Type
@@ -225,6 +232,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
         .casedf(b"0100000" ++ b"101") {debugOp := DebugOp.SRA;    aluSel := ALUSel.SRA}
         .casedf(b"0000000" ++ b"110") {debugOp := DebugOp.OR;     aluSel := ALUSel.OR}
         .casedf(b"0000000" ++ b"111") {debugOp := DebugOp.AND;    aluSel := ALUSel.AND}
+        .casedf_{}
     }
     //////////////////////////////////////////////
     // System
@@ -235,6 +243,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
           matchdf(notOpCode)
             .casedf(b"000000000000" ++ b"00000" ++ b"000" ++ b"00000") {debugOp := DebugOp.ECALL;}
             .casedf(b"000000000001" ++ b"00000" ++ b"000" ++ b"00000") {debugOp := DebugOp.EBREAK;}
+            .casedf_{}
         }
         .casedf(b"001")               {debugOp := DebugOp.CSRRW;  }
         .casedf(b"010")               {debugOp := DebugOp.CSRRS;  }
@@ -242,8 +251,10 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
         .casedf(b"101")               {debugOp := DebugOp.CSRRWI; }
         .casedf(b"110")               {debugOp := DebugOp.CSRRSI; }
         .casedf(b"111")               {debugOp := DebugOp.CSRRCI; }
+        .casedf_{}
     }
     .casedf(b"0001111"){debugOp := DebugOp.FENCE;}//FENCE
+    .casedf_{}
 
   final val inst = {
     import fetchInst._
