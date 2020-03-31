@@ -25,14 +25,14 @@ object PackageFile {
        |end package body $name;
        |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN).formatted
   }
-  def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pack"
+  def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pkg"
 
   private def enumDcl()(implicit printer: Printer) : String = {
     val enumTypes = printer.getSet.designDB.members.collect {
       case DFEnum(enumType) => enumType
     }.distinct
     enumTypes.map { enumType =>
-      val typeList = enumType.entries.toList.sortBy(x => x._1).map(x => s"${enumType.name}_${x._2.name}")
+      val typeList = enumType.entries.toList.sortBy(x => x._1).map(x => s"E_${enumType.name}_${x._2.name}".toUpperCase)
       s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }

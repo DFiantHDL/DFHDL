@@ -8,7 +8,7 @@ private object Value {
     case DFSInt.Token(width, value, _) => s"""${width}d"$value""""
     case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
     case DFBool.Token(true, value, _) => value.toString
-    case DFEnum.Token(enumType, value) => s"${enumType.name}_${value.get.name}"
+    case DFEnum.Token(enumType, value) => s"E_${enumType.name}_${value.get.name}".toUpperCase
     case _ => ???
   }
   def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {

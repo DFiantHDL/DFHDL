@@ -26,7 +26,7 @@ import ZFiant.compiler.sync.ResetParams.{Active, Mode}
 import collection.mutable
 
 final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val designDB = c.singleStepPrev.calcInit.db
+  private val designDB = c.singleStepPrev.calcInit.printCodeString().db
   import designDB.__getset
 
   private val clockParams = ClockParams.get
@@ -61,7 +61,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           if (hasBlockRst || hasPrevRst) rst //touch lazy reset
 
           if (topSimulation) {
-            vhdl"$clk <= $clk after 5000 ps;"
+            vhdl"$clk <= not $clk after 5000 ps;"
             if (hasRst) vhdl"$rst <= '1' after 10000 ps;"
           }
         }

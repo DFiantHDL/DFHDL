@@ -100,8 +100,54 @@ case class RegFileInst(
   rs2_data  : DFBits[XLEN]
 )
 
-//object RegFileApp extends App {
-//  val dec = new RegFile() {}
-//  import compiler.backend.vhdl._
-//  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
-//}
+
+abstract class RegFileT()(implicit ctx : ContextOf[RegFileT]) extends DFDesign {
+  final val rs1_addr  = DFBits[5]      <> IN
+  final val rs1_data  = DFBits[XLEN]   <> OUT
+  final val rs2_addr  = DFBits[5]      <> IN
+  final val rs2_data  = DFBits[XLEN]   <> OUT
+  final val rd_addr   = DFBits[5]      <> IN
+  final val rd_data   = DFBits[XLEN]   <> IN
+  final val rd_wren   = DFBit()        <> IN
+
+  private val regs = List.tabulate(32)(ri => DFBits[XLEN].init(b0s).setName(s"x$ri"))
+  private val regsWithIndex = regs.zipWithIndex
+  regsWithIndex.foreachdf(rs1_addr) {case (r, ri) => rs1_data := r}
+  regsWithIndex.foreachdf(rs2_addr) {case (r, ri) => rs2_data := r}
+
+  regsWithIndex.foreachdf(rd_addr) {
+    case (r, 0) => //No write for X0
+    case (r, ri) =>
+      ifdf (rd_wren) {
+        r := rd_data
+      }
+  }
+}
+
+trait RegFileWrapper extends DFDesign {
+  private val rs1_addr  = DFBits[5]      <> IN
+  private val rs1_data  = DFBits[XLEN]   <> OUT
+  private val rs2_addr  = DFBits[5]      <> IN
+  private val rs2_data  = DFBits[XLEN]   <> OUT
+  private val rd_addr   = DFBits[5]      <> IN
+  private val rd_data   = DFBits[XLEN]   <> IN
+  private val rd_wren   = DFBit()        <> IN
+  val regFile = new RegFileT() {}
+  rs1_addr <> regFile.rs1_addr
+  rs1_data <> regFile.rs1_data
+  rs2_addr <> regFile.rs2_addr
+  rs2_data <> regFile.rs2_data
+  rd_addr  <> regFile.rd_addr
+  rd_data  <> regFile.rd_data
+  rd_wren  <> regFile.rd_wren
+}
+
+trait RegFileTest extends DFSimulator {
+  val regFile = new RegFileWrapper {}
+}
+
+object RegFileApp extends App {
+  val dec = new RegFileTest {}
+  import compiler.backend.vhdl._
+  dec.compile//.printCodeString().printGenFiles()//.toFolder("testProc")
+}

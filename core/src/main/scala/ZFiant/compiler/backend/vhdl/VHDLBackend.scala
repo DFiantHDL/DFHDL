@@ -87,7 +87,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         val syncProcess = Process("sync_proc", Process.Sensitivity.List(syncSensitivityList), List(), syncStatements)
         val statements = componentInstances ++ List(asyncProcess, syncProcess, emits)
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
-        val file = File(s"${designDB.top.designType}_pack", entity, architecture)
+        val file = File(s"${designDB.top.designType}_pkg", entity, architecture)
         Some(Compilable.Cmd.GenFile(s"${design.designType}.vhdl", s"$file"))
       case _ => None
     }

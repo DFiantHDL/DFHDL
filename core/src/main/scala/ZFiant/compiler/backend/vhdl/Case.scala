@@ -44,7 +44,7 @@ private object Case {
         case x : DFUInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
         case x : DFSInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
         case x : DFBool.Pattern => x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")
-        case x : DFEnum.Pattern => x.patternSet.map(p => s"${p.enumType.name}_${p.enumType.entries(p.value).name}").mkString("|")
+        case x : DFEnum.Pattern => x.patternSet.map(p => s"E_${p.enumType.name}_${p.enumType.entries(p.value).name}".toUpperCase).mkString("|")
         case _ => throw new IllegalArgumentException(s"\nUnsupported pattern type for VHDL compilation: $pattern")
       }
     }

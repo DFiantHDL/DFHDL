@@ -9,7 +9,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val designDB = c.explicitPrev.fixAnonymous.db
+  //TODO: currently assuming explicitPrev has run
+  private val designDB = c.fixAnonymous.db
   import designDB.__getset
   //in case of a.prev.prev.prev, we treat it like a.prev(3)
   @tailrec private def getRelValStep(relValRef : DFAny.Alias.RelValRef[DFAny], step : Int) : (DFAny, Int) = {
@@ -45,8 +46,7 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
           } else
             Some(p -> Patch.Replace(prevList(prevList.length - step), Patch.Replace.Config.ChangeRefAndRemove))
         } else { //single name prev step
-          namedPrevTable.update(relVal, List(p))
-          None
+          Some(p -> Patch.Replace(namedPrevTable(relVal)(step - 1), Patch.Replace.Config.ChangeRefAndRemove))
         }
       case _ => None
     }

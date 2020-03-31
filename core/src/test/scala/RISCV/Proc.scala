@@ -54,8 +54,11 @@ abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends D
   ///////////////////////////////////////////////////////////////////////////////////////////////
 }
 
-abstract class Proc_TB(program : Program)(implicit ctx : ContextOf[Proc_TB]) extends DFSimulator {
+abstract class riscv_tb(program : Program)(implicit ctx : ContextOf[riscv_tb]) extends DFSimulator {
   val proc = new Proc(program) {}
+  import compiler.sync._
+  this !! ClockParams("clk", ClockParams.Edge.Rising)
+  this !! ResetParams("rstn", ResetParams.Mode.Async, ResetParams.Active.Low)
 }
 
 object ProcZTest extends App {
@@ -63,7 +66,7 @@ object ProcZTest extends App {
 
 //  val riscv = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
 //  riscv.compile.printCodeString()
-  val riscv_tb = new Proc_TB(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
+  val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
   val risc_tbv = riscv_tb.compile.printCodeString.printGenFiles().toFolder("testProc")
 
   new java.io.File("testProc/work").mkdirs()
@@ -72,14 +75,13 @@ object ProcZTest extends App {
   val librart = s"-P$libraryLocation"
   val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys --std=08"
   val files = risc_tbv.getFileNames.map(n => s"testProc/$n").mkString(" ")
+  val topEntity = risc_tbv.db.top.designType
   import sys.process._
   import scala.language.postfixOps
 
   {s"ghdl --clean $workDirFlag" !!}
   {s"ghdl -a $flags $files" !!}
-
-
-//  {s"ghdl -r $flags riscv_tb --ieee-asserts=disable-at-0" !}
+  {s"ghdl -r $flags $topEntity --ieee-asserts=disable-at-0" !}
 
 
   //spike -l --isa=RV32IMAFDC towers.riscv 2>&1 >/dev/null | awk '{print $3}' | tr a-z A-Z | sed -e 's/0XFFFFFFFF//g'

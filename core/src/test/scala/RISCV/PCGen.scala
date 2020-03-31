@@ -28,8 +28,8 @@ class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits
   private val imm         = DFBits[32]        <> IN
   final val   pcNext      = DFBits[32]        <> OUT
   final val   pcPlus4     = DFBits[32]        <> OUT
-  final val   mispredict  = DFBit()           <> OUT init true
-
+  final val   mispredict  = DFBit()           <> OUT
+  mispredict := true
   private val pcu = pc.uint
   private val pcPlus4U = pcu + 4
   private val pcuSel = pcu
