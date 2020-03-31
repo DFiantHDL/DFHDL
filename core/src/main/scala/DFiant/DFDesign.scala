@@ -5,69 +5,8 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
 import DFiant.compiler.printer.Printer
 
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFInterface {
-  private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-  private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
-  private[DFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(ctx)
-  private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
-  private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
-  final protected implicit val __getset : MemberGetSet = ctx.db.getSet
-
-  ///////////////////////////////////////////////////////////////////
-  // Context implicits
-  ///////////////////////////////////////////////////////////////////
-  final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-    new DFAny.Context(meta, ownerInjector, ctx.db)
-  final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
-    new DFBlock.Context(meta, ownerInjector, ctx.db)
-  final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-    new ContextOf[T](meta, ownerInjector, ctx.db)
-  ///////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////
-  // Conditional Constructs
-  ///////////////////////////////////////////////////////////////////
-  final protected def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
-    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)(ctx)
-  final protected def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-    implicit ctx : DFBlock.Context
-  ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
-  ///////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////
-  // Ability to run construction at the owner's context
-  ///////////////////////////////////////////////////////////////////
-  final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
-  ///////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////
-  // Simulation-related constructs
-  ///////////////////////////////////////////////////////////////////
-  final protected lazy val inSimulation : Boolean = ctx.db.top.simMode match {
-    case DFSimulator.Mode.Off => false
-    case DFSimulator.Mode.On => true
-  }
-  final protected object sim {
-    import DFSimMember.{Assert, Finish}
-    import Assert._
-    final val Note = Severity.Note
-    final val Warning = Severity.Warning
-    final val Error = Severity.Error
-    final val Failure = Severity.Failure
-    def assert[C](cond : DFBool.Op.Able[C], msg : Message, severity : Severity = Warning)(
-      implicit ctx : DFAny.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-    ) : Unit = {
-      if (inSimulation) Assert(Some(condConv(DFBool.Type(logical = true),cond)), msg, severity)(ctx)
-    }
-    def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
-      if (inSimulation) Assert(None, msg, severity)(ctx)
-    }
-    def finish()(implicit ctx : DFAny.Context) : Unit = {
-      if (inSimulation) Finish()(ctx)
-    }
-  }
-  ///////////////////////////////////////////////////////////////////
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Infra {
+  private[DFiant] lazy val __ctx : DFDesign.Context = ctx
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
@@ -93,6 +32,73 @@ object ContextOf {
 }
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
+
+  trait Infra extends DFInterface {
+    private[DFiant] val __ctx : DFDesign.Context
+    private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
+    private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
+    private[DFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
+    private[DFiant] final val __db: DFDesign.DB.Mutable = __ctx.db
+    private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
+    final protected implicit val __getset : MemberGetSet = __ctx.db.getSet
+
+    ///////////////////////////////////////////////////////////////////
+    // Context implicits
+    ///////////////////////////////////////////////////////////////////
+    final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
+      new DFAny.Context(meta, ownerInjector, __ctx.db)
+    final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
+      new DFBlock.Context(meta, ownerInjector, __ctx.db)
+    final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
+      new ContextOf[T](meta, ownerInjector, __ctx.db)
+    ///////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////
+    // Conditional Constructs
+    ///////////////////////////////////////////////////////////////////
+    final protected def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+    ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)(ctx)
+    final protected def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
+      implicit ctx : DFBlock.Context
+    ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
+    ///////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////
+    // Ability to run construction at the owner's context
+    ///////////////////////////////////////////////////////////////////
+    final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(__ctx.owner)(block)
+    ///////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////
+    // Simulation-related constructs
+    ///////////////////////////////////////////////////////////////////
+    final protected lazy val inSimulation : Boolean = __ctx.db.top.simMode match {
+      case DFSimulator.Mode.Off => false
+      case DFSimulator.Mode.On => true
+    }
+    final protected object sim {
+      import DFSimMember.{Assert, Finish}
+      import Assert._
+      final val Note = Severity.Note
+      final val Warning = Severity.Warning
+      final val Error = Severity.Error
+      final val Failure = Severity.Failure
+      def assert[C](cond : DFBool.Op.Able[C], msg : Message, severity : Severity = Warning)(
+        implicit ctx : DFAny.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : Unit = {
+        if (inSimulation) Assert(Some(condConv(DFBool.Type(logical = true),cond)), msg, severity)(ctx)
+      }
+      def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
+        if (inSimulation) Assert(None, msg, severity)(ctx)
+      }
+      def finish()(implicit ctx : DFAny.Context) : Unit = {
+        if (inSimulation) Finish()(ctx)
+      }
+    }
+    ///////////////////////////////////////////////////////////////////
+  }
+
 
   trait Implicits extends
     DFBits.Op.Implicits with
