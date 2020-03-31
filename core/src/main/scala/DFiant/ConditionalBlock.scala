@@ -2,543 +2,438 @@
  *     This file is part of DFiant.
  *
  *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU Lesser General Public License as published by
+ *     it under the terms of the Lesser GNU General Public License as published by
  *     the Free Software Foundation, either version 3 of the License, or
  *     any later version.
  *
  *     DFiant is distributed in the hope that it will be useful,
  *     but WITHOUT ANY WARRANTY; without even the implied warranty of
  *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU Lesser General Public License for more details.
+ *     Lesser GNU General Public License for more details.
  *
- *     You should have received a copy of the GNU Lesser General Public License
+ *     You should have received a copy of the Lesser GNU General Public License
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 package DFiant
-import internals._
+import DFiant.internals._
+import DFiant.compiler.printer.Printer
 
-import scala.collection.mutable.ListBuffer
-
-protected[DFiant] abstract class ConditionalBlock[CB <: ConditionalBlock[CB, RV], RV <: Any](returnVar : Option[DFAny.Var])(prevBlock : Option[CB], block : => RV)(
-  implicit ctx : ConditionalBlock.Context, mutableOwner: MutableOwner
-) extends DFBlock with DSLTransparentOwnerConstruct {self : CB =>
-  protected[DFiant] trait __DevConditionalBlock extends __DevDFBlock with __DevDSLTransparentOwnerConstruct {
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Conditional Blocks
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    protected[ConditionalBlock] var _nextBlock : Option[CB] = None
-    final lazy val nextBlock : Option[CB] = _nextBlock
-    final val firstBlock : CB = prevBlock match {
-      case Some(b) => b.firstBlock
-      case None => self
-    }
-    final lazy val lastBlock : CB = nextBlock match {
-      case Some(b) => b.lastBlock
-      case None => self
-    }
-    final protected val prevBlocks : List[CB] = prevBlock match {
-      case Some(b) => b.prevBlocks :+ self
-      case None => List(self)
-    }
-    final lazy val allBlocks : List[CB] = lastBlock.prevBlocks
-    final val isFirstCondBlock : Boolean = firstBlock == self
-    final lazy val isLastCondBlock : Boolean = lastBlock == self
-    val isExhaustive : Boolean
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Member discovery
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    lazy val discoveredSet : CacheBoxRO[Set[DFAnyMember]] = owner.discoveredSet
-  }
-  override private[DFiant] lazy val __dev : __DevConditionalBlock = ???
-  import __dev._
-
-  prevBlock.foreach{pb =>pb.__dev._nextBlock = Some(self)}
-
-  private val originalOwner = mutableOwner.value
-  mutableOwner.value = this
-  protected final val returnValue : RV = block
-  returnVar.foreach(rv => {
-    rv.nameFirst = true
-    rv.assign(returnValue.asInstanceOf[DFAny])(ctx.updateOwner(this))
-  })
-  mutableOwner.value = originalOwner
-  id
+sealed trait ConditionalBlock extends DFBlock with CanBeGuarded with DFAny.CanBeAnonymous {
+  type TTags = DFMember.Tags.Basic
+  type TCustomTag = DFMember.CustomTag
+  type TRet
+  private[DFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
 }
 
-protected[DFiant] abstract class ConditionalRetBlock[CB <: ConditionalRetBlock[CB, RV], RV <: DFAny](returnVar : DFAny.NewVar[RV])(prevBlock : Option[CB], block : => RV)(
-  implicit ctx : ConditionalBlock.Context, mutableOwner: MutableOwner
-) extends ConditionalBlock[CB, RV](Some(returnVar))(prevBlock, block) {self : CB =>
-  protected[DFiant] trait __DevConditionalRetBlock extends __DevConditionalBlock {
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Initialization
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    val initCB : CacheBoxRO[Seq[RV#TToken]]
-  }
-  override private[DFiant] lazy val __dev : __DevConditionalRetBlock = ???
-  import __dev._
-  if (isFirstCondBlock) returnVar.conditionalBlockDriver.set(Some(self))
-}
-
-
-sealed trait MatchConfig
+sealed trait MatchConfig extends Product with Serializable
 object MatchConfig {
-  object NoOverlappingCases extends MatchConfig
-  object AllowOverlappingCases extends MatchConfig
+  case object NoOverlappingCases extends MatchConfig
+  case object AllowOverlappingCases extends MatchConfig
 }
 
 object ConditionalBlock {
-  type Context = DFAny.Op.Context
-  trait IfBlock {
-    val cond : DFBool
-  }
-  trait ElseIfBlock extends IfBlock
-  trait ElseBlock extends IfBlock
-  trait MatchHeader[MV <: DFAny] {
-    val matchVal : MV
-  }
-  trait CasePatternBlock {
-    val pattern : DFAny.Pattern[_]
-  }
-  trait Case_Block extends CasePatternBlock
-  trait WithRetVal
-  trait NoRetVal
-  implicit def fetchDev(from : ConditionalBlock[_,_])(implicit devAccess: DevAccess) : from.__dev.type = from.__dev
-  class IfWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
-    protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => RV)(implicit ctx : Context, mutableOwner: MutableOwner)
-      extends ConditionalRetBlock[DFIfBlock, RV](returnVar)(prevBlock, block) with IfBlock with WithRetVal {self =>
-      protected[DFiant] trait __DevDFIfBlock extends __DevConditionalRetBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        lazy val isExhaustive : Boolean = nextBlock match {
-          case Some(ni) => ni.__dev.isExhaustive
-          case None => false //a single if statement cannot be exhaustive unless condition is always true
-        }
-        final val condVersionedSource = if (cond == null) None else Some(cond.source.versioned)
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}if"
-        override def codeString: String = s"\nifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          if (cond == null) super.discoveryDependenciesStatic
-          else super.discoveryDependenciesStatic + cond
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Initialization
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = CacheDerivedRO(cond.initCB, returnValue.initCB, nextBlock.get.__dev.initCB) {
-          DFBool.Token.select(cond.initCB, returnValue.initCB, nextBlock.get.__dev.initCB)
-        }
-      }
-      override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
-      import __dev._
-
-      def elseifdf[R](elseCond : DFBool)(elseBlock : => Able[R])(implicit ctx : Context, op : Builder[R])
-      : DFIfBlock = new DFElseIfBlock(this, elseCond.replacement(), op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-
-      def elsedf[R](elseBlock: => Able[R])(implicit ctx : Context, op : Builder[R])
-      : RV = {
-        val dfIfElseBlock = new DFElseBlock(this, op(returnVar.asInstanceOf[RV], elseBlock).asInstanceOf[RV])
-        returnVar.asInstanceOf[RV]
-      }
-
+  trait Of[Ret] extends ConditionalBlock{type TRet = Ret}
+  type PrevBlockRef[+CB <: ConditionalBlock] = DFMember.Ref.Of[PrevBlockRef.Type, CB]
+  object PrevBlockRef {
+    trait Type extends DFMember.Ref.Type
+    implicit val ev : Type = new Type {}
+    def apply[CB <: ConditionalBlock](member : CB)(implicit ctx : DFMember.Context): PrevBlockRef[CB] = DFMember.Ref(member)
+    def unapply(ref : DFMember.Ref): Boolean = ref.refType match {
+      case _ : Type => true
+      case _ => false
     }
-
-    protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => RV)(
-      implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), cond, block) with ElseIfBlock {
-      protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}elseif"
-        override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + prevIfBlock
-      }
-      override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
-      import __dev._
-    }
-
-    protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => RV)(
-      implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), null, block) with ElseBlock {
-      protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val isExhaustive : Boolean = true
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}else"
-        override def codeString: String = s".elsedf {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Initialization
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = returnValue.initCB
-      }
-      override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
-      import __dev._
-    }
-
-    def apply[R](cond: DFBool)(block: => Able[R])(
-      implicit ctx : Context, op : Builder[R]
-    ) : DFIfBlock = new DFIfBlock(None, cond.replacement(), op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
   }
 
-  class SelectWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]) {
-    def apply[T, E](cond : DFBool)(thenSel : Able[T], elseSel : Able[E])(
-      implicit ctx : Context, opT : Builder[T], opE : Builder[E]
-    ) : RV = {
-      object ifdf extends ConditionalBlock.IfWithRetVal[RV, Able, Builder](returnVar)
-      ifdf(cond.replacement()){thenSel}.elsedf(elseSel)
-    }
-      //new DFIfBlock(cond, op(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])(ctx, ctx.owner.mutableOwner)
+  type CondRef = DFMember.OwnedRef.Of[CondRef.Type, DFBool]
+  object CondRef {
+    trait Type extends DFAny.Ref.ConsumeFrom.Type
+    implicit val ev : Type = new Type {}
   }
 
-  class IfNoRetVal(mutableOwner: MutableOwner) {
-    protected[DFiant] class DFIfBlock(prevBlock : Option[DFIfBlock], val cond : DFBool, block : => Unit)(
-      implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFIfBlock, Unit](None)(prevBlock, block) with IfBlock with NoRetVal {
-      protected[DFiant] trait __DevDFIfBlock extends __DevConditionalBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        lazy val isExhaustive : Boolean = nextBlock match {
-          case Some(ni) => ni.__dev.isExhaustive
-          case None => false //a single if statement cannot be exhaustive unless condition is always true
-        }
-        final val condVersionedSource = if (cond == null) None else Some(cond.source.versioned)
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override def codeString: String = s"\nifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          if (cond == null) super.discoveryDependenciesStatic
-          else super.discoveryDependenciesStatic + cond
-      }
-      override private[DFiant] lazy val __dev : __DevDFIfBlock = new __DevDFIfBlock {}
-      import __dev._
-
-      def elseifdf(elseCond : DFBool)(elseBlock : => Unit)(implicit ctx : Context)
-      : DFIfBlock = new DFElseIfBlock(this, elseCond.replacement(), elseBlock)
-
-      def elsedf(elseBlock: => Unit)(implicit ctx : Context)
-      : Unit = new DFElseBlock(this, elseBlock)
-    }
-
-    protected[DFiant] class DFElseIfBlock(prevIfBlock : DFIfBlock, cond : DFBool, block : => Unit)(
-      implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), cond, block) with ElseIfBlock {
-      protected[DFiant] trait __DevDFElseIfBlock extends __DevDFIfBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}elseif"
-        override def codeString: String = s".elseifdf${cond.refCodeString.applyBrackets(false)} {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline final override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + prevIfBlock
-      }
-      override private[DFiant] lazy val __dev : __DevDFElseIfBlock = new __DevDFElseIfBlock {}
-      import __dev._
-    }
-
-    protected[DFiant] class DFElseBlock(prevIfBlock : DFIfBlock, block : => Unit)(
-      implicit ctx : Context, mutableOwner : MutableOwner
-    ) extends DFIfBlock(Some(prevIfBlock), null, block) with ElseBlock {
-      protected[DFiant] trait __DevDFElseBlock extends __DevDFIfBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val isExhaustive : Boolean = true
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}else"
-        override def codeString: String = s".elsedf {$bodyCodeString\n}"
-      }
-      override private[DFiant] lazy val __dev : __DevDFElseBlock = new __DevDFElseBlock {}
-      import __dev._
-    }
-
-    def apply(cond: DFBool)(block: => Unit)(implicit ctx : Context): DFIfBlock =
-      new DFIfBlock(None, cond.replacement(), block)(ctx, mutableOwner)
+  type MatchValRef[MVType <: DFAny.Type] = DFMember.OwnedRef.Of[MatchValRef.Type, DFAny.Of[MVType]]
+  object MatchValRef {
+    trait Type extends DFAny.Ref.ConsumeFrom.Type
+    implicit val ev : Type = new Type {}
   }
 
-  class MatchNoRetVal(mutableOwner: MutableOwner) {
-    protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
-      implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DFAnyMember with MatchHeader[MV] with NoRetVal {
-      final private[DFiant] override lazy val ctx = ctx0
-      protected[DFiant] trait __DevDFMatchHeader extends __DevDFAnyMember {
-        final val matchValVersionedSource = matchVal.source.versioned
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private def matchConfigCodeString : String =
-          if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
-        override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + matchVal
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Ownership
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+  sealed trait MatchHeader extends CanBeGuarded with DFAny.CanBeAnonymous {
+    type TTags = DFMember.Tags.Basic
+    type TCustomTag = DFMember.CustomTag
+    type TMVType <: DFAny.Type
+    val matchValRef : MatchValRef[TMVType]
+    val matchConfig : MatchConfig
+    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      matchConfig match  {
+        case MatchConfig.NoOverlappingCases => s"$DF matchdf(${matchValRef.refCodeString})"
+        case MatchConfig.AllowOverlappingCases => s"$DF matchdf(${matchValRef.refCodeString}, MatchConfig.AllowOverlappingCases)"
       }
-      override private[DFiant] lazy val __dev : __DevDFMatchHeader = new __DevDFMatchHeader {}
-      import __dev._
-
-      protected[DFiant] type TPattern = matchVal.TPattern
-      def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(
-        implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV]
-      ) : DFCasePatternBlock[MV] =
-        new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern).asInstanceOf[TPattern], block)
-
-      private[DFiant] val patternList : ListBuffer[TPattern] = ListBuffer.empty[TPattern]
-      private[DFiant] def addCasePattern(pattern : TPattern) : Unit = {
-        privHasOverlappingCases =
-          if (privHasOverlappingCases) true
-          else patternList.foldLeft(false)((ol, p) => ol || p.overlapsWith(pattern))
-        if (privHasOverlappingCases && matchConfig == MatchConfig.NoOverlappingCases)
-          throw new IllegalArgumentException(s"\ncase pattern $pattern overlaps with previous case patterns.\nEither change the patterns or apply MatchConfig.AllowOverlappingCases to the matchdf's second argument")
-        patternList += pattern
-      }
-      private var privHasOverlappingCases : Boolean = false
-      def hasOverlappingCases : Boolean = privHasOverlappingCases
-      id
     }
-    protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : DFAny.Pattern[_], block : => Unit)(
-      implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends ConditionalBlock[DFCasePatternBlock[MV], Unit](None)(prevCase, block) with CasePatternBlock with NoRetVal {
-      protected[DFiant] trait __DevDFCasePatternBlock extends __DevConditionalBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        lazy val hasCase_ : Boolean = nextBlock match {
-          case Some(nc) => nc.__dev.hasCase_
-          case None => false
-        }
-        lazy val isExhaustive: Boolean = hasCase_ // || TODO: check that the pattern check is exhaustive
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}case"
-        override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        //each case is independent unless there are overlapping cases (which must be enabled by the designer)
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          if (prevCase.isDefined && matchHeader.hasOverlappingCases)
-            super.discoveryDependenciesStatic +  matchHeader + prevCase.get
-          else super.discoveryDependenciesStatic + matchHeader
-      }
-      override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
-      import __dev._
-
-      final val matchVal = matchHeader.matchVal
-      def casedf[MC](pattern : matchVal.TPatternAble[MC]*)(block : => Unit)(
-        implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV]
-      ) : DFCasePatternBlock[MV] =
-        new DFCasePatternBlock[MV](matchHeader)(Some(this), patternBld(matchVal, pattern), block)
-
-      def casedf_(block : => Unit)(implicit ctx0 : Context)
-      : Unit = new DFCase_Block[MV](matchHeader)(Some(this), block)
-
-      def enddf : Unit = {}
-
-      protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
+  }
+  object MatchHeader {
+    trait Of[MVType <: DFAny.Type] extends MatchHeader{type TMVType = MVType}
+    type Ref[+MH <: MatchHeader] = DFMember.Ref.Of[Ref.Type, MH]
+    object Ref {
+      trait Type extends DFAny.Ref.ConsumeFrom.Type
+      implicit val ev : Type = new Type {}
     }
-
-    protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => Unit)(
-      implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[DFAny.Pattern[_]], block) with Case_Block {
-      protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val hasCase_ : Boolean = true
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}case_"
-        override def codeString: String = s".casedf_ {$bodyCodeString\n}"
-      }
-      override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
-      import __dev._
+  }
+  sealed trait IfBlock extends ConditionalBlock {
+    val condRef : CondRef
+    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      s"$DF ifdf(${condRef.refCodeString})"
     }
-
-    def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-      implicit ctx : Context
-    ): DFMatchHeader[MV#TVal] =
-      new DFMatchHeader[MV#TVal](matchValue.replacement().asInstanceOf[MV#TVal], matchConfig)(ctx, mutableOwner)
+  }
+  sealed trait ElseIfBlock extends ConditionalBlock {
+    val condRef : CondRef
+    val prevBlockRef : PrevBlockRef[ConditionalBlock]
+    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      s".$DF elseifdf(${condRef.refCodeString})"
+    }
+  }
+  sealed trait ElseBlock extends ConditionalBlock {
+    val prevBlockRef : PrevBlockRef[ConditionalBlock]
+    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      s".$DF elsedf"
+    }
   }
 
-  class MatchWithRetVal[RV <: DFAny, Able[R] <: DFAny.Op.Able[R], Builder[R] <: DFAny.Op.Builder[RV, R]](returnVar : DFAny.NewVar[RV]){
-    protected[DFiant] final class DFMatchHeader[MV <: DFAny](val matchVal : MV, matchConfig : MatchConfig)(
-      implicit ctx0 : Context, mutableOwner: MutableOwner
-    ) extends DFAnyMember with MatchHeader[MV] with WithRetVal {
-      final private[DFiant] override lazy val ctx = ctx0
-      protected[DFiant] trait __DevMatchWithRetVal extends __DevDFAnyMember {
-        final val matchValVersionedSource = matchVal.source.versioned
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}match"
-        private def matchConfigCodeString : String =
-          if (hasOverlappingCases) ", MatchConfig.AllowOverlappingCases" else ""
-        override def codeString: String = s"\nmatchdf(${matchVal.refCodeString(owner)}$matchConfigCodeString)\n"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          super.discoveryDependenciesStatic + matchVal
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Ownership
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      }
-      override private[DFiant] lazy val __dev : __DevMatchWithRetVal = new __DevMatchWithRetVal {}
-      import __dev._
-
-      protected[DFiant] type TPattern = matchVal.TPattern
-      protected[DFiant] type TToken = matchVal.TToken
-
-      def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(
-        implicit ctx0 : Context, patternBld : matchVal.TPatternBuilder[MV], retVld : Builder[R]
-      ) : DFCasePatternBlock[MV] =
-        new DFCasePatternBlock[MV](this)(None, patternBld(matchVal, pattern), retVld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-
-      private[DFiant] val patternList : ListBuffer[TPattern] = ListBuffer.empty[TPattern]
-      private[DFiant] def addCasePattern(pattern : TPattern) : Unit = {
-        privHasOverlappingCases =
-          if (privHasOverlappingCases) true
-          else patternList.foldLeft(false)((ol, p) => ol || p.overlapsWith(pattern))
-        if (privHasOverlappingCases && matchConfig == MatchConfig.NoOverlappingCases)
-          throw new IllegalArgumentException(s"\ncase pattern $pattern overlaps with previous case patterns.\nEither change the patterns or apply MatchConfig.AllowOverlappingCases to the matchdf's second argument")
-        patternList += pattern
-      }
-      private var privHasOverlappingCases : Boolean = false
-      def hasOverlappingCases : Boolean = privHasOverlappingCases
-      id
+  sealed trait CasePatternBlock[MVType <: DFAny.Type] extends ConditionalBlock {
+    val pattern : MVType#TPattern
+    val matchHeaderRef : MatchHeader.Ref[MatchHeader]
+    val prevCaseRefOption : Option[PrevBlockRef[CasePatternBlock[MVType]]]
+    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      s".$DF casedf(${pattern.codeString})"
     }
-
-    protected[DFiant] class DFCasePatternBlock[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], val pattern : MV#TPattern, block : => RV)(
-      implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends ConditionalRetBlock[DFCasePatternBlock[MV], RV](returnVar)(prevCase, block) with CasePatternBlock with WithRetVal {
-      protected[DFiant] trait __DevDFCasePatternBlock extends __DevConditionalRetBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        lazy val hasCase_ : Boolean = nextBlock match {
-          case Some(nc) => nc.__dev.hasCase_
-          case None => false
-        }
-        lazy val isExhaustive: Boolean = hasCase_ // || TODO: check that the pattern check is exhaustive
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}case"
-        override def codeString: String = s".casedf(${pattern.codeString}) {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Member discovery
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        //each case is independent unless there are overlapping cases (which must be enabled by the designer)
-        @inline override private[DFiant] def discoveryDependenciesStatic : Set[DFAnyMember] =
-          if (prevCase.isDefined && matchHeader.hasOverlappingCases)
-            super.discoveryDependenciesStatic +  matchHeader + prevCase.get
-          else super.discoveryDependenciesStatic + matchHeader
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Initialization
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        private lazy val patternLB = CacheDerivedRO(matchVal.initCB)(DFAny.Token.patternMatch(matchVal.initCB, pattern))
-        lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = CacheDerivedRO(patternLB, returnValue.initCB, nextBlock.get.__dev.initCB){
-          DFBool.Token.select(patternLB, returnValue.initCB, nextBlock.get.__dev.initCB)
-        }
-      }
-      override private[DFiant] lazy val __dev : __DevDFCasePatternBlock = new __DevDFCasePatternBlock {}
-      import __dev._
-
-      final val matchVal = matchHeader.matchVal
-      def casedf[MC, R](pattern : matchVal.TPatternAble[MC]*)(block : => Able[R])(implicit ctx : Context, patternBld : matchVal.TPatternBuilder[MV], retBld : Builder[R])
-      : DFCasePatternBlock[MV] = new DFCasePatternBlock[MV](matchHeader)(Some(this), patternBld(matchVal, pattern), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-      def casedf_[R](block : => Able[R])(implicit ctx : Context, retBld : Builder[R])
-      : RV = {
-        val dfCase_Block = new DFCase_Block[MV](matchHeader)(Some(this), retBld(returnVar.asInstanceOf[RV], block).asInstanceOf[RV])
-        returnVar.asInstanceOf[RV]
-      }
-      def enddf(implicit ctx : Context) : RV = {
-        returnVar.asInstanceOf[RV]
-      }
-
-      protected val addPatternToHeader : Unit = if (pattern != null) matchHeader.addCasePattern(pattern.asInstanceOf[matchHeader.matchVal.TPattern])
+  }
+  sealed trait Case_Block[MVType <: DFAny.Type] extends ConditionalBlock {
+    val matchHeaderRef : MatchHeader.Ref[MatchHeader]
+    val prevCaseRef : PrevBlockRef[CasePatternBlock[MVType]]
+    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+      import printConfig._
+      s".$DF casedf_"
     }
-
-    protected[DFiant] class DFCase_Block[MV <: DFAny](matchHeader : DFMatchHeader[MV])(prevCase : Option[DFCasePatternBlock[MV]], block : => RV)(
-      implicit ctx : Context, mutableOwner: MutableOwner
-    ) extends DFCasePatternBlock[MV](matchHeader)(prevCase, null.asInstanceOf[MV#TPattern], block) with Case_Block {
-      protected[DFiant] trait __DevDFCase_Block extends __DevDFCasePatternBlock {
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Conditional Blocks
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val hasCase_ : Boolean = true
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Naming
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val nameScala: String = s"$ctx${Meta.Name.Separator}case_"
-        override def codeString: String = s".casedf_ {$bodyCodeString\n}"
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Initialization
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        override lazy val initCB : CacheBoxRO[Seq[RV#TToken]] = returnValue.initCB
-      }
-      override private[DFiant] lazy val __dev : __DevDFCase_Block = new __DevDFCase_Block {}
-      import __dev._
-    }
-
-    def apply[MV <: DFAny](matchValue : MV, matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-      implicit ctx : Context
-    ): DFMatchHeader[MV#TVal] =
-      new DFMatchHeader[MV#TVal](matchValue.replacement().asInstanceOf[MV#TVal], matchConfig)(ctx, ctx.owner.mutableOwner)
   }
 
+  sealed trait WithRetVal[Type <: DFAny.Type] extends
+    ConditionalBlock.Of[DFAny.Of[Type]] with DFAny.DefaultRet[Type] {
+    val retVarRef : WithRetVal.RetVarRef[Type]
+    final def thisVal(implicit getSet: MemberGetSet) : DFAny.Of[Type] = retVarRef
+
+    private[DFiant] def applyBlock(block : => DFAny.Of[Type])(
+      implicit ctx : DFBlock.Context
+    ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this) {
+      val returnValue = block
+      retVarRef.get.assign(returnValue)(new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db))
+    }
+  }
+  object WithRetVal {
+    type RetVarRef[Type <: DFAny.Type] = DFMember.Ref.Of[RetVarRef.Type, DFAny.VarOf[Type]]
+    object RetVarRef {
+      trait Type extends DFMember.Ref.Type
+      implicit val ev : Type = new Type {}
+    }
+    final case class IfBlock[Type <: DFAny.Type](
+      dfType : Type, retVarRef : RetVarRef[Type], condRef : CondRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.IfBlock with WithRetVal[Type] {
+      def elsedf[B](block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
+      ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(logical = true), cond), this)(blockConv(dfType, block))(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case IfBlock(dfType, retVarRef, condRef, _, tags) =>
+          this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object IfBlock {
+      def apply[Type <: DFAny.Type](retVar : DFAny.VarOf[Type], cond: DFBool)(block: => DFAny.Of[Type])(
+        implicit ctx: DFBlock.Context
+      ): IfBlock[Type] = {
+        implicit lazy val ret : IfBlock[Type] with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(IfBlock[Type](retVar.dfType, retVar, cond, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+    }
+    final case class ElseIfBlock[Type <: DFAny.Type](
+      dfType : Type, retVarRef : RetVarRef[Type], condRef : CondRef, prevBlockRef : PrevBlockRef[WithRetVal[Type]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.ElseIfBlock with WithRetVal[Type] {
+      def elsedf[B](block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
+      ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(logical = true), cond), this)(blockConv(dfType, block))(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case ElseIfBlock(dfType, retVarRef, condRef, prevBlockRef, _, tags) =>
+          this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object ElseIfBlock {
+      def apply[Type <: DFAny.Type](
+        retVar : DFAny.VarOf[Type], cond: DFBool, prevBlock: WithRetVal[Type]
+      )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context) : ElseIfBlock[Type] = {
+        implicit lazy val ret : ElseIfBlock[Type] with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(ElseIfBlock[Type](retVar.dfType, retVar, cond, prevBlock, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+    }
+    final case class ElseBlock[Type <: DFAny.Type](
+      dfType : Type, retVarRef : RetVarRef[Type], prevBlockRef : PrevBlockRef[WithRetVal[Type]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.ElseBlock with WithRetVal[Type] {
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case ElseBlock(dfType, retVarRef, prevBlockRef, _, tags) =>
+          this.dfType == dfType && this.retVarRef =~ retVarRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object ElseBlock {
+      def apply[Type <: DFAny.Type](
+        retVar : DFAny.VarOf[Type], prevBlock: WithRetVal[Type]
+      )(block : => DFAny.Of[Type])(implicit ctx: DFBlock.Context) : ElseBlock[Type] =
+        ctx.db.addConditionalBlock(ElseBlock[Type](retVar.dfType, retVar, prevBlock, ctx.owner, ctx.meta), block)
+    }
+
+    final case class MatchHeader[Type <: DFAny.Type, MVType <: DFAny.Type](
+      dfType : Type, retVarRef : RetVarRef[Type], mvType : MVType,
+      matchValRef : MatchValRef[MVType], matchConfig: MatchConfig, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.MatchHeader.Of[MVType] {
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
+      ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
+        retVarRef, this, None, patternBld(mvType, pattern)
+      )(retBld(dfType, block))(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case MatchHeader(dfType, retVarRef, mvType, matchValRef, matchConfig, _, tags) =>
+          this.dfType == dfType && this.retVarRef =~ retVarRef && this.mvType == mvType &&
+          this.matchValRef =~ matchValRef && this.matchConfig == matchConfig && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object MatchHeader {
+      def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
+        retVar : DFAny.VarOf[Type], matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
+      )(implicit ctx: DFMember.Context): MatchHeader[Type, MVType] = {
+        implicit lazy val ret : MatchHeader[Type, MVType] with DFMember.RefOwner =
+          ctx.db.addMember(MatchHeader(retVar.dfType, retVar, matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+    }
+    final case class DFCasePatternBlock[Type <: DFAny.Type, MVType <: DFAny.Type](
+      dfType : Type, retVarRef : RetVarRef[Type], mvType : MVType,
+      matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[Type, MVType]],
+      prevCaseRefOption : Option[PrevBlockRef[DFCasePatternBlock[Type, MVType]]], pattern : MVType#TPattern,
+      ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.CasePatternBlock[MVType] with WithRetVal[Type] {
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : dfType.`Op:=Builder`[Type, B]
+      ) : DFCasePatternBlock[Type, MVType] = DFCasePatternBlock[Type, MVType](
+        retVarRef, matchHeaderRef, Some(this), patternBld(mvType, pattern)
+      )(retBld(dfType, block))(ctx)
+      def casedf_[MC, B](block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, retBld : dfType.`Op:=Builder`[Type, B]
+      ) : DFCase_Block[Type, MVType] =
+        DFCase_Block[Type, MVType](retVarRef, matchHeaderRef, this)(retBld(dfType, block))(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case DFCasePatternBlock(dfType, retVarRef, mvType, matchHeaderRef, prevCaseRefOption, pattern, _, tags) =>
+          val prevCaseEq = (this.prevCaseRefOption, prevCaseRefOption) match {
+            case (Some(r1), Some(r2)) => r1 =~ r2
+            case (None, None) => true
+            case _ => false
+          }
+          prevCaseEq && this.dfType == dfType && this.retVarRef =~ retVarRef && this.mvType == mvType &&
+          this.matchHeaderRef =~ matchHeaderRef && this.pattern == pattern && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object DFCasePatternBlock {
+      def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
+        retVar : DFAny.VarOf[Type], matchHeader: MatchHeader[Type, MVType], prevCase: Option[DFCasePatternBlock[Type, MVType]], pattern: MVType#TPattern
+      )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCasePatternBlock[Type, MVType] = {
+        implicit lazy val ret : DFCasePatternBlock[Type, MVType] with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(DFCasePatternBlock(retVar.dfType, retVar, matchHeader.mvType, matchHeader, prevCase.map(p => PrevBlockRef(p)), pattern, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+    }
+    final case class DFCase_Block[Type <: DFAny.Type, MVType <: DFAny.Type](
+      dfType : Type, retVarRef : RetVarRef[Type], mvType : MVType,
+      matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[Type, MVType]],
+      prevCaseRef : PrevBlockRef[DFCasePatternBlock[Type, MVType]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.Case_Block[MVType] with WithRetVal[Type] {
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case DFCase_Block(dfType, retVarRef, mvType, matchHeaderRef, prevCaseRef, _, tags) =>
+          this.dfType == dfType && this.retVarRef =~ retVarRef && this.mvType == mvType &&
+            this.matchHeaderRef =~ matchHeaderRef && this.prevCaseRef =~ prevCaseRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object DFCase_Block {
+      def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
+        retVar : DFAny.VarOf[Type], matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType]
+      )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCase_Block[Type, MVType] =
+        ctx.db.addConditionalBlock(DFCase_Block[Type, MVType](retVar.dfType, retVar, matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block)
+    }
+  }
+  sealed trait NoRetVal extends ConditionalBlock.Of[Unit] {
+    private[DFiant] def applyBlock(block : => Unit)(
+      implicit ctx : DFBlock.Context
+    ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this)(block)
+  }
+  object NoRetVal {
+    final case class IfBlock(condRef : CondRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends ConditionalBlock.IfBlock with NoRetVal {
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock = ElseBlock(this)(block)(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(logical = true), cond), this)(block)(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case IfBlock(condRef, _, tags) =>
+          this.condRef =~ condRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object IfBlock {
+      def apply(cond: DFBool)(block: => Unit)(implicit ctx: DFBlock.Context)
+      : IfBlock = {
+        implicit lazy val ret : IfBlock with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(IfBlock(cond, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+    }
+    final case class ElseIfBlock(condRef : CondRef, prevBlockRef : PrevBlockRef[NoRetVal], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends ConditionalBlock.ElseIfBlock with NoRetVal {
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock = ElseBlock(this)(block)(ctx)
+      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(logical = true), cond), this)(block)(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case ElseIfBlock(condRef, prevBlockRef, _, tags) =>
+          this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object ElseIfBlock {
+      def apply(cond: DFBool, prevBlock: NoRetVal)(block: => Unit)(
+        implicit ctx: DFBlock.Context
+      ): ElseIfBlock = {
+        implicit lazy val ret : ElseIfBlock with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(ElseIfBlock(cond, prevBlock, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+    }
+    final case class ElseBlock(prevBlockRef : PrevBlockRef[NoRetVal], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends ConditionalBlock.ElseBlock with NoRetVal {
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case ElseBlock(prevBlockRef, _, tags) =>
+          this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object ElseBlock {
+      def apply(prevBlock: NoRetVal)(block: => Unit)(
+        implicit ctx: DFBlock.Context
+      ): ElseBlock = ctx.db.addConditionalBlock(ElseBlock(prevBlock, ctx.owner, ctx.meta), block)
+    }
+
+    final case class MatchHeader[MVType <: DFAny.Type](
+      mvType : MVType,
+      matchValRef : MatchValRef[MVType], matchConfig: MatchConfig, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.MatchHeader.Of[MVType] {
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType]
+      ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
+        this, None, patternBld(mvType, pattern)
+      )(block)(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case MatchHeader(mvType, matchValRef, matchConfig, _, tags) =>
+          this.mvType == mvType && this.matchValRef =~ matchValRef && this.matchConfig == matchConfig &&
+            this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object MatchHeader {
+      def apply[MVType <: DFAny.Type](
+        matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
+      )(implicit ctx: DFMember.Context): MatchHeader[MVType] = {
+        implicit lazy val ret : MatchHeader[MVType] with DFMember.RefOwner =
+          ctx.db.addMember(MatchHeader(matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+    }
+    final case class DFCasePatternBlock[MVType <: DFAny.Type](
+      mvType : MVType,
+      matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[MVType]],
+      prevCaseRefOption : Option[PrevBlockRef[DFCasePatternBlock[MVType]]], pattern : MVType#TPattern, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.CasePatternBlock[MVType] with NoRetVal {
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType]
+      ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
+        matchHeaderRef, Some(this), patternBld(mvType, pattern)
+      )(block)(ctx)
+      def casedf_[MC, B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : DFCase_Block[MVType] = DFCase_Block[MVType](
+        matchHeaderRef, this
+      )(block)(ctx)
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case DFCasePatternBlock(mvType, matchHeaderRef, prevCaseRefOption, pattern, _, tags) =>
+          val prevCaseEq = (this.prevCaseRefOption, prevCaseRefOption) match {
+            case (Some(r1), Some(r2)) => r1 =~ r2
+            case (None, None) => true
+            case _ => false
+          }
+          prevCaseEq && this.mvType == mvType && this.matchHeaderRef =~ matchHeaderRef && this.pattern == pattern && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object DFCasePatternBlock {
+      def apply[MVType <: DFAny.Type](
+        matchHeader: MatchHeader[MVType],
+        prevCase: Option[DFCasePatternBlock[MVType]], pattern: MVType#TPattern
+      )(block: => Unit)(implicit ctx: DFBlock.Context): DFCasePatternBlock[MVType] = {
+        implicit lazy val ret : DFCasePatternBlock[MVType] with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(DFCasePatternBlock(matchHeader.mvType, matchHeader, prevCase.map(p => PrevBlockRef(p)), pattern, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+    }
+    final case class DFCase_Block[MVType <: DFAny.Type](
+      mvType : MVType,
+      matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[MVType]],
+      prevCaseRef : PrevBlockRef[DFCasePatternBlock[MVType]], ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.Case_Block[MVType] with NoRetVal {
+      protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+        case DFCase_Block(mvType, matchHeaderRef, prevCaseRef, _, tags) =>
+          this.mvType == mvType && this.matchHeaderRef =~ matchHeaderRef && this.prevCaseRef =~ prevCaseRef && this.tags =~ tags
+        case _ => false
+      }
+      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    }
+    object DFCase_Block {
+      def apply[MVType <: DFAny.Type](
+        matchHeader: MatchHeader[MVType], prevCase: DFCasePatternBlock[MVType]
+      )(block: => Unit)(implicit ctx: DFBlock.Context): DFCase_Block[MVType] =
+        ctx.db.addConditionalBlock(DFCase_Block(matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block)
+    }
+  }
 }
-
-
 

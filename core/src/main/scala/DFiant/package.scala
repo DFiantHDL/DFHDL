@@ -2,25 +2,38 @@
  *     This file is part of DFiant.
  *
  *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU Lesser General Public License as published by
+ *     it under the terms of the Lesser GNU General Public License as published by
  *     the Free Software Foundation, either version 3 of the License, or
  *     any later version.
  *
  *     DFiant is distributed in the hope that it will be useful,
  *     but WITHOUT ANY WARRANTY; without even the implied warranty of
  *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU Lesser General Public License for more details.
+ *     Lesser GNU General Public License for more details.
  *
- *     You should have received a copy of the GNU Lesser General Public License
+ *     You should have received a copy of the Lesser GNU General Public License
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import DFiant.internals._
+import DFiant.compiler.Compilable
+import DFiant.compiler.printer.PrinterOps
 
 import scala.language.experimental.macros
 import singleton.ops._
 
-package object DFiant extends {
+package object DFiant {
+  type DFBits[W] = DFAny.Of[DFBits.Type[W]]
+  type DFBool = DFAny.Of[DFBool.Type]
+  type DFBit = DFAny.Of[DFBool.Type]
+  type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
+  type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
+  type DFEnum[E <: EnumType] = DFAny.Of[DFEnum.Type[E]]
+  type DFString[L] = DFAny.Of[DFString.Type[L]]
+
+  implicit def evPrinterOps[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : PrinterOps[D, S] = new PrinterOps[D, S](c)
+
   ////////////////////////////////////////////////////////////////////////////////////
   // A Dataflow Bubble
   ////////////////////////////////////////////////////////////////////////////////////
@@ -32,17 +45,10 @@ package object DFiant extends {
   ////////////////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // Zeros/Ones alternative syntax
-  ////////////////////////////////////////////////////////////////////////////////////
-  final val b0s = Zeros
-  final val b1s = Ones
-  ////////////////////////////////////////////////////////////////////////////////////
-
-  ////////////////////////////////////////////////////////////////////////////////////
   // Dataflow Port Annotations
   ////////////////////////////////////////////////////////////////////////////////////
   type <>[DF <: DFAny, Dir <: DFDir] = Dir#Func[DF]
-  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF, Dir] with DF
+//  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
   //Direction of a Port
   sealed trait DFDir {
     type Func[DF <: DFAny]
@@ -50,14 +56,14 @@ package object DFiant extends {
     val isIn : Boolean
   }
   implicit object IN extends DFDir {
-    type Func[DF <: DFAny] = DF#In
+    type Func[DF <: DFAny] = DFAny.DefaultRet[DF#TType]
     override def toString: String = "IN"
     final val isOut : Boolean = false
     final val isIn : Boolean = true
   }
   type IN = IN.type
   implicit object OUT extends DFDir {
-    type Func[DF <: DFAny] = DF#Out
+    type Func[DF <: DFAny] = DFAny.VarOf[DF#TType]
     override def toString: String = "OUT"
     final val isOut : Boolean = true
     final val isIn : Boolean = false
@@ -77,70 +83,6 @@ package object DFiant extends {
 
 
   ////////////////////////////////////////////////////////////////////////////////////
-  // List Extender
-  ////////////////////////////////////////////////////////////////////////////////////
-  trait DFLoopController {
-    def run() : Unit
-    def stop() : Unit
-    def restart() : Unit
-  }
-  implicit class ListExtender[+T](val list : Iterable[T]) {
-//    def foreachdf[W](block : T => Unit)(implicit ctx : DFDesign.Context) : DFLoopController = {
-//      import ctx.owner._
-//      setFalseNamesInvalidator
-//      val lastRun = list.length + 1
-//      val sel = DFUInt(BigInt(lastRun).bitsWidth) init 0
-//      val runCond = DFBool() init true
-//      val matcherFirstCase = matchdf(sel).casedf(0)(block(list.head))
-//      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-//      ifdf(runCond && sel != lastRun) {
-//        sel := sel + 1
-//      }
-//      new DFLoopController {
-//        override def run(): Unit = runCond := true
-//        override def stop(): Unit = runCond := false
-//        override def restart(): Unit = sel := 0
-//      }
-//    }
-    def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : ConditionalBlock.Context) : Unit = {
-      val blockOwner = ctx.owner
-      val blockMatchDF = blockOwner match {
-        case o : ConditionalBlock[_,_] => o.owner.asInstanceOf[DFBlock].matchdf
-        case _ => blockOwner.matchdf
-      }
-      val matcherFirstCase = blockMatchDF(sel).casedf(0)(block(list.head))
-      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-    }
-    def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : ConditionalBlock.Context) : Unit = {
-      val blockOwner = ctx.owner
-      val blockMatchDF = blockOwner match {
-        case o : ConditionalBlock[_,_] => o.owner.asInstanceOf[DFBlock].matchdf
-        case _ => blockOwner.matchdf
-      }
-      val matcherFirstCase = blockMatchDF(sel).casedf(BigInt(0).toBitVector(sel.width))(block(list.head))
-      val matcherCases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1)))
-    }
-  }
-
-  implicit class MatchList(list : List[(BitVector, BitVector)]) {
-    def matchdf[WM, WR](matchValue : DFBits[WM], resultVar : DFBits[WR] with DFAny.Var)(implicit ctx : ConditionalBlock.Context) : Unit = {
-      val thisMatchDF = ctx.owner.matchdf
-      import ctx.owner._
-
-      if (list.nonEmpty) {
-        val matcherFirstCase = thisMatchDF(matchValue).casedf(list.head._1)({resultVar := list.head._2})
-        val matcherCases = list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1)({resultVar := b._2}))
-      }
-    }
-  }
-
-  // Implementation in terms of LabelledGeneric ...
-  implicit class MergeSyntax[T](t: T) {
-    def mergeWith[U](u: U)(implicit merge: CaseClassMerge[T, U]): T = merge(t, u)
-  }
-  ////////////////////////////////////////////////////////////////////////////////////
-
-  ////////////////////////////////////////////////////////////////////////////////////
   // BitVector from scodec library https://github.com/scodec/scodec
   // TODO: change after fix for https://github.com/scala/bug/issues/11070
   ////////////////////////////////////////////////////////////////////////////////////
@@ -157,22 +99,26 @@ package object DFiant extends {
   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    */
   type XInt = singleton.ops.XInt
-  type XBitVector[W] = scodec.bits.BitVector with WidthTag[W]
   type BitVector = scodec.bits.BitVector
   val BitVector = scodec.bits.BitVector
-
+  type XBitVector[W] = DFiant.internals.XBitVector[W]
+  final val XBitVector = DFiant.internals.XBitVector
+  implicit class XBitVectorExtras[LW](left : XBitVector[LW]) {
+    def ++[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
+      (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
+  }
   /**
     * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
   final implicit class BinStringSyntax(val sc: StringContext) {
-//    def w[W](args: WidthTag*) : XBitVector[W] = macro Macro.hexStringInterpolator
+    //    def w[W](args: WidthTag*) : XBitVector[W] = macro Macro.hexStringInterpolator
     /**
       * Converts this binary literal string to a `BitVector`. Whitespace characters are ignored.
       *
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
       * of type `BitVector`.
       */
-//    def h[W](args: BitVector*) : XBitVector[W] = macro Macro.hexStringInterpolator
+    //    def h[W](args: BitVector*) : XBitVector[W] = macro Macro.hexStringInterpolator
     def h[W](args: BitVector*) : BitVector = macro Macro.hexStringInterpolator
 
     /**
@@ -183,13 +129,17 @@ package object DFiant extends {
       */
     def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
 
-    def dfs(args : Any*)(implicit ctx0 : DFAny.Op.Context) : DFString =
-      new DFString(List(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
+    private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny, String]] =
+      Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
         case x: String => x.nonEmpty
-        case x => true
-      }))
+        case _ => true
+      }).map {
+        case x : DFAny => Left(x)
+        case x => Right(x.toString)
+      }
+    def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
+    def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), "vhdl")
   }
-
   trait Interpolator[T] {
     type Out <: T
     def apply() : Out
@@ -247,9 +197,9 @@ package object DFiant extends {
         case _ => typeOf[Int]
       }
       q"""
-         new Interpolator[BitVector] {
-           type Out = XBitVector[$widthTpe]
-           def apply() : XBitVector[$widthTpe] = $buildTree.asInstanceOf[XBitVector[$widthTpe]]
+         new DFiant.Interpolator[scodec.bits.BitVector] {
+           type Out = DFiant.internals.XBitVector[$widthTpe]
+           def apply() : DFiant.internals.XBitVector[$widthTpe] = $buildTree.asInstanceOf[DFiant.internals.XBitVector[$widthTpe]]
          }
        """
     }
@@ -279,16 +229,31 @@ package object DFiant extends {
       q"$buildTree"
     }
   }
-
-  implicit class XBitVectorExtras[LW](left : XBitVector[LW]) {
-    def ##[RW](that : XBitVector[RW])(implicit sum : LW + RW) : XBitVector[sum.OutInt] =
-      (left ++ that).asInstanceOf[XBitVector[sum.OutInt]]
-  }
-
-  implicit class ProductExtender[P <: Product](p : P) {
-    def pipe()(implicit ctx : DFAny.Alias.Context) : P = ???
-  }
   ////////////////////////////////////////////////////////////////////////////////////
 
+
+  implicit class ListExtender[+T](val list : Iterable[T]) {
+    def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context) : Unit = {
+      val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
+      val matcherFirstCase = blockMatchDF.casedf(0)(block(list.head))
+      list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1))).casedf_{}
+    }
+    def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
+      val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
+      val matcherFirstCase = blockMatchDF.casedf(BigInt(0).toBitVector(sel.width))(block(list.head))
+      list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1))).casedf_{}
+    }
+  }
+
+  implicit class MatchList(list : List[(BitVector, BitVector)]) {
+    def matchdf[MW, RW](matchValue : DFBits[MW], resultVar : DFAny.VarOf[DFBits.Type[RW]])(implicit ctx : DFBlock.Context) : Unit = {
+      val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
+      if (list.nonEmpty) {
+        implicit def anyCtx : DFAny.Context = new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db)
+        val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
+        list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2}).casedf_{}
+      }
+    }
+  }
 
 }

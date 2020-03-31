@@ -243,27 +243,6 @@ package object internals {
     def codeString : String = codeStringOf(t)
   }
 
-  private[DFiant] implicit class StringExtras(value : String) {
-    private def hasBrackets : Boolean = value.startsWith("(") && value.endsWith(")")
-    private def requiresBrackets : Boolean = {
-      var count : Int = 0
-      for (i <- 0 until value.length) {
-        value.charAt(i) match {
-          case '(' => count += 1
-          case ')' => count -= 1
-          case ' ' => if (count == 0) return true
-          case _ =>
-        }
-      }
-      false
-    }
-    def applyBrackets(onlyIfRequired : Boolean = true) : String =
-      if (requiresBrackets || (!onlyIfRequired && !hasBrackets)) s"($value)" else value
-    def delimRowsBy(delim : String) : String = {
-      value.replaceAll("(?m)^", delim);
-    }
-  }
-
   //from Map[K,V] to Map[V,Set[K]], traverse the input only once
   //From: https://stackoverflow.com/a/51356499/3845175
   implicit class MapInverterA[K,V](m :Map[K,V]) {

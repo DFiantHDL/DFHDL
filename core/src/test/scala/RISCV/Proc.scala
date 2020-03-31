@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 
 abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends DFDesign {
   private val pc = DFBits[32] init program.imem.startAddress
@@ -61,7 +61,7 @@ class riscv_tb(program : Program)(implicit ctx : ContextOf[riscv_tb]) extends DF
   this !! ResetParams("rstn", ResetParams.Mode.Async, ResetParams.Active.Low)
 }
 
-object ProcZTest extends App {
+object ProcTest extends App {
   import compiler.backend.vhdl._
 
 //  val riscv = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}

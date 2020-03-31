@@ -1,56 +1,86 @@
-/*
- *     This file is part of DFiant.
- *
- *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the Lesser GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     any later version.
- *
- *     DFiant is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     Lesser GNU General Public License for more details.
- *
- *     You should have received a copy of the Lesser GNU General Public License
- *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package DFiant
-import internals._
-
-sealed abstract class DFNet(netSymbol : String, netName : String)(implicit ctx0 : DFNet.Context) extends DFAnyMember {
-  protected[DFiant] type ThisOwner <: DFBlock
-  final private[DFiant] override lazy val ctx = ctx0
-  val toVal : DFAny
-  val fromVal : DFAny
-  protected[DFiant] trait __DevDFNet extends __DevDFAnyMember {
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Naming
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override private[DFiant] def discoveryDependenciesStatic = super.discoveryDependenciesStatic + fromVal + toVal //TODO:toVal might not be required in the future
-    override lazy val nameScala = s"${Meta.Name.Separator}$netName"
-    def codeString : String = s"\n${toVal.refCodeString} $netSymbol ${fromVal.refCodeString}"
+import DFiant.internals._
+import DFiant.DFBlock.Ref
+import DFiant.DFMember.Tags
+import DFiant.compiler.printer.Printer
+sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
+  type TTags = DFMember.Tags.Basic
+  type TCustomTag = DFMember.CustomTag
+  val toRef : DFNet.ToRef
+  val fromRef : DFNet.FromRef
+  def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+    import printConfig._
+    import formatter._
+    s"${toRef.refCodeString} ${ALGN(0)}$DF$op ${fromRef.refCodeString}"
   }
-  override private[DFiant] lazy val __dev : __DevDFNet = new __DevDFNet {}
-  import __dev._
-  id
+  override def show(implicit getSet : MemberGetSet) : String = codeString
 }
 
 object DFNet {
-  type Context = DFAnyOwner.Context[DFBlock]
-  final case class Connection(toVal : DFAny, fromVal : DFAny)(implicit ctx0 : Context) extends DFNet("<>", "connect") {
-    protected[DFiant] trait __DevConnection extends __DevDFNet {
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // Naming
-      /////////////////////////////////////////////////////////////////////////////////////////////////////////
-      override def codeString : String = toVal.owner match {
-        case f : DSLSelfConnectedFoldableOwnerConstruct if f.isFolded => ""
-        case _ => super.codeString
-      }
+  type Context = DFAny.Context
+
+  type ToRef = DFMember.OwnedRef.Of[ToRef.Type, DFAny]
+  object ToRef {
+    trait Type extends DFAny.Ref.ProduceTo.Type
+    implicit val ev : Type = new Type {}
+    def unapply(ref : DFMember.Ref): Boolean = ref.refType match {
+      case _ : Type => true
+      case _ => false
     }
-    override private[DFiant] lazy val __dev : __DevConnection = new __DevConnection {}
+  }
+  type FromRef = DFMember.OwnedRef.Of[FromRef.Type, DFAny]
+  object FromRef {
+    trait Type extends DFAny.Ref.ConsumeFrom.Type
+    implicit val ev : Type = new Type {}
   }
 
-  final case class Assignment(toVal : DFAny, fromVal : DFAny)(implicit ctx0 : Context) extends DFNet(":=", "assign")
-}
+  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet(":=") with CanBeGuarded {
+    protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+      case Assignment(toRef, fromRef, _, tags) =>
+        this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
+      case _ => false
+    }
+    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+  }
+  object Assignment {
+    def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
+    : Assignment = {
+      implicit lazy val ret : Assignment with DFMember.RefOwner =
+        ctx.db.addMember(Assignment(to, from, ctx.owner, ctx.meta)).asRefOwner
+      ret
+    }
+    object Unref {
+      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFBlock, DFMember.Tags.Basic)] = arg match {
+        case Assignment(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
+        case _ => None
+      }
+    }
+  }
 
+  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet("<>") {
+    protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+      case Connection(toRef, fromRef, _, tags) =>
+        this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
+      case _ => false
+    }
+    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+  }
+  object Connection {
+    def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
+    : Connection = {
+      implicit lazy val ret : Connection with DFMember.RefOwner =
+        ctx.db.addMember(Connection(to, from, ctx.owner, ctx.meta)).asRefOwner
+      ret
+    }
+  }
+
+  object Inlined {
+    def unapply(arg : DFNet)(implicit getSet : MemberGetSet) : Boolean = arg match {
+      case net : DFNet.Connection => net.toRef.get.getOwner match {
+        case DFDesign.Block.Internal(_,_,_,Some(_)) => true
+        case _ => false
+      }
+      case _ => false
+    }
+  }
+}

@@ -19,4 +19,4 @@ trait PrioEnc extends DFDesign {
 //  (0 until 128).foldLeft(myIf)((b, i) => b.elseifdf(wire(i) {wor := i.toBitVector(width)}))
 }
 
-object PrioEncApp extends DFApp.VHDLCompiler[PrioEnc]
+//object PrioEncApp extends DFApp.VHDLCompiler[PrioEnc]

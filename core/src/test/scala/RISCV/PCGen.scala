@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 
 class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits[XLEN], rs2_data0 : DFBits[XLEN],
   imm0 : DFBits[32])(implicit ctx : ContextOf[PCGen]) extends DFDesign {

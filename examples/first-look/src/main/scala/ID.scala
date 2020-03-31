@@ -25,4 +25,4 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   y := x //trivial direct input-to-output assignment
 }
 
-object IDApp extends DFApp.VHDLCompiler[ID] //The ID compilation program entry-point
+//object IDApp extends DFApp.VHDLCompiler[ID] //The ID compilation program entry-point

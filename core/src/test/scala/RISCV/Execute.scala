@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 
 class Execute(regFileInst: RegFileInst)(implicit ctx : ContextOf[Execute]) extends DFDesign {
   private val branchSel = DFEnum[BranchSel] <> IN

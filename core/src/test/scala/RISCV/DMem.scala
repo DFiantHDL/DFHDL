@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 /*
 create_ip -name blk_mem_gen -vendor xilinx.com -library ip -version 8.4 -module_name dmem_bram
 set_property -dict [list CONFIG.Component_Name {dmem_bram} CONFIG.Use_Byte_Write_Enable {true} CONFIG.Byte_Size {8} CONFIG.Write_Width_A {32} CONFIG.Write_Depth_A {4096} CONFIG.Read_Width_A {32} CONFIG.Enable_A {Always_Enabled} CONFIG.Write_Width_B {32} CONFIG.Read_Width_B {32} CONFIG.Register_PortA_Output_of_Memory_Primitives {false}] [get_ips dmem_bram]

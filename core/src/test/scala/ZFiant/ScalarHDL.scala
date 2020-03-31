@@ -1,4 +1,4 @@
-package ZFiant
+package DFiant
 import scala.language.postfixOps
 
 object ModeType extends EnumType.Auto {

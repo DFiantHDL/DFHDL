@@ -1,4 +1,4 @@
-package ZFiant
+package DFiant
 
 object ZTest extends App {
   trait ConnTest extends DFDesign {

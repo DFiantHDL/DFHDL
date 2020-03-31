@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 
 class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends DFDesign {
   private val instRaw   = DFBits[32]            <> IN

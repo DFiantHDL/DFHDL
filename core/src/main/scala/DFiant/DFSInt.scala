@@ -1,212 +1,97 @@
-/*
- *     This file is part of DFiant.
- *
- *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU Lesser General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     any later version.
- *
- *     DFiant is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU Lesser General Public License for more details.
- *
- *     You should have received a copy of the GNU Lesser General Public License
- *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package DFiant
 
-import DFiant.targetlib._
-import DFiant.internals._
 import singleton.ops._
 import singleton.twoface._
-import shapeless.<:!<
-
-trait DFSInt[W] extends DFSInt.Unbounded {
-  type Width = W
-}
+import DFiant.internals._
+import DFAny.Func2
+import DFiant.compiler.printer.Printer
 
 object DFSInt extends DFAny.Companion {
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Unbounded Val
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Unbounded extends DFAny.Unbounded[DFSInt.type] {
-    protected[DFiant] type TUnbounded = Unbounded
-    protected[DFiant] type TVal = DFSInt[Width]
-    protected[DFiant] type TVar = DFSInt.Var[Width]
-    protected[DFiant] type TToken = DFSInt.Token
-    protected[DFiant] type TPattern = DFSInt.Pattern
-    protected[DFiant] type TPatternAble[+R] = DFSInt.Pattern.Able[R]
-    protected[DFiant] type TPatternBuilder[L <: DFAny] = DFSInt.Pattern.Builder[L]
-    protected[DFiant] type OpAble[R] = Op.Able[R]
-    protected[DFiant] type `Op<>Builder`[R] = `Op<>`.Builder[TVal, R]
-    protected[DFiant] type `Op:=Builder`[R] = `Op:=`.Builder[TVal, R]
-    protected[DFiant] type `Op==Builder`[R] = `Op==`.Builder[TVal, R]
-    protected[DFiant] type `Op!=Builder`[R] = `Op!=`.Builder[TVal, R]
-    protected[DFiant] type InitAble[L <: DFAny] = Init.Able[L]
-    protected[DFiant] type InitBuilder = Init.Builder[TVal, TToken]
-    protected[DFiant] type PortBuilder[Dir <: DFDir] = Port.Builder[TVal, Dir]
-    import __dev._
-
-    final lazy val sign = bits.msbit.setAutoConstructCodeString(s"$refCodeString.sign")
-
-    final def unary_- (implicit op: `Op-`.Builder[0, TVal]) = op(0, left)
-    final def +  [R](right: Op.Able[R])(implicit op: `Op+`.Builder[TVal, R]) = op(left, right)
-    final def -  [R](right: Op.Able[R])(implicit op: `Op-`.Builder[TVal, R]) = op(left, right)
-    final def *  [R](right: Op.Able[R])(implicit op: `Op*`.Builder[TVal, R]) = op(left, right)
-    //  def /  (right : DFSInt)         : DFSInt = ???
-
-    final def <  [R](right: Op.Able[R])(implicit op: `Op<`.Builder[TVal, R]) = op(left, right)
-    final def >  [R](right: Op.Able[R])(implicit op: `Op>`.Builder[TVal, R]) = op(left, right)
-    final def <= [R](right: Op.Able[R])(implicit op: `Op<=`.Builder[TVal, R]) = op(left, right)
-    final def >= [R](right: Op.Able[R])(implicit op: `Op>=`.Builder[TVal, R]) = op(left, right)
-
-    final def == [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
-    final def == [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op==`.Builder[TVal, R]) = op(left, right)
-    final def == (that : BigInt)(implicit op: `Op==`.Builder[TVal, BigInt]) = op(left, that)
-    final def != [R](that : Int)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
-    final def != [R](that : Long)(implicit right : GetArg.Aux[ZeroI, R], op: `Op!=`.Builder[TVal, R]) = op(left, right)
-    final def != (that : BigInt)(implicit op: `Op!=`.Builder[TVal, BigInt]) = op(left, that)
-
-
-    protected[DFiant] def protToWidth[EW](toWidth : TwoFace.Int[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = new DFSInt.Alias[EW](DFAny.Alias.Reference.Resize(this, toWidth))
-
-    final def toWidth[EW](toWidth : Positive.Checked[EW])(implicit ctx : DFAny.Alias.Context)
-    : DFSInt[EW] = protToWidth(toWidth)
-
-    final private[DFiant] def << (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
-      if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
-      else {
-        val remainingBits = this.bits.protLSBits(width - shift)
-        val zeros = new DFBits.Const[Int](DFBits.Token(shift, 0))
-        new DFSInt.Alias[Width](DFAny.Alias.Reference.Concat(List(remainingBits, zeros), ".sint")).setAutoConstructCodeString(s"$refCodeString << $shift")
-      }
+  final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
+    type Width = W
+    type TToken = Token
+    type TPattern = DFSInt.Pattern
+    type TPatternAble[+R] = DFSInt.Pattern.Able[R]
+    type TPatternBuilder[LType <: DFAny.Type] = DFSInt.Pattern.Builder[LType]
+    type OpAble[R] = DFSInt.Op.Able[R]
+    type `Op==Builder`[L, R] = DFSInt.`Op==`.Builder[L, R]
+    type `Op!=Builder`[L, R] = DFSInt.`Op!=`.Builder[L, R]
+    type `Op<>Builder`[LType <: DFAny.Type, R] = DFSInt.`Op<>`.Builder[LType, R]
+    type `Op:=Builder`[LType <: DFAny.Type, R] = DFSInt.`Op:=`.Builder[LType, R]
+    type InitAble[L <: DFAny] = DFSInt.Init.Able[L]
+    type InitBuilder[L <: DFAny] = DFSInt.Init.Builder[L, TToken]
+    def getBubbleToken: TToken = Token.bubbleOfDFType(this)
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken.toSInt
+    override def toString: String = s"DFSInt[$width]"
+    def codeString(implicit printConfig : Printer.Config) : String = {
+      import printConfig._
+      s"$TP DFSInt($LIT$width)"
     }
-    final private[DFiant] def >> (shift: Int)(implicit ctx : DFAny.Alias.Context) : DFSInt[Width] = {
-      if (shift >= width) new DFSInt.Const[Width](DFBits.Token(width, 0))
-      else {
-        val remainingBits = this.bits.protMSBits(width - shift)
-        val extension = List.fill(shift)(sign)
-        new DFSInt.Alias[Width](DFAny.Alias.Reference.Concat(extension :+ remainingBits, ".sint")).setAutoConstructCodeString(s"$refCodeString >> $shift")
-      }
+    override def equals(obj: Any): Boolean = obj match {
+      case Type(width) => this.width.getValue == width.getValue
+      case _ => false
     }
-
-    final def << [R](right: OpsShift.Able[R])(implicit op: `Op<<`.Builder[TVal, R]) = op(left, right)
-    final def >> [R](right: OpsShift.Able[R])(implicit op: `Op>>`.Builder[TVal, R]) = op(left, right)
-
-    final def isZero(implicit ctx : DFAny.Op.Context) = left == 0
-    final def isPositive(implicit ctx : DFAny.Op.Context) = left > 0
-    final def isNegative(implicit ctx : DFAny.Op.Context) = sign
-    final def isNonZero(implicit ctx : DFAny.Op.Context) = left != 0
-
-    final protected[DFiant] def copyAsNewPort [Dir <: DFDir](dir : Dir)(implicit ctx : DFAny.Port.Context)
-    : TVal <~> Dir = new Port(new NewVar[Width](width), dir)
-    final protected[DFiant] def alias(reference : DFAny.Alias.Reference)(
-      implicit ctx : DFAny.Alias.Context
-    ) : TAlias = new Alias(reference)(ctx).asInstanceOf[TAlias]
-    __dev.setAutoTypeName(s"DFSInt[$width]")
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Var
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Var[W] extends DFSInt[W] with DFAny.Var {
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+  trait Extendable
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  implicit def apply[W](
-    implicit ctx : DFAny.NewVar.Context, checkedWidth : SIntWidth.Checked[W], di: DummyImplicit
-  ) : NewVar[W] = new NewVar(checkedWidth)
-  def apply[W](checkedWidth : SIntWidth.Checked[W])(
-    implicit ctx : DFAny.NewVar.Context
-  ) : NewVar[W] = new NewVar(checkedWidth.unsafeCheck())
-  //  def rangeUntil(supLimit : Int)    : Var = rangeUntil(intToBigIntBits(supLimit))
-  //  def rangeUntil(supLimit : Long)   : Var = rangeUntil(longToBigIntBits(supLimit))
-  //  def rangeUntil(supLimit : BigInt) : Var = apply(bigIntRepWidth(supLimit-1))
-  //  def rangeTo(maxLimit : Int)       : Var = rangeTo(intToBigIntBits(maxLimit))
-  //  def rangeTo(maxLimit : Long)      : Var = rangeTo(longToBigIntBits(maxLimit))
-  //  def rangeTo(maxLimit : BigInt)    : Var = apply(bigIntRepWidth(maxLimit))
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Protected Constructors
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] final class NewVar[W](width : TwoFace.Int[W])(
-    implicit ctx : DFAny.NewVar.Context
-  ) extends DFAny.NewVar[DFSInt[W]](width, s"DFSInt($width)") with Var[W]
-
-  protected[DFiant] final class Alias[W](reference : DFAny.Alias.Reference)(
-    implicit ctx : DFAny.Alias.Context
-  ) extends DFAny.Alias[DFSInt[W]](reference) with Var[W]
-
-  protected[DFiant] final class Const[W](token : DFSInt.Token)(
-    implicit ctx : DFAny.Const.Context
-  ) extends DFAny.Const[DFSInt[W]](token) with DFSInt[W]
-
-  protected[DFiant] final class Port[W, Dir <: DFDir](dfVar : DFSInt[W], dir : Dir)(
-    implicit ctx : DFAny.Port.Context
-  ) extends DFAny.Port[DFSInt[W], Dir](dfVar, dir) with DFSInt[W]
+  def apply[W](checkedWidth : SIntWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth))
+  def apply[W](
+    implicit ctx : DFAny.Context, checkedWidth : SIntWidth.Checked[W], di: DummyImplicit
+  ) = DFAny.NewVar(Type(checkedWidth))
+  def unapply(arg: DFAny): Option[TwoFace.Int[Int]] = arg.dfType match {
+    case Type(width) => Some(width)
+    case _ => None
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  case class Token private[DFiant] (width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt, Pattern] with DFAny.Token.Resizable {
-    protected[DFiant] type TToken = Token
+  final case class Token(width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt] { //with DFAny.Token.Resizable
     lazy val valueBits : BitVector = value.toBitVector(width)
     lazy val bubbleMask: BitVector = bubble.toBitVector(width)
-    def toBubbleToken : Token = Token(width, Bubble)
     def mkTokenS[T <: DFAny.Token](that : T, result : BigInt, resultWidth : Int) : Token = {
       if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
       else Token(resultWidth, result)
     }
+    def + (that : Token) : Token = mkTokenS(that, this.value + that.value, this.width max that.width)
+    def - (that : Token) : Token = mkTokenS(that, this.value - that.value, this.width max that.width)
 
-    final def + (that : Token) : Token = mkTokenS(that, this.value + that.value, scala.math.max(this.width, that.width) + 1)
-    final def - (that : Token) : Token = mkTokenS(that, this.value - that.value, scala.math.max(this.width, that.width) + 1)
-    final def * (that : Token) : Token = mkTokenS(that, this.value * that.value, this.width + that.width)
-    final def / (that : Token) : Token = mkTokenS(that, this.value / that.value, this.width)
-    final def % (that : Token) : Token = mkTokenS(that, this.value % that.value, that.width)
-    final def <  (that : Token) : DFBool.Token = DFBool.Token(this.value < that.value, this.isBubble || that.isBubble)
-    final def >  (that : Token) : DFBool.Token = DFBool.Token(this.value > that.value, this.isBubble || that.isBubble)
-    final def <= (that : Token) : DFBool.Token = DFBool.Token(this.value <= that.value, this.isBubble || that.isBubble)
-    final def >= (that : Token) : DFBool.Token = DFBool.Token(this.value >= that.value, this.isBubble || that.isBubble)
-    final def == (that : Token) : DFBool.Token = DFBool.Token(this.value == that.value, this.isBubble || that.isBubble)
-    final def != (that : Token) : DFBool.Token = DFBool.Token(this.value != that.value, this.isBubble || that.isBubble)
-    final def << (that : DFUInt.Token) : Token = mkTokenS(that, this.value << that.value.toInt, this.width)
-    final def >> (that : DFUInt.Token) : Token = mkTokenS(that, this.value >> that.value.toInt, this.width)
+//    final def * (that : Token) : Token = mkTokenU(that, this.value * that.value, this.width + that.width)
+//    final def / (that : Token) : Token = mkTokenU(that, this.value / that.value, this.width)
+//    final def % (that : Token) : Token = mkTokenU(that, this.value % that.value, that.width)
+    def <  (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value < that.value, this.isBubble || that.isBubble)
+    def >  (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value > that.value, this.isBubble || that.isBubble)
+    def <= (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value <= that.value, this.isBubble || that.isBubble)
+    def >= (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value >= that.value, this.isBubble || that.isBubble)
+    def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
+    def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
+    def << (that : DFUInt.Token) : Token = mkTokenS(that, this.value << that.value.toInt, this.width)
+    def >> (that : DFUInt.Token) : Token = mkTokenS(that, this.value >> that.value.toInt, this.width)
     def resize(toWidth : Int) : Token = {
       if (toWidth > width) Token(toWidth, value, bubble)
       else if (toWidth < width) bits.resize(toWidth).toSInt
-      else this
+      else this.asInstanceOf[Token]
     }
+    def codeString(implicit printConfig : Printer.Config) : String = {
+      import printConfig._
+      if (value.isValidInt) s"$LIT$value"
+      else if (value.isValidLong) s"$LIT${value}L"
+      else s"""$LIT BigInt($STR"$value")"""
+    }
+//    override def equals(obj: Any): Boolean = obj match {
+//      case Token(width, value, bubble) => this.width.getValue == width.getValue && this.value == value && this.bubble == bubble
+//      case _ => false
+//    }
   }
 
-  object Token extends TokenCO {
-    import DFAny.TokenSeq
-    val + : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l + r)
-    val - : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l - r)
-    val * : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l * r)
-    val / : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l / r)
-    val % : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l % r)
-    val < : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l < r)
-    val > : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l > r)
-    val <= : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l <= r)
-    val >= : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l >= r)
-    val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
-    val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
-    val << : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l << r)
-    val >> : (Seq[Token], Seq[DFUInt.Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l >> r)
-    def resize(left : Seq[Token], toWidth : Int) : Seq[Token] = TokenSeq(left)(t => t.resize(toWidth))
+  object Token {
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.width, Bubble)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token(t.width, Bubble)
 
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
@@ -218,67 +103,6 @@ object DFSInt extends DFAny.Companion {
     def apply(width : Int, token : Token) : Token = {
       assert(token.width <= width, s"\nThe init value $token width must smaller or equal to $width")
       new Token(width, token.value, token.bubble)
-    }
-    implicit def bubbleOf[W] : DFSInt[W] => Token = t => Token(t.width, Bubble)
-    implicit val fromBits : DFBits.Token => Token = t => t.toSInt
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Port
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Port extends PortCO {
-    trait Builder[L <: DFAny, Dir <: DFDir] extends DFAny.Port.Builder[L, Dir]
-    object Builder {
-      implicit def conn[LW, Dir <: DFDir](implicit ctx : DFAny.Port.Context)
-      : Builder[DFSInt[LW], Dir] = (right, dir) => new Port[LW, Dir](right, dir)
-    }
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Alias
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Alias extends AliasCO {
-    def apply[M <: Unbounded](left : DFAny, mold : M)(implicit ctx : DFAny.Alias.Context) : DFAny =
-      new Alias[mold.Width](DFAny.Alias.Reference.AsIs(left, s".as(DFSInt(${mold.width}))"))
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Init
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Init extends InitCO {
-    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
-    object Able {
-      private type IntWithinWidth[LW] = CompileTime[BitsWidthOf.Signed.CalcInt[GetArg0] <= LW]
-      private type LongWithinWidth[LW] = CompileTime[BitsWidthOf.Signed.CalcLong[GetArg0] <= LW]
-      implicit class DFSIntBubble[LW](val right : Bubble) extends Able[DFSInt[LW]]
-      implicit class DFSIntToken[LW](val right : DFSInt.Token) extends Able[DFSInt[LW]]
-      implicit class DFSIntTokenSeq[LW](val right : Seq[DFSInt.Token]) extends Able[DFSInt[LW]]
-      implicit class DFSIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFSInt[LW]]
-      implicit class DFSIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFSInt[LW]]
-      implicit class DFSIntBigInt[LW](val right : BigInt) extends Able[DFSInt[LW]]
-      implicit class DFSIntSeqOfInt[LW](val right : Seq[Int]) extends Able[DFSInt[LW]]
-      implicit class DFSIntSeqOfLong[LW](val right : Seq[Long]) extends Able[DFSInt[LW]]
-      implicit class DFSIntSeqOfBigInt[LW](val right : Seq[BigInt]) extends Able[DFSInt[LW]]
-
-      def toTokenSeq[LW](width : Int, right : Seq[Able[DFSInt[LW]]]) : Seq[Token] =
-        right.toSeqAny.map(e => e match {
-          case (t : Bubble) => DFSInt.Token(width, t)
-          case (t : DFSInt.Token) => DFSInt.Token(width, t)
-          case (t : Int) => DFSInt.Token(width, t)
-          case (t : Long) => DFSInt.Token(width, t)
-          case (t : BigInt) => DFSInt.Token(width, t)
-        })
-
-    }
-    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
-    object Builder {
-      implicit def ev[LW] : Builder[DFSInt[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,14 +139,14 @@ object DFSInt extends DFAny.Companion {
         val interval: Interval[BigInt] = right
       }
     }
-    trait Builder[L <: DFAny] extends DFAny.Pattern.Builder[L, Able]
+    trait Builder[LType <: DFAny.Type] extends DFAny.Pattern.Builder[LType, Able]
     object Builder {
-      implicit def ev[LW] : Builder[DFSInt[LW]] = new Builder[DFSInt[LW]] {
-        def apply[R](left: DFSInt[LW], right: Seq[Able[R]]): Pattern = {
+      implicit def ev[LW] : Builder[Type[LW]] = new Builder[Type[LW]] {
+        def apply[R](left: Type[LW], right: Seq[Able[R]]): Pattern = {
           val reqInterval = IntervalSet(Interval.closed(BigInt.minSignedFromWidth(left.width), BigInt.maxSignedFromWidth(left.width)))
           val patternSet = right.map(e => e.interval).foldLeft(IntervalSet.empty[BigInt])((set, interval) => {
             if (set.intersect(interval).nonEmpty) throw new IllegalArgumentException(s"\nThe interval $interval already intersects with $set")
-            if (!reqInterval.contains(interval)) throw new IllegalArgumentException(s"\nThe interval $interval is outside of range allowed by ${left.name}: $reqInterval")
+            if (!reqInterval.contains(interval)) throw new IllegalArgumentException(s"\nThe interval $interval is outside of range allowed: $reqInterval")
             set + interval
           })
 
@@ -336,42 +160,43 @@ object DFSInt extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Op
+  // Init
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends OpCO {
-    class Able[L](val value : L) extends DFAny.Op.Able[L] {
-      val left = value
-      def +  [RW](right : DFSInt[RW])(implicit op: `Op+`.Builder[L, DFSInt[RW]]) = op(left, right)
-      def -  [RW](right : DFSInt[RW])(implicit op: `Op-`.Builder[L, DFSInt[RW]]) = op(left, right)
-      def <  [RW](right : DFSInt[RW])(implicit op: `Op<`.Builder[L, DFSInt[RW]]) = op(left, right)
-      def >  [RW](right : DFSInt[RW])(implicit op: `Op>`.Builder[L, DFSInt[RW]]) = op(left, right)
-      def <= [RW](right : DFSInt[RW])(implicit op: `Op<=`.Builder[L, DFSInt[RW]]) = op(left, right)
-      def >= [RW](right : DFSInt[RW])(implicit op: `Op>=`.Builder[L, DFSInt[RW]]) = op(left, right)
-      def <> [RW](port : DFAny.Connectable[DFSInt[RW]] with DFSInt[RW])(
-        implicit op: `Op<>`.Builder[DFSInt[RW], L], ctx : DFNet.Context
-      ) = port.connectWith(op(port, left))
-      def toDFSInt[LW](implicit op : Const.Builder.Aux[L, LW]) = op(left)
+  object Init extends InitCO {
+    trait Able[L <: DFAny] extends DFAny.Init.Able[L]
+    object Able {
+      private type IntWithinWidth[LW] = CompileTime[BitsWidthOf.Signed.CalcInt[GetArg0] <= LW]
+      private type LongWithinWidth[LW] = CompileTime[BitsWidthOf.Signed.CalcLong[GetArg0] <= LW]
+      implicit class DFSIntBubble[LW](val right : Bubble) extends Able[DFSInt[LW]]
+      implicit class DFSIntToken[LW](val right : DFSInt.Token) extends Able[DFSInt[LW]]
+      implicit class DFSIntTokenSeq[LW](val right : Seq[DFSInt.Token]) extends Able[DFSInt[LW]]
+      implicit class DFSIntInt[LW](val right : Int)(implicit chk: IntWithinWidth[LW]) extends Able[DFSInt[LW]]
+      implicit class DFSIntLong[LW](val right : Long)(implicit chk: LongWithinWidth[LW]) extends Able[DFSInt[LW]]
+      implicit class DFSIntBigInt[LW](val right : BigInt) extends Able[DFSInt[LW]]
+      implicit class DFSIntSeqOfInt[LW](val right : Seq[Int]) extends Able[DFSInt[LW]]
+      implicit class DFSIntSeqOfLong[LW](val right : Seq[Long]) extends Able[DFSInt[LW]]
+      implicit class DFSIntSeqOfBigInt[LW](val right : Seq[BigInt]) extends Able[DFSInt[LW]]
+
+      def toTokenSeq[LW](width : Int, right : Seq[Able[DFSInt[LW]]]) : Seq[Token] =
+        right.toSeqAny.collect {
+          case (t : Bubble) => DFSInt.Token(width, t)
+          case (t : Token) => assert(t.width == width); t
+          case (t : Int) => DFSInt.Token(width, t)
+          case (t : Long) => DFSInt.Token(width, t)
+          case (t : BigInt) => DFSInt.Token(width, t)
+        }
+
     }
-    trait Implicits {
-      sealed class DFSIntFromInt[L <: Int](left : L) extends Able[L](left)
-      final implicit def DFSIntFromInt[L <: Int](left: L): DFSIntFromInt[L] = new DFSIntFromInt(left)
-      sealed class DFSIntFromXInt[L <: XInt](left : L) extends Able[L](left)
-      final implicit def DFSIntFromXInt[L <: XInt](left: L): DFSIntFromXInt[L] = new DFSIntFromXInt(left)
-      sealed class DFSIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends Able[L](left)
-      final implicit def DFSIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): DFSIntFromLong[L] = new DFSIntFromLong(left)
-      sealed class DFSIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends Able[L](left)
-      final implicit def DFSIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFSIntFromXLong[L] = new DFSIntFromXLong(left)
-      sealed class DFSIntFromBigInt[L <: BigInt](left : L) extends Able[L](left)
-      final implicit def DFSIntFromBigInt[L <: BigInt](left: L): DFSIntFromBigInt[L] = new DFSIntFromBigInt[L](left)
-      final implicit def ofDFSInt[R <: DFSInt.Unbounded](value : R) : Able[value.TVal] = new Able[value.TVal](value.left)
+    trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
+    object Builder {
+      implicit def ev[LW] : Builder[DFSInt[LW], Token] = (left, right) => Able.toTokenSeq(left.width, right)
     }
-    object Able extends Implicits
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Constant Implicit Evidence of DFSInt
+  // Constant Builder
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Const {
     trait Builder[N] {
@@ -380,22 +205,89 @@ object DFSInt extends DFAny.Companion {
     }
     object Builder {
       type Aux[N, W0] = Builder[N]{type W = W0}
-      implicit def fromInt[N <: Int](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Int[N])
+      implicit def fromInt[N <: Int](implicit ctx : DFAny.Context, w : BitsWidthOf.Signed.Int[N])
       : Aux[N, w.Out] = new Builder[N] {
         type W = w.Out
-        def apply(value : N) : DFSInt[W] = new Const[W](Token(w(value), value))
+        def apply(value : N) : DFSInt[W] = {
+          val width = w(value)
+          DFAny.Const[Type[W]](Type(width), Token(width, value))
+        }
       }
-      implicit def fromLong[N <: Long](implicit ctx : DFAny.Const.Context, w : BitsWidthOf.Signed.Long[N])
+      implicit def fromLong[N <: Long](implicit ctx : DFAny.Context, w : BitsWidthOf.Signed.Long[N])
       : Aux[N, w.Out] = new Builder[N] {
         type W = w.Out
-        def apply(value : N) : DFSInt[W] = new Const[W](Token(w(value), value))
+        def apply(value : N) : DFSInt[W] = {
+          val width = w(value)
+          DFAny.Const[Type[W]](Type(width), Token(width, value))
+        }
       }
-      implicit def fromBigInt[N <: BigInt](implicit ctx : DFAny.Const.Context)
+      implicit def fromBigInt[N <: BigInt](implicit ctx : DFAny.Context)
       : Aux[N, Int] = new Builder[N] {
         type W = Int
-        def apply(value : N) : DFSInt[W] = new Const[W](Token(value.bitsWidth, value))
+        def apply(value : N) : DFSInt[W] = {
+          val width = value.bitsWidth
+          DFAny.Const[Type[W]](Type(width), Token(width, value))
+        }
       }
     }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Op
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object Op extends OpCO {
+    class Able[L](val value : L) extends DFAny.Op.Able[L]
+    class AbleOps[L](value : L) extends Able[L](value) {
+      val left = value
+      final def +   [RW](right : DFSInt[RW])(implicit op: `Op+`.Builder[L, false, DFSInt[RW]]) = op(left, right)
+      final def -   [RW](right : DFSInt[RW])(implicit op: `Op-`.Builder[L, false, DFSInt[RW]]) = op(left, right)
+      final def <   [RW](right : DFSInt[RW])(implicit op: `Op<`.Builder[L, DFSInt[RW]]) = op(left, right)
+      final def >   [RW](right : DFSInt[RW])(implicit op: `Op>`.Builder[L, DFSInt[RW]]) = op(left, right)
+      final def <=  [RW](right : DFSInt[RW])(implicit op: `Op<=`.Builder[L, DFSInt[RW]]) = op(left, right)
+      final def >=  [RW](right : DFSInt[RW])(implicit op: `Op>=`.Builder[L, DFSInt[RW]]) = op(left, right)
+      final def === [RW](right : DFSInt[RW])(implicit op: `Op===`.Builder[L, DFSInt[RW]]) = op(left, right)
+      final def =!= [RW](right : DFSInt[RW])(implicit op: `Op=!=`.Builder[L, DFSInt[RW]]) = op(left, right)
+    }
+    trait Implicits {
+      sealed class DFSIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
+      final implicit def DFSIntFromInt[L <: Int](left: L): DFSIntFromInt[L] = new DFSIntFromInt(left)
+      sealed class DFSIntFromXInt[L <: XInt](left : L) extends AbleOps[L](left)
+      final implicit def DFSIntFromXInt[L <: XInt](left: L): DFSIntFromXInt[L] = new DFSIntFromXInt(left)
+      sealed class DFSIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
+      final implicit def DFSIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): DFSIntFromLong[L] = new DFSIntFromLong(left)
+      sealed class DFSIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
+      final implicit def DFSIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFSIntFromXLong[L] = new DFSIntFromXLong(left)
+      sealed class DFSIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
+      final implicit def DFSIntFromBigInt[L <: BigInt](left: L): DFSIntFromBigInt[L] = new DFSIntFromBigInt[L](left)
+      sealed class DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFSInt[W]](left)
+      final implicit def DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFSIntFromDefaultRet[W] = new DFSIntFromDefaultRet(left)
+      final implicit def ofDFSInt[W](left : DFSInt[W]) : Able[DFSInt[W]] = new Able(left)
+      implicit class ExtendableDFSIntOps[LW](val left : DFSInt[LW] with Extendable){
+        final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFSInt[LW], true, R]) = op(left, right)
+        final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFSInt[LW], true, R]) = op(left, right)
+      }
+      final implicit class DFSIntOps[LW](val left : DFSInt[LW]){
+        def maxValue : BigInt = BigInt(2) << (left.width - 1) - 1
+        def sign(implicit ctx : DFAny.Context) : DFBool = left.asInstanceOf[DFSInt[Int]].bit(left.width-1)
+        def unary_- (implicit op: `Op-`.Builder[0, false, DFSInt[LW]]) = op(0, left)
+        def +   [R](right : Able[R])(implicit op: `Op+`.Builder[DFSInt[LW], false, R]) = op(left, right)
+        def -   [R](right : Able[R])(implicit op: `Op-`.Builder[DFSInt[LW], false, R]) = op(left, right)
+        def <   [R](right : Able[R])(implicit op: `Op<`.Builder[DFSInt[LW], R]) = op(left, right)
+        def >   [R](right : Able[R])(implicit op: `Op>`.Builder[DFSInt[LW], R]) = op(left, right)
+        def <=  [R](right : Able[R])(implicit op: `Op<=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def >=  [R](right : Able[R])(implicit op: `Op>=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFSInt[LW], R]) = op(left, right)
+        def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFSInt[LW], R]) = op(left, right)
+        def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFSInt[LW], R]) = op(left, right)
+        def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFSInt[LW], R]) = op(left, right)
+        def resize[RW](toWidth : SIntWidth.Checked[RW])(implicit ctx : DFAny.Context) =
+          DFAny.Alias.Resize.sint(left, toWidth)
+        def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
+      }
+    }
+    object Able extends Implicits
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -403,316 +295,51 @@ object DFSInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>`[SkipLengthCheck] extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support assignment/connect operation with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
+    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
+      type Out = DFAny.Of[LType]
+    }
 
     object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Out = Comp0
-      }
-
       object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = SkipLengthCheck || (LW >= RW)
+        type Cond[LW, RW] = LW >= RW
         type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
 
-      def create[L, R, RW](properR : (L, R) => DFSInt[RW]) : Aux[L, R, DFSInt[RW]] =
-        new Builder[L, R] {
-          type Out = DFSInt[RW]
-          def apply(leftL : L, rightR : R) : Out =  properR(leftL, rightR)
-        }
-
-      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
+      implicit def evDFSInt_op_DFSInt[LW, RW](
         implicit
-        ctx : DFAny.Alias.Context,
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFSInt[LW], DFSInt[RW], DFSInt[LW]] =
-        create[DFSInt[LW], DFSInt[RW], LW]((left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          right.protToWidth[LW](left.width)
-        })
+        ctx : DFAny.Context,
+        checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
+      ) : Builder[Type[LW], DFSInt[RW]] = (left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        right.asInstanceOf[DFAny.Of[Type[LW]]]
+      }
 
-      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
+      implicit def evDFSInt_op_Const[LW, R, RW](
         implicit
-        ctx : DFAny.Alias.Context,
+        ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
-        checkLWvRW : `LW >= RW`.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Aux[DFSInt[LW], R, DFSInt[LW]] = create[DFSInt[LW], R, LW]((left, rightNum) => {
+        checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
+      ) : Builder[Type[LW], R] = (left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        new Const[LW](Token(left.width, right.constCB))
-      })
-    }
-  }
-  object `Op:=` extends `Ops:=,<>`[false]
-  object `Op<>` extends `Ops:=,<>`[true]
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // +/- operation
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class `Ops+Or-`(kind : DiSoOp.Kind) {
-    //NCW = No-carry width
-    //WCW = With-carry width
-    final class Component[NCW, WCW](_wc : DFFunc2[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Alias.Context) extends
-      DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFSInt[NCW] with CompAlias { //, if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).sint"
-      lazy val wc = {_wc.usedAsWide = true;  _wc}
-      lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
-      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
-      lazy val comp = wc
-//      lazy val bypassAlias = c.isNotDiscovered
-    }
-
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-
-    object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Out = Comp0
-      }
-
-      object Inference {
-        import singleton.ops.math.Max
-        type CalcWCW[LW, RW] = Max[LW, RW] + 1
-        type WCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcWCW, LW, Int, RW, Int, ResW]
-        type CalcNCW[LW, RW] = Max[LW, RW]
-        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
-      }
-
-      trait DetailedBuilder[L, LW, R, RW] {
-        type Out
-        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out]
-      }
-      object DetailedBuilder {
-        implicit def ev[L, LW, R, RW, NCW, WCW](
-          implicit
-          ctx : DFAny.Op.Context,
-          ncW : Inference.NCW[LW, RW, NCW],
-          wcW : Inference.WCW[LW, RW, WCW],
-        ) : DetailedBuilder[L, LW, R, RW]{type Out = Component[NCW, WCW]} =
-          new DetailedBuilder[L, LW, R, RW]{
-            type Out = Component[NCW, WCW]
-            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out] =
-              new Builder[L, R] {
-                type Out = Component[NCW, WCW]
-                def apply(leftL : L, rightR : R) : Out = {
-                  import stdlib.DFSIntOps._
-                  val (left, right) = properLR(leftL, rightR)
-                  // Constructing op
-                  val opInst = kind match {
-                    case DiSoOp.Kind.+ => `Func2Comp+`[LW, RW, WCW](left, right)
-                    case DiSoOp.Kind.- => `Func2Comp-`[LW, RW, WCW](left, right)
-                    case _ => throw new IllegalArgumentException("Unexpected operation")
-                  }
-                  opInst.__dev.setAutoName(if (opInst.usedAsWide) s"${ctx}WC" else s"${ctx}")
-                  // Creating extended component aliasing the op
-                  new Component[NCW, WCW](opInst)
-                }
-              }
-          }
-      }
-
-      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
-        implicit
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, DFSInt[RW], RW]
-      ) = detailedBuilder((left, right) => (left, right))
-
-      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
-        implicit
-        ctx : DFAny.Op.Context,
-        rConst : Const.Builder.Aux[R, RW],
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, R, RW]
-      ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
-
-      implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
-        implicit
-        ctx : DFAny.Op.Context,
-        lConst : Const.Builder.Aux[L, LW],
-        detailedBuilder: DetailedBuilder[L, LW, DFSInt[RW], RW]
-      ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
-    }
-  }
-  object `Op+` extends `Ops+Or-`(DiSoOp.Kind.+)
-  object `Op-` extends `Ops+Or-`(DiSoOp.Kind.-)
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // * operation
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op*` {
-    //NCW = No-carry width
-    //WCW = With-carry width
-    //CW = Carry width
-    final class Component[NCW, WCW, CW](val wc : DFFunc2[_,_,_] with DFSInt[WCW], ncW : TwoFace.Int[NCW], cW : TwoFace.Int[CW])(
-      implicit ctx : DFAny.Alias.Context
-    ) extends DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.BitsWL(wc, ncW, 0, if (wc.isFolded) "" else s".bits(${wc.width-cW-1}, 0).sint")) with DFSInt[NCW] with CompAlias {
-      lazy val c = new DFBits.Alias[CW](DFAny.Alias.Reference.BitsWL(wc, cW, wc.width - cW, s".bits(${wc.width-1}, ${wc.width-cW})")).setAutoName(s"${ctx}C")
-      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toSInt
-      lazy val comp = wc
-//      lazy val bypassAlias = c.isNotDiscovered
-    }
-
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Op `*` with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
-
-    object Builder {
-      type Aux[L, R, Comp0] = Builder[L, R] {
-        type Out = Comp0
-      }
-
-      object Inference {
-        import singleton.ops.math.Max
-        type CalcWCW[LW, RW] = LW + RW
-        type WCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcWCW, LW, Int, RW, Int, ResW]
-        type CalcNCW[LW, RW] = Max[LW, RW]
-        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
-        type CalcCW[LW, RW] = CalcWCW[LW, RW] - CalcNCW[LW, RW]
-        type CW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcCW, LW, Int, RW, Int, ResW]
-      }
-
-      trait DetailedBuilder[L, LW, R, RW] {
-        type Out
-        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out]
-      }
-      object DetailedBuilder {
-        implicit def ev[L, LW, R, RW, CW, NCW, WCW](
-          implicit
-          ctx : DFAny.Op.Context,
-          ncW : Inference.NCW[LW, RW, NCW],
-          wcW : Inference.WCW[LW, RW, WCW],
-          cW : Inference.CW[LW, RW, CW],
-        ) : DetailedBuilder[L, LW, R, RW]{type Out = Component[NCW, WCW, CW]} =
-          new DetailedBuilder[L, LW, R, RW]{
-            type Out = Component[NCW, WCW, CW]
-            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, R, Out] =
-              new Builder[L, R] {
-                type Out = Component[NCW, WCW, CW]
-                def apply(leftL : L, rightR : R) : Out = {
-                  import stdlib.DFSIntOps._
-                  val (left, right) = properLR(leftL, rightR)
-                  // Constructing op
-                  val ncWidth = ncW(left.width, right.width)
-                  val cWidth = cW(left.width, right.width)
-
-                  val opInst = `Func2Comp*`[LW, RW, WCW](left, right)
-                  opInst.__dev.setAutoName(s"${ctx}WC")
-
-                  // Creating extended component aliasing the op
-                  new Component[NCW, WCW, CW](opInst, ncWidth, cWidth)
-                }
-              }
-          }
-      }
-
-      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
-        implicit
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, DFSInt[RW], RW]
-      ) = detailedBuilder((left, right) => (left, right))
-
-      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
-        implicit
-        ctx : DFAny.Op.Context,
-        rConst : Const.Builder.Aux[R, RW],
-        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, R, RW]
-      ) = detailedBuilder((left, rightNum) => (left, rConst(rightNum)))
-
-      implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
-        implicit
-        ctx : DFAny.Op.Context,
-        lConst : Const.Builder.Aux[L, LW],
-        detailedBuilder: DetailedBuilder[L, LW, DFSInt[RW], RW]
-      ) = detailedBuilder((leftNum, right) => (lConst(leftNum), right))
-    }
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Shift operations
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsShift(opKind : DiSoOp.Kind) {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
-    trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
-      type Out <: DFSInt.Unbounded
-    }
-
-    object Builder {
-      object SmallShift extends Checked1Param.Int {
-        type Cond[LW, RW] = BitsWidthOf.CalcInt[LW] >= RW
-        type Msg[LW, RW] = "The shift vector is too large. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
-        type ParamFace = Int
-      }
-
-      implicit def evDFSInt_op_DFUInt[LW, RW](
-        implicit
-        ctx : DFAny.Op.Context,
-        checkLWvRW : SmallShift.CheckedShellSym[Builder[_,_], LW, RW]
-      ) : Builder[DFSInt[LW], DFUInt[RW]]{type Out = DFSInt[LW] with CanBePiped} =
-        new Builder[DFSInt[LW], DFUInt[RW]]{
-          type Out = DFSInt[LW] with CanBePiped
-          def apply(left : DFSInt[LW], right : DFUInt[RW]) : DFSInt[LW] with CanBePiped = {
-            import stdlib.DFSIntOps._
-            // Completing runtime checks
-            checkLWvRW.unsafeCheck(left.width, right.width)
-            // Constructing op
-            val opInst = opKind match {
-              case DiSoOp.Kind.<< => `Func2Comp<<`(left, right)
-              case DiSoOp.Kind.>> => `Func2Comp>>`(left, right)
-              case _ => throw new IllegalArgumentException("Unexpected logic operation")
-            }
-            opInst.__dev.setAutoName(s"${ctx}")
-            opInst
-          }
-        }
-      implicit def evDFSInt_op_Const[LW, R <: Int, RW](
-        implicit
-        ctx : DFAny.Op.Context,
-        check : Natural.Int.CheckedShellSym[Builder[_,_], R],
-        rConst : DFUInt.Const.PosNeg.Aux[R, RW]
-      ) : Builder[DFSInt[LW], R]{type Out = DFSInt[LW]} = new Builder[DFSInt[LW], R]{
-        type Out = DFSInt[LW]
-        def apply(left : DFSInt[LW], right : R) : DFSInt[LW] = {
-          check.unsafeCheck(right)
-//          opKind match {
-//            case DiSoOp.Kind.<< => left << right
-//            case DiSoOp.Kind.>> => left >> right
-//            case _ => throw new IllegalArgumentException("Unexpected logic operation")
-//          }
-          import stdlib.DFSIntOps._
-          val opInst = opKind match {
-            case DiSoOp.Kind.<< => `Func2Comp<<`(left, rConst(right)._1)
-            case DiSoOp.Kind.>> => `Func2Comp>>`(left, rConst(right)._1)
-            case _ => throw new IllegalArgumentException("Unexpected logic operation")
-          }
-          opInst.__dev.setAutoName(s"${ctx}")
-          opInst
-        }
+        right.asInstanceOf[DFAny.Of[Type[LW]]]
       }
     }
   }
-  object OpsShift {
-    class Able[R](val value : R) extends DFAny.Op.Able[R]
-    object Able {
-      implicit class FromXInt[R <: XInt](right : R) extends Able[R](right)
-      implicit class FromInt[R <: Int](right : R) extends Able[R](right)
-      implicit class FromDFUInt[RW](right : DFUInt[RW]) extends Able[DFUInt[RW]](right)
-    }
-  }
-  object `Op<<` extends OpsShift(DiSoOp.Kind.<<)
-  object `Op>>` extends OpsShift(DiSoOp.Kind.>>)
+  object `Op:=` extends `Ops:=,<>`
+  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare(opKind : DiSoOp.Kind)(opFunc : (Seq[DFSInt.Token], Seq[DFSInt.Token]) => Seq[DFBool.Token]) {
+  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool with CanBePiped}
+    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
@@ -721,26 +348,23 @@ object DFSInt extends DFAny.Companion {
         type ParamFace = Int
       }
 
-      def create[L, LW, R, RW](properLR : (L, R) => (DFSInt[LW], DFSInt[RW]))(implicit ctx : DFAny.Op.Context)
-      : Builder[L, R] = (leftL, rightR) => {
-        import stdlib.DFSIntOps._
+      object `VecW >= ConstW` extends Checked1Param.Int { //Needs to be mitigated to a warning
+        type Cond[VW, CW] = VW >= CW
+        type Msg[VW, CW] = "A static boolean result detected, due to an unsigned comparison between a DF variable and a larger number. Found: DFVar-width = "+ ToString[VW] + " and Num-width = " + ToString[CW]
+        type ParamFace = Int
+      }
+
+      def create[L, LW, R, RW](properLR : (L, R) => (DFSInt[LW], DFSInt[RW]))(
+        implicit ctx : DFAny.Context
+      ) : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
-        val opInst = opKind match {
-          case DiSoOp.Kind.== => `Func2Comp==`(left, right)
-          case DiSoOp.Kind.!= => `Func2Comp!=`(left, right)
-          case DiSoOp.Kind.<  => `Func2Comp<`(left, right)
-          case DiSoOp.Kind.>  => `Func2Comp>`(left, right)
-          case DiSoOp.Kind.<= => `Func2Comp<=`(left, right)
-          case DiSoOp.Kind.>= => `Func2Comp>=`(left, right)
-          case _ => throw new IllegalArgumentException("Unexpected compare operation")
-        }
-        opInst.__dev.setAutoName(s"${ctx}")
+        DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
       }
 
       implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, R <: DFSInt[RW], RW](
         implicit
-        ctx : DFAny.Op.Context,
-        checkLWvRW : `LW == RW`.CheckedShellSym[Builder[_,_], LW, RW]
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
       ) : Builder[DFSInt[LW], DFSInt[RW]] = create[DFSInt[LW], LW, DFSInt[RW], RW]((left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
         (left, right)
@@ -748,22 +372,147 @@ object DFSInt extends DFAny.Companion {
 
       implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, R, RW](
         implicit
-        ctx : DFAny.Op.Context,
+        ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
-      ) : Builder[DFSInt[LW], R] = create[DFSInt[LW], LW, R, RW]((left, rightNum) => (left, rConst(rightNum)))
+        checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, LW, RW]
+      ) : Builder[DFSInt[LW], R] = create[DFSInt[LW], LW, R, RW]((left, rightNum) => {
+        val right = rConst(rightNum)
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        (left, right)
+      })
 
       implicit def evConst_op_DFSInt[L, LW, R <: DFSInt[RW], RW](
         implicit
-        ctx : DFAny.Op.Context,
+        ctx : DFAny.Context,
         lConst : Const.Builder.Aux[L, LW],
-      ) : Builder[L, DFSInt[RW]] = create[L, LW, DFSInt[RW], RW]((leftNum, right) => (lConst(leftNum), right))
+        checkLWvRW : `VecW >= ConstW`.CheckedShellSym[Warn, RW, LW]
+      ) : Builder[L, DFSInt[RW]] = create[L, LW, DFSInt[RW], RW]((leftNum, right) => {
+        val left = lConst(leftNum)
+        checkLWvRW.unsafeCheck(right.width, left.width)
+        (left, right)
+      })
     }
   }
-  object `Op==` extends OpsCompare(DiSoOp.Kind.==)(DFSInt.Token.==) with `Op==`
-  object `Op!=` extends OpsCompare(DiSoOp.Kind.!=)(DFSInt.Token.!=) with `Op!=`
-  object `Op<`  extends OpsCompare(DiSoOp.Kind.< )(DFSInt.Token.< )
-  object `Op>`  extends OpsCompare(DiSoOp.Kind.> )(DFSInt.Token.> )
-  object `Op<=` extends OpsCompare(DiSoOp.Kind.<=)(DFSInt.Token.<=)
-  object `Op>=` extends OpsCompare(DiSoOp.Kind.>=)(DFSInt.Token.>=)
+  object `Op==`  extends OpsCompare(Func2.Op.==)(_ == _) with `Op==`
+  object `Op!=`  extends OpsCompare(Func2.Op.!=)(_ != _) with `Op!=`
+  object `Op===` extends OpsCompare(Func2.Op.==)(_ == _)
+  object `Op=!=` extends OpsCompare(Func2.Op.!=)(_ != _)
+  object `Op<`   extends OpsCompare(Func2.Op.< )(_ <  _)
+  object `Op>`   extends OpsCompare(Func2.Op.> )(_ >  _)
+  object `Op<=`  extends OpsCompare(Func2.Op.<=)(_ <= _)
+  object `Op>=`  extends OpsCompare(Func2.Op.>=)(_ >= _)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // +/- operation
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  protected abstract class `Ops+Or-`[Op <: Func2.Op.Negateable](op : Op) {
+    //NCW = No-carry width
+    //WCW = With-carry width
+//    final class Component[NCW, WCW](_wc : DFFunc2[_,_,_] with DFSInt[WCW])(implicit ctx : DFAny.Context) extends
+//      DFAny.Alias[DFSInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFSInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
+//      lazy val wc = {_wc.usedAsWide = true; _wc}
+//      lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
+//      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
+//      lazy val comp = wc
+//      //      lazy val bypassAlias = c.isNotDiscovered
+//    }
+
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
+    trait Builder[L, LE, R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
+        type Out = Comp0
+      }
+
+      object `LW >= RW` extends Checked1Param.Int {
+        type Cond[LW, RW] = LW >= RW
+        type Msg[LW, RW] = "Operation does not permit a LHS-width("+ ToString[LW] + ") smaller than RHS-width(" + ToString[RW] + ")"
+        type ParamFace = Int
+        type CheckedExtendable[LW, LE, RW] = CheckedShell[LW, ITE[LE, 0, RW]]
+      }
+
+      object Inference {
+        import singleton.ops.math.Max
+        type CalcNCW[LW, RW] = Max[LW, RW]
+        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
+      }
+
+      trait DetailedBuilder[L, LW, LE, R, RW] {
+        type Out
+        def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, LE, R, Out]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LW, LE, R, RW, NCW, WCW](
+          implicit
+          ctx : DFAny.Context,
+          ncW : Inference.NCW[LW, RW, NCW],
+          checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW]
+        ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = DFSInt[NCW]} =
+          new DetailedBuilder[L, LW, LE, R, RW]{
+            type Out = DFSInt[NCW]
+            def apply(properLR : (L, R) => (DFSInt[LW], DFSInt[RW])) : Builder.Aux[L, LE, R, Out] =
+              new Builder[L, LE, R] {
+                type Out = DFSInt[NCW]
+                def apply(leftL : L, rightR : R) : Out = {
+                  val (left, right) = properLR(leftL, rightR)
+                  // Completing runtime checks
+                  checkLWvRW.unsafeCheck(left.width, right.width)
+                  // Constructing op
+                  val opWidth = ncW(left.width, right.width)
+                  val out = Type(opWidth)
+                  val func : (left.TToken, right.TToken) => out.TToken = op match {
+                    case _ : Func2.Op.+ => _ + _
+                    case _ : Func2.Op.- => _ - _
+                    case _ => ???
+                  }
+                  DFAny.Func2(out, left, op, right)(func)
+                }
+              }
+          }
+      }
+
+      implicit def evDFSInt_op_DFSInt[L <: DFSInt[LW], LW, LE, R <: DFSInt[RW], RW](
+        implicit
+        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, LE, DFSInt[RW], RW]
+      ) = detailedBuilder((left, right) => (left, right))
+
+      implicit def evDFSInt_op_Const[L <: DFSInt[LW], LW, LE, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : Const.Builder.Aux[R, RW],
+        detailedBuilder: DetailedBuilder[DFSInt[LW], LW, LE, R, RW]
+      ) = detailedBuilder((left, rightNum) => {
+        val right = rConst(rightNum)
+        (left, right)
+      })
+
+      implicit def evConst_op_DFSInt[L, LW, LE, R <: DFSInt[RW], RW](
+        implicit
+        ctx : DFAny.Context,
+        lConst : Const.Builder.Aux[L, LW],
+        detailedBuilder: DetailedBuilder[L, LW, LE, DFSInt[RW], RW]
+      ) = detailedBuilder((leftNum, right) => {
+        (lConst(leftNum), right)
+      })
+    }
+  }
+  object `Op+`  extends `Ops+Or-`(Func2.Op.+)
+  object `Op-`  extends `Ops+Or-`(Func2.Op.-)
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Shift operations
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op<<` extends OpsShift[Type](Func2.Op.<<) {
+    def tokenFunc[LW](left: DFSInt.Token, right: DFUInt.Token) : DFSInt.Token = left << right
+  }
+  object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
+    def tokenFunc[LW](left: DFSInt.Token, right: DFUInt.Token) : DFSInt.Token = left >> right
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 }

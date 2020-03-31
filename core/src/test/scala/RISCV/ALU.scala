@@ -1,6 +1,6 @@
 package RISCV
 
-import ZFiant._
+import DFiant._
 
 trait ALU extends DFDesign {
   private val op1     = DFBits[32]      <> IN

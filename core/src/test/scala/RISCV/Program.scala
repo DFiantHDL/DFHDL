@@ -21,7 +21,7 @@ package RISCV
   * DO NOT MODIFY THIS FILE
   *************************************************************************************************************/
 
-import ZFiant._
+import DFiant._
 import DFiant.internals.BitVectorExtras
 
 case class IMemEntry(addr : BitVector, inst : BitVector, instStr : String)

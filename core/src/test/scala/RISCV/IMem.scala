@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 import DFiant.internals.BitVectorExtras
 
 /* TCL example

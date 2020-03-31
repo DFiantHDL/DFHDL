@@ -17,7 +17,7 @@
 
 package RISCV
 
-import ZFiant._
+import DFiant._
 
 class RegFile(decodedInst : DecodedInst)(implicit ctx : ContextOf[RegFile]) extends DFDesign {
   private val rs1_addr  = DFBits[5]      <> IN

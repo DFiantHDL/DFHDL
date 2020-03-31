@@ -16,7 +16,7 @@
  */
 package example2
 
-import ZFiant._ //Required in any DFiant compilation program
+import DFiant._ //Required in any DFiant compilation program
 
 trait ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
