@@ -38,8 +38,8 @@ class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bram]) 
 class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bram_Sim]) extends DFDesign with IMem_Bram_Ifc {
   private val temp = DFBits[32] init b0s
   temp := b0s
-//  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
-  douta := addra.resize(32)//temp
+  programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
+  douta := temp
 }
 
 class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : ContextOf[IMem]) extends DFDesign {

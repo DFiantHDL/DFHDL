@@ -443,7 +443,7 @@ object DFDesign {
     }
 
     def printOwnership() : DB = {
-      println(members.map(m => (m -> m.getOwner).toString()).mkString("\n"))
+      println(members.map(m => (m.name -> m.getOwner.name).toString()).mkString("\n"))
       this
     }
   }

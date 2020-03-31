@@ -249,9 +249,9 @@ package object ZFiant {
     def matchdf[MW, RW](matchValue : DFBits[MW], resultVar : DFAny.VarOf[DFBits.Type[RW]])(implicit ctx : DFBlock.Context) : Unit = {
       val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
       if (list.nonEmpty) {
-        implicit val anyCtx : DFAny.Context = new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db)
-        val matcherFirstCase = blockMatchDF.casedf(list.head._1)({resultVar := list.head._2})
-        list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1)({resultVar := b._2}))
+        implicit def anyCtx : DFAny.Context = new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db)
+        val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
+        list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2}).casedf_{}
       }
     }
   }
