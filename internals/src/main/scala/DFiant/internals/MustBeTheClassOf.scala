@@ -29,7 +29,9 @@ object MustBeTheClassOf {
           false
       }
     }
-    val ok = explore(c.enclosingImplicits.last.tree)
+    val ok =
+      if (c.internal.enclosingOwner.owner.isModuleClass) true
+      else explore(c.enclosingImplicits.last.tree)
 //    println(showRaw(c.enclosingImplicits.last.tree), "compared to", tp, "got", ok)
 
     if (ok)  q"new DFiant.internals.MustBeTheClassOf[$tp]"

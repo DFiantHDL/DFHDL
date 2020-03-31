@@ -8,7 +8,7 @@ object TopLevel {
   def evMacro(c: blackbox.Context) : c.Tree = {
     import c.universe._
     val owner = c.internal.enclosingOwner
-    if (!owner.isConstructor || owner.isConstructor && owner.owner.name.toString == "$anon") q"new DFiant.internals.TopLevel"
+    if (!owner.isConstructor || owner.isConstructor && owner.owner.name.toString == "$anon" || owner.owner.isModuleClass) q"new DFiant.internals.TopLevel"
     else {
       c.abort(c.enclosingPosition, "Not a top-level")
     }

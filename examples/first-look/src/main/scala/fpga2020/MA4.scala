@@ -2,10 +2,10 @@ package fpga2020
 import DFiant._
 
 trait MA extends DFDesign {
-  val src   = DFSInt[16] <> IN init 0
-  val avg   = DFSInt[16] <> OUT
+  val src = DFSInt[16] <> IN init 0
+  val avg = DFSInt[16] <> OUT
   val acc = DFSInt[18] init 0
-  acc := acc - src.prev(5) + src.prev
+  acc := acc - src.prev(4) + src
   val ret = (acc >> 2).resize(16)
   avg := ret//.pipe()
 }
