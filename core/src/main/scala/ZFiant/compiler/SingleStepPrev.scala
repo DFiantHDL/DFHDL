@@ -46,7 +46,8 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
           } else
             Some(p -> Patch.Replace(prevList(prevList.length - step), Patch.Replace.Config.ChangeRefAndRemove))
         } else { //single name prev step
-          Some(p -> Patch.Replace(namedPrevTable(relVal)(step - 1), Patch.Replace.Config.ChangeRefAndRemove))
+          val prevList = namedPrevTable.getOrElseUpdate(relVal, List(p))
+          Some(p -> Patch.Replace(prevList(step - 1), Patch.Replace.Config.ChangeRefAndRemove))
         }
       case _ => None
     }
