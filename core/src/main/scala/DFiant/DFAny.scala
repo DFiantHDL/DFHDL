@@ -508,17 +508,17 @@ object DFAny {
       }
       def uint[LW, RW](refVal: DFUInt[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
-      ): Of[DFBits.Type[RW], DFUInt[LW], Modifier.Val] = {
+      ): Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
           ctx.db.addMember(Resize(DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
-        ret.asInstanceOf[Of[DFBits.Type[RW], DFUInt[LW], Modifier.Val]]
+        ret.asInstanceOf[Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val]]
       }
       def sint[LW, RW](refVal: DFSInt[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
-      ): Of[DFBits.Type[RW], DFSInt[LW], Modifier.Val] = {
+      ): Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
           ctx.db.addMember(Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
-        ret.asInstanceOf[Of[DFBits.Type[RW], DFSInt[LW], Modifier.Val]]
+        ret.asInstanceOf[Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val]]
       }
     }
 //    final case class Shift[RelVal <: DFAny](

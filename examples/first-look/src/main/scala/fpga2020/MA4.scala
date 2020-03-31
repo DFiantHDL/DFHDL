@@ -1,16 +1,16 @@
-//package fpga2020
-//import DFiant._
-//
-//trait MA extends DFDesign {
-//  val src   = DFSInt[16] <> IN init 0
-//  val avg   = DFSInt[16] <> OUT
-//  val acc = DFSInt[18] init 0
-//  acc := acc - src.prev(5) + src.prev
-//  val ret = (acc >> 2).resize(16)
-//  avg := ret.pipe()
-//}
-//
-//
+package fpga2020
+import DFiant._
+
+trait MA extends DFDesign {
+  val src   = DFSInt[16] <> IN init 0
+  val avg   = DFSInt[16] <> OUT
+  val acc = DFSInt[18] init 0
+  acc := acc - src.prev(5) + src.prev
+  val ret = (acc >> 2).resize(16)
+  avg := ret//.pipe()
+}
+
+
 //trait MA4 extends DFDesign {
 //  val a    = DFSInt[16] <> IN init 0
 //  val b    = DFSInt[16] <> IN init 0
@@ -28,8 +28,8 @@
 //  val avgF =  ((avgL.pipe + avgR.pipe).wc >> 1).toWidth(16)
 //  o := avgF.pipe()
 //}
-//
-//
-//
-////object MA4App extends DFApp.VHDLCompiler[MA4]
-//
+
+
+
+//object MA4App extends DFApp.VHDLCompiler[MA4]
+
