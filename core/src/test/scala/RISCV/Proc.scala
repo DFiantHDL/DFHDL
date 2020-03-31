@@ -54,7 +54,7 @@ abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends D
   ///////////////////////////////////////////////////////////////////////////////////////////////
 }
 
-abstract class riscv_tb(program : Program)(implicit ctx : ContextOf[riscv_tb]) extends DFSimulator {
+class riscv_tb(program : Program)(implicit ctx : ContextOf[riscv_tb]) extends DFSimulator {
   val proc = new Proc(program) {}
   import compiler.sync._
   this !! ClockParams("clk", ClockParams.Edge.Rising)
@@ -66,7 +66,7 @@ object ProcZTest extends App {
 
 //  val riscv = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
 //  riscv.compile.printCodeString()
-  val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
+  val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump"))
   val risc_tbv = riscv_tb.compile.printCodeString.printGenFiles().toFolder("testProc")
 
   new java.io.File("testProc/work").mkdirs()

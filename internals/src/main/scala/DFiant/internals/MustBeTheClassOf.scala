@@ -24,7 +24,9 @@ object MustBeTheClassOf {
         case This(_) => tree.symbol.fullName == tp.typeSymbol.fullName
         case TypeApply(tree, _) => explore(tree)
         case t@TypeTree() => t.symbol.fullName == tp.typeSymbol.fullName
-        case _ => false
+        case t@Ident(_) => t.symbol.fullName == tp.typeSymbol.fullName
+        case _ =>
+          false
       }
     }
     val ok = explore(c.enclosingImplicits.last.tree)
