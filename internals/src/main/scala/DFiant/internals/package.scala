@@ -128,7 +128,7 @@ package object internals {
       else if (value.isValidLong) s"${value}L"
       else s"""BigInt("$value")"""
     }
-    def toBitVector[W](width : TwoFace.Int[W]) : XBitVector[W] = BitVector(value.toByteArray).toLength(width)
+    def toBitVector(width : Int) : BitVector = BitVector(value.toByteArray).toLength(width)
   }
 
   type XBitVector[W] = BitVector with WidthTag[W]
@@ -146,10 +146,10 @@ package object internals {
       if (l.isEmpty) vec.length else l.head
     }
     def lengthOfValue : Long = if (lzc == vec.length) 1L else vec.length - lzc
-    def toLength[W](newLength : TwoFace.Int[W]) : XBitVector[W] = {
-      if (newLength > vec.length) vec.padLeft(newLength.getValue).asInstanceOf[XBitVector[W]]
-      else if (newLength < vec.length) vec.drop(vec.length - newLength).asInstanceOf[XBitVector[W]]
-      else vec.asInstanceOf[XBitVector[W]]
+    def toLength(newLength : Int) : BitVector = {
+      if (newLength > vec.length) vec.padLeft(newLength)
+      else if (newLength < vec.length) vec.drop(vec.length - newLength)
+      else vec
     }
     def revIdx(bitIdx : Long) : Long = vec.length - 1 - bitIdx //reverse index for BitVector
     def bit(idx : Long) : Boolean = vec(revIdx(idx))
@@ -158,9 +158,9 @@ package object internals {
       val riHiLow = revIdx(loIdx)
       vec.slice(riLoIdx, riHiLow + 1)
     }
-    def bitsWL[W](relWidth : TwoFace.Int[W], loIdx : Int) : XBitVector[W] = {
+    def bitsWL[W](relWidth : Int, loIdx : Int) : BitVector = {
       val hiIdx = relWidth + loIdx - 1
-      bits(hiIdx, loIdx).asInstanceOf[XBitVector[W]]
+      bits(hiIdx, loIdx)
     }
     def padToMulsOf(bitsNum : Int) : BitVector = {
       val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
@@ -188,16 +188,16 @@ package object internals {
 
   implicit class IntExtras(value : Int) {
     def bitsWidth : Int = BigInt(value).bitsWidth
-    def toBitVector[W](width : TwoFace.Int[W]) : XBitVector[W] = BigInt(value).toBitVector(width)
+    def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
   }
 
   implicit class LongExtras(value : Long) {
     def bitsWidth : Int = BigInt(value).bitsWidth
-    def toBitVector[W](width : TwoFace.Int[W]) : XBitVector[W] = BigInt(value).toBitVector(width)
+    def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
   }
 
   implicit class BooleanExtras(value : Boolean) {
-    def toBitVector[W](width : TwoFace.Int[W]) : XBitVector[W] = XBitVector.fill(width)(value)
+    def toBitVector(width : Int) : BitVector = BitVector.fill(width)(value)
   }
 
   def bigIntToBinaryString(value : BigInt, width : Int = 0) : String = {

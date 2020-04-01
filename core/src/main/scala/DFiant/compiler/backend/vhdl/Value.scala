@@ -64,7 +64,7 @@ private object Value {
         case (DFSInt(_), _) => s"$TP signed($relValStr)"
         case (DFEnum(_), _) => ???
         case (DFBool(), DFBit()) => s"$FN to_bool($relValStr)"
-        case (DFBit(), DFBits(w)) if (w.getValue == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
+        case (DFBit(), DFBits(w)) if (w == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
         case (DFBit(), DFBool()) => s"$FN to_sl($relValStr)"
       }
       case DFAny.Alias.BitsWL(dfType, _, _, relWidth, relBitLow, _, _) =>

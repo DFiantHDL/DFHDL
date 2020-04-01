@@ -142,22 +142,22 @@ lazy val `private` = (project in file("private"))
 
 lazy val dependencies =
   new {
-    val logbackV        = "1.2.3"
-    val logstashV       = "4.11"
-    val scalaLoggingV   = "3.7.2"
-    val typesafeConfigV = "1.3.1"
-    val pureconfigV     = "0.8.0"
-    val akkaV           = "2.5.25"
-    val scalatestV      = "3.0.8"
-    val scalacheckV     = "1.14.2"
-    val singletonOpsV   = "0.4.3"
-    val shapelessV      = "2.3.3"
-    val scodecV         = "1.1.12"
-    val sourcecodeV     = "0.1.9"
-    val oslibV          = "0.6.3"
-    val continuumV      = "0.4-SNAPSHOT"
-    val macroParadiseV  = "2.1.1"
-    val macroCompatV    = "1.1.1"
+    private val logbackV        = "1.2.3"
+    private val logstashV       = "4.11"
+    private val scalaLoggingV   = "3.7.2"
+    private val typesafeConfigV = "1.3.1"
+    private val pureconfigV     = "0.8.0"
+    private val akkaV           = "2.5.25"
+    private val scalatestV      = "3.1.1"
+    private val scalacheckV     = "1.14.2"
+    private val singletonOpsV   = "0.4.1+24-e4b7240d+20200401-2243-SNAPSHOT"
+    private val shapelessV      = "2.3.3"
+    private val scodecV         = "1.1.12"
+    private val sourcecodeV     = "0.1.9"
+    private val oslibV          = "0.6.3"
+    private val continuumV      = "0.4-SNAPSHOT"
+    private val macroParadiseV  = "2.1.1"
+    private val macroCompatV    = "1.1.1"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
@@ -185,7 +185,8 @@ lazy val commonDependencies = Seq(
   dependencies.shapeless,
   dependencies.scodec,
   dependencies.akka,
-  dependencies.scalacheck % "test"
+  dependencies.scalacheck % "test",
+  dependencies.scalatest % "test"
 )
 
 // SETTINGS
