@@ -251,6 +251,7 @@ object DFSInt extends DFAny.Companion {
       final def =!= [RW](right : DFSInt[RW])(implicit op: `Op=!=`.Builder[L, DFSInt[RW]]) = op(left, right)
     }
     trait Implicits {
+      final implicit def DFSIntWiden[FW, TW](c : DFSInt[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFSInt[TW] = c.asInstanceOf[DFSInt[TW]]
       sealed class DFSIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
       final implicit def DFSIntFromInt[L <: Int](left: L): DFSIntFromInt[L] = new DFSIntFromInt(left)
       sealed class DFSIntFromXInt[L <: XInt](left : L) extends AbleOps[L](left)

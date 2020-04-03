@@ -105,7 +105,8 @@ object DFDesign {
     DFUInt.Op.Implicits with
     DFSInt.Op.Implicits with
     DFEnum.Op.Implicits with
-    DFBool.Op.Implicits
+    DFBool.Op.Implicits with
+    DFString.Op.Implicits
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getSet
