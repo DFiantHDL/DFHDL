@@ -6,6 +6,7 @@ import DFiant.internals._
 
 import scala.annotation.implicitNotFound
 import compiler.printer.Printer
+import singleton.ops.impl.HasOut
 
 sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {
   type TType <: DFAny.Type

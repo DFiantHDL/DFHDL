@@ -21,6 +21,7 @@ import DFiant.compiler.printer.PrinterOps
 
 import scala.language.experimental.macros
 import singleton.ops._
+import singleton.ops.impl.HasOut
 
 package object DFiant {
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
@@ -127,7 +128,7 @@ package object DFiant {
       * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
       * of type `BitVector`.
       */
-    def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator()
+    def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator.value
 
     private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny, String]] =
       Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
@@ -140,9 +141,9 @@ package object DFiant {
     def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
     def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), "vhdl")
   }
-  trait Interpolator[T] {
+  trait Interpolator[T] extends HasOut {
     type Out <: T
-    def apply() : Out
+    val value : Out
   }
 
   object Interpolator {
@@ -199,7 +200,7 @@ package object DFiant {
       q"""
          new DFiant.Interpolator[scodec.bits.BitVector] {
            type Out = DFiant.internals.XBitVector[$widthTpe]
-           def apply() : DFiant.internals.XBitVector[$widthTpe] = $buildTree.asInstanceOf[DFiant.internals.XBitVector[$widthTpe]]
+           val value : DFiant.internals.XBitVector[$widthTpe] = $buildTree.asInstanceOf[DFiant.internals.XBitVector[$widthTpe]]
          }
        """
     }

@@ -18,6 +18,7 @@
 package DFiant.internals
 
 import scala.reflect.macros.whitebox
+import singleton.ops.impl.HasOut
 sealed trait CaseClassSkipper[T <: HasOut] extends HasOut {
   type Out
   def apply(value : T => Any, fallBack : => Boolean) : Out

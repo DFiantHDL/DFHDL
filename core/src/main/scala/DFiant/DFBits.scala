@@ -160,19 +160,26 @@ object DFBits extends DFAny.Companion {
   object Init extends InitCO {
     trait Able[L <: DFAny] extends DFAny.Init.Able[L]
     object Able {
+      trait VerifyWidth[T, W]
+      object VerifyWidth {
+        implicit def ev[W] : VerifyWidth[BitVector, W] = new VerifyWidth[BitVector, W]{}
+        implicit def evX[W, XW](implicit req : Require[W == XW]) : VerifyWidth[XBitVector[XW], W] = new VerifyWidth[XBitVector[XW], W]{}
+      }
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
       implicit class DFBitsSameBitsVector[LW](val right : SameBitsVector) extends Able[DFBits[LW]]
       implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
-      implicit class DFBitsBitVector[LW](val right : BitVector) extends Able[DFBits[LW]]
+      implicit class DFBitsBitVector[LW, R](val right : BitVector)(implicit arg : GetArg0.Aux[R], req : VerifyWidth[R, LW]) extends Able[DFBits[LW]]
       implicit class DFBitsSeqOfBitVector[LW](val right : Seq[BitVector]) extends Able[DFBits[LW]]
-      implicit class DFBitsXBitVector[LW](val right : XBitVector[LW]) extends Able[DFBits[LW]]
 
+      private def checkWidth(leftWidth : Int, rightWidth : Int) : Unit =
+        if (leftWidth != rightWidth)
+          throw new IllegalArgumentException(s"Init value width $rightWidth doesn't match the vector width ${leftWidth}")
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
         right.toSeqAny.collect {
           case t : Bubble => Token(width, t)
-          case t : Token => assert(t.width == width); t
-          case t : BitVector => Token(t)
+          case t : Token => checkWidth(width, t.width); t
+          case t : BitVector => checkWidth(width, t.length.toInt); Token(t)
           case t : SameBitsVector => Token(XBitVector.fill(width)(t.value))
         }
     }
