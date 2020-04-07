@@ -9,6 +9,7 @@ abstract class DFSpec extends AnyFlatSpec with DFDesign.Infra {
 
 class DFBitsSpec extends DFSpec {
   val one = 1
+  val two = 3
   val three = 3
   val four = 4
   val negOne = -1
@@ -23,34 +24,70 @@ class DFBitsSpec extends DFSpec {
     assertDoesNotCompile("""val a = DFBits[-1]""")
     assertThrows[IllegalArgumentException] {val a = DFBits(negOne)}
   }
-  "Bit Range Selection" should "support index access within its width boundary" in {
+  "Bits High-Low Selection" should "support index access within its width boundary" in {
     assertCompiles("""val b : DFBits[2] = a(1, 0)""")
     assertCompiles("""val b : DFBits[4] = a(3, 0)""")
     assertCompiles("""val b : DFBits[1] = a(2, 2)""")
     assertCompiles("""val b : DFBits[Int] = a(three, 2)""")
     assertCompiles("""val b : DFBits[Int] = a(3, three)""")
     assertCompiles("""val b : DFBits[Int] = a(three, one)""")
+    assertCompiles("""val b : DFBits[2] = a.bits(1, 0)""")
+    assertCompiles("""val b : DFBits[4] = a.bits(3, 0)""")
+    assertCompiles("""val b : DFBits[1] = a.bits(2, 2)""")
+    assertCompiles("""val b : DFBits[Int] = a.bits(three, 2)""")
+    assertCompiles("""val b : DFBits[Int] = a.bits(3, three)""")
+    assertCompiles("""val b : DFBits[Int] = a.bits(three, one)""")
   }
   it should "not allow bit index access outside the boundary" in {
     assertDoesNotCompile("""val b = a(1, -1)""")
     assertDoesNotCompile("""val b = a(5, 0)""")
     assertThrows[IllegalArgumentException] {val b = a(1, negOne)}
     assertThrows[IllegalArgumentException] {val b = a(four, 1)}
+    assertDoesNotCompile("""val b = a.bits(1, -1)""")
+    assertDoesNotCompile("""val b = a.bits(5, 0)""")
+    assertThrows[IllegalArgumentException] {val b = a.bits(1, negOne)}
+    assertThrows[IllegalArgumentException] {val b = a.bits(four, 1)}
   }
   it should "not allow low index to be higher than the high index" in {
     assertDoesNotCompile("""val b = a(1, 2)""")
     assertThrows[IllegalArgumentException] {val b = a(1, three)}
+    assertDoesNotCompile("""val b = a.bits(1, 2)""")
+    assertThrows[IllegalArgumentException] {val b = a.bits(1, three)}
   }
-  "Bit Selection" should "support index access within its width boundary" in {
+  "Bits Width-Low Selection" should "support access within its width boundary" in {
+    assertCompiles("""val b : DFBits[2] = a.bitsWL(2, 0)""")
+    assertCompiles("""val b : DFBits[4] = a.bitsWL(4, 0)""")
+    assertCompiles("""val b : DFBits[1] = a.bitsWL(1, 2)""")
+    assertCompiles("""val b : DFBits[4] = a.bitsWL(4, two)""")
+    assertCompiles("""val b : DFBits[Int] = a.bitsWL(one, 3)""")
+    assertCompiles("""val b : DFBits[Int] = a.bitsWL(three, one)""")
+  }
+  it should "not allow bit index access outside the boundary or non-positive width" in {
+    assertDoesNotCompile("""val b = a.bitsWL(1, -1)""")
+    assertDoesNotCompile("""val b = a.bitsWL(1, 5)""")
+    assertDoesNotCompile("""val b = a.bitsWL(0, 1)""")
+    assertDoesNotCompile("""val b = a.bitsWL(2, 3)""")
+    assertDoesNotCompile("""val b = a.bitsWL(-1, 1)""")
+//    assertThrows[IllegalArgumentException] {val b = a.bits(1, negOne)}
+//    assertThrows[IllegalArgumentException] {val b = a.bits(four, 1)}
+  }
+  "Single Bit Selection" should "support index access within its width boundary" in {
     assertCompiles("""val b : DFBit = a(0)""")
     assertCompiles("""val b : DFBit = a(3)""")
     assertCompiles("""val b : DFBit = a(three)""")
+    assertCompiles("""val b : DFBit = a.bit(0)""")
+    assertCompiles("""val b : DFBit = a.bit(3)""")
+    assertCompiles("""val b : DFBit = a.bit(three)""")
   }
   it should "not allow bit index access outside the boundary" in {
     assertDoesNotCompile("""val b = a(-1)""")
     assertDoesNotCompile("""val b = a(5)""")
     assertThrows[IllegalArgumentException] {val b = a(negOne)}
     assertThrows[IllegalArgumentException] {val b = a(four)}
+    assertDoesNotCompile("""val b = a.bit(-1)""")
+    assertDoesNotCompile("""val b = a.bit(5)""")
+    assertThrows[IllegalArgumentException] {val b = a.bit(negOne)}
+    assertThrows[IllegalArgumentException] {val b = a.bit(four)}
   }
   "Initialization" should "support BitVectors" in {
     assertCompiles("""val aInit = a init b"1000"""")
