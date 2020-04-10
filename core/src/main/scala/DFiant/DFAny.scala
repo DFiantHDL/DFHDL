@@ -53,9 +53,7 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  final class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable) extends DFMember.Context {
-    lazy val owner : DFOwner = ownerF
-  }
+  trait Context extends DFMember.Context
   object Context {
     final object MissingError extends ErrorMsg (
       "Missing an implicit owner Context.",

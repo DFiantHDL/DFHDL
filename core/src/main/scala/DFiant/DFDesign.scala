@@ -45,9 +45,7 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
-    final protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context =
-      new DFAny.Context(meta, ownerInjector.get, __ctx.db)
-    final protected implicit def __blockContext(implicit meta : Meta) : DFBlock.Context =
+    final protected implicit def __anyContext(implicit meta : Meta) : DFBlock.Context =
       new DFBlock.Context(meta, ownerInjector, __ctx.db)
     final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
       new ContextOf[T](meta, ownerInjector, __ctx.db)
