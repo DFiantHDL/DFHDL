@@ -7,6 +7,8 @@ package object compiler {
   : UniqueDesignsOps[D, S] = new UniqueDesignsOps[D, S](c)
   implicit def evUniqueNames[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
   : UniqueNamesOps[D, S] = new UniqueNamesOps[D, S](c)
+  implicit def evRemovePureInterfaces[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
+  : RemovePureInterfacesOps[D, S] = new RemovePureInterfacesOps[D, S](c)
   implicit def evExplicitPrev[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S]) 
   : ExplicitPrevOps[D, S] = new ExplicitPrevOps[D, S](c)
   implicit def evExplicitConversions[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])

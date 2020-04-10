@@ -1,7 +1,7 @@
 package DFiant
 
 import DFiant.DFDesign.DB
-import DFiant.internals.Meta
+import DFiant.internals.{LateConstructionConfig, Meta}
 
 trait DFInterface extends HasTypeName with DFDesign.Implicits {
   ///////////////////////////////////////////////////////////////////
@@ -13,10 +13,11 @@ trait DFInterface extends HasTypeName with DFDesign.Implicits {
 }
 
 object DFInterface {
-  abstract class Only()(implicit ctx : DFAny.Context) extends DFInterface {self =>
+  abstract class Pure()(implicit ctx : DFAny.Context) extends DFInterface {self =>
     private[DFiant] final val owner : Owner = Owner(ctx)
     private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
     final protected implicit val __getset : MemberGetSet = ctx.db.getSet
+    final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
     final protected implicit def __anyContext(implicit meta0 : Meta) : DFAny.Context =
       new DFAny.Context {
         val meta : Meta = meta0

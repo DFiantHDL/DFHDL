@@ -24,6 +24,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   type TCustomTag <: DFMember.CustomTag
   val ownerRef : DFOwner.Ref
   val tags : TTags
+  final def getOwner(implicit getSet: MemberGetSet) : DFOwner = ownerRef.get
   implicit def getOwnerBlock(implicit getSet : MemberGetSet) : DFBlock = ownerRef.get match {
     case b : DFBlock => b
     case o => o.getOwnerBlock
