@@ -126,7 +126,7 @@ object DFMember {
 
   trait Context {
     val meta : Meta
-    def owner : DFBlock
+    def owner : DFOwner
     val db : DFDesign.DB.Mutable
   }
 

@@ -108,7 +108,10 @@ object Printer {
   }
   object Context {
     implicit def evContext(implicit ctx : DFMember.Context) : Context = new Context {
-      override val callOwner: DFBlock = ctx.owner
+      override val callOwner: DFBlock = ctx.owner match {
+        case b : DFBlock => b
+        case o => o.getOwnerBlock
+      }
       override val getSet: MemberGetSet = ctx.db.getSet
     }
     implicit def ev(implicit co : DFBlock, gs : MemberGetSet, lp : shapeless.LowPriority) : Context = new Context {

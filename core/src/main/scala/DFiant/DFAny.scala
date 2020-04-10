@@ -53,8 +53,8 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  final class Context(val meta : Meta, ownerInjector : DFMember.OwnerInjector, val db : DFDesign.DB.Mutable) extends DFMember.Context {
-    lazy val owner : DFBlock = ownerInjector.get
+  final class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable) extends DFMember.Context {
+    lazy val owner : DFOwner = ownerF
   }
   object Context {
     final object MissingError extends ErrorMsg (

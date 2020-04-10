@@ -129,7 +129,7 @@ object ConditionalBlock {
       implicit ctx : DFBlock.Context
     ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this) {
       val returnValue = block
-      retVarRef.get.assign(returnValue)(new DFAny.Context(ctx.meta, ctx.ownerInjector, ctx.db))
+      retVarRef.get.assign(returnValue)(new DFAny.Context(ctx.meta, ctx.ownerInjector.get, ctx.db))
     }
   }
   object WithRetVal {
