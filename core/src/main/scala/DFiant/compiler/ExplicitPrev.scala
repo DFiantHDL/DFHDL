@@ -102,7 +102,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
   //the assignment stack map is pushed on every conditional block entry and popped on the block exit
   @tailrec private def getImplicitPrevVars(remaining : List[DFMember], currentBlock : DFBlock, scopeMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
     remaining match {
-      case (nextBlock : DFBlock) :: rs if nextBlock.ownerRef.get == currentBlock => //entering child block
+      case (nextBlock : DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => //entering child block
         val updatedScopeMap = nextBlock match {
           case cb : ConditionalBlock =>
             //              println(s"entering $cb", cb.isFirstCB)
@@ -113,7 +113,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
           case _ => scopeMap
         }
         getImplicitPrevVars(rs, nextBlock, updatedScopeMap, currentSet)
-      case r :: rs if r.ownerRef.get == currentBlock => //checking member consumers
+      case r :: rs if r.getOwnerBlock == currentBlock => //checking member consumers
         val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
           case net : DFNet =>
             (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
@@ -143,7 +143,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
       case _ => //exiting child block or no more members
         val exitingBlock = remaining match {
-          case r :: _ if r.ownerRef.get != currentBlock => true //another member but not a child of current
+          case r :: _ if r.getOwnerBlock != currentBlock => true //another member but not a child of current
           case Nil if (currentBlock != designDB.top) => true //there are no more members, but still not at top
           case _ => false //no more members and we are currently back at top
         }

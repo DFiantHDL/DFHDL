@@ -272,7 +272,7 @@ object DFAny {
         this.dfType == dfType && this.modifier == modifier && this.externalInit == externalInit && this.tags =~ tags
       case _ => false
     }
-    override def refCodeString(implicit ctx : Printer.Context): String = (ownerRef.get) match {
+    override def refCodeString(implicit ctx : Printer.Context): String = getOwnerBlock match {
       case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep.inlineCodeString
       case _ => super.refCodeString
     }

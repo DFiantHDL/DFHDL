@@ -89,7 +89,7 @@ private object Value {
     import printer.config._
     member match {
       case c : DFAny.Const => const(c.token)
-      case d : DFAny.Dcl => d.ownerRef.get match {
+      case d : DFAny.Dcl => d.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep match {
           case EdgeDetect.Rep(bitRef, EdgeDetect.Edge.Rising) => s"$OP rising_edge(${ref(bitRef)})"
           case EdgeDetect.Rep(bitRef, EdgeDetect.Edge.Falling) => s"$OP falling_edge(${ref(bitRef)})"

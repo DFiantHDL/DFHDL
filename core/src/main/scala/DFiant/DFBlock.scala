@@ -38,7 +38,7 @@ object DFBlock {
 
   type Ref = DFMember.Ref.Of[Ref.Type, DFBlock]
   object Ref {
-    trait Type extends DFMember.Ref.Type
+    trait Type extends DFOwner.Ref.Type
     implicit val ev : Type = new Type {}
   }
 }
