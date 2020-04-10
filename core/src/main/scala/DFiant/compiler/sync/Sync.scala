@@ -42,14 +42,14 @@ private[compiler] object Sync {
   object IfBlock {
     def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = (cb.condRef.get : DFAny) match {
       case DFAny.Func2.Unref(_, rst @ IsReset(), DFAny.Func2.Op.==, _, _, _) => Some(rst)
-      case x => x.getOwner match {
+      case x => x.getOwnerBlock match {
         case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), _)) => Some(clk)
         case _ => None
       }
     }
   }
   object ElseIfBlock {
-    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = cb.condRef.get.getOwner match {
+    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = cb.condRef.get.getOwnerBlock match {
       case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), _)) => Some(clk)
       case _ => None
     }

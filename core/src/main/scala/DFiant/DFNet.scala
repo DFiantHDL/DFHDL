@@ -76,7 +76,7 @@ object DFNet {
 
   object Inlined {
     def unapply(arg : DFNet)(implicit getSet : MemberGetSet) : Boolean = arg match {
-      case net : DFNet.Connection => net.toRef.get.getOwner match {
+      case net : DFNet.Connection => net.toRef.get.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => true
         case _ => false
       }

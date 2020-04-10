@@ -148,7 +148,7 @@ object DFDesign {
     }
     final case class Top(designType: String, tags : DFMember.Tags.Basic, simMode : DFSimulator.Mode)(db: DB.Mutable) extends Block {
       override lazy val ownerRef : DFBlock.Ref = ???
-      override def getOwner(implicit getSet : MemberGetSet): DFBlock = this
+      override def getOwnerBlock(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Top(designType, tags, simMode) =>
@@ -214,7 +214,7 @@ object DFDesign {
     ) : List[(DFBlock, List[DFMember])] = {
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
-        case m :: mList if m.getOwner == localOwner => //current member indeed belongs to current owner
+        case m :: mList if m.getOwnerBlock == localOwner => //current member indeed belongs to current owner
           val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
           m match {
             case o : DFBlock => //Deep borrowing into block as the new owner
@@ -344,7 +344,7 @@ object DFDesign {
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val newOwner = config match {
             case DB.Patch.Add.Config.Inside => origMember
-            case _ => origMember.getOwner
+            case _ => origMember.getOwnerBlock
           }
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(newOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
@@ -375,11 +375,11 @@ object DFDesign {
       currentOwner match {
         case _ : DFDesign.Block => currentGuards //reached the design block
         case o : DFBlock if o == targetOwner => currentGuards //can't go past the target owner
-        case cb : ConditionalBlock.IfBlock => getGuards(cb.getOwner, targetOwner, cb.condRef.get :: currentGuards)
+        case cb : ConditionalBlock.IfBlock => getGuards(cb.getOwnerBlock, targetOwner, cb.condRef.get :: currentGuards)
         case cb : ConditionalBlock.ElseIfBlock => getGuards(cb.prevBlockRef, targetOwner, cb.condRef.get :: currentGuards)
         case cb : ConditionalBlock.ElseBlock => getGuards(cb.prevBlockRef, targetOwner, currentGuards)
-        case cb : ConditionalBlock.CasePatternBlock[_] => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
-        case cb : ConditionalBlock.Case_Block[_] => getGuards(cb.getOwner, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
+        case cb : ConditionalBlock.CasePatternBlock[_] => getGuards(cb.getOwnerBlock, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
+        case cb : ConditionalBlock.Case_Block[_] => getGuards(cb.getOwnerBlock, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
       }
 
     //for a given consumer, we get a set of its producers
@@ -392,7 +392,7 @@ object DFDesign {
           val depSet = dt.getOrElse(toVal, Set()) + fromVal
           val guards = n match {
             case _ : DFNet.Connection => List() //connections are insensitive to guards
-            case a : DFNet.Assignment => getGuards(a.getOwner, toVal.getOwner, List())
+            case a : DFNet.Assignment => getGuards(a.getOwnerBlock, toVal.getOwnerBlock, List())
           }
           dt + (toVal -> (depSet ++ guards))
         case _ => dt
@@ -450,7 +450,7 @@ object DFDesign {
     }
 
     def printOwnership() : DB = {
-      println(members.map(m => (m.name -> m.getOwner.name).toString()).mkString("\n"))
+      println(members.map(m => (m.name -> m.getOwnerBlock.name).toString()).mkString("\n"))
       this
     }
   }
