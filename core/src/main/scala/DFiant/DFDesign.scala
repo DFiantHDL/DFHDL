@@ -124,7 +124,7 @@ object DFDesign {
   }
   object Block {
     trait CustomTag extends DFMember.CustomTag
-    final case class Internal(designType: String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
+    final case class Internal(designType: String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>
           val inlineRepEq = (this.inlinedRep, inlinedRep) match {
@@ -147,7 +147,7 @@ object DFDesign {
       )
     }
     final case class Top(designType: String, tags : DFMember.Tags.Basic, simMode : DFSimulator.Mode)(db: DB.Mutable) extends Block {
-      override lazy val ownerRef : DFBlock.Ref = ???
+      override lazy val ownerRef : DFOwner.Ref = ???
       override def getOwnerBlock(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {

@@ -9,7 +9,7 @@ sealed trait DFSimMember extends DFMember {
 object DFSimMember {
   final case class Assert(
     condOptionRef : Option[Assert.CondRef], msg : Assert.MessageRef, severity : Assert.Severity,
-    ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
   ) extends DFSimMember  with CanBeGuarded with DFAny.CanBeAnonymous {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Assert(condOptionRef, msg, severity, _, tags) =>
@@ -89,7 +89,7 @@ object DFSimMember {
   }
 
   final case class Finish(
-    ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+    ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
   ) extends DFSimMember with CanBeGuarded with DFAny.CanBeAnonymous {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Finish(_, tags) => this.tags =~ tags

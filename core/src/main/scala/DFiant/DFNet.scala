@@ -1,7 +1,5 @@
 package DFiant
 import DFiant.internals._
-import DFiant.DFBlock.Ref
-import DFiant.DFMember.Tags
 import DFiant.compiler.printer.Printer
 sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
@@ -34,7 +32,7 @@ object DFNet {
     implicit val ev : Type = new Type {}
   }
 
-  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet(":=") with CanBeGuarded {
+  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFNet(":=") with CanBeGuarded {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Assignment(toRef, fromRef, _, tags) =>
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
@@ -50,14 +48,14 @@ object DFNet {
       ret
     }
     object Unref {
-      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFBlock, DFMember.Tags.Basic)] = arg match {
+      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags.Basic)] = arg match {
         case Assignment(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
         case _ => None
       }
     }
   }
 
-  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic) extends DFNet("<>") {
+  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFNet("<>") {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Connection(toRef, fromRef, _, tags) =>
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags

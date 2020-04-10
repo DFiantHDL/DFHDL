@@ -4,7 +4,7 @@ import DFiant.internals._
 import scala.annotation.implicitNotFound
 import compiler.printer.Printer
 
-trait DFBlock extends DFMember {
+trait DFBlock extends DFOwner {
   ///////////////////////////////////////////////////////////////////
   // Ownership
   ///////////////////////////////////////////////////////////////////

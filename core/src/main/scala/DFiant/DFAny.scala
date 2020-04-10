@@ -226,7 +226,7 @@ object DFAny {
   }
 
   final case class Const(
-    dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFBlock.Ref, tags : DFAny.Tags
+    dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFOwner.Ref, tags : DFAny.Tags
   ) extends Value[DFAny.Type, Modifier.Val] {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
@@ -252,7 +252,7 @@ object DFAny {
   }
 
 //  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
-//    dfType : Type, modifier : Mod, ownerRef : DFBlock.Ref, tags : DFAny.Tags[Type#TToken]
+//    dfType : Type, modifier : Mod, ownerRef : DFOwner.Ref, tags : DFAny.Tags[Type#TToken]
 //  ) extends Value[Type, Mod] {
 //    type TMod = Mod
 //
@@ -264,7 +264,7 @@ object DFAny {
 
 
   final case class Dcl(
-    dfType : DFAny.Type, modifier : DFAny.Modifier, externalInit : Option[Seq[DFAny.Token]], ownerRef : DFBlock.Ref, tags : DFAny.Tags
+    dfType : DFAny.Type, modifier : DFAny.Modifier, externalInit : Option[Seq[DFAny.Token]], ownerRef : DFOwner.Ref, tags : DFAny.Tags
   ) extends Value[Type, DFAny.Modifier] {
     type TMod = DFAny.Modifier
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -399,7 +399,7 @@ object DFAny {
     type Of[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier] = Alias[Type, RelVal, Mod]{type TMod = Mod}
 
     final case class AsIs(
-      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], ownerRef : DFBlock.Ref, tags : DFAny.Tags
+      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
     ) extends Alias[Type, DFAny, Modifier] {
       type TMod = Modifier
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -421,7 +421,7 @@ object DFAny {
       }
     }
     final case class BitsWL(
-      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], relWidth : Int, relBitLow : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags
+      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], relWidth : Int, relBitLow : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags
     ) extends Alias[Type, DFAny, Modifier]{
       type TMod = Modifier
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -457,7 +457,7 @@ object DFAny {
       }
     }
     final case class Prev(
-      dfType : Type, relValRef : RelValRef[DFAny], step : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags
+      dfType : Type, relValRef : RelValRef[DFAny], step : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags
     ) extends Alias[Type, DFAny, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -481,7 +481,7 @@ object DFAny {
       }
     }
     final case class Resize(
-      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFBlock.Ref, tags : DFAny.Tags
+      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
     ) extends Alias[Type, DFAny, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -523,7 +523,7 @@ object DFAny {
       }
     }
 //    final case class Shift[RelVal <: DFAny](
-//      dfType : RelVal#TType, relValRef : RelValRef[RelVal], dir : Shift.Direction, count : Int, ownerRef : DFBlock.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
+//      dfType : RelVal#TType, relValRef : RelValRef[RelVal], dir : Shift.Direction, count : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
 //    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
 //      type TMod = Modifier.Val
 //      val modifier : TMod = Modifier.Val
@@ -548,7 +548,7 @@ object DFAny {
 //      }
 //    }
     final case class Invert(
-      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFBlock.Ref, tags : DFAny.Tags
+      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
     ) extends Alias[Type, DFAny, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -581,7 +581,7 @@ object DFAny {
 
   //TODO: Mutable concat
 //  final case class ConcatBits[W, Mod <: Modifier](
-//    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFBlock.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
+//    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFOwner.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
 //  ) extends Value[DFBits.Type[W], Mod] with CanBeAnonymous {
 //    type TMod = Mod
 //    override def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String =
@@ -600,7 +600,7 @@ object DFAny {
   }
 
   final case class Func2(
-    dfType: Type, leftArgRef : Func2.Ref.LeftArg[DFAny], op : Func2.Op, rightArgRef : Func2.Ref.RightArg[DFAny], ownerRef : DFBlock.Ref, tags : DFAny.Tags
+    dfType: Type, leftArgRef : Func2.Ref.LeftArg[DFAny], op : Func2.Op, rightArgRef : Func2.Ref.RightArg[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
   )(func : (Token, Token) => Token) extends Func[Type] {
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(func)
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -702,7 +702,7 @@ object DFAny {
       ret.asInstanceOf[Func[Type]]
     }
     object Unref {
-      def unapply(arg : Func2)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Op, DFAny, DFBlock, DFAny.Tags)] = arg match {
+      def unapply(arg : Func2)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Op, DFAny, DFOwner, DFAny.Tags)] = arg match {
         case Func2(dfType, leftArgRef, op, rightArgRef, ownerRef, tags) => Some((dfType, leftArgRef.get, op, rightArgRef.get, ownerRef.get, tags))
         case _ => None
       }

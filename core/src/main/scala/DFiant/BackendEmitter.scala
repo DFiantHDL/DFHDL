@@ -4,7 +4,7 @@ import DFiant.DFAny.CanBeAnonymous
 import DFiant.compiler.printer.Printer
 
 final case class BackendEmitter(
-  seq : Seq[Either[BackendEmitter.Ref, String]], backendID : String, ownerRef : DFBlock.Ref, tags : DFMember.Tags.Basic
+  seq : Seq[Either[BackendEmitter.Ref, String]], backendID : String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
 ) extends CanBeGuarded with CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
   type TCustomTag = DFMember.CustomTag
