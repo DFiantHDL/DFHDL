@@ -533,6 +533,7 @@ object DFDesign {
           case DFNet.ToRef() => true
         }.nonEmpty
       }
+      def getMembers : Iterator[DFMember] = members.view.map(e => e._1).iterator
       def getMember[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def setMember[M <: DFMember](originalMember : M, newMemberFunc : M => M) : M = {
         val idx = memberTable(originalMember)
