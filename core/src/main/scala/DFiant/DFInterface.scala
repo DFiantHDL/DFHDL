@@ -2,6 +2,7 @@ package DFiant
 
 import DFiant.DFDesign.DB
 import DFiant.internals._
+import singleton.ops._
 
 import scala.annotation.implicitNotFound
 
@@ -27,18 +28,20 @@ object DFInterface {
     final protected implicit def __contextOf[T <: Pure](implicit meta : Meta) : ContextOf[T] =
       new ContextOf[T](meta, owner, __db)
   }
-  @implicitNotFound(Context.MissingError.msg)
-  class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
+  protected[DFiant] class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
     extends DFAny.Context {
     def owner : DFOwner = ownerF
   }
-  object Context {
+  protected[DFiant] object Context {
     final object MissingError extends ErrorMsg (
-      "Missing an implicit DFDesign Context.",
+      "The given context type `T` in `ContextOf[T]` is wrong",
       "missing-context"
     ) {final val msg = getMsg}
-    implicit def evCtx[T <: Pure](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, ctx.owner, ctx.db)
+    implicit def evCtx[T <: Pure](
+      implicit
+      ctx : ContextOf[T],
+      mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T]], MissingError.Msg]
+    ) : Context = new Context(ctx.meta, ctx.owner, ctx.db)
   }
 
   final case class Owner(ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {

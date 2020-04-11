@@ -38,15 +38,15 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.o <> y      //Connecting parent output port to child output port
 }
 
-trait Ifc extends DFInterface.Pure {
+abstract class Ifc() extends DFInterface.Pure {
   val AA = DFUInt(8) <> IN
   val BB = DFUInt(8) <> OUT
-  val ifc2 = new Ifc2 {}
+//  val ifc2 = new Ifc2 {}
 }
-trait Ifc2 extends DFInterface.Pure {
-  val AA = DFUInt(8) <> IN
-  val BB = DFUInt(8) <> OUT
-}
+//abstract class Ifc2()(implicit ctx : ContextOf[Ifc2]) extends DFInterface.Pure {
+//  val AA = DFUInt(8) <> IN
+//  val BB = DFUInt(8) <> OUT
+//}
 
 //trait IDTop extends DFDesign {
 //  final val x = DFUInt(8) <> IN

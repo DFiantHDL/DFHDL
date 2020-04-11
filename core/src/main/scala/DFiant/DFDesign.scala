@@ -5,6 +5,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
 import DFiant.compiler.printer.Printer
 
+import singleton.ops._
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Infra {
   private[DFiant] lazy val __ctx : DFDesign.Context = ctx
 }
@@ -14,7 +15,7 @@ abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : Con
   final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
-@implicitNotFound(ContextOf.MissingError.msg)
+//@implicitNotFound(ContextOf.MissingError.msg)
 final class ContextOf[T <: DFInterface](val meta : Meta, ownerF : => T#Owner, val db: DFDesign.DB.Mutable) extends DFMember.Context {
   def owner : T#Owner = ownerF
 }
@@ -24,10 +25,10 @@ object ContextOf {
     "missing-context"
   ) {final val msg = getMsg}
   implicit def evCtx[T1 <: DFInterface, T2 <: DFInterface](
-    implicit ctx : ContextOf[T1], mustBeTheClassOf: MustBeTheClassOf[T1]
+    implicit ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg]
   ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.db)
   implicit def evTop[T <: DFDesign](
-    implicit meta: Meta, topLevel : TopLevel, mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
+    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel],"Mama"], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
   ) : ContextOf[T] = new ContextOf[T](meta, null, new DFDesign.DB.Mutable)
 }
 object DFDesign {
@@ -48,7 +49,9 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __anyContext(implicit meta : Meta) : DFBlock.Context =
       new DFBlock.Context(meta, ownerInjector, __ctx.db)
-    final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
+    final protected implicit def __contextOfDesign[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
+      new ContextOf[T](meta, block, __ctx.db)
+    final protected implicit def __contextOfPure[T <: DFInterface.Pure](implicit meta : Meta) : ContextOf[T] =
       new ContextOf[T](meta, block, __ctx.db)
 //    final protected implicit def __pureContext(implicit meta : Meta) : DFInterface.Context =
 //      new DFInterface.Context(meta, block, __db)
