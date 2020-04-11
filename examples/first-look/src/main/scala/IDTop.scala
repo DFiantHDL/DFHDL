@@ -22,6 +22,8 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
   val o = DFUInt(8) <> OUT init 0	//The output port is a signed 16-bit integer
   o := o + i.prev
+  val amm = new Ifc {}
+  amm.AA <> amm.BB
   sim.assert(true, msg"HAHA$i")
   sim.finish()
 }
@@ -35,6 +37,17 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id1.o <> id2.i  //Connecting sibling instance ports
   id2.o <> y      //Connecting parent output port to child output port
 }
+
+trait Ifc extends DFInterface.Pure {
+  val AA = DFUInt(8) <> IN
+  val BB = DFUInt(8) <> OUT
+  val ifc2 = new Ifc2 {}
+}
+trait Ifc2 extends DFInterface.Pure {
+  val AA = DFUInt(8) <> IN
+  val BB = DFUInt(8) <> OUT
+}
+
 //trait IDTop extends DFDesign {
 //  final val x = DFUInt(8) <> IN
 //  final val y = DFUInt(8) <> OUT

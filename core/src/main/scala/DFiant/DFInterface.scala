@@ -1,9 +1,12 @@
 package DFiant
 
 import DFiant.DFDesign.DB
-import DFiant.internals.{LateConstructionConfig, Meta}
+import DFiant.internals._
+
+import scala.annotation.implicitNotFound
 
 trait DFInterface extends HasTypeName with DFDesign.Implicits {
+  type Owner <: DFOwner
   ///////////////////////////////////////////////////////////////////
   // Context implicits
   ///////////////////////////////////////////////////////////////////
@@ -13,17 +16,31 @@ trait DFInterface extends HasTypeName with DFDesign.Implicits {
 }
 
 object DFInterface {
-  abstract class Pure()(implicit ctx : DFAny.Context) extends DFInterface {self =>
+  abstract class Pure()(implicit ctx : Context) extends DFInterface {self =>
+    type Owner = DFOwner
     private[DFiant] final val owner : Owner = Owner(ctx)
     private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
     final protected implicit val __getset : MemberGetSet = ctx.db.getSet
     final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
-    final protected implicit def __anyContext(implicit meta0 : Meta) : DFAny.Context =
-      new DFAny.Context {
-        val meta : Meta = meta0
-        def owner : DFOwner = self.owner
-        val db : DB.Mutable = self.__db
-      }
+    final protected implicit def __anyContext(implicit meta : Meta) : Context =
+      new Context(meta, owner, __db)
+    final protected implicit def __contextOf[T <: Pure](implicit meta : Meta) : ContextOf[T] =
+      new ContextOf[T](meta, owner, __db)
+  }
+  @implicitNotFound(Context.MissingError.msg)
+  final class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
+    extends DFAny.Context {
+    def owner : DFOwner = ownerF
+  }
+  object Context {
+    final object MissingError extends ErrorMsg (
+      "Missing an implicit DFDesign Context.",
+      "missing-context"
+    ) {final val msg = getMsg}
+    implicit def evCtx[T <: Pure](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
+      new Context(ctx.meta, ctx.owner, ctx.db)
+    implicit def evBlockCtx(implicit ctx : DFBlock.Context) : Context =
+      new Context(ctx.meta, ctx.owner, ctx.db)
   }
 
   final case class Owner(ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {

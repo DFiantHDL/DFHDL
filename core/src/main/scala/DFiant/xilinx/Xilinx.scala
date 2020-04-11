@@ -12,13 +12,12 @@ protected sealed trait DedicatedTags {
 abstract class VivadoHLSDesign(config : VivadoHLSDesign.Config)(
   implicit ctx : ContextOf[VivadoHLSDesign]
 ) extends DFDesign with DedicatedTags {
-  object ap {
-    final val start = DFBit() <> IN  setName("ap_start")
-    final val done  = DFBit() <> OUT setName("ap_done")
-    final val idle  = DFBit() <> OUT setName("ap_idle")
-    final val ready = DFBit() <> OUT setName("ap_ready")
+  val ap = new DFInterface.Pure {
+    final val start = DFBit() <> IN
+    final val done  = DFBit() <> OUT
+    final val idle  = DFBit() <> OUT
+    final val ready = DFBit() <> OUT
   }
-
 
   this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
   this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)

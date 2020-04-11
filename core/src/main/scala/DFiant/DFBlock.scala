@@ -32,7 +32,7 @@ object DFBlock {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, ctx.ownerInjector, ctx.db)
+      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.db)
     implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
       new Context(meta, null, new DFDesign.DB.Mutable)
   }

@@ -15,17 +15,17 @@ abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : Con
 }
 
 @implicitNotFound(ContextOf.MissingError.msg)
-final class ContextOf[T <: DFDesign](val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val db: DFDesign.DB.Mutable) extends DFMember.Context {
-  lazy val owner : DFBlock = ownerInjector.get
+final class ContextOf[T <: DFInterface](val meta : Meta, ownerF : => T#Owner, val db: DFDesign.DB.Mutable) extends DFMember.Context {
+  def owner : T#Owner = ownerF
 }
 object ContextOf {
   final object MissingError extends ErrorMsg (
     "Missing an implicit DFDesign Context.",
     "missing-context"
   ) {final val msg = getMsg}
-  implicit def evCtx[T1 <: DFDesign, T2 <: DFDesign](
+  implicit def evCtx[T1 <: DFInterface, T2 <: DFInterface](
     implicit ctx : ContextOf[T1], mustBeTheClassOf: MustBeTheClassOf[T1]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.ownerInjector, ctx.db)
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.db)
   implicit def evTop[T <: DFDesign](
     implicit meta: Meta, topLevel : TopLevel, mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
   ) : ContextOf[T] = new ContextOf[T](meta, null, new DFDesign.DB.Mutable)
@@ -34,6 +34,7 @@ object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
 
   trait Infra extends DFInterface {
+    type Owner = DFDesign.Block
     private[DFiant] val __ctx : DFDesign.Context
     private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
     private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
@@ -48,7 +49,11 @@ object DFDesign {
     final protected implicit def __anyContext(implicit meta : Meta) : DFBlock.Context =
       new DFBlock.Context(meta, ownerInjector, __ctx.db)
     final protected implicit def __designContextOf[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-      new ContextOf[T](meta, ownerInjector, __ctx.db)
+      new ContextOf[T](meta, block, __ctx.db)
+//    final protected implicit def __pureContext(implicit meta : Meta) : DFInterface.Context =
+//      new DFInterface.Context(meta, block, __db)
+//    final protected implicit def __pureContextOf[T <: DFInterface.Pure](implicit meta : Meta, di : DummyImplicit) : ContextOf[T] =
+//      new ContextOf[T](meta, block, __db)
     ///////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////
@@ -140,7 +145,7 @@ object DFDesign {
       def apply(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimulator.Mode)(
         implicit ctx : Context
       ) : Block = ctx.db.addMember(
-        if (ctx.ownerInjector == null) Top(designType, ctx.meta, simMode)(ctx.db)
+        if (ctx.ownerInjector == null || ctx.owner == null) Top(designType, ctx.meta, simMode)(ctx.db)
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
     }
