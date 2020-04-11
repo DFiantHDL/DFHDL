@@ -28,7 +28,7 @@ object DFInterface {
       new ContextOf[T](meta, owner, __db)
   }
   @implicitNotFound(Context.MissingError.msg)
-  final class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
+  class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
     extends DFAny.Context {
     def owner : DFOwner = ownerF
   }
@@ -38,8 +38,6 @@ object DFInterface {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evCtx[T <: Pure](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, ctx.owner, ctx.db)
-    implicit def evBlockCtx(implicit ctx : DFBlock.Context) : Context =
       new Context(ctx.meta, ctx.owner, ctx.db)
   }
 

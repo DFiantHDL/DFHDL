@@ -22,9 +22,9 @@ trait DFBlock extends DFOwner {
 
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
-  final class Context(val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val db : DFDesign.DB.Mutable)
-    extends DFAny.Context {
-    def owner : DFBlock = ownerInjector.get
+  final class Context(meta : Meta, val ownerInjector : DFMember.OwnerInjector, db : DFDesign.DB.Mutable)
+    extends DFInterface.Context(meta, ownerInjector.get, db) {
+    override def owner : DFBlock = ownerInjector.get
   }
   object Context {
     final object MissingError extends ErrorMsg (
