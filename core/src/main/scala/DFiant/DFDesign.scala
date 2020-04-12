@@ -6,7 +6,7 @@ import scala.collection.mutable
 import DFiant.compiler.printer.Printer
 
 import singleton.ops._
-abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Infra {
+abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
   private[DFiant] lazy val __ctx : DFDesign.Context = ctx
 }
 
@@ -16,7 +16,7 @@ abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : Con
 }
 
 //@implicitNotFound(ContextOf.MissingError.msg)
-final class ContextOf[T <: DFInterface](val meta : Meta, ownerF : => T#Owner, val db: DFDesign.DB.Mutable) extends DFMember.Context {
+final class ContextOf[T <: DFInterface.Abstract](val meta : Meta, ownerF : => T#Owner, val db: DFDesign.DB.Mutable) extends DFMember.Context {
   def owner : T#Owner = ownerF
 }
 object ContextOf {
@@ -24,7 +24,7 @@ object ContextOf {
     "Missing an implicit ContextOf[T].",
     "missing-context"
   ) {final val msg = getMsg}
-  implicit def evCtx[T1 <: DFInterface, T2 <: DFInterface](
+  implicit def evCtx[T1 <: DFInterface.Abstract, T2 <: DFInterface.Abstract](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg]
   ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.db)
   implicit def evTop[T <: DFDesign](
@@ -34,7 +34,7 @@ object ContextOf {
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
 
-  trait Infra extends DFInterface {
+  trait Abstract extends DFInterface.Abstract {
     type Owner = DFDesign.Block
     private[DFiant] val __ctx : DFDesign.Context
     private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
@@ -51,7 +51,7 @@ object DFDesign {
       new DFBlock.Context(meta, ownerInjector, __ctx.db)
     final protected implicit def __contextOfDesign[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
       new ContextOf[T](meta, block, __ctx.db)
-    final protected implicit def __contextOfPure[T <: DFInterface.Pure](implicit meta : Meta) : ContextOf[T] =
+    final protected implicit def __contextOfPure[T <: DFInterface](implicit meta : Meta) : ContextOf[T] =
       new ContextOf[T](meta, block, __ctx.db)
 //    final protected implicit def __pureContext(implicit meta : Meta) : DFInterface.Context =
 //      new DFInterface.Context(meta, block, __db)

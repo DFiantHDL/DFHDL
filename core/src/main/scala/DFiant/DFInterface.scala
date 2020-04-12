@@ -6,27 +6,28 @@ import singleton.ops._
 
 import scala.annotation.implicitNotFound
 
-trait DFInterface extends HasTypeName with DFDesign.Implicits {
-  type Owner <: DFOwner
-  ///////////////////////////////////////////////////////////////////
-  // Context implicits
-  ///////////////////////////////////////////////////////////////////
-  protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context
-  ///////////////////////////////////////////////////////////////////
-
+abstract class DFInterface(namePrefix : String = "", nameSuffix : String = "_")(implicit ctx : DFInterface.Context)
+  extends DFInterface.Abstract {
+  type Owner = DFOwner
+  private[DFiant] final val owner : Owner = DFInterface.Owner(namePrefix, nameSuffix)(ctx)
+  private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
+  final protected implicit val __getset : MemberGetSet = ctx.db.getSet
+  final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
+  final protected implicit def __anyContext(implicit meta : Meta) : DFInterface.Context =
+    new DFInterface.Context(meta, owner, __db)
+  final protected implicit def __contextOf[T <: DFInterface](implicit meta : Meta) : ContextOf[T] =
+    new ContextOf[T](meta, owner, __db)
 }
 
 object DFInterface {
-  abstract class Pure(namePrefix : String = "", nameSuffix : String = "_")(implicit ctx : Context) extends DFInterface {self =>
-    type Owner = DFOwner
-    private[DFiant] final val owner : Owner = Owner(namePrefix, nameSuffix)(ctx)
-    private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
-    final protected implicit val __getset : MemberGetSet = ctx.db.getSet
-    final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
-    final protected implicit def __anyContext(implicit meta : Meta) : Context =
-      new Context(meta, owner, __db)
-    final protected implicit def __contextOf[T <: Pure](implicit meta : Meta) : ContextOf[T] =
-      new ContextOf[T](meta, owner, __db)
+  trait Abstract extends HasTypeName with DFDesign.Implicits {
+    type Owner <: DFOwner
+    ///////////////////////////////////////////////////////////////////
+    // Context implicits
+    ///////////////////////////////////////////////////////////////////
+    protected implicit def __anyContext(implicit meta : Meta) : DFAny.Context
+    ///////////////////////////////////////////////////////////////////
+
   }
   protected[DFiant] class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
     extends DFAny.Context {
@@ -37,7 +38,7 @@ object DFInterface {
       "The given context type `T` in `ContextOf[T]` is wrong",
       "missing-context"
     ) {final val msg = getMsg}
-    implicit def evCtx[T <: Pure](
+    implicit def evCtx[T <: DFInterface](
       implicit
       ctx : ContextOf[T],
       mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T]], MissingError.Msg]

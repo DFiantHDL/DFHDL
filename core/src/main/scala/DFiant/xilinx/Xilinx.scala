@@ -12,7 +12,7 @@ protected sealed trait DedicatedTags {
 abstract class VivadoHLSDesign(config : VivadoHLSDesign.Config)(
   implicit ctx : ContextOf[VivadoHLSDesign]
 ) extends DFDesign with DedicatedTags {
-  val ap = new DFInterface.Pure {
+  val ap = new DFInterface {
     final val start = DFBit() <> IN
     final val done  = DFBit() <> OUT
     final val idle  = DFBit() <> OUT
@@ -27,7 +27,7 @@ object VivadoHLSDesign {
 }
 
 
-class AXI4()(implicit ctx : ContextOf[AXI4]) extends DFInterface.Pure {
+class AXI4()(implicit ctx : ContextOf[AXI4]) extends DFInterface {
   final val AW = new AXI4.WriteAddressChannel()
   final val W  = new AXI4.WriteDataChannel()
   final val AR = new AXI4.WriteResponseChannel()
@@ -45,7 +45,7 @@ class AXI4()(implicit ctx : ContextOf[AXI4]) extends DFInterface.Pure {
   val BUSER = DFBits(1) <> IN
 }
 object AXI4 {
-  class WriteAddressChannel()(implicit ctx : ContextOf[WriteAddressChannel]) extends DFInterface.Pure("", "") {
+  class WriteAddressChannel()(implicit ctx : ContextOf[WriteAddressChannel]) extends DFInterface("", "") {
     final val VALID   = DFBit()     <> OUT
     final val READY   = DFBit()     <> IN
     final val ADDR    = DFBits(32)  <> OUT
@@ -60,7 +60,7 @@ object AXI4 {
     final val REGION  = DFBits(4)   <> OUT
     final val USER    = DFBits(1)   <> OUT
   }
-  class WriteDataChannel()(implicit ctx : ContextOf[WriteDataChannel]) extends DFInterface.Pure("", "") {
+  class WriteDataChannel()(implicit ctx : ContextOf[WriteDataChannel]) extends DFInterface("", "") {
     final val VALID   = DFBit()     <> OUT
     final val READY   = DFBit()     <> IN
     final val DATA    = DFBits(32)  <> OUT
@@ -69,7 +69,7 @@ object AXI4 {
     final val ID      = DFBits(1)   <> OUT
     final val USER    = DFBits(1)   <> OUT
   }
-  class WriteResponseChannel()(implicit ctx : ContextOf[WriteResponseChannel]) extends DFInterface.Pure("", "") {
+  class WriteResponseChannel()(implicit ctx : ContextOf[WriteResponseChannel]) extends DFInterface("", "") {
     final val VALID   = DFBit()     <> OUT
     final val READY   = DFBit()     <> IN
     final val ADDR    = DFBits(32)  <> OUT

@@ -38,7 +38,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.o <> y      //Connecting parent output port to child output port
 }
 
-abstract class Ifc()(implicit ctx : ContextOf[Ifc]) extends DFInterface.Pure {
+abstract class Ifc()(implicit ctx : ContextOf[Ifc]) extends DFInterface {
   val AA = DFUInt(8) <> IN
   val BB = DFUInt(8) <> OUT
 //  val ifc2 = new Ifc2 {}
