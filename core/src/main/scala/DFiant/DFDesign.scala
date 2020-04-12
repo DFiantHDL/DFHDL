@@ -21,14 +21,14 @@ final class ContextOf[T <: DFInterface](val meta : Meta, ownerF : => T#Owner, va
 }
 object ContextOf {
   final object MissingError extends ErrorMsg (
-    "Missing an implicit DFDesign Context.",
+    "Missing an implicit ContextOf[T].",
     "missing-context"
   ) {final val msg = getMsg}
   implicit def evCtx[T1 <: DFInterface, T2 <: DFInterface](
-    implicit ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg]
+    implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg]
   ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.db)
   implicit def evTop[T <: DFDesign](
-    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel],"Mama"], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
+    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
   ) : ContextOf[T] = new ContextOf[T](meta, null, new DFDesign.DB.Mutable)
 }
 object DFDesign {
