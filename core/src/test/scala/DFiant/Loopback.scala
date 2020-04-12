@@ -10,17 +10,10 @@ trait Loopback extends VivadoHLSDesign {
   final val o_offset  = DFBits(64) <> IN
   final val size      = DFBits(32) <> IN
 
-//  m_axi_d_AWADDR <= d_offset(32 - 1 downto 0);
-//  m_axi_d_AWBURST <= ap_const_lv2_0;
-//  m_axi_d_AWCACHE <= ap_const_lv4_0;
-//  m_axi_d_AWID <= ap_const_lv1_0;
-//  m_axi_d_AWLEN <= size;
-//  m_axi_d_AWLOCK <= ap_const_lv2_0;
-//  m_axi_d_AWPROT <= ap_const_lv3_0;
-//  m_axi_d_AWQOS <= ap_const_lv4_0;
-//  m_axi_d_AWREGION <= ap_const_lv4_0;
-//  m_axi_d_AWSIZE <= ap_const_lv3_0;
-//  m_axi_d_AWUSER <= ap_const_lv1_0;
+  d.AW.LEN := size
+  d.AW.ADDR := d_offset.resize(32)
+  o.AR.LEN := size
+  o.AR.ADDR := o_offset.resize(32)
 
 }
 
@@ -30,5 +23,5 @@ object LoopbackApp extends App {
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
 
   }
-  loopback_moved.printCodeString()//.compile.toFolder("loopback")
+  loopback_moved.printCodeString().compile.toFolder("loopback")
 }
