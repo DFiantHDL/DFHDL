@@ -7,7 +7,7 @@ final class RemovePureInterfacesOps[D <: DFDesign, S <: shapeless.HList](c : Com
   private val designDB = c.db
   import designDB.__getset
   def fixName(member : DFMember) : String = member.getOwner match {
-    case o : DFInterface.Owner => s"${fixName(o)}_${member.name}"
+    case o : DFInterface.Owner => s"${o.namePrefix}${fixName(o)}${o.nameSuffix}${member.name}"
     case _ => member.name
   }
   def removePureInterfaces = {

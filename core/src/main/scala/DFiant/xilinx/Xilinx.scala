@@ -26,40 +26,11 @@ object VivadoHLSDesign {
   sealed trait Config extends Product with Serializable
 }
 
-abstract class AXI(name : String)(implicit ctx : ContextOf[AXI]) extends MetaDesign() {
-  val AWVALID = DFBit() <> OUT
-  val AWREADY = DFBit() <> IN
-  val AWADDR = DFBits(32) <> OUT
-  val AWID = DFBits(1) <> OUT
-  val AWLEN = DFBits(32) <> OUT
-  val AWSIZE = DFBits(3) <> OUT
-  val AWBURST = DFBits(2) <> OUT
-  val AWLOCK = DFBits(2) <> OUT
-  val AWCACHE = DFBits(4) <> OUT
-  val AWPROT = DFBits(3) <> OUT
-  val AWQOS = DFBits(4) <> OUT
-  val AWREGION = DFBits(4) <> OUT
-  val AWUSER = DFBits(1) <> OUT
-  val WVALID = DFBit() <> OUT
-  val WREADY = DFBit() <> IN
-  val WDATA = DFBits(32) <> OUT
-  val WSTRB = DFBits(4) <> OUT
-  val WLAST = DFBit() <> OUT
-  val WID = DFBits(1) <> OUT
-  val WUSER = DFBits(1) <> OUT
-  val ARVALID = DFBit() <> OUT
-  val ARREADY = DFBit() <> IN
-  val ARADDR = DFBits(32) <> OUT
-  val ARID = DFBits(1) <> OUT
-  val ARLEN = DFBits(32) <> OUT
-  val ARSIZE = DFBits(3) <> OUT
-  val ARBURST = DFBits(2) <> OUT
-  val ARLOCK = DFBits(2) <> OUT
-  val ARCACHE = DFBits(4) <> OUT
-  val ARPROT = DFBits(3) <> OUT
-  val ARQOS = DFBits(4) <> OUT
-  val ARREGION = DFBits(4) <> OUT
-  val ARUSER = DFBits(1) <> OUT
+
+class AXI4()(implicit ctx : ContextOf[AXI4]) extends DFInterface.Pure {
+  final val AW = new AXI4.WriteAddressChannel()
+  final val W  = new AXI4.WriteDataChannel()
+  final val AR = new AXI4.WriteResponseChannel()
   val RVALID = DFBit() <> IN
   val RREADY = DFBit() <> OUT
   val RDATA = DFBits(32) <> IN
@@ -72,7 +43,45 @@ abstract class AXI(name : String)(implicit ctx : ContextOf[AXI]) extends MetaDes
   val BRESP = DFBits(2) <> IN
   val BID = DFBits(1) <> IN
   val BUSER = DFBits(1) <> IN
-
-  __db.getMembers.foreach(m => m.setName(s"${name}_${m.name}"))
-
+}
+object AXI4 {
+  class WriteAddressChannel()(implicit ctx : ContextOf[WriteAddressChannel]) extends DFInterface.Pure("", "") {
+    final val VALID   = DFBit()     <> OUT
+    final val READY   = DFBit()     <> IN
+    final val ADDR    = DFBits(32)  <> OUT
+    final val ID      = DFBits(1)   <> OUT
+    final val LEN     = DFBits(32)  <> OUT
+    final val SIZE    = DFBits(3)   <> OUT
+    final val BURST   = DFBits(2)   <> OUT
+    final val LOCK    = DFBits(2)   <> OUT
+    final val CACHE   = DFBits(4)   <> OUT
+    final val PROT    = DFBits(3)   <> OUT
+    final val QOS     = DFBits(4)   <> OUT
+    final val REGION  = DFBits(4)   <> OUT
+    final val USER    = DFBits(1)   <> OUT
+  }
+  class WriteDataChannel()(implicit ctx : ContextOf[WriteDataChannel]) extends DFInterface.Pure("", "") {
+    final val VALID   = DFBit()     <> OUT
+    final val READY   = DFBit()     <> IN
+    final val DATA    = DFBits(32)  <> OUT
+    final val STRB    = DFBits(4)   <> OUT
+    final val LAST    = DFBit()     <> OUT
+    final val ID      = DFBits(1)   <> OUT
+    final val USER    = DFBits(1)   <> OUT
+  }
+  class WriteResponseChannel()(implicit ctx : ContextOf[WriteResponseChannel]) extends DFInterface.Pure("", "") {
+    final val VALID   = DFBit()     <> OUT
+    final val READY   = DFBit()     <> IN
+    final val ADDR    = DFBits(32)  <> OUT
+    final val ID      = DFBits(1)   <> OUT
+    final val LEN     = DFBits(32)  <> OUT
+    final val SIZE    = DFBits(3)   <> OUT
+    final val BURST   = DFBits(2)   <> OUT
+    final val LOCK    = DFBits(2)   <> OUT
+    final val CACHE   = DFBits(4)   <> OUT
+    final val PROT    = DFBits(3)   <> OUT
+    final val QOS     = DFBits(4)   <> OUT
+    final val REGION  = DFBits(4)   <> OUT
+    final val USER    = DFBits(1)   <> OUT
+  }
 }

@@ -17,9 +17,9 @@ trait DFInterface extends HasTypeName with DFDesign.Implicits {
 }
 
 object DFInterface {
-  abstract class Pure()(implicit ctx : Context) extends DFInterface {self =>
+  abstract class Pure(namePrefix : String = "", nameSuffix : String = "_")(implicit ctx : Context) extends DFInterface {self =>
     type Owner = DFOwner
-    private[DFiant] final val owner : Owner = Owner(ctx)
+    private[DFiant] final val owner : Owner = Owner(namePrefix, nameSuffix)(ctx)
     private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
     final protected implicit val __getset : MemberGetSet = ctx.db.getSet
     final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
@@ -44,11 +44,12 @@ object DFInterface {
     ) : Context = new Context(ctx.meta, ctx.owner, ctx.db)
   }
 
-  final case class Owner(ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {
+  final case class Owner(namePrefix : String, nameSuffix : String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {
     type TTags = DFMember.Tags.Basic
     type TCustomTag = DFMember.CustomTag
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
-      case Owner(_, tags) => this.tags =~ tags
+      case Owner(namePrefix, nameSuffix, _, tags) =>
+        this.namePrefix == namePrefix && this.nameSuffix == nameSuffix && this.tags =~ tags
       case _ => false
     }
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
@@ -56,9 +57,9 @@ object DFInterface {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Owner {
-    def apply(
+    def apply(namePrefix : String, nameSuffix : String)(
       implicit ctx : DFAny.Context
-    ) : Owner = ctx.db.addMember(Owner(ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addMember(Owner(namePrefix, nameSuffix, ctx.owner, ctx.meta))
   }
 }
 
