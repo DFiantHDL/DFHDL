@@ -9,40 +9,27 @@ protected sealed trait DedicatedTags {
   }
 }
 
-abstract class VivadoHLSDesign(config : VivadoHLSDesign.Config)(
+abstract class VivadoHLSDesign(
   implicit ctx : ContextOf[VivadoHLSDesign]
 ) extends DFDesign with DedicatedTags {
-  val ap = new DFInterface {
-    final val start = DFBit() <> IN
-    final val done  = DFBit() <> OUT
-    final val idle  = DFBit() <> OUT
-    final val ready = DFBit() <> OUT
+  final val ap = new DFInterface {
+    final val start   = DFBit() <> IN
+    final val done    = DFBit() <> OUT
+    final val idle    = DFBit() <> OUT
+    final val ready   = DFBit() <> OUT
   }
-
-  this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
-  this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
 }
 object VivadoHLSDesign {
   sealed trait Config extends Product with Serializable
 }
 
 
-class AXI4()(implicit ctx : ContextOf[AXI4]) extends DFInterface {
+class AXI4()(implicit ctx : ContextOf[AXI4]) extends DFInterface("m_axi_") {
   final val AW = new AXI4.WriteAddressChannel()
   final val W  = new AXI4.WriteDataChannel()
-  final val AR = new AXI4.WriteResponseChannel()
-  val RVALID = DFBit() <> IN
-  val RREADY = DFBit() <> OUT
-  val RDATA = DFBits(32) <> IN
-  val RLAST = DFBit() <> IN
-  val RID = DFBits(1) <> IN
-  val RUSER = DFBits(1) <> IN
-  val RRESP = DFBits(2) <> IN
-  val BVALID = DFBit() <> IN
-  val BREADY = DFBit() <> OUT
-  val BRESP = DFBits(2) <> IN
-  val BID = DFBits(1) <> IN
-  val BUSER = DFBits(1) <> IN
+  final val AR = new AXI4.ReadAddressChannel()
+  final val R  = new AXI4.ReadDataChannel()
+  final val B  = new AXI4.WriteResponseChannel()
 }
 object AXI4 {
   class WriteAddressChannel()(implicit ctx : ContextOf[WriteAddressChannel]) extends DFInterface("", "") {
@@ -70,6 +57,13 @@ object AXI4 {
     final val USER    = DFBits(1)   <> OUT
   }
   class WriteResponseChannel()(implicit ctx : ContextOf[WriteResponseChannel]) extends DFInterface("", "") {
+    final val VALID   = DFBit()     <> IN
+    final val READY   = DFBit()     <> OUT
+    final val RESP    = DFBits(2)   <> IN
+    final val ID      = DFBits(1)   <> IN
+    final val USER    = DFBits(1)   <> IN
+  }
+  class ReadAddressChannel()(implicit ctx : ContextOf[ReadAddressChannel]) extends DFInterface("", "") {
     final val VALID   = DFBit()     <> OUT
     final val READY   = DFBit()     <> IN
     final val ADDR    = DFBits(32)  <> OUT
@@ -83,5 +77,28 @@ object AXI4 {
     final val QOS     = DFBits(4)   <> OUT
     final val REGION  = DFBits(4)   <> OUT
     final val USER    = DFBits(1)   <> OUT
+    def notUsed(implicit ctx : DFBlock.Context) : Unit = {
+      ADDR := b0s
+      BURST := b0s
+      CACHE := b0s
+      ID := b0s
+      LEN := b0s
+      LOCK := b0s
+      PROT := b0s
+      QOS := b0s
+      REGION := b0s
+      SIZE := b0s
+      USER := b0s
+      VALID := 0
+    }
+  }
+  class ReadDataChannel()(implicit ctx : ContextOf[ReadDataChannel]) extends DFInterface("", "") {
+    final val VALID   = DFBit()     <> IN
+    final val READY   = DFBit()     <> OUT
+    final val DATA    = DFBits(32)  <> IN
+    final val LAST    = DFBit()     <> IN
+    final val ID      = DFBits(1)   <> IN
+    final val USER    = DFBits(1)   <> IN
+    final val RESP    = DFBits(2)   <> IN
   }
 }

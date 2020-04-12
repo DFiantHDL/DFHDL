@@ -519,7 +519,7 @@ object DFDesign {
     }
     class Mutable {
       private val members : mutable.ArrayBuffer[(DFMember, Set[DFMember.Ref])] = mutable.ArrayBuffer()
-      lazy val top : Block.Top = members.head._1 match {
+      def top : Block.Top = members.head._1 match {
         case m : Block.Top => m
       }
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
