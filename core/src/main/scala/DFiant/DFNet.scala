@@ -15,7 +15,7 @@ sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
 }
 
 object DFNet {
-  type Context = DFBlock.Context
+  type Context = DFAny.Context
 
   type ToRef = DFMember.OwnedRef.Of[ToRef.Type, DFAny]
   object ToRef {

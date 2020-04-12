@@ -4,13 +4,12 @@ import xilinx._
 import compiler.backend.vhdl._
 import compiler.sync._
 trait Loopback extends VivadoHLSDesign {
-  final val d         = new AXI4()
+  final val d         = new AXI4(AXI4.Config(rdEnabled = false, wrEnabled = true, simple = true))
   final val d_offset  = DFBits(64) <> IN
-  final val o         = new AXI4()
+  final val o         = new AXI4(AXI4.Config(rdEnabled = true, wrEnabled = false, simple = true))
   final val o_offset  = DFBits(64) <> IN
   final val size      = DFBits(32) <> IN
 
-  d.AR.notUsed
 //  m_axi_d_AWADDR <= d_offset(32 - 1 downto 0);
 //  m_axi_d_AWBURST <= ap_const_lv2_0;
 //  m_axi_d_AWCACHE <= ap_const_lv4_0;
@@ -31,5 +30,5 @@ object LoopbackApp extends App {
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
 
   }
-  loopback_moved.printCodeString().compile.toFolder("loopback")
+  loopback_moved.printCodeString()//.compile.toFolder("loopback")
 }
