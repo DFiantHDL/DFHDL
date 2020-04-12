@@ -16,26 +16,57 @@ trait Loopback extends VivadoHLSDesign {
   final val size      = DFBits(32) <> IN
   final val ap_fsm    = DFEnum(AP_FSM) init AP_FSM.IDLE
   val d_blk_n_B = DFBit()
+  val d_blk_n_AW = DFBit()
+  val d_blk_n_W = DFBit()
   val o_blk_n_AR = DFBit()
+  val o_blk_n_R = DFBit()
+  val ap_reg_ioackin_m_axi_d_AWREADY = DFBit() init 0
+  val ap_sig_ioackin_m_axi_d_AWREADY = DFBit()
+  val ap_reg_ioackin_m_axi_d_WREADY  = DFBit() init 0
+  val ap_sig_ioackin_m_axi_d_WREADY  = DFBit()
   val ap_reg_ioackin_m_axi_o_ARREADY = DFBit() init 0
   val ap_sig_ioackin_m_axi_o_ARREADY = DFBit()
+  val i_reg_85 = DFBits(31)
+  val i_1_fu_119_p2 = DFBits(31)
+  val i_1_reg_147 = DFBits(31)
+  val o_addr_read_reg_152 = DFBits(32)
+  val tmp_fu_114_p2 = DFBit()
 
   d.AW.LEN := size
   d.AW.ADDR := d_offset.resize(32)
   o.AR.LEN := size
   o.AR.ADDR := o_offset.resize(32)
+  d.W.DATA := o_addr_read_reg_152
 
   ap.done := 0
   ap.ready := 0
   ap.idle := 0
+  d.AW.VALID := 0
+  d.W.VALID := 0
   o.AR.VALID := 0
+  o.R.READY := 0
 
   d_blk_n_B := 1
+  d_blk_n_AW := 1
+  d_blk_n_W := 1
   o_blk_n_AR := 1
+  o_blk_n_R := 1
+
   ap_sig_ioackin_m_axi_o_ARREADY := 1
   ifdf(!ap_reg_ioackin_m_axi_o_ARREADY) {
     ap_sig_ioackin_m_axi_o_ARREADY := o.AR.READY
   }
+  ap_sig_ioackin_m_axi_d_AWREADY := 1
+  ifdf(!ap_reg_ioackin_m_axi_d_AWREADY) {
+    ap_sig_ioackin_m_axi_d_AWREADY := d.AW.READY
+  }
+  ap_sig_ioackin_m_axi_d_WREADY := 1
+  ifdf(!ap_reg_ioackin_m_axi_d_WREADY) {
+    ap_sig_ioackin_m_axi_d_WREADY := d.W.READY
+  }
+  i_1_fu_119_p2 := (i_reg_85.uint + 1).bits
+  tmp_fu_114_p2 := i_reg_85.resize(32).sint < size.sint
+
   matchdf(ap_fsm)
     .casedf(AP_FSM.IDLE){
       ifdf(ap.start) {
@@ -59,9 +90,45 @@ trait Loopback extends VivadoHLSDesign {
     .casedf(AP_FSM.ST4){ap_fsm := AP_FSM.ST5}
     .casedf(AP_FSM.ST5){ap_fsm := AP_FSM.ST6}
     .casedf(AP_FSM.ST6){ap_fsm := AP_FSM.ST7}
-    .casedf(AP_FSM.ST7){ap_fsm := AP_FSM.ST8}
-    .casedf(AP_FSM.ST8){ap_fsm := AP_FSM.ST9}
-    .casedf(AP_FSM.ST9){ap_fsm := AP_FSM.ST10}
+    .casedf(AP_FSM.ST7){
+      d_blk_n_AW := d.AW.READY
+      ifdf(!ap_reg_ioackin_m_axi_d_AWREADY) {
+        d.AW.VALID := 1
+      }
+      ifdf(ap_sig_ioackin_m_axi_d_AWREADY) {
+        ap_reg_ioackin_m_axi_d_AWREADY := 0
+        i_reg_85 := b0s
+        ap_fsm := AP_FSM.ST8
+      }.elseifdf(d.AW.READY) {
+        ap_reg_ioackin_m_axi_d_AWREADY := 1
+      }
+    }
+    .casedf(AP_FSM.ST8){
+      o_blk_n_R := o.R.VALID
+      ifdf(o.R.VALID || !tmp_fu_114_p2) {
+        ifdf(tmp_fu_114_p2) {
+          o.R.READY := 1
+          i_1_reg_147 := i_1_fu_119_p2
+          o_addr_read_reg_152 := o.R.DATA
+          ap_fsm := AP_FSM.ST9
+        }.elsedf {
+          ap_fsm := AP_FSM.ST10
+        }
+      }
+    }
+    .casedf(AP_FSM.ST9){
+      d_blk_n_W := d.W.READY
+      ifdf(!ap_reg_ioackin_m_axi_d_WREADY) {
+        d.W.VALID := 1
+      }
+      ifdf(ap_sig_ioackin_m_axi_d_WREADY) {
+        ap_reg_ioackin_m_axi_d_WREADY := 0
+        i_reg_85 := i_1_reg_147
+        ap_fsm := AP_FSM.ST8
+      }.elseifdf(d.W.READY) {
+        ap_reg_ioackin_m_axi_d_WREADY := 1
+      }
+    }
     .casedf(AP_FSM.ST10){ap_fsm := AP_FSM.ST11}
     .casedf(AP_FSM.ST11){ap_fsm := AP_FSM.ST12}
     .casedf(AP_FSM.ST12){ap_fsm := AP_FSM.ST13}

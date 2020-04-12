@@ -66,6 +66,7 @@ object AXI4 {
       USER := b0s
     } else if (simple) {
       ID := b0s
+      SIZE := b0s
       BURST := b0s
       LOCK := b0s
       CACHE := b0s
@@ -92,6 +93,7 @@ object AXI4 {
       USER := b0s
     } else if (simple) {
       STRB := b1s
+      LAST := 0
       ID := b0s
       USER := b0s
     }
@@ -102,7 +104,7 @@ object AXI4 {
     final val RESP    = DFBits(2)   <> IN
     final val ID      = DFBits(1)   <> IN
     final val USER    = DFBits(1)   <> IN
-    if (!enabled) {
+    if (!enabled || simple) {
       READY := 0
     }
   }
