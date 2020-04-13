@@ -9,28 +9,33 @@ object AP_FSM extends EnumType.Auto {
 }
 
 trait Loopback extends VivadoHLSDesign {
+  //d is output
   final val d         = new AXI4(AXI4.Config(rdEnabled = false, wrEnabled = true, simple = true))
   final val d_offset  = DFBits(64) <> IN
+  //o is input
   final val o         = new AXI4(AXI4.Config(rdEnabled = true, wrEnabled = false, simple = true))
   final val o_offset  = DFBits(64) <> IN
   final val size      = DFBits(32) <> IN
-  final val ap_fsm    = DFEnum(AP_FSM) init AP_FSM.IDLE
-  val d_blk_n_B = DFBit()
-  val d_blk_n_AW = DFBit()
-  val d_blk_n_W = DFBit()
-  val o_blk_n_AR = DFBit()
-  val o_blk_n_R = DFBit()
-  val ap_reg_ioackin_m_axi_d_AWREADY = DFBit() init 0
-  val ap_sig_ioackin_m_axi_d_AWREADY = DFBit()
-  val ap_reg_ioackin_m_axi_d_WREADY  = DFBit() init 0
-  val ap_sig_ioackin_m_axi_d_WREADY  = DFBit()
-  val ap_reg_ioackin_m_axi_o_ARREADY = DFBit() init 0
-  val ap_sig_ioackin_m_axi_o_ARREADY = DFBit()
-  val i_reg_85 = DFBits(31)
-  val i_1_fu_119_p2 = DFBits(31)
-  val i_1_reg_147 = DFBits(31)
-  val o_addr_read_reg_152 = DFBits(32)
-  val tmp_fu_114_p2 = DFBit()
+  private val ap_fsm    = DFEnum(AP_FSM) init AP_FSM.IDLE
+  private val ap_reg_ioackin_m_axi_d_AWREADY = DFBit() init 0
+  private val ap_sig_ioackin_m_axi_d_AWREADY = DFBit()
+  private val ap_reg_ioackin_m_axi_d_WREADY  = DFBit() init 0
+  private val ap_sig_ioackin_m_axi_d_WREADY  = DFBit()
+  private val ap_reg_ioackin_m_axi_o_ARREADY = DFBit() init 0
+  private val ap_sig_ioackin_m_axi_o_ARREADY = DFBit()
+
+  private val i_reg_85 = DFBits(31) //i.prev
+  private val i_1_fu_119_p2 = DFBits(31) //i+1
+  private val i_1_reg_147 = DFBits(31) //(i+1).prev
+  private val o_addr_read_reg_152 = DFBits(32)
+  private val tmp_fu_114_p2 = DFBit()
+
+  //optionals
+  private val d_blk_n_B = DFBit()
+  private val d_blk_n_AW = DFBit()
+  private val d_blk_n_W = DFBit()
+  private val o_blk_n_AR = DFBit()
+  private val o_blk_n_R = DFBit()
 
   d.AW.LEN := size
   d.AW.ADDR := d_offset.resize(32)
@@ -53,15 +58,15 @@ trait Loopback extends VivadoHLSDesign {
   o_blk_n_R := 1
 
   ap_sig_ioackin_m_axi_o_ARREADY := 1
-  ifdf(!ap_reg_ioackin_m_axi_o_ARREADY) {
+  ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev) {
     ap_sig_ioackin_m_axi_o_ARREADY := o.AR.READY
   }
   ap_sig_ioackin_m_axi_d_AWREADY := 1
-  ifdf(!ap_reg_ioackin_m_axi_d_AWREADY) {
+  ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
     ap_sig_ioackin_m_axi_d_AWREADY := d.AW.READY
   }
   ap_sig_ioackin_m_axi_d_WREADY := 1
-  ifdf(!ap_reg_ioackin_m_axi_d_WREADY) {
+  ifdf(!ap_reg_ioackin_m_axi_d_WREADY.prev) {
     ap_sig_ioackin_m_axi_d_WREADY := d.W.READY
   }
   i_1_fu_119_p2 := (i_reg_85.uint + 1).bits
@@ -71,7 +76,7 @@ trait Loopback extends VivadoHLSDesign {
     .casedf(AP_FSM.IDLE){
       ifdf(ap.start) {
         o_blk_n_AR := o.AR.READY
-        ifdf(!ap_reg_ioackin_m_axi_o_ARREADY){
+        ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev){
           o.AR.VALID := 1
         }
         ifdf(ap_sig_ioackin_m_axi_o_ARREADY) {
@@ -92,7 +97,7 @@ trait Loopback extends VivadoHLSDesign {
     .casedf(AP_FSM.ST6){ap_fsm := AP_FSM.ST7}
     .casedf(AP_FSM.ST7){
       d_blk_n_AW := d.AW.READY
-      ifdf(!ap_reg_ioackin_m_axi_d_AWREADY) {
+      ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
         d.AW.VALID := 1
       }
       ifdf(ap_sig_ioackin_m_axi_d_AWREADY) {
@@ -118,7 +123,7 @@ trait Loopback extends VivadoHLSDesign {
     }
     .casedf(AP_FSM.ST9){
       d_blk_n_W := d.W.READY
-      ifdf(!ap_reg_ioackin_m_axi_d_WREADY) {
+      ifdf(!ap_reg_ioackin_m_axi_d_WREADY.prev) {
         d.W.VALID := 1
       }
       ifdf(ap_sig_ioackin_m_axi_d_WREADY) {
@@ -143,6 +148,16 @@ trait Loopback extends VivadoHLSDesign {
 
 }
 
+
+object LoopbackTest extends DFSimulator  {
+  final val lb = new Loopback {}
+//  final val VALID   = DFBit()     <> OUT
+//  final val READY   = DFBit()     <> IN
+//  final val ADDR    = DFBits(32)  <> OUT
+//  final val ID      = DFBits(1)   <> OUT
+//  final val LEN     = DFBits(32)  <> OUT
+//  val d = lb.d.R
+}
 object LoopbackApp extends App {
   object loopback_moved extends Loopback {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
