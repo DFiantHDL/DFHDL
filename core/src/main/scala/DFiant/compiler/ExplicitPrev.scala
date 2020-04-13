@@ -66,7 +66,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
       case DFAny.Alias.AsIs(_,_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
       case DFAny.Alias.Invert(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
       case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
-      case x if x.modifier.isInstanceOf[DFAny.Modifier.Assignable] =>
+      case DFAny.Port.Out() | DFAny.Var() =>
         designDB.getConnectionTo(value) match {
           case Some(v) => consumeFrom(v, relWidth, relBitLow, assignMap, currentSet)
           case None =>

@@ -320,11 +320,11 @@ object DFBits extends DFAny.Companion {
       /////////////////////////////////////////////////////////////////////////////////////
       // Tuple 1
       /////////////////////////////////////////////////////////////////////////////////////
-      implicit class VarTuple1[T1 <: DFAny.Type](
-        val e : Tuple1[DFAny.VarOf[T1]]
-      ) extends VarProductExtender(e) {
-        type WSum = e._1.Width
-      }
+//      implicit class VarTuple1[T1 <: DFAny.Type](
+//        val e : Tuple1[DFAny.VarOf[T1]]
+//      ) extends VarProductExtender(e) {
+//        type WSum = e._1.Width
+//      }
 
       implicit class ValTuple1[T1 <: HasWidth](
         val e : Tuple1[T1]
@@ -336,11 +336,11 @@ object DFBits extends DFAny.Companion {
       /////////////////////////////////////////////////////////////////////////////////////
       // Tuple 2
       /////////////////////////////////////////////////////////////////////////////////////
-      implicit class VarTuple2[T1 <: DFAny.Type, T2 <: DFAny.Type](
-        val e : Tuple2[DFAny.VarOf[T1], DFAny.VarOf[T2]]
-      ) extends VarProductExtender(e) {
-        type WSum = e._1.Width + e._2.Width
-      }
+//      implicit class VarTuple2[T1 <: DFAny.Type, T2 <: DFAny.Type](
+//        val e : Tuple2[DFAny.VarOf[T1], DFAny.VarOf[T2]]
+//      ) extends VarProductExtender(e) {
+//        type WSum = e._1.Width + e._2.Width
+//      }
 
       implicit class ValTuple2[T1 <: HasWidth, T2 <: HasWidth](
         val e : Tuple2[T1, T2]
@@ -352,11 +352,11 @@ object DFBits extends DFAny.Companion {
       /////////////////////////////////////////////////////////////////////////////////////
       // Tuple 3
       /////////////////////////////////////////////////////////////////////////////////////
-      implicit class VarTuple3[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type](
-        val e : Tuple3[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3]]
-      ) extends VarProductExtender(e) {
-        type WSum = e._1.Width + e._2.Width + e._3.Width
-      }
+//      implicit class VarTuple3[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type](
+//        val e : Tuple3[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3]]
+//      ) extends VarProductExtender(e) {
+//        type WSum = e._1.Width + e._2.Width + e._3.Width
+//      }
 
       implicit class ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](
         val e : Tuple3[T1, T2, T3]
@@ -368,11 +368,11 @@ object DFBits extends DFAny.Companion {
       /////////////////////////////////////////////////////////////////////////////////////
       // Tuple 4
       /////////////////////////////////////////////////////////////////////////////////////
-      implicit class VarTuple4[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type, T4 <: DFAny.Type](
-        val e : Tuple4[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3], DFAny.VarOf[T4]]
-      ) extends VarProductExtender(e) {
-        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
-      }
+//      implicit class VarTuple4[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type, T4 <: DFAny.Type](
+//        val e : Tuple4[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3], DFAny.VarOf[T4]]
+//      ) extends VarProductExtender(e) {
+//        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
+//      }
 
       implicit class ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](
         val e : Tuple4[T1, T2, T3, T4]
@@ -384,11 +384,11 @@ object DFBits extends DFAny.Companion {
       /////////////////////////////////////////////////////////////////////////////////////
       // Tuple 5
       /////////////////////////////////////////////////////////////////////////////////////
-      implicit class VarTuple5[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type, T4 <: DFAny.Type, T5 <: DFAny.Type](
-        val e : Tuple5[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3], DFAny.VarOf[T4], DFAny.VarOf[T5]]
-      ) extends VarProductExtender(e) {
-        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
-      }
+//      implicit class VarTuple5[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type, T4 <: DFAny.Type, T5 <: DFAny.Type](
+//        val e : Tuple5[DFAny.VarOf[T1], DFAny.VarOf[T2], DFAny.VarOf[T3], DFAny.VarOf[T4], DFAny.VarOf[T5]]
+//      ) extends VarProductExtender(e) {
+//        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
+//      }
 
       implicit class ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](
         val e : Tuple5[T1, T2, T3, T4, T5]

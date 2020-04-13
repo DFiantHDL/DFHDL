@@ -177,22 +177,11 @@ object DFAny {
     case object Val extends Val
     sealed trait Assignable extends Val
     sealed trait Connectable extends Modifier
-    sealed trait Port extends Connectable {
-      def directionString : String
-      final override def codeString(implicit printConfig : Printer.Config) : String = {
+    final case class Port[+D <: DFDir](dir : D) extends Connectable with Assignable {
+      override def codeString(implicit printConfig : Printer.Config) : String = {
         import printConfig._
         import formatter._
-        s" ${ALGN(1)}$DF<> $DF$directionString"
-      }
-    }
-    object Port {
-      sealed trait In extends Port
-      case object In extends In {
-        final def directionString : String = "IN " //IN has a suffix space to align with the three letters of OUT
-      }
-      sealed trait Out extends Port with Assignable
-      case object Out extends Out {
-        final def directionString : String = "OUT"
+        s" ${ALGN(1)}$DF<> $DF$dir"
       }
     }
     sealed trait NewVar extends Connectable with Assignable
@@ -284,8 +273,8 @@ object DFAny {
       s"${dfType.codeString}${modifier.codeString}$initStr"
     }
     override lazy val typeName: String = modifier match {
-      case Modifier.Port.In => s"$dfType <> IN"
-      case Modifier.Port.Out => s"$dfType <> OUT"
+      case Modifier.Port(IN) => s"$dfType <> IN"
+      case Modifier.Port(OUT) => s"$dfType <> OUT"
       case _ => s"$dfType"
     }
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
@@ -313,18 +302,18 @@ object DFAny {
     object In {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
-      ) = Dcl(dfType, Modifier.Port.In)
+      ) = Dcl(dfType, Modifier.Port(IN))
       def unapply(arg: Dcl) : Boolean = arg.modifier match {
-        case Modifier.Port.In => true
+        case Modifier.Port(IN) => true
         case _ => false
       }
     }
     object Out {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
-      ) = Dcl(dfType, Modifier.Port.Out)
+      ) = Dcl(dfType, Modifier.Port(OUT))
       def unapply(arg: Dcl) : Boolean = arg.modifier match {
-        case Modifier.Port.Out => true
+        case Modifier.Port(OUT) => true
         case _ => false
       }
     }
@@ -340,15 +329,8 @@ object DFAny {
     }
   }
   implicit class NewVarOps[Type <: DFAny.Type](val left : Value[Type, Modifier.NewVar] with Dcl.Uninitialized) {
-    def <> (in : IN)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port.In] with Dcl.Uninitialized = {
-      val newMember = Dcl(left.dfType, Modifier.Port.In, None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port.In] with Dcl.Uninitialized]
-      if (ctx.meta.namePosition == left.tags.meta.namePosition) {
-        implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-        newMember
-      } else ctx.db.addMember(newMember)
-    }
-    def <> (out : OUT)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port.Out] with Dcl.Uninitialized = {
-      val newMember = Dcl(left.dfType, Modifier.Port.Out, None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port.Out] with Dcl.Uninitialized]
+    def <> [D <: DFDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[D]] with Dcl.Uninitialized = {
+      val newMember = Dcl(left.dfType, Modifier.Port(dir), None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port[D]] with Dcl.Uninitialized]
       if (ctx.meta.namePosition == left.tags.meta.namePosition) {
         implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
         newMember
@@ -722,9 +704,9 @@ object DFAny {
     ) : DFNet.Assignment = assign(op(left.dfType, right))
   }
 
-  type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port]
-  type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.In]
-  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port.Out]
+  type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[DFDir]]
+  type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[IN]]
+  type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[OUT]]
   implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
     def <>[R](right: left.dfType.OpAble[R])(
       implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, R]
@@ -743,13 +725,13 @@ object DFAny {
 
   object In {
     def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
-      case _ : Modifier.Port.In => true
+      case Modifier.Port(IN) => true
       case _ => false
     }
   }
   object Out {
     def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
-      case _ : Modifier.Port.Out => true
+      case Modifier.Port(OUT) => true
       case _ => false
     }
   }
