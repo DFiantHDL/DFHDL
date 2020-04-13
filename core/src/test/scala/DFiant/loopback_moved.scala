@@ -8,12 +8,12 @@ object AP_FSM extends EnumType.Auto {
   val IDLE, ST2, ST3, ST4, ST5, ST6, ST7, ST8, ST9, ST10, ST11, ST12, ST13 = Entry()
 }
 
-trait Loopback extends VivadoHLSDesign {
+trait loopback_moved extends VivadoHLSDesign {
   //d is output
-  final val d         = new AXI4(AXI4.Config(rdEnabled = false, wrEnabled = true, simple = true))
+  final val d         = AXI4.SWO <> AXI4.Master
   final val d_offset  = DFBits(64) <> IN
   //o is input
-  final val o         = new AXI4(AXI4.Config(rdEnabled = true, wrEnabled = false, simple = true))
+  final val o         = AXI4.SRO <> AXI4.Master
   final val o_offset  = DFBits(64) <> IN
   final val size      = DFBits(32) <> IN
   private val ap_fsm    = DFEnum(AP_FSM) init AP_FSM.IDLE
@@ -148,21 +148,29 @@ trait Loopback extends VivadoHLSDesign {
 
 }
 
+trait LoopbackDriver extends DFSimulator {
+  final val d = AXI4.SRO <> AXI4.Slave
+  final val o = AXI4.SWO <> AXI4.Slave
+  val cnt = DFUInt(8) init 0
+  cnt := cnt.prev
+  def waitClk() : Unit = vhdl"wait until rising_edge(ap_clk);"
+  d.AR.READY := 0
 
-object LoopbackTest extends DFSimulator  {
-  final val lb = new Loopback {}
-//  final val VALID   = DFBit()     <> OUT
-//  final val READY   = DFBit()     <> IN
-//  final val ADDR    = DFBits(32)  <> OUT
-//  final val ID      = DFBits(1)   <> OUT
-//  final val LEN     = DFBits(32)  <> OUT
-//  val d = lb.d.R
+  waitClk()
 }
+
+trait LoopbackTest extends DFSimulator  {
+  final val lb = new loopback_moved {}
+  final val lb_drv = new LoopbackDriver {}
+  lb.d <> lb_drv.d
+  lb.o <> lb_drv.o
+}
+
 object LoopbackApp extends App {
-  object loopback_moved extends Loopback {
+  object loopback_test extends LoopbackTest {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
 
   }
-  loopback_moved.printCodeString().compile.toFolder("loopback")
+  loopback_test.printCodeString().compile.toFolder("loopback")
 }

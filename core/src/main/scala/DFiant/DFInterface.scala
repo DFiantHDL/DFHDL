@@ -29,6 +29,9 @@ object DFInterface {
     ///////////////////////////////////////////////////////////////////
 
   }
+//  implicit class AbstractExt[T <: DFInterface](t : T) {
+//    def <> (r : T)(implicit ctx : DFNet.Context) : Unit = t.owner.connectWith(r.owner)
+//  }
   protected[DFiant] class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
     extends DFAny.Context {
     def owner : DFOwner = ownerF
@@ -53,6 +56,7 @@ object DFInterface {
         this.namePrefix == namePrefix && this.nameSuffix == nameSuffix && this.tags =~ tags
       case _ => false
     }
+    def connectWith(that : Owner)(implicit ctx : DFNet.Context) : Unit = {}
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
