@@ -1,32 +1,5 @@
 package DFiant
-package xilinx
-
-import DFiant._
-import compiler.sync._
-protected sealed trait DedicatedTags {
-  case object AXI_Stream extends DFAny.CustomTag {
-    override def toString: String = "AXI_Stream"
-  }
-}
-
-abstract class VivadoHLSDesign(
-  implicit ctx : ContextOf[VivadoHLSDesign]
-) extends DFDesign with DedicatedTags {
-  final val ap = new DFInterface {
-    final val start   = DFBit() <> IN
-    final val done    = DFBit() <> OUT
-    final val idle    = DFBit() <> OUT
-    final val ready   = DFBit() <> OUT
-  }
-  //need to replace DF-AXI inputs => AXI4(AXI4.Config(false, true)) + an input <name>_offset(64)
-  //need to replace DF-AXI outputs => AXI4(AXI4.Config(true, false)) + an input <name>_offset(64)
-  //need to have size 32-bit input
-  //inputs may be should be cast to/from DFBits.
-}
-object VivadoHLSDesign {
-  sealed trait Config extends Product with Serializable
-}
-
+package ompss
 
 final class AXI4 private (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface("m_axi_") {
   final val AW = new AXI4.AddressChannel(axiDir)(config.wrEnabled, config.simple)

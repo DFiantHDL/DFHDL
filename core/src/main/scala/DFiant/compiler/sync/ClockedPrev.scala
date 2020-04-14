@@ -26,7 +26,7 @@ import DFiant.compiler.sync.ResetParams.{Active, Mode}
 import collection.mutable
 
 final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val designDB = c.singleStepPrev.calcInit.printCodeString().db
+  private val designDB = c.singleStepPrev.calcInit.db
   import designDB.__getset
 
   private val clockParams = ClockParams.get

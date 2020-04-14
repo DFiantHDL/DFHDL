@@ -99,6 +99,19 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     }
     c
   }
+  def toFile(fileName : String)(implicit printConfig : Printer.Config) : Compilable[D, S] = {
+    import java.io._
+    import printConfig.formatter._
+    //writing entity and architecture files
+    val pw = new FileWriter(new File(s"$fileName"))
+    c.cmdSeq.foreach{
+      case Compilable.Cmd.GenFile(_, contents) =>
+        val uncolored = contents.uncolor
+        pw.write(uncolored)
+    }
+    pw.close()
+    c
+  }
 }
 
 object Printer {

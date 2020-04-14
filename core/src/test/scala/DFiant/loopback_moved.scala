@@ -1,6 +1,6 @@
 package DFiant
 
-import xilinx._
+import ompss._
 import compiler.backend.vhdl._
 import compiler.sync._
 
@@ -8,7 +8,7 @@ object AP_FSM extends EnumType.Auto {
   val IDLE, ST2, ST3, ST4, ST5, ST6, ST7, ST8, ST9, ST10, ST11, ST12, ST13 = Entry()
 }
 
-trait loopback_moved extends VivadoHLSDesign {
+trait loopback_moved extends OmpSsDesign {
   //d is output
   final val d         = AXI4.SWO <> AXI4.Master
   final val d_offset  = DFBits(64) <> IN
@@ -16,6 +16,11 @@ trait loopback_moved extends VivadoHLSDesign {
   final val o         = AXI4.SRO <> AXI4.Master
   final val o_offset  = DFBits(64) <> IN
   final val size      = DFBits(32) <> IN
+
+
+  /////////////////////////////////////////////////////////////////////////////
+  // All this code will be automatically generated for final integration
+  /////////////////////////////////////////////////////////////////////////////
   private val ap_fsm    = DFEnum(AP_FSM) init AP_FSM.IDLE
   private val ap_reg_ioackin_m_axi_d_AWREADY = DFBit() init 0
   private val ap_sig_ioackin_m_axi_d_AWREADY = DFBit()
@@ -153,9 +158,9 @@ trait LoopbackDriver extends DFSimulator {
   final val ap_done   = DFBit() <> IN
   final val ap_idle   = DFBit() <> IN
   final val ap_ready  = DFBit() <> IN
-  final val d         = AXI4.SRO <> AXI4.Slave
+  final val d         = AXI4.SWO <> AXI4.Slave
   final val d_offset  = DFBits(64) <> OUT
-  final val o         = AXI4.SWO <> AXI4.Slave
+  final val o         = AXI4.SRO <> AXI4.Slave
   final val o_offset  = DFBits(64) <> OUT
   final val size      = DFBits(32) <> OUT
   val cnt = DFUInt(8) init 0
@@ -184,7 +189,6 @@ object LoopbackApp extends App {
   object loopback_test extends LoopbackTest {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
-
   }
   loopback_test.printCodeString().compile.toFolder("loopback")
 }
