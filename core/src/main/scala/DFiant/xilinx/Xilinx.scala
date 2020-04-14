@@ -9,13 +9,6 @@ protected sealed trait DedicatedTags {
   }
 }
 
-//trait AP extends DFInterface {
-//  final val start   = DFBit() <> IN
-//  final val done    = DFBit() <> OUT
-//  final val idle    = DFBit() <> OUT
-//  final val ready   = DFBit() <> OUT
-//}
-
 abstract class VivadoHLSDesign(
   implicit ctx : ContextOf[VivadoHLSDesign]
 ) extends DFDesign with DedicatedTags {

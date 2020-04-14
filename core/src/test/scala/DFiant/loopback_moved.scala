@@ -149,8 +149,15 @@ trait loopback_moved extends VivadoHLSDesign {
 }
 
 trait LoopbackDriver extends DFSimulator {
-  final val d = AXI4.SRO <> AXI4.Slave
-  final val o = AXI4.SWO <> AXI4.Slave
+  final val ap_start  = DFBit() <> OUT
+  final val ap_done   = DFBit() <> IN
+  final val ap_idle   = DFBit() <> IN
+  final val ap_ready  = DFBit() <> IN
+  final val d         = AXI4.SRO <> AXI4.Slave
+  final val d_offset  = DFBits(64) <> OUT
+  final val o         = AXI4.SWO <> AXI4.Slave
+  final val o_offset  = DFBits(64) <> OUT
+  final val size      = DFBits(32) <> OUT
   val cnt = DFUInt(8) init 0
   cnt := cnt.prev
   def waitClk() : Unit = vhdl"wait until rising_edge(ap_clk);"
@@ -162,8 +169,15 @@ trait LoopbackDriver extends DFSimulator {
 trait LoopbackTest extends DFSimulator  {
   final val lb = new loopback_moved {}
   final val lb_drv = new LoopbackDriver {}
+  lb.ap.start <> lb_drv.ap_start
+  lb.ap.done <> lb_drv.ap_done
+  lb.ap.idle <> lb_drv.ap_idle
+  lb.ap.ready <> lb_drv.ap_ready
   lb.d <> lb_drv.d
   lb.o <> lb_drv.o
+  lb.d_offset <> lb_drv.d_offset
+  lb.o_offset <> lb_drv.o_offset
+  lb.size <> lb_drv.size
 }
 
 object LoopbackApp extends App {
