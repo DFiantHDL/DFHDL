@@ -21,19 +21,20 @@ theme:
     font:
         text: 'Roboto'
         code: 'Roboto Mono'    
-    feature:
-        tabs: true
-    logo:
-        icon: 'home'    
+    features:
+        - tabs
+        - instant
+    icon:
+        logo: 'material/home'    
         
 # Customization
 extra:
   social:
-    - type: 'github'
+    - icon: fontawesome/brands/github-alt
       link: 'https://www.github.com/soronpo/'
-    - type: 'researchgate'
+    - icon: fontawesome/brands/researchgate
       link: 'https://www.researchgate.net/profile/Oron_Port'
-    - type: 'twitter'
+    - icon: fontawesome/brands/twitter
       link: 'https://twitter.com/soronpo'
         
 
@@ -72,6 +73,7 @@ markdown_extensions:
     - admonition
     - pymdownx.arithmatex
     - pymdownx.superfences
+    - pymdownx.tabbed
     - pymdownx.details
     - pymdownx.inlinehilite 
     - codehilite:
