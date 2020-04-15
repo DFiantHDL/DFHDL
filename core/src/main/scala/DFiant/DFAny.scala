@@ -697,8 +697,12 @@ object DFAny {
   type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
-    private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment =
-      DFNet.Assignment(left, that)
+    private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment = left match {
+      case Out() | Var() => DFNet.Assignment(left, that)
+      case _ =>
+        throw new IllegalArgumentException(s"\nCan only assign to a dataflow variable or an output port.\nAttempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}")
+    }
+
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : DFNet.Assignment = assign(op(left.dfType, right))
