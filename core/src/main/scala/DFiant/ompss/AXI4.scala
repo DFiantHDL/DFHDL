@@ -150,12 +150,16 @@ object AXI4 {
     final val USER    = DFBits(1)   <> MasterDir(IN)
     axiDir match {
       case Master =>
-        if (!enabled || simple) {
+        if (!enabled) {
           READY := 0
         }
       case Slave =>
-        if (!enabled || simple) {
+        if (!enabled) {
           VALID := 0
+          RESP := b0s
+          ID := b0s
+          USER := b0s
+        } else if (simple) {
           RESP := b0s
           ID := b0s
           USER := b0s

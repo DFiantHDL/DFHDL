@@ -53,6 +53,7 @@ trait loopback_moved extends OmpSsDesign {
   ap.idle := 0
   d.AW.VALID := 0
   d.W.VALID := 0
+  d.B.READY := 0
   o.AR.VALID := 0
   o.R.READY := 0
 
@@ -145,6 +146,7 @@ trait loopback_moved extends OmpSsDesign {
     .casedf(AP_FSM.ST13){
       d_blk_n_B := d.B.VALID
       ifdf(d.B.VALID){
+        d.B.READY := 1
         ap_fsm := AP_FSM.IDLE
         ap.done := 1
         ap.ready := 1
