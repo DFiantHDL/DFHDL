@@ -6,7 +6,7 @@ import compiler.sync._
 
 final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db
-  private val topMembers = designDB.ownerMemberTable(designDB.top)
+  private val topMembers = designDB.blockMemberTable(designDB.top)
   private val topPorts : List[DFAny.Of[_ <: DFAny.Type]] = topMembers.collect{
     case p @ DFAny.Port.In() => p
     case p @ DFAny.Port.Out() => p

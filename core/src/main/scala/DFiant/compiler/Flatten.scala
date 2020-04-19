@@ -15,7 +15,7 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     val producersToPort = designDB.consumerDependencyTable(port)
     if (producersToPort.size == 1) {
       val producerToPort = producersToPort.head
-      val ibMembers = designDB.ownerMemberTable(incomingBlock) //TODO: perhaps at any hierarchy?
+      val ibMembers = designDB.blockMemberTable(incomingBlock) //TODO: perhaps at any hierarchy?
       val unusedNet = ibMembers.collectFirst{
         case m : DFNet.Connection if m.toRef.get == port => m
       }.get
@@ -30,7 +30,7 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
   }
   private def flattenPatch(block : DFBlock) : List[(DFMember, Patch)] = {
     if (block.isTop) List() else {
-      val members = designDB.ownerMemberTable(block)
+      val members = designDB.blockMemberTable(block)
       val owner = block.getOwnerDesign
       (block -> Patch.Replace(owner, Patch.Replace.Config.FullReplacement)) :: members.flatMap {
         case p @ DFAny.Port.In() => flattenPort(p)

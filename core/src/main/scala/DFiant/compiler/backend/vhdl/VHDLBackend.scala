@@ -25,7 +25,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true) : List[String] = {
-    val (_, statements) = designDB.ownerMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
+    val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
@@ -48,7 +48,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
   }
   def compile = {
     val designTypes = mutable.Set.empty[String]
-    val files = designDB.ownerMemberList.flatMap {
+    val files = designDB.blockMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
       case (design : DFDesign.Block, members) if !designTypes.contains(design.designType) =>
         designTypes += design.designType
@@ -70,7 +70,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         val entity = Entity(entityName, ports)
         val componentInstances = members.collect {
           case x : DFDesign.Block.Internal if x.inlinedRep.isEmpty =>
-            val connections = designDB.ownerMemberTable(x).collect {
+            val connections = designDB.blockMemberTable(x).collect {
               case Net.External(netStr) => netStr
             }
             ComponentInstance(x.name, x.designType, connections)

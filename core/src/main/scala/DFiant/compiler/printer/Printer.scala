@@ -17,10 +17,10 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
-      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(fixedDB.ownerMemberTable(cb), lateConstruction)))
+      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(fixedDB.blockMemberTable(cb), lateConstruction)))
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
-        val body = blockBodyCodeString(fixedDB.ownerMemberTable(d), lateConstruction = true)
+        val body = blockBodyCodeString(fixedDB.blockMemberTable(d), lateConstruction = true)
         val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
         Some(s"$SC final $SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.getOwnerBlock match {
@@ -59,7 +59,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     import printConfig._
     import formatter._
     val uniqueDesigns = mutable.Set.empty[String]
-    val codeStringList = fixedDB.ownerMemberList.flatMap {
+    val codeStringList = fixedDB.blockMemberList.flatMap {
       case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
       case (block : DFDesign.Block, members) if !uniqueDesigns.contains(block.designType) =>
         uniqueDesigns += block.designType

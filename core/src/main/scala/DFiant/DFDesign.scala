@@ -4,8 +4,9 @@ import DFiant.internals._
 import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.mutable
 import DFiant.compiler.printer.Printer
-
 import singleton.ops._
+
+import scala.reflect.{ClassTag, classTag}
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
   private[DFiant] lazy val __ctx : DFDesign.Context = ctx
 }
@@ -215,68 +216,43 @@ object DFDesign {
 //      members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}
 
     //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
-    @tailrec private def OMLGen(
-      oml : List[(DFBlock, List[DFMember])], globalMembers : List[DFMember], localStack : List[(DFBlock, List[DFMember])]
-    ) : List[(DFBlock, List[DFMember])] = {
+    @tailrec private def OMLGen[O <: DFOwner : ClassTag](getOwnerFunc : DFMember => O)(
+      oml : List[(O, List[DFMember])], globalMembers : List[DFMember], localStack : List[(O, List[DFMember])]
+    ) : List[(O, List[DFMember])] = {
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
-        case m :: mList if m.getOwnerBlock == localOwner => //current member indeed belongs to current owner
+        case m :: mList if getOwnerFunc(m) == localOwner => //current member indeed belongs to current owner
           val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
           m match {
-            case o : DFBlock => //Deep borrowing into block as the new owner
+            case o : O if classTag[O].runtimeClass.isInstance(o) => //Deep borrowing into block as the new owner
               val updatedStack2 = (o -> List()) :: updatedStack1
-              OMLGen(oml, mList, updatedStack2)
+              OMLGen[O](getOwnerFunc)(oml, mList, updatedStack2)
             case _ => //Just a member
-              OMLGen(oml, mList, updatedStack1)
+              OMLGen[O](getOwnerFunc)(oml, mList, updatedStack1)
           }
         case x :: xs => //current member does not belong to current owner
           val updatedOML = (localOwner -> localMembers.reverse) :: oml
-          OMLGen(updatedOML, globalMembers, updatedStack0)
+          OMLGen[O](getOwnerFunc)(updatedOML, globalMembers, updatedStack0)
         case Nil if updatedStack0.nonEmpty =>
           val updatedOML = (localOwner -> localMembers.reverse) :: oml
-          OMLGen(updatedOML, globalMembers, updatedStack0)
+          OMLGen[O](getOwnerFunc)(updatedOML, globalMembers, updatedStack0)
         case Nil =>
           (localOwner -> localMembers.reverse) :: oml
       }
     }
 
     //holds the topological order of owner block dependency
-    lazy val ownerMemberList : List[(DFBlock, List[DFMember])] =
-      OMLGen(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
+    lazy val blockMemberList : List[(DFBlock, List[DFMember])] =
+      OMLGen[DFBlock](_.getOwnerBlock)(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
     def printOwnerMemberList() : Unit =
-      println(ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
+      println(blockMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
 
     //holds a hash table that lists members of each owner block. The member list order is maintained.
-    lazy val ownerMemberTable : Map[DFBlock, List[DFMember]] = Map(ownerMemberList : _*)
+    lazy val blockMemberTable : Map[DFBlock, List[DFMember]] = Map(blockMemberList : _*)
 
-    //Owner-to-members list generation via a tail recursive function that topologically sorts the blocks according to dependency
-    @tailrec private def DMLGen(
-      oml : List[(DFDesign.Block, List[DFMember])], globalMembers : List[DFMember], localStack : List[(DFDesign.Block, List[DFMember])]
-    ) : List[(DFDesign.Block, List[DFMember])] = {
-      val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
-      globalMembers match {
-        case m :: mList if m.getOwnerDesign == localOwner => //current member indeed belongs to current owner
-          val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
-          m match {
-            case o : DFDesign.Block => //Deep borrowing into block as the new owner
-              val updatedStack2 = (o -> List()) :: updatedStack1
-              DMLGen(oml, mList, updatedStack2)
-            case _ => //Just a member
-              DMLGen(oml, mList, updatedStack1)
-          }
-        case x :: xs => //current member does not belong to current owner
-          val updatedOML = (localOwner -> localMembers.reverse) :: oml
-          DMLGen(updatedOML, globalMembers, updatedStack0)
-        case Nil if updatedStack0.nonEmpty =>
-          val updatedOML = (localOwner -> localMembers.reverse) :: oml
-          DMLGen(updatedOML, globalMembers, updatedStack0)
-        case Nil =>
-          (localOwner -> localMembers.reverse) :: oml
-      }
-    }
     //holds the topological order of design block dependency
     lazy val designMemberList : List[(DFDesign.Block, List[DFMember])] =
-      DMLGen(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
+      OMLGen[DFDesign.Block](_.getOwnerDesign)(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
 
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val designMemberTable : Map[DFDesign.Block, List[DFMember]] = Map(designMemberList : _*)
@@ -421,7 +397,7 @@ object DFDesign {
     @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
       remaining match {
         case (block : DFBlock) :: mList =>
-          val members = ownerMemberTable(block)
+          val members = blockMemberTable(block)
           val sortedMembers = block match {
             case _ : DFDesign.Block =>
               val split = members.partition {

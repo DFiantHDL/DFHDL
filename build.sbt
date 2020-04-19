@@ -14,8 +14,11 @@ inThisBuild(List(
 
 name := projectName
 organization in ThisBuild := "io.github.dfianthdl"
-scalaVersion in ThisBuild := "2.13.2-bin-6ab2742-SNAPSHOT" //2.12.4-bin-typelevel-4
-resolvers in ThisBuild += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
+scalaVersion in ThisBuild := "2.13.2-bin-c536ae7" //2.12.4-bin-typelevel-4
+//resolvers in ThisBuild += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
+resolvers in ThisBuild += "scala-integration" at
+  "https://scala-ci.typesafe.com/artifactory/scala-integration/"
+
 //enablePlugins(ScalaJSPlugin)
 
 // PROJECTS

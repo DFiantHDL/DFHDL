@@ -160,7 +160,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
           getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, currentSet)
         } else {
           assert(currentBlock == designDB.top)
-          val outPorts : List[DFAny] = designDB.ownerMemberTable(designDB.top).collect{case p @ DFAny.Port.Out() => p}
+          val outPorts : List[DFAny] = designDB.blockMemberTable(designDB.top).collect{case p @ DFAny.Port.Out() => p}
           //consuming from top-level output ports
           outPorts.foldLeft(currentSet){case (cs, p) => consumeFrom(p, scopeMap, cs)}
         }

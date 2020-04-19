@@ -13,7 +13,7 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D,
       case None => calc.get(member).asInstanceOf[Option[Seq[member.TToken]]]
     }
     def getRetVal(cb : ConditionalBlock.WithRetVal[_]) : DFAny = {
-      designDB.ownerMemberTable(cb).last match {
+      designDB.blockMemberTable(cb).last match {
         case n : DFNet.Assignment if n.toRef.get == cb.retVarRef.get => n.fromRef.get
         case m => throw new IllegalArgumentException(s"Unexpected last member in conditional block. Expected assignment to the return variable, but got $m")
       }
