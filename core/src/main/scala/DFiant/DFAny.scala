@@ -53,7 +53,9 @@ object DFAny {
   }
 
   @implicitNotFound(Context.MissingError.msg)
-  trait Context extends DFMember.Context
+  trait Context extends DFMember.Context {
+    val dir : DFDir
+  }
   object Context {
     final object MissingError extends ErrorMsg (
       "Missing an implicit owner Context.",
@@ -177,7 +179,7 @@ object DFAny {
     case object Val extends Val
     sealed trait Assignable extends Val
     sealed trait Connectable extends Modifier
-    final case class Port[+D <: DFDir](dir : D) extends Connectable with Assignable {
+    final case class Port[+D <: PortDir](dir : D) extends Connectable with Assignable {
       override def codeString(implicit printConfig : Printer.Config) : String = {
         import printConfig._
         import formatter._
@@ -294,8 +296,20 @@ object DFAny {
     }
     def apply[Type <: DFAny.Type, Mod <: DFAny.Modifier](dfType: Type, modifier : Mod)(
       implicit ctx: DFAny.Context
-    ): Value[Type, Mod] with Uninitialized =
-      ctx.db.addMember(Dcl(dfType, modifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
+    ): Value[Type, Mod] with Uninitialized = {
+      val actualModifier : Modifier = ctx.dir match {
+        case IN => Modifier.Port(IN)
+        case OUT => Modifier.Port(OUT)
+        case VAR => Modifier.NewVar
+        case FLIP => modifier match {
+          case Modifier.Port(IN) => Modifier.Port(OUT)
+          case Modifier.Port(OUT) => Modifier.Port(IN)
+          case _ => modifier
+        }
+        case ASIS => modifier
+      }
+      ctx.db.addMember(Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
+    }
   }
 
   object Port {
@@ -329,7 +343,7 @@ object DFAny {
     }
   }
   implicit class NewVarOps[Type <: DFAny.Type](val left : Value[Type, Modifier.NewVar] with Dcl.Uninitialized) {
-    def <> [D <: DFDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[D]] with Dcl.Uninitialized = {
+    def <> [D <: PortDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[D]] with Dcl.Uninitialized = {
       val newMember = Dcl(left.dfType, Modifier.Port(dir), None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port[D]] with Dcl.Uninitialized]
       if (ctx.meta.namePosition == left.tags.meta.namePosition) {
         implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
@@ -708,7 +722,7 @@ object DFAny {
     ) : DFNet.Assignment = assign(op(left.dfType, right))
   }
 
-  type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[DFDir]]
+  type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]
   type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[IN]]
   type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[OUT]]
   implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
@@ -747,7 +761,7 @@ object DFAny {
   }
 
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
-  implicit class ConnectableOps[Type <: DFAny.Type](left : ConnectableOf[Type]){
+  implicit class ConnectableOps(left : DFAny){
     protected implicit class ConnectionExtras(that : DFAny) {
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.getOwnerDesign.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
       def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
@@ -817,7 +831,7 @@ object DFAny {
       }
     }
 
-    protected[DFiant] def connectWith(right : Of[Type])(implicit ctx : DFNet.Context) : Unit = {
+    protected[DFiant] def connectWith(right : DFAny)(implicit ctx : DFNet.Context) : Unit = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
       val (toPort, from) : (DFAny, DFAny) = (left, right) match {
         case (p1@In(),  p2@In())  => connectPortInWithPortIn(p1, p2)

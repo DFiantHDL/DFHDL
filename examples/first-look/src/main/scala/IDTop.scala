@@ -22,8 +22,9 @@ trait ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
   val o = DFUInt(8) <> OUT init 0	//The output port is a signed 16-bit integer
   o := o + i.prev
-  val amm = new Ifc {}
-  amm.AA <> amm.BB
+  val a = new Ifc()(OUT) {}
+  val b = new Ifc()(IN) {}
+  a.AA <> b.AA
   sim.assert(true, msg"HAHA$i")
   sim.finish()
 }
@@ -39,8 +40,7 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
 }
 
 abstract class Ifc()(implicit ctx : ContextOf[Ifc]) extends DFInterface {
-  val AA = DFUInt(8) <> IN
-  val BB = DFUInt(8) <> OUT
+  val AA = DFUInt(8)
 //  val ifc2 = new Ifc2 {}
 }
 //abstract class Ifc2()(implicit ctx : ContextOf[Ifc2]) extends DFInterface.Pure {

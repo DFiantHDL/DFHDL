@@ -48,28 +48,40 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // Dataflow Port Annotations
   ////////////////////////////////////////////////////////////////////////////////////
-  type <>[DF <: DFAny, Dir <: DFDir] = Dir#Func[DF]
+  sealed trait DFDir extends Product with Serializable {
+    final def apply(dir : DFDir) : DFDir = this match {
+      case IN => IN
+      case OUT => OUT
+      case VAR => VAR
+      case FLIP => dir match {
+        case IN => OUT
+        case OUT => IN
+        case VAR => VAR
+        case FLIP => ASIS
+        case ASIS => FLIP
+      }
+      case ASIS => dir
+    }
+  }
+  type <>[DF <: DFAny, Dir <: PortDir] = Dir#Func[DF]
 //  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
   //Direction of a Port
-  sealed trait DFDir extends Product with Serializable {
+  sealed trait PortDir extends DFDir {
     type Func[DF <: DFAny]
-    val isOut : Boolean
-    val isIn : Boolean
   }
-  implicit case object IN extends DFDir {
+  case object IN extends PortDir {
     type Func[DF <: DFAny] = DFAny.DefaultRet[DF#TType]
     override def toString: String = "IN "
-    final val isOut : Boolean = false
-    final val isIn : Boolean = true
   }
   type IN = IN.type
-  implicit case object OUT extends DFDir {
+  case object OUT extends PortDir {
     type Func[DF <: DFAny] = DFAny.VarOf[DF#TType]
     override def toString: String = "OUT"
-    final val isOut : Boolean = true
-    final val isIn : Boolean = false
   }
   type OUT = OUT.type
+  case object VAR extends DFDir
+  case object FLIP extends DFDir
+  case object ASIS extends DFDir
   ////////////////////////////////////////////////////////////////////////////////////
 
 

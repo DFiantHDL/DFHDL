@@ -17,7 +17,7 @@ abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : Con
 }
 
 //@implicitNotFound(ContextOf.MissingError.msg)
-final class ContextOf[T <: DFInterface.Abstract](val meta : Meta, ownerF : => T#Owner, val db: DFDesign.DB.Mutable) extends DFMember.Context {
+final class ContextOf[T <: DFInterface.Abstract](val meta : Meta, ownerF : => T#Owner, val dir: DFDir, val db: DFDesign.DB.Mutable) extends DFMember.Context {
   def owner : T#Owner = ownerF
 }
 object ContextOf {
@@ -27,10 +27,12 @@ object ContextOf {
   ) {final val msg = getMsg}
   implicit def evCtx[T1 <: DFInterface.Abstract, T2 <: DFInterface.Abstract](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.db)
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db)
   implicit def evTop[T <: DFDesign](
     implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
-  ) : ContextOf[T] = new ContextOf[T](meta, null, new DFDesign.DB.Mutable)
+  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable)
+  implicit def fromDir[T <: DFInterface](dir : DFDir)(implicit ctx : ContextOf[T]) : ContextOf[T] =
+    new ContextOf[T](ctx.meta, ctx.owner, dir(ctx.dir), ctx.db)
 }
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
@@ -40,20 +42,20 @@ object DFDesign {
     private[DFiant] val __ctx : DFDesign.Context
     private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
     private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
-    private[DFiant] final val block : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
+    private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
     private[DFiant] final val __db: DFDesign.DB.Mutable = __ctx.db
-    private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(block)
+    private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
     final protected implicit val __getset : MemberGetSet = __ctx.db.getSet
 
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __anyContext(implicit meta : Meta) : DFBlock.Context =
-      new DFBlock.Context(meta, ownerInjector, __ctx.db)
+      new DFBlock.Context(meta, ownerInjector, __ctx.dir, __ctx.db)
     final protected implicit def __contextOfDesign[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-      new ContextOf[T](meta, block, __ctx.db)
-    final protected implicit def __contextOfPure[T <: DFInterface](implicit meta : Meta) : ContextOf[T] =
-      new ContextOf[T](meta, block, __ctx.db)
+      new ContextOf[T](meta, owner, __ctx.dir, __ctx.db)
+    final protected implicit def __contextOfInterface[T <: DFInterface](implicit meta : Meta) : ContextOf[T] =
+      new ContextOf[T](meta, owner, __ctx.dir, __ctx.db)
 //    final protected implicit def __pureContext(implicit meta : Meta) : DFInterface.Context =
 //      new DFInterface.Context(meta, block, __db)
 //    final protected implicit def __pureContextOf[T <: DFInterface.Pure](implicit meta : Meta, di : DummyImplicit) : ContextOf[T] =
@@ -117,7 +119,7 @@ object DFDesign {
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getSet
-    private def onBlock(b : Block => Unit) : T = {b(design.block); design}
+    private def onBlock(b : Block => Unit) : T = {b(design.owner); design}
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
     def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
@@ -241,11 +243,18 @@ object DFDesign {
       }
     }
 
+    //holds the topological order of owner owner dependency
+    lazy val ownerMemberList : List[(DFOwner, List[DFMember])] =
+      OMLGen[DFOwner](_.getOwner)(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP owner
+    def printOwnerMemberList() : Unit =
+      println(ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
+
+    //holds a hash table that lists members of each owner owner. The member list order is maintained.
+    lazy val ownerMemberTable : Map[DFOwner, List[DFMember]] = Map(ownerMemberList : _*)
+
     //holds the topological order of owner block dependency
     lazy val blockMemberList : List[(DFBlock, List[DFMember])] =
       OMLGen[DFBlock](_.getOwnerBlock)(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP block
-    def printOwnerMemberList() : Unit =
-      println(blockMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
 
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val blockMemberTable : Map[DFBlock, List[DFMember]] = Map(blockMemberList : _*)
@@ -266,11 +275,11 @@ object DFDesign {
               case DB.Patch.Replace.Scope.Outside(block) =>
                 //for references that have owner references of their own, we check the owners location with respect
                 //to the requested scope
-                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isOutsideDesign(block) => r}
+                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isOutsideOwner(block) => r}
               case DB.Patch.Replace.Scope.Inside(block) =>
                 //for references that have owner references of their own, we check the owners location with respect
                 //to the requested scope
-                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isInsideDesign(block) => r}
+                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isInsideOwner(block) => r}
             }
             scopeRefs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
           case None =>
@@ -510,10 +519,24 @@ object DFDesign {
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
       private val refTable : mutable.Map[DFMember.Ref, DFMember] = mutable.Map()
-      def hasToConnectionFor(dfVar : DFAny) : Boolean = {
-        members(memberTable.getOrElse(dfVar, 0))._2.collectFirst {
-          case DFNet.ToRef() => true
-        }.nonEmpty
+      def hasToConnectionFor(dfVar : DFAny) : Boolean = members(memberTable.getOrElse(dfVar, 0))._2.collectFirst {
+        case DFNet.ToRef() => true
+      }.nonEmpty
+      def getMembersOf(owner : DFOwner) : List[DFMember] = {
+        val ret = memberTable.get(owner) match {
+          case Some(idx) =>
+            var list = List.empty[DFMember]
+            var i = idx + 1
+            while (i < members.length) {
+              val m = members(i)._1
+              if (m.getOwner == owner) list = m :: list
+              else if (m.isOutsideOwner(owner)) i = members.length
+              i = i + 1
+            }
+            list
+          case None => Nil
+        }
+        ret.reverse
       }
       def getMembers : Iterator[DFMember] = members.view.map(e => e._1).iterator
       def getMember[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]

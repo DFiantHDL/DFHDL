@@ -7,13 +7,6 @@ final class AXI4 private (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx 
   final val AR = new AXI4.AddressChannel(axiDir)(config.rdEnabled, config.simple)
   final val R  = new AXI4.ReadDataChannel(axiDir)(config.rdEnabled, config.simple)
   final val B  = new AXI4.WriteResponseChannel(axiDir)(config.wrEnabled, config.simple)
-  def <> (that : AXI4)(implicit ctx : DFBlock.Context) : Unit = {
-    AW  <> that.AW
-    W   <> that.W
-    AR  <> that.AR
-    R   <> that.R
-    B   <> that.B
-  }
 }
 object AXI4 {
   protected final class ConfigNode(config : Config) {
@@ -24,7 +17,7 @@ object AXI4 {
   final val SWO = AXI4(Config(rdEnabled = false, wrEnabled = true, simple = true)) //simple write-only
 
   abstract class Interface(axiDir : Dir)(implicit ctx : ContextOf[Interface]) extends DFInterface("", "") {
-    def MasterDir(portDir : DFDir) : DFDir = axiDir match {
+    def MasterDir(portDir : PortDir) : PortDir = axiDir match {
       case Master => portDir
       case Slave => portDir match {
         case IN => OUT
@@ -88,21 +81,6 @@ object AXI4 {
           READY := 0
         }
     }
-    def <> (that : AddressChannel)(implicit ctx : DFBlock.Context) : Unit = {
-      VALID    <> that.VALID
-      READY    <> that.READY
-      ADDR     <> that.ADDR
-      ID       <> that.ID
-      LEN      <> that.LEN
-      SIZE     <> that.SIZE
-      BURST    <> that.BURST
-      LOCK     <> that.LOCK
-      CACHE    <> that.CACHE
-      PROT     <> that.PROT
-      QOS      <> that.QOS
-      REGION   <> that.REGION
-      USER     <> that.USER
-    }
   }
   final protected class WriteDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[WriteDataChannel]) extends Interface(axiDir) {
     final val VALID   = DFBit()     <> MasterDir(OUT)
@@ -132,15 +110,6 @@ object AXI4 {
           READY := 0
         }
     }
-    def <> (that : WriteDataChannel)(implicit ctx : DFBlock.Context) : Unit = {
-      VALID  <> that.VALID
-      READY  <> that.READY
-      DATA   <> that.DATA
-      STRB   <> that.STRB
-      LAST   <> that.LAST
-      ID     <> that.ID
-      USER   <> that.USER
-    }
   }
   final protected class WriteResponseChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[WriteResponseChannel]) extends Interface(axiDir) {
     final val VALID   = DFBit()     <> MasterDir(IN)
@@ -164,13 +133,6 @@ object AXI4 {
           ID := b0s
           USER := b0s
         }
-    }
-    def <> (that : WriteResponseChannel)(implicit ctx : DFBlock.Context) : Unit = {
-      VALID    <> that.VALID
-      READY    <> that.READY
-      RESP     <> that.RESP
-      ID       <> that.ID
-      USER     <> that.USER
     }
   }
   final protected class ReadDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[ReadDataChannel]) extends Interface(axiDir) {
@@ -200,15 +162,6 @@ object AXI4 {
           USER := b0s
           RESP := b0s
         }
-    }
-    def <> (that : ReadDataChannel)(implicit ctx : DFBlock.Context) : Unit = {
-      VALID    <> that.VALID
-      READY    <> that.READY
-      DATA     <> that.DATA
-      LAST     <> that.LAST
-      ID       <> that.ID
-      USER     <> that.USER
-      RESP     <> that.RESP
     }
   }
 }

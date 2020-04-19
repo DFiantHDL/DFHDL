@@ -14,14 +14,15 @@ abstract class DFInterface(namePrefix : String = "", nameSuffix : String = "_")(
   final protected implicit val __getset : MemberGetSet = ctx.db.getSet
   final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
   final protected implicit def __anyContext(implicit meta : Meta) : DFInterface.Context =
-    new DFInterface.Context(meta, owner, __db)
+    new DFInterface.Context(meta, owner, ctx.dir, __db)
   final protected implicit def __contextOf[T <: DFInterface](implicit meta : Meta) : ContextOf[T] =
-    new ContextOf[T](meta, owner, __db)
+    new ContextOf[T](meta, owner, ctx.dir, __db)
 }
 
 object DFInterface {
   trait Abstract extends HasTypeName with DFDesign.Implicits {
     type Owner <: DFOwner
+    private[DFiant] val owner : Owner
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
@@ -29,10 +30,11 @@ object DFInterface {
     ///////////////////////////////////////////////////////////////////
 
   }
-//  implicit class AbstractExt[T <: DFInterface](t : T) {
-//    def <> (r : T)(implicit ctx : DFNet.Context) : Unit = t.owner.connectWith(r.owner)
-//  }
-  protected[DFiant] class Context(val meta : Meta, ownerF : => DFOwner, val db : DFDesign.DB.Mutable)
+  implicit class InterfaceExt[T <: DFInterface](t : T) {
+    def getMembers(implicit ctx : DFBlock.Context) : List[DFMember] = ctx.db.getMembersOf(t.owner)
+    def <> (r : T)(implicit ctx : DFBlock.Context) : Unit = t.owner connectWith r.owner
+  }
+  protected[DFiant] class Context(val meta : Meta, ownerF : => DFOwner, val dir : DFDir, val db : DFDesign.DB.Mutable)
     extends DFAny.Context {
     def owner : DFOwner = ownerF
   }
@@ -45,7 +47,9 @@ object DFInterface {
       implicit
       ctx : ContextOf[T],
       mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T]], MissingError.Msg]
-    ) : Context = new Context(ctx.meta, ctx.owner, ctx.db)
+    ) : Context = new Context(ctx.meta, ctx.owner, ctx.dir, ctx.db)
+    implicit def fromDir(dir : DFDir)(implicit ctx : Context) : Context =
+      new Context(ctx.meta, ctx.owner, dir(ctx.dir), ctx.db)
   }
 
   final case class Owner(namePrefix : String, nameSuffix : String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {
@@ -56,7 +60,6 @@ object DFInterface {
         this.namePrefix == namePrefix && this.nameSuffix == nameSuffix && this.tags =~ tags
       case _ => false
     }
-    def connectWith(that : Owner)(implicit ctx : DFNet.Context) : Unit = {}
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))

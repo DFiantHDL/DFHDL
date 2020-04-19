@@ -22,8 +22,8 @@ trait DFBlock extends DFOwner {
 
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
-  final class Context(meta : Meta, val ownerInjector : DFMember.OwnerInjector, db : DFDesign.DB.Mutable)
-    extends DFInterface.Context(meta, ownerInjector.get, db) {
+  final class Context(meta : Meta, val ownerInjector : DFMember.OwnerInjector, dir:DFDir, db : DFDesign.DB.Mutable)
+    extends DFInterface.Context(meta, ownerInjector.get, dir, db) {
     override def owner : DFBlock = ownerInjector.get
   }
   object Context {
@@ -32,9 +32,9 @@ object DFBlock {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.db)
+      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db)
     implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
-      new Context(meta, null, new DFDesign.DB.Mutable)
+      new Context(meta, null, ASIS, new DFDesign.DB.Mutable)
   }
 
   type Ref = DFMember.Ref.Of[Ref.Type, DFBlock]

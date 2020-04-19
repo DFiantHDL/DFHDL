@@ -46,7 +46,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     val designOwner = callOwner.getThisOrOwnerDesign
     if (this isMemberOfDesign designOwner) name
     else if (getOwnerDesign isOneLevelBelow designOwner) s"${getOwnerDesign.name}.$name"
-    else if (callOwner isInsideDesign this.getOwnerDesign) name
+    else if (callOwner isInsideOwner this.getOwnerDesign) name
     else {
       //more complex referencing just summons the two owner chains and compares them.
       //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
@@ -64,13 +64,13 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
       case _ => getOwnerDesign isSameOwnerDesignAs that
     }
   //true if and only if the member is outside the design at any level
-  final def isOutsideDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean = !isInsideDesign(that)
+  final def isOutsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean = !isInsideOwner(that)
   //true if and only if the member is inside the design at any level
-  final def isInsideDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean = {
-    (getOwnerDesign, that) match {
+  final def isInsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean = {
+    (getOwner, that) match {
       case (a, b) if a == b => true
       case (_ : DFDesign.Block.Top, _) => false
-      case (od, _) => od.isInsideDesign(that)
+      case (od, _) => od.isInsideOwner(that)
     }
   }
   //true if and only if the two members are equivalent in relation to their design construction context

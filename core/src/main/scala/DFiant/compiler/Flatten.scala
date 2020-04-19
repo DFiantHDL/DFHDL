@@ -45,7 +45,7 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     val patchList = inlineBlocks.flatMap(ib => flattenPatch(ib))
     c.newStage[Flatten](designDB.patch(patchList), Seq())
   }
-  def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d.block)).toList)
+  def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d.owner)).toList)
 }
 
 trait Flatten extends Compilable.Stage
