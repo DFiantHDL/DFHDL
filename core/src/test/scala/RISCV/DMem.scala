@@ -29,7 +29,7 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
   final val douta = DFBits[32] <> OUT
 }
 
-class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bram_Sim]) extends DFDesign with DMem_Bram_Ifc {
+@df class DMem_Bram_Sim(programDMem : ProgramDMem) extends DFDesign with DMem_Bram_Ifc {
   private val cellNum = 256
   private val cellRange = 0 until cellNum
   private val initArr = programDMem.toInitArr(cellNum)
@@ -45,11 +45,11 @@ class DMem_Bram_Sim(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bra
 }
 
 
-class DMem_Bram(programDMem : ProgramDMem)(implicit ctx : ContextOf[DMem_Bram]) extends DFDesign with DMem_Bram_Ifc {
+@df class DMem_Bram(programDMem : ProgramDMem) extends DFDesign with DMem_Bram_Ifc {
   final val clka  = DFBit() //!! compiler.sync.Sync.Tag.Clk
 }
 
-class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst)(implicit ctx : ContextOf[DMem]) extends DFDesign {
+@df class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst) extends DFDesign {
   private val addr        = DFBits[32] <> IN
   private val dataToMem   = DFBits[32] <> IN
   private val dmemSel     = DFEnum[DMemSel] <> IN

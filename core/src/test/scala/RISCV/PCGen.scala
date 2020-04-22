@@ -19,8 +19,8 @@ package RISCV
 
 import DFiant._
 
-class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits[XLEN], rs2_data0 : DFBits[XLEN],
-  imm0 : DFBits[32])(implicit ctx : ContextOf[PCGen]) extends DFDesign {
+@df class PCGen(pc0 : DFBits[32], branchSel0 : DFEnum[BranchSel], rs1_data0 : DFBits[XLEN], rs2_data0 : DFBits[XLEN],
+  imm0 : DFBits[32]) extends DFDesign {
   private val pc          = DFBits[32]        <> IN
   private val branchSel   = DFEnum(BranchSel) <> IN
   private val rs1_data    = DFBits[XLEN]      <> IN

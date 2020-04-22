@@ -78,6 +78,7 @@ lazy val core = project
   .settings(
     name := projectName,
     settings,
+    macroSettings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
   )
@@ -105,6 +106,7 @@ lazy val `first-look` = (project in file("examples/first-look"))
     name := "first-look",
     skip in publish := true,
     settings,
+    macroSettings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
   )
@@ -212,6 +214,7 @@ lazy val compilerOptions = Seq(
 lazy val macroSettings = Seq(
   scalacOptions ++= Seq(
     "-language:experimental.macros",
+    "-Ymacro-annotations"
   ),
   scalacOptions ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {

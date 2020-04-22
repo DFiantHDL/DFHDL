@@ -2,7 +2,7 @@ package RISCV
 
 import DFiant._
 
-trait ALU extends DFDesign {
+@df class ALU extends DFDesign {
   private val op1     = DFBits[32]      <> IN
   private val op2     = DFBits[32]      <> IN
   private val aluSel  = DFEnum(ALUSel)  <> IN

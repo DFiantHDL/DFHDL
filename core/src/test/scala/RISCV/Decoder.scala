@@ -19,7 +19,7 @@ package RISCV
 
 import DFiant._
 
-class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends DFDesign {
+@df class Decoder(fetchInst : IMemInst) extends DFDesign {
   private val instRaw   = DFBits[32]            <> IN
 
   //Register File Addresses & Control

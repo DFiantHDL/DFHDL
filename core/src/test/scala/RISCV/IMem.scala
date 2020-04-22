@@ -30,21 +30,21 @@ trait IMem_Bram_Ifc extends DFDesign.Abstract {
   final val douta = DFBits[32] <> OUT
 }
 
-class IMem_Bram(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bram]) extends DFDesign with IMem_Bram_Ifc {
+@df class IMem_Bram(programIMem : ProgramIMem) extends DFDesign with IMem_Bram_Ifc {
   final val clka = DFBit() //!! compiler.sync.Sync.Tag.Clk
   //need to generate COE file
 }
 
-class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bram_Sim]) extends DFDesign with IMem_Bram_Ifc {
+@df class IMem_Bram_Sim(programIMem : ProgramIMem) extends DFDesign with IMem_Bram_Ifc {
   private val temp = DFBits[32] init b0s
   temp := b0s
   programIMem.list.map(e => (e.addr.bits(13, 2), e.inst)).matchdf(addra, temp)
   douta := temp
 }
 
-class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : ContextOf[IMem]) extends DFDesign {
+@df class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32]) extends DFDesign {
   private val pc  = DFBits[32] <> IN
-  final val inst  = new IMemInst {} <> OUT
+  final val inst  = new IMemInst <> OUT
 
 
   private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
@@ -64,12 +64,12 @@ class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : Co
 //  instRaw : DFBits[32]
 //)
 
-trait IMemInst extends DFInterface {
+@df class IMemInst extends DFInterface {
   final val pc   = DFBits[32]
   final val raw  = DFBits[32]
 }
 
-abstract class IMemT(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMemT]) extends DFDesign {
+@df abstract class IMemT(programIMem : ProgramIMem) extends DFDesign {
   private val pc      = DFBits[32] <> IN
   private val instRaw = DFBits[32] <> OUT
 

@@ -19,7 +19,7 @@ package RISCV
 
 import DFiant._
 
-class Execute(regFileInst: RegFileInst)(implicit ctx : ContextOf[Execute]) extends DFDesign {
+@df class Execute(regFileInst: RegFileInst) extends DFDesign {
   private val branchSel = DFEnum[BranchSel] <> IN
   private val rs1OpSel  = DFEnum[RS1OpSel]  <> IN
   private val rs2OpSel  = DFEnum[RS2OpSel]  <> IN
@@ -41,7 +41,7 @@ class Execute(regFileInst: RegFileInst)(implicit ctx : ContextOf[Execute]) exten
     .casedf(RS2OpSel.PC)        {pc}
     .casedf_                    {imm}
 
-  private val alu = new ALU {}
+  private val alu = new ALU
   private val aluCalc = alu.calcConn(aluOp1, aluOp2, aluSel)
   private val pcGen = new PCGen(pc, branchSel, rs1_data, rs2_data, imm)
   pcNext <> pcGen.pcNext

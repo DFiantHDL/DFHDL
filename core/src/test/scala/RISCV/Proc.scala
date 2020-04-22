@@ -19,7 +19,7 @@ package RISCV
 
 import DFiant._
 
-abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends DFDesign {
+@df class Proc(program : Program) extends DFDesign {
   private val pc = DFBits[32] init program.imem.startAddress
   private val imem = new IMem(program.imem)(pc)
   private val decoder = new Decoder(imem.inst)
@@ -54,8 +54,8 @@ abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends D
   ///////////////////////////////////////////////////////////////////////////////////////////////
 }
 
-class riscv_tb(program : Program)(implicit ctx : ContextOf[riscv_tb]) extends DFSimulator {
-  val proc = new Proc(program) {}
+@df class riscv_tb(program : Program) extends DFSimulator {
+  final val proc = new Proc(program)
   import compiler.sync._
   this !! ClockParams("clk", ClockParams.Edge.Rising)
   this !! ResetParams("rstn", ResetParams.Mode.Async, ResetParams.Active.Low)

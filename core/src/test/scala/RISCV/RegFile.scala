@@ -19,7 +19,7 @@ package RISCV
 
 import DFiant._
 
-class RegFile(decodedInst : DecodedInst)(implicit ctx : ContextOf[RegFile]) extends DFDesign {
+@df class RegFile(decodedInst : DecodedInst) extends DFDesign {
   private val rs1_addr  = DFBits[5]      <> IN
   private val rs1_data  = DFBits[XLEN]   <> OUT
   private val rs2_addr  = DFBits[5]      <> IN
