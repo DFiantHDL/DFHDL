@@ -1,10 +1,11 @@
 package continuum.test
 
 import org.scalacheck.Arbitrary.arbitrary
-import org.scalacheck.{Shrink, Gen, Arbitrary}
-
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 import continuum.bound.{Closed, Open, Unbounded}
-import continuum.{IntervalSet, Interval, Ray, Bound, LesserRay, GreaterRay}
+import continuum.{Bound, GreaterRay, Interval, IntervalSet, LesserRay, Ray}
+
+import scala.annotation.nowarn
 
 trait Generators {
 
@@ -77,6 +78,7 @@ trait Generators {
     } yield new Interval(lower, upper)
   }
 
+  @nowarn
   implicit def shrinkGreaterRay[T : Shrink](implicit conv: T => Ordered[T]): Shrink[GreaterRay[T]] = Shrink { ray =>
     ray.bound match {
       case Closed(n)   => for (np <- Shrink.shrink(n)) yield GreaterRay(Closed(np))
@@ -85,6 +87,7 @@ trait Generators {
     }
   }
 
+  @nowarn
   implicit def shrinkLesserRay[T : Shrink](implicit conv: T => Ordered[T]): Shrink[LesserRay[T]] = Shrink { ray =>
     ray.bound match {
       case Closed(n)   => for (np <- Shrink.shrink(n)) yield LesserRay(Closed(np))
