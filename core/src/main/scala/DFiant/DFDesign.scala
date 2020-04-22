@@ -17,8 +17,14 @@ abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : Con
 }
 
 //@implicitNotFound(ContextOf.MissingError.msg)
-final class ContextOf[T <: DFInterface.Abstract](val meta : Meta, ownerF : => T#Owner, val dir: DFDir, val db: DFDesign.DB.Mutable) extends DFMember.Context {
+abstract class ContextOf[T <: DFInterface.Abstract](
+  val meta : Meta, ownerF : => T#Owner, val dir: DFDir, val db: DFDesign.DB.Mutable
+) extends DFMember.Context { self =>
   def owner : T#Owner = ownerF
+  def newInterface(updatedCtx : ContextOf[T]) : Any
+  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, ownerF, updatedDir, db) {
+    override def newInterface(updatedCtx : ContextOf[T]) : Any = self.newInterface(updatedCtx)
+  }
 }
 object ContextOf {
   final object MissingError extends ErrorMsg (
@@ -26,13 +32,15 @@ object ContextOf {
     "missing-context"
   ) {final val msg = getMsg}
   implicit def evCtx[T1 <: DFInterface.Abstract, T2 <: DFInterface.Abstract](
-    implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db)
+    implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db) {
+    def newInterface(updatedCtx : ContextOf[T2]) : Any = ???
+  }
   implicit def evTop[T <: DFDesign](
     implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
-  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable)
-  implicit def fromDir[T <: DFInterface](dir : DFDir)(implicit ctx : ContextOf[T]) : ContextOf[T] =
-    new ContextOf[T](ctx.meta, ctx.owner, dir(ctx.dir), ctx.db)
+  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable) {
+    def newInterface(updatedCtx : ContextOf[T]) : Any = ???
+  }
 }
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
@@ -50,16 +58,14 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
-    final protected implicit def __anyContext(implicit meta : Meta) : DFBlock.Context =
-      new DFBlock.Context(meta, ownerInjector, __ctx.dir, __ctx.db)
-    final protected implicit def __contextOfDesign[T <: DFDesign](implicit meta : Meta) : ContextOf[T] =
-      new ContextOf[T](meta, owner, __ctx.dir, __ctx.db)
-    final protected implicit def __contextOfInterface[T <: DFInterface](implicit meta : Meta) : ContextOf[T] =
-      new ContextOf[T](meta, owner, __ctx.dir, __ctx.db)
-//    final protected implicit def __pureContext(implicit meta : Meta) : DFInterface.Context =
-//      new DFInterface.Context(meta, block, __db)
-//    final protected implicit def __pureContextOf[T <: DFInterface.Pure](implicit meta : Meta, di : DummyImplicit) : ContextOf[T] =
-//      new ContextOf[T](meta, block, __db)
+    final protected implicit def __blockContext(
+      implicit meta : Meta
+    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, __ctx.dir, __ctx.db)
+    final protected implicit def __contextOfDesign[T <: DFDesign](
+      implicit meta : Meta
+    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db) {
+      def newInterface(updatedCtx : ContextOf[T]) : Any = ???
+    }
     ///////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////
@@ -181,6 +187,8 @@ object DFDesign {
       def designDB : DFDesign.DB = self
       def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = newMemberFunc(originalMember)
+      def replace[M <: DFMember](originalMember : M)(newMember: M): M = newMember
+      def getMembersOf(owner : DFOwner) : List[DFMember] = ownerMemberTable(owner)
     }
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
 
@@ -502,8 +510,9 @@ object DFDesign {
       }
       final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref, updatedRefMember : DFMember) extends Patch
     }
-    class Mutable {
-      private val members : mutable.ArrayBuffer[(DFMember, Set[DFMember.Ref])] = mutable.ArrayBuffer()
+    class Mutable {self =>
+      //                                          Member        RefSet        Ignore
+      private val members : mutable.ArrayBuffer[(DFMember, Set[DFMember.Ref], Boolean)] = mutable.ArrayBuffer()
       def top : Block.Top = members.head._1 match {
         case m : Block.Top => m
       }
@@ -514,7 +523,7 @@ object DFDesign {
       }
       def addMember[M <: DFMember](member : M) : M = {
         memberTable += (member -> members.length)
-        members += (member -> Set())
+        members += Tuple3(member, Set(), false)
         member
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
@@ -544,21 +553,30 @@ object DFDesign {
         val idx = memberTable(originalMember)
         //get the most updated member currently positioned at the index of the original member
         val newMember = newMemberFunc(members(idx)._1.asInstanceOf[M])
-        val (_, refSet) = members(idx)
+        val (_, refSet, ignore) = members(idx)
         //update all references to the new member
         refSet.foreach(r => refTable.update(r, newMember))
         //add the member to the table with the position index
         //(we don't remove the old member since it might still be used as a user-reference in a mutable DB)
         memberTable.update(newMember, idx)
         //update the member in the member position array
-        members.update(idx, (newMember, refSet))
+        members.update(idx, (newMember, refSet, ignore))
+        newMember
+      }
+      def replaceMember[M <: DFMember](originalMember : M, newMember : M) : M = {
+        //marking the newMember slot as 'ignore' in case it exists
+        memberTable.get(newMember).foreach{idx =>
+//          memberTable.remove(newMember)
+          members.update(idx, (newMember, members(idx)._2, true))
+        }
+        setMember[M](originalMember, _ => newMember)
         newMember
       }
       def newRefFor[M <: DFMember, T <: DFMember.Ref.Type, R <: DFMember.Ref.Of[T, M]](ref : R, member : M) : R = {
         memberTable.get(member) match {
           case Some(x) =>
-            val (member, refSet) = members(x)
-            members.update(x, (member, refSet + ref))
+            val (member, refSet, ignore) = members(x)
+            members.update(x, (member, refSet + ref, ignore))
           case _ =>
           //In case where we do meta programming and planting one design into another,
           //we may not have the member available at the table. This is OK.
@@ -577,13 +595,16 @@ object DFDesign {
             case _ => //do nothing
           }
         }
-        DB(members.iterator.map(e => e._1).toList, refTable.toMap)
+        val notIgnoredMembers = members.iterator.filterNot(e => e._3).map(e => e._1).toList
+        DB(notIgnoredMembers, refTable.toMap)
       }
 
       implicit val getSet : MemberGetSet = new MemberGetSet {
         def designDB : DFDesign.DB = immutable
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
         def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = setMember(originalMember, newMemberFunc)
+        def replace[M <: DFMember](originalMember : M)(newMember: M): M = replaceMember(originalMember, newMember)
+        def getMembersOf(owner : DFOwner) : List[DFMember] = self.getMembersOf(owner)
       }
     }
   }

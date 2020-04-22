@@ -343,8 +343,17 @@ object DFAny {
     }
   }
   implicit class NewVarOps[Type <: DFAny.Type](val left : Value[Type, Modifier.NewVar] with Dcl.Uninitialized) {
-    def <> [D <: PortDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[D]] with Dcl.Uninitialized = {
-      val newMember = Dcl(left.dfType, Modifier.Port(dir), None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port[D]] with Dcl.Uninitialized]
+    def <> [D <: PortDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized = {
+      val modifier = ctx.dir match {
+        case d : PortDir => Modifier.Port(d)
+        case DFiant.VAR => Modifier.NewVar
+        case DFiant.FLIP => dir match {
+          case IN => Modifier.Port(OUT)
+          case OUT => Modifier.Port(IN)
+        }
+        case DFiant.ASIS => Modifier.Port(dir)
+      }
+      val newMember = Dcl(left.dfType, modifier, None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized]
       if (ctx.meta.namePosition == left.tags.meta.namePosition) {
         implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
         newMember

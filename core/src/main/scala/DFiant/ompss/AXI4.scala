@@ -1,7 +1,7 @@
 package DFiant
 package ompss
 
-final class AXI4 private (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface("m_axi_") {
+final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface("m_axi_") {
   final val AW = new AXI4.AddressChannel(axiDir)(config.wrEnabled, config.simple)
   final val W  = new AXI4.WriteDataChannel(axiDir)(config.wrEnabled, config.simple)
   final val AR = new AXI4.AddressChannel(axiDir)(config.rdEnabled, config.simple)

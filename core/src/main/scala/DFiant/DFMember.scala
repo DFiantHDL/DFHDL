@@ -195,6 +195,8 @@ trait MemberGetSet {
   def designDB : DFDesign.DB
   def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0
   def set[M <: DFMember](originalMember : M)(newMemberFunc : M => M) : M
+  def replace[M <: DFMember](originalMember : M)(newMember : M) : M
+  def getMembersOf(owner : DFOwner) : List[DFMember]
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet

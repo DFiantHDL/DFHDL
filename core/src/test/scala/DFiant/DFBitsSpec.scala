@@ -4,7 +4,9 @@ import DFiant.internals.Meta
 import shapeless.test.illTyped
 
 abstract class DFSpec extends AnyFlatSpec with DFDesign.Abstract {
-  private[DFiant] lazy val __ctx : DFDesign.Context = new DFBlock.Context(implicitly[Meta], null, ASIS, new DFDesign.DB.Mutable)
+  private[DFiant] lazy val __ctx : DFDesign.Context = new DFBlock.Context(implicitly[Meta], null, ASIS, new DFDesign.DB.Mutable) {
+    def newInterface(updatedCtx : DFInterface.Context) : Any = ???
+  }
 }
 
 class DFBitsSpec extends DFSpec {

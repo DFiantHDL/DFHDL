@@ -21,7 +21,7 @@ trait DFOwner extends DFMember {
 
 object DFOwner {
   implicit class AbstractExt[T <: DFOwner](t : T) {
-    def getMembers(implicit ctx : DFInterface.Context) : List[DFMember] = ctx.db.getMembersOf(t)
+    def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(t)
     //    def <> (r : T)(implicit ctx : DFNet.Context) : Unit = t.owner.connectWith(r.owner)
   }
 

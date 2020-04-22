@@ -17,14 +17,14 @@
 package example2
 
 import DFiant._ //Required in any DFiant compilation program
-
+import internals._
 trait ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
   val o = DFUInt(8) <> OUT init 0	//The output port is a signed 16-bit integer
   o := o + i.prev
-  val a = new Ifc()(OUT) {}
-  val b = new Ifc()(IN) {}
-  a.AA <> b.AA
+  val a = new Ifc <> FLIP
+  val b = new Ifc <> ASIS
+  a <> b
   sim.assert(true, msg"HAHA$i")
   sim.finish()
 }
@@ -39,14 +39,15 @@ trait IDTop extends DFDesign { //This our `IDTop` dataflow design
   id2.o <> y      //Connecting parent output port to child output port
 }
 
-abstract class Ifc()(implicit ctx : ContextOf[Ifc]) extends DFInterface {
-  val AA = DFUInt(8)
-//  val ifc2 = new Ifc2 {}
-}
-//abstract class Ifc2()(implicit ctx : ContextOf[Ifc2]) extends DFInterface.Pure {
+class Ifc()(implicit ctx : ContextOf[Ifc]) extends DFInterface {
 //  val AA = DFUInt(8) <> IN
 //  val BB = DFUInt(8) <> OUT
-//}
+  val z = new Ifc2 <> FLIP
+}
+class Ifc2()(implicit ctx : ContextOf[Ifc2]) extends DFInterface {
+  val AA = DFUInt(8) <> IN
+  val BB = DFUInt(8) <> OUT
+}
 
 //trait IDTop extends DFDesign {
 //  final val x = DFUInt(8) <> IN
@@ -89,7 +90,7 @@ object IDTopApp extends App {
 //  val top = new IDTopTest {}
   import compiler._
   import backend.vhdl._
-  val designDB = IDTopTest.compile.printCodeString().printGenFiles()
+  val designDB = IDTopTest.printCodeString()//.compile.printCodeString().printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

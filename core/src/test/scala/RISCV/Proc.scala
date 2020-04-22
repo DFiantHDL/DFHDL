@@ -34,7 +34,7 @@ abstract class Proc(program : Program)(implicit ctx : ContextOf[Proc]) extends D
   ///////////////////////////////////////////////////////////////////////////////////////////////
   private val done = DFBit() <> OUT init false
   private val ppc =  pc.prev
-  sim.report(msg"PC=$ppc, instRaw=${imem.inst.instRaw}, debugOp=${decoder.inst.debugOp}")
+  sim.report(msg"PC=$ppc, instRaw=${imem.inst.raw}, debugOp=${decoder.inst.debugOp}")
 
   program.imem.failAddress match {
     case Some(failPC) => ifdf(ppc === failPC){

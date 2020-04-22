@@ -260,7 +260,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
     import fetchInst._
     DecodedInst(
       //IMem
-      pc = pc, instRaw = fetchInst.instRaw,
+      pc = pc, instRaw = fetchInst.raw,
       //Decoder
       rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
       imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
@@ -269,7 +269,7 @@ class Decoder(fetchInst : IMemInst)(implicit ctx : ContextOf[Decoder]) extends D
   }
 
   atOwnerDo {
-    this.instRaw <> fetchInst.instRaw
+    this.instRaw <> fetchInst.raw
   }
 }
 

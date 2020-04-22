@@ -25,7 +25,7 @@ create_ip -name blk_mem_gen -vendor xilinx.com -library ip -version 8.4 -module_
 set_property -dict [list CONFIG.Component_Name {imem_bram} CONFIG.Memory_Type {Single_Port_ROM} CONFIG.Write_Width_A {32} CONFIG.Write_Depth_A {4096} CONFIG.Read_Width_A {32} CONFIG.Enable_A {Always_Enabled} CONFIG.Write_Width_B {32} CONFIG.Read_Width_B {32} CONFIG.Register_PortA_Output_of_Memory_Primitives {false} CONFIG.Load_Init_File {true} CONFIG.Coe_File {/home/soronpo/XilinxProjects/ZedBoardEst/imem.coe} CONFIG.Fill_Remaining_Memory_Locations {true} CONFIG.Port_A_Write_Rate {0}] [get_ips imem_bram]
  */
 
-trait IMem_Bram_Ifc extends DFInterface.Abstract {
+trait IMem_Bram_Ifc extends DFDesign.Abstract {
   final val addra = DFBits[12] <> IN
   final val douta = DFBits[32] <> OUT
 }
@@ -43,25 +43,31 @@ class IMem_Bram_Sim(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMem_Bra
 }
 
 class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32])(implicit ctx : ContextOf[IMem]) extends DFDesign {
-  private val pc      = DFBits[32] <> IN
-  private val instRaw = DFBits[32] <> OUT
+  private val pc  = DFBits[32] <> IN
+  final val inst  = new IMemInst {} <> OUT
+
 
   private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
 
   bram.addra <> pc(13, 2)
-  bram.douta <> instRaw
+  bram.douta <> inst.raw
+  pc <> inst.pc
 
-  final val inst = IMemInst(pc = incomingPC, instRaw = instRaw)
 
   atOwnerDo {
     pc <> incomingPC
   }
 }
 
-case class IMemInst(
-  pc      : DFBits[32],
-  instRaw : DFBits[32]
-)
+//case class IMemInst(
+//  pc      : DFBits[32],
+//  instRaw : DFBits[32]
+//)
+
+trait IMemInst extends DFInterface {
+  final val pc   = DFBits[32]
+  final val raw  = DFBits[32]
+}
 
 abstract class IMemT(programIMem : ProgramIMem)(implicit ctx : ContextOf[IMemT]) extends DFDesign {
   private val pc      = DFBits[32] <> IN

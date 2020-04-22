@@ -48,21 +48,7 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // Dataflow Port Annotations
   ////////////////////////////////////////////////////////////////////////////////////
-  sealed trait DFDir extends Product with Serializable {
-    final def apply(dir : DFDir) : DFDir = this match {
-      case IN => IN
-      case OUT => OUT
-      case VAR => VAR
-      case FLIP => dir match {
-        case IN => OUT
-        case OUT => IN
-        case VAR => VAR
-        case FLIP => ASIS
-        case ASIS => FLIP
-      }
-      case ASIS => dir
-    }
-  }
+  sealed trait DFDir extends Product with Serializable
   type <>[DF <: DFAny, Dir <: PortDir] = Dir#Func[DF]
 //  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
   //Direction of a Port
