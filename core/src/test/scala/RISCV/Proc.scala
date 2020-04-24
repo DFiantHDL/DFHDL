@@ -20,21 +20,21 @@ package RISCV
 import DFiant._
 
 @df class Proc(program : Program) extends DFDesign {
-  private val pc = DFBits[32] init program.imem.startAddress
-  private val imem = new IMem(program.imem)(pc)
-  private val decoder = new Decoder(imem.inst)
-  private val regFile = new RegFile(decoder.inst)
-  private val execute = new Execute(regFile.inst)
-  private val dmem = new DMem(program.dmem)(execute.inst)
-  regFile.writeBack(dmem.inst)
-  pc := dmem.inst.pcNext
+  private val pc      = DFBits[32] init program.imem.startAddress
+  private val imem    = new IMem(program.imem)(pc)
+  private val decoder = new Decoder(imem.instOut)
+  private val regFile = new RegFile(decoder.instOut)
+  private val execute = new Execute(regFile.instOut)
+  private val dmem    = new DMem(program.dmem)(execute.instOut)
+  regFile.writeBack(dmem.instOut)
+  pc := dmem.instOut.pcNext
 
   ///////////////////////////////////////////////////////////////////////////////////////////////
   // Simulation Only
   ///////////////////////////////////////////////////////////////////////////////////////////////
   private val done = DFBit() <> OUT init false
   private val ppc =  pc.prev
-  sim.report(msg"PC=$ppc, instRaw=${imem.inst.raw}, debugOp=${decoder.inst.debugOp}")
+  sim.report(msg"PC=$ppc, instRaw=${imem.instOut.raw}, debugOp=${decoder.instOut.debugOp}")
 
   program.imem.failAddress match {
     case Some(failPC) => ifdf(ppc === failPC){
@@ -50,7 +50,7 @@ import DFiant._
     done := true
   }
 
-  sim.assert(decoder.inst.debugOp =!= DebugOp.Unsupported, msg"Unsupported instruction", severity = sim.Failure)
+  sim.assert(decoder.instOut.debugOp =!= DebugOp.Unsupported, msg"Unsupported instruction", severity = sim.Failure)
   ///////////////////////////////////////////////////////////////////////////////////////////////
 }
 

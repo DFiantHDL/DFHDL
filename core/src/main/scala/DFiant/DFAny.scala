@@ -717,7 +717,7 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Extension Classes
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
+  type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment = left match {

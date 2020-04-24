@@ -20,39 +20,26 @@ package RISCV
 import DFiant._
 
 @df class Decoder(fetchInst : IMemInst) extends DFDesign {
-  private val instRaw   = DFBits[32]            <> IN
+  private val instIn    = new IMemInst <> IN
+  final   val instOut   = new DecodedInst <> OUT
 
-  //Register File Addresses & Control
-  private val rs1_addr  = DFBits[5]             <> OUT
-  private val rs2_addr  = DFBits[5]             <> OUT
-  private val rd_addr   = DFBits[5]             <> OUT
-  private val rd_wren   = DFBit()               <> OUT
+  import instIn.raw
+  import instOut.{rs1_addr, rs2_addr, rd_addr, debugOp, imm, branchSel, rs1OpSel, rs2OpSel, aluSel, wbSel, dmemSel, rd_wren}
 
-  //Immediate values for ALU execution
-  private val imm       = DFBits[32]            <> OUT
+  private val opcode    = raw(6, 0)
+  private val func7     = raw(31, 25)
+  private val func3     = raw(14, 12)
+  private val immIType  = raw(31, 20).sint.resize(32).bits
+  private val immSType  = (raw(31, 25), raw(11, 7)).bits.sint.resize(32).bits
+  private val immBType  = (raw(31), raw(7), raw(30, 25), raw(11, 8), b"0").bits.sint.resize(32).bits
+  private val immUType  = raw(31, 12).resizeRight(32)
+  private val immJType  = (raw(31), raw(19, 12), raw(20), raw(30, 21), b"0").bits.sint.resize(32).bits
+  private val notOpCode = raw(31, 7)
+  rs1_addr := raw(19, 15)
+  rs2_addr := raw(24, 20)
+  rd_addr := raw(11, 7)
 
-  //Control Signals
-  private val branchSel = DFEnum(BranchSel)     <> OUT
-  private val rs1OpSel  = DFEnum(RS1OpSel)      <> OUT
-  private val rs2OpSel  = DFEnum(RS2OpSel)      <> OUT
-  private val aluSel    = DFEnum(ALUSel)        <> OUT
-  private val wbSel     = DFEnum(WriteBackSel)  <> OUT
-  private val dmemSel   = DFEnum(DMemSel)       <> OUT
-  private val debugOp   = DFEnum(DebugOp)       <> OUT //Just for debugging
-
-  private val opcode    = instRaw(6, 0)
-  private val func7     = instRaw(31, 25)
-  private val func3     = instRaw(14, 12)
-  private val immIType  = instRaw(31, 20).sint.resize(32).bits
-  private val immSType  = (instRaw(31, 25), instRaw(11, 7)).bits.sint.resize(32).bits
-  private val immBType  = (instRaw(31), instRaw(7), instRaw(30, 25), instRaw(11, 8), b"0").bits.sint.resize(32).bits
-  private val immUType  = instRaw(31, 12).resizeRight(32)
-  private val immJType  = (instRaw(31), instRaw(19, 12), instRaw(20), instRaw(30, 21), b"0").bits.sint.resize(32).bits
-  private val notOpCode = instRaw(31, 7)
-  rs1_addr := instRaw(19, 15)
-  rs2_addr := instRaw(24, 20)
-  rd_addr := instRaw(11, 7)
-
+  instIn <> instOut
   debugOp := DebugOp.Unsupported //Default op is not supported unless selected otherwise
   imm := immIType //Default immediate is IType unless selected otherwise
   branchSel := BranchSel.Next
@@ -256,45 +243,28 @@ import DFiant._
     .casedf(b"0001111"){debugOp := DebugOp.FENCE;}//FENCE
     .casedf_{}
 
-  final val inst = {
-    import fetchInst._
-    DecodedInst(
-      //IMem
-      pc = pc, instRaw = fetchInst.raw,
-      //Decoder
-      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-      imm = imm, branchSel = branchSel, rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = dmemSel, debugOp = debugOp
-    )
-  }
-
   atOwnerDo {
-    this.instRaw <> fetchInst.raw
+    this.instIn <> fetchInst
   }
 }
 
-case class DecodedInst(
-  //IMem
-  pc        : DFBits[32],
-  instRaw   : DFBits[32],
+@df class DecodedInst extends IMemInst {
+  //Register File Addresses & Control
+  final val rs1_addr  = DFBits[5]
+  final val rs2_addr  = DFBits[5]
+  final val rd_addr   = DFBits[5]
+  final val rd_wren   = DFBit()
 
-  //Decoder
-  rs1_addr  : DFBits[5],
-  rs2_addr  : DFBits[5],
-  rd_addr   : DFBits[5],
-  rd_wren   : DFBit,
-  imm       : DFBits[32],
-  branchSel : DFEnum[BranchSel],
-  rs1OpSel  : DFEnum[RS1OpSel],
-  rs2OpSel  : DFEnum[RS2OpSel],
-  aluSel    : DFEnum[ALUSel],
-  wbSel     : DFEnum[WriteBackSel],
-  dmemSel   : DFEnum[DMemSel],
-  debugOp   : DFEnum[DebugOp]
-)
+  //Immediate values for ALU execution
+  final val imm       = DFBits[32]
 
-//object DecoderApp extends App {
-//  val dec = new Decoder {}
-//  import compiler.backend.vhdl._
-//  dec.compile.printCodeString().printGenFiles().toFolder("testProc")
-//}
+  //Control Signals
+  final val branchSel = DFEnum(BranchSel)
+  final val rs1OpSel  = DFEnum(RS1OpSel)
+  final val rs2OpSel  = DFEnum(RS2OpSel)
+  final val aluSel    = DFEnum(ALUSel)
+  final val wbSel     = DFEnum(WriteBackSel)
+  final val dmemSel   = DFEnum(DMemSel)
+  final val debugOp   = DFEnum(DebugOp) //Just for debugging
+}
+

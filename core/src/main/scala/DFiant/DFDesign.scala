@@ -34,7 +34,7 @@ object ContextOf {
   implicit def evCtx[T1 <: DFInterface.Abstract, T2 <: DFInterface.Abstract](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
   ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db) {
-    def newInterface(updatedCtx : ContextOf[T2]) : Any = ???
+    def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
   }
   implicit def evTop[T <: DFDesign](
     implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority

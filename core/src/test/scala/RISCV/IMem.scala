@@ -43,15 +43,15 @@ trait IMem_Bram_Ifc extends DFDesign.Abstract {
 }
 
 @df class IMem(programIMem : ProgramIMem)(incomingPC : DFBits[32]) extends DFDesign {
-  private val pc  = DFBits[32] <> IN
-  final val inst  = new IMemInst <> OUT
+  private val pc     = DFBits[32] <> IN
+  final val instOut  = new IMemInst <> OUT
 
 
   private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
 
   bram.addra <> pc(13, 2)
-  bram.douta <> inst.raw
-  pc <> inst.pc
+  bram.douta <> instOut.raw
+  pc <> instOut.pc
 
 
   atOwnerDo {
@@ -59,30 +59,9 @@ trait IMem_Bram_Ifc extends DFDesign.Abstract {
   }
 }
 
-//case class IMemInst(
-//  pc      : DFBits[32],
-//  instRaw : DFBits[32]
-//)
-
 @df class IMemInst extends DFInterface {
   final val pc   = DFBits[32]
   final val raw  = DFBits[32]
-}
-
-@df abstract class IMemT(programIMem : ProgramIMem) extends DFDesign {
-  private val pc      = DFBits[32] <> IN
-  private val instRaw = DFBits[32] <> OUT
-
-  private val bram = if (inSimulation || caseIMem) new IMem_Bram_Sim(programIMem) else new IMem_Bram(programIMem)
-
-  bram.addra <> pc(13, 2)
-  bram.douta <> instRaw
-}
-object IMemApp extends App {
-  val program = Program.fromFile("riscv-bmarks/towers.riscv.dump").imem
-  val imem = new IMemT(program) {}
-  import compiler.backend.vhdl._
-  imem.compile.printCodeString().printGenFiles()//.toFolder("testProc")
 }
 
 

@@ -50,13 +50,15 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
 }
 
 @df class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst) extends DFDesign {
-  private val addr        = DFBits[32] <> IN
-  private val dataToMem   = DFBits[32] <> IN
-  private val dmemSel     = DFEnum[DMemSel] <> IN
-  private val dataFromMem = DFBits[32] <> OUT
+  private val instIn      = new ExecuteInst <> IN
+  final val instOut       = new DMemInst <> OUT
   private val wrEnToMem   = DFBits[4]
   private val dataToMemBH = DFBits[32] //Data to memory modified for byte and half-word writes
 
+  instIn <> instOut
+
+  import instIn.{dataToMem, dmemSel, dmem_addr}
+  import instOut.dataFromMem
   private val bram = if (inSimulation || caseDMem) new DMem_Bram_Sim(programDMem) else new DMem_Bram(programDMem)
 
   wrEnToMem := b"0000"
@@ -64,7 +66,7 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
   dataFromMem := bram.douta
   matchdf(dmemSel)
     .casedf(DMemSel.LB) {
-      matchdf(addr(1, 0))
+      matchdf(dmem_addr(1, 0))
         .casedf(b"00")    {dataFromMem := bram.douta( 7,  0).sint.resize(32).bits}
         .casedf(b"01")    {dataFromMem := bram.douta(15,  8).sint.resize(32).bits}
         .casedf(b"10")    {dataFromMem := bram.douta(23, 16).sint.resize(32).bits}
@@ -72,14 +74,14 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
         .casedf_{}
     }
     .casedf(DMemSel.LH) {
-      matchdf(addr(1, 1))
+      matchdf(dmem_addr(1, 1))
         .casedf(b"0")     {dataFromMem := bram.douta(15,  0).sint.resize(32).bits}
         .casedf(b"1")     {dataFromMem := bram.douta(31, 16).sint.resize(32).bits}
         .casedf_{}
     }
     .casedf(DMemSel.LW)   {dataFromMem := bram.douta}
     .casedf(DMemSel.LBU) {
-      matchdf(addr(1, 0))
+      matchdf(dmem_addr(1, 0))
         .casedf(b"00")    {dataFromMem := bram.douta( 7,  0).resize(32)}
         .casedf(b"01")    {dataFromMem := bram.douta(15,  8).resize(32)}
         .casedf(b"10")    {dataFromMem := bram.douta(23, 16).resize(32)}
@@ -87,14 +89,14 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
         .casedf_{}
     }
     .casedf(DMemSel.LHU) {
-      matchdf(addr(1, 1))
+      matchdf(dmem_addr(1, 1))
         .casedf(b"0")    {dataFromMem := bram.douta(15,  0).resize(32)}
         .casedf(b"1")    {dataFromMem := bram.douta(31, 16).resize(32)}
         .casedf_{}
     }
     .casedf(DMemSel.SB) {
       dataToMemBH := (dataToMem(7,0), dataToMem(7,0), dataToMem(7,0), dataToMem(7,0)).bits
-      matchdf(addr(1, 0))
+      matchdf(dmem_addr(1, 0))
         .casedf(b"00")    {wrEnToMem := b"0001"}
         .casedf(b"01")    {wrEnToMem := b"0010"}
         .casedf(b"10")    {wrEnToMem := b"0100"}
@@ -103,7 +105,7 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
     }
     .casedf(DMemSel.SH) {
       dataToMemBH := dataToMem(15,0) ++ dataToMem(15,0)
-      matchdf(addr(1, 1))
+      matchdf(dmem_addr(1, 1))
         .casedf(b"0")     {wrEnToMem := b"0011"}
         .casedf(b"1")     {wrEnToMem := b"1100"}
         .casedf_{}
@@ -111,69 +113,17 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
     .casedf(DMemSel.SW)   {wrEnToMem := b"1111"}
     .casedf_{}
 
-  bram.addra <> addr(13, 2)
+  bram.addra <> dmem_addr(13, 2)
   bram.wea <> wrEnToMem
   bram.dina <> dataToMemBH
 
 //  sim.report(msg"DMem~~~>addr: $addr, dmemSel: $dmemSel, dataToMem: $dataToMem, dataToMemBH: $dataToMemBH, wrEnToMem: $wrEnToMem, dataFromMem: $dataFromMem, bram.douta: ${bram.douta}")
 
-  final val inst = {
-    import executeInst._
-    DMemInst(
-      //IMem
-      pc = pc, instRaw = instRaw,
-      //Decoder
-      rs1_addr = rs1_addr, rs2_addr = rs2_addr, rd_addr = rd_addr, rd_wren = rd_wren,
-      imm = imm, branchSel = branchSel,
-      rs1OpSel = rs1OpSel, rs2OpSel = rs2OpSel,
-      aluSel = aluSel, wbSel = wbSel, dmemSel = executeInst.dmemSel, debugOp = debugOp,
-      //RegFile
-      rs1_data = rs1_data, rs2_data = rs2_data,
-      //Execute
-      dmem_addr = executeInst.dmem_addr, dataToMem = executeInst.dataToMem, aluOut = aluOut,
-      pcNext = pcNext, pcPlus4 = pcPlus4,
-      //DMem
-      dataFromMem = dataFromMem
-    )
-  }
-
   atOwnerDo {
-    this.addr <> executeInst.dmem_addr
-    this.dataToMem <> executeInst.dataToMem
-    this.dmemSel <> executeInst.dmemSel
+    this.instIn <> executeInst
   }
 }
 
-case class DMemInst(
-  //IMem
-  pc          : DFBits[32],
-  instRaw     : DFBits[32],
-
-  //Decoder
-  rs1_addr    : DFBits[5],
-  rs2_addr    : DFBits[5],
-  rd_addr     : DFBits[5],
-  rd_wren     : DFBit,
-  imm         : DFBits[32],
-  branchSel   : DFEnum[BranchSel],
-  rs1OpSel    : DFEnum[RS1OpSel],
-  rs2OpSel    : DFEnum[RS2OpSel],
-  aluSel      : DFEnum[ALUSel],
-  wbSel       : DFEnum[WriteBackSel],
-  dmemSel     : DFEnum[DMemSel],
-  debugOp     : DFEnum[DebugOp],
-
-  //RegFile
-  rs1_data    : DFBits[XLEN],
-  rs2_data    : DFBits[XLEN],
-
-  //Execute
-  dmem_addr   : DFBits[32],
-  dataToMem   : DFBits[32],
-  aluOut      : DFBits[32],
-  pcNext      : DFBits[32],
-  pcPlus4     : DFBits[32],
-
-  //DMem
-  dataFromMem : DFBits[32]
-)
+@df class DMemInst extends ExecuteInst {
+  final val dataFromMem = DFBits[32]
+}
