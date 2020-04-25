@@ -9,6 +9,14 @@ import singleton.ops._
 import scala.reflect.{ClassTag, classTag}
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
   private[DFiant] lazy val __ctx : DFDesign.Context = ctx
+  private[DFiant] lazy val __portArgs : Map[DFAny, DFAny] = {
+    val ret = Map(ctx.args.value.flatMap(l => l.flatMap {
+      case (name, x : DFAny) => Some(x -> DFAny.Port.In(x.dfType).setName(name))
+      case _ => None
+    }) : _*)
+    if (ret.nonEmpty) println(ret)
+    ret
+  }
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
@@ -18,11 +26,11 @@ abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : Con
 
 //@implicitNotFound(ContextOf.MissingError.msg)
 abstract class ContextOf[T <: DFInterface.Abstract](
-  val meta : Meta, ownerF : => T#Owner, val dir: DFDir, val db: DFDesign.DB.Mutable
+  val meta : Meta, ownerF : => T#Owner, val dir: DFDir, val db: DFDesign.DB.Mutable, val args : ClassArgs[T]
 ) extends DFMember.Context { self =>
   def owner : T#Owner = ownerF
   def newInterface(updatedCtx : ContextOf[T]) : Any
-  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, ownerF, updatedDir, db) {
+  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, ownerF, updatedDir, db, args) {
     override def newInterface(updatedCtx : ContextOf[T]) : Any = self.newInterface(updatedCtx)
   }
 }
@@ -33,12 +41,14 @@ object ContextOf {
   ) {final val msg = getMsg}
   implicit def evCtx[T1 <: DFInterface.Abstract, T2 <: DFInterface.Abstract](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db) {
+    args : ClassArgs[T2]
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db, args) {
     def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
   }
   implicit def evTop[T <: DFDesign](
-    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority
-  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable) {
+    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg],
+    mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority, args : ClassArgs[T]
+  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable, args) {
     def newInterface(updatedCtx : ContextOf[T]) : Any = ???
   }
 }
@@ -60,10 +70,10 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __blockContext(
       implicit meta : Meta
-    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, __ctx.dir, __ctx.db)
+    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, __ctx.dir, __ctx.db, ClassArgs.empty)
     final protected implicit def __contextOfDesign[T <: DFDesign](
-      implicit meta : Meta
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db) {
+      implicit meta : Meta, args : ClassArgs[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = ???
     }
     ///////////////////////////////////////////////////////////////////

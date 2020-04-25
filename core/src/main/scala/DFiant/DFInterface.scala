@@ -27,10 +27,6 @@ abstract class DFInterface(namePrefix : String = "", nameSuffix : String = "_")(
 
   final protected implicit val __getset : MemberGetSet = ctx.db.getSet
   final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
-  final protected implicit def __contextOf[T <: DFInterface](implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]]) : ContextOf[T] =
-    new ContextOf[T](meta, owner, ctx.dir, __db) {
-      def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
-    }
 }
 
 object DFInterface {
@@ -49,8 +45,8 @@ object DFInterface {
       def newInterface(updatedCtx : DFInterface.Context) : Any = cc(updatedCtx)
     }
     final protected implicit def __contextOfInterface[T <: DFInterface](
-      implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db) {
+      implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////

@@ -12,26 +12,27 @@ object CloneClassWithContext {
     import c.universe._
     val tp = weakTypeOf[T]
     val lastTree = c.enclosingImplicits.last.tree
-    @tailrec def explore(tree : Tree, prevArgs : List[List[Tree]]): Option[Tree] = {
-      tree match {
-        case Apply(Select(Super(This(_), _), _), argList) =>
-          val ClassInfoType(tpList,_,_)= c.internal.enclosingOwner.owner.typeSignature
-          val classList = tpList.zipWithIndex.map {
-            case (t, 0) =>
-              val appliedArgsTree = (argList :: prevArgs).foldLeft(q"$t")((appliedTree, args) => q"$appliedTree(..$args)")
-              q"$appliedArgsTree(arg)"
-            case (t, _) => q"$t"
-          }
-          Some(q"new ..$classList {}")
-        case Apply(Select(_, _), _) =>
-          val appliedArgsTree = prevArgs.foldLeft(tree)((appliedTree, args) => q"$appliedTree(..$args)")
-          Some(q"$appliedArgsTree(arg)")
-        case Apply(tree @ Apply(_,_), argList) => explore(tree, argList :: prevArgs)
-        case _ =>
-          None
-      }
+    val implicitArgsTpe = lastTree.symbol.asMethod.paramLists.last.map(e => e.typeSignature)
+    val implicitArgsTree = implicitArgsTpe.map {
+      case tpe if tp <:< tpe => q"arg"
+      case tpe => q"implicitly[$tpe]"
     }
-    val genTree = explore(lastTree, List()) match {
+    val exploredTree = lastTree match {
+      case q"${Select(Super(This(_),_),_)}(...$paramValueTrees)" => //Anonymous class
+        val ClassInfoType(tpList,_,_)= c.internal.enclosingOwner.owner.typeSignature
+        val classList = tpList.zipWithIndex.map {
+          case (t, 0) => q"$t(...$paramValueTrees)(..$implicitArgsTree)"
+          case (t, _) => q"$t"
+        }
+        Some(q"new ..$classList {}")
+      case t @ q"${TypeApply(_,_)}(...$_)" =>
+        None
+      case t @ q"${Select(Ident(TermName(n)),_)}(...$_)" if n.startsWith("stabilizer$") =>
+        None
+      case t @ q"$_(...$_)" => Some(q"$t(..$implicitArgsTree)")
+      case _ => None
+    }
+    val genTree = exploredTree match {
       case Some(tree) =>
         q"""
         new DFiant.internals.CloneClassWithContext[$tp] {
@@ -48,7 +49,7 @@ object CloneClassWithContext {
         }
        """
     }
-    //    println(genTree)
+//        println(genTree)
     genTree
   }
 }

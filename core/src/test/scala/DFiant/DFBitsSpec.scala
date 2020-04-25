@@ -1,10 +1,10 @@
 package DFiant
 import org.scalatest.flatspec.AnyFlatSpec
-import DFiant.internals.Meta
+import DFiant.internals.{ClassArgs, Meta}
 import shapeless.test.illTyped
 
 abstract class DFSpec extends AnyFlatSpec with DFDesign.Abstract {
-  private[DFiant] lazy val __ctx : DFDesign.Context = new DFBlock.Context(implicitly[Meta], null, ASIS, new DFDesign.DB.Mutable) {
+  private[DFiant] lazy val __ctx : DFDesign.Context = new DFBlock.Context(implicitly[Meta], null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty) {
     def newInterface(updatedCtx : DFInterface.Context) : Any = ???
   }
 }

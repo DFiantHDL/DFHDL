@@ -26,6 +26,10 @@ class CloneClassWithContextSpec extends AnyFlatSpec {
   }
   case class TestCaseClass(i : Int)(val ii : Int)(implicit val ctx : Ctx) extends Cloneable
 
+  trait Foo
+  implicit object Foo extends Foo
+  class TestClassFoo(val i : Int)(implicit val ctx : Ctx, foo: Foo) extends Cloneable
+
   "Clone of class with single argument" should "work" in {
     val x = new TestClass(1)
     val updatedCtx = x.ctx.updateValue(2)
@@ -36,6 +40,22 @@ class CloneClassWithContextSpec extends AnyFlatSpec {
 
   "Clone of anonymous class with single argument" should "work" in {
     val x = new TestClass(1){}
+    val updatedCtx = x.ctx.updateValue(2)
+    val cloneX = x.cloneWithContext(updatedCtx)
+    assert(cloneX.i == 1)
+    assert(cloneX.ctx.value == 2)
+  }
+
+  "Clone of class with single argument and other implicits" should "work" in {
+    val x = new TestClassFoo(1)
+    val updatedCtx = x.ctx.updateValue(2)
+    val cloneX = x.cloneWithContext(updatedCtx)
+    assert(cloneX.i == 1)
+    assert(cloneX.ctx.value == 2)
+  }
+
+  "Clone of anonymous class with single argument and other implicits" should "work" in {
+    val x = new TestClassFoo(1){}
     val updatedCtx = x.ctx.updateValue(2)
     val cloneX = x.cloneWithContext(updatedCtx)
     assert(cloneX.i == 1)
