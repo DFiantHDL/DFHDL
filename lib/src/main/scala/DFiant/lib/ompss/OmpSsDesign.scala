@@ -1,5 +1,5 @@
 package DFiant
-package ompss
+package lib.ompss
 
 abstract class OmpSsDesign(
   implicit ctx : ContextOf[OmpSsDesign]

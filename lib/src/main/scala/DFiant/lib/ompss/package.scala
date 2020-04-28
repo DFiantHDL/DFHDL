@@ -1,4 +1,4 @@
-package DFiant
+package DFiant.lib
 
 package object ompss {
 

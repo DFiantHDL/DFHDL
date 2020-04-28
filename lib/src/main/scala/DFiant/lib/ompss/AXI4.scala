@@ -1,5 +1,5 @@
 package DFiant
-package ompss
+package lib.ompss
 
 final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface("m_axi_") {
   final val AW = new AXI4.AddressChannel(axiDir)(config.wrEnabled, config.simple)
@@ -7,6 +7,8 @@ final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : Contex
   final val AR = new AXI4.AddressChannel(axiDir)(config.rdEnabled, config.simple)
   final val R  = new AXI4.ReadDataChannel(axiDir)(config.rdEnabled, config.simple)
   final val B  = new AXI4.WriteResponseChannel(axiDir)(config.wrEnabled, config.simple)
+  def readRequest(address : DFBits[32], size : DFUInt[32])(implicit ctx : DFBlock.Context) : Unit = {}
+  def writeRequest(address : DFBits[32], size : DFUInt[32])(implicit ctx : DFBlock.Context) : Unit = {}
 }
 object AXI4 {
   protected final class ConfigNode(config : Config) {

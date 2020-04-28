@@ -148,6 +148,13 @@ object DFAny {
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
     //////////////////////////////////////////////////////////////////////////
 
+    //////////////////////////////////////////////////////////////////////////
+    // Dynamic Dataflow Control
+    //////////////////////////////////////////////////////////////////////////
+    final def dontConsume()(implicit ctx : DFBlock.Context) : Unit = {}
+    final def consume()(implicit ctx : DFBlock.Context) : Unit = {}
+    final def isNotEmpty(implicit ctx : DFBlock.Context) : DFBool = ???
+    //////////////////////////////////////////////////////////////////////////
     override lazy val typeName: String = dfType.toString
   }
 
@@ -726,6 +733,8 @@ object DFAny {
         throw new IllegalArgumentException(s"\nCan only assign to a dataflow variable or an output port.\nAttempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}")
     }
 
+    def dontProduce() : Unit = {}
+    final def isNotFull(implicit ctx : DFBlock.Context) : DFBool = ???
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : DFNet.Assignment = assign(op(left.dfType, right))

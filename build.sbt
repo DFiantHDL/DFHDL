@@ -27,9 +27,10 @@ lazy val global = project
   .in(file("."))
   .settings(settings)
   .aggregate(
-    core,
+    continuum,
     internals,
-    continuum
+    core,
+    lib
   )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -86,6 +87,18 @@ lazy val core = project
     internals
   )
 
+lazy val lib = project
+  .settings(
+    name := "lib",
+    settings,
+    macroSettings,
+    assemblySettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    core
+  )
+
 //////////////////////////////////////////////////////////////////////////////////////
 // Examples
 //////////////////////////////////////////////////////////////////////////////////////
@@ -98,7 +111,8 @@ lazy val sorted_networks = (project in file("examples/sorted_networks"))
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    core
+    core,
+    lib
   )
 
 lazy val `first-look` = (project in file("examples/first-look"))
@@ -111,7 +125,8 @@ lazy val `first-look` = (project in file("examples/first-look"))
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    core
+    core,
+    lib
   )
 
 lazy val examples = project
@@ -138,7 +153,8 @@ lazy val `private` = (project in file("private"))
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    core
+    core,
+    lib
   )
 //////////////////////////////////////////////////////////////////////////////////////
 

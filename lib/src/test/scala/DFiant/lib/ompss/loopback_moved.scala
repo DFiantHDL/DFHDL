@@ -1,8 +1,8 @@
-package DFiant
+package DFiant.lib.ompss
 
-import ompss._
-import compiler.backend.vhdl._
-import compiler.sync._
+import DFiant.compiler.sync._
+import DFiant.compiler.backend.vhdl._
+import DFiant._
 
 object AP_FSM extends EnumType.Auto {
   val IDLE, ST2, ST3, ST4, ST5, ST6, ST7, ST8, ST9, ST10, ST11, ST12, ST13 = Entry()
