@@ -13,8 +13,9 @@ object LateConstructionConfig {
     def apply(value: Boolean): Boolean = forcedValue
   }
 }
-case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position, lateConstruction : Boolean) {
+final case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position, lateConstruction : Boolean) {
   def anonymize : Meta = copy(name = name.copy(anonymous = true))
+  def setName(name : String) : Meta = copy(name = this.name.copy(name, anonymous = false))
 }
 
 object Meta {

@@ -128,7 +128,7 @@ package object internals {
       else if (value.isValidLong) s"${value}L"
       else s"""BigInt("$value")"""
     }
-    def toBitVector(width : Int) : BitVector = BitVector(value.toByteArray).toLength(width)
+    def toBitVector(width : Int) : BitVector = BitVector(value.toByteArray).resize(width)
   }
 
   type XBitVector[W] = BitVector with WidthTag[W]
@@ -146,7 +146,7 @@ package object internals {
       if (l.isEmpty) vec.length else l.head
     }
     def lengthOfValue : Long = if (lzc == vec.length) 1L else vec.length - lzc
-    def toLength(newLength : Int) : BitVector = {
+    def resize(newLength : Int) : BitVector = {
       if (newLength > vec.length) vec.padLeft(newLength)
       else if (newLength < vec.length) vec.drop(vec.length - newLength)
       else vec

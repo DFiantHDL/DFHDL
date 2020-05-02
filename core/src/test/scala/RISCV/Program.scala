@@ -83,22 +83,22 @@ object Program {
     var reachedData : Boolean = false
     val list = file.getLines.collect {
       case extractor(addr, inst, asm) if mainAddr.isDefined && endAddr.isEmpty && asm == "ret" & !reachedData =>
-        endAddr = Some(BitVector.fromHex(addr).get.toLength(32))
+        endAddr = Some(BitVector.fromHex(addr).get.resize(32))
         Some(IMemEntry(endAddr.get, BitVector.fromHex(inst).get, asm))
       case extractor(addr, inst, asm) if !reachedData =>
         if (inst.length < 8) None
-        else Some(IMemEntry(BitVector.fromHex(addr).get.toLength(32), BitVector.fromHex(inst).get, asm))
+        else Some(IMemEntry(BitVector.fromHex(addr).get.resize(32), BitVector.fromHex(inst).get, asm))
       case mainExtractor(addr) =>
-        mainAddr = Some(BitVector.fromHex(addr).get.toLength(32))
+        mainAddr = Some(BitVector.fromHex(addr).get.resize(32))
         None
       case testExtractor(addr) =>
-        mainAddr = Some(BitVector.fromHex(addr).get.toLength(32))
+        mainAddr = Some(BitVector.fromHex(addr).get.resize(32))
         None
       case passExtractor(addr) =>
-        endAddr = Some(BitVector.fromHex(addr).get.toLength(32))
+        endAddr = Some(BitVector.fromHex(addr).get.resize(32))
         None
       case failExtractor(addr) =>
-        failAddr = Some(BitVector.fromHex(addr).get.toLength(32))
+        failAddr = Some(BitVector.fromHex(addr).get.resize(32))
         None
       case l if l == dataStart =>
         reachedData = true
@@ -114,7 +114,7 @@ object Program {
     var reachedData : Boolean = false
     val list = file.getLines.collect {
       case extractor(addr, inst, asm) if reachedData =>
-        Some(DMemEntry(BitVector.fromHex(addr).get.toLength(32), BitVector.fromHex(inst).get))
+        Some(DMemEntry(BitVector.fromHex(addr).get.resize(32), BitVector.fromHex(inst).get))
       case l if l == dataStart =>
         reachedData = true
         None
@@ -126,7 +126,7 @@ object Program {
 
 
   def empty() : ProgramIMem =
-    ProgramIMem(List(), BitVector.fromHex("0").get.toLength(32), BitVector.fromHex("0").get.toLength(32), None)
+    ProgramIMem(List(), BitVector.fromHex("0").get.resize(32), BitVector.fromHex("0").get.resize(32), None)
 }
 
 

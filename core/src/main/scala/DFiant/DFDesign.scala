@@ -81,7 +81,7 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     // Conditional Constructs
     ///////////////////////////////////////////////////////////////////
-    final protected def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
+    final protected def ifdf[C](cond : DFBool.Op.Able[C])(block : => Unit)(
       implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
     ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)(ctx)
     final protected def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
