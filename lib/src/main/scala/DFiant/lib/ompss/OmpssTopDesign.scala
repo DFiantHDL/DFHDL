@@ -8,11 +8,11 @@ package lib.ompss
   final val ready   = DFBit() <> OUT
 }
 
-@df class OmpssDesign extends DFDesign {
-  final val ap = new AP_Interface
+@df class OmpssTopDesign extends DFDesign {
+  final val ap      = new AP_Interface
+  final val size    = DFBits(32) <> IN
+
   //TODO:
-  //need to replace DF-AXI inputs => AXI4(AXI4.Config(true, false)) + an input <name>_offset(64)
-  //need to replace DF-AXI outputs => AXI4(AXI4.Config(false, true)) + an input <name>_offset(64)
   //need to have size 32-bit input
   //inputs may be should be cast to/from DFBits.
 }

@@ -6,11 +6,12 @@ import singleton.ops._
 
 import scala.annotation.implicitNotFound
 
-abstract class DFInterface(namePrefix : String = "", nameSuffix : String = "_")(implicit ctx : DFInterface.Context)
-  extends DFInterface.Abstract {
-  type Owner = DFOwner
+abstract class DFInterface(
+  nameFlatten: DFInterface.NameFlatten = DFInterface.NameFlatten.UnderscoreSuffix
+)(implicit ctx : DFInterface.Context) extends DFInterface.Abstract {
+  type Owner = DFOwner //TODO: Why not DFInterface.Owner
   private[DFiant] final val __ctx : DFInterface.Context = ctx
-  private[DFiant] final val owner : Owner = DFInterface.Owner(namePrefix, nameSuffix)(ctx)
+  private[DFiant] final val owner : Owner = DFInterface.Owner(nameFlatten)(ctx)
   private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
   private[DFiant] final def updateDir(updatedDir : DFDir) : this.type = {
     val actualDir : DFDir = (updatedDir, ctx.dir) match {
@@ -54,14 +55,25 @@ object DFInterface {
   implicit class InterfaceExt[T <: DFInterface](t : T) {
     def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(t.owner)
     def <> (r : T)(implicit ctx : DFBlock.Context) : Unit = t.owner connectWith r.owner
-    private def replaceOwnerAndMembers(from : DFOwner, to : DFOwner)(implicit getSet: MemberGetSet) : Unit = {
+    private[DFiant] def replaceOwnerAndMembers(from : DFOwner, to : DFOwner)(implicit getSet: MemberGetSet) : Unit = {
       val oldMembers = from.getMembers
       val newMembers = to.getMembers
       getSet.replace(from)(to)
       (oldMembers lazyZip newMembers).foreach {
         case (l : DFOwner, r : DFOwner) => replaceOwnerAndMembers(l, r)
-        case (l, r) => getSet.replace(l)(r)
+        case (l : DFAny.Dcl, r : DFAny.Dcl) => getSet.replace(l)(r)
+        case _ => //Do nothing
       }
+      //removing old non-declaration members
+      oldMembers.foreach {
+        case _ : DFOwner |  _ : DFAny.Dcl => //Do nothing
+        case r => getSet.remove(r)
+      }
+    }
+    def setNameFlatten(nameFlatten: NameFlatten)(implicit getSet: MemberGetSet) : T = {
+      val owner = t.owner.asInstanceOf[Owner] //TODO: should be always Owner, no?
+      getSet.replace(owner)(owner.copy(nameFlatten = nameFlatten))
+      t
     }
     def <> (dir : DFDir)(implicit getSet: MemberGetSet) : T = {
       val updated = t.updateDir(dir)
@@ -91,12 +103,26 @@ object DFInterface {
     }
   }
 
-  final case class Owner(namePrefix : String, nameSuffix : String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {
+  //When an interface is flattened, this function is applied on all its members
+  trait NameFlatten {
+    def apply(memberName : String, ownerName : String) : String
+  }
+  object NameFlatten {
+    object UnderscoreSuffix extends NameFlatten {
+      def apply(memberName : String, ownerName : String) : String = s"${ownerName}_${memberName}"
+    }
+    object NoSuffix extends NameFlatten {
+      def apply(memberName : String, ownerName : String) : String = s"${ownerName}${memberName}"
+    }
+    object IgnoreOwnerName extends NameFlatten { //This function is special cased in FlattenInterfaces
+      def apply(memberName : String, ownerName : String) : String = ???
+    }
+  }
+  final case class Owner(nameFlatten : NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {
     type TTags = DFMember.Tags.Basic
     type TCustomTag = DFMember.CustomTag
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
-      case Owner(namePrefix, nameSuffix, _, tags) =>
-        this.namePrefix == namePrefix && this.nameSuffix == nameSuffix && this.tags =~ tags
+      case Owner(_, _, tags) => this.tags =~ tags //Deliberately ignoring nameFlatten. Only the final name (in tags) matters.
       case _ => false
     }
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
@@ -104,9 +130,9 @@ object DFInterface {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Owner {
-    def apply(namePrefix : String, nameSuffix : String)(
+    def apply(nameFlatten: NameFlatten)(
       implicit ctx : DFAny.Context
-    ) : Owner = ctx.db.addMember(Owner(namePrefix, nameSuffix, ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addMember(Owner(nameFlatten, ctx.owner, ctx.meta))
   }
 }
 

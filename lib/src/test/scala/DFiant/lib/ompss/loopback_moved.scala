@@ -4,15 +4,13 @@ import DFiant.compiler.sync._
 import DFiant.compiler.backend.vhdl._
 import DFiant._
 import DFiant.internals.BitVectorExtras
+import lib.bus.AXI4
 
-@df class loopback_moved extends OmpssDesign {
+@df class loopback_moved extends OmpssTopDesign {
   //d is output
-  final val d         = AXI4.SWO <> AXI4.Master
-  final val d_offset  = DFBits(64) <> IN
+  final val d         = OmpssAXI <> READ
   //o is input
-  final val o         = AXI4.SRO <> AXI4.Master
-  final val o_offset  = DFBits(64) <> IN
-  final val size      = DFBits(32) <> IN
+  final val o         = OmpssAXI <> WRITE
 
 
   /////////////////////////////////////////////////////////////////////////////
@@ -32,9 +30,9 @@ import DFiant.internals.BitVectorExtras
   private val tmp_fu_114_p2 = DFBit()
 
   d.AW.LEN := size
-  d.AW.ADDR := d_offset.resize(32)
+  d.AW.ADDR := d.offset.resize(32)
   o.AR.LEN := size
-  o.AR.ADDR := o_offset.resize(32)
+  o.AR.ADDR := o.offset.resize(32)
   d.W.DATA := o_addr_read_reg_152
 
   ap.done := 0
@@ -138,23 +136,21 @@ import DFiant.internals.BitVectorExtras
 
 @df class LoopbackDriver extends DFSimulator {
   final val ap        = new AP_Interface <> FLIP
-  final val d         = AXI4.SWO <> AXI4.Slave
-  final val d_offset  = DFBits(64) <> OUT
-  final val o         = AXI4.SRO <> AXI4.Slave
-  final val o_offset  = DFBits(64) <> OUT
+  final val d         = OmpssAXI <> READ <> FLIP
+  final val o         = OmpssAXI <> WRITE <> FLIP
   final val size      = DFBits(32) <> OUT
   val c_READ_BUF_ADDR   = h"00001000"
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
 
   ap.start := 0
-  d_offset := b0s
-  o_offset := b0s
+  d.offset := b0s
+  o.offset := b0s
   size := b0s
   private val ap_drv_fsm = new DFSM() {
     State.doNext {
-      d_offset := c_WRITE_BUF_ADDR.resize(64)
-      o_offset := c_READ_BUF_ADDR.resize(64)
+      d.offset := c_WRITE_BUF_ADDR.resize(64)
+      o.offset := c_READ_BUF_ADDR.resize(64)
       size := c_SIZE
       ap.start := 1
     }
@@ -278,8 +274,6 @@ trait LoopbackTest extends DFSimulator  {
   lb.ap <> lb_drv.ap
   lb.d <> lb_drv.d
   lb.o <> lb_drv.o
-  lb.d_offset <> lb_drv.d_offset
-  lb.o_offset <> lb_drv.o_offset
   lb.size <> lb_drv.size
 }
 

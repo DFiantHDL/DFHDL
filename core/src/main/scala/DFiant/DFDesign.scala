@@ -198,6 +198,7 @@ object DFDesign {
       def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = newMemberFunc(originalMember)
       def replace[M <: DFMember](originalMember : M)(newMember: M): M = newMember
+      def remove[M <: DFMember](member : M) : M = member
       def getMembersOf(owner : DFOwner) : List[DFMember] = ownerMemberTable(owner)
     }
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
@@ -574,13 +575,15 @@ object DFDesign {
         newMember
       }
       def replaceMember[M <: DFMember](originalMember : M, newMember : M) : M = {
-        //marking the newMember slot as 'ignore' in case it exists
-        memberTable.get(newMember).foreach{idx =>
-//          memberTable.remove(newMember)
-          members.update(idx, (newMember, members(idx)._2, true))
-        }
+        ignoreMember(newMember) //marking the newMember slot as 'ignore' in case it exists
         setMember[M](originalMember, _ => newMember)
         newMember
+      }
+      def ignoreMember[M <: DFMember](member : M) : M = { //ignoring it means removing it for the immutable DB
+        memberTable.get(member).foreach{idx =>
+          members.update(idx, (member, members(idx)._2, true))
+        }
+        member
       }
       def newRefFor[M <: DFMember, T <: DFMember.Ref.Type, R <: DFMember.Ref.Of[T, M]](ref : R, member : M) : R = {
         memberTable.get(member) match {
@@ -614,6 +617,7 @@ object DFDesign {
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
         def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = setMember(originalMember, newMemberFunc)
         def replace[M <: DFMember](originalMember : M)(newMember: M): M = replaceMember(originalMember, newMember)
+        def remove[M <: DFMember](member : M) : M = ignoreMember(member)
         def getMembersOf(owner : DFOwner) : List[DFMember] = self.getMembersOf(owner)
       }
     }

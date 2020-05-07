@@ -1,7 +1,8 @@
-package DFiant
-package lib.ompss
+package DFiant.lib.bus
 
-final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface("m_axi_") {
+import DFiant._
+
+final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface {
   final val AW = new AXI4.AddressChannel(axiDir)(config.wrEnabled, config.simple)
   final val W  = new AXI4.WriteDataChannel(axiDir)(config.wrEnabled, config.simple)
   final val AR = new AXI4.AddressChannel(axiDir)(config.rdEnabled, config.simple)
@@ -17,8 +18,9 @@ object AXI4 {
   def apply(config: Config) : ConfigNode = new ConfigNode(config)
   final val SRO = AXI4(Config(rdEnabled = true, wrEnabled = false, simple = true)) //simple read-only
   final val SWO = AXI4(Config(rdEnabled = false, wrEnabled = true, simple = true)) //simple write-only
+  final val SRW = AXI4(Config(rdEnabled = true, wrEnabled = true, simple = true)) //simple read-write
 
-  abstract class Interface(axiDir : Dir)(implicit ctx : ContextOf[Interface]) extends DFInterface("", "") {
+  abstract class Interface(axiDir : Dir)(implicit ctx : ContextOf[Interface]) extends DFInterface(DFInterface.NameFlatten.NoSuffix) {
     def MasterDir(portDir : PortDir) : PortDir = axiDir match {
       case Master => portDir
       case Slave => portDir match {

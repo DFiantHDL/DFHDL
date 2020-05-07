@@ -9,7 +9,7 @@ import scala.collection.mutable
 
 final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB =
-    c.removePureInterfaces
+    c.flattenInterfaces
      .explicitPrev
      .explicitConversions
      .uniqueDesigns
