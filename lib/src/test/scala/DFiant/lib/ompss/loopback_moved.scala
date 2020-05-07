@@ -8,9 +8,9 @@ import lib.bus.AXI4
 
 @df class loopback_moved extends OmpssTopDesign {
   //d is output
-  final val d         = OmpssAXI <> READ
+  final val d         = OmpssAXI <> WO
   //o is input
-  final val o         = OmpssAXI <> WRITE
+  final val o         = OmpssAXI <> RO
 
 
   /////////////////////////////////////////////////////////////////////////////
@@ -136,18 +136,20 @@ import lib.bus.AXI4
 
 @df class LoopbackDriver extends DFSimulator {
   final val ap        = new AP_Interface <> FLIP
-  final val d         = OmpssAXI <> READ <> FLIP
-  final val o         = OmpssAXI <> WRITE <> FLIP
+  final val d         = OmpssAXI <> WO <> FLIP
+  final val o         = OmpssAXI <> RO <> FLIP
   final val size      = DFBits(32) <> OUT
   val c_READ_BUF_ADDR   = h"00001000"
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
 
-  ap.start := 0
-  d.offset := b0s
-  o.offset := b0s
-  size := b0s
   private val ap_drv_fsm = new DFSM() {
+    State.doNext {
+      ap.start := 0
+      d.offset := b0s
+      o.offset := b0s
+      size := b0s
+    }
     State.doNext {
       d.offset := c_WRITE_BUF_ADDR.resize(64)
       o.offset := c_READ_BUF_ADDR.resize(64)
@@ -156,14 +158,15 @@ import lib.bus.AXI4
     }
     State.waitWhile(!ap.ready)
     State.doNext {
-      ap.start := 0
       sim.report(msg"Got ap_ready")
     }
     State.waitForever
   }.start()
 
-  o.AR.READY := 0
   private val o_addr_fsm = new DFSM() {
+    State.doNext {
+      o.AR.READY := 0
+    }
     State.waitWhile(!ap.start)
     State.doNext{
       o.AR.READY := 1
@@ -174,6 +177,7 @@ import lib.bus.AXI4
 
   private val read_flag = DFBool() init false
   private val read_addr_checker = new DFSM() {
+    State.next
     State.doWhile(!o.AR.READY || !o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
@@ -194,8 +198,10 @@ import lib.bus.AXI4
   private def dataFunc(cnt : DFUInt[32])(implicit ctx : DFBlock.Context) : DFBits[32] = cnt.bits(ctx)
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
-  o.R.VALID := 0
   private val o_data_fsm = new DFSM() {
+    State.doNext {
+      o.R.VALID := 0
+    }
     State.waitWhile(!o.AR.READY || !o.AR.VALID)
     State.doNext {
       read_size := o.AR.LEN.uint
@@ -213,8 +219,10 @@ import lib.bus.AXI4
     }
   }.start()
 
-  d.AW.READY := 0
   private val d_addr_fsm = new DFSM() {
+    State.doNext {
+      d.AW.READY := 0
+    }
     State.waitWhile(!ap.start)
     State.doNext {
       d.AW.READY := 1
@@ -225,9 +233,11 @@ import lib.bus.AXI4
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
-  d.W.READY := 0
-  d.B.VALID := 0
   private val d_data_fsm = new DFSM() {
+    State.doNext {
+      d.W.READY := 0
+      d.B.VALID := 0
+    }
     State.waitWhile(!d.AW.READY || !d.AW.VALID)
     State.doNext {
       write_size := d.AW.LEN.uint
@@ -237,6 +247,7 @@ import lib.bus.AXI4
       d.W.READY := 1
       ifdf(d.W.VALID) {
         sim.assert(dataFunc(write_cnt) === d.W.DATA, msg"Bad write data")
+        write_cnt := write_cnt + 1
       }
     }
     State {
@@ -250,6 +261,7 @@ import lib.bus.AXI4
 
   private val write_flag = DFBool() init false
   private val write_addr_checker = new DFSM() {
+    State.next
     State.doWhile(!d.AW.READY || !d.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)

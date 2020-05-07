@@ -3,14 +3,14 @@ package lib.ompss
 import lib.bus.AXI4
 
 sealed trait OmpssDir
-case object READ  extends OmpssDir
-case object WRITE extends OmpssDir
+case object RO  extends OmpssDir
+case object WO extends OmpssDir
 
 @df final class OmpssAXI(dir : OmpssDir, flipped : Boolean) extends DFInterface(OmpssAXI.PrefixNameFlatten) {
   private val axiDir = if (flipped) AXI4.Slave else AXI4.Master
   private val axiNode = dir match {
-    case READ => AXI4.SRO
-    case WRITE => AXI4.SWO
+    case RO => AXI4.SRO
+    case WO => AXI4.SWO
   }
   final val axi = axiNode <> axiDir setNameFlatten(DFInterface.NameFlatten.IgnoreOwnerName)
   final val offset  = DFBits(64) <> (if (flipped) OUT else IN)
