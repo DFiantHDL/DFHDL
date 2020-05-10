@@ -49,7 +49,14 @@ abstract class DFSM()(implicit ctx : DFBlock.Context) {self =>
       }
       State(controlBlock)
     }
-    def doNext(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
+    def step(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
+      def execBlock = {
+        block
+        gotoNext()
+      }
+      State(execBlock)
+    }
+    def last(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
       def execBlock = {
         block
         gotoNext()
@@ -64,6 +71,8 @@ abstract class DFSM()(implicit ctx : DFBlock.Context) {self =>
     ) : State = doUntil(cond)({})
     def waitForever(implicit ctx : DFBlock.Context) : State = State({})
     def next(implicit ctx : DFBlock.Context) : State = State(gotoNext())
+    def done(implicit ctx : DFBlock.Context) : State = last({})
+    def isDone(implicit ctx : DFBlock.Context) : DFBool = ???
   }
   private lazy val constructMatchStatement : Unit = {
     val matchHeader = ConditionalBlock.NoRetVal.MatchHeader(state, MatchConfig.NoOverlappingCases)

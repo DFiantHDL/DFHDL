@@ -6,7 +6,7 @@ import DFiant._
 import DFiant.internals.BitVectorExtras
 import lib.bus.AXI4
 
-@df class loopback_moved extends OmpssTopDesign {
+@df class loopback_moved extends OmpssKernelDesign {
   //d is output
   final val d         = OmpssAXI <> WO
   //o is input
@@ -144,31 +144,31 @@ import lib.bus.AXI4
   val c_SIZE            = h"00000020"
 
   private val ap_drv_fsm = new DFSM() {
-    State.doNext {
+    State.step {
       ap.start := 0
       d.offset := b0s
       o.offset := b0s
       size := b0s
     }
-    State.doNext {
+    State.step {
       d.offset := c_WRITE_BUF_ADDR.resize(64)
       o.offset := c_READ_BUF_ADDR.resize(64)
       size := c_SIZE
       ap.start := 1
     }
     State.waitWhile(!ap.ready)
-    State.doNext {
+    State.step {
       sim.report(msg"Got ap_ready")
     }
     State.waitForever
   }.start()
 
   private val o_addr_fsm = new DFSM() {
-    State.doNext {
+    State.step {
       o.AR.READY := 0
     }
     State.waitWhile(!ap.start)
-    State.doNext{
+    State.step{
       o.AR.READY := 1
     }
     State.waitWhile(!o.AR.VALID)
@@ -199,11 +199,11 @@ import lib.bus.AXI4
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
   private val o_data_fsm = new DFSM() {
-    State.doNext {
+    State.step {
       o.R.VALID := 0
     }
     State.waitWhile(!o.AR.READY || !o.AR.VALID)
-    State.doNext {
+    State.step {
       read_size := o.AR.LEN.uint
       read_cnt := 0
     }
@@ -220,11 +220,11 @@ import lib.bus.AXI4
   }.start()
 
   private val d_addr_fsm = new DFSM() {
-    State.doNext {
+    State.step {
       d.AW.READY := 0
     }
     State.waitWhile(!ap.start)
-    State.doNext {
+    State.step {
       d.AW.READY := 1
     }
     State.waitWhile(!d.AW.VALID)
@@ -234,12 +234,12 @@ import lib.bus.AXI4
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
   private val d_data_fsm = new DFSM() {
-    State.doNext {
+    State.step {
       d.W.READY := 0
       d.B.VALID := 0
     }
     State.waitWhile(!d.AW.READY || !d.AW.VALID)
-    State.doNext {
+    State.step {
       write_size := d.AW.LEN.uint
       write_cnt := 0
     }
@@ -296,3 +296,4 @@ object LoopbackApp extends App {
   }
   loopback_test.printCodeString().compile.toFolder("loopback")
 }
+

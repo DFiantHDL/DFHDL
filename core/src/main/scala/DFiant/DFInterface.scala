@@ -81,6 +81,9 @@ object DFInterface {
       updated
     }
   }
+  final class Singular[T <: DFAny.Type](dfType : T)(implicit ctx : ContextOf[Singular[T]]) extends DFInterface {
+    final val value = DFAny.NewVar(dfType)
+  }
   abstract class Context(val meta : Meta, ownerF : => DFOwner, val dir : DFDir, val db : DFDesign.DB.Mutable)
     extends DFAny.Context { self =>
     def owner : DFOwner = ownerF
