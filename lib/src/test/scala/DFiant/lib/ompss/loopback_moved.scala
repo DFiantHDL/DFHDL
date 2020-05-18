@@ -290,10 +290,10 @@ trait LoopbackTest extends DFSimulator  {
 }
 
 object LoopbackApp extends App {
-  object loopback_test extends LoopbackTest {
+  object loopback_moved extends loopback_moved {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_test.printCodeString().compile.toFolder("loopback")
+  loopback_moved.compile.printCodeString().toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
 }
 

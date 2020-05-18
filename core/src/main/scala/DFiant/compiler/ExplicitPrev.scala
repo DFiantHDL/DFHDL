@@ -103,16 +103,17 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
   @tailrec private def getImplicitPrevVars(remaining : List[DFMember], currentBlock : DFBlock, scopeMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
     remaining match {
       case (nextBlock : DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => //entering child block
-        val updatedScopeMap = nextBlock match {
+        val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = nextBlock match {
+          case ifBlock : ConditionalBlock.IfBlock =>
+            (consumeFrom(ifBlock.condRef.get, scopeMap, currentSet), scopeMap.branchEntry(firstBranch = true))
+          case elseIfBlock : ConditionalBlock.ElseIfBlock =>
+            (consumeFrom(elseIfBlock.condRef.get, scopeMap, currentSet), scopeMap.branchEntry(firstBranch = false))
           case cb : ConditionalBlock =>
-            //              println(s"entering $cb", cb.isFirstCB)
-            //              val ret =
-            scopeMap.branchEntry(cb.isFirstCB)
-          //              println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
-          //              ret
-          case _ => scopeMap
+            (currentSet, scopeMap.branchEntry(cb.isFirstCB))
+          case _ =>
+            (currentSet, scopeMap)
         }
-        getImplicitPrevVars(rs, nextBlock, updatedScopeMap, currentSet)
+        getImplicitPrevVars(rs, nextBlock, updatedScopeMap, updatedSet)
       case r :: rs if r.getOwnerBlock == currentBlock => //checking member consumers
         val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
           case net : DFNet =>
@@ -127,10 +128,6 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
               case (set, x) => set union consumeFrom(x.get.asInstanceOf[DFAny], scopeMap, currentSet)
             }
             (consume, scopeMap)
-          case ifBlock : ConditionalBlock.IfBlock =>
-            (consumeFrom(ifBlock.condRef.get, scopeMap, currentSet), scopeMap)
-          case elseIfBlock : ConditionalBlock.ElseIfBlock =>
-            (consumeFrom(elseIfBlock.condRef.get, scopeMap, currentSet), scopeMap)
           case matchBlock : ConditionalBlock.MatchHeader =>
             (consumeFrom(matchBlock.matchValRef.get, scopeMap, currentSet), scopeMap)
           case outPort @ DFAny.Port.Out() =>
@@ -142,6 +139,16 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         }
         getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
       case _ => //exiting child block or no more members
+        val updatedSet = currentBlock match {
+          case d : DFDesign.Block if remaining.isEmpty =>
+            val outPorts : List[DFAny] = designDB.designMemberTable(d).collect {
+              case p @ DFAny.Port.Out() => p
+              case p @ DFAny.NewVar() => p
+            }
+            outPorts.foldLeft(currentSet){case (cs, p) => consumeFrom(p, scopeMap, cs)}
+          case _ =>
+            currentSet
+        }
         val exitingBlock = remaining match {
           case r :: _ if r.getOwnerBlock != currentBlock => true //another member but not a child of current
           case Nil if (currentBlock != designDB.top) => true //there are no more members, but still not at top
@@ -157,13 +164,8 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
             //                ret
             case _ => scopeMap
           }
-          getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, currentSet)
-        } else {
-          assert(currentBlock == designDB.top)
-          val outPorts : List[DFAny] = designDB.blockMemberTable(designDB.top).collect{case p @ DFAny.Port.Out() => p}
-          //consuming from top-level output ports
-          outPorts.foldLeft(currentSet){case (cs, p) => consumeFrom(p, scopeMap, cs)}
-        }
+          getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
+        } else updatedSet
     }
   }
 
