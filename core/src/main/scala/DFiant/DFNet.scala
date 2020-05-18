@@ -70,6 +70,12 @@ object DFNet {
         ctx.db.addMember(Connection(to, from, ctx.owner, ctx.meta)).asRefOwner
       ret
     }
+    object Unref {
+      def unapply(arg : Connection)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags.Basic)] = arg match {
+        case Connection(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
+        case _ => None
+      }
+    }
   }
 
   object Inlined {

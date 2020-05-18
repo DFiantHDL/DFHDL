@@ -8,7 +8,7 @@ sealed trait DFSimMember extends DFMember {
 }
 object DFSimMember {
   final case class Assert(
-    condOptionRef : Option[Assert.CondRef], msg : Assert.MessageRef, severity : Assert.Severity,
+    condOptionRef : Option[Assert.CondRef], msgRef : Assert.MessageRef, severity : Assert.Severity,
     ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
   ) extends DFSimMember  with CanBeGuarded with DFAny.CanBeAnonymous {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -18,16 +18,16 @@ object DFSimMember {
           case (None, None) => true
           case _ => false
         }
-        condEq && this.msg =~ msg && this.severity == severity && this.tags =~ tags
+        condEq && this.msgRef =~ msg && this.severity == severity && this.tags =~ tags
       case _ => false
     }
     def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String = {
       import printConfig._
       condOptionRef match {
         case Some(c) =>
-          s"$DF sim.$DF assert(${c.refCodeString}, ${msg.codeString}, ${severity.codeString})"
+          s"$DF sim.$DF assert(${c.refCodeString}, ${msgRef.codeString}, ${severity.codeString})"
         case None =>
-          s"$DF sim.$DF report(${msg.codeString}, ${severity.codeString})"
+          s"$DF sim.$DF report(${msgRef.codeString}, ${severity.codeString})"
       }
     }
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
@@ -47,6 +47,13 @@ object DFSimMember {
         eitherSeq
       })
       ret
+    }
+    object Unref {
+      def unapply(arg: Assert)(implicit getSet: MemberGetSet)
+      : Option[(Option[DFBool], Message, Severity, DFOwner.Ref, DFMember.Tags.Basic)] = {
+        import arg._
+        Some((condOptionRef.map(c => c.get), msgRef.get, severity, ownerRef, tags))
+      }
     }
 
     type CondRef = DFMember.OwnedRef.Of[CondRef.Type, DFBool]
@@ -68,6 +75,10 @@ object DFSimMember {
         }
         !notEq
       }
+      def get(implicit getSet : MemberGetSet) : Message = Message(seq.map {
+        case Left(ref) => Left(ref.get)
+        case Right(s) => Right(s)
+      })
       def codeString(implicit ctx : Printer.Context) : String = "msg\"" + seq.collect {
         case Left(x) => s"$${${x.refCodeString}}"
         case Right(x) => x

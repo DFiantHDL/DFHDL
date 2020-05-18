@@ -9,7 +9,7 @@ private object Sim {
       import printer.config._
       import formatter._
       val clkName = ClockParams.get.name
-      val msg = assert.msg.seq.map {
+      val msg = assert.msgRef.seq.map {
         case Left(v) =>
           val convStr = v.get match {
             case DFBits(w) if w % 8 == 0 => "to_hstring"

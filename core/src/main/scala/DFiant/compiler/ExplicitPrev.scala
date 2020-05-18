@@ -123,7 +123,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
             val right = consumeFrom(func.rightArgRef.get, scopeMap, currentSet)
             (left union right, scopeMap)
           case assert : DFSimMember.Assert =>
-            val dfAnySet : Seq[DFMember.Ref] = assert.msg.seq.collect{case Left(x) => x} ++ assert.condOptionRef
+            val dfAnySet : Seq[DFMember.Ref] = assert.msgRef.seq.collect{case Left(x) => x} ++ assert.condOptionRef
             val consume = dfAnySet.foldLeft(currentSet){
               case (set, x) => set union consumeFrom(x.get.asInstanceOf[DFAny], scopeMap, currentSet)
             }
@@ -189,8 +189,8 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         val addedAssignments = block -> Patch.Add(new MetaDesign() {
           portDsns.foreach {
             case (p, dsn) =>
-              DFNet.Assignment(dsn.p_sig, dsn.p_var)
-              DFNet.Assignment(p, dsn.p_sig)
+              DFNet.Connection(dsn.p_sig, dsn.p_var)
+              DFNet.Connection(p, dsn.p_sig)
           }
         }, Patch.Add.Config.Inside)
         addedAssignments :: addedVarPatches

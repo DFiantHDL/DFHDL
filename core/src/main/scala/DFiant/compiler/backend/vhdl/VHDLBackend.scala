@@ -6,6 +6,11 @@ package vhdl
 import compiler.sync._
 
 import scala.collection.mutable
+sealed trait VHDLRevision extends Product with Serializable
+object VHDLRevision {
+  implicit case object VHDL1993 extends VHDLRevision
+  case object VHDL2008 extends VHDLRevision
+}
 
 final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB =
@@ -46,7 +51,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     }
     statements
   }
-  def compile = {
+  def compile(implicit revision : VHDLRevision) = {
     val designTypes = mutable.Set.empty[String]
     val files = designDB.blockMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
@@ -76,16 +81,37 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
             ComponentInstance(x.name, x.designType, connections)
         }
         val asyncStatements = getProcessStatements(design, !isSyncMember(_))
-        val asyncProcess = Process("async_proc", Process.Sensitivity.All(), variables, asyncStatements)
+        val asyncSensitivityList : String = revision match {
+          case VHDLRevision.VHDL1993 =>
+            val producers = members.flatMap {
+              case a @ DFNet.Assignment.Unref(_,fromVal,_,_) if !a.hasLateConstruction => Some(fromVal)
+              case c @ DFNet.Connection.Unref(_,fromVal,_,_) if !c.hasLateConstruction => Some(fromVal)
+              case DFAny.Func2.Unref(_,left,_,right,_,_) => List(left, right)
+              case a : DFAny.Alias[_,_,_] => Some(a.relValRef.get)
+              case DFSimMember.Assert.Unref(condOption,msg,_,_,_) => msg.seq ++ condOption
+              case ifBlock : ConditionalBlock.IfBlock => Some(ifBlock.condRef.get)
+              case elseIfBlock : ConditionalBlock.ElseIfBlock => Some(elseIfBlock.condRef.get)
+              case mh : ConditionalBlock.MatchHeader => Some(mh.matchValRef.get)
+              case _ => Nil
+            }
+            val signalsOrPorts = producers.distinct.collect {
+              case p @ DFAny.Port.In() => p
+              case v @ DFAny.NewVar() if v.tags.customTags.contains(Sync.Tag.Reg) => v
+              case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
+            }
+            Process.Sensitivity.List(signalsOrPorts.map(e => e.name))
+          case VHDLRevision.VHDL2008 => Process.Sensitivity.All()
+        }
+        val asyncProcess = Process("async_proc", asyncSensitivityList, variables, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
-        val syncSensitivityList = members.collect {
+        val syncSensitivityList = Process.Sensitivity.List(members.collect {
           case Sync.IfBlock(clkOrReset) => clkOrReset.name
           case Sync.ElseIfBlock(clk) => clk.name
-        }
+        })
         val emits = members.collect {
           case Emitter(emitStr) => emitStr
         }.mkString("\n")
-        val syncProcess = Process("sync_proc", Process.Sensitivity.List(syncSensitivityList), List(), syncStatements)
+        val syncProcess = Process("sync_proc", syncSensitivityList, List(), syncStatements)
         val statements = componentInstances ++ List(asyncProcess, syncProcess, emits)
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
         val file = File(s"${designDB.top.designType}_pkg", entity, architecture)
