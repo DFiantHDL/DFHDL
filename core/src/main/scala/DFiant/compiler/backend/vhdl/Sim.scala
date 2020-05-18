@@ -5,7 +5,7 @@ import compiler.sync._
 
 private object Sim {
   object Assert {
-    def unapply(assert : DFSimMember.Assert)(implicit printer: Printer) : Option[String] = {
+    def unapply(assert : DFSimMember.Assert)(implicit printer: Printer, revision: VHDLRevision) : Option[String] = {
       import printer.config._
       import formatter._
       val clkName = ClockParams.get.name
@@ -22,7 +22,7 @@ private object Sim {
       val report = s"$KW report $msg $KW severity $TP${assert.severity};"
       val statement = assert.condOptionRef match {
         case Some(condRef) =>
-          val cond = Value.ref(condRef.get)
+          val cond = Value.boolRef(condRef.get)
           s"$KW assert ($cond) $report"
         case None =>
           report

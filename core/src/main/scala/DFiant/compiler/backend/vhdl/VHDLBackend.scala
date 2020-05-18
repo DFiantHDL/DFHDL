@@ -29,14 +29,15 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     case Sync.IfBlock(_) | Sync.ElseIfBlock(_) => true
     case _ => false
   }
-  private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true) : List[String] = {
+  private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(implicit printer : Printer, revision : VHDLRevision) : List[String] = {
+    import printer.config.formatter._
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
-        (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
+        (If.ElsIf(Value.boolRef(cb.condRef.get), getProcessStatements(cb), closing), statements)
       case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
-        ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
+        ("", If(Value.boolRef(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
       case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
         (Case.When(Case.Choice.Others(), getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.CasePatternBlock[_], (whens, statements)) =>
