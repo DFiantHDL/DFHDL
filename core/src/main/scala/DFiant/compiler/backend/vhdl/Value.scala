@@ -41,12 +41,15 @@ private object Value {
       case Op.++ => "&"
       case _ => ???
     }
-    val leftArgStr = ref(leftArg)
+    val leftArgStr = leftArg match {
+      case DFAny.Const(_,DFUInt.Token(_,value,false),_,_) => s"$LIT$value"
+      case DFAny.Const(_,DFSInt.Token(_,value,false),_,_) => s"$LIT$value"
+      case _ => ref(leftArg)
+    }
     val rightArgStr = (member.op, rightArg) match {
-      case (Op.<< | Op.>>, ra : DFAny.Const) => ra.token match {
-        case DFUInt.Token(_,value,false) => s"$LIT$value"
-      }
       case (Op.<< | Op.>>, ra) => s"$FN to_integer(${ref(ra)})"
+      case (_, DFAny.Const(_,DFUInt.Token(_,value,false),_,_)) => s"$LIT$value"
+      case (_, DFAny.Const(_,DFSInt.Token(_,value,false),_,_)) => s"$LIT$value"
       case (_, ra) => ref(ra)
     }
     s"${leftArgStr.applyBrackets()} $OP$opStr ${rightArgStr.applyBrackets()}"
