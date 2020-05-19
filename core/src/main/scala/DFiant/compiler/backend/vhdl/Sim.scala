@@ -11,12 +11,21 @@ private object Sim {
       val clkName = ClockParams.get.name
       val msg = assert.msgRef.seq.map {
         case Left(v) =>
-          val convStr = v.get match {
-            case DFBits(w) if w % 8 == 0 => "to_hstring"
-            case DFUInt(w) if w % 8 == 0 => "to_hstring"
-            case _ => "to_string"
+          v.get match {
+            case DFBits(w) if w % 4 == 0 => s"$FN to_hstring(${Value.ref(v)})"
+            case DFUInt(w) if w % 4 == 0 => s"$FN to_hstring($FN to_slv(${Value.ref(v)}))"
+            case value => revision match {
+              case VHDLRevision.VHDL1993 => value match {
+                case DFBits(_) => s"$TP std_logic_vector'image(${Value.ref(value)})"
+                case DFUInt(_) => s"$TP unsigned'image(${Value.ref(value)})"
+                case DFSInt(_) => s"$TP signed'image(${Value.ref(value)})"
+                case DFBool() => s"$TP boolean'image(${Value.ref(value)})"
+                case DFBit() => s"$TP std_logic'image(${Value.ref(value)})"
+                case DFEnum(enumType) => s"${enumType.name}_type'image(${Value.ref(value)})"
+              }
+              case VHDLRevision.VHDL2008 => s"$FN to_string(${Value.ref(v)})"
+            }
           }
-          s"$FN $convStr(${Value.ref(v)})"
         case Right(s) => s""""$s""""
       }.mkString(" & ")
       val report = s"$KW report $msg $KW severity $TP${assert.severity};"
@@ -32,11 +41,15 @@ private object Sim {
   }
 
   object Finish {
-    def unapply(assert : DFSimMember.Finish)(implicit printer: Printer) : Option[String] = {
+    def unapply(assert : DFSimMember.Finish)(implicit printer: Printer, revision: VHDLRevision) : Option[String] = {
       import printer.config._
       import formatter._
       val clkName = ClockParams.get.name
-      Some(If(s"$OP rising_edge($clkName)", List(s"finish(0);"), If.End()))
+      val finish = revision match {
+        case VHDLRevision.VHDL1993 => List(s"""$KW report "Simulation Finished" $KW severity $TP FAILURE;""")
+        case VHDLRevision.VHDL2008 => List(s"finish(0);")
+      }
+      Some(If(s"$OP rising_edge($clkName)", finish, If.End()))
     }
   }
 }

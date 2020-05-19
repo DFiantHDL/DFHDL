@@ -2,18 +2,25 @@ package DFiant
 package compiler.backend.vhdl
 
 object PackageFile {
-  def apply()(implicit printer: Printer) : String = {
+  def apply()(implicit printer: Printer, revision: VHDLRevision) : String = {
     import printer.config._
     import formatter._
     val kwWords = Set("library", "use", "package", "end", "begin", "package", "is", "body", "all", "function",
     "return", "for", "loop", "if", "else", "elsif", "then", "variable", "in", "downto", "type")
     val tpWords = Set("std_logic_vector", "std_logic", "boolean", "unsigned", "signed", "ieee",
-      "std_logic_1164", "numeric_std", "low", "high", "length")
+      "std_logic_1164", "numeric_std", "low", "high", "length", "std_logic_textio", "textio", "std", "line")
     val fnWords = Set("bit_reverse", "to_sl", "to_slv")
+    val simLibs = if (printer.inSimulation) revision match {
+      case VHDLRevision.VHDL1993 =>
+      """use ieee.std_logic_textio.all;
+        |use std.textio.all;""".stripMargin
+      case VHDLRevision.VHDL2008 => ""
+    } else ""
     val name = Name()
     s"""library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |$simLibs
        |$EMPTY
        |package $name is
        |${helperFunctions.delim()}
@@ -36,8 +43,13 @@ object PackageFile {
       s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }
-  private def helperFunctions()(implicit printer: Printer) : String = {
+  private def helperFunctions()(implicit printer: Printer, revision: VHDLRevision) : String = {
     import printer.config._
+    val to_hstring =
+      if (printer.inSimulation) revision match {
+        case VHDLRevision.VHDL1993 => "function to_hstring(arg : std_logic_vector) return string;"
+        case VHDLRevision.VHDL2008 => ""
+      } else ""
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector;
        |function resize(arg : std_logic_vector; size : integer) return std_logic_vector;
        |function to_sl(b : boolean) return std_logic;
@@ -45,11 +57,24 @@ object PackageFile {
        |function to_slv(arg : std_logic) return std_logic_vector;
        |function to_slv(arg : unsigned) return std_logic_vector;
        |function to_slv(arg : signed) return std_logic_vector;
-       |function to_slv(arg : boolean) return std_logic_vector;""".stripMargin
+       |function to_slv(arg : boolean) return std_logic_vector;
+       |$to_hstring""".stripMargin
   }
 
-  private def helperFunctionsBody()(implicit printer: Printer) : String = {
+  private def helperFunctionsBody()(implicit printer: Printer, revision: VHDLRevision) : String = {
     import printer.config._
+    val to_hstring =
+      if (printer.inSimulation) revision match {
+        case VHDLRevision.VHDL1993 =>
+          """function to_hstring (arg : std_logic_vector) return string is
+            |  variable L : line;
+            |begin
+            |  hwrite(L,arg);
+            |  return L.all;
+            |end function to_hstring;
+            |""".stripMargin
+        case VHDLRevision.VHDL2008 => ""
+      } else ""
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector is
        |   variable v_s : std_logic_vector(s'high downto s'low);
        |begin
@@ -101,6 +126,7 @@ object PackageFile {
        |  else
        |    return "0";
        |  end if;
-       |end to_slv;""".stripMargin
+       |end to_slv;
+       |$to_hstring""".stripMargin
   }
 }

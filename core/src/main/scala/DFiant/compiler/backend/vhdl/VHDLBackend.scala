@@ -44,6 +44,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         val when = Case.When(Case.Choice.Pattern(cb.pattern), getProcessStatements(cb))
         (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
+        //TODO: handle matchval func @ vhdl93
         ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (Sim.Assert(assertStr), (closing, statements)) => (closing, assertStr :: statements)

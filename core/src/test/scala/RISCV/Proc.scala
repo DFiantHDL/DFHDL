@@ -73,7 +73,7 @@ object ProcTest extends App {
   val workDirFlag = "--workdir=testProc/work"
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
   val librart = s"-P$libraryLocation"
-  val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys --std=08"
+  val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys"  //--std=08
   val files = risc_tbv.getFileNames.map(n => s"testProc/$n").mkString(" ")
   val topEntity = risc_tbv.db.top.designType
   import sys.process._

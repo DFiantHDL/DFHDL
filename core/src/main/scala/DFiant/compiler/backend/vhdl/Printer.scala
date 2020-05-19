@@ -6,6 +6,10 @@ package vhdl
 sealed trait Printer {
   val getSet : MemberGetSet
   val config : Printer.Config
+  lazy val inSimulation : Boolean = getSet.designDB.top.simMode match {
+    case DFSimulator.Mode.On => true
+    case _ => false
+  }
 }
 object Printer {
   implicit def ev(implicit config0: Config, getset0: MemberGetSet) : Printer = new Printer {

@@ -37,10 +37,3 @@ import DFiant._
     this.aluOut
   }
 }
-
-object ALUApp extends App {
-  val alu = new ALU {}
-  import compiler.backend.vhdl._
-  alu.compile.printGenFiles()
-}
-

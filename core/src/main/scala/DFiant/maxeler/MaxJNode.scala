@@ -1,7 +1,7 @@
 package DFiant.maxeler
 import DFiant._
 import compiler.Compilable
-import compiler.backend.vhdl.VHDLBackend
+import compiler.backend.vhdl.{VHDLBackend, VHDLRevision}
 import compiler.sync._
 
 final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
@@ -126,7 +126,7 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
        |""".stripMargin
   }
 
-  def compile = {
+  def compile(implicit revision : VHDLRevision) = {
     import shapeless.{:: => #:}
     val vhdlCompile = new VHDLBackend(c.newStage[MaxJNode](db, Seq())).compile
     val vhdlFileNames = vhdlCompile.cmdSeq.collect {

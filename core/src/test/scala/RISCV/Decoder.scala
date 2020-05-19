@@ -29,6 +29,7 @@ import DFiant._
   private val opcode    = raw(6, 0)
   private val func7     = raw(31, 25)
   private val func3     = raw(14, 12)
+  private val func73    = func7 ++ func3
   private val immIType  = raw(31, 20).sint.resize(32).bits
   private val immSType  = (raw(31, 25), raw(11, 7)).bits.sint.resize(32).bits
   private val immBType  = (raw(31), raw(7), raw(30, 25), raw(11, 8), b"0").bits.sint.resize(32).bits
@@ -208,7 +209,7 @@ import DFiant._
       wbSel := WriteBackSel.ALU
       rd_wren := true
       dmemSel := DMemSel.DontCare
-      matchdf(func7 ++ func3)
+      matchdf(func73)
         .casedf(b"0000000" ++ b"000") {debugOp := DebugOp.ADD;    aluSel := ALUSel.ADD}
         .casedf(b"0100000" ++ b"000") {debugOp := DebugOp.SUB;    aluSel := ALUSel.SUB}
         .casedf(b"0000000" ++ b"001") {debugOp := DebugOp.SLL;    aluSel := ALUSel.SLL}
