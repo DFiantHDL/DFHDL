@@ -8,8 +8,8 @@ import singleton.ops._
 
 import scala.reflect.{ClassTag, classTag}
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
-  private[DFiant] lazy val __ctx : DFDesign.Context = ctx
-  private[DFiant] lazy val __portArgs : Map[DFAny, DFAny] = {
+  private[DFiant] final lazy val __ctx : DFDesign.Context = ctx
+  private[DFiant] final lazy val __portArgs : Map[DFAny, DFAny] = {
     val ret = Map(ctx.args.value.flatMap(l => l.flatMap {
       case (name, x : DFAny) => Some(x -> DFAny.Port.In(x.dfType).setName(name))
       case _ => None
@@ -17,109 +17,45 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
     if (ret.nonEmpty) println(ret)
     ret
   }
+  ///////////////////////////////////////////////////////////////////
+  // Ability to run construction at the owner's context
+  ///////////////////////////////////////////////////////////////////
+  final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
+  ///////////////////////////////////////////////////////////////////
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
   final def addMember[T <: DFMember](member : T) : T = __db.addMember(member)
-  final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
+  final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
-//@implicitNotFound(ContextOf.MissingError.msg)
-abstract class ContextOf[T <: DFInterface.Abstract](
-  val meta : Meta, ownerF : => T#Owner, val dir: DFDir, val db: DFDesign.DB.Mutable, val args : ClassArgs[T]
-) extends DFMember.Context { self =>
-  def owner : T#Owner = ownerF
-  def newInterface(updatedCtx : ContextOf[T]) : Any
-  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, ownerF, updatedDir, db, args) {
-    override def newInterface(updatedCtx : ContextOf[T]) : Any = self.newInterface(updatedCtx)
-  }
-}
-object ContextOf {
-  final object MissingError extends ErrorMsg (
-    "Missing an implicit ContextOf[T].",
-    "missing-context"
-  ) {final val msg = getMsg}
-  implicit def evCtx[T1 <: DFInterface.Abstract, T2 <: DFInterface.Abstract](
-    implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
-    args : ClassArgs[T2]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db, args) {
-    def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
-  }
-  implicit def evTop[T <: DFDesign](
-    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg],
-    mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority, args : ClassArgs[T]
-  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable, args) {
-    def newInterface(updatedCtx : ContextOf[T]) : Any = ???
-  }
-}
 object DFDesign {
   protected[DFiant] type Context = DFBlock.Context
 
-  trait Abstract extends DFInterface.Abstract {
+  trait Abstract extends DFOwner.Container {
     type Owner = DFDesign.Block
-    private[DFiant] val __ctx : DFDesign.Context
     private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
     private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
+    private[DFiant] val __ctx : DFDesign.Context
+    private[DFiant] final lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
-    private[DFiant] final val __db: DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
-    final protected implicit val __getset : MemberGetSet = __ctx.db.getSet
 
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __blockContext(
       implicit meta : Meta
-    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, __ctx.dir, __ctx.db, ClassArgs.empty)
+    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, ASIS, __db, ClassArgs.empty)
     final protected implicit def __contextOfDesign[T <: DFDesign](
       implicit meta : Meta, args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = ???
     }
-    ///////////////////////////////////////////////////////////////////
-
-    ///////////////////////////////////////////////////////////////////
-    // Conditional Constructs
-    ///////////////////////////////////////////////////////////////////
-    final protected def ifdf[C](cond : DFBool.Op.Able[C])(block : => Unit)(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-    ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)(ctx)
-    final protected def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-      implicit ctx : DFBlock.Context
-    ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)(ctx)
-    ///////////////////////////////////////////////////////////////////
-
-    ///////////////////////////////////////////////////////////////////
-    // Ability to run construction at the owner's context
-    ///////////////////////////////////////////////////////////////////
-    final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(__ctx.owner)(block)
-    ///////////////////////////////////////////////////////////////////
-
-    ///////////////////////////////////////////////////////////////////
-    // Simulation-related constructs
-    ///////////////////////////////////////////////////////////////////
-    final protected lazy val inSimulation : Boolean = __ctx.db.top.simMode match {
-      case DFSimulator.Mode.Off => false
-      case DFSimulator.Mode.On => true
-    }
-    final protected object sim {
-      import DFSimMember.{Assert, Finish}
-      import Assert._
-      final val Note = Severity.Note
-      final val Warning = Severity.Warning
-      final val Error = Severity.Error
-      final val Failure = Severity.Failure
-      def assert[C](cond : DFBool.Op.Able[C], msg : Message, severity : Severity = Warning)(
-        implicit ctx : DFAny.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-      ) : Unit = {
-        if (inSimulation) Assert(Some(condConv(DFBool.Type(logical = true),cond)), msg, severity)(ctx)
-      }
-      def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
-        if (inSimulation) Assert(None, msg, severity)(ctx)
-      }
-      def finish()(implicit ctx : DFAny.Context) : Unit = {
-        if (inSimulation) Finish()(ctx)
-      }
+    final protected implicit def __contextOfInterface[T <: DFInterface](
+      implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
+      def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
   }

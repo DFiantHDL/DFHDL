@@ -7,12 +7,9 @@ import singleton.ops._
 import scala.annotation.implicitNotFound
 
 abstract class DFInterface(
-  nameFlatten: DFInterface.NameFlatten = DFInterface.NameFlatten.UnderscoreSuffix
+  val nameFlatten: DFInterface.NameFlatten = DFInterface.NameFlatten.UnderscoreSuffix
 )(implicit ctx : DFInterface.Context) extends DFInterface.Abstract {
-  type Owner = DFOwner //TODO: Why not DFInterface.Owner
-  private[DFiant] final val __ctx : DFInterface.Context = ctx
-  private[DFiant] final val owner : Owner = DFInterface.Owner(nameFlatten)(ctx)
-  private[DFiant] final val __db: DFDesign.DB.Mutable = ctx.db
+  private[DFiant] final lazy val __ctx : DFInterface.Context = ctx
   private[DFiant] final def updateDir(updatedDir : DFDir) : this.type = {
     val actualDir : DFDir = (updatedDir, ctx.dir) match {
       case (ASIS, x) => x
@@ -26,28 +23,28 @@ abstract class DFInterface(
     ctx.newInterface(ctx.updateDir(actualDir)).asInstanceOf[this.type]
   }
 
-  final protected implicit val __getset : MemberGetSet = ctx.db.getSet
-  final protected implicit val lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
+  final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
 }
 
 object DFInterface {
-  trait Abstract extends HasTypeName with DFDesign.Implicits {
-    type Owner <: DFOwner
-    private[DFiant] val owner : Owner
-    private[DFiant] val __ctx : DFAny.Context
-    private[DFiant] val __db: DFDesign.DB.Mutable
-
+  trait Abstract extends DFOwner.Container {
+    type Owner = DFInterface.Owner
+    private[DFiant] val __ctx : DFInterface.Context
+    val nameFlatten : DFInterface.NameFlatten
+    private[DFiant] final val owner : Owner = DFInterface.Owner(nameFlatten)(__ctx)
+    private[DFiant] final val __dir : DFDir = __ctx.dir
+    private[DFiant] final lazy val __db: DFDesign.DB.Mutable = __ctx.db
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __interfaceContext(
       implicit meta : Meta, cc : CloneClassWithContext[DFInterface.Context]
-    ) : DFInterface.Context = new DFInterface.Context(meta, owner, __ctx.dir, __db) {
+    ) : DFInterface.Context = new DFInterface.Context(meta, owner, __dir, __db) {
       def newInterface(updatedCtx : DFInterface.Context) : Any = cc(updatedCtx)
     }
     final protected implicit def __contextOfInterface[T <: DFInterface](
       implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, __ctx.dir, __ctx.db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, owner, __dir, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
@@ -71,7 +68,7 @@ object DFInterface {
       }
     }
     def setNameFlatten(nameFlatten: NameFlatten)(implicit getSet: MemberGetSet) : T = {
-      val owner = t.owner.asInstanceOf[Owner] //TODO: should be always Owner, no?
+      val owner = t.owner
       getSet.replace(owner)(owner.copy(nameFlatten = nameFlatten))
       t
     }

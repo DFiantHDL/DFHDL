@@ -231,6 +231,16 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Conditional Constructs
+  ////////////////////////////////////////////////////////////////////////////////////
+  def ifdf[C](cond : DFBool.Op.Able[C])(block : => Unit)(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)
+  def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
+    implicit ctx : DFBlock.Context
+  ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)
+
   implicit class ListExtender[+T](val list : Iterable[T]) {
     def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context) : Unit = {
       val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
@@ -253,5 +263,35 @@ package object DFiant {
       }
     }
   }
+  ////////////////////////////////////////////////////////////////////////////////////
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Simulation-related constructs
+  ////////////////////////////////////////////////////////////////////////////////////
+  def inSimulation(implicit ctx : DFAny.Context) : Boolean = ctx.db.top.simMode match {
+    case DFSimulator.Mode.Off => false
+    case DFSimulator.Mode.On => true
+  }
+  object sim {
+    import DFSimMember.{Assert, Finish}
+    import Assert._
+    final val Note = Severity.Note
+    final val Warning = Severity.Warning
+    final val Error = Severity.Error
+    final val Failure = Severity.Failure
+    def assert[C](cond : DFBool.Op.Able[C], msg : Message, severity : Severity = Warning)(
+      implicit ctx : DFAny.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+    ) : Unit = {
+      if (inSimulation) Assert(Some(condConv(DFBool.Type(logical = true),cond)), msg, severity)
+    }
+    def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
+      if (inSimulation) Assert(None, msg, severity)
+    }
+    def finish()(implicit ctx : DFAny.Context) : Unit = {
+      if (inSimulation) Finish()
+    }
+  }
+  ////////////////////////////////////////////////////////////////////////////////////
 
 }
