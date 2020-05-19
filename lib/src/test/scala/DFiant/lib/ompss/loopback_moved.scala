@@ -76,11 +76,11 @@ import lib.bus.AXI4
         ap.idle := 1
       }
     }
-    final val ST2 : State = State.next
-    final val ST3 : State = State.next
-    final val ST4 : State = State.next
-    final val ST5 : State = State.next
-    final val ST6 : State = State.next
+    final val ST2 : State = next
+    final val ST3 : State = next
+    final val ST4 : State = next
+    final val ST5 : State = next
+    final val ST6 : State = next
     final val ST7 : State = State {
       ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
         d.AW.VALID := 1
@@ -117,9 +117,9 @@ import lib.bus.AXI4
         ap_reg_ioackin_m_axi_d_WREADY := 1
       }
     }
-    final val ST10 : State = State.next
-    final val ST11 : State = State.next
-    final val ST12 : State = State.next
+    final val ST10 : State = next
+    final val ST11 : State = next
+    final val ST12 : State = next
     final val ST13 : State = State {
       ifdf(d.B.VALID){
         d.B.READY := 1
@@ -144,41 +144,41 @@ import lib.bus.AXI4
   val c_SIZE            = h"00000020"
 
   private val ap_drv_fsm = new DFSM() {
-    State.step {
+    step {
       ap.start := 0
       d.offset := b0s
       o.offset := b0s
       size := b0s
     }
-    State.step {
+    step {
       d.offset := c_WRITE_BUF_ADDR.resize(64)
       o.offset := c_READ_BUF_ADDR.resize(64)
       size := c_SIZE
       ap.start := 1
     }
-    State.waitWhile(!ap.ready)
-    State.step {
+    waitWhile(!ap.ready)
+    step {
       sim.report(msg"Got ap_ready")
     }
-    State.waitForever
+    waitForever
   }.start()
 
   private val o_addr_fsm = new DFSM() {
-    State.step {
+    step {
       o.AR.READY := 0
     }
-    State.waitWhile(!ap.start)
-    State.step{
+    waitWhile(!ap.start)
+    step{
       o.AR.READY := 1
     }
-    State.waitWhile(!o.AR.VALID)
-    State.waitForever
+    waitWhile(!o.AR.VALID)
+    waitForever
   }.start()
 
   private val read_flag = DFBool() init false
   private val read_addr_checker = new DFSM() {
-    State.next
-    State.doWhile(!o.AR.READY || !o.AR.VALID) {
+    next
+    doWhile(!o.AR.READY || !o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
@@ -199,15 +199,15 @@ import lib.bus.AXI4
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
   private val o_data_fsm = new DFSM() {
-    State.step {
+    step {
       o.R.VALID := 0
     }
-    State.waitWhile(!o.AR.READY || !o.AR.VALID)
-    State.step {
+    waitWhile(!o.AR.READY || !o.AR.VALID)
+    step {
       read_size := o.AR.LEN.uint
       read_cnt := 0
     }
-    State.doUntil(read_cnt === read_size) {
+    doUntil(read_cnt === read_size) {
       o.R.DATA := dataFunc(read_cnt)
       o.R.VALID := 1
       ifdf(o.R.READY) {
@@ -220,30 +220,30 @@ import lib.bus.AXI4
   }.start()
 
   private val d_addr_fsm = new DFSM() {
-    State.step {
+    step {
       d.AW.READY := 0
     }
-    State.waitWhile(!ap.start)
-    State.step {
+    waitWhile(!ap.start)
+    step {
       d.AW.READY := 1
     }
-    State.waitWhile(!d.AW.VALID)
-    State.waitForever
+    waitWhile(!d.AW.VALID)
+    waitForever
   }.start()
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
   private val d_data_fsm = new DFSM() {
-    State.step {
+    step {
       d.W.READY := 0
       d.B.VALID := 0
     }
-    State.waitWhile(!d.AW.READY || !d.AW.VALID)
-    State.step {
+    waitWhile(!d.AW.READY || !d.AW.VALID)
+    step {
       write_size := d.AW.LEN.uint
       write_cnt := 0
     }
-    State.doUntil(write_cnt === write_size) {
+    doUntil(write_cnt === write_size) {
       d.W.READY := 1
       ifdf(d.W.VALID) {
         sim.assert(dataFunc(write_cnt) === d.W.DATA, msg"Bad write data")
@@ -261,8 +261,8 @@ import lib.bus.AXI4
 
   private val write_flag = DFBool() init false
   private val write_addr_checker = new DFSM() {
-    State.next
-    State.doWhile(!d.AW.READY || !d.AW.VALID) {
+    next
+    doWhile(!d.AW.READY || !d.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
       }

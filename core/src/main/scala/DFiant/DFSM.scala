@@ -31,49 +31,49 @@ abstract class DFSM()(implicit ctx : DFBlock.Context) {self =>
       stateList = state :: stateList
       state
     }
-    def doWhile[C](cond : DFBool.Op.Able[C])(block : => Unit)(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-    ) : State = {
-      def controlBlock = {
-        ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)(ctx)
-          .elsedf(gotoNext())
-      }
-      State(controlBlock)
-    }
-    def doUntil[C](cond : DFBool.Op.Able[C])(block : => Unit)(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-    ) : State = {
-      def controlBlock = {
-        ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(gotoNext())(ctx)
-          .elsedf(block)
-      }
-      State(controlBlock)
-    }
-    def step(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
-      def execBlock = {
-        block
-        gotoNext()
-      }
-      State(execBlock)
-    }
-    def last(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
-      def execBlock = {
-        block
-        gotoNext()
-      }
-      State(execBlock)
-    }
-    def waitWhile[C](cond : DFBool.Op.Able[C])(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-    ) : State = doWhile(cond)({})
-    def waitUntil[C](cond : DFBool.Op.Able[C])(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-    ) : State = doUntil(cond)({})
-    def waitForever(implicit ctx : DFBlock.Context) : State = State({})
-    def next(implicit ctx : DFBlock.Context) : State = State(gotoNext())
-    def done(implicit ctx : DFBlock.Context) : State = last({})
-    def isDone(implicit ctx : DFBlock.Context) : DFBool = ???
   }
+  def doWhile[C](cond : DFBool.Op.Able[C])(block : => Unit)(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : State = {
+    def controlBlock = {
+      ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)(ctx)
+        .elsedf(gotoNext())
+    }
+    State(controlBlock)
+  }
+  def doUntil[C](cond : DFBool.Op.Able[C])(block : => Unit)(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : State = {
+    def controlBlock = {
+      ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(gotoNext())(ctx)
+        .elsedf(block)
+    }
+    State(controlBlock)
+  }
+  def step(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
+    def execBlock = {
+      block
+      gotoNext()
+    }
+    State(execBlock)
+  }
+  def last(block : => Unit)(implicit ctx : DFBlock.Context) : State = {
+    def execBlock = {
+      block
+      gotoNext()
+    }
+    State(execBlock)
+  }
+  def waitWhile[C](cond : DFBool.Op.Able[C])(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : State = doWhile(cond)({})
+  def waitUntil[C](cond : DFBool.Op.Able[C])(
+    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+  ) : State = doUntil(cond)({})
+  def waitForever(implicit ctx : DFBlock.Context) : State = State({})
+  def next(implicit ctx : DFBlock.Context) : State = State(gotoNext())
+  def done(implicit ctx : DFBlock.Context) : State = last({})
+  def isDone(implicit ctx : DFBlock.Context) : DFBool = ???
   private lazy val constructMatchStatement : Unit = {
     val matchHeader = ConditionalBlock.NoRetVal.MatchHeader(state, MatchConfig.NoOverlappingCases)
     currentState = _startState.get

@@ -12,25 +12,25 @@ package DFiant
   memConn.wrEn := 0
 
   class CopyCellFsm(fromAddr : DFBits[10], toAddr : DFBits[10]) extends DFSM {
-    State.step {
+    step {
       memConn.addr := fromAddr
       memConn.wrEn := 0
     }
-    State.last {
+    last {
       memConn.addr := toAddr
       memConn.wrEn := 1
       memConn.wrData := memConn.rdData
     }
   }
   class CopyFsm(fromAddr : BitVector, toAddr : BitVector, size : Int) extends DFSM {
-    State.step {
+    step {
       memConn.addr := fromAddr
       memConn.wrEn := 0
     }
 
   }
 //  val copy_fsm = new DFSM() {
-//    State.
+//    
 //    memConn.addr
 //  }
 }
