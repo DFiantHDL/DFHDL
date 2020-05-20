@@ -40,6 +40,7 @@ object DFDesign {
     private[DFiant] final lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
     private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
+//    __db.enterContainer(this)
 
     ///////////////////////////////////////////////////////////////////
     // Context implicits
@@ -463,6 +464,27 @@ object DFDesign {
       def top : Block.Top = members.head._1 match {
         case m : Block.Top => m
       }
+
+      ///////////////////////////////////////////////////////////////
+      //Tracking containers entrance and exit to run `OnCreate` as
+      //soon as possible after a container is created.
+      ///////////////////////////////////////////////////////////////
+      private var containerStack = List.empty[DFOwner.Container]
+      def enterContainer(container : DFOwner.Container) : Unit = containerStack = container :: containerStack
+      private def exitContainer() : Unit = {
+        containerStack.head.onCreate()
+        containerStack = containerStack.drop(1)
+      }
+      private def checkContainers(currentMember : DFMember) : Unit =
+        while (
+          containerStack.nonEmpty &&
+          currentMember != top &&
+          currentMember != containerStack.head.owner &&
+          !currentMember.isInsideOwner(containerStack.head.owner)
+        ) exitContainer()
+      private def exitAllContainers() : Unit = while (containerStack.nonEmpty) exitContainer()
+      ///////////////////////////////////////////////////////////////
+
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
         cb.applyBlock(block)
@@ -471,6 +493,7 @@ object DFDesign {
       def addMember[M <: DFMember](member : M) : M = {
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
+        checkContainers(member)
         member
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
@@ -534,6 +557,7 @@ object DFDesign {
         ref
       }
       def immutable : DB = {
+        exitAllContainers() //exiting all remaining containers (calling their OnCreate)
         var size = -1
         //Touching all lazy owner refs to force their addition.
         //During this procedure it is possible that new reference are added. If so, we re-iterate
