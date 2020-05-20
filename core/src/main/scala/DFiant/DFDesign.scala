@@ -25,7 +25,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
-  final def addMember[T <: DFMember](member : T) : T = __db.addMember(member)
+  final def addMember[T <: DFMember](member : T) : T = __db.addMember(member, metaAdd = true)
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
@@ -489,10 +489,10 @@ object DFDesign {
         cb.applyBlock(block)
         cb
       }
-      def addMember[M <: DFMember](member : M) : M = {
+      def addMember[M <: DFMember](member : M, metaAdd : Boolean = false) : M = {
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
-//        checkContainers(member)
+        if (!metaAdd) checkContainers(member)
         member
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
