@@ -38,7 +38,7 @@ object DFDesign {
     private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
     private[DFiant] val __ctx : DFDesign.Context
     private[DFiant] final lazy val __db : DFDesign.DB.Mutable = __ctx.db
-    private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
+    private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(typeName, inlinedRep, simMode)(__ctx)
     private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
 
     ///////////////////////////////////////////////////////////////////
@@ -100,9 +100,9 @@ object DFDesign {
       override lazy val typeName : String = designType
     }
     object Internal {
-      def apply(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimulator.Mode)(
+      def apply(container : DFOwner.Container)(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimulator.Mode)(
         implicit ctx : Context
-      ) : Block = ctx.db.addMember(
+      ) : Block = ctx.db.addOwner(container)(
         if (ctx.ownerInjector == null || ctx.owner == null) Top(designType, ctx.meta, simMode)(ctx.db)
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
@@ -469,7 +469,7 @@ object DFDesign {
       //soon as possible after a container is created.
       ///////////////////////////////////////////////////////////////
       private var containerStack = List.empty[DFOwner.Container]
-      def enterContainer(container : DFOwner.Container) : Unit = containerStack = container :: containerStack
+      private def enterContainer(container : DFOwner.Container) : Unit = containerStack = container :: containerStack
       private def exitContainer() : Unit = {
         containerStack.head.onCreate()
         containerStack = containerStack.drop(1)
@@ -489,9 +489,15 @@ object DFDesign {
         cb.applyBlock(block)
         cb
       }
+      def addOwner[O <: DFOwner](container : DFOwner.Container)(owner : O)(implicit ctx : DFBlock.Context) : O = {
+        addMember(owner)
+        enterContainer(container)
+        owner
+      }
       def addMember[M <: DFMember](member : M, metaAdd : Boolean = false) : M = {
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
+//        println("added", containerStack.map(s => s.owner), member)
         if (!metaAdd) checkContainers(member)
         member
       }

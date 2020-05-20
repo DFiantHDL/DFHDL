@@ -128,7 +128,7 @@ import lib.bus.AXI4
         ap.ready := 1
       }
     }
-  }.startAt(_.IDLE)
+  }
 
 }
 
@@ -161,7 +161,7 @@ import lib.bus.AXI4
       sim.report(msg"Got ap_ready")
     }
     waitForever
-  }.start()
+  }
 
   private val o_addr_fsm = new DFSM {
     step {
@@ -173,7 +173,7 @@ import lib.bus.AXI4
     }
     waitWhile(!o.AR.VALID)
     waitForever
-  }.start()
+  }
 
   private val read_flag = DFBool() init false
   private val read_addr_checker = new DFSM {
@@ -193,7 +193,7 @@ import lib.bus.AXI4
       read_flag := true
       gotoStart()
     }
-  }.start()
+  }
 
   private def dataFunc(cnt : DFUInt[32])(implicit __blockContext : DFBlock.Context) : DFBits[32] = {
     cnt.bits
@@ -219,7 +219,7 @@ import lib.bus.AXI4
     State {
       gotoStart()
     }
-  }.start()
+  }
 
   private val d_addr_fsm = new DFSM {
     step {
@@ -231,7 +231,7 @@ import lib.bus.AXI4
     }
     waitWhile(!d.AW.VALID)
     waitForever
-  }.start()
+  }
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
@@ -259,7 +259,7 @@ import lib.bus.AXI4
         gotoStart()
       }
     }
-  }.start()
+  }
 
   private val write_flag = DFBool() init false
   private val write_addr_checker = new DFSM {
@@ -279,7 +279,7 @@ import lib.bus.AXI4
       write_flag := true
       gotoStart()
     }
-  }.start()
+  }
 }
 
 trait LoopbackTest extends DFSimulator  {

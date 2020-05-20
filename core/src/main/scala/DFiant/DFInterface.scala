@@ -31,7 +31,7 @@ object DFInterface {
     type Owner = DFInterface.Owner
     private[DFiant] val __ctx : DFInterface.Context
     val nameFlatten : DFOwner.NameFlatten
-    private[DFiant] final val owner : Owner = DFInterface.Owner(nameFlatten)(__ctx)
+    private[DFiant] final val owner : Owner = DFInterface.Owner(this)(nameFlatten)(__ctx)
     private[DFiant] final val __dir : DFDir = __ctx.dir
     private[DFiant] final lazy val __db: DFDesign.DB.Mutable = __ctx.db
     ///////////////////////////////////////////////////////////////////
@@ -117,9 +117,9 @@ object DFInterface {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Owner {
-    def apply(nameFlatten: DFOwner.NameFlatten)(
+    def apply(container : DFOwner.Container)(nameFlatten: DFOwner.NameFlatten)(
       implicit ctx : DFAny.Context
-    ) : Owner = ctx.db.addMember(Owner(nameFlatten, ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addOwner(container)(Owner(nameFlatten, ctx.owner, ctx.meta))
   }
 }
 

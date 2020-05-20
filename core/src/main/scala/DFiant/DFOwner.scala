@@ -27,7 +27,6 @@ object DFOwner {
     private[DFiant] val __db: DFDesign.DB.Mutable
     final protected implicit lazy val __getset : MemberGetSet = __db.getSet
     protected[DFiant] def onCreate() : Unit = {}
-    __db.enterContainer(this)
   }
 
   implicit class AbstractExt[T <: DFOwner](t : T) {

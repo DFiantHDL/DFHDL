@@ -10,7 +10,7 @@ object DFSM {
   trait Abstract extends DFOwner.Container {self =>
     type Owner = DFSM.Owner
     private[DFiant] val __ctx : DFBlock.Context
-    private[DFiant] final val owner : Owner = DFSM.Owner()(__ctx)
+    private[DFiant] final val owner : Owner = DFSM.Owner(this)(__ctx)
     private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
     private[DFiant] final lazy val __db: DFDesign.DB.Mutable = __ctx.db
     final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
@@ -107,12 +107,13 @@ object DFSM {
         lastCase.casedf(state.entry)(state.block())
       })
     }
+
+    override protected[DFiant] def onCreate(): Unit = constructMatchStatement
     protected def startAt(startState : State) : this.type = {
       __dev.startState = Some(startState)
       constructMatchStatement
       this
     }
-    protected def start() : this.type = startAt(startState.get)
   }
 
   protected sealed abstract class AbstractState (val block : () => Unit)(meta : Meta) {
@@ -121,7 +122,6 @@ object DFSM {
     final override def toString : String = meta.name
   }
   implicit class DFSM_Ext[F <: DFSM](f : F) {
-    def start() : F = f.start()
     def startAt(stateSel : F => F#State) : F = f.startAt(stateSel(f).asInstanceOf[f.State])
   }
 
@@ -140,9 +140,9 @@ object DFSM {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Owner {
-    def apply()(
+    def apply(container : DFOwner.Container)(
       implicit ctx : DFAny.Context
-    ) : Owner = ctx.db.addMember(Owner(ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addOwner(container)(Owner(ctx.owner, ctx.meta))
   }
 
 }
