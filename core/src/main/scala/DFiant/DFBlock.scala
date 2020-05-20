@@ -24,7 +24,7 @@ object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
   class Context(val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val dir : DFDir, val db : DFDesign.DB.Mutable, val args : ClassArgs[_])
     extends DFAny.Context {
-    override def owner : DFBlock = ownerInjector.get
+    override def owner : DFOwner = ownerInjector.get
   }
   object Context {
     final object MissingError extends ErrorMsg (
@@ -32,7 +32,7 @@ object DFBlock {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner.asInstanceOf[DFDesign.Block]), ctx.dir, ctx.db, ctx.args)
+      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db, ctx.args)
     implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
       new Context(meta, null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty)
   }

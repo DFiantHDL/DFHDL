@@ -6,7 +6,7 @@ import DFiant.internals._
 import collection.mutable
 
 final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val fixedDB = c.flattenInterfaces.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
+  private val fixedDB = c.flattenNames.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
   private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(

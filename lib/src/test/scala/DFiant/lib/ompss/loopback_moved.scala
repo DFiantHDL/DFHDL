@@ -143,7 +143,7 @@ import lib.bus.AXI4
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
 
-  private val ap_drv_fsm = new DFSM() {
+  private val ap_drv_fsm = new DFSM {
     step {
       ap.start := 0
       d.offset := b0s
@@ -163,7 +163,7 @@ import lib.bus.AXI4
     waitForever
   }.start()
 
-  private val o_addr_fsm = new DFSM() {
+  private val o_addr_fsm = new DFSM {
     step {
       o.AR.READY := 0
     }
@@ -176,7 +176,7 @@ import lib.bus.AXI4
   }.start()
 
   private val read_flag = DFBool() init false
-  private val read_addr_checker = new DFSM() {
+  private val read_addr_checker = new DFSM {
     next
     doWhile(!o.AR.READY || !o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
@@ -195,10 +195,12 @@ import lib.bus.AXI4
     }
   }.start()
 
-  private def dataFunc(cnt : DFUInt[32])(implicit ctx : DFBlock.Context) : DFBits[32] = cnt.bits(ctx)
+  private def dataFunc(cnt : DFUInt[32])(implicit __blockContext : DFBlock.Context) : DFBits[32] = {
+    cnt.bits
+  }
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
-  private val o_data_fsm = new DFSM() {
+  private val o_data_fsm = new DFSM {
     step {
       o.R.VALID := 0
     }
@@ -219,7 +221,7 @@ import lib.bus.AXI4
     }
   }.start()
 
-  private val d_addr_fsm = new DFSM() {
+  private val d_addr_fsm = new DFSM {
     step {
       d.AW.READY := 0
     }
@@ -233,7 +235,7 @@ import lib.bus.AXI4
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
-  private val d_data_fsm = new DFSM() {
+  private val d_data_fsm = new DFSM {
     step {
       d.W.READY := 0
       d.B.VALID := 0
@@ -260,7 +262,7 @@ import lib.bus.AXI4
   }.start()
 
   private val write_flag = DFBool() init false
-  private val write_addr_checker = new DFSM() {
+  private val write_addr_checker = new DFSM {
     next
     doWhile(!d.AW.READY || !d.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag) {

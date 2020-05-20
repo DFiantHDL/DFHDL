@@ -44,6 +44,26 @@ object DFOwner {
       case _ => false
     }
   }
+
+  //When an interface is flattened, this function is applied on all its members
+  trait NameFlatten {
+    def apply(memberName : String, ownerName : String) : String
+  }
+  object NameFlatten {
+    object UnderscoreSuffix extends NameFlatten {
+      def apply(memberName : String, ownerName : String) : String = s"${ownerName}_${memberName}"
+    }
+    object NoSuffix extends NameFlatten {
+      def apply(memberName : String, ownerName : String) : String = s"${ownerName}${memberName}"
+    }
+    object IgnoreOwnerName extends NameFlatten { //This function is special cased in FlattenInterfaces
+      def apply(memberName : String, ownerName : String) : String = ???
+    }
+  }
+
+  trait NameFlattenOwner extends DFOwner {
+    val nameFlatten : DFOwner.NameFlatten
+  }
 }
 
 abstract class ContextOf[T <: DFOwner.Container](

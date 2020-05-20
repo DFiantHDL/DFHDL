@@ -131,11 +131,11 @@ object DFMember {
     val db : DFDesign.DB.Mutable
   }
 
-  final class OwnerInjector(designBlock : DFDesign.Block) {
-    private var value : DFBlock = designBlock
-    def inject(newOwner : DFBlock) : Unit = value = newOwner
-    def get : DFBlock = value
-    def injectOwnerAndRun[T](injectedOwner : DFBlock)(block : => T) : T = {
+  final class OwnerInjector(designBlock : DFOwner) {
+    private var value : DFOwner = designBlock
+    def inject(newOwner : DFOwner) : Unit = value = newOwner
+    def get : DFOwner = value
+    def injectOwnerAndRun[T](injectedOwner : DFOwner)(block : => T) : T = {
       val injectedOwnerBackup = get
       inject(injectedOwner)
       val ret = block

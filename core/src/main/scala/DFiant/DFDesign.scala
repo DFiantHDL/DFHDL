@@ -40,7 +40,6 @@ object DFDesign {
     private[DFiant] final lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(typeName, inlinedRep, simMode)(__ctx)
     private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
-//    __db.enterContainer(this)
 
     ///////////////////////////////////////////////////////////////////
     // Context implicits
@@ -493,7 +492,7 @@ object DFDesign {
       def addMember[M <: DFMember](member : M) : M = {
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
-        checkContainers(member)
+//        checkContainers(member)
         member
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()

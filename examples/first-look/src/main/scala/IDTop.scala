@@ -44,7 +44,7 @@ import internals._
 //  val BB = DFUInt(8) <> OUT
   val z = new Ifc2 <> FLIP //setNameFlatten(DFInterface.NameFlatten.IgnoreOwnerName)
 }
-@df class Ifc2 extends DFInterface(DFInterface.NameFlatten.IgnoreOwnerName) {
+@df class Ifc2 extends DFInterface(DFOwner.NameFlatten.IgnoreOwnerName) {
   val AA = DFUInt(8) <> IN
   val BB = DFUInt(8) <> OUT
 }

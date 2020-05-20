@@ -20,7 +20,7 @@ object AXI4 {
   final val SWO = AXI4(Config(rdEnabled = false, wrEnabled = true, simple = true)) //simple write-only
   final val SRW = AXI4(Config(rdEnabled = true, wrEnabled = true, simple = true)) //simple read-write
 
-  abstract class Interface(axiDir : Dir)(implicit ctx : ContextOf[Interface]) extends DFInterface(DFInterface.NameFlatten.NoSuffix) {
+  abstract class Interface(axiDir : Dir)(implicit ctx : ContextOf[Interface]) extends DFInterface(DFOwner.NameFlatten.NoSuffix) {
     def MasterDir(portDir : PortDir) : PortDir = axiDir match {
       case Master => portDir
       case Slave => portDir match {

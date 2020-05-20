@@ -7,7 +7,7 @@ import singleton.ops._
 import scala.annotation.implicitNotFound
 
 abstract class DFInterface(
-  val nameFlatten: DFInterface.NameFlatten = DFInterface.NameFlatten.UnderscoreSuffix
+  val nameFlatten: DFOwner.NameFlatten = DFOwner.NameFlatten.UnderscoreSuffix
 )(implicit ctx : DFInterface.Context) extends DFInterface.Abstract {
   private[DFiant] final lazy val __ctx : DFInterface.Context = ctx
   private[DFiant] final def updateDir(updatedDir : DFDir) : this.type = {
@@ -30,7 +30,7 @@ object DFInterface {
   trait Abstract extends DFOwner.Container {
     type Owner = DFInterface.Owner
     private[DFiant] val __ctx : DFInterface.Context
-    val nameFlatten : DFInterface.NameFlatten
+    val nameFlatten : DFOwner.NameFlatten
     private[DFiant] final val owner : Owner = DFInterface.Owner(nameFlatten)(__ctx)
     private[DFiant] final val __dir : DFDir = __ctx.dir
     private[DFiant] final lazy val __db: DFDesign.DB.Mutable = __ctx.db
@@ -67,7 +67,7 @@ object DFInterface {
         case r => getSet.remove(r)
       }
     }
-    def setNameFlatten(nameFlatten: NameFlatten)(implicit getSet: MemberGetSet) : T = {
+    def setNameFlatten(nameFlatten: DFOwner.NameFlatten)(implicit getSet: MemberGetSet) : T = {
       val owner = t.owner
       getSet.replace(owner)(owner.copy(nameFlatten = nameFlatten))
       t
@@ -103,22 +103,9 @@ object DFInterface {
     }
   }
 
-  //When an interface is flattened, this function is applied on all its members
-  trait NameFlatten {
-    def apply(memberName : String, ownerName : String) : String
-  }
-  object NameFlatten {
-    object UnderscoreSuffix extends NameFlatten {
-      def apply(memberName : String, ownerName : String) : String = s"${ownerName}_${memberName}"
-    }
-    object NoSuffix extends NameFlatten {
-      def apply(memberName : String, ownerName : String) : String = s"${ownerName}${memberName}"
-    }
-    object IgnoreOwnerName extends NameFlatten { //This function is special cased in FlattenInterfaces
-      def apply(memberName : String, ownerName : String) : String = ???
-    }
-  }
-  final case class Owner(nameFlatten : NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFOwner {
+  final case class Owner(
+    nameFlatten : DFOwner.NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+  ) extends DFOwner.NameFlattenOwner {
     type TTags = DFMember.Tags.Basic
     type TCustomTag = DFMember.CustomTag
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -130,7 +117,7 @@ object DFInterface {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Owner {
-    def apply(nameFlatten: NameFlatten)(
+    def apply(nameFlatten: DFOwner.NameFlatten)(
       implicit ctx : DFAny.Context
     ) : Owner = ctx.db.addMember(Owner(nameFlatten, ctx.owner, ctx.meta))
   }

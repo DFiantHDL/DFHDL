@@ -1,5 +1,6 @@
 package DFiant
 
+import DFiant.DFDesign.DB
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
@@ -61,6 +62,12 @@ object DFAny {
       "Missing an implicit owner Context.",
       "missing-context"
     ) {final val msg = getMsg}
+//    implicit def fromBlockCtx(implicit ctx : DFBlock.Context, meta0 : Meta) : Context = new Context {
+//      val dir: DFDir = ctx.dir
+//      val meta: Meta = meta0
+//      def owner: DFOwner = ctx.owner
+//      val db: DB.Mutable = ctx.db
+//    }
   }
 
   type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
