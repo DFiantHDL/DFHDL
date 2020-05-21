@@ -42,7 +42,10 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
               }
             }
             namedPrevTable.update(relVal, dsn.updatedPrevList)
-            Some(p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast()))
+            List(
+              relVal -> Patch.Add(dsn, Patch.Add.Config.After),
+              p -> Patch.Replace(dsn.updatedPrevList.head, Patch.Replace.Config.ChangeRefAndRemove)
+            )
           } else
             Some(p -> Patch.Replace(prevList(prevList.length - step), Patch.Replace.Config.ChangeRefAndRemove))
         } else { //single name prev step

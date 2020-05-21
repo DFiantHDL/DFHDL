@@ -1,4 +1,5 @@
 package DFiant
+import DFiant.DFDesign.DB.Patch
 import DFiant.internals._
 
 import scala.annotation.{implicitNotFound, tailrec}
@@ -139,6 +140,8 @@ object DFDesign {
     }
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
 
+    //concatenating design databases (dropping the top owner of the added database)
+    def concat(db : DB) : DB = DB(this.members ++ db.members.drop(1), this.refTable ++ db.refTable)
     //There can only be a single connection to a value (but multiple assignments are possible)
     //                              To    From
     lazy val connectionTable : Map[DFAny, DFAny] =
@@ -260,7 +263,18 @@ object DFDesign {
             case None => (block, DB.Patch.Add(db, DB.Patch.Add.Config.After))
           }
         case x => x
-      }.toMap
+      }.foldLeft(Map.empty[DFMember, DB.Patch]){
+        case (tbl, (m, p)) if tbl.contains(m) => (tbl(m), p) match {
+          //concatenating additions with the same configuration
+          case (Patch.Add(db1, config1), Patch.Add(db2, config2)) if (config1 == config2) =>
+            tbl + (m -> Patch.Add(db1 concat db2, config1))
+          //don't allow using the same member for patching if it's not an addition of the same configuration
+          case _ => throw new IllegalArgumentException(
+            s"Received two different patches for the same member: $m"
+          )
+        }
+        case (tbl, pair) => tbl + pair
+      }
       //Patching member list
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
         case Some(DB.Patch.Replace(r, config, _)) => config match {
