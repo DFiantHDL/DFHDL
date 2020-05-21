@@ -91,7 +91,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
       val prevTpls : List[(DFAny, DFAny, DFAny.VarOf[DFAny.Type])] = members.collect {
         case p @ DFAny.Alias.Prev(dfType, relValRef, _, ownerRef, tags) =>
           val externalInit = tags.init match {
-            case Some(i :: _) =>
+            case Some(i +: _) =>
               hasPrevRst = true
               Some(Seq(i))
             case _ => None
@@ -114,8 +114,8 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
             case (_, rv, _) => rv
           }
           private def rstBlock : Unit = prevTpls.foreach {
-            case (_, _, prevVar) => prevVar.tags.init match {
-              case Some(i :: _) =>
+            case (_, relVal, prevVar) => relVal.tags.init match {
+              case Some(i +: _) =>
                 val initConst = DFAny.Const.forced(prevVar.dfType, i)
                 prevVar.assign(initConst)
               case _ =>
