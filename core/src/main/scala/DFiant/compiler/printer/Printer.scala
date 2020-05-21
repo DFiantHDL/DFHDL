@@ -9,20 +9,24 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
   private val fixedDB = c.flattenNames.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
-  private def blockBodyCodeString(members : List[DFMember], lateConstruction : Boolean)(
+  private def blockBodyCodeString(owner : DFOwner, members : List[DFMember], lateConstruction : Boolean)(
     implicit printConfig : Printer.Config
   ) : String = {
     import printConfig._
     import formatter._
+    val finalStr = owner match {
+      case _ : ConditionalBlock => "" //local values cannot be annotated as "final"
+      case _ => s"$SC final "
+    }
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
-      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(fixedDB.blockMemberTable(cb), lateConstruction)))
+      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.blockMemberTable(cb), lateConstruction)))
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
-        val body = blockBodyCodeString(fixedDB.blockMemberTable(d), lateConstruction = true)
+        val body = blockBodyCodeString(d, fixedDB.blockMemberTable(d), lateConstruction = true)
         val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
-        Some(s"$SC final $SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
+        Some(s"$finalStr$SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
         case _ => Some(n.codeString)
@@ -38,7 +42,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
           if (printConfig.showCustomTags && a.tags.customTags.nonEmpty)
             a.tags.customTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
           else ""
-        Some(s"$SC final $SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
+        Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
       case _ => None
     }
     membersCodeString.mkString("\n")
@@ -48,7 +52,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
   ) : String = {
     import printConfig._
     import formatter._
-    val body = blockBodyCodeString(members, lateConstruction = false)
+    val body = blockBodyCodeString(block, members, lateConstruction = false)
     val classStr = block match {
       case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => "DFSimulator"
       case _ => "DFDesign"
