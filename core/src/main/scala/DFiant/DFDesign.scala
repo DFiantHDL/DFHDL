@@ -26,7 +26,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
-  final def addMember[T <: DFMember](member : T) : T = __db.addMember(member, metaAdd = true)
+  final def plantMember[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : T = __db.addMember(member.updateOwner)
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
@@ -97,6 +97,7 @@ object DFDesign {
           this.designType == designType && this.tags =~ tags && inlineRepEq
         case _ => false
       }
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
       override lazy val typeName : String = designType
     }
@@ -119,6 +120,7 @@ object DFDesign {
       }
       override lazy val typeName : String = designType
       override def getFullName(implicit getSet : MemberGetSet): String = name
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : this.type = ???
       def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
     }
   }
@@ -268,6 +270,9 @@ object DFDesign {
           //concatenating additions with the same configuration
           case (Patch.Add(db1, config1), Patch.Add(db2, config2)) if (config1 == config2) =>
             tbl + (m -> Patch.Add(db1 concat db2, config1))
+          //add followed by a replacement is allowed via a tandem patch execution
+          case (add : Patch.Add, Patch.Remove) =>
+            tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
           //don't allow using the same member for patching if it's not an addition of the same configuration
           case _ => throw new IllegalArgumentException(
             s"Received two different patches for the same member: $m"
@@ -279,7 +284,7 @@ object DFDesign {
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
         case Some(DB.Patch.Replace(r, config, _)) => config match {
           case DB.Patch.Replace.Config.ChangeRefOnly => Some(m)
-          case DB.Patch.Replace.Config.ChangeRefAndRemove => Some(r)
+          case DB.Patch.Replace.Config.ChangeRefAndRemove => None
           case DB.Patch.Replace.Config.FullReplacement => Some(r)
         }
         case Some(DB.Patch.Add(db, config)) =>
@@ -447,7 +452,14 @@ object DFDesign {
       }
       final case class Add private (db : DB, config : Add.Config) extends Patch
       object Add {
-        def apply(design : MetaDesign, config : Add.Config) : Add = Add(design.getDB, config)
+        def apply(design : MetaDesign, config : Config) : Add = Add(design.getDB, config)
+        def apply(addedMembers : List[DFMember], config: Config) : Add = {
+          val dsn = new MetaDesign() {
+            addedMembers.foreach(m => plantMember(m))
+          }
+          Add(dsn, config)
+        }
+        def apply(addedMember : DFMember, config: Config) : Add = Add(List(addedMember), config)
         sealed trait Config extends Product with Serializable
         object Config {
           //adds members before the patched member
@@ -469,6 +481,7 @@ object DFDesign {
           case object Via extends Config
         }
       }
+
       final case class ChangeRef[T <: DFMember](member : T, refAccess : T => DFMember.Ref, updatedRefMember : DFMember) extends Patch
     }
     class Mutable {self =>
@@ -508,11 +521,10 @@ object DFDesign {
         enterContainer(container)
         owner
       }
-      def addMember[M <: DFMember](member : M, metaAdd : Boolean = false) : M = {
+      def addMember[M <: DFMember](member : M) : M = {
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
-//        println("added", containerStack.map(s => s.owner), member)
-        if (!metaAdd) checkContainers(member)
+        checkContainers(member)
         member
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()

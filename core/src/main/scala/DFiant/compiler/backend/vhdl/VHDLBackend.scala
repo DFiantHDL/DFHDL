@@ -8,8 +8,8 @@ import compiler.sync._
 import scala.collection.mutable
 sealed trait VHDLRevision extends Product with Serializable
 object VHDLRevision {
-  implicit case object VHDL1993 extends VHDLRevision
-  case object VHDL2008 extends VHDLRevision
+  case object VHDL1993 extends VHDLRevision
+  implicit case object VHDL2008 extends VHDLRevision
 }
 
 final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
@@ -21,7 +21,6 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
      .uniqueNames(reservedKeywords, caseSensitive = false)
      .clockedPrev
      .viaPortConnection
-     .explicitNamedVars
      .db
 
   import designDB.__getset

@@ -76,6 +76,8 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   //true if and only if the two members are equivalent in relation to their design construction context
   protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean
 
+  private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember
+  private[DFiant] final def updateOwner(implicit ctx : DFMember.Context) : this.type = setOwnerRef(ctx.owner).asInstanceOf[this.type]
   def setTags(tagsFunc : TTags => TTags)(implicit getSet : MemberGetSet) : DFMember
   def show(implicit getSet : MemberGetSet) : String = s"$getFullName : $typeName"
 }

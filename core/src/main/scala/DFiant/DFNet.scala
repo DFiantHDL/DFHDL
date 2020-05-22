@@ -38,6 +38,7 @@ object DFNet {
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
       case _ => false
     }
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Assignment {
@@ -61,6 +62,7 @@ object DFNet {
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
       case _ => false
     }
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Connection {

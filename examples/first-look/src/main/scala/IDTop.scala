@@ -79,20 +79,26 @@ import internals._
 }
 
 object IDTopTest extends DFSimulator {
-  val fib = DFUInt(8) init(0, 1)
-  val ididid = new IDTop
+  val i = DFBits(8) <> IN
+  val o = DFUInt(8) <> OUT
+//  val ididid = new IDTop
+//  ifdf(true) {
+//    val fib = DFUInt(8) init(0, 1)
+//    fib := fib.prev + fib.prev(2)
+//  }
+  val sum = DFUInt(8) init 0
   ifdf(true) {
-    fib := fib.prev + fib.prev(2)
+    val temp = i.uint
+    sum := sum + temp
   }
+  o := sum
 }
-
-
 
 object IDTopApp extends App {
 //  val top = new IDTopTest {}
   import compiler._
   import backend.vhdl._
-  val designDB = IDTopTest.compile.printCodeString()//.printGenFiles()
+  val designDB = IDTopTest.compile.printCodeString().printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

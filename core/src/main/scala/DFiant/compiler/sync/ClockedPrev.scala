@@ -26,13 +26,19 @@ import DFiant.compiler.sync.ResetParams.{Active, Mode}
 import collection.mutable
 
 final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val designDB = c.singleStepPrev.calcInit.db
-  import designDB.__getset
+  private val designDB = c.singleStepPrev.calcInit.explicitNamedVars.db
 
-  private val clockParams = ClockParams.get
-  private val resetParams = ResetParams.get
+  private val clockParams = {
+    import designDB.__getset
+    ClockParams.get
+  }
+  private val resetParams = {
+    import designDB.__getset
+    ResetParams.get
+  }
 
   private def getClockedDB : (DFDesign.DB, Map[DFDesign.Block, ClkRstDesign]) = {
+    import designDB.__getset
     val addedClkRst : mutable.Map[DFDesign.Block, ClkRstDesign] = mutable.Map()
     val patchList = designDB.designMemberList.flatMap {case(block, members) =>
       val clockedBlocks = members.collect {
@@ -85,46 +91,50 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
   }
 
   def clockedPrev = {
+    final case class PrevReplacements(
+      prevNet : DFNet, prevVar : DFAny.Dcl, prevVal : DFAny.Alias.Prev, relVal : DFAny, regVar : DFAny.Dcl
+    ) {
+      private var sig : DFAny = _
+      def sigAssign(implicit ctx : DFBlock.Context) : Unit = sig = (relVal, regVar) match {
+        case (DFAny.In(),_) => relVal
+        case _ if !relVal.name.endsWith("_sig") =>
+          implicit val __getSet : MemberGetSet = ctx.db.getSet
+          val sig = DFAny.NewVar(regVar.dfType) setName s"${relVal.name}_sig"
+          sig.assign(relVal)
+          sig
+        case _ => relVal
+      }
+      def rstAssign(implicit ctx : DFBlock.Context) : Unit = relVal.tags.init match {
+        case Some(i +: _) =>
+          val initConst = DFAny.Const.forced(regVar.dfType, i)
+          regVar.assign(initConst)
+        case _ =>
+      }
+      def clkAssign(implicit ctx : DFBlock.Context) : Unit = regVar.assign(sig)
+    }
     val (clockedDB, addedClkRst) = getClockedDB
     val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
+      import designDB.__getset
       var hasPrevRst = false
-      val prevTpls : List[(DFAny, DFAny, DFAny.VarOf[DFAny.Type])] = members.collect {
-        case p @ DFAny.Alias.Prev(dfType, relValRef, _, ownerRef, tags) =>
-          val externalInit = tags.init match {
-            case Some(i +: _) =>
-              hasPrevRst = true
-              Some(Seq(i))
-            case _ => None
+      val prevReplacements : List[PrevReplacements] = members.collect {
+        case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev(_, relValRef, _, _, tags), _, _) =>
+          tags.init match {
+            case Some(i +: _) if !i.isBubble => hasPrevRst = true
+            case _ =>
           }
-          (p, relValRef.get, DFAny.Dcl(dfType, DFAny.Modifier.NewVar, externalInit, ownerRef, tags !! Sync.Tag.Reg).asInstanceOf[DFAny.VarOf[DFAny.Type]])
+          PrevReplacements(n, prevVar, prevVal, relValRef.get, prevVar.setNameSuffix("_reg") !! Sync.Tag.Reg)
       }
       val topSimulation = block match {
         case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => true
         case _ => false
       }
-      if (prevTpls.nonEmpty) {
+      if (prevReplacements.nonEmpty) {
         val clockedDsn = addedClkRst(block)
         val prevDsn = new ClkRstDesign(clockParams, resetParams, topSimulation) {
-          val sigs : List[DFAny] = prevTpls.map {
-            case (_,rv @ DFAny.In(), _) => rv
-            case (_,rv,prevVar) if !rv.name.endsWith("_sig") =>
-              val sig = DFAny.NewVar(prevVar.dfType) setName s"${rv.name}_sig"
-              sig.assign(rv)
-              sig
-            case (_, rv, _) => rv
-          }
-          private def rstBlock : Unit = prevTpls.foreach {
-            case (_, relVal, prevVar) => relVal.tags.init match {
-              case Some(i +: _) =>
-                val initConst = DFAny.Const.forced(prevVar.dfType, i)
-                prevVar.assign(initConst)
-              case _ =>
-            }
-          }
-          private def clkBlock : Unit = (prevTpls lazyZip sigs).foreach {
-            case ((_, _, prevVar), sig) => prevVar.assign(sig)
-          }
-          val clkCond : DFBool = clockParams.edge match {
+          prevReplacements.foreach(pr => pr.sigAssign)
+          private def rstBlock() : Unit = prevReplacements.foreach(pr => pr.rstAssign)
+          private def clkBlock() : Unit = prevReplacements.foreach(pr => pr.clkAssign)
+          private val clkCond : DFBool = clockParams.edge match {
             case Edge.Rising => clk.rising().anonymize
             case Edge.Falling => clk.falling().anonymize
           }
@@ -134,11 +144,11 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
               case Active.High => (rst === 1).anonymize
             }
             resetParams.mode match {
-              case Mode.Async => ifdf(rstCond)(rstBlock).elseifdf(clkCond)(clkBlock)
-              case Mode.Sync => ifdf(clkCond)(ifdf(rstCond)(rstBlock).elsedf(clkBlock))
+              case Mode.Async => ifdf(rstCond)(rstBlock()).elseifdf(clkCond)(clkBlock())
+              case Mode.Sync => ifdf(clkCond)(ifdf(rstCond)(rstBlock()).elsedf(clkBlock()))
             }
           } else
-            ifdf(clk.rising())(clkBlock)
+            ifdf(clk.rising())(clkBlock())
         }
 
         //replacing the clock and reset with the ones already added in clockedDB
@@ -148,7 +158,14 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         val prevDB = prevDsn.getDB.patch(prevPatchList)
         //adding the clocked prev "signaling" with the clk-rst guards
         (block -> Patch.Add(prevDB, Patch.Add.Config.Inside)) ::
-        prevTpls.map{case (p, _, prevVar) => p -> Patch.Replace(prevVar, Patch.Replace.Config.FullReplacement)}
+          prevReplacements.flatMap {
+            case PrevReplacements(prevNet, prevVar, prevVal, relVal, regVar) =>
+              val prevVarNoInit = prevVar.copy(externalInit = None).setTags(t => t.copy(init = None))
+              List (
+                prevVar -> Patch.Add(List(prevVarNoInit, regVar), Patch.Add.Config.ReplaceWithFirst()),
+                prevVal -> Patch.Replace(regVar, Patch.Replace.Config.ChangeRefAndRemove),
+              )
+          }
       } else None
     }
     c.newStage[ClockedPrev](clockedDB.patch(patchList), Seq())

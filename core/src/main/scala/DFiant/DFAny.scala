@@ -24,6 +24,11 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
   protected type AsVar = DFAny.VarOf[TType]
   protected[DFiant] type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
+  private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment = left match {
+    case DFAny.Out() | DFAny.Var() => DFNet.Assignment(left, that)
+    case _ =>
+      throw new IllegalArgumentException(s"\nCan only assign to a dataflow variable or an output port.\nAttempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}")
+  }
   def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String
   def refCodeString(implicit ctx : Printer.Context) : String =
     if (tags.meta.name.anonymous) codeString
@@ -62,12 +67,12 @@ object DFAny {
       "Missing an implicit owner Context.",
       "missing-context"
     ) {final val msg = getMsg}
-//    implicit def fromBlockCtx(implicit ctx : DFBlock.Context, meta0 : Meta) : Context = new Context {
-//      val dir: DFDir = ctx.dir
-//      val meta: Meta = meta0
-//      def owner: DFOwner = ctx.owner
-//      val db: DB.Mutable = ctx.db
-//    }
+    implicit def fromBlockCtx(implicit ctx : DFBlock.Context, meta0 : Meta) : Context = new Context {
+      val dir: DFDir = ctx.dir
+      val meta: Meta = meta0
+      def owner: DFOwner = ctx.owner
+      val db: DB.Mutable = ctx.db
+    }
   }
 
   type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
@@ -242,6 +247,7 @@ object DFAny {
     def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = token.codeString
     override def refCodeString(implicit ctx : Printer.Context) : String = codeString
     override def show(implicit getSet : MemberGetSet) : String = s"Const($token) : $dfType"
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Const {
@@ -293,6 +299,7 @@ object DFAny {
       case Modifier.Port(OUT) => s"$dfType <> OUT"
       case _ => s"$dfType"
     }
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Dcl {
@@ -426,6 +433,7 @@ object DFAny {
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
       def relCodeString(cs : String) : String = s"$cs.as(${dfType.codeString})"
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object AsIs {
@@ -455,6 +463,7 @@ object DFAny {
         case _ : DFBits.Type[_] => s"$cs.bitsWL($relWidth, $relBitLow)"
         case _ : DFBool.Type => s"$cs.bit($relBitLow)"
       }
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object BitsWL {
@@ -486,6 +495,7 @@ object DFAny {
       def constFunc(t : DFAny.Token) : DFAny.Token = t
       override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
       def relCodeString(cs : String) : String = if (step == 1) s"$cs.prev" else s"$cs.prev($step)"
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Prev {
@@ -514,6 +524,7 @@ object DFAny {
         case s : DFSInt.Token => s.resize(toWidth)
       }
       def relCodeString(cs : String) : String = s"$cs.resize($toWidth)"
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Resize {
@@ -583,6 +594,7 @@ object DFAny {
         case _ : DFBool.Type => "!"
       }
       def relCodeString(cs : String) : String = s"$op$cs"
+      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Invert {
@@ -630,6 +642,7 @@ object DFAny {
       s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
     }
     override def show(implicit getSet : MemberGetSet) : String = s"$codeString : $dfType"
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)(func)
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(func))
   }
   object Func2 {
@@ -734,17 +747,11 @@ object DFAny {
   type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
-    private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment = left match {
-      case Out() | Var() => DFNet.Assignment(left, that)
-      case _ =>
-        throw new IllegalArgumentException(s"\nCan only assign to a dataflow variable or an output port.\nAttempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}")
-    }
-
     def dontProduce() : Unit = {}
     final def isNotFull(implicit ctx : DFBlock.Context) : DFBool = ???
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : DFNet.Assignment = assign(op(left.dfType, right))
+    ) : DFNet.Assignment = left.assign(op(left.dfType, right))
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]
