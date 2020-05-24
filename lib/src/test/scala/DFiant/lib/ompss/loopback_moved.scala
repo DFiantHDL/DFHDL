@@ -4,13 +4,12 @@ import DFiant.compiler.sync._
 import DFiant.compiler.backend.vhdl._
 import DFiant._
 import DFiant.internals.BitVectorExtras
-import lib.bus.AXI4
 
 @df class loopback_moved extends OmpssKernelDesign {
   //d is output
-  final val d         = OmpssAXI <> WO
+  final val d         = OmpssAXI <> OUT
   //o is input
-  final val o         = OmpssAXI <> RO
+  final val o         = OmpssAXI <> IN
 
 
   /////////////////////////////////////////////////////////////////////////////
@@ -136,8 +135,8 @@ import lib.bus.AXI4
 
 @df class LoopbackDriver extends DFSimulator {
   final val ap        = new AP_Interface <> FLIP
-  final val d         = OmpssAXI <> WO <> FLIP
-  final val o         = OmpssAXI <> RO <> FLIP
+  final val d         = OmpssAXI <> OUT <> FLIP
+  final val o         = OmpssAXI <> IN <> FLIP
   final val size      = DFBits(32) <> OUT
   val c_READ_BUF_ADDR   = h"00001000"
   val c_WRITE_BUF_ADDR  = h"00020000"

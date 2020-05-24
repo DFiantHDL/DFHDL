@@ -39,7 +39,7 @@ object DFSM {
     /////////////////////////////////////////////////////////////////////////////////////////////////////
     protected def gotoNext()(implicit __blockContext : DFBlock.Context) : Unit = currentState.nextState match {
       case Some(state) => state.goto()
-      case None => throw new IllegalArgumentException("Did not find next state")
+      case None => //Do nothing
     }
     protected def gotoStart()(implicit __blockContext : DFBlock.Context) : Unit = startState.get.goto()
     object State {
@@ -80,13 +80,6 @@ object DFSM {
       }
       State(execBlock)
     }
-    protected def last(block : => Unit)(implicit __blockContext : DFBlock.Context) : State = {
-      def execBlock = {
-        block
-        gotoNext()
-      }
-      State(execBlock)
-    }
     protected def waitWhile[C](cond : DFBool.Op.Able[C])(
       implicit __blockContext : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
     ) : State = doWhile(cond)({})
@@ -95,7 +88,6 @@ object DFSM {
     ) : State = doUntil(cond)({})
     protected def waitForever(implicit __blockContext : DFBlock.Context) : State = State({})
     protected def next(implicit __blockContext : DFBlock.Context) : State = State(gotoNext())
-    protected def done(implicit __blockContext : DFBlock.Context) : State = last({})
     protected def isDone(implicit __blockContext : DFBlock.Context) : DFBool = ???
 
     private lazy val constructMatchStatement : Unit = {
@@ -114,6 +106,18 @@ object DFSM {
       constructMatchStatement
       this
     }
+
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
+    // State Graph Syntax
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
+    implicit class BlockExt(block : => Unit) {
+      def ==> (thatBlock : => Unit) : State = {
+        step(block)
+        step(thatBlock)
+      }
+      def =?> (cond : => DFBool) : State = ???
+    }
   }
 
   protected sealed abstract class AbstractState (val block : () => Unit)(meta : Meta) {
@@ -124,6 +128,8 @@ object DFSM {
   implicit class DFSM_Ext[F <: DFSM](f : F) {
     def startAt(stateSel : F => F#State) : F = f.startAt(stateSel(f).asInstanceOf[f.State])
   }
+  trait ChainNode
+  trait ChainEdge
 
   final case class Owner(
     ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic

@@ -16,7 +16,7 @@ package DFiant
       memConn.addr := fromAddr
       memConn.wrEn := 0
     }
-    last {
+    step {
       memConn.addr := toAddr
       memConn.wrEn := 1
       memConn.wrData := memConn.rdData
