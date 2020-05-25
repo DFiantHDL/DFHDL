@@ -55,6 +55,27 @@ object DFSM {
         state
       }
     }
+    protected def doFor(range : Range, guard : Option[DFBool] = None)(block : DFUInt[Int] => Unit)(
+      implicit __blockContext : DFBlock.Context
+    ) : State = {
+      val width = (range.start max range.end).bitsWidth
+      def cntBlock = {
+        val forCnt = DFUInt(width) init range.start
+        def advanceCnt = forCnt := forCnt + range.step
+        val stopGuard = (forCnt === range.last).anonymize
+        ifdf(stopGuard) {
+          forCnt := range.start
+          gotoNext()
+        }.elsedf {
+          block(forCnt)
+          guard match {
+            case Some(cond) => ifdf(cond)(advanceCnt)
+            case None => advanceCnt
+          }
+        }
+      }
+      State(cntBlock)
+    }
     protected def doWhile[C](cond : DFBool.Op.Able[C])(block : => Unit)(
       implicit __blockContext : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
     ) : State = {
