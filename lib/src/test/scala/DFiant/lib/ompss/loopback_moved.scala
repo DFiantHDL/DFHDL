@@ -177,7 +177,7 @@ import DFiant.internals.BitVectorExtras
   private val read_flag = DFBool() init false
   private val read_addr_checker = new DFSM {
     next
-    doUntil(o.AR.READY || o.AR.VALID) {
+    doUntil(o.AR.READY && o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
@@ -291,10 +291,10 @@ trait LoopbackTest extends DFSimulator  {
 }
 
 object LoopbackApp extends App {
-  object loopback_test extends LoopbackTest {
+  object loopback_moved extends LoopbackTest {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_test.compile.printCodeString().toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
+  loopback_moved.compile.printCodeString().toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
 }
 
