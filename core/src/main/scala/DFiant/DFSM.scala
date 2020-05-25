@@ -20,7 +20,7 @@ object DFSM {
     ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, ASIS, __db, ClassArgs.empty)
 
     protected object __dev {
-      object states extends EnumType.Auto()
+      object states extends EnumType.Auto()(__ctx.meta.setName(s"${__ctx.meta.name}_states"))
       var startState : Option[State] = None
       final lazy val state = DFEnum(states) init(startState.get.entry)
       var currentState : State = _

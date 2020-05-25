@@ -2,10 +2,9 @@ package DFiant
 import DFiant.DFDesign.DB.Patch
 import DFiant.internals._
 
-import scala.annotation.{implicitNotFound, tailrec}
+import scala.annotation.tailrec
 import scala.collection.mutable
 import DFiant.compiler.printer.Printer
-import singleton.ops._
 
 import scala.reflect.{ClassTag, classTag}
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
@@ -496,7 +495,9 @@ object DFDesign {
       //soon as possible after a container is created.
       ///////////////////////////////////////////////////////////////
       private var containerStack = List.empty[DFOwner.Container]
-      private def enterContainer(container : DFOwner.Container) : Unit = containerStack = container :: containerStack
+      private def enterContainer(container : DFOwner.Container) : Unit = {
+        containerStack = container :: containerStack
+      }
       private def exitContainer() : Unit = {
         containerStack.head.onCreate()
         containerStack = containerStack.drop(1)
@@ -504,8 +505,6 @@ object DFDesign {
       private def checkContainers(currentMember : DFMember) : Unit =
         while (
           containerStack.nonEmpty &&
-          currentMember != top &&
-          currentMember != containerStack.head.owner &&
           !currentMember.isInsideOwner(containerStack.head.owner)
         ) exitContainer()
       private def exitAllContainers() : Unit = while (containerStack.nonEmpty) exitContainer()
@@ -522,9 +521,9 @@ object DFDesign {
         owner
       }
       def addMember[M <: DFMember](member : M) : M = {
+        checkContainers(member)
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
-        checkContainers(member)
         member
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
