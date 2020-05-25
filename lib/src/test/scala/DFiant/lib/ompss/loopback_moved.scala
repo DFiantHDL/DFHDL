@@ -155,7 +155,7 @@ import DFiant.internals.BitVectorExtras
       size := c_SIZE
       ap.start := 1
     }
-    waitWhile(!ap.ready)
+    waitUntil(ap.ready)
     step {
       sim.report(msg"Got ap_ready")
     }
@@ -166,18 +166,18 @@ import DFiant.internals.BitVectorExtras
     step {
       o.AR.READY := 0
     }
-    waitWhile(!ap.start)
+    waitUntil(ap.start)
     step{
       o.AR.READY := 1
     }
-    waitWhile(!o.AR.VALID)
+    waitUntil(o.AR.VALID)
     waitForever
   }
 
   private val read_flag = DFBool() init false
   private val read_addr_checker = new DFSM {
     next
-    doWhile(!o.AR.READY || !o.AR.VALID) {
+    doUntil(o.AR.READY || o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
@@ -203,7 +203,7 @@ import DFiant.internals.BitVectorExtras
     step {
       o.R.VALID := 0
     }
-    waitWhile(!o.AR.READY || !o.AR.VALID)
+    waitUntil(o.AR.READY && o.AR.VALID)
     step {
       read_size := o.AR.LEN.uint
       read_cnt := 0
@@ -224,11 +224,11 @@ import DFiant.internals.BitVectorExtras
     step {
       d.AW.READY := 0
     }
-    waitWhile(!ap.start)
+    waitUntil(ap.start)
     step {
       d.AW.READY := 1
     }
-    waitWhile(!d.AW.VALID)
+    waitUntil(d.AW.VALID)
     waitForever
   }
 
@@ -239,7 +239,7 @@ import DFiant.internals.BitVectorExtras
       d.W.READY := 0
       d.B.VALID := 0
     }
-    waitWhile(!d.AW.READY || !d.AW.VALID)
+    waitUntil(d.AW.READY && d.AW.VALID)
     step {
       write_size := d.AW.LEN.uint
       write_cnt := 0
@@ -263,7 +263,7 @@ import DFiant.internals.BitVectorExtras
   private val write_flag = DFBool() init false
   private val write_addr_checker = new DFSM {
     next
-    doWhile(!d.AW.READY || !d.AW.VALID) {
+    doUntil(d.AW.READY && d.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
       }
@@ -291,7 +291,7 @@ trait LoopbackTest extends DFSimulator  {
 }
 
 object LoopbackApp extends App {
-  object loopback_moved extends loopback_moved {
+  object loopback_moved extends LoopbackTest {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
