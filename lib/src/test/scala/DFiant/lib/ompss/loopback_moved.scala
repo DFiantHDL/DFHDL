@@ -58,7 +58,7 @@ import DFiant.internals.BitVectorExtras
   i_1_fu_119_p2 := (i_reg_85.uint + 1).bits
   tmp_fu_114_p2 := i_reg_85.resize(32).sint < size.sint
 
-  private val ap_fsm = new DFSM {
+  private val ap_fsm = new DFSM2 {
     final val IDLE : State = State {
       ifdf(ap.start) {
         ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev){
@@ -142,7 +142,7 @@ import DFiant.internals.BitVectorExtras
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
 
-  private val ap_drv_fsm = new DFSM {
+  private val ap_drv_fsm = new DFSM2 {
     step {
       ap.start := 0
       d.offset := b0s
@@ -162,7 +162,7 @@ import DFiant.internals.BitVectorExtras
     waitForever
   }
 
-  private val o_addr_fsm = new DFSM {
+  private val o_addr_fsm = new DFSM2 {
     step {
       o.AR.READY := 0
     }
@@ -175,7 +175,7 @@ import DFiant.internals.BitVectorExtras
   }
 
   private val read_flag = DFBool() init false
-  private val read_addr_checker = new DFSM {
+  private val read_addr_checker = new DFSM2 {
     next
     doUntil(o.AR.READY && o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
@@ -199,7 +199,7 @@ import DFiant.internals.BitVectorExtras
   }
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
-  private val o_data_fsm = new DFSM {
+  private val o_data_fsm = new DFSM2 {
     step {
       o.R.VALID := 0
     }
@@ -220,7 +220,7 @@ import DFiant.internals.BitVectorExtras
     }
   }
 
-  private val d_addr_fsm = new DFSM {
+  private val d_addr_fsm = new DFSM2 {
     step {
       d.AW.READY := 0
     }
@@ -234,7 +234,7 @@ import DFiant.internals.BitVectorExtras
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
-  private val d_data_fsm = new DFSM {
+  private val d_data_fsm = new DFSM2 {
     step {
       d.W.READY := 0
       d.B.VALID := 0
@@ -261,7 +261,7 @@ import DFiant.internals.BitVectorExtras
   }
 
   private val write_flag = DFBool() init false
-  private val write_addr_checker = new DFSM {
+  private val write_addr_checker = new DFSM2 {
     next
     doUntil(d.AW.READY && d.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag) {

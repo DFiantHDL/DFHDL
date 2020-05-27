@@ -2,15 +2,15 @@ package DFiant
 
 import DFiant.internals._
 
-abstract class DFSM(implicit ctx : DFBlock.Context) extends DFSM.Abstract {self =>
+abstract class DFSM2(implicit ctx : DFBlock.Context) extends DFSM2.Abstract {self =>
   private[DFiant] final lazy val __ctx : DFBlock.Context = ctx
 }
 
-object DFSM {
+object DFSM2 {
   trait Abstract extends DFOwner.Container {self =>
-    type Owner = DFSM.Owner
+    type Owner = DFSM2.Owner
     private[DFiant] val __ctx : DFBlock.Context
-    private[DFiant] final val owner : Owner = DFSM.Owner(this)(__ctx)
+    private[DFiant] final val owner : Owner = DFSM2.Owner(this)(__ctx)
     private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
     private[DFiant] final lazy val __db: DFDesign.DB.Mutable = __ctx.db
     final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
@@ -28,8 +28,8 @@ object DFSM {
     }
     import __dev._
 
-    protected sealed class State private[DFSM](block : () => Unit)(meta : Meta) extends DFSM.AbstractState(block)(meta) {
-      private[DFSM] var nextState : Option[State] = None
+    protected sealed class State private[DFSM2](block : () => Unit)(meta : Meta) extends DFSM2.AbstractState(block)(meta) {
+      private[DFSM2] var nextState : Option[State] = None
       final val entry = states.Entry()(meta)
       final def goto()(implicit __blockContext : DFBlock.Context) : Unit = state := entry
     }
@@ -146,7 +146,7 @@ object DFSM {
     def goto()(implicit __blockContext : DFBlock.Context) : Unit
     final override def toString : String = meta.name
   }
-  implicit class DFSM_Ext[F <: DFSM](f : F) {
+  implicit class DFSM_Ext[F <: DFSM2](f : F) {
     def startAt(stateSel : F => F#State) : F = f.startAt(stateSel(f).asInstanceOf[f.State])
   }
   trait ChainNode

@@ -196,6 +196,14 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  trait Arg[Idx] {
+    def apply() : DFBool
+  }
+  object Arg {
+    implicit def ev[Idx, B](
+      implicit arg : GetArg.Aux[Idx, B], conv : DFBool.`Op:=`.Builder[DFBool.Type, B]
+    ) : Arg[Idx] = () => conv(DFBool.Type(logical = true), arg.value.asInstanceOf[B])
+  }
   object Op extends OpCO {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able(value) {

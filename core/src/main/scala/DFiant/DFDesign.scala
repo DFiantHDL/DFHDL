@@ -67,7 +67,10 @@ object DFDesign {
     DFSInt.Op.Implicits with
     DFEnum.Op.Implicits with
     DFBool.Op.Implicits with
-    DFString.Op.Implicits
+    DFString.Op.Implicits with
+    dfsm.Implicits
+
+  object Implicits extends Implicits
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getSet
@@ -489,6 +492,30 @@ object DFDesign {
       def top : Block.Top = members.head._1 match {
         case m : Block.Top => m
       }
+      ///////////////////////////////////////////////////////////////
+      //Tracking FSMs
+      ///////////////////////////////////////////////////////////////
+      import dfsm._
+      private var fsmMap : mutable.Map[FSM, Option[Step]] = mutable.Map()
+      private var stepStack : List[Step] = List()
+      def enterStep(step : Step) : Step = {
+        stepStack = step :: stepStack
+        step
+      }
+      def exitStep() : Step = {
+        val step = stepStack.head
+        stepStack = stepStack.drop(1)
+        step
+      }
+      def addFSM(fsm : FSM) : FSM = {
+        fsmMap += (fsm -> stepStack.headOption)
+        fsm
+      }
+      def removeFSM(fsm : FSM) : FSM = {
+        fsmMap -= fsm
+        fsm
+      }
+      ///////////////////////////////////////////////////////////////
 
       ///////////////////////////////////////////////////////////////
       //Tracking containers entrance and exit to run `OnCreate` as
