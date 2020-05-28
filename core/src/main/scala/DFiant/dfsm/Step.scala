@@ -7,17 +7,27 @@ import internals._
 // Step
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
-  private var elaborationStart : Boolean = false
-  private[dfsm] def elaborated : Boolean = elaborationStart
   val meta : Meta = ctx.meta
-  def elaborateAt(fsm : FSM) : Unit = if (!elaborationStart) {
-    elaborationStart = true
-    //...
+  protected def outIfs(fsm : FSM, list : List[Edge]) : Unit = list match {
+    case Edge(Some(cond), block, dest) :: Nil => ifdf(cond()){
+      block()
+      fsm.goto(dest)
+    }
+    case Edge(None, block, dest) :: Nil =>
+      block()
+      fsm.goto(dest)
+    case _ =>
   }
+  def elaborateAt(fsm : FSM) : Unit = {}
 }
 protected[DFiant] object Step {
-  implicit val fsmFromStep : FSM.TC[Step] = s => FSM(immutable.ListMap(), s, s)
-  final case class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step
+  implicit def fsmFromStep(implicit ctx : DFBlock.Context) : FSM.TC[Step] = s => FSM(immutable.ListMap(s -> List()), s, s)
+  final case class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step {
+    override def elaborateAt(fsm : FSM) : Unit = {
+      val edgeList = fsm.edges(this)
+      outIfs(fsm, edgeList)
+    }
+  }
   final case class DoWhile(cond : () => DFBool, alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step
 
   final case class Owner(

@@ -42,10 +42,9 @@ protected[DFiant] final case class FSM(
       (step, states.Entry()(namedMeta))
   }.toMap
   protected[dfsm] lazy val state = DFEnum(states) init(stepEntries(firstStep))
+  protected[dfsm] def goto(step : Step) : Unit = state := stepEntries(step)
 
-  private var elaborationStart : Boolean = false
-  private[DFiant] def elaborate() : FSM = if (!elaborationStart){
-    elaborationStart = true
+  private[DFiant] lazy val elaborate : FSM = {
     ctx.ownerInjector.injectOwnerAndRun(owner) {
       val matchHeader = matchdf(state)
       val matcherFirstCase = matchHeader.casedf(stepEntries(firstStep)){
@@ -59,7 +58,7 @@ protected[DFiant] final case class FSM(
       }
     }
     this
-  } else this
+  }
   private def track : FSM = ctx.db.trackFSM(this)
   private def untrack : FSM = ctx.db.untrackFSM(this)
 }
