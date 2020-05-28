@@ -22,6 +22,11 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
     }
     def uncolor : String = text.replaceAll(colorCode, "")
     private[FormatString] def explicitEmptyLines : String = text.replaceAll("(?m)^\\s*$[\n\r]{1,}", "").replace(EMPTY, "")
+    def removeAlignment : String = {
+      maxAlignments.indices.foldLeft(text) {
+        case (text, i) => text.replace(ALGN(i), "")
+      }
+    }
     def formatted : String = {
       maxAlignments.zipWithIndex.foldLeft(text.colored.explicitEmptyLines){case (algnText, (algnMax, algnIdx)) =>
         val uncolored = algnText.uncolor

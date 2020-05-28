@@ -63,8 +63,11 @@ protected[DFiant] final case class FSM(
   private def untrack : FSM = ctx.db.untrackFSM(this)
 }
 protected[DFiant] object FSM {
+  def apply(step : Step)(implicit ctx : DFBlock.Context) : FSM = FSM(immutable.ListMap(step -> List()), step, step)
   @implicitNotFound("Unsupported FSM step concatenation")
   type TC[T] = T => FSM
+  @implicitNotFound("Unsupported FSM step concatenation")
+  type TC2[T] = T => FSM
 
   final case class Owner(
     ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
@@ -116,6 +119,10 @@ protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
     val edge = Edge(Some(cond), () => {}, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
   }
+  def ==>(fsmCond : FSMCond)(implicit ctx : DFBlock.Context) : FSMCond = {
+    val fsm = this ==> fsmCond.fsm
+    FSMCond(fsm, fsmCond.cond)
+  }
   def ==>(block : => Unit) : FSMCondBlock = FSMCondBlock(fsm, Some(cond), () => block)
 }
 
@@ -124,6 +131,10 @@ protected[dfsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() 
     val destFSM = destFSM_TC(d)
     val edge = Edge(condOption, block, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
+  }
+  def ==>(fsmCond : FSMCond)(implicit ctx : DFBlock.Context) : FSMCond = {
+    val fsm = this ==> fsmCond.fsm
+    FSMCond(fsm, fsmCond.cond)
   }
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

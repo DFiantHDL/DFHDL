@@ -1,8 +1,15 @@
 package DFiant
 
 @df class TT extends DFDesign {
-  val o = DFUInt(8) <> OUT
-  val myfsm = dfsm.step {} ==> dfsm.step {} ==> dfsm.step {}
+  val o = DFUInt(8) <> OUT init 0
+  val myfsm =
+    dfsm.doWhile(o < 15) {
+      o := o + 1
+    } ==>
+    dfsm.doUntil(o === 21) {
+      o := o + 1
+    } ==>
+    dfsm.wait
 
 //  val myfsm = s1 =?> (o > 1) ==> s2 ==> s3 ++ (s1 ==> s3)
 

@@ -56,10 +56,11 @@ protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) ext
   def elaborateAt(fsm : FSM) : Unit = {}
 }
 protected[DFiant] object Step {
-  implicit def fsmFromStep(implicit ctx : DFBlock.Context) : FSM.TC[Step] = s => FSM(immutable.ListMap(s -> List()), s, s)
+  implicit def fsmFromStep(implicit ctx : DFBlock.Context) : FSM.TC[Step] = s => FSM(s)
   final case class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step {
     override def elaborateAt(fsm : FSM) : Unit = {
       val edgeList = fsm.edges(this)
+      alwaysBlock()
       outIfs(fsm, edgeList)
     }
   }
