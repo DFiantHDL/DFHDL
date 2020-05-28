@@ -1,12 +1,22 @@
 package DFiant
 package dfsm
 
+import scala.collection.immutable
+import internals._
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Step
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected[DFiant] sealed trait Step extends Product with Serializable
+protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
+  private var elaborationStart : Boolean = false
+  private[dfsm] def elaborated : Boolean = elaborationStart
+  val meta : Meta = ctx.meta
+  def elaborateAt(fsm : FSM) : Unit = if (!elaborationStart) {
+    elaborationStart = true
+    //...
+  }
+}
 protected[DFiant] object Step {
-  implicit val fsmFromStep : FSM.TC[Step] = s => FSM(Map(), s, s)
+  implicit val fsmFromStep : FSM.TC[Step] = s => FSM(immutable.ListMap(), s, s)
   final case class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step
   final case class DoWhile(cond : () => DFBool, alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step
 
@@ -28,7 +38,7 @@ protected[DFiant] object Step {
   object Owner {
     def apply(container : DFOwner.Container)(
       implicit ctx : DFBlock.Context
-    ) : Owner = ctx.db.addOwner(container)(Owner(ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addContainerOwner(container)(Owner(ctx.owner, ctx.meta))
   }
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

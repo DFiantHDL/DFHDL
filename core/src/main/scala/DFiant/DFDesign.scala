@@ -106,7 +106,7 @@ object DFDesign {
     object Internal {
       def apply(container : DFOwner.Container)(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimulator.Mode)(
         implicit ctx : Context
-      ) : Block = ctx.db.addOwner(container)(
+      ) : Block = ctx.db.addContainerOwner(container)(
         if (ctx.ownerInjector == null || ctx.owner == null) Top(designType, ctx.meta, simMode)(ctx.db)
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
@@ -507,11 +507,11 @@ object DFDesign {
         stepStack = stepStack.drop(1)
         step
       }
-      def addFSM(fsm : FSM) : FSM = {
+      def trackFSM(fsm : FSM) : FSM = {
         fsmMap += (fsm -> stepStack.headOption)
         fsm
       }
-      def removeFSM(fsm : FSM) : FSM = {
+      def untrackFSM(fsm : FSM) : FSM = {
         fsmMap -= fsm
         fsm
       }
@@ -542,7 +542,7 @@ object DFDesign {
         cb.applyBlock(block)
         cb
       }
-      def addOwner[O <: DFOwner](container : DFOwner.Container)(owner : O)(implicit ctx : DFBlock.Context) : O = {
+      def addContainerOwner[O <: DFOwner](container : DFOwner.Container)(owner : O)(implicit ctx : DFBlock.Context) : O = {
         addMember(owner)
         enterContainer(container)
         owner

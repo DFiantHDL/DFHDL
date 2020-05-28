@@ -1,22 +1,24 @@
 package DFiant
 package dfsm
 
-import scala.annotation.implicitNotFound
+import collection.immutable
+import scala.annotation.{implicitNotFound, tailrec}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FSM
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 protected[DFiant] final case class FSM(
-  edges : Map[Step, List[Edge]], firstStep : Step, lastStep : Step
+  edges : immutable.ListMap[Step, List[Edge]], firstStep : Step, lastStep : Step
 )(implicit ctx : DFBlock.Context) {
-  def addEdge(stepToEdge : (Step, Edge)) : FSM = copy(edges = addEdges(edges, stepToEdge._1 -> List(stepToEdge._2)))
-  private def addEdges(edges : Map[Step, List[Edge]], stepToEdges : (Step, List[Edge])) : Map[Step, List[Edge]] = {
+  private lazy val owner : FSM.Owner = FSM.Owner()(ctx)
+  private def addEdge(stepToEdge : (Step, Edge)) : FSM = copy(edges = addEdges(edges, stepToEdge._1 -> List(stepToEdge._2)))
+  private def addEdges(edges : immutable.ListMap[Step, List[Edge]], stepToEdges : (Step, List[Edge])) : immutable.ListMap[Step, List[Edge]] = {
     edges.get(stepToEdges._1) match {
       case Some(edgeList) => edges + (stepToEdges._1 -> (edgeList ++ stepToEdges._2))
       case None => edges + stepToEdges
     }
   }
-  def addEdges(edgeMap : Map[Step, List[Edge]]) : FSM = copy(edges = {
+  private def addEdges(edgeMap : immutable.ListMap[Step, List[Edge]]) : FSM = copy(edges = {
     edgeMap.foldLeft(edges){
       case (edges, stepToEdges) => addEdges(edges, stepToEdges)
     }
@@ -31,12 +33,35 @@ protected[DFiant] final case class FSM(
     destFSM.untrack
     this.addEdges(destFSM.edges).addEdge(this.lastStep -> viaEdge).copy(lastStep = destFSM.lastStep).track
   }
+  object states extends EnumType.Auto()(ctx.meta.setName(s"${ctx.meta.name}_states"))
+  protected[dfsm] lazy val stepEntries : Map[Step, states.Entry] = edges.zipWithIndex.map {
+    case ((step, _), i) =>
+      val namedMeta =
+        if ((step.meta.namePosition < step.meta.position) | step.meta.name.anonymous) step.meta.setName(s"ST$i")
+        else step.meta
+      (step, states.Entry()(namedMeta))
+  }.toMap
+  protected[dfsm] lazy val state = DFEnum(states) init(stepEntries(firstStep))
 
-  private[DFiant] lazy val elaborate : Unit = {
-
-  }
-  private def track : FSM = ctx.db.addFSM(this)
-  private def untrack : FSM = ctx.db.removeFSM(this)
+  private var elaborationStart : Boolean = false
+  private[DFiant] def elaborate() : FSM = if (!elaborationStart){
+    elaborationStart = true
+    ctx.ownerInjector.injectOwnerAndRun(owner) {
+      val matchHeader = matchdf(state)
+      val matcherFirstCase = matchHeader.casedf(stepEntries(firstStep)){
+        firstStep.elaborateAt(this)
+      }
+      edges.drop(1).foldLeft(matcherFirstCase) {
+        case (lastCase, (step, _)) =>
+          lastCase.casedf(stepEntries(step)) {
+            step.elaborateAt(this)
+          }
+      }
+    }
+    this
+  } else this
+  private def track : FSM = ctx.db.trackFSM(this)
+  private def untrack : FSM = ctx.db.untrackFSM(this)
 }
 protected[DFiant] object FSM {
   @implicitNotFound("Unsupported FSM step concatenation")
@@ -58,9 +83,9 @@ protected[DFiant] object FSM {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Owner {
-    def apply(container : DFOwner.Container)(
+    def apply()(
       implicit ctx : DFBlock.Context
-    ) : Owner = ctx.db.addOwner(container)(Owner(ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addMember(Owner(ctx.owner, ctx.meta))
   }
 }
 

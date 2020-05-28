@@ -120,7 +120,7 @@ object DFInterface {
   object Owner {
     def apply(container : DFOwner.Container)(nameFlatten: DFOwner.NameFlatten)(
       implicit ctx : DFAny.Context
-    ) : Owner = ctx.db.addOwner(container)(Owner(nameFlatten, ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addContainerOwner(container)(Owner(nameFlatten, ctx.owner, ctx.meta))
   }
 }
 

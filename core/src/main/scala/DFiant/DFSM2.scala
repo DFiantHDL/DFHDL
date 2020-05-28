@@ -170,7 +170,7 @@ object DFSM2 {
   object Owner {
     def apply(container : DFOwner.Container)(
       implicit ctx : DFBlock.Context
-    ) : Owner = ctx.db.addOwner(container)(Owner(ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addContainerOwner(container)(Owner(ctx.owner, ctx.meta))
   }
 
 }
