@@ -8,15 +8,50 @@ import internals._
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
   val meta : Meta = ctx.meta
-  protected def outIfs(fsm : FSM, list : List[Edge]) : Unit = list match {
-    case Edge(Some(cond), block, dest) :: Nil => ifdf(cond()){
-      block()
-      fsm.goto(dest)
+  import ctx.db.getSet
+  protected def outIfs(fsm : FSM, list : List[Edge]) : Unit = {
+    def anonymizeCond(cond : DFBool) : DFBool = {
+      if (cond.tags.meta.namePosition == fsm.owner.tags.meta.namePosition) cond.anonymize
+      else cond
     }
-    case Edge(None, block, dest) :: Nil =>
-      block()
-      fsm.goto(dest)
-    case _ =>
+    list match {
+      case Edge(Some(cond), block, dest) :: Nil =>
+        ifdf(anonymizeCond(cond())){
+          block()
+          fsm.goto(dest)
+        }
+      case Edge(Some(cond), block, dest) :: Edge(Some(cond2), block2, dest2) :: list =>
+        val branch = ifdf(anonymizeCond(cond())){
+          block()
+          fsm.goto(dest)
+        }.elseifdf(anonymizeCond(cond2())) {
+          block2()
+          fsm.goto(dest2)
+        }
+        list.foldLeft[Either[ConditionalBlock.NoRetVal.ElseIfBlock, Unit]](Left(branch)) {
+          case (Left(b), Edge(Some(cond), block, dest)) => Left(b.elseifdf(anonymizeCond(cond())){
+            block()
+            fsm.goto(dest)
+          })
+          case (Left(b), Edge(None, block, dest)) => Right(b.elsedf {
+            block()
+            fsm.goto(dest)
+          })
+          case (Right(_), _ : Edge) => throw new IllegalArgumentException(s"Unexpected edge after last non-conditional edge for step ${meta.name}")
+        }
+      case Edge(Some(cond), block, dest) :: Edge(None, block2, dest2) :: Nil =>
+        ifdf(anonymizeCond(cond())){
+          block()
+          fsm.goto(dest)
+        }.elsedf {
+          block2()
+          fsm.goto(dest2)
+        }
+      case Edge(None, block, dest) :: Nil =>
+        block()
+        fsm.goto(dest)
+      case _ =>
+    }
   }
   def elaborateAt(fsm : FSM) : Unit = {}
 }

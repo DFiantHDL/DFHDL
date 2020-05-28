@@ -10,7 +10,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 protected[DFiant] final case class FSM(
   edges : immutable.ListMap[Step, List[Edge]], firstStep : Step, lastStep : Step
 )(implicit ctx : DFBlock.Context) {
-  private lazy val owner : FSM.Owner = FSM.Owner()(ctx)
+  private[dfsm] lazy val owner : FSM.Owner = FSM.Owner()(ctx)
   private def addEdge(stepToEdge : (Step, Edge)) : FSM = copy(edges = addEdges(edges, stepToEdge._1 -> List(stepToEdge._2)))
   private def addEdges(edges : immutable.ListMap[Step, List[Edge]], stepToEdges : (Step, List[Edge])) : immutable.ListMap[Step, List[Edge]] = {
     edges.get(stepToEdges._1) match {
@@ -37,7 +37,7 @@ protected[DFiant] final case class FSM(
   protected[dfsm] lazy val stepEntries : Map[Step, states.Entry] = edges.zipWithIndex.map {
     case ((step, _), i) =>
       val namedMeta =
-        if ((step.meta.namePosition < step.meta.position) | step.meta.name.anonymous) step.meta.setName(s"ST$i")
+        if ((step.meta.namePosition == ctx.meta.namePosition) | step.meta.name.anonymous) step.meta.setName(s"ST$i")
         else step.meta
       (step, states.Entry()(namedMeta))
   }.toMap

@@ -2,11 +2,10 @@ package DFiant
 
 @df class TT extends DFDesign {
   val o = DFUInt(8) <> OUT
-  val s1 = dfsm.step {}
-  val s2 = dfsm.step {}
-  val s3 = dfsm.step {}
+  val myfsm = dfsm.step {} ==> dfsm.step {} ==> dfsm.step {}
 
-  val myfsm = s1 ==> s2 ==> s3
+//  val myfsm = s1 =?> (o > 1) ==> s2 ==> s3 ++ (s1 ==> s3)
+
   myfsm.elaborate
 }
 
