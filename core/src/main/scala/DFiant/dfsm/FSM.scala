@@ -45,15 +45,16 @@ protected[DFiant] final case class FSM(
   protected[dfsm] def goto(step : Step) : Unit = state := stepEntries(step)
 
   private[DFiant] lazy val elaborate : FSM = {
+    edges.foreach(e => e._1.attachFSM(this))
     ctx.ownerInjector.injectOwnerAndRun(owner) {
       val matchHeader = matchdf(state)
       val matcherFirstCase = matchHeader.casedf(stepEntries(firstStep)){
-        firstStep.elaborateAt(this)
+        firstStep.elaborate()
       }
       edges.drop(1).foldLeft(matcherFirstCase) {
         case (lastCase, (step, _)) =>
           lastCase.casedf(stepEntries(step)) {
-            step.elaborateAt(this)
+            step.elaborate()
           }
       }
     }

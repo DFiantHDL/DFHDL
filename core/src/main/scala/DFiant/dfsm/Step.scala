@@ -9,7 +9,14 @@ import internals._
 protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
   val meta : Meta = ctx.meta
   import ctx.db.getSet
-  protected def outIfs(fsm : FSM, list : List[Edge]) : Unit = {
+  private var fsm : FSM = _
+  protected def getFSM : FSM = fsm
+  private[dfsm] def attachFSM(fsm : FSM) : Step = {
+    this.fsm = fsm
+    this
+  }
+  def goto() : Unit = fsm.goto(this)
+  protected def outIfs(list : List[Edge]) : Unit = {
     def anonymizeCond(cond : DFBool) : DFBool = {
       if (cond.tags.meta.namePosition == fsm.owner.tags.meta.namePosition) cond.anonymize
       else cond
@@ -18,50 +25,50 @@ protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) ext
       case Edge(Some(cond), block, dest) :: Nil =>
         ifdf(anonymizeCond(cond())){
           block()
-          fsm.goto(dest)
+          dest.goto()
         }
       case Edge(Some(cond), block, dest) :: Edge(Some(cond2), block2, dest2) :: list =>
         val branch = ifdf(anonymizeCond(cond())){
           block()
-          fsm.goto(dest)
+          dest.goto()
         }.elseifdf(anonymizeCond(cond2())) {
           block2()
-          fsm.goto(dest2)
+          dest2.goto()
         }
         list.foldLeft[Either[ConditionalBlock.NoRetVal.ElseIfBlock, Unit]](Left(branch)) {
           case (Left(b), Edge(Some(cond), block, dest)) => Left(b.elseifdf(anonymizeCond(cond())){
             block()
-            fsm.goto(dest)
+            dest.goto()
           })
           case (Left(b), Edge(None, block, dest)) => Right(b.elsedf {
             block()
-            fsm.goto(dest)
+            dest.goto()
           })
           case (Right(_), _ : Edge) => throw new IllegalArgumentException(s"Unexpected edge after last non-conditional edge for step ${meta.name}")
         }
       case Edge(Some(cond), block, dest) :: Edge(None, block2, dest2) :: Nil =>
         ifdf(anonymizeCond(cond())){
           block()
-          fsm.goto(dest)
+          dest.goto()
         }.elsedf {
           block2()
-          fsm.goto(dest2)
+          dest2.goto()
         }
       case Edge(None, block, dest) :: Nil =>
         block()
-        fsm.goto(dest)
+        dest.goto()
       case _ =>
     }
   }
-  def elaborateAt(fsm : FSM) : Unit = {}
+  def elaborate() : Unit = {}
 }
 protected[DFiant] object Step {
   implicit def fsmFromStep(implicit ctx : DFBlock.Context) : FSM.TC[Step] = s => FSM(s)
   final case class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step {
-    override def elaborateAt(fsm : FSM) : Unit = {
-      val edgeList = fsm.edges(this)
+    override def elaborate() : Unit = {
+      val edgeList = getFSM.edges(this)
       alwaysBlock()
-      outIfs(fsm, edgeList)
+      outIfs(edgeList)
     }
   }
   final case class DoWhile(cond : () => DFBool, alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step
