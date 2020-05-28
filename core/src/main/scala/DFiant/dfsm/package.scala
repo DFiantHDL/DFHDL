@@ -5,23 +5,23 @@ import DFDesign.Implicits._
 package object dfsm {
   def step(block : => Unit)(
     implicit ctx : DFBlock.Context
-  ) : Step = Step.Basic(() => block)
+  ) : FSM = FSM(Step.Basic(() => block))
   def doWhile[C](cond : => C)(block : => Unit)(
     implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
   ) : FSMCond = {
     import ctx.db.getSet
-    FSMCond(FSM(step(block)), () => (!arg()).anonymize)
+    FSMCond(step(block), () => (!arg()).anonymize)
   }
   def waitWhile[C](cond : => C)(
     implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
   ) : FSMCond = doWhile(cond){}
   def doUntil[C](cond : => C)(block : => Unit)(
     implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
-  ) : FSMCond = FSMCond(FSM(step(block)), () => arg())
+  ) : FSMCond = FSMCond(step(block), () => arg())
   def waitUntil[C](cond : => C)(
     implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
-  ) : FSMCond = doUntil(cond){}
-  def wait()(implicit ctx : DFBlock.Context) : Step = step({})
+  ) : FSMCond = FSMCond(step({}), () => arg())
+  def wait()(implicit ctx : DFBlock.Context) : FSM = step({})
 //  def doFor(range : Range, guard : Option[DFBool] = None)(block : DFUInt[Int] => Unit)(
 //    implicit ctx : DFBlock.Context
 //  ) : FSMCond = {

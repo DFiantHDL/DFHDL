@@ -7,7 +7,7 @@ import scala.annotation.{implicitNotFound, tailrec}
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FSM
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected[DFiant] final case class FSM(
+final case class FSM(
   edges : immutable.ListMap[Step, List[Edge]], firstStep : Step, lastStep : Step
 )(implicit ctx : DFBlock.Context) {
   private[dfsm] lazy val owner : FSM.Owner = FSM.Owner()(ctx)
@@ -23,6 +23,7 @@ protected[DFiant] final case class FSM(
       case (edges, stepToEdges) => addEdges(edges, stepToEdges)
     }
   })
+  def goto() : Unit = firstStep.goto()
   def addFSM(fsm : FSM) : FSM = {
     this.untrack
     fsm.untrack
@@ -42,7 +43,10 @@ protected[DFiant] final case class FSM(
       (step, states.Entry()(namedMeta))
   }.toMap
   protected[dfsm] lazy val state = DFEnum(states) init(stepEntries(firstStep))
-  protected[dfsm] def goto(step : Step) : Unit = state := stepEntries(step)
+  protected[dfsm] def goto(step : Step) : Unit = stepEntries.get(step) match {
+    case Some(entry) => state := entry
+    case None => throw new IllegalArgumentException("Step unknown")
+  }
 
   private[DFiant] lazy val elaborate : FSM = {
     edges.foreach(e => e._1.attachFSM(this))
@@ -60,8 +64,8 @@ protected[DFiant] final case class FSM(
     }
     this
   }
-  private def track : FSM = ctx.db.trackFSM(this)
-  private def untrack : FSM = ctx.db.untrackFSM(this)
+  private[dfsm] def track : FSM = ctx.db.trackFSM(this)
+  private[dfsm] def untrack : FSM = ctx.db.untrackFSM(this)
 }
 protected[DFiant] object FSM {
   def apply(step : Step)(implicit ctx : DFBlock.Context) : FSM = FSM(immutable.ListMap(step -> List()), step, step)
@@ -104,7 +108,7 @@ protected[DFiant] trait Implicits {
       implicit arg : DFBool.Arg[0]
     ) : FSMCond = FSMCond(sourceFSM_TC(s), () => arg())
     def ==>(block : => Unit) : FSMCondBlock = FSMCondBlock(sourceFSM_TC(s), None, () => block)
-    def ++ (fsm : FSM)(implicit ctx : DFBlock.Context) : FSM = sourceFSM_TC(s).addFSM(fsm)
+    def ++ [D](d : D)(implicit destFSM_TC : FSM.TC[D], ctx : DFBlock.Context) : FSM = sourceFSM_TC(s).addFSM(destFSM_TC(d))
   }
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,8 +119,7 @@ protected[DFiant] trait Implicits {
 // FSMs with a Dangling Conditional Edge
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
-  def ==>[D](d : D)(implicit destFSM_TC : FSM.TC[D], ctx : DFBlock.Context) : FSM = {
-    val destFSM = destFSM_TC(d)
+  def ==>(destFSM : FSM)(implicit ctx : DFBlock.Context) : FSM = {
     val edge = Edge(Some(cond), () => {}, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
   }
@@ -125,6 +128,7 @@ protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
     FSMCond(fsm, fsmCond.cond)
   }
   def ==>(block : => Unit) : FSMCondBlock = FSMCondBlock(fsm, Some(cond), () => block)
+  def goto() : Unit = fsm.untrack.goto()
 }
 
 protected[dfsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() => DFBool], block : () => Unit) {
@@ -137,6 +141,7 @@ protected[dfsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() 
     val fsm = this ==> fsmCond.fsm
     FSMCond(fsm, fsmCond.cond)
   }
+  def goto() : Unit = fsm.untrack.goto()
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 

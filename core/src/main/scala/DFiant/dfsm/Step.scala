@@ -6,7 +6,7 @@ import internals._
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Step
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected[DFiant] sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
+sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
   val meta : Meta = ctx.meta
   import ctx.db.getSet
   private var fsm : FSM = _

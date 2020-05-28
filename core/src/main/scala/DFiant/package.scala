@@ -234,9 +234,9 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // Conditional Constructs
   ////////////////////////////////////////////////////////////////////////////////////
-  def ifdf[C](cond : DFBool.Op.Able[C])(block : => Unit)(
-    implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condConv(DFBool.Type(logical = true),cond))(block)
+  def ifdf[C](cond : C)(block : => Unit)(
+    implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
+  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condArg())(block)
   def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
     implicit ctx : DFBlock.Context
   ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)
@@ -280,10 +280,10 @@ package object DFiant {
     final val Warning = Severity.Warning
     final val Error = Severity.Error
     final val Failure = Severity.Failure
-    def assert[C](cond : DFBool.Op.Able[C], msg : Message, severity : Severity = Warning)(
-      implicit ctx : DFAny.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
+    def assert[C](cond : C, msg : Message, severity : Severity = Warning)(
+      implicit ctx : DFAny.Context, condArg : DFBool.Arg[0]
     ) : Unit = {
-      if (inSimulation) Assert(Some(condConv(DFBool.Type(logical = true),cond)), msg, severity)
+      if (inSimulation) Assert(Some(condArg()), msg, severity)
     }
     def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
       if (inSimulation) Assert(None, msg, severity)

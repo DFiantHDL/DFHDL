@@ -144,9 +144,9 @@ object ConditionalBlock {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
-      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(logical = true), cond), this)(blockConv(dfType, block))(ctx)
+      def elseifdf[C, B](cond : C)(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : dfType.`Op:=Builder`[Type, B]
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condArg(), this)(blockConv(dfType, block))(ctx)
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case IfBlock(dfType, retVarRef, condRef, _, tags) =>
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.tags =~ tags
@@ -170,9 +170,9 @@ object ConditionalBlock {
       def elsedf[B](block : => dfType.OpAble[B])(
         implicit ctx : DFBlock.Context, blockConv : dfType.`Op:=Builder`[Type, B]
       ) : ElseBlock[Type] = ElseBlock[Type](retVarRef, this)(blockConv(dfType, block))(ctx)
-      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => dfType.OpAble[B])(
-        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : dfType.`Op:=Builder`[Type, B]
-      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condConv(DFBool.Type(logical = true), cond), this)(blockConv(dfType, block))(ctx)
+      def elseifdf[C, B](cond : C)(block : => dfType.OpAble[B])(
+        implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : dfType.`Op:=Builder`[Type, B]
+      ) : ElseIfBlock[Type] = ElseIfBlock[Type](retVarRef, condArg(), this)(blockConv(dfType, block))(ctx)
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case ElseIfBlock(dfType, retVarRef, condRef, prevBlockRef, _, tags) =>
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
@@ -304,9 +304,9 @@ object ConditionalBlock {
       def elsedf[B](block : => Unit)(
         implicit ctx : DFBlock.Context
       ) : ElseBlock = ElseBlock(this)(block)(ctx)
-      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
-        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(logical = true), cond), this)(block)(ctx)
+      def elseifdf[C, B](cond : C)(block : => Unit)(
+        implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
+      ) : ElseIfBlock = ElseIfBlock(condArg(), this)(block)(ctx)
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case IfBlock(condRef, _, tags) =>
           this.condRef =~ condRef && this.tags =~ tags
@@ -327,9 +327,9 @@ object ConditionalBlock {
       def elsedf[B](block : => Unit)(
         implicit ctx : DFBlock.Context
       ) : ElseBlock = ElseBlock(this)(block)(ctx)
-      def elseifdf[C, B](cond : DFBool.Op.Able[C])(block : => Unit)(
-        implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C]
-      ) : ElseIfBlock = ElseIfBlock(condConv(DFBool.Type(logical = true), cond), this)(block)(ctx)
+      def elseifdf[C, B](cond : C)(block : => Unit)(
+        implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
+      ) : ElseIfBlock = ElseIfBlock(condArg(), this)(block)(ctx)
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case ElseIfBlock(condRef, prevBlockRef, _, tags) =>
           this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags

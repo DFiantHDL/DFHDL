@@ -256,10 +256,15 @@ object DFBool extends DFAny.Companion {
     }
 
     object Builder {
-      implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](
+      implicit def evDFBool_op_DFBool[R <: DFBool](
         implicit
         ctx : DFAny.Context
-      ) : Builder[Type, DFBool] = (left, right) => right
+      ) : Builder[Type, R] = (left, right) => right
+
+      implicit def evDFBool_op_RVal[R <: DFAny.DefaultRet[Type]](
+        implicit
+        ctx : DFAny.Context
+      ) : Builder[Type, R] = (left, right) => right.thisVal
 
       implicit def evDFBool_op_Const[L <: DFBool, R](
         implicit

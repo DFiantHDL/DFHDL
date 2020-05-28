@@ -385,12 +385,12 @@ object DFAny {
       implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, DFAny.Of[Type]]
     ): Unit = left.connectWith(op(left.dfType, right))
 
-    def ifdf[C, B](cond : DFBool.Op.Able[C])(block : => left.dfType.OpAble[B])(
-      implicit ctx : DFBlock.Context, condConv : DFBool.`Op:=`.Builder[DFBool.Type, C], blockConv : left.dfType.`Op:=Builder`[Type, B]
+    def ifdf[C, B](cond : C)(block : => left.dfType.OpAble[B])(
+      implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : left.dfType.`Op:=Builder`[Type, B]
     ) : ConditionalBlock.WithRetVal.IfBlock[Type] = {
       val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
       implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-      ConditionalBlock.WithRetVal.IfBlock[Type](newMember, condConv(DFBool.Type(logical = true),cond))(blockConv(left.dfType, block))(ctx)
+      ConditionalBlock.WithRetVal.IfBlock[Type](newMember, condArg())(blockConv(left.dfType, block))(ctx)
     }
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
@@ -751,7 +751,7 @@ object DFAny {
     final def isNotFull(implicit ctx : DFBlock.Context) : DFBool = ???
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
-    ) : DFNet.Assignment = left.assign(op(left.dfType, right))
+    ) : Unit = left.assign(op(left.dfType, right))
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]
