@@ -24,12 +24,12 @@ final case class FSM(
     }
   })
   def goto() : Unit = firstStep.goto()
-  def addFSM(fsm : FSM) : FSM = {
+  def addFSM(fsm : FSM)(implicit ctx : DFBlock.Context) : FSM = {
     this.untrack
     fsm.untrack
     this.addEdges(fsm.edges).copy(lastStep = fsm.lastStep).track
   }
-  def connectTo(destFSM : FSM, viaEdge : Edge) : FSM = {
+  def connectTo(destFSM : FSM, viaEdge : Edge)(implicit ctx : DFBlock.Context) : FSM = {
     this.untrack
     destFSM.untrack
     this.addEdges(destFSM.edges).addEdge(this.lastStep -> viaEdge).copy(lastStep = destFSM.lastStep).track
@@ -107,7 +107,7 @@ protected[DFiant] trait Implicits {
     def =?>[C, C2](cond : => C)(
       implicit arg : DFBool.Arg[0]
     ) : FSMCond = FSMCond(sourceFSM_TC(s), () => arg())
-    def ==>(block : => Unit) : FSMCondBlock = FSMCondBlock(sourceFSM_TC(s), None, () => block)
+    def onExit(block : => Unit) : FSMCondBlock = FSMCondBlock(sourceFSM_TC(s), None, () => block)
     def ++ [D](d : D)(implicit destFSM_TC : FSM.TC[D], ctx : DFBlock.Context) : FSM = sourceFSM_TC(s).addFSM(destFSM_TC(d))
   }
 }
@@ -127,7 +127,7 @@ protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
     val fsm = this ==> fsmCond.fsm
     FSMCond(fsm, fsmCond.cond)
   }
-  def ==>(block : => Unit) : FSMCondBlock = FSMCondBlock(fsm, Some(cond), () => block)
+  def onExit(block : => Unit) : FSMCondBlock = FSMCondBlock(fsm, Some(cond), () => block)
   def goto() : Unit = fsm.untrack.goto()
 }
 

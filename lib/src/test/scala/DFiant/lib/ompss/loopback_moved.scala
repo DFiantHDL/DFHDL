@@ -58,77 +58,68 @@ import DFiant.internals.BitVectorExtras
   i_1_fu_119_p2 := (i_reg_85.uint + 1).bits
   tmp_fu_114_p2 := i_reg_85.resize(32).sint < size.sint
 
-  private val ap_fsm = new DFSM2 {
-    final val IDLE : State = State {
-      ifdf(ap.start) {
-        ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev){
-          o.AR.VALID := 1
-        }
-        ifdf(ap_sig_ioackin_m_axi_o_ARREADY) {
-          ap_reg_ioackin_m_axi_o_ARREADY := 0
-          ST2.goto()
-        }.elseifdf(o.AR.READY) {
-          ap_reg_ioackin_m_axi_o_ARREADY := 1
-        }
+  import dfsm._
+  final val IDLE : FSM = step {
+    ifdf(ap.start) {
+      ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev){
+        o.AR.VALID := 1
+      }
+      ifdf(ap_sig_ioackin_m_axi_o_ARREADY) {
+        ap_reg_ioackin_m_axi_o_ARREADY := 0
+        ST7.goto()
+      }.elseifdf(o.AR.READY) {
+        ap_reg_ioackin_m_axi_o_ARREADY := 1
+      }
+    }.elsedf {
+      ap.done := 1
+      ap.idle := 1
+    }
+  }
+  final val ST7 : FSM = step {
+    ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
+      d.AW.VALID := 1
+    }
+    ifdf(ap_sig_ioackin_m_axi_d_AWREADY) {
+      ap_reg_ioackin_m_axi_d_AWREADY := 0
+      i_reg_85 := b0s
+      ST8.goto()
+    }.elseifdf(d.AW.READY) {
+      ap_reg_ioackin_m_axi_d_AWREADY := 1
+    }
+  }
+  final val ST8 : FSM = step {
+    ifdf(o.R.VALID || !tmp_fu_114_p2) {
+      ifdf(tmp_fu_114_p2) {
+        o.R.READY := 1
+        i_1_reg_147 := i_1_fu_119_p2
+        o_addr_read_reg_152 := o.R.DATA
+        ST9.goto()
       }.elsedf {
-        ap.done := 1
-        ap.idle := 1
-      }
-    }
-    final val ST2 : State = next
-    final val ST3 : State = next
-    final val ST4 : State = next
-    final val ST5 : State = next
-    final val ST6 : State = next
-    final val ST7 : State = State {
-      ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
-        d.AW.VALID := 1
-      }
-      ifdf(ap_sig_ioackin_m_axi_d_AWREADY) {
-        ap_reg_ioackin_m_axi_d_AWREADY := 0
-        i_reg_85 := b0s
-        ST8.goto()
-      }.elseifdf(d.AW.READY) {
-        ap_reg_ioackin_m_axi_d_AWREADY := 1
-      }
-    }
-    final val ST8 : State = State {
-      ifdf(o.R.VALID || !tmp_fu_114_p2) {
-        ifdf(tmp_fu_114_p2) {
-          o.R.READY := 1
-          i_1_reg_147 := i_1_fu_119_p2
-          o_addr_read_reg_152 := o.R.DATA
-          ST9.goto()
-        }.elsedf {
-          ST10.goto()
-        }
-      }
-    }
-    final val ST9 : State = State {
-      ifdf(!ap_reg_ioackin_m_axi_d_WREADY.prev) {
-        d.W.VALID := 1
-      }
-      ifdf(ap_sig_ioackin_m_axi_d_WREADY) {
-        ap_reg_ioackin_m_axi_d_WREADY := 0
-        i_reg_85 := i_1_reg_147
-        ST8.goto()
-      }.elseifdf(d.W.READY) {
-        ap_reg_ioackin_m_axi_d_WREADY := 1
-      }
-    }
-    final val ST10 : State = next
-    final val ST11 : State = next
-    final val ST12 : State = next
-    final val ST13 : State = State {
-      ifdf(d.B.VALID){
-        d.B.READY := 1
-        IDLE.goto()
-        ap.done := 1
-        ap.ready := 1
+        ST13.goto()
       }
     }
   }
+  final val ST9 : FSM = step {
+    ifdf(!ap_reg_ioackin_m_axi_d_WREADY.prev) {
+      d.W.VALID := 1
+    }
+    ifdf(ap_sig_ioackin_m_axi_d_WREADY) {
+      ap_reg_ioackin_m_axi_d_WREADY := 0
+      i_reg_85 := i_1_reg_147
+      ST8.goto()
+    }.elseifdf(d.W.READY) {
+      ap_reg_ioackin_m_axi_d_WREADY := 1
+    }
+  }
+  final val ST13 : FSM = waitUntil(d.B.VALID).onExit {
+    d.B.READY := 1
+    ap.done := 1
+    ap.ready := 1
+  } ==> IDLE
 
+  val myfsm = IDLE ++ ST7 ++ ST8 ++ ST9 ++ ST13
+
+  myfsm.elaborate
 }
 
 
@@ -291,10 +282,10 @@ trait LoopbackTest extends DFSimulator  {
 }
 
 object LoopbackApp extends App {
-  object loopback_moved extends LoopbackTest {
+  object loopback_test extends LoopbackTest {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_moved.compile.printCodeString().toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
+  loopback_test.compile.printCodeString().toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
 }
 
