@@ -185,38 +185,30 @@ import DFiant.internals.BitVectorExtras
   }
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
-  private val o_data_fsm = new DFSM2 {
+  private val o_data_fsm =
     step {
       o.R.VALID := 0
-    }
-    waitUntil(o.AR.READY && o.AR.VALID)
-    step {
+    } ==> waitUntil(o.AR.READY && o.AR.VALID) ==> step {
       read_size := o.AR.LEN.uint
       read_cnt := 0
-    }
-    doUntil(read_cnt === read_size) {
+    } ==> doUntil(read_cnt === read_size) {
       o.R.DATA := dataFunc(read_cnt)
       o.R.VALID := 1
       ifdf(o.R.READY) {
         read_cnt := read_cnt + 1
       }
-    }
-    State {
-      gotoStart()
-    }
-  }
+    } ==> step{} ==> firstStep
 
-  private val d_addr_fsm = new DFSM2 {
+  o_data_fsm.elaborate
+
+  private val d_addr_fsm =
     step {
       d.AW.READY := 0
-    }
-    waitUntil(ap.start)
-    step {
+    } ==> waitUntil(ap.start) ==> step {
       d.AW.READY := 1
-    }
-    waitUntil(d.AW.VALID)
-    waitForever
-  }
+    } ==> waitUntil(d.AW.VALID) ==> waitForever
+
+  d_addr_fsm.elaborate
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
