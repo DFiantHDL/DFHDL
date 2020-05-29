@@ -239,8 +239,7 @@ import DFiant.internals.BitVectorExtras
   }
 
   private val write_flag = DFBool() init false
-  private val write_addr_checker = new DFSM2 {
-    next
+  private val write_addr_checker =
     doUntil(d.AW.READY && d.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
@@ -248,15 +247,14 @@ import DFiant.internals.BitVectorExtras
       ifdf (ap.done === 1) {
         write_flag := false
       }
-    }
-    State {
+    } ==> step {
       sim.assert(d.AW.ADDR === c_WRITE_BUF_ADDR, msg"Bad write address")
       sim.assert(d.AW.LEN === c_SIZE, msg"Bad write size")
       sim.assert(!write_flag, msg"Unexpected address write")
       write_flag := true
-      gotoStart()
-    }
-  }
+    } ==> firstStep
+
+  write_addr_checker.elaborate
 }
 
 trait LoopbackTest extends DFSimulator  {
