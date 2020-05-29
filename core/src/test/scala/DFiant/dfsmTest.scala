@@ -4,23 +4,19 @@ package DFiant
   val o = DFUInt(8) <> OUT init 0
 
   import dfsm._
-  val part1 =
-    doWhile(o < 15) {
-      o := o + 1
-    } ==>
-    doUntil(o === 21) {
-      o := o + 1
+    val st1 = step {
+      o := 0
     }
+    val st2 = waitUntil(true)
 
-  val part2 = step{
-    last.goto()
-  }
+    val st3 = step {
+      o := 1
+    }
+    val st4 = waitUntil(false)
+    val st5 = waitForever()
 
-  val last = step {}
-
-//  val myfsm = s1 =?> (o > 1) ==> s2 ==> s3 ++ (s1 ==> s3)
-  val myfsm = part1 ==> part2 ++ last
-  myfsm.elaborate
+  private val o_addr_fsm = st1 ==> st2 ==> st3 ==> st4 ==> st5
+  o_addr_fsm.elaborate
 }
 
 object dfsmTest extends App {

@@ -5,7 +5,7 @@ import DFDesign.Implicits._
 package object dfsm {
   def step(block : => Unit)(
     implicit ctx : DFBlock.Context
-  ) : FSM = FSM(Step.Basic(() => block))
+  ) : FSM = FSM(new Step.Basic(() => block))
   def doWhile[C](cond : => C)(block : => Unit)(
     implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
   ) : FSMCond = {
@@ -21,7 +21,7 @@ package object dfsm {
   def waitUntil[C](cond : => C)(
     implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
   ) : FSMCond = FSMCond(step({}), () => arg())
-  def wait()(implicit ctx : DFBlock.Context) : FSM = step({})
+  def waitForever()(implicit ctx : DFBlock.Context) : FSM = step({})
 //  def doFor(range : Range, guard : Option[DFBool] = None)(block : DFUInt[Int] => Unit)(
 //    implicit ctx : DFBlock.Context
 //  ) : FSMCond = {

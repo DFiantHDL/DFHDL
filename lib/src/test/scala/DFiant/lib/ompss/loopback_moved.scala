@@ -133,57 +133,50 @@ import DFiant.internals.BitVectorExtras
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
 
-  private val ap_drv_fsm = new DFSM2 {
+  import dfsm._
+  private val ap_drv_fsm =
     step {
       ap.start := 0
       d.offset := b0s
       o.offset := b0s
       size := b0s
-    }
-    step {
+    } ==> step {
       d.offset := c_WRITE_BUF_ADDR.resize(64)
       o.offset := c_READ_BUF_ADDR.resize(64)
       size := c_SIZE
       ap.start := 1
-    }
-    waitUntil(ap.ready)
-    step {
+    } ==> waitUntil(ap.ready) ==> step {
       sim.report(msg"Got ap_ready")
-    }
-    waitForever
-  }
+    } ==> waitForever()
 
-  private val o_addr_fsm = new DFSM2 {
+  ap_drv_fsm.elaborate
+
+  private val o_addr_fsm =
     step {
       o.AR.READY := 0
-    }
-    waitUntil(ap.start)
-    step{
+    } ==> waitUntil(ap.start) ==> step {
       o.AR.READY := 1
-    }
-    waitUntil(o.AR.VALID)
-    waitForever
-  }
+    } ==> waitUntil(o.AR.VALID) ==> waitForever()
+
+  o_addr_fsm.elaborate
 
   private val read_flag = DFBool() init false
-  private val read_addr_checker = new DFSM2 {
-    next
-    doUntil(o.AR.READY && o.AR.VALID) {
+  private val read_addr_checker =
+    step{} ==> doUntil(o.AR.READY && o.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
       ifdf(ap.done === 1) {
         read_flag := false
       }
-    }
-    State {
+    } ==> step {
       sim.assert(o.AR.ADDR === c_READ_BUF_ADDR, msg"Bad read address")
       sim.assert(o.AR.LEN === c_SIZE, msg"Bad read size")
       sim.assert(!read_flag, msg"Unexpected address read")
       read_flag := true
-      gotoStart()
-    }
-  }
+    } ==> firstStep
+
+  read_addr_checker.elaborate
 
   private def dataFunc(cnt : DFUInt[32])(implicit __blockContext : DFBlock.Context) : DFBits[32] = {
     cnt.bits

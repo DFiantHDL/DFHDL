@@ -4,6 +4,7 @@ package dfsm
 import collection.immutable
 import scala.annotation.{implicitNotFound, tailrec}
 
+import DFDesign.Implicits._
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FSM
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -18,6 +19,11 @@ final case class FSM(
       case None => edges + stepToEdges
     }
   }
+//  private def addSteps(edges : immutable.ListMap[Step, List[Edge]], steps : List[Step]) : immutable.ListMap[Step, List[Edge]] = {
+//    val newSteps = steps.filterNot(s => edges.contains(s))
+//    edges ++ newSteps.map(s => (s, List()))
+//  }
+
   private def addEdges(edgeMap : immutable.ListMap[Step, List[Edge]]) : FSM = copy(edges = {
     edgeMap.foldLeft(edges){
       case (edges, stepToEdges) => addEdges(edges, stepToEdges)
@@ -32,7 +38,7 @@ final case class FSM(
   def connectTo(destFSM : FSM, viaEdge : Edge)(implicit ctx : DFBlock.Context) : FSM = {
     this.untrack
     destFSM.untrack
-    this.addEdges(destFSM.edges).addEdge(this.lastStep -> viaEdge).copy(lastStep = destFSM.lastStep).track
+    this.addEdge(this.lastStep -> viaEdge).addEdges(destFSM.edges).copy(lastStep = viaEdge.dest).track
   }
   object states extends EnumType.Auto()(ctx.meta.setName(s"${ctx.meta.name}_states"))
   protected[dfsm] lazy val stepEntries : Map[Step, states.Entry] = edges.zipWithIndex.map {
@@ -104,6 +110,14 @@ protected[DFiant] trait Implicits {
       val edge = Edge(None, () => {}, destFSM.firstStep)
       sourceFSM.connectTo(destFSM, edge)
     }
+    def ==>(fsmCond : FSMCond)(implicit ctx : DFBlock.Context) : FSMCond = {
+      val fsm = sourceFSM_TC(s) ==> fsmCond.fsm
+      FSMCond(fsm, fsmCond.cond)
+    }
+    def ==>(fs : firstStep.type)(implicit ctx : DFBlock.Context) : FSM = {
+      val sourceFSM = sourceFSM_TC(s)
+      sourceFSM ==> sourceFSM.firstStep
+    }
     def =?>[C, C2](cond : => C)(
       implicit arg : DFBool.Arg[0]
     ) : FSMCond = FSMCond(sourceFSM_TC(s), () => arg())
@@ -113,6 +127,7 @@ protected[DFiant] trait Implicits {
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+object firstStep
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -122,6 +137,10 @@ protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
   def ==>(destFSM : FSM)(implicit ctx : DFBlock.Context) : FSM = {
     val edge = Edge(Some(cond), () => {}, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
+  }
+  def ==>(fs : firstStep.type)(implicit ctx : DFBlock.Context) : FSM = {
+    val edge = Edge(Some(cond), () => {}, fsm.firstStep)
+    fsm.connectTo(fsm, edge)
   }
   def ==>(fsmCond : FSMCond)(implicit ctx : DFBlock.Context) : FSMCond = {
     val fsm = this ==> fsmCond.fsm
@@ -136,6 +155,10 @@ protected[dfsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() 
     val destFSM = destFSM_TC(d)
     val edge = Edge(condOption, block, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
+  }
+  def ==>(fs : firstStep.type)(implicit ctx : DFBlock.Context) : FSM = {
+    val edge = Edge(condOption, block, fsm.firstStep)
+    fsm.connectTo(fsm, edge)
   }
   def ==>(fsmCond : FSMCond)(implicit ctx : DFBlock.Context) : FSMCond = {
     val fsm = this ==> fsmCond.fsm

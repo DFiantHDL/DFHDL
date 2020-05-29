@@ -6,7 +6,7 @@ import internals._
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Step
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with Serializable {
+sealed abstract class Step(implicit ctx : DFBlock.Context) {
   val meta : Meta = ctx.meta
   import ctx.db.getSet
   private var fsm : FSM = _
@@ -60,18 +60,19 @@ sealed abstract class Step(implicit ctx : DFBlock.Context) extends Product with 
       case _ =>
     }
   }
+
+  override def toString : String = meta.name
   def elaborate() : Unit = {}
 }
 protected[DFiant] object Step {
   implicit def fsmFromStep(implicit ctx : DFBlock.Context) : FSM.TC[Step] = s => FSM(s)
-  final case class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step {
+  final class Basic(alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step {
     override def elaborate() : Unit = {
       val edgeList = getFSM.edges(this)
       alwaysBlock()
       outIfs(edgeList)
     }
   }
-  final case class DoWhile(cond : () => DFBool, alwaysBlock : () => Unit)(implicit ctx : DFBlock.Context) extends Step
 
   final case class Owner(
     ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
@@ -100,6 +101,8 @@ protected[DFiant] object Step {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Edge
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected[dfsm] final case class Edge(condOption : Option[() => DFBool], block : () => Unit, dest : Step)
+protected[dfsm] final case class Edge(condOption : Option[() => DFBool], block : () => Unit, dest : Step) {
+  override def toString : String = s"$dest"
+}
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
