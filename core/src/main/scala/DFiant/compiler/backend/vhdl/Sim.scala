@@ -1,14 +1,25 @@
 package DFiant
 package compiler.backend.vhdl
 
+import DFiant.compiler.sync.ResetParams.Active
 import compiler.sync._
 
 private object Sim {
+  private def clkRstGuard(implicit printer: Printer) : String = {
+    import printer.config._
+    import formatter._
+    val clkName = ClockParams.get.name
+    val rstName = ResetParams.get.name
+    val rstActive = ResetParams.get.active match {
+      case Active.Low => "'1'"
+      case Active.High => "'0'"
+    }
+    s"$OP rising_edge($clkName) $OP and $rstName $OP= $rstActive"
+  }
   object Assert {
     def unapply(assert : DFSimMember.Assert)(implicit printer: Printer, revision: VHDLRevision) : Option[String] = {
       import printer.config._
       import formatter._
-      val clkName = ClockParams.get.name
       val msg = assert.msgRef.seq.map {
         case Left(v) =>
           v.get match {
@@ -36,7 +47,7 @@ private object Sim {
         case None =>
           report
       }
-      Some(If(s"$OP rising_edge($clkName)", List(statement), If.End()))
+      Some(If(clkRstGuard, List(statement), If.End()))
     }
   }
 
@@ -44,12 +55,11 @@ private object Sim {
     def unapply(assert : DFSimMember.Finish)(implicit printer: Printer, revision: VHDLRevision) : Option[String] = {
       import printer.config._
       import formatter._
-      val clkName = ClockParams.get.name
       val finish = revision match {
         case VHDLRevision.VHDL1993 => List(s"""$KW report "Simulation Finished" $KW severity $TP FAILURE;""")
         case VHDLRevision.VHDL2008 => List(s"finish(0);")
       }
-      Some(If(s"$OP rising_edge($clkName)", finish, If.End()))
+      Some(If(clkRstGuard, finish, If.End()))
     }
   }
 }

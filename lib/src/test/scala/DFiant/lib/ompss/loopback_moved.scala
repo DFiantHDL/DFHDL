@@ -161,15 +161,17 @@ import DFiant.internals.BitVectorExtras
   o_addr_fsm.elaborate
 
   private val read_flag = DFBool() init false
+  private val first = DFBool() init true
   private val read_addr_checker =
-    step{} ==> doUntil(o.AR.READY && o.AR.VALID) {
-      ifdf (ap.done === 1 && !read_flag) {
+    doUntil(o.AR.READY && o.AR.VALID) {
+      ifdf (ap.done === 1 && !read_flag && !first) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
       ifdf(ap.done === 1) {
         read_flag := false
       }
     } ==> step {
+      first := false
       sim.assert(o.AR.ADDR === c_READ_BUF_ADDR, msg"Bad read address")
       sim.assert(o.AR.LEN === c_SIZE, msg"Bad read size")
       sim.assert(!read_flag, msg"Unexpected address read")
