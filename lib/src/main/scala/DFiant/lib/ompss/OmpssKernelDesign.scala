@@ -10,7 +10,6 @@ package lib.ompss
 
 @df class OmpssKernelDesign extends DFDesign {
   final val ap      = new AP_Interface
-  final val size    = DFBits(32) <> IN
 
   //TODO:
   //need to have size 32-bit input
