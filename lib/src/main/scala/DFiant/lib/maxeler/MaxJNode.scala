@@ -1,7 +1,7 @@
-package DFiant.maxeler
-import DFiant._
+package DFiant
+package lib.maxeler
 import compiler.Compilable
-import compiler.backend.vhdl.{VHDLBackend, VHDLRevision}
+import compiler.backend.vhdl._
 import compiler.sync._
 
 final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {

@@ -1,4 +1,5 @@
 package DFiant
+package lib
 
 import compiler.Compilable
 

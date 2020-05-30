@@ -1,4 +1,6 @@
 package DFiant
+package lib.maxeler
+import compiler.sync._
 import scala.language.postfixOps
 
 object ModeType extends EnumType.Auto {
@@ -43,8 +45,6 @@ trait ScalarHDL extends DFDesign {
 }
 
 object ScalarHDLApp extends App {
-  import maxeler._
-  import compiler.sync._
   val scalar_hdl = new ScalarHDL {
     max !! Maxeler.StreamIOPull
     count !! Maxeler.StreamIOPush

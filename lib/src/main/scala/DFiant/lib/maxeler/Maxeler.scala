@@ -1,4 +1,4 @@
-package DFiant.maxeler
+package DFiant.lib.maxeler
 
 import DFiant._
 
