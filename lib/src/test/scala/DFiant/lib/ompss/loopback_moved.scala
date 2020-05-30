@@ -15,12 +15,12 @@ import DFiant.internals.BitVectorExtras
   /////////////////////////////////////////////////////////////////////////////
   // All this code will be automatically generated for final integration
   /////////////////////////////////////////////////////////////////////////////
-  private val ap_reg_ioackin_m_axi_d_AWREADY = DFBit() init 0
-  private val ap_sig_ioackin_m_axi_d_AWREADY = DFBit()
-  private val ap_reg_ioackin_m_axi_d_WREADY  = DFBit() init 0
-  private val ap_sig_ioackin_m_axi_d_WREADY  = DFBit()
-  private val ap_reg_ioackin_m_axi_o_ARREADY = DFBit() init 0
-  private val ap_sig_ioackin_m_axi_o_ARREADY = DFBit()
+  private val d_AWREADY_ack_reg = DFBit() init 0
+  private val d_AWREADY_ack_sig = DFBit()
+  private val d_WREADY_ack_reg  = DFBit() init 0
+  private val d_WREADY_ack_sig  = DFBit()
+  private val o_ARREADY_ack_reg = DFBit() init 0
+  private val o_ARREADY_ack_sig = DFBit()
 
   private val i_reg_85 = DFBits(31) //i.prev
   private val i_1_fu_119_p2 = DFBits(31) //i+1
@@ -43,17 +43,17 @@ import DFiant.internals.BitVectorExtras
   o.AR.VALID := 0
   o.R.READY := 0
 
-  ap_sig_ioackin_m_axi_o_ARREADY := 1
-  ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev) {
-    ap_sig_ioackin_m_axi_o_ARREADY := o.AR.READY
+  o_ARREADY_ack_sig := 1
+  ifdf(!o_ARREADY_ack_reg.prev) {
+    o_ARREADY_ack_sig := o.AR.READY
   }
-  ap_sig_ioackin_m_axi_d_AWREADY := 1
-  ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
-    ap_sig_ioackin_m_axi_d_AWREADY := d.AW.READY
+  d_AWREADY_ack_sig := 1
+  ifdf(!d_AWREADY_ack_reg.prev) {
+    d_AWREADY_ack_sig := d.AW.READY
   }
-  ap_sig_ioackin_m_axi_d_WREADY := 1
-  ifdf(!ap_reg_ioackin_m_axi_d_WREADY.prev) {
-    ap_sig_ioackin_m_axi_d_WREADY := d.W.READY
+  d_WREADY_ack_sig := 1
+  ifdf(!d_WREADY_ack_reg.prev) {
+    d_WREADY_ack_sig := d.W.READY
   }
   i_1_fu_119_p2 := (i_reg_85.uint + 1).bits
   tmp_fu_114_p2 := i_reg_85.resize(32).sint < size.sint
@@ -61,14 +61,14 @@ import DFiant.internals.BitVectorExtras
   import dfsm._
   final val IDLE : FSM = step {
     ifdf(ap.start) {
-      ifdf(!ap_reg_ioackin_m_axi_o_ARREADY.prev){
+      ifdf(!o_ARREADY_ack_reg.prev){
         o.AR.VALID := 1
       }
-      ifdf(ap_sig_ioackin_m_axi_o_ARREADY) {
-        ap_reg_ioackin_m_axi_o_ARREADY := 0
+      ifdf(o_ARREADY_ack_sig) {
+        o_ARREADY_ack_reg := 0
         ST7.goto()
       }.elseifdf(o.AR.READY) {
-        ap_reg_ioackin_m_axi_o_ARREADY := 1
+        o_ARREADY_ack_reg := 1
       }
     }.elsedf {
       ap.done := 1
@@ -76,15 +76,15 @@ import DFiant.internals.BitVectorExtras
     }
   }
   final val ST7 : FSM = step {
-    ifdf(!ap_reg_ioackin_m_axi_d_AWREADY.prev) {
+    ifdf(!d_AWREADY_ack_reg.prev) {
       d.AW.VALID := 1
     }
-    ifdf(ap_sig_ioackin_m_axi_d_AWREADY) {
-      ap_reg_ioackin_m_axi_d_AWREADY := 0
+    ifdf(d_AWREADY_ack_sig) {
+      d_AWREADY_ack_reg := 0
       i_reg_85 := b0s
       ST8.goto()
     }.elseifdf(d.AW.READY) {
-      ap_reg_ioackin_m_axi_d_AWREADY := 1
+      d_AWREADY_ack_reg := 1
     }
   }
   final val ST8 : FSM = step {
@@ -100,15 +100,15 @@ import DFiant.internals.BitVectorExtras
     }
   }
   final val ST9 : FSM = step {
-    ifdf(!ap_reg_ioackin_m_axi_d_WREADY.prev) {
+    ifdf(!d_WREADY_ack_reg.prev) {
       d.W.VALID := 1
     }
-    ifdf(ap_sig_ioackin_m_axi_d_WREADY) {
-      ap_reg_ioackin_m_axi_d_WREADY := 0
+    ifdf(d_WREADY_ack_sig) {
+      d_WREADY_ack_reg := 0
       i_reg_85 := i_1_reg_147
       ST8.goto()
     }.elseifdf(d.W.READY) {
-      ap_reg_ioackin_m_axi_d_WREADY := 1
+      d_WREADY_ack_reg := 1
     }
   }
   final val ST13 : FSM = waitUntil(d.B.VALID).onExit {
