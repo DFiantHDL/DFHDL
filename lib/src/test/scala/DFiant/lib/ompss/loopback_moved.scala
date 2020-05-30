@@ -56,7 +56,7 @@ import DFiant.internals.BitVectorExtras
   i_plus1 := (i.uint + 1).bits
   notDataEnd := i.resize(32).sint < size.sint
 
-  import dfsm._
+  import fsm._
   final val IDLE : FSM = step {
     ifdf(ap.start) {
       ifdf(!d_ARREADY_ack_reg.prev){
@@ -131,7 +131,7 @@ import DFiant.internals.BitVectorExtras
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
 
-  import dfsm._
+  import fsm._
   private val ap_drv_fsm =
     step {
       ap.start := 0

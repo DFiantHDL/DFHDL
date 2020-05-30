@@ -1,5 +1,5 @@
 package DFiant
-package dfsm
+package fsm
 
 import collection.immutable
 import scala.annotation.{implicitNotFound, tailrec}
@@ -11,7 +11,7 @@ import DFDesign.Implicits._
 final case class FSM(
   edges : immutable.ListMap[Step, List[Edge]], firstStep : Step, lastStep : Step
 )(implicit ctx : DFBlock.Context) {
-  private[dfsm] lazy val owner : FSM.Owner = FSM.Owner()(ctx)
+  private[fsm] lazy val owner : FSM.Owner = FSM.Owner()(ctx)
   private def addEdge(stepToEdge : (Step, Edge)) : FSM = copy(edges = addEdges(edges, stepToEdge._1 -> List(stepToEdge._2)))
   private def addEdges(edges : immutable.ListMap[Step, List[Edge]], stepToEdges : (Step, List[Edge])) : immutable.ListMap[Step, List[Edge]] = {
     edges.get(stepToEdges._1) match {
@@ -48,19 +48,19 @@ final case class FSM(
     withDestEdges.copy(lastStep = viaEdge.dest).track
   }
   object states extends EnumType.Auto()(ctx.meta.setName(s"${ctx.meta.name}_states"))
-  protected[dfsm] lazy val stepEntries : Map[Step, states.Entry] = edges.zipWithIndex.map {
+  protected[fsm] lazy val stepEntries : Map[Step, states.Entry] = edges.zipWithIndex.map {
     case ((step, _), i) =>
       val namedMeta =
         if ((step.meta.namePosition == ctx.meta.namePosition) | step.meta.name.anonymous) step.meta.setName(s"ST$i")
         else step.meta
       (step, states.Entry()(namedMeta))
   }.toMap
-  protected[dfsm] lazy val state = DFEnum(states) init(stepEntries(firstStep))
-  protected[dfsm] def goto(step : Step) : Unit = stepEntries.get(step) match {
+  protected[fsm] lazy val state = DFEnum(states) init(stepEntries(firstStep))
+  protected[fsm] def goto(step : Step) : Unit = stepEntries.get(step) match {
     case Some(entry) => state := entry
     case None => throw new IllegalArgumentException("Step unknown")
   }
-  private[dfsm] def printEdges() : Unit = {
+  private[fsm] def printEdges() : Unit = {
     println(edges.map{
       case (s, edgeList) => s"${stepEntries(s).name} -> ${edgeList.map(e => stepEntries(e.dest).name)}"
     }.mkString("\n"))
@@ -81,8 +81,8 @@ final case class FSM(
     }
     this
   }
-  private[dfsm] def track : FSM = ctx.db.trackFSM(this)
-  private[dfsm] def untrack : FSM = ctx.db.untrackFSM(this)
+  private[fsm] def track : FSM = ctx.db.trackFSM(this)
+  private[fsm] def untrack : FSM = ctx.db.untrackFSM(this)
 }
 protected[DFiant] object FSM {
   def apply(step : Step)(implicit ctx : DFBlock.Context) : FSM = FSM(immutable.ListMap(step -> List()), step, step)
@@ -144,7 +144,7 @@ object firstStep
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FSMs with a Dangling Conditional Edge
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
+protected[fsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
   def ==>(destFSM : FSM)(implicit ctx : DFBlock.Context) : FSM = {
     val edge = Edge(Some(cond), () => {}, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
@@ -161,7 +161,7 @@ protected[dfsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
   def goto() : Unit = fsm.untrack.goto()
 }
 
-protected[dfsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() => DFBool], block : () => Unit) {
+protected[fsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() => DFBool], block : () => Unit) {
   def ==>[D](d : D)(implicit destFSM_TC : FSM.TC[D], ctx : DFBlock.Context) : FSM = {
     val destFSM = destFSM_TC(d)
     val edge = Edge(condOption, block, destFSM.firstStep)

@@ -68,7 +68,7 @@ object DFDesign {
     DFEnum.Op.Implicits with
     DFBool.Op.Implicits with
     DFString.Op.Implicits with
-    dfsm.Implicits
+    fsm.Implicits
 
   object Implicits extends Implicits
 
@@ -495,7 +495,7 @@ object DFDesign {
       ///////////////////////////////////////////////////////////////
       //Tracking FSMs
       ///////////////////////////////////////////////////////////////
-      import dfsm._
+      import fsm._
       private var fsmMap : mutable.Map[FSM, Option[Step]] = mutable.Map()
       private var stepStack : List[Step] = List()
       def enterStep(step : Step) : Step = {

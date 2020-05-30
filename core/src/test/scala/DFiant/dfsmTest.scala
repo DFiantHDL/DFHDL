@@ -3,7 +3,7 @@ package DFiant
 @df class TT extends DFDesign {
   val o = DFUInt(8) <> OUT init 0
 
-  import dfsm._
+  import fsm._
 
   val st0 = step{}
   val d_data_fsm = st0 ==> firstStep

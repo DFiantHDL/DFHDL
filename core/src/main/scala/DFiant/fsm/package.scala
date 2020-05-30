@@ -2,7 +2,7 @@ package DFiant
 import internals._
 import DFDesign.Implicits._
 
-package object dfsm {
+package object fsm {
   def step(block : => Unit)(
     implicit ctx : DFBlock.Context
   ) : FSM = FSM(new Step.Basic(() => block))

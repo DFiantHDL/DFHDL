@@ -1,5 +1,5 @@
 package DFiant
-package dfsm
+package fsm
 
 import scala.collection.immutable
 import internals._
@@ -11,7 +11,7 @@ sealed abstract class Step(implicit ctx : DFBlock.Context) {
   import ctx.db.getSet
   private var fsm : FSM = _
   protected def getFSM : FSM = fsm
-  private[dfsm] def attachFSM(fsm : FSM) : Step = {
+  private[fsm] def attachFSM(fsm : FSM) : Step = {
     this.fsm = fsm
     this
   }
@@ -101,7 +101,7 @@ protected[DFiant] object Step {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Edge
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-protected[dfsm] final case class Edge(condOption : Option[() => DFBool], block : () => Unit, dest : Step) {
+protected[fsm] final case class Edge(condOption : Option[() => DFBool], block : () => Unit, dest : Step) {
   override def toString : String = s"$dest"
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
