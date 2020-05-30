@@ -161,17 +161,17 @@ import DFiant.internals.BitVectorExtras
   o_addr_fsm.elaborate
 
   private val read_flag = DFBool() init false
-  private val first = DFBool() init true
+  private val read_first = DFBool() init true
   private val read_addr_checker =
     doUntil(o.AR.READY && o.AR.VALID) {
-      ifdf (ap.done === 1 && !read_flag && !first) {
+      ifdf (ap.done === 1 && !read_flag && !read_first) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
       ifdf(ap.done === 1) {
         read_flag := false
       }
     } ==> step {
-      first := false
+      read_first := false
       sim.assert(o.AR.ADDR === c_READ_BUF_ADDR, msg"Bad read address")
       sim.assert(o.AR.LEN === c_SIZE, msg"Bad read size")
       sim.assert(!read_flag, msg"Unexpected address read")
@@ -212,42 +212,38 @@ import DFiant.internals.BitVectorExtras
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
-  private val d_data_fsm = new DFSM2 {
+  private val d_data_fsm =
     step {
       d.W.READY := 0
       d.B.VALID := 0
-    }
-    waitUntil(d.AW.READY && d.AW.VALID)
-    step {
+    } ==> waitUntil(d.AW.READY && d.AW.VALID) ==> step {
       write_size := d.AW.LEN.uint
       write_cnt := 0
-    }
-    doUntil(write_cnt === write_size) {
+    } ==> doUntil(write_cnt === write_size) {
       d.W.READY := 1
       ifdf(d.W.VALID) {
         sim.assert(dataFunc(write_cnt) === d.W.DATA, msg"Bad write data")
         write_cnt := write_cnt + 1
       }
-    }
-    State {
+    } ==> doUntil(d.B.READY) {
       d.W.READY := 0
       d.B.VALID := 1
-      ifdf(d.B.READY) {
-        gotoStart()
-      }
-    }
-  }
+    } ==> firstStep
+
+  d_data_fsm.elaborate
 
   private val write_flag = DFBool() init false
+  private val write_first = DFBool() init true
   private val write_addr_checker =
     doUntil(d.AW.READY && d.AW.VALID) {
-      ifdf (ap.done === 1 && !write_flag) {
+      ifdf (ap.done === 1 && !write_flag && !write_first) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
       }
       ifdf (ap.done === 1) {
         write_flag := false
       }
     } ==> step {
+      write_first := false
       sim.assert(d.AW.ADDR === c_WRITE_BUF_ADDR, msg"Bad write address")
       sim.assert(d.AW.LEN === c_SIZE, msg"Bad write size")
       sim.assert(!write_flag, msg"Unexpected address write")
@@ -271,6 +267,6 @@ object LoopbackApp extends App {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_test.compile.printCodeString().toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
+  loopback_test.printCodeString().compile.toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
 }
 

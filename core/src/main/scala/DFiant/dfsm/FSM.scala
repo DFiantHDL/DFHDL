@@ -38,7 +38,14 @@ final case class FSM(
   def connectTo(destFSM : FSM, viaEdge : Edge)(implicit ctx : DFBlock.Context) : FSM = {
     this.untrack
     destFSM.untrack
-    this.addEdge(this.lastStep -> viaEdge).addEdges(destFSM.edges).copy(lastStep = viaEdge.dest).track
+    val withViaEdge = this.addEdge(this.lastStep -> viaEdge)
+    val withDestEdges = edges.get(destFSM.firstStep) match {
+      case Some(_ :: Nil) =>
+        //no need to add the destination step edges if it already exists and has edges, thus detected a circular connection
+        withViaEdge
+      case _ => withViaEdge.addEdges(destFSM.edges)
+    }
+    withDestEdges.copy(lastStep = viaEdge.dest).track
   }
   object states extends EnumType.Auto()(ctx.meta.setName(s"${ctx.meta.name}_states"))
   protected[dfsm] lazy val stepEntries : Map[Step, states.Entry] = edges.zipWithIndex.map {
@@ -53,7 +60,11 @@ final case class FSM(
     case Some(entry) => state := entry
     case None => throw new IllegalArgumentException("Step unknown")
   }
-
+  private[dfsm] def printEdges() : Unit = {
+    println(edges.map{
+      case (s, edgeList) => s"${stepEntries(s).name} -> ${edgeList.map(e => stepEntries(e.dest).name)}"
+    }.mkString("\n"))
+  }
   private[DFiant] lazy val elaborate : FSM = {
     edges.foreach(e => e._1.attachFSM(this))
     ctx.ownerInjector.injectOwnerAndRun(owner) {
