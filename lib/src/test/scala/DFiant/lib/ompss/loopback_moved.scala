@@ -22,17 +22,17 @@ import DFiant.internals.BitVectorExtras
   private val o_ARREADY_ack_reg = DFBit() init 0
   private val o_ARREADY_ack_sig = DFBit()
 
-  private val i_reg_85 = DFBits(31) //i.prev
-  private val i_1_fu_119_p2 = DFBits(31) //i+1
-  private val i_1_reg_147 = DFBits(31) //(i+1).prev
-  private val o_addr_read_reg_152 = DFBits(32)
-  private val tmp_fu_114_p2 = DFBit()
+  private val i = DFBits(31) //i.prev
+  private val i_plus1 = DFBits(31) //i+1
+  private val i_plus1_reg = DFBits(31) //(i+1).prev
+  private val o_addr_read_reg = DFBits(32)
+  private val notDataEnd = DFBit()
 
   d.AW.LEN := size
   d.AW.ADDR := d.offset.resize(32)
   o.AR.LEN := size
   o.AR.ADDR := o.offset.resize(32)
-  d.W.DATA := o_addr_read_reg_152
+  d.W.DATA := o_addr_read_reg
 
   ap.done := 0
   ap.ready := 0
@@ -55,8 +55,8 @@ import DFiant.internals.BitVectorExtras
   ifdf(!d_WREADY_ack_reg.prev) {
     d_WREADY_ack_sig := d.W.READY
   }
-  i_1_fu_119_p2 := (i_reg_85.uint + 1).bits
-  tmp_fu_114_p2 := i_reg_85.resize(32).sint < size.sint
+  i_plus1 := (i.uint + 1).bits
+  notDataEnd := i.resize(32).sint < size.sint
 
   import dfsm._
   final val IDLE : FSM = step {
@@ -81,18 +81,18 @@ import DFiant.internals.BitVectorExtras
     }
     ifdf(d_AWREADY_ack_sig) {
       d_AWREADY_ack_reg := 0
-      i_reg_85 := b0s
+      i := b0s
       ST8.goto()
     }.elseifdf(d.AW.READY) {
       d_AWREADY_ack_reg := 1
     }
   }
   final val ST8 : FSM = step {
-    ifdf(o.R.VALID || !tmp_fu_114_p2) {
-      ifdf(tmp_fu_114_p2) {
+    ifdf(o.R.VALID || !notDataEnd) {
+      ifdf(notDataEnd) {
         o.R.READY := 1
-        i_1_reg_147 := i_1_fu_119_p2
-        o_addr_read_reg_152 := o.R.DATA
+        i_plus1_reg := i_plus1
+        o_addr_read_reg := o.R.DATA
         ST9.goto()
       }.elsedf {
         ST13.goto()
@@ -105,7 +105,7 @@ import DFiant.internals.BitVectorExtras
     }
     ifdf(d_WREADY_ack_sig) {
       d_WREADY_ack_reg := 0
-      i_reg_85 := i_1_reg_147
+      i := i_plus1_reg
       ST8.goto()
     }.elseifdf(d.W.READY) {
       d_WREADY_ack_reg := 1
