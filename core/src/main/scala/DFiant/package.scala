@@ -22,6 +22,7 @@ import DFiant.compiler.printer.PrinterOps
 import scala.language.experimental.macros
 import singleton.ops._
 import singleton.ops.impl.HasOut
+import DFiant.sim.DFSimMember
 
 package object DFiant {
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
@@ -261,35 +262,6 @@ package object DFiant {
         val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
         list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2}).casedf_{}
       }
-    }
-  }
-  ////////////////////////////////////////////////////////////////////////////////////
-
-
-  ////////////////////////////////////////////////////////////////////////////////////
-  // Simulation-related constructs
-  ////////////////////////////////////////////////////////////////////////////////////
-  def inSimulation(implicit ctx : DFAny.Context) : Boolean = ctx.db.top.simMode match {
-    case DFSimulator.Mode.Off => false
-    case DFSimulator.Mode.On => true
-  }
-  object sim {
-    import DFSimMember.{Assert, Finish}
-    import Assert._
-    final val Note = Severity.Note
-    final val Warning = Severity.Warning
-    final val Error = Severity.Error
-    final val Failure = Severity.Failure
-    def assert[C](cond : C, msg : Message, severity : Severity = Warning)(
-      implicit ctx : DFAny.Context, condArg : DFBool.Arg[0]
-    ) : Unit = {
-      if (inSimulation) Assert(Some(condArg()), msg, severity)
-    }
-    def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
-      if (inSimulation) Assert(None, msg, severity)
-    }
-    def finish()(implicit ctx : DFAny.Context) : Unit = {
-      if (inSimulation) Finish()
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////

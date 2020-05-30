@@ -1,4 +1,5 @@
 package DFiant
+package sim
 
 import DFiant.compiler.printer.Printer
 
@@ -8,7 +9,7 @@ sealed trait DFSimMember extends DFMember {
 }
 object DFSimMember {
   final case class Assert(
-    condOptionRef : Option[Assert.CondRef], msgRef : Assert.MessageRef, severity : Assert.Severity,
+    condOptionRef : Option[Assert.CondRef], msgRef : Assert.MessageRef, severity : Severity,
     ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
   ) extends DFSimMember  with CanBeGuarded with DFAny.CanBeAnonymous {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -86,18 +87,6 @@ object DFSimMember {
       }.mkString + "\""
     }
     final case class Message(seq : Seq[Either[DFAny, String]]) extends Product with Serializable
-    sealed trait Severity extends Product with Serializable {
-      def codeString(implicit printConfig : Printer.Config) : String = {
-        import printConfig._
-        s"$DF sim.$DF ${this.toString}"
-      }
-    }
-    object Severity {
-      case object Note extends Severity
-      case object Warning extends Severity
-      case object Error extends Severity
-      case object Failure extends Severity
-    }
   }
 
   final case class Finish(

@@ -18,6 +18,7 @@
 package RISCV
 
 import DFiant._
+import DFiant.sim.DFSimulator
 
 @df class Proc(program : Program) extends DFDesign {
   private val pc      = DFBits[32] init program.imem.startAddress

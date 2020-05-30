@@ -1,4 +1,6 @@
 package DFiant
+package sim
+
 
 trait DFSimulator extends DFDesign {
   final private[DFiant] override lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.On

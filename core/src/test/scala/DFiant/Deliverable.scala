@@ -1,5 +1,7 @@
 package DFiant
 
+import DFiant.sim.DFSimulator
+
 @df class MemConn extends DFInterface {
   val addr    = DFBits(10) <> OUT
   val rdData  = DFBits(8)  <> IN

@@ -3,6 +3,8 @@ package compiler
 package printer
 
 import DFiant.internals._
+import DFiant.sim._
+
 import collection.mutable
 
 final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {

@@ -3,6 +3,8 @@ package compiler
 package backend
 package vhdl
 
+import DFiant.sim._
+
 sealed trait Printer {
   val getSet : MemberGetSet
   val config : Printer.Config

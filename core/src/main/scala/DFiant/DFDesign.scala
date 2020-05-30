@@ -6,6 +6,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import DFiant.compiler.printer.Printer
 
+import DFiant.sim._
+
 import scala.reflect.{ClassTag, classTag}
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
   private[DFiant] final lazy val __ctx : DFDesign.Context = ctx

@@ -4,6 +4,7 @@ import DFiant.compiler.sync._
 import DFiant.compiler.backend.vhdl._
 import DFiant._
 import DFiant.internals.BitVectorExtras
+import DFiant.sim.DFSimulator
 
 @df class loopback_moved extends OmpssKernelDesign {
   final val d         = OmpssAXI    <> IN

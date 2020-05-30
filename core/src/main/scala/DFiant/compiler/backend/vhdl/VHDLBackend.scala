@@ -4,7 +4,7 @@ package backend
 package vhdl
 
 import compiler.sync._
-
+import DFiant.sim._
 import scala.collection.mutable
 sealed trait VHDLRevision extends Product with Serializable
 object VHDLRevision {

@@ -6,6 +6,7 @@ import DFDesign.DB.Patch
 
 import scala.annotation.tailrec
 import scala.collection.immutable
+import sim.DFSimMember
 
 final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
   private val designDB = c.db

@@ -16,6 +16,7 @@
  */
 package fpga2020
 import DFiant._
+import DFiant.sim.DFSimulator
 
 trait Fibo extends DFDesign {
   val o = DFUInt[32] <> OUT

@@ -3,6 +3,7 @@ package compiler.backend.vhdl
 
 import DFiant.compiler.sync.ResetParams.Active
 import compiler.sync._
+import DFiant.sim._
 
 private object Sim {
   private def clkRstGuard(implicit printer: Printer) : String = {
