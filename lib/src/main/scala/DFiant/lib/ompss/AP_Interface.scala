@@ -8,12 +8,4 @@ package lib.ompss
   final val ready   = DFBit() <> OUT
 }
 
-@df class OmpssKernelDesign extends DFDesign {
-  final val ap      = new AP_Interface
-
-  //TODO:
-  //need to have size 32-bit input
-  //inputs may be should be cast to/from DFBits.
-}
-
 
