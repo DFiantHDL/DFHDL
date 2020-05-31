@@ -78,6 +78,7 @@ object DFInterface {
       updated
     }
   }
+  abstract class Unnamed(implicit ctx : DFInterface.Context) extends DFInterface(DFOwner.NameFlatten.IgnoreOwnerName)
   final class Singular[T <: DFAny.Type](dfType : T)(implicit ctx : ContextOf[Singular[T]]) extends DFInterface {
     final val value = DFAny.NewVar(dfType)
   }
