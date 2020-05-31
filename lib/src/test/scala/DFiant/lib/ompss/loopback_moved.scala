@@ -261,11 +261,18 @@ trait LoopbackTest extends DFSimulator  {
   lb.size <> lb_drv.size
 }
 
-object LoopbackApp extends App {
+object LoopbackTestApp extends App {
   object loopback_test extends LoopbackTest {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_test.printCodeString().compile.toFolder("loopback")//("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/")
+  loopback_test.printCodeString().compile.toFolder("loopback")
 }
 
+object LoopbackApp extends App {
+  object loopback_moved extends loopback_moved {
+    this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
+    this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
+  }
+  loopback_moved.printCodeString().compile.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
+}

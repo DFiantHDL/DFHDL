@@ -8,8 +8,8 @@ import DFiant.sim._
 import scala.collection.mutable
 sealed trait VHDLRevision extends Product with Serializable
 object VHDLRevision {
-  case object VHDL1993 extends VHDLRevision
-  implicit case object VHDL2008 extends VHDLRevision
+  implicit case object VHDL1993 extends VHDLRevision
+  case object VHDL2008 extends VHDLRevision
 }
 
 final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
