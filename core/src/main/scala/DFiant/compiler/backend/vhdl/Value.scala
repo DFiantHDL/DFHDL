@@ -1,17 +1,22 @@
 package DFiant
 package compiler.backend.vhdl
 
+import internals._
 import DFiant.compiler.backend.vhdl.VHDLRevision.VHDL1993
 
 private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer, revision: VHDLRevision) : String = token match {
     case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
     case DFUInt.Token(width, value, _) => revision match {
-      case VHDLRevision.VHDL1993 => s"to_unsigned($value, $width)"
+      case VHDLRevision.VHDL1993 if width < 31 => s"to_unsigned($value, $width)"
+      case VHDLRevision.VHDL1993 if width % 4 == 0 => s"""unsigned(std_logic_vector'(x"${value.toString(16)}"))"""
+      case VHDLRevision.VHDL1993 => s"""unsigned(std_logic_vector'("${value.toString(2)}"))"""
       case VHDLRevision.VHDL2008 => s"""${width}d"$value""""
     }
     case DFSInt.Token(width, value, _) => revision match {
-      case VHDLRevision.VHDL1993 => s"to_signed($value, $width)"
+      case VHDLRevision.VHDL1993 if width < 31 => s"to_signed($value, $width)"
+      case VHDLRevision.VHDL1993 if width % 4 == 0 => s"""signed(std_logic_vector'(x"${value.asUnsigned(width).toString(16)}"))"""
+      case VHDLRevision.VHDL1993 => s"""signed(std_logic_vector'("${value.asUnsigned(width).toString(2)}"))"""
       case VHDLRevision.VHDL2008 => s"""${width}d"$value""""
     }
     case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
