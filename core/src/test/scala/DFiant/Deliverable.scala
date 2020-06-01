@@ -13,25 +13,25 @@ import DFiant.sim.DFSimulator
   val memConn = new MemConn
   memConn.wrEn := 0
 
-  class CopyCellFsm(fromAddr : DFBits[10], toAddr : DFBits[10]) extends DFSM2 {
-    step {
-      memConn.addr := fromAddr
-      memConn.wrEn := 0
-    }
-    step {
-      memConn.addr := toAddr
-      memConn.wrEn := 1
-      memConn.wrData := memConn.rdData
-    }
-  }
-  class CopyFsm(fromAddr : BitVector, toAddr : BitVector, size : Int) extends DFSM2 {
-    step {
-      memConn.addr := fromAddr
-      memConn.wrEn := 0
-    }
-
-  }
-//  val copy_fsm = new DFSM() {
+//  class CopyCellFsm(fromAddr : DFBits[10], toAddr : DFBits[10]) extends DFSM2 {
+//    step {
+//      memConn.addr := fromAddr
+//      memConn.wrEn := 0
+//    }
+//    step {
+//      memConn.addr := toAddr
+//      memConn.wrEn := 1
+//      memConn.wrData := memConn.rdData
+//    }
+//  }
+//  class CopyFsm(fromAddr : BitVector, toAddr : BitVector, size : Int) extends DFSM2 {
+//    step {
+//      memConn.addr := fromAddr
+//      memConn.wrEn := 0
+//    }
+//
+//  }
+////  val copy_fsm = new DFSM() {
 //    
 //    memConn.addr
 //  }
