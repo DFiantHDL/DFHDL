@@ -64,17 +64,17 @@ import DFiant.sim.DFSimulator
 
 object ProcTest extends App {
   import compiler.backend.vhdl._
-
+  import sim.ghdl._
 //  val riscv = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
 //  riscv.compile.printCodeString()
   val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump"))
   val risc_tbv = riscv_tb.compile.printCodeString.printGenFiles().toFolder("testProc")
-
+  risc_tbv.simulate
   new java.io.File("testProc/work").mkdirs()
   val workDirFlag = "--workdir=testProc/work"
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
   val librart = s"-P$libraryLocation"
-  val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys --std=08"
+  val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys"  //--std=08
   val files = risc_tbv.getFileNames.map(n => s"testProc/$n").mkString(" ")
   val topEntity = risc_tbv.db.top.designType
   import sys.process._
