@@ -6,10 +6,16 @@ import DFiant._
 import DFiant.internals.BitVectorExtras
 import DFiant.sim.DFSimulator
 
-@df class loopback_moved extends OmpssKernelDesign {
+@df class loopback_ifc extends DFInterface.Unnamed {
+  final val ap        = new AP_Interface
   final val d         = OmpssAXI    <> IN
   final val o         = OmpssAXI    <> OUT
   final val size      = DFBits(32)  <> IN
+}
+
+@df class loopback_moved extends DFDesign {
+  final val io = new loopback_ifc
+  import io._
 
   /////////////////////////////////////////////////////////////////////////////
   // All this code will be automatically generated for final integration
@@ -124,10 +130,8 @@ import DFiant.sim.DFSimulator
 
 
 @df class LoopbackDriver extends DFSimulator {
-  final val ap        = new AP_Interface <> FLIP
-  final val d         = OmpssAXI <> IN <> FLIP
-  final val o         = OmpssAXI <> OUT <> FLIP
-  final val size      = DFBits(32) <> OUT
+  final val io = new loopback_ifc <> FLIP
+  import io._
   val c_READ_BUF_ADDR   = h"00001000"
   val c_WRITE_BUF_ADDR  = h"00020000"
   val c_SIZE            = h"00000020"
@@ -255,10 +259,7 @@ import DFiant.sim.DFSimulator
 trait LoopbackTest extends DFSimulator  {
   final val lb = new loopback_moved {}
   final val lb_drv = new LoopbackDriver {}
-  lb.ap <> lb_drv.ap
-  lb.d <> lb_drv.d
-  lb.o <> lb_drv.o
-  lb.size <> lb_drv.size
+  lb.io <> lb_drv.io
 }
 
 object LoopbackTestApp extends App {
