@@ -7,8 +7,8 @@ import DFiant.sim._
 
 import collection.mutable
 
-final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
-  private val fixedDB = c.flattenNames.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
+final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D]) {
+  private val fixedDB = conv(c).flattenNames.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
   private def blockBodyCodeString(owner : DFOwner, members : List[DFMember], lateConstruction : Boolean)(
@@ -56,7 +56,7 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     import formatter._
     val body = blockBodyCodeString(block, members, lateConstruction = false)
     val classStr = block match {
-      case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => "DFSimulator"
+      case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimulator"
       case _ => "DFDesign"
     }
     s"$SC trait ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
@@ -74,48 +74,8 @@ final class PrinterOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]
     }
     codeStringList.mkString(s"\n$EMPTY\n").formatted
   }
-  def printCodeString()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
+  def printCodeString()(implicit printConfig : Printer.Config) : C = {
     println(codeString)
-    c
-  }
-  def printGenFiles()(implicit printConfig : Printer.Config) : Compilable[D, S] = {
-    import printConfig.formatter._
-    c.cmdSeq.foreach{
-      case Compilable.Cmd.GenFile(fileName, contents) => println(
-        s"""\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-           |@ Contents of $fileName
-           |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-           |$contents
-           |""".stripMargin
-      )
-    }
-    c
-  }
-  def toFolder(folderName : String)(implicit printConfig : Printer.Config) : Compilable[D, S] = {
-    import java.io._
-    import printConfig.formatter._
-    new File(folderName).mkdirs()
-    //writing entity and architecture files
-    c.cmdSeq.foreach{
-      case Compilable.Cmd.GenFile(fileName, contents) =>
-        val uncolored = contents.uncolor
-        val pw = new FileWriter(new File(s"$folderName/$fileName"))
-        pw.write(uncolored)
-        pw.close()
-    }
-    c
-  }
-  def toFile(fileName : String)(implicit printConfig : Printer.Config) : Compilable[D, S] = {
-    import java.io._
-    import printConfig.formatter._
-    //writing entity and architecture files
-    val pw = new FileWriter(new File(s"$fileName"))
-    c.cmdSeq.foreach{
-      case Compilable.Cmd.GenFile(_, contents) =>
-        val uncolored = contents.uncolor
-        pw.write(uncolored)
-    }
-    pw.close()
     c
   }
 }

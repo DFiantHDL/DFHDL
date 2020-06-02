@@ -5,7 +5,6 @@ import DFiant.internals._
 import scala.annotation.tailrec
 import scala.collection.mutable
 import DFiant.compiler.printer.Printer
-
 import DFiant.sim._
 
 import scala.reflect.{ClassTag, classTag}
@@ -37,7 +36,7 @@ object DFDesign {
   trait Abstract extends DFOwner.Container {
     type Owner = DFDesign.Block
     private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
-    private[DFiant] lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.Off
+    private[DFiant] lazy val simMode : DFSimDesign.Mode = DFSimDesign.Mode.Off
     private[DFiant] val __ctx : DFDesign.Context
     private[DFiant] final lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(typeName, inlinedRep, simMode)(__ctx)
@@ -106,14 +105,14 @@ object DFDesign {
       override lazy val typeName : String = designType
     }
     object Internal {
-      def apply(container : DFOwner.Container)(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimulator.Mode)(
+      def apply(container : DFOwner.Container)(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimDesign.Mode)(
         implicit ctx : Context
       ) : Block = ctx.db.addContainerOwner(container)(
         if (ctx.ownerInjector == null || ctx.owner == null) Top(designType, ctx.meta, simMode)(ctx.db)
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
     }
-    final case class Top(designType: String, tags : DFMember.Tags.Basic, simMode : DFSimulator.Mode)(db: DB.Mutable) extends Block {
+    final case class Top(designType: String, tags : DFMember.Tags.Basic, simMode : DFSimDesign.Mode)(db: DB.Mutable) extends Block {
       override lazy val ownerRef : DFOwner.Ref = ???
       override def getOwnerBlock(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true

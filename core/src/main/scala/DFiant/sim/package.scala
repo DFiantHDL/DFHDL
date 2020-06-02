@@ -9,8 +9,8 @@ package object sim {
   // Simulation-related constructs
   ////////////////////////////////////////////////////////////////////////////////////
   def inSimulation(implicit ctx : DFAny.Context) : Boolean = ctx.db.top.simMode match {
-    case DFSimulator.Mode.Off => false
-    case DFSimulator.Mode.On => true
+    case DFSimDesign.Mode.Off => false
+    case DFSimDesign.Mode.On => true
   }
 
   def assert[C](cond : C, msg : Message, severity : Severity = Warning)(

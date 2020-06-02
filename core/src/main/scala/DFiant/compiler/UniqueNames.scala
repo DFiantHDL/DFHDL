@@ -3,7 +3,7 @@ package compiler
 
 import DFDesign.DB.Patch
 
-final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
   def uniqueNames(reservedNames : Set[String], caseSensitive : Boolean) = {
@@ -18,8 +18,8 @@ final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         case _ => Nil
       }
     }
-    c.newStage[UniqueNames](designDB.patch(patchList), Seq())
+    c.newStage[UniqueNames](designDB.patch(patchList))
   }
 }
 
-trait UniqueNames extends Compilable.Stage
+trait UniqueNames extends Compilation.Stage

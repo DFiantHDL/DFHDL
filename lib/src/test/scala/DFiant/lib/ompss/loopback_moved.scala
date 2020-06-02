@@ -1,10 +1,10 @@
 package DFiant.lib.ompss
 
 import DFiant.compiler.sync._
-import DFiant.compiler.backend.vhdl._
+import DFiant.compiler.backend.vhdl.v93
 import DFiant._
 import DFiant.internals.BitVectorExtras
-import DFiant.sim.DFSimulator
+import DFiant.sim.DFSimDesign
 
 @df class loopback_ifc extends DFInterface.Unnamed {
   final val ap        = new AP_Interface
@@ -18,7 +18,7 @@ import DFiant.sim.DFSimulator
   import io._
 
   /////////////////////////////////////////////////////////////////////////////
-  // All this code will be automatically generated for final integration
+  // Further optimization will be done
   /////////////////////////////////////////////////////////////////////////////
   private val o_AWREADY_ack_reg = DFBit() init 0
   private val o_AWREADY_ack_sig = DFBit()
@@ -66,70 +66,73 @@ import DFiant.sim.DFSimulator
   import fsm._
   final val IDLE : FSM = step {
     ifdf(ap.start) {
-      ifdf(!d_ARREADY_ack_reg.prev){
-        d.AR.VALID := 1
-      }
-      ifdf(d_ARREADY_ack_sig) {
-        d_ARREADY_ack_reg := 0
-        ST7.goto()
-      }.elseifdf(d.AR.READY) {
-        d_ARREADY_ack_reg := 1
-      }
+      READ_BLOCK_REQ.goto()
     }.elsedf {
       ap.done := 1
       ap.idle := 1
     }
   }
-  final val ST7 : FSM = step {
+  final val READ_BLOCK_REQ : FSM = step {
+    ifdf(!d_ARREADY_ack_reg.prev){
+      d.AR.VALID := 1
+    }
+    ifdf(d_ARREADY_ack_sig) {
+      d_ARREADY_ack_reg := 0
+      WRITE_BLOCK_REQ.goto()
+    }.elseifdf(d.AR.READY) {
+      d_ARREADY_ack_reg := 1
+    }
+  }
+  final val WRITE_BLOCK_REQ : FSM = step {
     ifdf(!o_AWREADY_ack_reg.prev) {
       o.AW.VALID := 1
     }
     ifdf(o_AWREADY_ack_sig) {
       o_AWREADY_ack_reg := 0
       i := b0s
-      ST8.goto()
+      READ_DATA.goto()
     }.elseifdf(o.AW.READY) {
       o_AWREADY_ack_reg := 1
     }
   }
-  final val ST8 : FSM = step {
+  final val READ_DATA : FSM = step {
     ifdf(d.R.VALID || !notDataEnd) {
       ifdf(notDataEnd) {
         d.R.READY := 1
         i_plus1_reg := i_plus1
         d_addr_read_reg := d.R.DATA
-        ST9.goto()
+        WRITE_DATA.goto()
       }.elsedf {
-        ST13.goto()
+        FINISH.goto()
       }
     }
   }
-  final val ST9 : FSM = step {
+  final val WRITE_DATA : FSM = step {
     ifdf(!o_WREADY_ack_reg.prev) {
       o.W.VALID := 1
     }
     ifdf(o_WREADY_ack_sig) {
       o_WREADY_ack_reg := 0
       i := i_plus1_reg
-      ST8.goto()
+      READ_DATA.goto()
     }.elseifdf(o.W.READY) {
       o_WREADY_ack_reg := 1
     }
   }
-  final val ST13 : FSM = waitUntil(o.B.VALID).onExit {
+  final val FINISH : FSM = waitUntil(o.B.VALID).onExit {
     o.B.READY := 1
     ap.done := 1
     ap.ready := 1
   } ==> IDLE
 
-  val myfsm = IDLE ++ ST7 ++ ST8 ++ ST9 ++ ST13
+  val myfsm = IDLE ++ READ_BLOCK_REQ ++ WRITE_BLOCK_REQ ++ READ_DATA ++ WRITE_DATA ++ FINISH
 
   myfsm.elaborate
 }
 
 
 
-@df class LoopbackDriver extends DFSimulator {
+@df class LoopbackDriver extends DFSimDesign {
   final val io = new loopback_ifc <> FLIP
   import io._
   val c_READ_BUF_ADDR   = h"00001000"
@@ -149,7 +152,7 @@ import DFiant.sim.DFSimulator
       size := c_SIZE
       ap.start := 1
     } ==> waitUntil(ap.ready) ==> step {
-      sim.report(msg"Got ap_ready")
+      sim.report(msg"Got first ap_ready")
     } ==> waitForever()
 
   ap_drv_fsm.elaborate
@@ -256,7 +259,7 @@ import DFiant.sim.DFSimulator
   write_addr_checker.elaborate
 }
 
-trait LoopbackTest extends DFSimulator  {
+trait LoopbackTest extends DFSimDesign  {
   final val lb = new loopback_moved {}
   final val lb_drv = new LoopbackDriver {}
   lb.io <> lb_drv.io
@@ -267,7 +270,8 @@ object LoopbackTestApp extends App {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_test.printCodeString().compile.toFolder("loopback")
+  import sim.tools.ghdl._
+  loopback_test.printCodeString().compile.toFolder("loopback").simulation
 }
 
 object LoopbackApp extends App {

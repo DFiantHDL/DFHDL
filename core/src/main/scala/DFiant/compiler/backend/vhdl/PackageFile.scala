@@ -2,7 +2,7 @@ package DFiant
 package compiler.backend.vhdl
 
 object PackageFile {
-  def apply()(implicit printer: Printer, revision: VHDLRevision) : String = {
+  def apply()(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     import formatter._
     val kwWords = Set("library", "use", "package", "end", "begin", "package", "is", "body", "all", "function",
@@ -11,10 +11,10 @@ object PackageFile {
       "std_logic_1164", "numeric_std", "low", "high", "length", "std_logic_textio", "textio", "std", "line")
     val fnWords = Set("bit_reverse", "to_sl", "to_slv")
     val simLibs = if (printer.inSimulation) revision match {
-      case VHDLRevision.VHDL1993 =>
+      case Revision.V93 =>
       """use ieee.std_logic_textio.all;
         |use std.textio.all;""".stripMargin
-      case VHDLRevision.VHDL2008 => ""
+      case Revision.V2008 => ""
     } else ""
     val name = Name()
     s"""library ieee;
@@ -43,12 +43,12 @@ object PackageFile {
       s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }
-  private def helperFunctions()(implicit printer: Printer, revision: VHDLRevision) : String = {
+  private def helperFunctions()(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {
-        case VHDLRevision.VHDL1993 => "function to_hstring(arg : std_logic_vector) return string;"
-        case VHDLRevision.VHDL2008 => ""
+        case Revision.V93 => "function to_hstring(arg : std_logic_vector) return string;"
+        case Revision.V2008 => ""
       } else ""
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector;
        |function resize(arg : std_logic_vector; size : integer) return std_logic_vector;
@@ -61,11 +61,11 @@ object PackageFile {
        |$to_hstring""".stripMargin
   }
 
-  private def helperFunctionsBody()(implicit printer: Printer, revision: VHDLRevision) : String = {
+  private def helperFunctionsBody()(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {
-        case VHDLRevision.VHDL1993 =>
+        case Revision.V93 =>
           """function to_hstring (arg : std_logic_vector) return string is
             |  variable L : line;
             |begin
@@ -73,7 +73,7 @@ object PackageFile {
             |  return L.all;
             |end function to_hstring;
             |""".stripMargin
-        case VHDLRevision.VHDL2008 => ""
+        case Revision.V2008 => ""
       } else ""
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector is
        |   variable v_s : std_logic_vector(s'high downto s'low);

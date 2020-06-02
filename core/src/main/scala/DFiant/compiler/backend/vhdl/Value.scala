@@ -2,29 +2,28 @@ package DFiant
 package compiler.backend.vhdl
 
 import internals._
-import DFiant.compiler.backend.vhdl.VHDLRevision.VHDL1993
 
 private object Value {
-  def const(token : DFAny.Token)(implicit printer : Printer, revision: VHDLRevision) : String = token match {
+  def const(token : DFAny.Token)(implicit printer : Printer, revision: Revision) : String = token match {
     case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
     case DFUInt.Token(width, value, _) => revision match {
-      case VHDLRevision.VHDL1993 if width < 31 => s"to_unsigned($value, $width)"
-      case VHDLRevision.VHDL1993 if width % 4 == 0 => s"""unsigned(std_logic_vector'(x"${value.toString(16)}"))"""
-      case VHDLRevision.VHDL1993 => s"""unsigned(std_logic_vector'("${value.toString(2)}"))"""
-      case VHDLRevision.VHDL2008 => s"""${width}d"$value""""
+      case Revision.V93 if width < 31 => s"to_unsigned($value, $width)"
+      case Revision.V93 if width % 4 == 0 => s"""unsigned(std_logic_vector'(x"${value.toString(16)}"))"""
+      case Revision.V93 => s"""unsigned(std_logic_vector'("${value.toString(2)}"))"""
+      case Revision.V2008 => s"""${width}d"$value""""
     }
     case DFSInt.Token(width, value, _) => revision match {
-      case VHDLRevision.VHDL1993 if width < 31 => s"to_signed($value, $width)"
-      case VHDLRevision.VHDL1993 if width % 4 == 0 => s"""signed(std_logic_vector'(x"${value.asUnsigned(width).toString(16)}"))"""
-      case VHDLRevision.VHDL1993 => s"""signed(std_logic_vector'("${value.asUnsigned(width).toString(2)}"))"""
-      case VHDLRevision.VHDL2008 => s"""${width}d"$value""""
+      case Revision.V93 if width < 31 => s"to_signed($value, $width)"
+      case Revision.V93 if width % 4 == 0 => s"""signed(std_logic_vector'(x"${value.asUnsigned(width).toString(16)}"))"""
+      case Revision.V93 => s"""signed(std_logic_vector'("${value.asUnsigned(width).toString(2)}"))"""
+      case Revision.V2008 => s"""${width}d"$value""""
     }
     case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
     case DFBool.Token(true, value, _) => value.toString
     case DFEnum.Token(enumType, value) => s"E_${enumType.name}_${value.get.name}".toUpperCase
     case _ => ???
   }
-  def func2(member : DFAny.Func2)(implicit printer : Printer, revision: VHDLRevision) : String = {
+  def func2(member : DFAny.Func2)(implicit printer : Printer, revision: Revision) : String = {
     import printer.config._
     import formatter._
     val leftArg = member.leftArgRef.get
@@ -66,14 +65,14 @@ private object Value {
       case (_, ra) => ref(ra)
     }
     (leftArg, member.op, revision) match {
-      case (DFBits(_), Op.<<, VHDL1993) => s"$FN to_slv($FN shift_left($TP unsigned($leftArgStr), $rightArgStr))"
-      case (DFBits(_), Op.>>, VHDL1993) => s"$FN to_slv($FN shift_right($TP unsigned($leftArgStr), $rightArgStr))"
-      case (DFUInt(_) | DFSInt(_), Op.<<, VHDL1993) => s"$FN shift_left($leftArgStr, $rightArgStr)"
-      case (DFUInt(_) | DFSInt(_), Op.>>, VHDL1993) => s"$FN shift_right($leftArgStr, $rightArgStr)"
+      case (DFBits(_), Op.<<, Revision.V93) => s"$FN to_slv($FN shift_left($TP unsigned($leftArgStr), $rightArgStr))"
+      case (DFBits(_), Op.>>, Revision.V93) => s"$FN to_slv($FN shift_right($TP unsigned($leftArgStr), $rightArgStr))"
+      case (DFUInt(_) | DFSInt(_), Op.<<, Revision.V93) => s"$FN shift_left($leftArgStr, $rightArgStr)"
+      case (DFUInt(_) | DFSInt(_), Op.>>, Revision.V93) => s"$FN shift_right($leftArgStr, $rightArgStr)"
       case _ => s"${leftArgStr.applyBrackets()} $OP$opStr ${rightArgStr.applyBrackets()}"
     }
   }
-  def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer, revision: VHDLRevision) : String = {
+  def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer, revision: Revision) : String = {
     import printer.config._
     import formatter._
     val relVal = member.relValRef.get
@@ -107,7 +106,7 @@ private object Value {
     }
   }
 
-  def ref(member : DFAny)(implicit printer : Printer, revision: VHDLRevision) : String = {
+  def ref(member : DFAny)(implicit printer : Printer, revision: Revision) : String = {
     import printer.config._
     member match {
       case c : DFAny.Const => const(c.token)
@@ -123,14 +122,14 @@ private object Value {
       case m => m.name
     }
   }
-  def boolRef(boolOrBit : DFAny.Of[DFBool.Type])(implicit printer: Printer, revision: VHDLRevision) : String = {
+  def boolRef(boolOrBit : DFAny.Of[DFBool.Type])(implicit printer: Printer, revision: Revision) : String = {
     import printer.config.formatter._
     (revision, boolOrBit) match {
-      case (VHDLRevision.VHDL1993, cond @ DFBit()) => s"${Value.ref(cond).applyBrackets()} = '1'"
+      case (Revision.V93, cond @ DFBit()) => s"${Value.ref(cond).applyBrackets()} = '1'"
       case (_, bool) => Value.ref(bool)
     }
   }
-  def apply(member : DFAny)(implicit printer : Printer, revision: VHDLRevision) : String = member match {
+  def apply(member : DFAny)(implicit printer : Printer, revision: Revision) : String = member match {
     case c : DFAny.Const => const(c.token)
     case f : DFAny.Func2 => func2(f).toString
     case a : DFAny.Alias[_,_,_] => alias(a)

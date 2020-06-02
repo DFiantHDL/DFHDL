@@ -18,7 +18,7 @@
 package RISCV
 
 import DFiant._
-import DFiant.sim.DFSimulator
+import DFiant.sim.DFSimDesign
 
 @df class Proc(program : Program) extends DFDesign {
   private val pc      = DFBits[32] init program.imem.startAddress
@@ -55,7 +55,7 @@ import DFiant.sim.DFSimulator
   ///////////////////////////////////////////////////////////////////////////////////////////////
 }
 
-@df class riscv_tb(program : Program) extends DFSimulator {
+@df class riscv_tb(program : Program) extends DFSimDesign {
   final val proc = new Proc(program)
   import compiler.sync._
   this !! ClockParams("clk", ClockParams.Edge.Rising)
@@ -63,19 +63,18 @@ import DFiant.sim.DFSimulator
 }
 
 object ProcTest extends App {
-  import compiler.backend.vhdl._
-  import sim.ghdl._
+  import compiler.backend.vhdl.{v93, VHDLCompiledExt}
+  import DFiant.sim.tools.ghdl._
 //  val riscv = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
 //  riscv.compile.printCodeString()
   val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump"))
   val risc_tbv = riscv_tb.compile.printCodeString.printGenFiles().toFolder("testProc")
-  risc_tbv.simulate
   new java.io.File("testProc/work").mkdirs()
   val workDirFlag = "--workdir=testProc/work"
   val libraryLocation = s"/opt/ghdl/lib/ghdl/vendors/xilinx-vivado/"
   val librart = s"-P$libraryLocation"
   val flags = s"$workDirFlag -frelaxed-rules --ieee=synopsys"  //--std=08
-  val files = risc_tbv.getFileNames.map(n => s"testProc/$n").mkString(" ")
+  val files = risc_tbv.fileNameSeq.mkString(" ")
   val topEntity = risc_tbv.db.top.designType
   import sys.process._
   import scala.language.postfixOps

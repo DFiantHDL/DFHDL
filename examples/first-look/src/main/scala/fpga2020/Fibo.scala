@@ -16,7 +16,7 @@
  */
 package fpga2020
 import DFiant._
-import DFiant.sim.DFSimulator
+import DFiant.sim.DFSimDesign
 
 trait Fibo extends DFDesign {
   val o = DFUInt[32] <> OUT
@@ -25,7 +25,7 @@ trait Fibo extends DFDesign {
   o := f.prev(2)
 }
 
-trait FibTest extends DFSimulator {
+trait FibTest extends DFSimDesign {
   val fibGen = new Fibo {}
   sim.report(msg"fib: ${fibGen.o}")
 }

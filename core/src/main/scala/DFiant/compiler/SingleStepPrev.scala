@@ -8,7 +8,7 @@ import DFiant.compiler.printer.Printer
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   //TODO: currently assuming explicitPrev has run
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
@@ -54,8 +54,8 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilabl
         }
       case _ => None
     }
-    c.newStage[SingleStepPrev](designDB.patch(patchList), Seq())
+    c.newStage[SingleStepPrev](designDB.patch(patchList))
   }
 }
 
-trait SingleStepPrev extends Compilable.Stage
+trait SingleStepPrev extends Compilation.Stage

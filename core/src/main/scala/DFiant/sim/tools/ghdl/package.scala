@@ -17,13 +17,16 @@
 
 package DFiant
 package sim
+package tools
+import DFiant.compiler.backend.vhdl
 import shapeless.{:: => #:}
-
-import compiler.Compilable
-import compiler.backend.vhdl.VHDLCompiler
+import compiler.Compilation
+import compiler.backend.vhdl.VHDLBackend
 package object ghdl {
-  implicit def evGHDL[D <: DFDesign, S <: shapeless.HList, C](c : C)(
-    implicit conv : C => Compilable[D, VHDLCompiler #: S]
-  ) : GHDLOps[D, S] = new GHDLOps[D, S](conv(c))
+  trait GHDL extends Simulation.Tool
+  implicit def simulator[D <: DFSimDesign, R <: vhdl.Revision] : Simulator[D, VHDLBackend[R], GHDL] = ???
+//  implicit def evGHDL[D <: DFDesign, S <: shapeless.HList, C](c : C)(
+//    implicit conv : C => Compilable[D, VHDLCompiled #: S]
+//  ) : GHDLOps[D, S] = new GHDLOps[D, S](conv(c))
 
 }

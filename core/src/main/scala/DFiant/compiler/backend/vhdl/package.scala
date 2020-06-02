@@ -2,7 +2,7 @@ package DFiant
 package compiler
 package backend
 
-import DFiant.compiler.Compilable.Cmd
+import shapeless.HList
 
 
 package object vhdl {
@@ -20,13 +20,13 @@ package object vhdl {
   private[vhdl] implicit def getsetFromPrinter(implicit printer : Printer, lp : shapeless.LowPriority)
   : MemberGetSet = printer.getSet
 
-  implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
-  : VHDLBackend[D, S] = new VHDLBackend[D, S](c)
+  private implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
+  : VHDLBackendOps[D, S] = new VHDLBackendOps[D, S](c)
 
-  import shapeless.{:: => #:}
-  sealed implicit class VHDLCompiled[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, VHDLCompiler #: S]) {
-    def getFileNames : List[String] = c.cmdSeq.collect {
-      case Cmd.GenFile(fileName, _) if fileName.endsWith(".vhdl") => fileName
-    }.toList
+  implicit object v93 extends Backend.Compiler[VHDLBackend[Revision.V93]] {
+    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VHDLBackend[Revision.V93]] = c.vhdlCompile[Revision.V93]
+  }
+  implicit object v2008 extends Backend.Compiler[VHDLBackend[Revision.V2008]] {
+    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VHDLBackend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
   }
 }

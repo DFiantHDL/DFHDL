@@ -4,7 +4,7 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.db
   import designDB.__getset
   @tailrec private def recursiveNameFlatten(member : DFMember, name : String) : String = member.getOwner match {
@@ -26,8 +26,8 @@ final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
       }
       case _ => None
     }
-    c.newStage[FlattenNames](designDB.patch(patchList), Seq())
+    c.newStage[FlattenNames](designDB.patch(patchList))
   }
 }
 
-trait FlattenNames extends Compilable.Stage
+trait FlattenNames extends Compilation.Stage

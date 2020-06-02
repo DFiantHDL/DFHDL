@@ -2,7 +2,7 @@ package DFiant
 package compiler.backend.vhdl
 
 private object File {
-  def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer, revision: VHDLRevision) : String = {
+  def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer, revision: Revision) : String = {
     import printer.config.formatter._
     s"""
        |${Library(packageName)}
@@ -18,7 +18,7 @@ private object File {
 // Library
 //////////////////////////////////////////////////////////////////////////////////
 private object Library {
-  def apply(packageName : String)(implicit printer: Printer, revision: VHDLRevision) : String = {
+  def apply(packageName : String)(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     s"""$KW library $TP ieee;
        |$KW use $TP ieee.$TP std_logic_1164.$KW all;
@@ -28,12 +28,12 @@ private object Library {
   }
 }
 private object SimLibrary {
-  def apply()(implicit printer: Printer, revision: VHDLRevision) : String = {
+  def apply()(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     import formatter._
     if (printer.inSimulation) revision match {
-      case VHDLRevision.VHDL1993 => ""
-      case VHDLRevision.VHDL2008 =>
+      case Revision.V93 => ""
+      case Revision.V2008 =>
         s"""$EMPTY
            |$KW library $TP std;
            |$KW use $TP std.$TP env.$KW all;

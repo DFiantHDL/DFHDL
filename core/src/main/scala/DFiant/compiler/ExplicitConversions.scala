@@ -3,7 +3,7 @@ package compiler
 
 import DFDesign.DB.Patch
 
-final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.db
   import designDB.__getset
   private def resizeUInt(dfVal : DFAny, updatedWidth : Int) : (DFAny, Patch) = dfVal match {
@@ -78,8 +78,8 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : Comp
 //        }
       case _ => None
     }
-    c.newStage[ExplicitConversions](designDB.patch(patchList), Seq())
+    c.newStage[ExplicitConversions](designDB.patch(patchList))
   }
 }
 
-trait ExplicitConversions extends Compilable.Stage
+trait ExplicitConversions extends Compilation.Stage

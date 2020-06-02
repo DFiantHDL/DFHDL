@@ -1,9 +1,13 @@
 package DFiant
 package lib
 
-import compiler.Compilable
+import DFiant.compiler.IRCompilation
+import DFiant.compiler.backend.Backend
+import shapeless.HList
 
 package object maxeler {
-  implicit def evMaxJNodeOps[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
-  : MaxJNodeOps[D, S] = new MaxJNodeOps[D, S](c)
+  implicit object maxjCompiler extends Backend.Compiler[MaxJNode] {
+    def apply[D <: DFDesign, S <: HList](c : IRCompilation[D, S])
+    : Backend.Compilation[D, MaxJNode] = new MaxJNodeOps[D, S](c).maxjCompile
+  }
 }

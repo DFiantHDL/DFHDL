@@ -16,13 +16,15 @@
  */
 
 import DFiant.internals._
-import DFiant.compiler.Compilable
+import DFiant.compiler.{Compilation, IRCompilation}
+import DFiant.compiler.backend.Backend
 import DFiant.compiler.printer.PrinterOps
+import DFiant.sim.tools.{Simulation, Simulator}
 
 import scala.language.experimental.macros
 import singleton.ops._
 import singleton.ops.impl.HasOut
-import DFiant.sim.DFSimMember
+import DFiant.sim.{DFSimDesign, DFSimMember}
 
 package object DFiant {
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
@@ -33,8 +35,14 @@ package object DFiant {
   type DFEnum[E <: EnumType] = DFAny.Of[DFEnum.Type[E]]
   type DFString[L] = DFAny.Of[DFString.Type[L]]
 
-  implicit def evPrinterOps[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => Compilable[D, S])
-  : PrinterOps[D, S] = new PrinterOps[D, S](c)
+  implicit def evPrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D])
+  : PrinterOps[D, C] = new PrinterOps[D, C](c)
+  implicit class BackendExt[D <: DFDesign, H <: shapeless.HList, T](t : T)(implicit conv : T => IRCompilation[D, H]) {
+    def compile[B <: Backend.Stage](implicit compiler : Backend.Compiler[B]) : Backend.Compilation[D, B] = compiler(t)
+  }
+  implicit class SimulatorExt[D <: DFSimDesign, B <: Backend.Stage](c : Backend.CommittedCompilation[D, B]) {
+    def simulation[S <: Simulation.Tool](implicit simulator : Simulator[D, B, S]) : Simulation[D, B, S] = simulator(c)
+  }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // A Dataflow Bubble
@@ -49,13 +57,13 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // Dataflow Port Annotations
   ////////////////////////////////////////////////////////////////////////////////////
-  sealed trait DFDir extends Product with Serializable
-  type <>[DF <: DFAny, Dir <: PortDir] = Dir#Func[DF]
-//  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
-  //Direction of a Port
-  sealed trait PortDir extends DFDir {
+  sealed trait DFDir extends Product with Serializable {
     type Func[DF <: DFAny]
   }
+  type <>[DF <: DFAny, Dir <: DFDir] = Dir#Func[DF]
+//  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
+  //Direction of a Port
+  sealed trait PortDir extends DFDir
   case object IN extends PortDir {
     type Func[DF <: DFAny] = DFAny.DefaultRet[DF#TType]
     override def toString: String = "IN "
@@ -66,7 +74,10 @@ package object DFiant {
     override def toString: String = "OUT"
   }
   type OUT = OUT.type
-  case object VAR extends DFDir
+  case object VAR extends DFDir {
+    type Func[DF <: DFAny] = DFAny.VarOf[DF#TType]
+  }
+  type VAR = VAR.type
   case object FLIP extends DFDir
   case object ASIS extends DFDir
   ////////////////////////////////////////////////////////////////////////////////////

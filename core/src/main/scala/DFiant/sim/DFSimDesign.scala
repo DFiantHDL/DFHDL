@@ -2,8 +2,8 @@ package DFiant
 package sim
 
 
-trait DFSimulator extends DFDesign {
-  final private[DFiant] override lazy val simMode : DFSimulator.Mode = DFSimulator.Mode.On
+trait DFSimDesign extends DFDesign {
+  final private[DFiant] override lazy val simMode : DFSimDesign.Mode = DFSimDesign.Mode.On
 
 //  protected implicit class SingletonExtender[T <: Singleton](any : T) {
 //    def :# (time : Int) : T = any
@@ -13,7 +13,7 @@ trait DFSimulator extends DFDesign {
 //  }
 }
 
-object DFSimulator {
+object DFSimDesign {
   private object Tag {
     final case class After(time : Int) extends DFAny.CustomTag
   }

@@ -6,13 +6,8 @@ package vhdl
 import compiler.sync._
 import DFiant.sim._
 import scala.collection.mutable
-sealed trait VHDLRevision extends Product with Serializable
-object VHDLRevision {
-  implicit case object VHDL1993 extends VHDLRevision
-  case object VHDL2008 extends VHDLRevision
-}
 
-final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB =
     c.flattenNames
      .explicitPrev
@@ -28,7 +23,9 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     case Sync.IfBlock(_) | Sync.ElseIfBlock(_) => true
     case _ => false
   }
-  private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(implicit printer : Printer, revision : VHDLRevision) : List[String] = {
+  private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
+    implicit printer : Printer, revision : Revision
+  ) : List[String] = {
     import printer.config.formatter._
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
@@ -52,7 +49,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
     }
     statements
   }
-  def compile(implicit revision : VHDLRevision) = {
+  def vhdlCompile[R <: Revision](implicit revision : R) = {
     val designTypes = mutable.Set.empty[String]
     val files = designDB.blockMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
@@ -83,7 +80,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         }
         val asyncStatements = getProcessStatements(design, !isSyncMember(_))
         val asyncSensitivityList : String = revision match {
-          case VHDLRevision.VHDL1993 =>
+          case Revision.V93 =>
             val producers = members.flatMap {
               case a @ DFNet.Assignment.Unref(_,fromVal,_,_) if !a.hasLateConstruction => Some(fromVal)
               case c @ DFNet.Connection.Unref(_,fromVal,_,_) if !c.hasLateConstruction => Some(fromVal)
@@ -101,7 +98,7 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
               case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
             }
             Process.Sensitivity.List(signalsOrPorts.map(e => e.name))
-          case VHDLRevision.VHDL2008 => Process.Sensitivity.All()
+          case Revision.V2008 => Process.Sensitivity.All()
         }
         val asyncProcess = Process("async_proc", asyncSensitivityList, variables, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
@@ -116,13 +113,20 @@ final class VHDLBackend[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S
         val statements = componentInstances ++ List(asyncProcess, syncProcess, emits)
         val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
         val file = File(s"${designDB.top.designType}_pkg", entity, architecture)
-        Some(Compilable.Cmd.GenFile(s"${design.designType}.vhdl", s"$file"))
+        Some(Backend.File(s"${design.designType}.vhdl", s"$file"))
       case _ => None
     }
-    val packageFile = Compilable.Cmd.GenFile(s"${PackageFile.Name()}.vhdl", PackageFile())
-    c.newStage[VHDLCompiler](designDB, c.cmdSeq ++ (packageFile :: files))
+    val packageFile = Backend.File(s"${PackageFile.Name()}.vhdl", PackageFile())
+    Backend.Compilation[D, VHDLBackend[R]](designDB, packageFile :: files)
   }
 }
 
+sealed trait Revision extends Product with Serializable
+object Revision {
+  implicit case object V93 extends Revision
+  type V93 = V93.type
+  implicit case object V2008 extends Revision
+  type V2008 = V2008.type
+}
 
-trait VHDLCompiler extends Compilable.Stage
+sealed trait VHDLBackend[R <: Revision] extends Backend.Stage

@@ -18,7 +18,7 @@ private object Sim {
     s"$OP rising_edge($clkName) $OP and $rstName $OP= $rstActive"
   }
   object Assert {
-    def unapply(assert : DFSimMember.Assert)(implicit printer: Printer, revision: VHDLRevision) : Option[String] = {
+    def unapply(assert : DFSimMember.Assert)(implicit printer: Printer, revision: Revision) : Option[String] = {
       import printer.config._
       import formatter._
       val msg = assert.msgRef.seq.map {
@@ -27,7 +27,7 @@ private object Sim {
             case DFBits(w) if w % 4 == 0 => s"$FN to_hstring(${Value.ref(v)})"
             case DFUInt(w) if w % 4 == 0 => s"$FN to_hstring($FN to_slv(${Value.ref(v)}))"
             case value => revision match {
-              case VHDLRevision.VHDL1993 => value match {
+              case Revision.V93 => value match {
                 case DFBits(_) => s"$TP std_logic_vector'image(${Value.ref(value)})"
                 case DFUInt(_) => s"$TP unsigned'image(${Value.ref(value)})"
                 case DFSInt(_) => s"$TP signed'image(${Value.ref(value)})"
@@ -35,7 +35,7 @@ private object Sim {
                 case DFBit() => s"$TP std_logic'image(${Value.ref(value)})"
                 case DFEnum(enumType) => s"${enumType.name}_type'image(${Value.ref(value)})"
               }
-              case VHDLRevision.VHDL2008 => s"$FN to_string(${Value.ref(v)})"
+              case Revision.V2008 => s"$FN to_string(${Value.ref(v)})"
             }
           }
         case Right(s) => s""""$s""""
@@ -53,12 +53,12 @@ private object Sim {
   }
 
   object Finish {
-    def unapply(assert : DFSimMember.Finish)(implicit printer: Printer, revision: VHDLRevision) : Option[String] = {
+    def unapply(assert : DFSimMember.Finish)(implicit printer: Printer, revision: Revision) : Option[String] = {
       import printer.config._
       import formatter._
       val finish = revision match {
-        case VHDLRevision.VHDL1993 => List(s"""$KW report "Simulation Finished" $KW severity $TP FAILURE;""")
-        case VHDLRevision.VHDL2008 => List(s"finish(0);")
+        case Revision.V93 => List(s"""$KW report "Simulation Finished" $KW severity $TP FAILURE;""")
+        case Revision.V2008 => List(s"finish(0);")
       }
       Some(If(clkRstGuard, finish, If.End()))
     }

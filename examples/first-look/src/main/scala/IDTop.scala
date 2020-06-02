@@ -17,7 +17,7 @@
 package example2
 
 import DFiant._
-import DFiant.sim.DFSimulator
+import DFiant.sim.DFSimDesign
 import internals._
 @df class ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
@@ -79,7 +79,7 @@ import internals._
   o <> io.o
 }
 
-object IDTopTest extends DFSimulator {
+object IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
   val o = DFUInt(8) <> OUT
 //  val ididid = new IDTop
@@ -97,8 +97,7 @@ object IDTopTest extends DFSimulator {
 
 object IDTopApp extends App {
 //  val top = new IDTopTest {}
-  import compiler._
-  import backend.vhdl._
+  import compiler.backend.vhdl.v93
   val designDB = IDTopTest.compile.printCodeString().printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)

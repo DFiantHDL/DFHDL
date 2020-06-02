@@ -25,7 +25,7 @@ import DFiant.compiler.sync.ResetParams.{Active, Mode}
 import DFiant.sim._
 import collection.mutable
 
-final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.singleStepPrev.calcInit.explicitNamedVars.db
 
   private val clockParams = {
@@ -58,7 +58,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
         case _ => false
       }
       val topSimulation = block match {
-        case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => true
+        case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => true
         case _ => false
       }
       if (hasBlockClk || hasBlockRst || hasPrevClk || hasPrevRst) {
@@ -125,7 +125,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           PrevReplacements(n, prevVar, prevVal, relValRef.get, prevVar.setNameSuffix("_reg") !! Sync.Tag.Reg)
       }
       val topSimulation = block match {
-        case DFDesign.Block.Top(_, _, DFSimulator.Mode.On) => true
+        case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => true
         case _ => false
       }
       if (prevReplacements.nonEmpty) {
@@ -168,11 +168,10 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D
           }
       } else None
     }
-    c.newStage[ClockedPrev](clockedDB.patch(patchList), Seq())
+    c.newStage[ClockedPrev](clockedDB.patch(patchList))
   }
-  def setClock(clkName : String) : Compilable[D, S] = ???
 }
 
 
-trait ClockedPrev extends Compilable.Stage
+trait ClockedPrev extends Compilation.Stage
 

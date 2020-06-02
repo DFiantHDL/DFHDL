@@ -4,7 +4,7 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[D, S]) {
+final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.db
   import designDB.__getset
   def fixAnonymous = {
@@ -31,8 +31,8 @@ final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : Compilable[
         }
     }
     val patchList = anonymizeList.map(a => a -> Patch.Replace(a.anonymize, Patch.Replace.Config.FullReplacement))
-    c.newStage[FixAnonymous](designDB.patch(patchList), Seq())
+    c.newStage[FixAnonymous](designDB.patch(patchList))
   }
 }
 
-trait FixAnonymous extends Compilable.Stage
+trait FixAnonymous extends Compilation.Stage
