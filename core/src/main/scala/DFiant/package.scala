@@ -41,7 +41,7 @@ package object DFiant {
     def compile[B <: Backend.Stage](implicit compiler : Backend.Compiler[B]) : Backend.Compilation[D, B] = compiler(t)
   }
   implicit class SimulatorExt[D <: DFSimDesign, B <: Backend.Stage](c : Backend.CommittedCompilation[D, B]) {
-    def simulation[S <: Simulation.Tool](implicit simulator : Simulator[D, B, S]) : Simulation[D, B, S] = simulator(c)
+    def simulation[S <: Simulation[D, B]](implicit simulator : Simulator[D, B, S]) : S = simulator(c)
   }
 
   ////////////////////////////////////////////////////////////////////////////////////

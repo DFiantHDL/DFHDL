@@ -270,7 +270,7 @@ object LoopbackTestApp extends App {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  import sim.tools.ghdl._
+  import sim.tools.ghdl
   loopback_test.printCodeString().compile.toFolder("loopback").simulation
 }
 
