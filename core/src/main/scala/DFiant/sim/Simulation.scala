@@ -1,8 +1,8 @@
-package DFiant
-package sim
-package tools
+package DFiant.sim
 
+import DFiant.DFDesign
 import DFiant.compiler.backend.Backend
+
 import scala.annotation.implicitNotFound
 
 trait Simulation[D <: DFSimDesign, B <: Backend.Stage] {

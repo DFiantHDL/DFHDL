@@ -19,12 +19,11 @@ import DFiant.internals._
 import DFiant.compiler.{Compilation, IRCompilation}
 import DFiant.compiler.backend.Backend
 import DFiant.compiler.printer.PrinterOps
-import DFiant.sim.tools.{Simulation, Simulator}
 
 import scala.language.experimental.macros
 import singleton.ops._
 import singleton.ops.impl.HasOut
-import DFiant.sim.{DFSimDesign, DFSimMember}
+import DFiant.sim._
 
 package object DFiant {
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]

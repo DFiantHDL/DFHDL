@@ -1,7 +1,6 @@
 package DFiant
 package compiler
 package backend
-import DFiant.sim.tools.{Simulation, Simulator}
 import printer.Printer
 
 object Backend {

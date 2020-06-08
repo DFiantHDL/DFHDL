@@ -2,7 +2,8 @@ package DFiant
 package sim.tools
 
 import DFiant.compiler.backend.vhdl.{Revision, VHDLBackend}
-import DFiant.sim.DFSimDesign
+import DFiant.sim.{DFSimDesign, Simulation}
+
 import sys.process._
 import scala.language.postfixOps
 

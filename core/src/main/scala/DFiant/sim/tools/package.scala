@@ -1,12 +1,15 @@
 package DFiant.sim
 
-import DFiant.compiler.backend.Backend
-import DFiant.compiler.backend.vhdl.{Revision, VHDLBackend}
+import DFiant.compiler.backend.{Backend, vhdl, verilog}
 
 package object tools {
-  implicit def ghdl[D <: DFSimDesign, R <: Revision](
+  implicit def ghdl[D <: DFSimDesign, R <: vhdl.Revision](
     implicit revision : R
-  ) : Simulator[D, VHDLBackend[R], GHDLSimulation[D, R]] =
-    (cc : Backend.CommittedCompilation[D, VHDLBackend[R]]) => GHDLSimulation[D, R](cc.db, cc.fileNameSeq)
+  ) : Simulator[D, vhdl.VHDLBackend[R], GHDLSimulation[D, R]] =
+    (cc : Backend.CommittedCompilation[D, vhdl.VHDLBackend[R]]) => GHDLSimulation[D, R](cc.db, cc.fileNameSeq)
+  implicit def verilator[D <: DFSimDesign, R <: verilog.Revision](
+    implicit revision : R
+  ) : Simulator[D, verilog.VerilogBackend[R], VerilatorSimulation[D, R]] =
+    (cc : Backend.CommittedCompilation[D, verilog.VerilogBackend[R]]) => VerilatorSimulation[D, R](cc.db, cc.fileNameSeq)
 
 }
