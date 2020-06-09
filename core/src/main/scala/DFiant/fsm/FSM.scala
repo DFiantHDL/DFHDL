@@ -133,7 +133,8 @@ protected[DFiant] trait Implicits {
       implicit arg : DFBool.Arg[0]
     ) : FSMCond = FSMCond(sourceFSM_TC(s), () => arg())
     def onExit(block : => Unit) : FSMCondBlock = FSMCondBlock(sourceFSM_TC(s), None, () => block)
-    def ++ [D](d : D)(implicit destFSM_TC : FSM.TC[D], ctx : DFBlock.Context) : FSM = sourceFSM_TC(s).addFSM(destFSM_TC(d))
+    def ++ (destFSM : FSM)(implicit ctx : DFBlock.Context) : FSM = sourceFSM_TC(s).addFSM(destFSM)
+    def ++ (fsmCondBlock : FSMCondBlock)(implicit ctx : DFBlock.Context) : FSM = sourceFSM_TC(s).addFSM(fsmCondBlock.fsm)
   }
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,13 +158,16 @@ protected[fsm] final case class FSMCond(fsm : FSM, cond : () => DFBool) {
     val fsm = this ==> fsmCond.fsm
     FSMCond(fsm, fsmCond.cond)
   }
+  def ==>(fsmCondBlock : FSMCondBlock)(implicit ctx : DFBlock.Context) : FSMCondBlock = {
+    val fsm = this ==> fsmCondBlock.fsm
+    FSMCondBlock(fsm, fsmCondBlock.condOption, fsmCondBlock.block)
+  }
   def onExit(block : => Unit) : FSMCondBlock = FSMCondBlock(fsm, Some(cond), () => block)
   def goto() : Unit = fsm.untrack.goto()
 }
 
 protected[fsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() => DFBool], block : () => Unit) {
-  def ==>[D](d : D)(implicit destFSM_TC : FSM.TC[D], ctx : DFBlock.Context) : FSM = {
-    val destFSM = destFSM_TC(d)
+  def ==>(destFSM : FSM)(implicit ctx : DFBlock.Context) : FSM = {
     val edge = Edge(condOption, block, destFSM.firstStep)
     fsm.connectTo(destFSM, edge)
   }
@@ -174,6 +178,10 @@ protected[fsm] final case class FSMCondBlock(fsm : FSM, condOption : Option[() =
   def ==>(fsmCond : FSMCond)(implicit ctx : DFBlock.Context) : FSMCond = {
     val fsm = this ==> fsmCond.fsm
     FSMCond(fsm, fsmCond.cond)
+  }
+  def ==>(fsmCondBlock : FSMCondBlock)(implicit ctx : DFBlock.Context) : FSMCondBlock = {
+    val fsm = this ==> fsmCondBlock.fsm
+    FSMCondBlock(fsm, fsmCondBlock.condOption, fsmCondBlock.block)
   }
   def goto() : Unit = fsm.untrack.goto()
 }

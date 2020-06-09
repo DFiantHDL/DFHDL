@@ -64,13 +64,12 @@ import DFiant.sim.DFSimDesign
   notDataEnd := i.resize(32).sint < size.sint
 
   import fsm._
-  final val IDLE : FSM = step {
-    ifdf(ap.start) {
-      READ_BLOCK_REQ.goto()
-    }.elsedf {
-      ap.done := 1
-      ap.idle := 1
-    }
+  final val IDLE = doUntil(ap.start) {
+    ap.done := 1
+    ap.idle := 1
+  }.onExit {
+    ap.done := 0
+    ap.idle := 0
   }
   final val READ_BLOCK_REQ : FSM = step {
     ifdf(!d_ARREADY_ack_reg.prev){
@@ -119,13 +118,13 @@ import DFiant.sim.DFSimDesign
       o_WREADY_ack_reg := 1
     }
   }
-  final val FINISH : FSM = waitUntil(o.B.VALID).onExit {
+  final val FINISH = waitUntil(o.B.VALID).onExit {
     o.B.READY := 1
     ap.done := 1
     ap.ready := 1
   } ==> IDLE
 
-  val myfsm = IDLE ++ READ_BLOCK_REQ ++ WRITE_BLOCK_REQ ++ READ_DATA ++ WRITE_DATA ++ FINISH
+  val myfsm = IDLE ==> READ_BLOCK_REQ ++ WRITE_BLOCK_REQ ++ READ_DATA ++ WRITE_DATA ++ FINISH
 
   myfsm.elaborate
 }
@@ -254,6 +253,8 @@ import DFiant.sim.DFSimDesign
       sim.assert(o.AW.LEN === c_SIZE, msg"Bad write size")
       sim.assert(!write_flag, msg"Unexpected address write")
       write_flag := true
+    }.onExit {
+      sim.report(msg"completed loopback")
     } ==> firstStep
 
   write_addr_checker.elaborate
