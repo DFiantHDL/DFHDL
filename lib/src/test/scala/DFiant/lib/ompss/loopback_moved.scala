@@ -271,7 +271,7 @@ object LoopbackTestApp extends App {
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
   import sim.tools.ghdl
-  loopback_test.printCodeString().compile.toFolder("loopback").simulation
+  loopback_test.printCodeString().compile.toFolder("loopback").simulation.run()
 }
 
 object LoopbackApp extends App {

@@ -21,7 +21,10 @@ final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
       case _ : DFDesign.Block.Top => None
       case o : DFOwner.NameFlattenOwner => Some(o -> Patch.Replace(o.getOwnerDesign, Patch.Replace.Config.ChangeRefAndRemove))
       case m if !m.isAnonymous => m.getOwner match {
-        case _ : DFOwner.NameFlattenOwner => Some(m -> Patch.Replace(m.setName(recursiveNameFlatten(m)), Patch.Replace.Config.FullReplacement))
+        case _ : DFOwner.NameFlattenOwner =>
+          val updatedName = recursiveNameFlatten(m)
+          if (m.name == updatedName) None
+          else Some(m -> Patch.Replace(m.setName(updatedName), Patch.Replace.Config.FullReplacement))
         case _ => None
       }
       case _ => None

@@ -252,22 +252,24 @@ object DFDesign {
 
     //replaces all members and references according to the patch list
     def patch(patchList : List[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
-      val patchTable = patchList.map {
+      val patchTable = patchList.flatMap {
+        //Replacing a member with the same member does nothing
+        case (m, DB.Patch.Replace(m2, _, _)) if (m == m2) => None
         //On change ref and remove replacement we setup the original member for removal here
-        case (m, DB.Patch.Replace(_, DB.Patch.Replace.Config.ChangeRefAndRemove, _)) => (m, DB.Patch.Remove)
+        case (m, DB.Patch.Replace(_, DB.Patch.Replace.Config.ChangeRefAndRemove, _)) => Some((m, DB.Patch.Remove))
         //If we attempt to replace with an existing member, then we convert the patch to remove
         //the old member just for the member list (references are replaced).
-        case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => (m, DB.Patch.Remove)
+        case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => Some((m, DB.Patch.Remove))
         //If we add after a design block, we need to actually place after the last member of the block
         case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
-          (designMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+          Some((designMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
         //If we add inside a design block, we need to actually place after the last member of the block
         case (block : DFDesign.Block, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
           designMemberTable(block).lastOption match {
-            case Some(l) => (l, DB.Patch.Add(db, DB.Patch.Add.Config.After))
-            case None => (block, DB.Patch.Add(db, DB.Patch.Add.Config.After))
+            case Some(l) => Some((l, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
+            case None => Some((block, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
           }
-        case x => x
+        case x => Some(x)
       }.foldLeft(Map.empty[DFMember, DB.Patch]){
         case (tbl, (m, p)) if tbl.contains(m) => (tbl(m), p) match {
           //concatenating additions with the same configuration
@@ -308,7 +310,7 @@ object DFDesign {
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(refTable) {
-        case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) => rt.replaceMember(origMember, repMember, scope)
+        case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) if (origMember != repMember) => rt.replaceMember(origMember, repMember, scope)
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val newOwner = config match {
             case DB.Patch.Add.Config.Inside => origMember
@@ -335,6 +337,7 @@ object DFDesign {
         case (rt, (_, DB.Patch.ChangeRef(origMember, refFunc, updatedRefMember))) =>
           val ref = refFunc(origMember)
           rt + (ref -> updatedRefMember)
+        case (rt, _) => rt
       }
       DB(patchedMembers, patchedRefTable)
     }
