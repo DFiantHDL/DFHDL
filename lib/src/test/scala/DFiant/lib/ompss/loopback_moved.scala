@@ -18,13 +18,6 @@ import sim.DFSimDesign
   /////////////////////////////////////////////////////////////////////////////
   // Further optimization will be done
   /////////////////////////////////////////////////////////////////////////////
-  private val o_AWREADY_ack_reg = DFBit() init 0
-  private val o_AWREADY_ack_sig = DFBit()
-  private val o_WREADY_ack_reg  = DFBit() init 0
-  private val o_WREADY_ack_sig  = DFBit()
-  private val d_ARREADY_ack_reg = DFBit() init 0
-  private val d_ARREADY_ack_sig = DFBit()
-
   private val i = DFBits(31) //i.prev
   private val i_plus1 = DFBits(31) //i+1
   private val i_plus1_reg = DFBits(31) //(i+1).prev
@@ -46,86 +39,62 @@ import sim.DFSimDesign
   d.AR.VALID := 0
   d.R.READY := 0
 
-  d_ARREADY_ack_sig := 1
-  ifdf(!d_ARREADY_ack_reg.prev) {
-    d_ARREADY_ack_sig := d.AR.READY
-  }
-  o_AWREADY_ack_sig := 1
-  ifdf(!o_AWREADY_ack_reg.prev) {
-    o_AWREADY_ack_sig := o.AW.READY
-  }
-  o_WREADY_ack_sig := 1
-  ifdf(!o_WREADY_ack_reg.prev) {
-    o_WREADY_ack_sig := o.W.READY
-  }
   i_plus1 := (i.uint + 1).bits
   notDataEnd := i.resize(32).sint < size.sint
 
   import fsm._
-  final val IDLE : FSM = step {
-    ifdf(ap.start) {
-      READ_BLOCK_REQ.goto()
-    }.elsedf {
-      ap.done := 1
-      ap.idle := 1
-    }
-  }
-  final val READ_BLOCK_REQ : FSM = step {
-    ifdf(!d_ARREADY_ack_reg.prev){
+  final val IDLE : FSM = doUntil(ap.start) {
+    ap.done := 1
+    ap.idle := 1
+  } =^> {
+    ap.done := 0
+    ap.idle := 0
+  } ==> READ_BLOCK_REQ
+
+  final val READ_BLOCK_REQ : FSM = stepR {
+    val d_ARREADY_ack_reg = DFBit() init 0
+    val d_ARREADY_ack_sig = DFBit()
+    d_ARREADY_ack_sig := 1
+    ifdf(!d_ARREADY_ack_reg.prev) {
+      d_ARREADY_ack_sig := d.AR.READY
       d.AR.VALID := 1
     }
-    ifdf(d_ARREADY_ack_sig) {
-      d_ARREADY_ack_reg := 0
-      WRITE_BLOCK_REQ.goto()
-    }.elseifdf(d.AR.READY) {
-      d_ARREADY_ack_reg := 1
-    }
-  }
-  final val WRITE_BLOCK_REQ : FSM = step {
+    (d_ARREADY_ack_sig, d_ARREADY_ack_reg)
+  } =?> {x => x._1} =^> {x => x._2 := 0} =!> WRITE_BLOCK_REQ =?> {_ => d.AR.READY} =^> {x => x._2 := 1} =!> READ_BLOCK_REQ
+
+  final val WRITE_BLOCK_REQ : FSM = stepR {
+    val o_AWREADY_ack_reg = DFBit() init 0
+    val o_AWREADY_ack_sig = DFBit()
+    o_AWREADY_ack_sig := 1
     ifdf(!o_AWREADY_ack_reg.prev) {
+      o_AWREADY_ack_sig := o.AW.READY
       o.AW.VALID := 1
     }
-    ifdf(o_AWREADY_ack_sig) {
-      o_AWREADY_ack_reg := 0
-      i := b0s
-      READ_DATA.goto()
-    }.elseifdf(o.AW.READY) {
-      o_AWREADY_ack_reg := 1
-    }
-  }
-  final val READ_DATA : FSM = step {
-    ifdf(d.R.VALID || !notDataEnd) {
-      ifdf(notDataEnd) {
-        d.R.READY := 1
-        i_plus1_reg := i_plus1
-        d_addr_read_reg := d.R.DATA
-        WRITE_DATA.goto()
-      }.elsedf {
-        FINISH.goto()
-      }
-    }
-  }
-  final val WRITE_DATA : FSM = step {
+    (o_AWREADY_ack_sig, o_AWREADY_ack_reg)
+  } =?> {x => x._1} =^> {x => x._2 := 0; i := b0s} =!> READ_DATA =?> {_ => d.AW.READY} =^> {x => x._2 := 1} =!> WRITE_BLOCK_REQ
+
+  final val READ_DATA : FSM = step {} =?> (!d.R.VALID && notDataEnd) =!> READ_DATA =?> notDataEnd =^> {
+    d.R.READY := 1
+    i_plus1_reg := i_plus1
+    d_addr_read_reg := d.R.DATA
+  } =!> WRITE_DATA =!> FINISH
+
+  final val WRITE_DATA : FSM = stepR {
+    val o_WREADY_ack_reg  = DFBit() init 0
+    val o_WREADY_ack_sig  = DFBit()
+    o_WREADY_ack_sig := 1
     ifdf(!o_WREADY_ack_reg.prev) {
+      o_WREADY_ack_sig := o.W.READY
       o.W.VALID := 1
     }
-    ifdf(o_WREADY_ack_sig) {
-      o_WREADY_ack_reg := 0
-      i := i_plus1_reg
-      READ_DATA.goto()
-    }.elseifdf(o.W.READY) {
-      o_WREADY_ack_reg := 1
-    }
-  }
-  final val FINISH : FSM = waitUntil(o.B.VALID).onExit {
+    (o_WREADY_ack_sig, o_WREADY_ack_reg)
+  } =?> {x => x._1} =^> {x => x._2 := 0; i := i_plus1_reg} =!> READ_DATA =?> {_ => o.W.READY} =^> {x => x._2 := 1} =!> WRITE_DATA
+
+  final val FINISH : FSM = waitUntil(o.B.VALID) =^> {
     o.B.READY := 1
     ap.done := 1
     ap.ready := 1
   } ==> IDLE
-
-  val myfsm = IDLE ++ READ_BLOCK_REQ ++ WRITE_BLOCK_REQ ++ READ_DATA ++ WRITE_DATA ++ FINISH
-
-  myfsm.elaborate
 }
 
 
@@ -153,8 +122,6 @@ import sim.DFSimDesign
       sim.report(msg"Got first ap_ready")
     } ==> waitForever()
 
-  ap_drv_fsm.elaborate
-
   private val d_addr_fsm =
     step {
       d.AR.READY := 0
@@ -162,11 +129,9 @@ import sim.DFSimDesign
       d.AR.READY := 1
     } ==> waitUntil(d.AR.VALID) ==> waitForever()
 
-  d_addr_fsm.elaborate
-
   private val read_flag = DFBool() init false
   private val read_first = DFBool() init true
-  private val read_addr_checker =
+  private val read_addr_checker : FSM =
     doUntil(d.AR.READY && d.AR.VALID) {
       ifdf (ap.done === 1 && !read_flag && !read_first) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
@@ -180,16 +145,14 @@ import sim.DFSimDesign
       sim.assert(d.AR.LEN === c_SIZE, msg"Bad read size")
       sim.assert(!read_flag, msg"Unexpected address read")
       read_flag := true
-    } ==> firstStep
-
-  read_addr_checker.elaborate
+    } ==> read_addr_checker
 
   private def dataFunc(cnt : DFUInt[32])(implicit __blockContext : DFBlock.Context) : DFBits[32] = {
     cnt.bits
   }
   private val read_cnt = DFUInt(32) init 0
   private val read_size = DFUInt(32)
-  private val d_data_fsm =
+  private val d_data_fsm : FSM =
     step {
       d.R.VALID := 0
     } ==> waitUntil(d.AR.READY && d.AR.VALID) ==> step {
@@ -201,9 +164,7 @@ import sim.DFSimDesign
       ifdf(d.R.READY) {
         read_cnt := read_cnt + 1
       }
-    } ==> step{} ==> firstStep
-
-  d_data_fsm.elaborate
+    } ==> step{} ==> d_data_fsm
 
   private val o_addr_fsm =
     step {
@@ -212,11 +173,9 @@ import sim.DFSimDesign
       o.AW.READY := 1
     } ==> waitUntil(o.AW.VALID) ==> waitForever
 
-  o_addr_fsm.elaborate
-
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
-  private val o_data_fsm =
+  private val o_data_fsm : FSM =
     step {
       o.W.READY := 0
       o.B.VALID := 0
@@ -232,13 +191,11 @@ import sim.DFSimDesign
     } ==> doUntil(o.B.READY) {
       o.W.READY := 0
       o.B.VALID := 1
-    } ==> firstStep
-
-  o_data_fsm.elaborate
+    } ==> o_data_fsm
 
   private val write_flag = DFBool() init false
   private val write_first = DFBool() init true
-  private val write_addr_checker =
+  private val write_addr_checker : FSM =
     doUntil(o.AW.READY && o.AW.VALID) {
       ifdf (ap.done === 1 && !write_flag && !write_first) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
@@ -252,9 +209,9 @@ import sim.DFSimDesign
       sim.assert(o.AW.LEN === c_SIZE, msg"Bad write size")
       sim.assert(!write_flag, msg"Unexpected address write")
       write_flag := true
-    } ==> firstStep
-
-  write_addr_checker.elaborate
+    } =^> {
+      sim.report(msg"completed loopback")
+    } ==> write_addr_checker
 }
 
 @df class LoopbackTest extends DFSimDesign  {
