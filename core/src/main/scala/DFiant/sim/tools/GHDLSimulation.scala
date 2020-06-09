@@ -39,7 +39,7 @@ final case class GHDLSimulation[D <: DFSimDesign, R <: Revision](
   def run() : this.type = {
     initSim
 
-    {s"$programFile -r $flags $topEntity --ieee-asserts=disable-at-0" !}
+    {s"$programFile -r $flags $topEntity --ieee-asserts=disable" !}
     this
   }
 
