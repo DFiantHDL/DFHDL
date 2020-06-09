@@ -51,7 +51,7 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
   }
   def vhdlCompile[R <: Revision](implicit revision : R) = {
     val designTypes = mutable.Set.empty[String]
-    val files = designDB.blockMemberList.flatMap {
+    val files = designDB.designMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
       case (design : DFDesign.Block, members) if !designTypes.contains(design.designType) =>
         designTypes += design.designType
