@@ -20,13 +20,6 @@ import DFiant.sim.DFSimDesign
   /////////////////////////////////////////////////////////////////////////////
   // Further optimization will be done
   /////////////////////////////////////////////////////////////////////////////
-  private val o_AWREADY_ack_reg = DFBit() init 0
-  private val o_AWREADY_ack_sig = DFBit()
-  private val o_WREADY_ack_reg  = DFBit() init 0
-  private val o_WREADY_ack_sig  = DFBit()
-  private val d_ARREADY_ack_reg = DFBit() init 0
-  private val d_ARREADY_ack_sig = DFBit()
-
   private val i = DFBits(31) //i.prev
   private val i_plus1 = DFBits(31) //i+1
   private val i_plus1_reg = DFBits(31) //(i+1).prev
@@ -48,18 +41,6 @@ import DFiant.sim.DFSimDesign
   d.AR.VALID := 0
   d.R.READY := 0
 
-  d_ARREADY_ack_sig := 1
-  ifdf(!d_ARREADY_ack_reg.prev) {
-    d_ARREADY_ack_sig := d.AR.READY
-  }
-  o_AWREADY_ack_sig := 1
-  ifdf(!o_AWREADY_ack_reg.prev) {
-    o_AWREADY_ack_sig := o.AW.READY
-  }
-  o_WREADY_ack_sig := 1
-  ifdf(!o_WREADY_ack_reg.prev) {
-    o_WREADY_ack_sig := o.W.READY
-  }
   i_plus1 := (i.uint + 1).bits
   notDataEnd := i.resize(32).sint < size.sint
 
@@ -72,6 +53,12 @@ import DFiant.sim.DFSimDesign
     ap.idle := 0
   }
   final val READ_BLOCK_REQ : FSM = step {
+    val d_ARREADY_ack_reg = DFBit() init 0
+    val d_ARREADY_ack_sig = DFBit()
+    d_ARREADY_ack_sig := 1
+    ifdf(!d_ARREADY_ack_reg.prev) {
+      d_ARREADY_ack_sig := d.AR.READY
+    }
     ifdf(!d_ARREADY_ack_reg.prev){
       d.AR.VALID := 1
     }
@@ -83,6 +70,12 @@ import DFiant.sim.DFSimDesign
     }
   }
   final val WRITE_BLOCK_REQ : FSM = step {
+    val o_AWREADY_ack_reg = DFBit() init 0
+    val o_AWREADY_ack_sig = DFBit()
+    o_AWREADY_ack_sig := 1
+    ifdf(!o_AWREADY_ack_reg.prev) {
+      o_AWREADY_ack_sig := o.AW.READY
+    }
     ifdf(!o_AWREADY_ack_reg.prev) {
       o.AW.VALID := 1
     }
@@ -107,6 +100,12 @@ import DFiant.sim.DFSimDesign
     }
   }
   final val WRITE_DATA : FSM = step {
+    val o_WREADY_ack_reg  = DFBit() init 0
+    val o_WREADY_ack_sig  = DFBit()
+    o_WREADY_ack_sig := 1
+    ifdf(!o_WREADY_ack_reg.prev) {
+      o_WREADY_ack_sig := o.W.READY
+    }
     ifdf(!o_WREADY_ack_reg.prev) {
       o.W.VALID := 1
     }
