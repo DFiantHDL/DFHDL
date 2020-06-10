@@ -65,7 +65,7 @@ final case class FSM(
       case (s, edgeList) => s"${stepEntries(s).name} -> ${edgeList.map(e => stepEntries(e.dest).name)}"
     }.mkString("\n"))
   }
-  private[DFiant] lazy val elaborate : FSM = {
+  lazy val elaborate : FSM = {
     edges.foreach(e => e._1.attachFSM(this))
     ctx.ownerInjector.injectOwnerAndRun(owner) {
       val matchHeader = matchdf(state)
