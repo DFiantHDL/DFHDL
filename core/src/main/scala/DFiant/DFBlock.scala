@@ -35,8 +35,9 @@ object DFBlock {
     ) {final val msg = getMsg}
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
       new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db, ctx.args)
-    implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
-      new Context(meta, null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty)
+//TODO: maybe bring back top-level DFBlock.Context
+//    implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
+//      new Context(meta, null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty)
   }
 
   type Ref = DFMember.Ref.Of[Ref.Type, DFBlock]

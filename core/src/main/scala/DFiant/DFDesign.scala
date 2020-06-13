@@ -546,7 +546,7 @@ object DFDesign {
         cb.applyBlock(block)
         cb
       }
-      def addContainerOwner[O <: DFOwner](container : DFOwner.Container)(owner : O)(implicit ctx : DFBlock.Context) : O = {
+      def addContainerOwner[O <: DFOwner](container : DFOwner.Container)(owner : O) : O = {
         addMember(owner)
         enterContainer(container)
         owner

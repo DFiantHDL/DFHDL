@@ -257,7 +257,7 @@ import sim.DFSimDesign
   write_addr_checker.elaborate
 }
 
-trait LoopbackTest extends DFSimDesign  {
+@df class LoopbackTest extends DFSimDesign  {
   final val lb = new loopback_moved {}
   final val lb_drv = new LoopbackDriver {}
   lb.io <> lb_drv.io

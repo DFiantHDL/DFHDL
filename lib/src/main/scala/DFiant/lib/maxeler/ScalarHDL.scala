@@ -6,7 +6,7 @@ import scala.language.postfixOps
 object ModeType extends EnumType.Auto {
   val COUNTING_UP, COUNTING_DOWN, HOLD = Entry()
 }
-trait ScalarHDL extends DFDesign {
+@df class ScalarHDL extends DFDesign {
   import ModeType._
   final val max = DFBits(32) <> IN
   final val count = DFBits(32) <> OUT init b0s

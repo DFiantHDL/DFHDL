@@ -79,7 +79,7 @@ import internals._
   o <> io.o
 }
 
-object IDTopTest extends DFSimDesign {
+@df class IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
   val o = DFUInt(8) <> OUT
 //  val ididid = new IDTop
@@ -96,9 +96,9 @@ object IDTopTest extends DFSimDesign {
 }
 
 object IDTopApp extends App {
-//  val top = new IDTopTest {}
+  val top = new IDTopTest
   import compiler.backend.vhdl.v93
-  val designDB = IDTopTest.compile.printCodeString().printGenFiles()
+  val designDB = top.compile.printCodeString().printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 
