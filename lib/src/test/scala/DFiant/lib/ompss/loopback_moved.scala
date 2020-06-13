@@ -1,13 +1,11 @@
-package DFiant.lib.ompss
-
-import DFiant.compiler.sync._
-import DFiant.compiler.backend.vhdl.v93
 import DFiant._
-import DFiant.internals.BitVectorExtras
-import DFiant.sim.DFSimDesign
+import compiler.sync._
+import compiler.backend.vhdl.v93
+import lib.ompss._
+import internals.BitVectorExtras
+import sim.DFSimDesign
 
-@df class loopback_ifc extends DFInterface.Unnamed {
-  final val ap        = new AP_Interface
+@df class loopback_ifc extends OmpssIfc {
   final val d         = OmpssAXI    <> IN
   final val o         = OmpssAXI    <> OUT
   final val size      = DFBits(32)  <> IN
