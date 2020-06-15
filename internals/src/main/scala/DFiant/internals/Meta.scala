@@ -57,15 +57,9 @@ object Meta {
   /////////////////////////////////////////////////////////
   //Name
   /////////////////////////////////////////////////////////
-  case class Name(value : String, anonymous : Boolean, idx : Int, usages : Int) {
-    def suffix : String = if (usages > 1) {
-      val max_digits = usages.toString.length
-      val digits = idx.toString.length
-      val addedZeros = "0" * (max_digits-digits)
-      s"_$addedZeros$idx"
-    } else ""
+  case class Name(value : String, anonymous : Boolean) {
     def prefix : String = if (anonymous) Name.AnonStart else ""
-    override def toString: String = s"$prefix$value$suffix"
+    override def toString: String = s"$prefix$value"
   }
   object Name {
     final val AnonStart : String = "dFt_"
@@ -118,7 +112,7 @@ object Meta {
     val nameLine = owner.pos.line
     val nameColumn = owner.pos.column
     val anonymous = c.internal.enclosingOwner.name.toString.contains("<local")//!(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
-    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous, 0, 0), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
+    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
   }
 
   import singleton.ops._
