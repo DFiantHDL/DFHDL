@@ -120,7 +120,6 @@ lazy val `first-look` = (project in file("examples/first-look"))
     name := "first-look",
     skip in publish := true,
     settings,
-    macroSettings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
   )
@@ -179,6 +178,7 @@ lazy val dependencies =
     private val continuumV      = "0.4-SNAPSHOT"
     private val macroParadiseV  = "2.1.1"
     private val macroCompatV    = "1.1.1"
+    private val ammoniteV       = "2.1.4"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
@@ -195,6 +195,7 @@ lazy val dependencies =
     val oslib          = "com.lihaoyi"                %% "os-lib"                  % oslibV
     val continuum      = "danburkert"                 %% "continuum"               % continuumV
     val macroCompat    = "org.typelevel"              %% "macro-compat"            % macroCompatV
+    val ammonite       = "com.lihaoyi"                %  "ammonite"                % ammoniteV % "test" cross CrossVersion.full
     val macroParadise  = compilerPlugin("org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch)
   }
 
@@ -206,6 +207,7 @@ lazy val commonDependencies = Seq(
   dependencies.shapeless,
   dependencies.scodec,
   dependencies.akka,
+  dependencies.ammonite,
   dependencies.scalacheck % "test",
   dependencies.scalatest % "test"
 )
@@ -263,6 +265,10 @@ lazy val commonSettings = Seq(
     }
   },
   scalacOptions ++= compilerOptions,
+  scalacOptions ++= Seq(
+    "-language:experimental.macros",
+    "-Ymacro-annotations"
+  ),
   scalacOptions ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 =>
@@ -278,7 +284,13 @@ lazy val commonSettings = Seq(
     "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository",
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
-  )
+  ),
+  libraryDependencies += dependencies.ammonite,
+  sourceGenerators in Test += Def.task {
+    val file = (sourceManaged in Test).value / "amm.scala"
+    IO.write(file, """object amm extends App { ammonite.Main.main(args) }""")
+    Seq(file)
+  }.taskValue
 )
 
 //lazy val wartremoverSettings = Seq(
