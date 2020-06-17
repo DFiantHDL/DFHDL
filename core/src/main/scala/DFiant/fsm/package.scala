@@ -4,6 +4,7 @@ import internals._
 import DFDesign.Implicits._
 
 package object fsm {
+  type FSM = FSM.Member with FSM.Complete
   private[fsm] implicit def funcConv[T](t : => T) : () => T = () => t
   def step(block : => Unit)(
     implicit ctx : DFBlock.Context
@@ -11,8 +12,6 @@ package object fsm {
   def stepR[R](block : => R)(
     implicit ctx : DFBlock.Context
   ) : FSM.BasicStep[R] = new FSM.BasicStep[R](block).track
-
-  protected[fsm] type TFSM = () => FSM
 
   def doWhile[C](cond : => C)(block : => Unit)(
     implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
@@ -29,7 +28,7 @@ package object fsm {
   def waitUntil[C](cond : => C)(
     implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
   ) = doUntil(cond){}(arg, ctx)
-  def waitForever()(implicit ctx : DFBlock.Context) : FSM = step({})
+  def waitForever()(implicit ctx : DFBlock.Context) = step({})
 
   //  def doFor(range : Range, guard : Option[DFBool] = None)(block : DFUInt[Int] => Unit)(
 //    implicit ctx : DFAny.Context

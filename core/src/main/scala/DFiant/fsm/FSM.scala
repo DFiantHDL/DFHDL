@@ -1,34 +1,41 @@
 package DFiant
 package fsm
 
+
 import scala.annotation.tailrec
 import scala.collection.{immutable, mutable}
 import DFiant.internals._
+import singleton.ops.SafeBoolean
 
-sealed trait FSM
-sealed trait FSME extends FSM
 object FSM {
-  sealed trait Trackable extends FSM {
-    protected[fsm] def getEdges : List[FSM]
+  sealed trait Member
+  sealed trait Complete
+  object Complete {
+    implicit def ev1[NS, R](of : Of[Type.EmptyConn[NS], R]) : FSM = of.asInstanceOf[FSM]
+    implicit def ev2[NS, R](of : Of[Type.BranchDone[NS], R]) : FSM = of.asInstanceOf[FSM]
+    implicit def ev3[NS, R](of : Of[Type.Branch[NS], R]) : FSM = of.asInstanceOf[FSM]
+  }
+  sealed trait Trackable extends Member {
+    protected[fsm] def getEdges : List[Member]
     protected[fsm] def track : this.type
     protected[fsm] def untrack : this.type
   }
   sealed trait Type
   object Type {
-    sealed trait EmptyConn extends Type     //Step or FSM without any outgoing transitions
-    sealed trait OnExit extends Type        //Exit block transition
-    sealed trait Cond extends Type          //Conditional transition
-    sealed trait CondOnExit extends Type    //Conditional + Exit block transition
-    sealed trait Branch extends Type        //Branch step / fsm
-    sealed trait BranchCond extends Type    //Branch conditional transition
-    sealed trait BranchOnExit extends Type  //Branch exit block transition
-    sealed trait BranchCondOnExit extends Type  //Branch conditional + exit block transition
-    sealed trait BranchDone extends Type    //Branching done (no more outgoing transitions)
+    sealed trait EmptyConn[NS] extends Type     //Step or FSM without any outgoing transitions
+    sealed trait OnExit[NS] extends Type        //Exit block transition
+    sealed trait Cond[NS] extends Type          //Conditional transition
+    sealed trait CondOnExit[NS] extends Type    //Conditional + Exit block transition
+    sealed trait Branch[NS] extends Type        //Branch step / fsm
+    sealed trait BranchCond[NS] extends Type    //Branch conditional transition
+    sealed trait BranchOnExit[NS] extends Type  //Branch exit block transition
+    sealed trait BranchCondOnExit[NS] extends Type  //Branch conditional + exit block transition
+    sealed trait BranchDone[NS] extends Type    //Branching done (no more outgoing transitions)
   }
 
   sealed trait Of[T <: Type, R] extends Trackable {
     protected[fsm] def getR : R
-    protected[fsm] final def addEdge[O <: Type](fsm : FSM)(implicit ctx : DFAny.Context) : Edges[O, R] = {
+    protected[fsm] final def addEdge[O <: Type](fsm : Member)(implicit ctx : DFAny.Context) : Edges[O, R] = {
       untrack
       Edges[O, R](getEdges :+ fsm)(getR).track
     }
@@ -40,97 +47,116 @@ object FSM {
     sealed trait `=^>` extends Conn
     sealed trait `=!>` extends Conn
 
-    sealed class ConnOp[S <: Type, C <: Conn, O <: Type]
+    sealed class ConnOp[S <: Type, C <: Conn, O[_] <: Type]
 
-    implicit class `==>Ext`[S <: Type, O <: Type, R](src : Of[S, R])(
-      implicit connOp : ConnOp[S, `==>`, O]
+    implicit class `==>Ext`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
+      implicit connOp : ConnOp[S[NS], `==>`, O], NS : SafeBoolean[NS]
     ) {
-      def ==>[D <: Type, DR](dst : Of[D, DR])(implicit ctx : DFAny.Context) : Edges[O, DR] = {
+      private def getSrcEdges(realNextStep : => Member) : List[Member] = if (NS) {
+        src.getEdges.map {
+          case NextStep => FSM.=!>(realNextStep)
+          case x => x
+        }
+      } else src.getEdges
+      def ==>[D <: Type, DR](dst : Of[D, DR])(implicit ctx : DFAny.Context) : Edges[O[false], DR] = {
         dst.untrack.getEdges.foreach {
           case t : Trackable => t.untrack
           case _ =>
         }
         src.untrack
-        Edges[O, DR](src.getEdges ++ (FSM.`==>`(dst.getEdges.head) :: dst.getEdges.drop(1)))(dst.getR).track
+        val dstEdges = dst.getEdges
+        val dstHead = dstEdges.head
+        val nextHead = if (NS) dstHead else FSM.`==>`(dstHead)
+        val srcEdges = getSrcEdges(dstHead)
+        Edges[O[false], DR](srcEdges ++ (nextHead :: dstEdges.drop(1)))(dst.getR).track
       }
-
-      def ==>(dst : => FSM)(implicit ctx : DFAny.Context) : FSM = src.addEdge[O](FSM.`==>`(dst))
+      def ==>(dst : => Member)(implicit ctx : DFAny.Context) : FSM = if (NS) {
+        src.untrack
+        Edges[O[false], R](getSrcEdges(dst))(src.getR).track.asInstanceOf[FSM]
+      } else src.addEdge[O[false]](FSM.`==>`(dst)).asInstanceOf[FSM]
     }
-    implicit class `=?>Ext`[S <: Type, O <: Type](src : Of[S, Unit])(
-      implicit connOp : ConnOp[S, `=?>`, O]
+    implicit class `=?>Ext`[S[_] <: Type, NS, O[_] <: Type](src : Of[S[NS], Unit])(
+      implicit connOp : ConnOp[S[NS], `=?>`, O]
     ) {
-      def =?>[C](cond : => C)(implicit arg : => DFBool.Arg[0], ctx : DFAny.Context) : Edges[O, Unit] = src.addEdge[O](FSM.`=?>`(arg()))
+      def =?>[C](cond : => C)(implicit arg : => DFBool.Arg[0], ctx : DFAny.Context) : Edges[O[NS], Unit] = src.addEdge[O[NS]](FSM.`=?>`(arg()))
     }
-    implicit class `=?>ExtR`[S <: Type, O <: Type, R](src : Of[S, R])(
-      implicit connOp : ConnOp[S, `=?>`, O]
+    implicit class `=?>ExtR`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
+      implicit connOp : ConnOp[S[NS], `=?>`, O]
     ) {
-      def =?>[C](cond : R => DFBool)(implicit ctx : DFAny.Context) : Edges[O, R] = src.addEdge[O](FSM.`=?>`(cond(src.getR)))
+      def =?>[C](cond : R => DFBool)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSM.`=?>`(cond(src.getR)))
     }
-    implicit class `=^>Ext`[S <: Type, O <: Type](src : Of[S, Unit])(
-      implicit connOp : ConnOp[S, `=^>`, O]
+    implicit class `=^>Ext`[S[_] <: Type, NS, O[_] <: Type](src : Of[S[NS], Unit])(
+      implicit connOp : ConnOp[S[NS], `=^>`, O]
     ) {
-      def =^>(block : => Unit)(implicit ctx : DFAny.Context) : Edges[O, Unit] = src.addEdge[O](FSM.`=^>`(block))
+      def =^>(block : => Unit)(implicit ctx : DFAny.Context) : Edges[O[NS], Unit] = src.addEdge[O[NS]](FSM.`=^>`(block))
     }
-    implicit class `=^>ExtR`[S <: Type, O <: Type, R](src : Of[S, R])(
-      implicit connOp : ConnOp[S, `=^>`, O]
+    implicit class `=^>ExtR`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
+      implicit connOp : ConnOp[S[NS], `=^>`, O]
     ) {
-      def =^>(block : R => Unit)(implicit ctx : DFAny.Context) : Edges[O, R] = src.addEdge[O](FSM.`=^>`(block(src.getR)))
+      def =^>(block : R => Unit)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSM.`=^>`(block(src.getR)))
     }
-    implicit class `=!>Ext`[S <: Type, O <: Type, R](src : Of[S, R])(
-      implicit connOp : ConnOp[S, `=!>`, O]
+    implicit class `=!>Ext`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
+      implicit connOp : ConnOp[S[NS], `=!>`, O]
     ) {
-      def =!>(dst : => FSM)(implicit ctx : DFAny.Context) : Edges[O, R] = src.addEdge[O](FSM.`=!>`(dst))
+      def =!>(dst : => Member)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSM.`=!>`(dst))
+      def =!>(dst : nextStep.type)(implicit ctx : DFBlock.Context) : Edges[O[true], R] = src.addEdge[O[true]](NextStep)
+      def =!>(dst : thisStep.type)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = {
+        val realThisStep = src.getEdges.head
+        src.addEdge[O[NS]](FSM.`=!>`(realThisStep))
+      }
     }
 
     import Type._
-    implicit val `EmptyConn==>`       = new ConnOp[EmptyConn,       `==>`, EmptyConn]
-    implicit val `EmptyConn=?>`       = new ConnOp[EmptyConn,       `=?>`, Cond]
-    implicit val `EmptyConn=^>`       = new ConnOp[EmptyConn,       `=^>`, OnExit]
-    implicit val `Cond==>`            = new ConnOp[Cond,            `==>`, EmptyConn]
-    implicit val `Cond=^>`            = new ConnOp[Cond,            `=^>`, CondOnExit]
-    implicit val `Cond=!>`            = new ConnOp[Cond,            `=!>`, Branch]
-    implicit val `OnExit==>`          = new ConnOp[OnExit,          `==>`, EmptyConn]
-    implicit val `CondOnExit==>`      = new ConnOp[CondOnExit,      `==>`, EmptyConn]
-    implicit val `CondOnExit=!>`      = new ConnOp[CondOnExit,      `=!>`, Branch]
-    implicit val `Branch=?>`          = new ConnOp[Branch,          `=?>`, BranchCond]
-    implicit val `Branch=^>`          = new ConnOp[Branch,          `=^>`, BranchOnExit]
-    implicit val `Branch=!>`          = new ConnOp[Branch,          `=!>`, BranchDone]
-    implicit val `BranchOnExit=!>`    = new ConnOp[BranchOnExit,    `=!>`, BranchDone]
-    implicit val `BranchCond=!>`      = new ConnOp[BranchCond,      `=!>`, Branch]
-    implicit val `BranchCond=^>`      = new ConnOp[BranchCond,      `=^>`, BranchCondOnExit]
-    implicit val `BranchCondOnExit=!>`= new ConnOp[BranchCondOnExit,`=!>`, Branch]
+    implicit def `EmptyConn==>`[NS]         = new ConnOp[EmptyConn[NS],       `==>`, EmptyConn]
+    implicit def `EmptyConn=?>`[NS]         = new ConnOp[EmptyConn[NS],       `=?>`, Cond]
+    implicit def `EmptyConn=^>`[NS]         = new ConnOp[EmptyConn[NS],       `=^>`, OnExit]
+    implicit def `Cond==>`[NS]              = new ConnOp[Cond[NS],            `==>`, EmptyConn]
+    implicit def `Cond=^>`[NS]              = new ConnOp[Cond[NS],            `=^>`, CondOnExit]
+    implicit def `Cond=!>`[NS]              = new ConnOp[Cond[NS],            `=!>`, Branch]
+    implicit def `OnExit==>`[NS]            = new ConnOp[OnExit[NS],          `==>`, EmptyConn]
+    implicit def `CondOnExit==>`[NS]        = new ConnOp[CondOnExit[NS],      `==>`, EmptyConn]
+    implicit def `CondOnExit=!>`[NS]        = new ConnOp[CondOnExit[NS],      `=!>`, Branch]
+    implicit def `Branch=?>`[NS]            = new ConnOp[Branch[NS],          `=?>`, BranchCond]
+    implicit def `Branch=^>`[NS]            = new ConnOp[Branch[NS],          `=^>`, BranchOnExit]
+    implicit def `Branch=!>`[NS]            = new ConnOp[Branch[NS],          `=!>`, BranchDone]
+    implicit def `BranchOnExit=!>`[NS]      = new ConnOp[BranchOnExit[NS],    `=!>`, BranchDone]
+    implicit def `BranchCond=!>`[NS]        = new ConnOp[BranchCond[NS],      `=!>`, Branch]
+    implicit def `BranchCond=^>`[NS]        = new ConnOp[BranchCond[NS],      `=^>`, BranchCondOnExit]
+    implicit def `BranchCondOnExit=!>`[NS]  = new ConnOp[BranchCondOnExit[NS],`=!>`, Branch]
+    implicit def `BranchDoneNS==>`          = new ConnOp[BranchDone[true],    `==>`, EmptyConn]
+    implicit def `BranchNS==>`              = new ConnOp[Branch[true],        `==>`, EmptyConn]
   }
 
-  sealed trait Step extends FSM {
+  sealed trait Step extends Member {
     val ctx : DFBlock.Context
   }
-  final class BasicStep[R](alwaysBlock : () => R)(implicit val ctx : DFBlock.Context) extends Of[Type.EmptyConn, R] with Step {
+  final class BasicStep[R](alwaysBlock : () => R)(implicit val ctx : DFBlock.Context) extends Of[Type.EmptyConn[false], R] with Step {
     private lazy val retVal : R = alwaysBlock()
     def getR : R = retVal
-    def getEdges : List[FSM] = List(this)
+    def getEdges : List[Member] = List(this)
     protected[fsm] def track : this.type = ctx.db.trackFSM(this)
     protected[fsm] def untrack : this.type = ctx.db.untrackFSM(this)
     override def toString : String = ctx.meta.name
   }
-  final case class Edges[T <: Type, R](list : List[FSM])(retVal : => R)(implicit ctx : DFAny.Context) extends Of[T, R] {
+  final case class Edges[T <: Type, R](list : List[Member])(retVal : => R)(implicit ctx : DFAny.Context) extends Of[T, R] {
     def getR : R = retVal
-    def getEdges : List[FSM] = list
+    def getEdges : List[Member] = list
     protected[fsm] def track : this.type = ctx.db.trackFSM(this)
     protected[fsm] def untrack : this.type = ctx.db.untrackFSM(this)
   }
-  final case class `==>`(dst : () => FSM) extends FSM {
+  final case class `==>`(dst : () => Member) extends Member {
     override def toString : String = "==>"
   }
-  final case class `=?>`(dst : () => DFBool) extends FSM {
+  final case class `=?>`(dst : () => DFBool) extends Member {
     override def toString : String = "=?> <cond>"
   }
-  final case class `=^>`(dst : () => Unit) extends FSM {
+  final case class `=^>`(dst : () => Unit) extends Member {
     override def toString : String = "=^> <exit-block>"
   }
-  final case class `=!>`(dst : () => FSM) extends FSM {
+  final case class `=!>`(dst : () => Member) extends Member {
     override def toString : String = "=!>"
   }
-
+  case object NextStep extends Member
 
   final case class Transition(cond : Option[() => DFBool], block : Option[() => Unit]) {
     def show(connStr : String) : String = (cond, block) match {
@@ -138,7 +164,7 @@ object FSM {
       case (Some(c), None) => s" =?> ... $connStr "
       case (None, Some(b)) => s" =^> ... $connStr "
       case (None, None) => s" $connStr "
-    }  
+    }
   }
   implicit class GroupByOrderedImplicitImpl[T](val seq: Iterable[T]) extends AnyVal {
     def groupByOrdered[P](f: T => P): Seq[(P, Iterable[T])] = {
@@ -302,9 +328,9 @@ object FSM {
     }
   }
   object Elaboration {
-    def empty : Elaboration = new Elaboration(immutable.ListMap())
+    private def empty : Elaboration = new Elaboration(immutable.ListMap())
     @tailrec private def discover(
-      edgeQueue : List[FSM], elaboration : Elaboration
+      edgeQueue : List[Member], elaboration : Elaboration
     ) : Elaboration = edgeQueue match {
       case LastStep(src) :: `==>`(FirstStep(dst)) :: edgeList =>
         discover(dst :: edgeList, elaboration.addTransition(src, Transition(None, None), dst))
@@ -328,7 +354,7 @@ object FSM {
       case Nil => elaboration
       case _ => throw new IllegalArgumentException(s"Unexpected FSM sequence:\n${edgeQueue.mkString(" ")} <end>")
     }
-    def discover(trackable : List[Trackable]) : Elaboration = {
+    private def discover(trackable : List[Trackable]) : Elaboration = {
       val elaborations = trackable.map(t => discover(t.getEdges, empty))
       elaborations.reduce(_ ++ _)
     }
@@ -337,3 +363,6 @@ object FSM {
     }
   }
 }
+
+object nextStep
+object thisStep

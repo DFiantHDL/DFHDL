@@ -43,58 +43,17 @@ import sim.DFSimDesign
   notDataEnd := i.resize(32).sint < size.sint
 
   import fsm._
-  final val IDLE : FSM = doUntil(ap.start) {
-    ap.done := 1
-    ap.idle := 1
-  } =^> {
-    ap.done := 0
-    ap.idle := 0
-  } ==> READ_BLOCK_REQ
 
-  final val READ_BLOCK_REQ : FSM = stepR {
-    val d_ARREADY_ack_reg = DFBit() init 0
-    val d_ARREADY_ack_sig = DFBit()
-    d_ARREADY_ack_sig := 1
-    ifdf(!d_ARREADY_ack_reg.prev) {
-      d_ARREADY_ack_sig := d.AR.READY
-      d.AR.VALID := 1
-    }
-    (d_ARREADY_ack_sig, d_ARREADY_ack_reg)
-  } =?> {x => x._1} =^> {x => x._2 := 0} =!> WRITE_BLOCK_REQ =?> {_ => d.AR.READY} =^> {x => x._2 := 1} =!> READ_BLOCK_REQ
-
-  final val WRITE_BLOCK_REQ : FSM = stepR {
-    val o_AWREADY_ack_reg = DFBit() init 0
-    val o_AWREADY_ack_sig = DFBit()
-    o_AWREADY_ack_sig := 1
-    ifdf(!o_AWREADY_ack_reg.prev) {
-      o_AWREADY_ack_sig := o.AW.READY
-      o.AW.VALID := 1
-    }
-    (o_AWREADY_ack_sig, o_AWREADY_ack_reg)
-  } =?> {x => x._1} =^> {x => x._2 := 0; i := b0s} =!> READ_DATA =?> {_ => d.AW.READY} =^> {x => x._2 := 1} =!> WRITE_BLOCK_REQ
-
-  final val READ_DATA : FSM = step {} =?> (!d.R.VALID && notDataEnd) =!> READ_DATA =?> notDataEnd =^> {
+  final val loopbackFSM : FSM = ap.startFSM ==> READ_BLOCK_REQ
+  final val READ_BLOCK_REQ : FSM = d.AR.fireFSM{} ==> WRITE_BLOCK_REQ
+  final val WRITE_BLOCK_REQ : FSM = o.AW.fireFSM{i := b0s} ==> READ_DATA
+  final val READ_DATA : FSM = step {} =?> (!d.R.VALID && notDataEnd) =!> thisStep =?> notDataEnd =^> {
     d.R.READY := 1
     i_plus1_reg := i_plus1
     d_addr_read_reg := d.R.DATA
   } =!> WRITE_DATA =!> FINISH
-
-  final val WRITE_DATA : FSM = stepR {
-    val o_WREADY_ack_reg  = DFBit() init 0
-    val o_WREADY_ack_sig  = DFBit()
-    o_WREADY_ack_sig := 1
-    ifdf(!o_WREADY_ack_reg.prev) {
-      o_WREADY_ack_sig := o.W.READY
-      o.W.VALID := 1
-    }
-    (o_WREADY_ack_sig, o_WREADY_ack_reg)
-  } =?> {x => x._1} =^> {x => x._2 := 0; i := i_plus1_reg} =!> READ_DATA =?> {_ => o.W.READY} =^> {x => x._2 := 1} =!> WRITE_DATA
-
-  final val FINISH : FSM = waitUntil(o.B.VALID) =^> {
-    o.B.READY := 1
-    ap.done := 1
-    ap.ready := 1
-  } ==> IDLE
+  final val WRITE_DATA : FSM = o.W.fireFSM{i := i_plus1_reg} ==> READ_DATA
+  final val FINISH : FSM = ap.finishFSM(o.B.VALID){o.B.READY := 1} ==> loopbackFSM
 }
 
 

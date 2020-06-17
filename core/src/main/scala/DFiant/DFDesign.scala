@@ -74,7 +74,11 @@ object DFDesign {
 
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getSet
-    private def onBlock(b : Block => Unit) : T = {b(design.owner); design}
+    private def onBlock(blockMod : Block => Block) : T = {
+      val updatedBlock = blockMod(design.owner)
+      design.ownerInjector.inject(updatedBlock)
+      design
+    }
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
     def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
@@ -543,21 +547,25 @@ object DFDesign {
       //soon as possible after a container is created.
       ///////////////////////////////////////////////////////////////
       private var containerStack = List.empty[DFOwner.Container]
+      private var duringExitContainer : Boolean = false
       private def enterContainer(container : DFOwner.Container) : Unit = {
         containerStack = container :: containerStack
         pushFSMHistory()
       }
       private def exitContainer() : Unit = {
+        duringExitContainer = true
         popFSMHistory()
         containerStack.head.onCreate()
         containerStack = containerStack.drop(1)
+        duringExitContainer = false
       }
       private def checkContainers(currentMember : DFMember) : Unit =
         while (
+          !duringExitContainer &&
           containerStack.nonEmpty &&
           !currentMember.isInsideOwner(containerStack.head.owner)
         ) exitContainer()
-      private def exitAllContainers() : Unit = while (containerStack.nonEmpty) exitContainer()
+      private def exitAllContainers() : Unit = while (!duringExitContainer && containerStack.nonEmpty) exitContainer()
       ///////////////////////////////////////////////////////////////
 
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
