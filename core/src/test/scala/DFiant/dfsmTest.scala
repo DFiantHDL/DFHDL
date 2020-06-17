@@ -5,10 +5,6 @@ package DFiant
 
   import fsm._
 
-  val st0 = step{}
-  val d_data_fsm = st0 ==> firstStep
-
-  d_data_fsm.elaborate
 }
 
 object dfsmTest extends App {

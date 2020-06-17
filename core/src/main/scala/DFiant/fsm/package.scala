@@ -1,29 +1,38 @@
 package DFiant
+
 import internals._
 import DFDesign.Implicits._
 
 package object fsm {
+  private[fsm] implicit def funcConv[T](t : => T) : () => T = () => t
   def step(block : => Unit)(
     implicit ctx : DFBlock.Context
-  ) : FSM = FSM(new Step.Basic(() => block))
+  ) : FSM.BasicStep[Unit] = new FSM.BasicStep[Unit](block).track
+  def stepR[R](block : => R)(
+    implicit ctx : DFBlock.Context
+  ) : FSM.BasicStep[R] = new FSM.BasicStep[R](block).track
+
+  protected[fsm] type TFSM = () => FSM
+
   def doWhile[C](cond : => C)(block : => Unit)(
-    implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
-  ) : FSMCond = {
+    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  ) = {
     import ctx.db.getSet
-    FSMCond(step(block), () => (!arg()).anonymize)
+    step(block) =?> (!arg()).anonymize
   }
   def waitWhile[C](cond : => C)(
-    implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
-  ) : FSMCond = doWhile(cond){}
+    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  ) = doWhile(cond){}(arg, ctx)
   def doUntil[C](cond : => C)(block : => Unit)(
-    implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
-  ) : FSMCond = FSMCond(step(block), () => arg())
+    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  ) = step(block) =?> arg()
   def waitUntil[C](cond : => C)(
-    implicit arg : DFBool.Arg[0], ctx : DFBlock.Context
-  ) : FSMCond = FSMCond(step({}), () => arg())
+    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  ) = doUntil(cond){}(arg, ctx)
   def waitForever()(implicit ctx : DFBlock.Context) : FSM = step({})
-//  def doFor(range : Range, guard : Option[DFBool] = None)(block : DFUInt[Int] => Unit)(
-//    implicit ctx : DFBlock.Context
+
+  //  def doFor(range : Range, guard : Option[DFBool] = None)(block : DFUInt[Int] => Unit)(
+//    implicit ctx : DFAny.Context
 //  ) : FSMCond = {
 //    import ctx.db.getSet
 //    val width = (range.start max range.end).bitsWidth

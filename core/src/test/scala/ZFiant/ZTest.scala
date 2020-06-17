@@ -84,7 +84,7 @@ object ZTest extends App {
 
   }
 
-  trait BBB extends DFDesign {
+  @df class BBB extends DFDesign {
     val i = DFBits(8) <> IN init b0s
     val o = DFBits(8) <> OUT setName("haha")
 
@@ -128,7 +128,7 @@ object ZTest extends App {
     trying.i <> i
     trying.o <> o
   }
-  trait Trying extends DFDesign {
+  @df class Trying extends DFDesign {
     val i = DFBits(8) <> IN
     val o = DFBits(8) <> OUT
 
@@ -175,7 +175,7 @@ object ZTest extends App {
 
   import compiler._
 
-  trait SingleStepPrevTest extends DFDesign {
+  @df class SingleStepPrevTest extends DFDesign {
     val i = DFUInt(8) <> IN
     val o = DFUInt(8) <> OUT
     val c = i.prev.prev

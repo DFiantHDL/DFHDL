@@ -16,25 +16,18 @@
  */
 package fpga2020
 import DFiant._
-
 import fsm._
 @df class SeqDet extends DFDesign {
   final val seqIn  = DFBool() <> IN
   final val detOut = DFBool() <> OUT
-  private val S0    = step {detOut := 0}
-  private val S1    = step {detOut := 0}
-  private val S10   = step {detOut := 0}
-//  private val S100  = step {detOut := 0}
-//  private val S1001 = step {detOut := 1}
+  private val S0    : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S0
+  private val S1    : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S10
+  private val S10   : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S100
+  private val S100  : FSM = step {detOut := 0} =?> seqIn =!> S1001  =!> S0
+  private val S1001 : FSM = step {detOut := 1} =?> seqIn =!> S1     =!> S10
 
-  private val det_fsm =
-    S0    =?> seqIn ==> S1    ++
-    S1    =?> seqIn ==> S1    ++ S1     ==> S10   ++
-    S10   =?> seqIn ==> S1    ++ S10    ==> S0//S100  ++
-//    S100  =?> seqIn ==> S1001 ++ S100   ==> S0    ++
-//    S1001 =?> seqIn ==> S1    ++ S1001  ==> S10
-
-  det_fsm.elaborate
+  private val SB0    : FSM = step {detOut := 0} =?> seqIn =!> SB1     =!> SB0
+  private val SB1    : FSM = step {detOut := 0} =?> seqIn =!> SB0     =!> SB1
 }
 
 //trait SeqDetTest extends DFSimulator {

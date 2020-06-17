@@ -19,7 +19,7 @@ package DFiant
 
 import shapeless.test.illTyped
 
-object `Op+Tests` extends DFDesign {
+@df class `Op+Tests` extends DFDesign {
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)
   uint8.extendable + uint9
@@ -44,7 +44,7 @@ object `Op+Tests` extends DFDesign {
 }
 
 
-object OpComparisonTests extends DFDesign {
+@df class OpComparisonTests extends DFDesign {
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)
   illTyped("""uint8 == uint9""")

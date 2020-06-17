@@ -300,7 +300,17 @@ object ConditionalBlock {
     ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this)(block)
   }
   object NoRetVal {
-    final case class IfBlock(condRef : CondRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends ConditionalBlock.IfBlock with NoRetVal {
+    sealed trait HasElseIfDF {
+      def elseifdf[C, B](cond : C)(block : => Unit)(
+        implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
+      ) : ElseIfBlock
+      def elsedf[B](block : => Unit)(
+        implicit ctx : DFBlock.Context
+      ) : ElseBlock
+    }
+    final case class IfBlock(
+      condRef : CondRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.IfBlock with HasElseIfDF with NoRetVal {
       def elsedf[B](block : => Unit)(
         implicit ctx : DFBlock.Context
       ) : ElseBlock = ElseBlock(this)(block)(ctx)
@@ -323,7 +333,9 @@ object ConditionalBlock {
         ret
       }
     }
-    final case class ElseIfBlock(condRef : CondRef, prevBlockRef : PrevBlockRef[NoRetVal], ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends ConditionalBlock.ElseIfBlock with NoRetVal {
+    final case class ElseIfBlock(
+      condRef : CondRef, prevBlockRef : PrevBlockRef[NoRetVal], ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+    ) extends ConditionalBlock.ElseIfBlock with HasElseIfDF with NoRetVal {
       def elsedf[B](block : => Unit)(
         implicit ctx : DFBlock.Context
       ) : ElseBlock = ElseBlock(this)(block)(ctx)
@@ -362,10 +374,17 @@ object ConditionalBlock {
       ): ElseBlock = ctx.db.addConditionalBlock(ElseBlock(prevBlock, ctx.owner, ctx.meta), block)
     }
 
+    sealed trait HasCaseDF[MVType <: DFAny.Type] {
+      val mvType : MVType
+      def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Unit)(
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType]
+      ) : DFCasePatternBlock[MVType]
+    }
+
     final case class MatchHeader[MVType <: DFAny.Type](
       mvType : MVType,
       matchValRef : MatchValRef[MVType], matchConfig: MatchConfig, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
-    ) extends ConditionalBlock.MatchHeader.Of[MVType] {
+    ) extends ConditionalBlock.MatchHeader.Of[MVType] with HasCaseDF[MVType] {
       def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Unit)(
         implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType]
       ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](
@@ -393,7 +412,7 @@ object ConditionalBlock {
       mvType : MVType,
       matchHeaderRef : ConditionalBlock.MatchHeader.Ref[MatchHeader[MVType]],
       prevCaseRefOption : Option[PrevBlockRef[DFCasePatternBlock[MVType]]], pattern : MVType#TPattern, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
-    ) extends ConditionalBlock.CasePatternBlock[MVType] with NoRetVal {
+    ) extends ConditionalBlock.CasePatternBlock[MVType] with HasCaseDF[MVType] with NoRetVal {
       def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Unit)(
         implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType]
       ) : DFCasePatternBlock[MVType] = DFCasePatternBlock[MVType](

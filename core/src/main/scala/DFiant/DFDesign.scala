@@ -3,7 +3,7 @@ import DFiant.DFDesign.DB.Patch
 import DFiant.internals._
 
 import scala.annotation.tailrec
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import DFiant.compiler.printer.Printer
 import DFiant.sim._
 
@@ -68,8 +68,7 @@ object DFDesign {
     DFSInt.Op.Implicits with
     DFEnum.Op.Implicits with
     DFBool.Op.Implicits with
-    DFString.Op.Implicits with
-    fsm.Implicits
+    DFString.Op.Implicits
 
   object Implicits extends Implicits
 
@@ -500,23 +499,41 @@ object DFDesign {
       //Tracking FSMs
       ///////////////////////////////////////////////////////////////
       import fsm._
-      private var fsmMap : mutable.Map[FSM, Option[Step]] = mutable.Map()
-      private var stepStack : List[Step] = List()
-      def enterStep(step : Step) : Step = {
-        stepStack = step :: stepStack
-        step
+//      private var fsmMap : List[FSM] = List()
+      private var fsmHistory : List[mutable.ListBuffer[FSM.Trackable]] = List()
+      private var duringElaboration : Boolean = false
+//      def getFSMHistory : List[FSM] = ??? //fsmHistory.toList
+//      def enterStep(step : Step) : Step = {
+//        stepStack = step :: stepStack
+//        step
+//      }
+//      def exitStep() : Step = {
+//        val step = stepStack.head
+//        stepStack = stepStack.drop(1)
+//        step
+//      }
+
+      private def pushFSMHistory() : Unit = {
+        fsmHistory = mutable.ListBuffer.empty[FSM.Trackable] :: fsmHistory
       }
-      def exitStep() : Step = {
-        val step = stepStack.head
-        stepStack = stepStack.drop(1)
-        step
+      private def elaborateFSMHistoryHead() : Unit = if (!duringElaboration) fsmHistory.headOption match {
+        case Some(h) if h.nonEmpty =>
+          duringElaboration = true
+          FSM.Elaboration(h.toList)
+          duringElaboration = false
+          fsmHistory = fsmHistory.updated(0, mutable.ListBuffer.empty[FSM.Trackable])
+        case _ =>
       }
-      def trackFSM(fsm : FSM) : FSM = {
-        fsmMap += (fsm -> stepStack.headOption)
+      private def popFSMHistory() : Unit = {
+        elaborateFSMHistoryHead()
+        fsmHistory = fsmHistory.drop(1)
+      }
+      def trackFSM[T <: FSM.Trackable](fsm : T)(implicit ctx : DFAny.Context) : T = {
+        fsmHistory = fsmHistory.updated(0, fsmHistory.head += fsm)
         fsm
       }
-      def untrackFSM(fsm : FSM) : FSM = {
-        fsmMap -= fsm
+      def untrackFSM[T <: FSM.Trackable](fsm : T)(implicit ctx : DFAny.Context) : T = {
+        fsmHistory = fsmHistory.updated(0, fsmHistory.head -= fsm)
         fsm
       }
       ///////////////////////////////////////////////////////////////
@@ -528,8 +545,10 @@ object DFDesign {
       private var containerStack = List.empty[DFOwner.Container]
       private def enterContainer(container : DFOwner.Container) : Unit = {
         containerStack = container :: containerStack
+        pushFSMHistory()
       }
       private def exitContainer() : Unit = {
+        popFSMHistory()
         containerStack.head.onCreate()
         containerStack = containerStack.drop(1)
       }
@@ -543,15 +562,18 @@ object DFDesign {
 
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(cb)
+        pushFSMHistory()
         cb.applyBlock(block)
+        popFSMHistory()
         cb
       }
-      def addContainerOwner[O <: DFOwner](container : DFOwner.Container)(owner : O)(implicit ctx : DFBlock.Context) : O = {
+      def addContainerOwner[O <: DFOwner](container : DFOwner.Container)(owner : O) : O = {
         addMember(owner)
         enterContainer(container)
         owner
       }
       def addMember[M <: DFMember](member : M) : M = {
+        elaborateFSMHistoryHead()
         checkContainers(member)
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)

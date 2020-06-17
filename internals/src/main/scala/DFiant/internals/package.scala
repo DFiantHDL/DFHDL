@@ -28,9 +28,6 @@ import continuum._
 package object internals {
   trait DevAccess
   implicit object devAccess extends DevAccess
-  implicit class __DslMember[M <: DSLMemberConstruct](val member : M) {
-    final lazy val __dev = member.__dev
-  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   // Conversions
@@ -376,8 +373,4 @@ package object internals {
   type Arg0IsNonLit = Require[IsNonLiteral[GetArg0]]
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  implicit class EntryList(list : List[DSLMemberConstruct]) {
-    def codeString : String = if (list.isEmpty) "" else list.map(e => e.codeString).mkString
-  }
 }

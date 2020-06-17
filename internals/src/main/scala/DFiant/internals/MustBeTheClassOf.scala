@@ -14,13 +14,13 @@ object MustBeTheClassOf {
       tree match {
         case Select(This(_), _) =>
           tree.symbol.fullName == tp.typeSymbol.fullName
-        case Apply(next, _) => explore(next)
-        case Select(next, _) => explore(next)
-        case New(next) => explore(next)
-        case Super(next@This(_), _) =>
-          val SuperType(_, t) = tree.tpe
+        case Apply(Select(sup @ Super(next@ This(_), _),_), _) =>
+          val SuperType(_, t) = sup.tpe
           if (t.typeSymbol.fullName == tp.typeSymbol.fullName) true
           else explore(next)
+        case Apply(Select(t,_), _) => t.symbol.fullName == tp.typeSymbol.fullName
+        case Select(next, _) => explore(next)
+        case New(t) => t.symbol.fullName == tp.typeSymbol.fullName
         case This(_) => tree.symbol.fullName == tp.typeSymbol.fullName
         case TypeApply(tree, _) => explore(tree)
         case t@TypeTree() => t.symbol.fullName == tp.typeSymbol.fullName
