@@ -10,7 +10,10 @@ final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
   def fixAnonymous = {
     val anonymizeList = designDB.designMemberList.flatMap {
       case (block, members) =>
-        members.filterNot(m => m.isAnonymous).groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
+        members.filter {
+          case m : DFAny.CanBeAnonymous => !m.isAnonymous
+          case _ => false
+        }.groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
           //In case an anonymous member got a name from its owner. For example:
           //val ret = DFBits(8).ifdf(cond) {
           //  i & i
@@ -22,7 +25,7 @@ final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
             //val ret = DFBits(8).ifdf(i & i) {
             //}
             //The `i & i` function would also get the `ret` name just as the if block itself
-            if (gm.collectFirst{case x : DFBlock => x}.isDefined) gm.collect {case a : DFAny.CanBeAnonymous => a}
+            if (gm.collectFirst{case x : DFBlock => x}.isDefined) gm//.collect {case a : DFAny.CanBeAnonymous => a}
             //In case an anonymous member inside a composition, we anonymize all but the last. For example:
             //val ret = i & i | i
             //Only the final 'Or' operation would be considered for the name `ret`

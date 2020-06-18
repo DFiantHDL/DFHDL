@@ -235,7 +235,7 @@ object DFAny {
 
   final case class Const(
     dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFOwner.Ref, tags : DFAny.Tags
-  ) extends Value[DFAny.Type, Modifier.Val] {
+  ) extends Value[DFAny.Type, Modifier.Val] with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
 
