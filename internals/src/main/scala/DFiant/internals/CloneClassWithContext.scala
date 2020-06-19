@@ -17,6 +17,16 @@ object CloneClassWithContext {
       case tpe if tp <:< tpe => q"arg"
       case tpe => q"implicitly[$tpe]"
     }
+    def badTree(tree : Tree) : Boolean = {
+      tree match {
+        case Apply(tree,_) => badTree(tree)
+        case Select(tree, _) => badTree(tree)
+        case TypeApply(_,_) => true
+        case This(_) => false
+        case New(_) => false
+        case _ => true
+      }
+    }
     val exploredTree = lastTree match {
       case q"${Select(Super(This(_),_),_)}(...$paramValueTrees)" => //Anonymous class
         val ClassInfoType(tpList,_,_)= c.internal.enclosingOwner.owner.typeSignature
@@ -29,7 +39,9 @@ object CloneClassWithContext {
         None
       case t @ q"${Select(Ident(TermName(n)),_)}(...$_)" if n.startsWith("stabilizer$") =>
         None
-      case t @ q"$_(...$_)" => Some(q"$t(..$implicitArgsTree)")
+      case t @ q"$_(...$_)" =>
+        if (badTree(t)) None
+        else Some(q"$t(..$implicitArgsTree)")
       case _ => None
     }
     val genTree = exploredTree match {
@@ -37,7 +49,7 @@ object CloneClassWithContext {
         q"""
         new DFiant.internals.CloneClassWithContext[$tp] {
           def apply(arg : $tp) : Any = {
-            $tree
+            ${c.untypecheck(tree)}
           }
         }
        """
