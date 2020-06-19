@@ -18,9 +18,9 @@ object MustBeTheClassOf {
           val SuperType(_, t) = sup.tpe
           if (t.typeSymbol.fullName == tp.typeSymbol.fullName) true
           else explore(next)
+        case Apply(Select(New(t), _), _) => t.symbol.fullName == tp.typeSymbol.fullName
         case Apply(Select(t,_), _) => t.symbol.fullName == tp.typeSymbol.fullName
         case Select(next, _) => explore(next)
-        case New(t) => t.symbol.fullName == tp.typeSymbol.fullName
         case This(_) => tree.symbol.fullName == tp.typeSymbol.fullName
         case TypeApply(tree, _) => explore(tree)
         case t@TypeTree() => t.symbol.fullName == tp.typeSymbol.fullName
@@ -29,10 +29,18 @@ object MustBeTheClassOf {
           false
       }
     }
-    val ok =
-      if (c.internal.enclosingOwner.owner.isModuleClass) true
-      else explore(c.enclosingImplicits.last.tree)
-//    println(showRaw(c.enclosingImplicits.last.tree), "compared to", tp, "got", ok)
+    val owner = c.internal.enclosingOwner.owner
+    val ownerOK =   if (owner.isClass) {
+      //           anonymous class                         object
+      if (owner.name.toString.startsWith("$anon") || owner.isModuleClass) owner.asClass.baseClasses match {
+        case _ :: parent :: _ => parent.fullName == tp.typeSymbol.fullName //get the name of the base class
+        case _ => false
+      }
+      else owner.fullName == tp.typeSymbol.fullName //any other class
+    } else false
+
+    val ok = if (ownerOK) true else explore(c.enclosingImplicits.last.tree)
+//    println(showRaw(c.enclosingImplicits.last.tree), owner, "compared to", tp, "got", ok)
 
     if (ok)  q"new DFiant.internals.MustBeTheClassOf[$tp]"
     else c.abort(c.enclosingPosition, "Wrong class symbol")
