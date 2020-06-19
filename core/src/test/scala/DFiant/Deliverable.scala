@@ -9,7 +9,7 @@ import DFiant.sim.DFSimDesign
   val wrEn    = DFBit()    <> OUT
 
   import fsm._
-  def read(fromAddr : DFBits[10], dataOut : DFBits[8] <> VAR)(implicit ctx : DFBlock.Context) : FSM = {
+  def read(fromAddr : DFBits[10], dataOut : DFBits[8] <> VAR)(implicit __blockContext : DFBlock.Context) : FSM = {
     step {
       addr := fromAddr
       wrEn := 0
@@ -17,7 +17,7 @@ import DFiant.sim.DFSimDesign
       dataOut := rdData
     }
   }
-  def write(toAddr : DFBits[10], data : DFBits[8])(implicit ctx : DFBlock.Context) : FSM = {
+  def write(toAddr : DFBits[10], data : DFBits[8])(implicit __blockContext : DFBlock.Context) : FSM = {
     step {
       addr := toAddr
       wrData := data

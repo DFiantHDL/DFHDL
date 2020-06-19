@@ -17,7 +17,7 @@ object CloneClassWithContext {
       case tpe if tp <:< tpe => q"arg"
       case tpe => q"implicitly[$tpe]"
     }
-    def badTree(tree : Tree) : Boolean = {
+    @tailrec def badTree(tree : Tree) : Boolean = {
       tree match {
         case Apply(tree,_) => badTree(tree)
         case Select(tree, _) => badTree(tree)
