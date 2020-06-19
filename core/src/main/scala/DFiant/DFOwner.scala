@@ -87,7 +87,7 @@ object ContextOf {
     def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
   }
   implicit def evTop[T <: DFDesign](
-    implicit meta: Meta, topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg],
+    implicit topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], meta: Meta,
     mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority, args : ClassArgs[T]
   ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable, args) {
     def newInterface(updatedCtx : ContextOf[T]) : Any = ???
