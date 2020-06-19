@@ -24,7 +24,7 @@ object DFOwner {
   trait Container extends HasTypeName with DFDesign.Implicits {
     type Owner <: DFOwner
     private[DFiant] val owner : Owner
-    private[DFiant] val __db: DFDesign.DB.Mutable
+    protected[DFiant] val __db: DFDesign.DB.Mutable
     final protected implicit lazy val __getset : MemberGetSet = __db.getSet
     protected[DFiant] def onCreate() : Unit = {}
   }

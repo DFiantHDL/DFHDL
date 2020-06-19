@@ -246,10 +246,10 @@ package object DFiant {
   // Conditional Constructs
   ////////////////////////////////////////////////////////////////////////////////////
   def ifdf[C](cond : C)(block : => Unit)(
-    implicit __blockContext : DFBlock.Context, condArg : DFBool.Arg[0]
+    implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
   ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condArg())(block)
   def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-    implicit __blockContext : DFBlock.Context
+    implicit ctx : DFBlock.Context
   ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)
 
   implicit class ListExtender[+T](val list : Iterable[T]) {

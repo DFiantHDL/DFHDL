@@ -1,4 +1,5 @@
 package DFiant
+import DFiant.DFMember.OwnerInjector
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
@@ -28,13 +29,18 @@ object DFBlock {
     extends DFMember.Context {
     override def owner : DFOwner = ownerInjector.get
   }
-  object Context {
+  trait LowPriority {
+    implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
+      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db, ctx.args)
+  }
+  object Context extends LowPriority {
     final object MissingError extends ErrorMsg (
       "Missing an implicit DFDesign Context.",
       "missing-context"
     ) {final val msg = getMsg}
-    implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db, ctx.args)
+    implicit def evBlockContext(
+      implicit meta : Meta, ownerInjector: OwnerInjector, dir : DFDir, db : DFDesign.DB.Mutable
+    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, dir, db, ClassArgs.empty)
 //TODO: maybe bring back top-level DFBlock.Context
 //    implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
 //      new Context(meta, null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty)

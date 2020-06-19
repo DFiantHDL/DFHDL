@@ -106,7 +106,7 @@ import sim.DFSimDesign
       read_flag := true
     } ==> read_addr_checker
 
-  private def dataFunc(cnt : DFUInt[32])(implicit __blockContext : DFBlock.Context) : DFBits[32] = {
+  private def dataFunc(cnt : DFUInt[32])(implicit ctx : DFBlock.Context) : DFBits[32] = {
     cnt.bits
   }
   private val read_cnt = DFUInt(32) init 0

@@ -3,7 +3,7 @@ package DFiant
 import DFiant.EdgeDetect.Edge
 import compiler.printer.Printer
 abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
-  implicit ctx : ContextOf[DFInlineComponent[Type]]
+  implicit ctx : ContextOf[DFInlineComponent[_]]
 ) extends DFDesign with DFAny.DefaultRet[Type] {
   val rep : DFInlineComponent.Rep
   override private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = Some(rep)

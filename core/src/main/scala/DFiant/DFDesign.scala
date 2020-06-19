@@ -21,12 +21,12 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
   ///////////////////////////////////////////////////////////////////
   // Ability to run construction at the owner's context
   ///////////////////////////////////////////////////////////////////
-  final protected def atOwnerDo[T](block : => T) : T = ownerInjector.injectOwnerAndRun(ctx.owner)(block)
+  final protected def atOwnerDo[T](block : => T) : T = __ownerInjector.injectOwnerAndRun(ctx.owner)(block)
   ///////////////////////////////////////////////////////////////////
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
-  final def plantMember[T <: DFMember](member : T)(implicit ctx : DFMember.Context) : T = __db.addMember(member.updateOwner)
+  final def plantMember[T <: DFMember](member : T) : T = __db.addMember(member.updateOwner(implicitly[DFBlock.Context]))
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
@@ -38,16 +38,14 @@ object DFDesign {
     private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = None
     private[DFiant] lazy val simMode : DFSimDesign.Mode = DFSimDesign.Mode.Off
     private[DFiant] val __ctx : DFDesign.Context
-    private[DFiant] final lazy val __db : DFDesign.DB.Mutable = __ctx.db
+    protected[DFiant] final implicit lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(typeName, inlinedRep, simMode)(__ctx)
-    private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
+    protected[DFiant] final implicit val __ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
+    protected[DFiant] final implicit val __dir : DFDir = ASIS
 
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
-    final protected implicit def __blockContext(
-      implicit meta : Meta
-    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, ASIS, __db, ClassArgs.empty)
     final protected implicit def __contextOfDesign[T <: DFDesign](
       implicit meta : Meta, args : ClassArgs[T]
     ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
@@ -76,7 +74,7 @@ object DFDesign {
     import design.__db.getSet
     private def onBlock(blockMod : Block => Block) : T = {
       val updatedBlock = blockMod(design.owner)
-      design.ownerInjector.inject(updatedBlock)
+      design.__ownerInjector.inject(updatedBlock)
       design
     }
     def setName(value : String) : T = onBlock(_.setName(value))

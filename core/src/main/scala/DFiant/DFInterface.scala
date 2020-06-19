@@ -32,15 +32,12 @@ object DFInterface {
     private[DFiant] val __ctx : DFInterface.Context
     val nameFlatten : DFOwner.NameFlatten
     private[DFiant] final val owner : Owner = DFInterface.Owner(this)(nameFlatten)(__ctx)
-    private[DFiant] final val ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
-    private[DFiant] final val __dir : DFDir = __ctx.dir
-    private[DFiant] final lazy val __db: DFDesign.DB.Mutable = __ctx.db
+    protected[DFiant] final implicit val __ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
+    protected[DFiant] final implicit val __dir : DFDir = __ctx.dir
+    protected[DFiant] final implicit lazy val __db: DFDesign.DB.Mutable = __ctx.db
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
-    final protected implicit def __blockContext(
-      implicit meta : Meta
-    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, __dir, __db, ClassArgs.empty)
     final protected implicit def __contextOfInterface[T <: DFInterface](
       implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
     ) : ContextOf[T] = new ContextOf[T](meta, owner, __dir, __db, args) {
