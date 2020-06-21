@@ -22,7 +22,16 @@ abstract class DFInterface(
     }
     ctx.newInterface(ctx.updateDir(actualDir)).asInstanceOf[this.type]
   }
-
+  def hasNativeDir : Boolean = ctx.dir match {
+    case ASIS => true
+    case _ => false
+  }
+  def hasFlippedDir : Boolean = ctx.dir match {
+    case FLIP => true
+    case _ => false
+  }
+  protected def defaults : Unit = {}
+  final override protected[DFiant] def onCreate() : Unit = defaults
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
 }
 
