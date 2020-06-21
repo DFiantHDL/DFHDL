@@ -28,10 +28,16 @@ package lib.ompss
     done := 1
     ready := 1
   }
-//  @df def finishFSM = prevStep =^> {
-//    done := 1
-//    ready := 1
-//  }
+
+  //  @df def finishFSM = prevStep =^> {
+  //    done := 1
+  //    ready := 1
+  //  }
+  if (this.hasNativeDir) {
+    done := 0
+    idle := 0
+    ready := 0
+  }
 }
 
 

@@ -30,15 +30,6 @@ import sim.DFSimDesign
   d.AR.ADDR := d.offset.resize(32)
   o.W.DATA := d_addr_read_reg
 
-  ap.done := 0
-  ap.ready := 0
-  ap.idle := 0
-  o.AW.VALID := 0
-  o.W.VALID := 0
-  o.B.READY := 0
-  d.AR.VALID := 0
-  d.R.READY := 0
-
   i_plus1 := (i.uint + 1).bits
   notDataEnd := i.resize(32).sint < size.sint
 

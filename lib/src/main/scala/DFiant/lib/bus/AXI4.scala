@@ -3,7 +3,7 @@ package DFiant.lib.bus
 import DFiant._
 import DFDesign.Implicits._
 
-final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config)(implicit ctx : ContextOf[AXI4]) extends DFInterface {
+@df final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config) extends DFInterface {
   final val AW = new AXI4.AddressChannel(axiDir)(config.wrEnabled, config.simple)
   final val W  = new AXI4.WriteDataChannel(axiDir)(config.wrEnabled, config.simple)
   final val AR = new AXI4.AddressChannel(axiDir)(config.rdEnabled, config.simple)
@@ -38,7 +38,7 @@ object AXI4 {
       } =?> {x => x._1} =^> {x => x._2 := 0; onExit} =!> nextStep =?> {_ => READY} =^> {x => x._2 := 1} =!> thisStep
     }
   }
-  abstract class Interface(axiDir : Dir)(implicit ctx : ContextOf[Interface]) extends DFInterface(DFOwner.NameFlatten.NoSuffix) {
+  @df abstract class Interface(axiDir : Dir) extends DFInterface(DFOwner.NameFlatten.NoSuffix) {
     def MasterDir(portDir : PortDir) : PortDir = axiDir match {
       case Master => portDir
       case Slave => portDir match {
@@ -58,7 +58,7 @@ object AXI4 {
     simple : Boolean
   ) extends Product with Serializable
 
-  final protected class AddressChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[AddressChannel]) extends Interface(axiDir) with Fire{
+  @df final protected class AddressChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) with Fire{
     final val VALID   = DFBit()     <> MasterDir(OUT)
     final val READY   = DFBit()     <> MasterDir(IN)
     final val ADDR    = DFBits(32)  <> MasterDir(OUT)
@@ -98,13 +98,16 @@ object AXI4 {
           REGION := b0s
           USER := b0s
         }
+        if (hasNativeDir) {
+          VALID := 0
+        }
       case Slave =>
         if (!enabled) {
           READY := 0
         }
     }
   }
-  final protected class WriteDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[WriteDataChannel]) extends Interface(axiDir) with Fire {
+  @df final protected class WriteDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) with Fire {
     final val VALID   = DFBit()     <> MasterDir(OUT)
     final val READY   = DFBit()     <> MasterDir(IN)
     final val DATA    = DFBits(32)  <> MasterDir(OUT)
@@ -127,13 +130,16 @@ object AXI4 {
           ID := b0s
           USER := b0s
         }
+        if (hasNativeDir) {
+          VALID := 0
+        }
       case Slave =>
         if (!enabled) {
           READY := 0
         }
     }
   }
-  final protected class WriteResponseChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[WriteResponseChannel]) extends Interface(axiDir) {
+  @df final protected class WriteResponseChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) {
     final val VALID   = DFBit()     <> MasterDir(IN)
     final val READY   = DFBit()     <> MasterDir(OUT)
     final val RESP    = DFBits(2)   <> MasterDir(IN)
@@ -142,6 +148,9 @@ object AXI4 {
     axiDir match {
       case Master =>
         if (!enabled) {
+          READY := 0
+        }
+        if (hasNativeDir) {
           READY := 0
         }
       case Slave =>
@@ -157,7 +166,7 @@ object AXI4 {
         }
     }
   }
-  final protected class ReadDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean)(implicit ctx : ContextOf[ReadDataChannel]) extends Interface(axiDir) {
+  @df final protected class ReadDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) {
     final val VALID   = DFBit()     <> MasterDir(IN)
     final val READY   = DFBit()     <> MasterDir(OUT)
     final val DATA    = DFBits(32)  <> MasterDir(IN)
@@ -168,6 +177,9 @@ object AXI4 {
     axiDir match {
       case Master =>
         if (!enabled) {
+          READY := 0
+        }
+        if (hasNativeDir) {
           READY := 0
         }
       case Slave =>
