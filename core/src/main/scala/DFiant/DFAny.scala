@@ -24,11 +24,27 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
   protected type AsVar = DFAny.VarOf[TType]
   protected[DFiant] type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
-  private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment = left match {
-    case DFAny.Out() | DFAny.Var() => DFNet.Assignment(left, that)
-    case _ =>
-      throw new IllegalArgumentException(s"\nCan only assign to a dataflow variable or an output port.\nAttempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}")
+  def isAssignable : Boolean = left match {
+    case DFAny.Out() | DFAny.Var() => true
+    case _ => false
   }
+  def isPortOut : Boolean = left match {
+    case DFAny.Out() => true
+    case _ => false
+  }
+  def isPortIn : Boolean = left match {
+    case DFAny.In() => true
+    case _ => false
+  }
+  private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment =
+    if (isAssignable) DFNet.Assignment(left, that)
+    else throw new IllegalArgumentException(
+      s"""
+         |Can only assign to a dataflow variable or an output port.
+         |Attempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}
+         |""".stripMargin
+    )
+
   def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String
   def refCodeString(implicit ctx : Printer.Context) : String =
     if (tags.meta.name.anonymous) codeString
