@@ -364,5 +364,10 @@ object FSM {
   }
 }
 
+object prevStep {
+  def =^>(block : => Unit)(implicit ctx : DFAny.Context) : FSM.Edges[FSM.Type.BranchOnExit[false], Unit] = ??? //src.addEdge[O[NS]](FSM.`=^>`(block))
+  def ==>(dst : => FSM.Member)(implicit ctx : DFAny.Context) : FSM.Edges[FSM.Type.BranchDone[false], Unit] = ??? //src.addEdge[O[NS]](FSM.`=^>`(block))
+}
+
 object nextStep
 object thisStep

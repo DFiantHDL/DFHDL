@@ -54,6 +54,7 @@ import sim.DFSimDesign
   } =!> WRITE_DATA =!> FINISH
   final val WRITE_DATA : FSM = o.W.fireFSM{i := i_plus1_reg} ==> READ_DATA
   final val FINISH : FSM = ap.finishFSM(o.B.VALID){o.B.READY := 1} ==> loopbackFSM
+  //final val FINISH : FSM = waitUntil(o.B.VALID) =^> {o.B.READY := 1} ==> ap.finishFSM ==> loopbackFSM
 }
 
 

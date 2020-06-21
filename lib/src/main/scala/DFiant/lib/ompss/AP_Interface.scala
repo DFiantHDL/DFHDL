@@ -15,11 +15,23 @@ package lib.ompss
     done := 0
     idle := 0
   }
+//  @df def startFSM = step {
+//    done := 0
+//    idle := 0
+//  } =?> start =^> {
+//    done := 1
+//    idle := 1
+//  } =!> nextStep
+
   @df def finishFSM(cond : DFBool)(onExit : => Unit) = waitUntil(cond) =^> {
     onExit
     done := 1
     ready := 1
   }
+//  @df def finishFSM = prevStep =^> {
+//    done := 1
+//    ready := 1
+//  }
 }
 
 
