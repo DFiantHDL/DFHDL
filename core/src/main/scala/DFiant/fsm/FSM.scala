@@ -255,52 +255,54 @@ object FSM {
       val matchHeader : ConditionalBlock.NoRetVal.HasCaseDF[DFEnum.Type[states.type]] = matchdf(state)
       steps.foldLeft(matchHeader) {
         case (pm, step) => pm.casedf(entries(step)) {
-          step match {
-            case bs : BasicStep[_] => bs.getR
-          }
-          transitions(step).toList.foldLeft[Option[ConditionalBlock.NoRetVal.HasElseIfDF]](None) {
-            case (None, (t, dst)) => t match {
-              case Transition(Some(cond), Some(block)) =>
-                Some(ifdf(cond()) {
-                  block()
-                  state := entries(dst)
-                })
-              case Transition(Some(cond), None) =>
-                Some(ifdf(cond()) {
-                  state := entries(dst)
-                })
-              case Transition(None, Some(block)) =>
-                block()
-                state := entries(dst)
-                None
-              case Transition(None, None) =>
-                state := entries(dst)
-                None
+//          new DFScope(Some(step.ctx.meta.name))(x) {
+            step match {
+              case bs : BasicStep[_] => bs.getR
             }
-            case (Some(ib), (t, dst)) => t match {
-              case Transition(Some(cond), Some(block)) =>
-                Some(ib.elseifdf(cond()) {
+            transitions(step).toList.foldLeft[Option[ConditionalBlock.NoRetVal.HasElseIfDF]](None) {
+              case (None, (t, dst)) => t match {
+                case Transition(Some(cond), Some(block)) =>
+                  Some(ifdf(cond()) {
+                    block()
+                    state := entries(dst)
+                  })
+                case Transition(Some(cond), None) =>
+                  Some(ifdf(cond()) {
+                    state := entries(dst)
+                  })
+                case Transition(None, Some(block)) =>
                   block()
                   state := entries(dst)
-                })
-              case Transition(Some(cond), None) =>
-                Some(ib.elseifdf(cond()) {
+                  None
+                case Transition(None, None) =>
                   state := entries(dst)
-                })
-              case Transition(None, Some(block)) =>
-                Some(ib.elsedf {
-                  block()
-                  state := entries(dst)
-                })
-                None
-              case Transition(None, None) =>
-                Some(ib.elsedf {
-                  state := entries(dst)
-                })
-                None
+                  None
+              }
+              case (Some(ib), (t, dst)) => t match {
+                case Transition(Some(cond), Some(block)) =>
+                  Some(ib.elseifdf(cond()) {
+                    block()
+                    state := entries(dst)
+                  })
+                case Transition(Some(cond), None) =>
+                  Some(ib.elseifdf(cond()) {
+                    state := entries(dst)
+                  })
+                case Transition(None, Some(block)) =>
+                  Some(ib.elsedf {
+                    block()
+                    state := entries(dst)
+                  })
+                  None
+                case Transition(None, None) =>
+                  Some(ib.elsedf {
+                    state := entries(dst)
+                  })
+                  None
+              }
             }
           }
-        }
+//        }
       }
       this
     }
