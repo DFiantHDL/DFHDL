@@ -25,13 +25,13 @@ trait DFBlock extends DFOwner {
 
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
-  class Context(val meta : Meta, val ownerInjector : DFMember.OwnerInjector, val dir : DFDir, val db : DFDesign.DB.Mutable, val args : ClassArgs[_])
+  class Context(val meta : Meta, val container : DFOwner.Container, val ownerInjector : DFMember.OwnerInjector, val dir : DFDir, val db : DFDesign.DB.Mutable, val args : ClassArgs[_])
     extends DFMember.Context {
     override def owner : DFOwner = ownerInjector.get
   }
   trait LowPriority {
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
-      new Context(ctx.meta, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db, ctx.args)
+      new Context(ctx.meta, ctx.container, new DFMember.OwnerInjector(ctx.owner), ctx.dir, ctx.db, ctx.args)
   }
   object Context extends LowPriority {
     final object MissingError extends ErrorMsg (
@@ -39,8 +39,8 @@ object DFBlock {
       "missing-context"
     ) {final val msg = getMsg}
     implicit def evBlockContext(
-      implicit meta : Meta, ownerInjector: OwnerInjector, dir : DFDir, db : DFDesign.DB.Mutable
-    ) : DFBlock.Context = new DFBlock.Context(meta, ownerInjector, dir, db, ClassArgs.empty)
+      implicit meta : Meta, container : DFOwner.Container, ownerInjector: OwnerInjector, dir : DFDir, db : DFDesign.DB.Mutable
+    ) : DFBlock.Context = new DFBlock.Context(meta, container, ownerInjector, dir, db, ClassArgs.empty)
 //TODO: maybe bring back top-level DFBlock.Context
 //    implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
 //      new Context(meta, null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty)

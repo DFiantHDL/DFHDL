@@ -86,6 +86,7 @@ object DFAny {
     implicit def fromBlockCtx(implicit ctx : DFBlock.Context, meta0 : Meta) : Context = new Context {
       val dir: DFDir = ctx.dir
       val meta: Meta = meta0
+      val container: DFOwner.Container = ctx.container
       def owner: DFOwner = ctx.owner
       val db: DB.Mutable = ctx.db
     }

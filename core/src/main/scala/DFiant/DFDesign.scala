@@ -48,12 +48,12 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __contextOfDesign[T <: DFDesign](
       implicit meta : Meta, args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, this, owner, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = ???
     }
     final protected implicit def __contextOfInterface[T <: DFInterface](
       implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, this, owner, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
