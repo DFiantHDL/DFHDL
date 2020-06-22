@@ -548,7 +548,7 @@ object DFDesign {
         private var currentOwner : Option[DFOwner] = None
         def injectOwner(newOwner : DFOwner) : Unit = currentOwner = Some(newOwner)
         def getCurrentOwner(container : DFOwner.Container) : DFOwner = {
-          checkContainers(container)
+          checkContainerExits(container)
           currentOwner.get
         }
         def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
@@ -581,7 +581,7 @@ object DFDesign {
         duringExitContainer = false
         exitingContainer.onCreateContainer()
       }
-      private def checkContainers(container : DFOwner.Container) : Unit =
+      private def checkContainerExits(container : DFOwner.Container) : Unit =
         while (
           !duringExitContainer &&
           containerStack.nonEmpty &&
@@ -606,7 +606,7 @@ object DFDesign {
       def addMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
         println("addMember", container, member)
         elaborateFSMHistoryHead()
-        checkContainers(container)
+        checkContainerExits(container)
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
         member
