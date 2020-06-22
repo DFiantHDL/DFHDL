@@ -30,8 +30,6 @@ abstract class DFInterface(
     case FLIP => true
     case _ => false
   }
-  protected def defaults : Unit = {}
-  final override protected[DFiant] def onCreate() : Unit = defaults
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
 }
 
@@ -41,7 +39,6 @@ object DFInterface {
     private[DFiant] val __ctx : DFInterface.Context
     val nameFlatten : DFOwner.NameFlatten
     private[DFiant] final val owner : Owner = DFInterface.Owner(this)(nameFlatten)(__ctx)
-    protected[DFiant] final implicit val __ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
     protected[DFiant] final implicit val __dir : DFDir = __ctx.dir
     protected[DFiant] final implicit lazy val __db: DFDesign.DB.Mutable = __ctx.db
     ///////////////////////////////////////////////////////////////////
@@ -49,7 +46,7 @@ object DFInterface {
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __contextOfInterface[T <: DFInterface](
       implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, this, owner, __dir, __db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, this, __dir, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
@@ -87,11 +84,10 @@ object DFInterface {
   final class Singular[T <: DFAny.Type](dfType : T)(implicit ctx : ContextOf[Singular[T]]) extends DFInterface {
     final val value = DFAny.NewVar(dfType)
   }
-  abstract class Context(val meta : Meta, val container : DFOwner.Container, ownerF : => DFOwner, val dir : DFDir, val db : DFDesign.DB.Mutable)
+  abstract class Context(val meta : Meta, val container : DFOwner.Container, val dir : DFDir, val db : DFDesign.DB.Mutable)
     extends DFAny.Context { self =>
-    def owner : DFOwner = ownerF
     def newInterface(updatedCtx : DFInterface.Context) : Any
-    final def updateDir(updatedDir : DFDir) : Context = new Context(meta, container, ownerF, updatedDir, db) {
+    final def updateDir(updatedDir : DFDir) : Context = new Context(meta, container, updatedDir, db) {
       override def newInterface(updatedCtx : DFInterface.Context) : Any = self.newInterface(updatedCtx)
     }
   }
@@ -104,7 +100,7 @@ object DFInterface {
       implicit
       ctx : ContextOf[T],
       mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T]], MissingError.Msg]
-    ) : Context = new Context(ctx.meta, ctx.container, ctx.owner, ctx.dir, ctx.db){
+    ) : Context = new Context(ctx.meta, ctx.container, ctx.dir, ctx.db){
       def newInterface(updatedCtx : DFInterface.Context) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
     }
   }
@@ -126,7 +122,7 @@ object DFInterface {
   object Owner {
     def apply(container : DFOwner.Container)(nameFlatten: DFOwner.NameFlatten)(
       implicit ctx : DFAny.Context
-    ) : Owner = ctx.db.addContainerOwner(container)(Owner(nameFlatten, ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addContainerOwner(container, Owner(nameFlatten, ctx.owner, ctx.meta))
   }
 }
 

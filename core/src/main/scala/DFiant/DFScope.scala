@@ -3,6 +3,7 @@ package DFiant
 import internals._
 class DFScope(val customName : Option[String] = None, val nameFlatten : DFOwner.NameFlatten = DFOwner.NameFlatten.UnderscoreSuffix)(implicit ctx : DFBlock.Context) extends DFOwner.Container {
   type Owner = DFScope.Owner
+  private[DFiant] final val __ctx : DFMember.Context = ctx
   private[DFiant] final val owner : Owner = {
     val o = DFScope.Owner(this)(nameFlatten)(ctx)
     val namedOwner = customName match {
@@ -12,7 +13,6 @@ class DFScope(val customName : Option[String] = None, val nameFlatten : DFOwner.
 
     namedOwner
   }
-  protected[DFiant] final implicit val __ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
   protected[DFiant] final implicit val __dir : DFDir = ctx.dir
   protected[DFiant] final implicit lazy val __db : DFDesign.DB.Mutable = ctx.db
 
@@ -38,6 +38,6 @@ object DFScope {
   object Owner {
     def apply(container : DFOwner.Container)(nameFlatten: DFOwner.NameFlatten)(
       implicit ctx : DFBlock.Context
-    ) : Owner = ctx.db.addContainerOwner(container)(Owner(nameFlatten, ctx.owner, ctx.meta))
+    ) : Owner = ctx.db.addContainerOwner(container, Owner(nameFlatten, ctx.owner, ctx.meta))
   }
 }

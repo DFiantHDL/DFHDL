@@ -87,7 +87,6 @@ object DFAny {
       val dir: DFDir = ctx.dir
       val meta: Meta = meta0
       val container: DFOwner.Container = ctx.container
-      def owner: DFOwner = ctx.owner
       val db: DB.Mutable = ctx.db
     }
   }
@@ -271,10 +270,10 @@ object DFAny {
     type Of[Type <: DFAny.Type] = Value[Type, Modifier.Val]{type TMod = Modifier.Val}
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
     : Of[Type] =
-      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
+      ctx.db.addMember(ctx.container, Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
     def forced[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
     : Of[Type] =
-      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
+      ctx.db.addMember(ctx.container, Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
   }
 
 //  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
@@ -329,7 +328,7 @@ object DFAny {
         if (ctx.meta.namePosition == i.tags.meta.namePosition) {
           implicitly[MemberGetSet].set[DFAny](i)(_ => newMember)
           newMember
-        } else ctx.db.addMember(newMember)
+        } else ctx.db.addMember(ctx.container, newMember)
       }
     }
     def apply[Type <: DFAny.Type, Mod <: DFAny.Modifier](dfType: Type, modifier : Mod)(
@@ -346,7 +345,7 @@ object DFAny {
         }
         case ASIS => modifier
       }
-      ctx.db.addMember(Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
+      ctx.db.addMember(ctx.container, Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
     }
   }
 
@@ -395,7 +394,7 @@ object DFAny {
       if (ctx.meta.namePosition == left.tags.meta.namePosition) {
         implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
         newMember
-      } else ctx.db.addMember(newMember)
+      } else ctx.db.addMember(ctx.container, newMember)
     }
 
     def <>[R](right: DFAny.ConnOf[Type])(
@@ -458,7 +457,7 @@ object DFAny {
         implicit ctx: Context
       ): Of[Type, RelVal, refVal.TMod] = {
         implicit lazy val ret : AsIs with DFMember.RefOwner =
-          ctx.db.addMember(AsIs(dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, AsIs(dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[Type, RelVal, refVal.TMod]]
       }
     }
@@ -488,14 +487,14 @@ object DFAny {
         implicit ctx: Context
       ): Of[DFBits.Type[W], RelVal, refVal.TMod] = {
         implicit lazy val ret : BitsWL with DFMember.RefOwner =
-          ctx.db.addMember(BitsWL(DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, BitsWL(DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBits.Type[W], RelVal, refVal.TMod]]
       }
       def bit[I, RelVal <: DFAny](refVal: RelVal, relBit: TwoFace.Int[I])(
         implicit ctx: Context
       ): Of[DFBool.Type, RelVal, refVal.TMod] = {
         implicit lazy val ret : BitsWL with DFMember.RefOwner =
-          ctx.db.addMember(BitsWL(DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, BitsWL(DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBool.Type, RelVal, refVal.TMod]]
       }
     }
@@ -520,7 +519,7 @@ object DFAny {
         implicit ctx: Context
       ): Of[RelVal#TType, RelVal, Modifier.Val] = {
         implicit lazy val ret : Prev with DFMember.RefOwner =
-          ctx.db.addMember(Prev(refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, Prev(refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[RelVal#TType, RelVal, Modifier.Val]]
       }
     }
@@ -549,21 +548,21 @@ object DFAny {
         implicit ctx: Context
       ): Of[DFBits.Type[RW], DFBits[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
-          ctx.db.addMember(Resize(DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, Resize(DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBits.Type[RW], DFBits[LW], Modifier.Val]]
       }
       def uint[LW, RW](refVal: DFUInt[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
       ): Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
-          ctx.db.addMember(Resize(DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, Resize(DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val]]
       }
       def sint[LW, RW](refVal: DFSInt[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
       ): Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
-          ctx.db.addMember(Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val]]
       }
     }
@@ -619,7 +618,7 @@ object DFAny {
         implicit ctx: Context
       ): Of[RelVal#TType, RelVal, Modifier.Val] = {
         implicit lazy val ret : Invert with DFMember.RefOwner =
-          ctx.db.addMember(Invert(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, Invert(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[RelVal#TType, RelVal, Modifier.Val]]
       }
     }
@@ -745,7 +744,7 @@ object DFAny {
     : Func[Type] = {
       val func0 : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
       implicit lazy val ret : Func2 with DFMember.RefOwner =
-        ctx.db.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func0)).asRefOwner
+        ctx.db.addMember(ctx.container, Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func0)).asRefOwner
       ret.asInstanceOf[Func[Type]]
     }
     object Unref {

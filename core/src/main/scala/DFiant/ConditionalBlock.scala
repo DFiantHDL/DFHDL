@@ -127,7 +127,7 @@ object ConditionalBlock {
 
     private[DFiant] def applyBlock(block : => DFAny.Of[Type])(
       implicit ctx : DFBlock.Context
-    ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this) {
+    ) : Unit = ctx.db.Ownership.injectOwnerAndRun(ctx.container, this) {
       val returnValue = block
       retVarRef.get.assign(returnValue)
     }
@@ -231,7 +231,7 @@ object ConditionalBlock {
         retVar : DFAny.VarOf[Type], matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
       )(implicit ctx: DFMember.Context): MatchHeader[Type, MVType] = {
         implicit lazy val ret : MatchHeader[Type, MVType] with DFMember.RefOwner =
-          ctx.db.addMember(MatchHeader(retVar.dfType, retVar, matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, MatchHeader(retVar.dfType, retVar, matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
         ret
       }
     }
@@ -297,7 +297,7 @@ object ConditionalBlock {
   sealed trait NoRetVal extends ConditionalBlock.Of[Unit] {
     private[DFiant] def applyBlock(block : => Unit)(
       implicit ctx : DFBlock.Context
-    ) : Unit = ctx.ownerInjector.injectOwnerAndRun(this)(block)
+    ) : Unit = ctx.db.Ownership.injectOwnerAndRun(ctx.container, this)(block)
   }
   object NoRetVal {
     sealed trait HasElseIfDF {
@@ -404,7 +404,7 @@ object ConditionalBlock {
         matchVal: DFAny.Of[MVType], matchConfig: MatchConfig
       )(implicit ctx: DFMember.Context): MatchHeader[MVType] = {
         implicit lazy val ret : MatchHeader[MVType] with DFMember.RefOwner =
-          ctx.db.addMember(MatchHeader(matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(ctx.container, MatchHeader(matchVal.dfType, matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
         ret
       }
     }
