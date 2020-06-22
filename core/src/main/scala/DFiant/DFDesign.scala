@@ -21,12 +21,12 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
   ///////////////////////////////////////////////////////////////////
   // Ability to run construction at the owner's context
   ///////////////////////////////////////////////////////////////////
-  final protected def atOwnerDo[T](block : => T) : T = __ownerInjector.injectOwnerAndRun(ctx.owner)(block)
+  final protected def atOwnerDo[T](block : => T) : T = __db.Ownership.injectOwnerAndRun(this, ctx.owner)(block)
   ///////////////////////////////////////////////////////////////////
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
-  final def plantMember[T <: DFMember](member : T) : T = __db.addMember(member.updateOwner(implicitly[DFBlock.Context]))
+  final def plantMember[T <: DFMember](member : T) : T = __db.addMember(this, member.updateOwner(implicitly[DFBlock.Context]))
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
@@ -40,7 +40,6 @@ object DFDesign {
     private[DFiant] val __ctx : DFDesign.Context
     protected[DFiant] final implicit lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(typeName, inlinedRep, simMode)(__ctx)
-    protected[DFiant] final implicit val __ownerInjector : DFMember.OwnerInjector = new DFMember.OwnerInjector(owner)
     protected[DFiant] final implicit val __dir : DFDir = ASIS
 
     ///////////////////////////////////////////////////////////////////
@@ -48,12 +47,12 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __contextOfDesign[T <: DFDesign](
       implicit meta : Meta, args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = ???
     }
     final protected implicit def __contextOfInterface[T <: DFInterface](
       implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, owner, ASIS, __db, args) {
+    ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
@@ -74,7 +73,7 @@ object DFDesign {
     import design.__db.getSet
     private def onBlock(blockMod : Block => Block) : T = {
       val updatedBlock = blockMod(design.owner)
-      design.__ownerInjector.inject(updatedBlock)
+      design.__db.Ownership.injectOwner(updatedBlock)
       design
     }
     def setName(value : String) : T = onBlock(_.setName(value))
@@ -108,8 +107,8 @@ object DFDesign {
     object Internal {
       def apply(container : DFOwner.Container)(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimDesign.Mode)(
         implicit ctx : Context
-      ) : Block = ctx.db.addContainerOwner(container)(
-        if (ctx.ownerInjector == null || ctx.owner == null) Top(designType, ctx.meta, simMode)(ctx.db)
+      ) : Block = ctx.db.addContainerOwner(container,
+        if (ctx.container == null) Top(designType, ctx.meta, simMode)(ctx.db)
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
     }
@@ -497,6 +496,7 @@ object DFDesign {
       def top : Block.Top = members.head._1 match {
         case m : Block.Top => m
       }
+
       ///////////////////////////////////////////////////////////////
       //Tracking FSMs
       ///////////////////////////////////////////////////////////////
@@ -544,43 +544,69 @@ object DFDesign {
       //Tracking containers entrance and exit to run `OnCreate` as
       //soon as possible after a container is created.
       ///////////////////////////////////////////////////////////////
+      object Ownership {
+        private var currentOwner : Option[DFOwner] = None
+        def injectOwner(newOwner : DFOwner) : Unit = currentOwner = Some(newOwner)
+        def getCurrentOwner(container : DFOwner.Container) : DFOwner = {
+          checkContainerExits(container)
+          currentOwner.get
+        }
+        def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
+          val injectedOwnerBackup = getCurrentOwner(container)
+          injectOwner(injectedOwner)
+          val ret = block
+          injectOwner(injectedOwnerBackup)
+          ret
+        }
+      }
       private var containerStack = List.empty[DFOwner.Container]
       private var duringExitContainer : Boolean = false
-      private def enterContainer(container : DFOwner.Container) : Unit = {
+      private def enterContainer(container : DFOwner.Container, owner : DFOwner) : Unit = {
+        println("entering", container)
+        Ownership.injectOwner(owner)
         containerStack = container :: containerStack
+        println("stack", containerStack)
         pushFSMHistory()
+        container.onEnterContainer()
       }
       private def exitContainer() : Unit = {
+        val exitingContainer = containerStack.head
+        println("exiting", exitingContainer)
+        exitingContainer.onExitContainer()
         duringExitContainer = true
         popFSMHistory()
-        containerStack.head.onCreate()
         containerStack = containerStack.drop(1)
+        if (containerStack.nonEmpty) Ownership.injectOwner(containerStack.head.owner)
+        println("stack", containerStack)
         duringExitContainer = false
+        exitingContainer.onCreateContainer()
       }
-      private def checkContainers(currentMember : DFMember) : Unit =
+      private def checkContainerExits(container : DFOwner.Container) : Unit =
         while (
           !duringExitContainer &&
           containerStack.nonEmpty &&
-          !currentMember.isInsideOwner(containerStack.head.owner)
+          !container.isInsideParent(containerStack.head)
         ) exitContainer()
       private def exitAllContainers() : Unit = while (!duringExitContainer && containerStack.nonEmpty) exitContainer()
       ///////////////////////////////////////////////////////////////
 
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
-        addMember(cb)
+        addMember(ctx.container, cb)
         pushFSMHistory()
         cb.applyBlock(block)
         popFSMHistory()
         cb
       }
-      def addContainerOwner[O <: DFOwner](container : DFOwner.Container)(owner : O) : O = {
-        addMember(owner)
-        enterContainer(container)
+      def addContainerOwner[O <: DFOwner](container : DFOwner.Container, owner : O) : O = {
+        println("addContainerOwner", container, owner)
+        addMember(container.__parent, owner)
+        enterContainer(container, owner)
         owner
       }
-      def addMember[M <: DFMember](member : M) : M = {
+      def addMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
+        println("addMember", container, member)
         elaborateFSMHistoryHead()
-        checkContainers(member)
+        checkContainerExits(container)
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
         member

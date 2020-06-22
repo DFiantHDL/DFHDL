@@ -129,21 +129,9 @@ object DFMember {
 
   trait Context {
     val meta : Meta
-    def owner : DFOwner
+    val container : DFOwner.Container
     val db : DFDesign.DB.Mutable
-  }
-
-  final class OwnerInjector(designBlock : DFOwner) {
-    private var value : DFOwner = designBlock
-    def inject(newOwner : DFOwner) : Unit = value = newOwner
-    def get : DFOwner = value
-    def injectOwnerAndRun[T](injectedOwner : DFOwner)(block : => T) : T = {
-      val injectedOwnerBackup = get
-      inject(injectedOwner)
-      val ret = block
-      inject(injectedOwnerBackup)
-      ret
-    }
+    final def owner : DFOwner = db.Ownership.getCurrentOwner(container)
   }
 
   sealed trait Ref extends HasTypeName {

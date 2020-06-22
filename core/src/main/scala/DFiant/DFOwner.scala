@@ -25,8 +25,21 @@ object DFOwner {
     type Owner <: DFOwner
     private[DFiant] val owner : Owner
     protected[DFiant] val __db: DFDesign.DB.Mutable
+    private[DFiant] val __ctx : DFMember.Context
     final protected implicit lazy val __getset : MemberGetSet = __db.getSet
-    protected[DFiant] def onCreate() : Unit = {}
+    final protected implicit val __container : Container = this
+    final private[DFiant] lazy val __parent : Container = if (__ctx.container == null) this else __ctx.container
+    final def isTop : Boolean = __parent == this
+    final private[DFiant] def isInsideParent(that : Container) : Boolean = {
+      (this, that) match {
+        case (a, b) if (a == b) => true
+        case (p, _) if p.isTop => false
+        case _ => __parent.isInsideParent(that)
+      }
+    }
+    protected[DFiant] def onEnterContainer() : Unit = {}
+    protected[DFiant] def onExitContainer() : Unit = {}
+    protected[DFiant] def onCreateContainer() : Unit = {}
   }
 
   implicit class AbstractExt[T <: DFOwner](t : T) {
@@ -66,11 +79,10 @@ object DFOwner {
 }
 
 abstract class ContextOf[T <: DFOwner.Container](
-  val meta : Meta, ownerF : => DFOwner, val dir: DFDir, val db: DFDesign.DB.Mutable, val args : ClassArgs[T]
+  val meta : Meta, val container : DFOwner.Container, val dir: DFDir, val db: DFDesign.DB.Mutable, val args : ClassArgs[T]
 ) extends DFMember.Context { self =>
-  def owner : DFOwner = ownerF
   def newInterface(updatedCtx : ContextOf[T]) : Any
-  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, ownerF, updatedDir, db, args) {
+  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, container, updatedDir, db, args) {
     override def newInterface(updatedCtx : ContextOf[T]) : Any = self.newInterface(updatedCtx)
   }
 }
@@ -83,7 +95,7 @@ object ContextOf {
   implicit def evCtx[T1 <: DFOwner.Container, T2 <: DFOwner.Container](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
     args : ClassArgs[T2]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.owner.asInstanceOf[T2#Owner], ctx.dir, ctx.db, args) {
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.container, ctx.dir, ctx.db, args) {
     def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
   }
   implicit def evTop[T <: DFDesign](
