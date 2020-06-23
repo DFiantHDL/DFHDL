@@ -421,7 +421,10 @@ object DFDesign {
     }
 
     def printOwnership() : DB = {
-      println(members.map(m => (m.name -> m.getOwnerBlock.name).toString()).mkString("\n"))
+      println(members.map {
+        case m : DFDesign.Block.Top => s"${m.name} <top>"
+        case m => (m.name -> m.getOwner.name).toString()
+      }.mkString("\n"))
       this
     }
   }
