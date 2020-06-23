@@ -127,7 +127,7 @@ object ConditionalBlock {
 
     private[DFiant] def applyBlock(block : => DFAny.Of[Type])(
       implicit ctx : DFBlock.Context
-    ) : Unit = ctx.db.Ownership.injectOwnerAndRun(ctx.container, this) {
+    ) : Unit = ctx.db.OwnershipContext.injectOwnerAndRun(ctx.container, this) {
       val returnValue = block
       retVarRef.get.assign(returnValue)
     }
@@ -297,7 +297,7 @@ object ConditionalBlock {
   sealed trait NoRetVal extends ConditionalBlock.Of[Unit] {
     private[DFiant] def applyBlock(block : => Unit)(
       implicit ctx : DFBlock.Context
-    ) : Unit = ctx.db.Ownership.injectOwnerAndRun(ctx.container, this)(block)
+    ) : Unit = ctx.db.OwnershipContext.injectOwnerAndRun(ctx.container, this)(block)
   }
   object NoRetVal {
     sealed trait HasElseIfDF {

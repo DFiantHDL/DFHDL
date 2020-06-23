@@ -18,6 +18,7 @@ trait DFOwner extends DFMember {
       case _ =>
     }
   }
+  def nameAndType : String = s"$name : $typeName"
 }
 
 object DFOwner {
@@ -40,6 +41,7 @@ object DFOwner {
     protected[DFiant] def onEnterContainer() : Unit = {}
     protected[DFiant] def onExitContainer() : Unit = {}
     protected[DFiant] def onCreateContainer() : Unit = {}
+    def nameAndType : String = s"${__ctx.meta.name} : $typeName"
   }
 
   implicit class AbstractExt[T <: DFOwner](t : T) {
