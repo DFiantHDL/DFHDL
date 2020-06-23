@@ -255,7 +255,7 @@ object FSM {
       val matchHeader : ConditionalBlock.NoRetVal.HasCaseDF[DFEnum.Type[states.type]] = matchdf(state)
       steps.foldLeft(matchHeader) {
         case (pm, step) => pm.casedf(entries(step)) {
-//          new DFScope(Some(step.ctx.meta.name))(x) {
+          new DFScope(Some(step.ctx.meta.name)) {
             step match {
               case bs : BasicStep[_] => bs.getR
             }
@@ -302,7 +302,7 @@ object FSM {
               }
             }
           }
-//        }
+        }
       }
       this
     }

@@ -421,7 +421,10 @@ object DFDesign {
     }
 
     def printOwnership() : DB = {
-      println(members.map(m => (m.name -> m.getOwnerBlock.name).toString()).mkString("\n"))
+      println(members.map {
+        case m : DFDesign.Block.Top => s"${m.name} <top>"
+        case m => (m.name -> m.getOwner.name).toString()
+      }.mkString("\n"))
       this
     }
   }
@@ -502,8 +505,8 @@ object DFDesign {
       ///////////////////////////////////////////////////////////////
       import fsm._
 //      private var fsmMap : List[FSM] = List()
-      private var fsmHistory : List[mutable.ListBuffer[FSM.Trackable]] = List()
-      private var duringElaboration : Boolean = false
+      private var fsmTrack : List[FSM.Trackable] = List()
+      private var fsmDuringElaboration : Boolean = false
 //      def getFSMHistory : List[FSM] = ??? //fsmHistory.toList
 //      def enterStep(step : Step) : Step = {
 //        stepStack = step :: stepStack
@@ -515,27 +518,19 @@ object DFDesign {
 //        step
 //      }
 
-      private def pushFSMHistory() : Unit = {
-        fsmHistory = mutable.ListBuffer.empty[FSM.Trackable] :: fsmHistory
+      private def elaborateFSMHistoryHead() : Unit = if (!fsmDuringElaboration && fsmTrack.nonEmpty) {
+        fsmDuringElaboration = true
+        println("fsm elaboration")
+        FSM.Elaboration(fsmTrack.reverse)
+        fsmDuringElaboration = false
+        fsmTrack = Nil
       }
-      private def elaborateFSMHistoryHead() : Unit = if (!duringElaboration) fsmHistory.headOption match {
-        case Some(h) if h.nonEmpty =>
-          duringElaboration = true
-          FSM.Elaboration(h.toList)
-          duringElaboration = false
-          fsmHistory = fsmHistory.updated(0, mutable.ListBuffer.empty[FSM.Trackable])
-        case _ =>
-      }
-      private def popFSMHistory() : Unit = {
-        elaborateFSMHistoryHead()
-        fsmHistory = fsmHistory.drop(1)
-      }
-      def trackFSM[T <: FSM.Trackable](fsm : T)(implicit ctx : DFAny.Context) : T = {
-        fsmHistory = fsmHistory.updated(0, fsmHistory.head += fsm)
+      def trackFSM[T <: FSM.Trackable](fsm : T) : T = {
+        fsmTrack = fsm :: fsmTrack
         fsm
       }
-      def untrackFSM[T <: FSM.Trackable](fsm : T)(implicit ctx : DFAny.Context) : T = {
-        fsmHistory = fsmHistory.updated(0, fsmHistory.head -= fsm)
+      def untrackFSM[T <: FSM.Trackable](fsm : T) : T = {
+        fsmTrack = fsmTrack.drop(1)
         fsm
       }
       ///////////////////////////////////////////////////////////////
@@ -545,41 +540,53 @@ object DFDesign {
       //soon as possible after a container is created.
       ///////////////////////////////////////////////////////////////
       object Ownership {
-        private var currentOwner : Option[DFOwner] = None
-        def injectOwner(newOwner : DFOwner) : Unit = currentOwner = Some(newOwner)
+        private var ownerStack : List[(DFOwner, List[FSM.Trackable], Boolean)] = List()
+        def injectOwner(newOwner : DFOwner) : Unit = ownerStack = ownerStack.updated(0, ownerStack.head.copy(_1 = newOwner))
+        def enterOwner(newOwner : DFOwner) : Unit = {
+          println("enterOwner", newOwner)
+          ownerStack = (newOwner, fsmTrack, fsmDuringElaboration) :: ownerStack
+          fsmTrack = Nil
+          fsmDuringElaboration = false
+        }
+        def exitOwner() : Unit = {
+          elaborateFSMHistoryHead()
+          val exitedOwner = ownerStack.head._1
+          fsmTrack = ownerStack.head._2
+          fsmDuringElaboration = ownerStack.head._3
+          ownerStack = ownerStack.drop(1)
+          println("exitOwner", exitedOwner)
+        }
         def getCurrentOwner(container : DFOwner.Container) : DFOwner = {
           checkContainerExits(container)
-          currentOwner.get
+          ownerStack.head._1
         }
         def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
-          val injectedOwnerBackup = getCurrentOwner(container)
-          injectOwner(injectedOwner)
+          checkContainerExits(container)
+          enterOwner(injectedOwner)
           val ret = block
-          injectOwner(injectedOwnerBackup)
+          exitOwner()
           ret
         }
       }
       private var containerStack = List.empty[DFOwner.Container]
       private var duringExitContainer : Boolean = false
       private def enterContainer(container : DFOwner.Container, owner : DFOwner) : Unit = {
-        println("entering", container)
-        Ownership.injectOwner(owner)
+        println("enterContainer", container)
+        Ownership.enterOwner(owner)
         containerStack = container :: containerStack
-        println("stack", containerStack)
-        pushFSMHistory()
+//        println("stack", containerStack)
         container.onEnterContainer()
       }
       private def exitContainer() : Unit = {
         val exitingContainer = containerStack.head
-        println("exiting", exitingContainer)
         exitingContainer.onExitContainer()
         duringExitContainer = true
-        popFSMHistory()
         containerStack = containerStack.drop(1)
-        if (containerStack.nonEmpty) Ownership.injectOwner(containerStack.head.owner)
-        println("stack", containerStack)
+        Ownership.exitOwner()
+//        println("stack", containerStack)
         duringExitContainer = false
         exitingContainer.onCreateContainer()
+        println("exitContainer", exitingContainer)
       }
       private def checkContainerExits(container : DFOwner.Container) : Unit =
         while (
@@ -592,13 +599,10 @@ object DFDesign {
 
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(ctx.container, cb)
-        pushFSMHistory()
         cb.applyBlock(block)
-        popFSMHistory()
         cb
       }
       def addContainerOwner[O <: DFOwner](container : DFOwner.Container, owner : O) : O = {
-        println("addContainerOwner", container, owner)
         addMember(container.__parent, owner)
         enterContainer(container, owner)
         owner

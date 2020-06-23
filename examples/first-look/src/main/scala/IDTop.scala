@@ -88,9 +88,12 @@ import internals._
 //    fib := fib.prev + fib.prev(2)
 //  }
   val sum = DFUInt(8) init 0
-  ifdf(true) {
+  val scope = new DFScope() {
+//  ifdf(true) {
+    val b = DFBool()
     val temp = i.uint
     sum := sum + temp
+//  }
   }
   o := sum
 }
@@ -98,7 +101,7 @@ import internals._
 object IDTopApp extends App {
   val top = new IDTopTest
   import compiler.backend.vhdl.v93
-  val designDB = top.compile.printCodeString().printGenFiles()
+  val designDB = top.printCodeString()//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 
