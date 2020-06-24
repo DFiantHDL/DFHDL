@@ -9,5 +9,5 @@ package DFiant
 
 object dfsmTest extends App {
   val tt = new TT
-  tt.printCodeString()
+  tt.printCodeString
 }

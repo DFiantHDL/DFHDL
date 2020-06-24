@@ -101,7 +101,7 @@ import internals._
 object IDTopApp extends App {
   val top = new IDTopTest
   import compiler.backend.vhdl.v93
-  val designDB = top.printCodeString()//.printGenFiles()
+  val designDB = top.printCodeString//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

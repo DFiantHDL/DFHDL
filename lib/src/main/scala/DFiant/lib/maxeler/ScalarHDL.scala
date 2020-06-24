@@ -52,5 +52,5 @@ object ScalarHDLApp extends App {
     this !! ClockParams("clk", ClockParams.Edge.Rising)
     this !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
   }
-  scalar_hdl.compile.printCodeString().printGenFiles()
+  scalar_hdl.compile.printCodeString.printGenFiles()
 }

@@ -40,5 +40,5 @@ import fsm._
 //
 object SeqDetApp extends App {
   val seqDet = new SeqDet
-  seqDet.printCodeString()
+  seqDet.printCodeString
 }

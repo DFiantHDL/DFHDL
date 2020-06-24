@@ -94,13 +94,13 @@ class DFBitsSpec extends DFSpec {
   "Initialization" should "support BitVectors" in {
     assertCompiles("""val aInit = a init b"1000"""")
     assertCompiles("""val aInit = a init h"F"""")
-    assertCompiles("""val aInit = a init(h"1", h"2", h"F")""")
+    assertCompiles("""val aInit = a.init(h"1", h"2", h"F")""")
   }
   it should "not allow vectors with different lengths than the constructed variable" in {
     val i = b"101"
     assertDoesNotCompile("""val aInit = a init b"1"""")
     assertDoesNotCompile("""val aInit = a init b"10101"""")
-    assertDoesNotCompile("""val aInit = a init(b"1000", b"1001", b"10101")""")
+    assertDoesNotCompile("""val aInit = a.init(b"1000", b"1001", b"10101")""")
   }
   it should "support special SameBitVectors b0s and b1s" in {
     val aInit = a init b0s

@@ -150,7 +150,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     final protected def protPrev(step : Int)(implicit ctx : DFAny.Context)
     : AsVal = DFAny.Alias.Prev(this, step)
-    final def prev()(implicit ctx : DFAny.Context) : AsVal = protPrev(1)
+    final def prev(implicit ctx : DFAny.Context) : AsVal = protPrev(1)
     final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal = protPrev(step)
     //////////////////////////////////////////////////////////////////////////
 

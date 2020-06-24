@@ -37,7 +37,7 @@ final class SingleStepPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompila
                   case sigNamePattern(pre) => s"${pre}_prev${s - prevList.length}"
                   case _ => s"${rv.name}_prev${s - prevList.length}"
                 }
-                val newPrev = rv.asInstanceOf[DFAny.Of[DFAny.Type]].prev().setName(prevName)
+                val newPrev = rv.asInstanceOf[DFAny.Of[DFAny.Type]].prev.setName(prevName)
                 (newPrev, newPrev :: list)
               }
             }

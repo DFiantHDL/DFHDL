@@ -122,7 +122,7 @@ import sim.DFSimDesign
       o.AW.READY := 0
     } ==> waitUntil(ap.start) ==> step {
       o.AW.READY := 1
-    } ==> waitUntil(o.AW.VALID) ==> waitForever
+    } ==> waitUntil(o.AW.VALID) ==> waitForever()
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
@@ -177,7 +177,7 @@ object LoopbackTestApp extends App {
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
   import sim.tools.ghdl
-  loopback_test.printCodeString().compile.printCodeString()//.toFolder("loopback").simulation.run()
+  loopback_test.printCodeString.compile.printCodeString//.toFolder("loopback").simulation.run()
 }
 
 object LoopbackApp extends App {
@@ -185,5 +185,5 @@ object LoopbackApp extends App {
     this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
     this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
-  loopback_moved.printCodeString().compile.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
+  loopback_moved.printCodeString.compile.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
 }

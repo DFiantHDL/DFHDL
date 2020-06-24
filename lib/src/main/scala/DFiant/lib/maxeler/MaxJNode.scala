@@ -55,7 +55,7 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D
     final val valid = DFBit() <> OUT init false setNamePrefix(s"${p.name}_")
   }))
   private val scalaInZ = (scalarInputs lazyZip scalarInputs.map(p => new MetaDesign() {
-    final val reg = p.prev() setNamePrefix(s"${p.name}_")
+    final val reg = p.prev setNamePrefix(s"${p.name}_")
   }))
 
   private val control = new MetaDesign() {
