@@ -2,9 +2,10 @@ package DFiant
 import DFiant.DFDesign.DB.Patch
 import DFiant.internals._
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.{immutable, mutable}
 import DFiant.compiler.printer.Printer
+import DFiant.fsm.FSM.Trackable
 import DFiant.sim._
 
 import scala.reflect.{ClassTag, classTag}
@@ -21,7 +22,8 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
   ///////////////////////////////////////////////////////////////////
   // Ability to run construction at the owner's context
   ///////////////////////////////////////////////////////////////////
-  final protected def atOwnerDo[T](block : => T) : T = __db.Ownership.injectOwnerAndRun(this, ctx.owner)(block)
+  final protected def atOwnerDo[T](block : => T) : T =
+    __db.OwnershipContext.injectOwnerAndRun(this, owner.getOwner)(block)
   ///////////////////////////////////////////////////////////////////
 }
 
@@ -73,7 +75,7 @@ object DFDesign {
     import design.__db.getSet
     private def onBlock(blockMod : Block => Block) : T = {
       val updatedBlock = blockMod(design.owner)
-      design.__db.Ownership.injectOwner(updatedBlock)
+      design.__db.OwnershipContext.injectOwner(updatedBlock)
       design
     }
     def setName(value : String) : T = onBlock(_.setName(value))
@@ -539,62 +541,77 @@ object DFDesign {
       //Tracking containers entrance and exit to run `OnCreate` as
       //soon as possible after a container is created.
       ///////////////////////////////////////////////////////////////
-      object Ownership {
-        private var ownerStack : List[(DFOwner, List[FSM.Trackable], Boolean)] = List()
-        def injectOwner(newOwner : DFOwner) : Unit = ownerStack = ownerStack.updated(0, ownerStack.head.copy(_1 = newOwner))
-        def enterOwner(newOwner : DFOwner) : Unit = {
-          println("enterOwner", newOwner)
-          ownerStack = (newOwner, fsmTrack, fsmDuringElaboration) :: ownerStack
+      @nowarn("msg=The outer reference in this type test cannot be checked at run time")
+      protected final case class OwnershipContext(
+        container : DFOwner.Container, owner : DFOwner,
+        fsmTrack : List[FSM.Trackable], fsmDuringElaboration : Boolean
+      )
+      protected[DFiant] object OwnershipContext {
+        private var stack : List[OwnershipContext] = List()
+        private var duringExitContainer : Boolean = false
+        def injectOwner(newOwner : DFOwner) : Unit =
+          stack = stack.updated(0, stack.head.copy(owner = newOwner))
+        private def enqContainerOwner(container : DFOwner.Container, owner : DFOwner) : Unit = {
+          stack = OwnershipContext(container, owner, fsmTrack, fsmDuringElaboration) :: stack
           fsmTrack = Nil
           fsmDuringElaboration = false
+          println(f"""${"enq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
         }
-        def exitOwner() : Unit = {
+        private def deqContainerOwner() : Unit = {
           elaborateFSMHistoryHead()
-          val exitedOwner = ownerStack.head._1
-          fsmTrack = ownerStack.head._2
-          fsmDuringElaboration = ownerStack.head._3
-          ownerStack = ownerStack.drop(1)
-          println("exitOwner", exitedOwner)
+          println(f"""${"deq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
+          fsmTrack = stack.head.fsmTrack
+          fsmDuringElaboration = stack.head.fsmDuringElaboration
+          stack = stack.drop(1)
         }
+        def enterOwner(owner : DFOwner) : Unit = {
+//          println(f"""${"enteringOwner"}%-20s ${owner.nameAndType}""")
+          enqContainerOwner(stack.head.container, owner)
+        }
+        def enterContainer(container : DFOwner.Container, owner : DFOwner) : Unit  = {
+//          println(f"""${"enteringContainer"}%-20s ${container.nameAndType}%-30s ${owner.nameAndType}""")
+          enqContainerOwner(container, owner)
+          container.onEnterContainer()
+        }
+        def exitOwner(owner : DFOwner) : Unit = {
+          while (stack.head.owner != owner) deqContainerOwner()
+          deqContainerOwner()
+//          println(f"""${"exitOwner"}%-20s ${owner.nameAndType}""")
+        }
+        def exitContainer(container : DFOwner.Container) : Unit = {
+          duringExitContainer = true
+          while (stack.head.container != container) deqContainerOwner()
+          deqContainerOwner()
+          duringExitContainer = false
+          val exitingContainer = stack.head.container
+//          exitingContainer.onExitContainer()
+//          exitingContainer.onCreateContainer()
+//          println(f"""${"exitContainer"}%-20s ${exitingContainer.nameAndType}%-30s ${container.nameAndType}""")
+        }
+
+        def checkContainerExits(container : DFOwner.Container) : Unit = {
+          while (
+            !duringExitContainer &&
+            stack.nonEmpty &&
+            !container.isInsideParent(stack.head.container)
+          ) exitContainer(stack.head.container)
+        }
+
+        def exitAllContainers() : Unit = while (!duringExitContainer && stack.nonEmpty) deqContainerOwner()
+
         def getCurrentOwner(container : DFOwner.Container) : DFOwner = {
           checkContainerExits(container)
-          ownerStack.head._1
+          stack.head.owner
         }
         def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
+          println("injecting", injectedOwner)
           checkContainerExits(container)
           enterOwner(injectedOwner)
           val ret = block
-          exitOwner()
+          exitOwner(injectedOwner)
           ret
         }
       }
-      private var containerStack = List.empty[DFOwner.Container]
-      private var duringExitContainer : Boolean = false
-      private def enterContainer(container : DFOwner.Container, owner : DFOwner) : Unit = {
-        println("enterContainer", container)
-        Ownership.enterOwner(owner)
-        containerStack = container :: containerStack
-//        println("stack", containerStack)
-        container.onEnterContainer()
-      }
-      private def exitContainer() : Unit = {
-        val exitingContainer = containerStack.head
-        exitingContainer.onExitContainer()
-        duringExitContainer = true
-        containerStack = containerStack.drop(1)
-        Ownership.exitOwner()
-//        println("stack", containerStack)
-        duringExitContainer = false
-        exitingContainer.onCreateContainer()
-        println("exitContainer", exitingContainer)
-      }
-      private def checkContainerExits(container : DFOwner.Container) : Unit =
-        while (
-          !duringExitContainer &&
-          containerStack.nonEmpty &&
-          !container.isInsideParent(containerStack.head)
-        ) exitContainer()
-      private def exitAllContainers() : Unit = while (!duringExitContainer && containerStack.nonEmpty) exitContainer()
       ///////////////////////////////////////////////////////////////
 
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
@@ -604,13 +621,13 @@ object DFDesign {
       }
       def addContainerOwner[O <: DFOwner](container : DFOwner.Container, owner : O) : O = {
         addMember(container.__parent, owner)
-        enterContainer(container, owner)
+        OwnershipContext.enterContainer(container, owner)
         owner
       }
       def addMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
-        println("addMember", container, member)
         elaborateFSMHistoryHead()
-        checkContainerExits(container)
+        OwnershipContext.checkContainerExits(container)
+        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
         member
@@ -676,7 +693,7 @@ object DFDesign {
         ref
       }
       def immutable : DB = {
-        exitAllContainers() //exiting all remaining containers (calling their OnCreate)
+        OwnershipContext.exitAllContainers() //exiting all remaining containers (calling their OnCreate)
         var size = -1
         //Touching all lazy owner refs to force their addition.
         //During this procedure it is possible that new reference are added. If so, we re-iterate
