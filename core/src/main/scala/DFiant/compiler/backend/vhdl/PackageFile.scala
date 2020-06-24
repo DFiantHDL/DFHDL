@@ -34,7 +34,7 @@ object PackageFile {
   }
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pkg"
 
-  private def enumDcl()(implicit printer: Printer) : String = {
+  private def enumDcl(implicit printer: Printer) : String = {
     val enumTypes = printer.getSet.designDB.members.collect {
       case DFEnum(enumType) => enumType
     }.distinct
@@ -43,7 +43,7 @@ object PackageFile {
       s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }
-  private def helperFunctions()(implicit printer: Printer, revision: Revision) : String = {
+  private def helperFunctions(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {
@@ -61,7 +61,7 @@ object PackageFile {
        |$to_hstring""".stripMargin
   }
 
-  private def helperFunctionsBody()(implicit printer: Printer, revision: Revision) : String = {
+  private def helperFunctionsBody(implicit printer: Printer, revision: Revision) : String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {

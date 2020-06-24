@@ -14,7 +14,7 @@ inThisBuild(List(
 
 name := projectName
 organization in ThisBuild := "io.github.dfianthdl"
-scalaVersion in ThisBuild := "2.13.2"
+scalaVersion in ThisBuild := "2.13.3"
 //resolvers in ThisBuild += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
 resolvers in ThisBuild += "scala-integration" at
   "https://scala-ci.typesafe.com/artifactory/scala-integration/"
@@ -207,7 +207,7 @@ lazy val commonDependencies = Seq(
   dependencies.shapeless,
   dependencies.scodec,
   dependencies.akka,
-  dependencies.ammonite,
+//  dependencies.ammonite,
   dependencies.scalacheck % "test",
   dependencies.scalatest % "test"
 )
@@ -285,12 +285,12 @@ lazy val commonSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
-  libraryDependencies += dependencies.ammonite,
-  sourceGenerators in Test += Def.task {
-    val file = (sourceManaged in Test).value / "amm.scala"
-    IO.write(file, """object amm extends App { ammonite.Main.main(args) }""")
-    Seq(file)
-  }.taskValue
+//  libraryDependencies += dependencies.ammonite,
+//  sourceGenerators in Test += Def.task {
+//    val file = (sourceManaged in Test).value / "amm.scala"
+//    IO.write(file, """object amm extends App { ammonite.Main.main(args) }""")
+//    Seq(file)
+//  }.taskValue
 )
 
 //lazy val wartremoverSettings = Seq(

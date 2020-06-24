@@ -81,7 +81,7 @@ object Program {
     var endAddr : Option[BitVector] = None
     var failAddr : Option[BitVector] = None
     var reachedData : Boolean = false
-    val list = file.getLines.collect {
+    val list = file.getLines().collect {
       case extractor(addr, inst, asm) if mainAddr.isDefined && endAddr.isEmpty && asm == "ret" & !reachedData =>
         endAddr = Some(BitVector.fromHex(addr).get.resize(32))
         Some(IMemEntry(endAddr.get, BitVector.fromHex(inst).get, asm))
@@ -112,7 +112,7 @@ object Program {
   private def dmemFromFile(progMemFile : String) : ProgramDMem = {
     val file = Source.fromFile(progMemFile)
     var reachedData : Boolean = false
-    val list = file.getLines.collect {
+    val list = file.getLines().collect {
       case extractor(addr, inst, asm) if reachedData =>
         Some(DMemEntry(BitVector.fromHex(addr).get.resize(32), BitVector.fromHex(inst).get))
       case l if l == dataStart =>

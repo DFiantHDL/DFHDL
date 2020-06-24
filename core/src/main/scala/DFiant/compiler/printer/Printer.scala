@@ -74,7 +74,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     }
     codeStringList.mkString(s"\n$EMPTY\n").formatted
   }
-  def printCodeString()(implicit printConfig : Printer.Config) : C = {
+  def printCodeString(implicit printConfig : Printer.Config) : C = {
     println(codeString)
     c
   }

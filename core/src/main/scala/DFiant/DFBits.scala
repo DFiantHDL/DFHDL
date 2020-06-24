@@ -6,6 +6,8 @@ import DFiant.internals._
 import DFAny.Func2
 import DFiant.compiler.printer.Printer
 
+import scala.annotation.nowarn
+
 object b0s extends DFBits.SameBitsVector(false)
 object b1s extends DFBits.SameBitsVector(true)
 
@@ -80,7 +82,8 @@ object DFBits extends DFAny.Companion {
       val shift = that.value.toInt
       new Token(this.valueBits >>> shift, this.bubbleMask >>> shift)
     }
-    def unary_~ : Token = Token(~this.valueBits, this.bubbleMask)
+    @nowarn("msg=Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method unary_~")
+    def unary_~ : Token = Token(this.valueBits.unary_~(), this.bubbleMask)
     def reverse : Token = Token(valueBits.reverseBitOrder, bubbleMask.reverseBitOrder)
     def resize(toWidth : Int) : Token = {
       if (toWidth < width) bitsWL(toWidth, 0)
