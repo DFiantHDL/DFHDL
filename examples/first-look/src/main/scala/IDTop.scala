@@ -82,7 +82,7 @@ import internals._
 @df class IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
   val o = DFUInt(8) <> OUT
-  val ididid = new IDTop
+//  val ididid = new IDTop
 //  ifdf(true) {
 //    val fib = DFUInt(8) init(0, 1)
 //    fib := fib.prev + fib.prev(2)
