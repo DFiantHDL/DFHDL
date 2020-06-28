@@ -20,14 +20,14 @@ import fsm._
 @df class SeqDet extends DFDesign {
   final val seqIn  = DFBool() <> IN
   final val detOut = DFBool() <> OUT
-  private val S0    : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S0
-  private val S1    : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S10
-  private val S10   : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S100
-  private val S100  : FSM = step {detOut := 0} =?> seqIn =!> S1001  =!> S0
-  private val S1001 : FSM = step {detOut := 1} =?> seqIn =!> S1     =!> S10
-
-  private val SB0    : FSM = step {detOut := 0} =?> seqIn =!> SB1     =!> SB0
-  private val SB1    : FSM = step {detOut := 0} =?> seqIn =!> SB0     =!> SB1
+  private val S0    : FSM = step {val b= DFBool();detOut := 0} =?> seqIn =!> S1     =!> S0
+  private val S1    : FSM = step {val b= DFBool();detOut := 0} =?> seqIn =!> S1
+//  private val S10   : FSM = step {detOut := 0} =?> seqIn =!> S1     =!> S100
+//  private val S100  : FSM = step {detOut := 0} =?> seqIn =!> S1001  =!> S0
+//  private val S1001 : FSM = step {detOut := 1} =?> seqIn =!> S1     =!> S10
+//
+//  private val SB0    : FSM = step {detOut := 0} =?> seqIn =!> SB1     =!> SB0
+//  private val SB1    : FSM = step {detOut := 0} =?> seqIn =!> SB0     =!> SB1
 }
 
 //trait SeqDetTest extends DFSimulator {

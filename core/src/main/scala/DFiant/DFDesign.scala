@@ -8,6 +8,7 @@ import DFiant.compiler.printer.Printer
 import DFiant.fsm.FSM.Trackable
 import DFiant.sim._
 
+import scala.collection.immutable.ListSet
 import scala.reflect.{ClassTag, classTag}
 abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstract {
   private[DFiant] final lazy val __ctx : DFDesign.Context = ctx
@@ -74,8 +75,7 @@ object DFDesign {
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getSet
     private def onBlock(blockMod : Block => Block) : T = {
-      val updatedBlock = blockMod(design.owner)
-      design.__db.OwnershipContext.injectOwner(updatedBlock)
+      blockMod(design.owner)
       design
     }
     def setName(value : String) : T = onBlock(_.setName(value))
@@ -506,33 +506,24 @@ object DFDesign {
       //Tracking FSMs
       ///////////////////////////////////////////////////////////////
       import fsm._
-//      private var fsmMap : List[FSM] = List()
-      private var fsmTrack : List[FSM.Trackable] = List()
+      private var fsmTrack : ListSet[FSM.Trackable] = ListSet()
       private var fsmDuringElaboration : Boolean = false
-//      def getFSMHistory : List[FSM] = ??? //fsmHistory.toList
-//      def enterStep(step : Step) : Step = {
-//        stepStack = step :: stepStack
-//        step
-//      }
-//      def exitStep() : Step = {
-//        val step = stepStack.head
-//        stepStack = stepStack.drop(1)
-//        step
-//      }
 
       private def elaborateFSMHistoryHead() : Unit = if (!fsmDuringElaboration && fsmTrack.nonEmpty) {
         fsmDuringElaboration = true
-        println("fsm elaboration")
-        FSM.Elaboration(fsmTrack.reverse)
+//        println("fsm elaboration")
+        FSM.Elaboration(fsmTrack.toList)
         fsmDuringElaboration = false
-        fsmTrack = Nil
+        fsmTrack = ListSet()
       }
       def trackFSM[T <: FSM.Trackable](fsm : T) : T = {
-        fsmTrack = fsm :: fsmTrack
+//        println("track", fsm)
+        fsmTrack = fsmTrack + fsm
         fsm
       }
       def untrackFSM[T <: FSM.Trackable](fsm : T) : T = {
-        fsmTrack = fsmTrack.drop(1)
+        fsmTrack = fsmTrack - fsm
+//        println("untrack", fsm)
         fsm
       }
       ///////////////////////////////////////////////////////////////
@@ -544,7 +535,7 @@ object DFDesign {
       @nowarn("msg=The outer reference in this type test cannot be checked at run time")
       protected final case class OwnershipContext(
         container : DFOwner.Container, owner : DFOwner,
-        fsmTrack : List[FSM.Trackable], fsmDuringElaboration : Boolean
+        fsmTrack : ListSet[FSM.Trackable], fsmDuringElaboration : Boolean
       )
       protected[DFiant] object OwnershipContext {
         private var stack : List[OwnershipContext] = List()
@@ -553,13 +544,13 @@ object DFDesign {
           stack = stack.updated(0, stack.head.copy(owner = newOwner))
         private def enqContainerOwner(container : DFOwner.Container, owner : DFOwner) : Unit = {
           stack = OwnershipContext(container, owner, fsmTrack, fsmDuringElaboration) :: stack
-          fsmTrack = Nil
+          fsmTrack = ListSet()
           fsmDuringElaboration = false
-          println(f"""${"enq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
+//          println(f"""${"enq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
         }
         private def deqContainerOwner() : Unit = {
           elaborateFSMHistoryHead()
-          println(f"""${"deq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
+//          println(f"""${"deq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
           fsmTrack = stack.head.fsmTrack
           fsmDuringElaboration = stack.head.fsmDuringElaboration
           stack = stack.drop(1)
@@ -604,7 +595,7 @@ object DFDesign {
           stack.head.owner
         }
         def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
-          println("injecting", injectedOwner)
+//          println("injecting", injectedOwner)
           checkContainerExits(container)
           enterOwner(injectedOwner)
           val ret = block
@@ -627,7 +618,7 @@ object DFDesign {
       def addMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
         elaborateFSMHistoryHead()
         OwnershipContext.checkContainerExits(container)
-        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
+//        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
         member
@@ -667,6 +658,11 @@ object DFDesign {
         memberTable.update(newMember, idx)
         //update the member in the member position array
         members.update(idx, (newMember, refSet, ignore))
+        //if the member is an owner, then we need to inject the new owner
+        newMember match {
+          case o : DFOwner => OwnershipContext.injectOwner(o)
+          case _ =>
+        }
         newMember
       }
       def replaceMember[M <: DFMember](originalMember : M, newMember : M) : M = {

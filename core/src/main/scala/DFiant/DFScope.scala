@@ -11,18 +11,13 @@ class DFScope(val customName : Option[String] = None, val nameFlatten : DFOwner.
       case Some(name) => o.setName(name)
       case None => o
     }
-
     namedOwner
   }
   protected[DFiant] final implicit val __dir : DFDir = ctx.dir
   protected[DFiant] final implicit lazy val __db : DFDesign.DB.Mutable = ctx.db
-
-
 }
-object DFScope {
-  trait Abstract extends DFOwner.Container {
 
-  }
+object DFScope {
   final case class Owner(
     nameFlatten : DFOwner.NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
   ) extends DFOwner.NameFlattenOwner {
