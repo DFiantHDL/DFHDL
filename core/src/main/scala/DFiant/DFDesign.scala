@@ -75,8 +75,7 @@ object DFDesign {
   implicit class DesignExtender[T <: DFDesign](design : T) {
     import design.__db.getSet
     private def onBlock(blockMod : Block => Block) : T = {
-      val updatedBlock = blockMod(design.owner)
-      design.__db.OwnershipContext.injectOwner(updatedBlock)
+      blockMod(design.owner)
       design
     }
     def setName(value : String) : T = onBlock(_.setName(value))
@@ -659,6 +658,11 @@ object DFDesign {
         memberTable.update(newMember, idx)
         //update the member in the member position array
         members.update(idx, (newMember, refSet, ignore))
+        //if the member is an owner, then we need to inject the new owner
+        newMember match {
+          case o : DFOwner => OwnershipContext.injectOwner(o)
+          case _ =>
+        }
         newMember
       }
       def replaceMember[M <: DFMember](originalMember : M, newMember : M) : M = {
