@@ -516,8 +516,9 @@ object DFDesign {
         fsmDuringElaboration = false
         fsmTrack = ListSet()
       }
-      def trackFSM[T <: FSM.Trackable](fsm : T) : T = {
+      def trackFSM[T <: FSM.Trackable](fsm : T)(implicit ctx : DFMember.Context) : T = {
 //        println("track", fsm)
+        OwnershipContext.checkContainerExits(ctx.container)
         fsmTrack = fsmTrack + fsm
         fsm
       }
@@ -534,16 +535,22 @@ object DFDesign {
       ///////////////////////////////////////////////////////////////
       @nowarn("msg=The outer reference in this type test cannot be checked at run time")
       protected final case class OwnershipContext(
-        container : DFOwner.Container, owner : DFOwner,
+        container : DFOwner.Container, owner : DFOwner, injectedContainer : Option[DFOwner.Container],
         fsmTrack : ListSet[FSM.Trackable], fsmDuringElaboration : Boolean
       )
       protected[DFiant] object OwnershipContext {
         private var stack : List[OwnershipContext] = List()
+        private var injectedContainer : Option[DFOwner.Container] = None
         private var duringExitContainer : Boolean = false
         def injectOwner(newOwner : DFOwner) : Unit =
           stack = stack.updated(0, stack.head.copy(owner = newOwner))
+        def injectContainer(newContainer : DFOwner.Container) : Unit = {
+          injectedContainer = Some(newContainer)
+        }
+        def clearInjectedContainer() : Unit = injectedContainer = None
         private def enqContainerOwner(container : DFOwner.Container, owner : DFOwner) : Unit = {
-          stack = OwnershipContext(container, owner, fsmTrack, fsmDuringElaboration) :: stack
+          stack = OwnershipContext(container, owner, injectedContainer, fsmTrack, fsmDuringElaboration) :: stack
+          injectedContainer = None
           fsmTrack = ListSet()
           fsmDuringElaboration = false
 //          println(f"""${"enq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
@@ -551,6 +558,7 @@ object DFDesign {
         private def deqContainerOwner() : Unit = {
           elaborateFSMHistoryHead()
 //          println(f"""${"deq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
+          injectedContainer = stack.head.injectedContainer
           fsmTrack = stack.head.fsmTrack
           fsmDuringElaboration = stack.head.fsmDuringElaboration
           stack = stack.drop(1)
@@ -591,7 +599,8 @@ object DFDesign {
         def exitAllContainers() : Unit = while (!duringExitContainer && stack.nonEmpty) deqContainerOwner()
 
         def getCurrentOwner(container : DFOwner.Container) : DFOwner = {
-          checkContainerExits(container)
+          val actualContainer = injectedContainer.getOrElse(container)
+          checkContainerExits(actualContainer)
           stack.head.owner
         }
         def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
