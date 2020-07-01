@@ -222,6 +222,7 @@ object DFAny {
       }
     }
     sealed trait NewVar extends Connectable with Assignable
+    case object DefaultDirVar extends NewVar
     case object NewVar extends NewVar
     sealed trait RetVar extends NewVar
     case object IfRetVar extends RetVar
@@ -334,16 +335,30 @@ object DFAny {
     def apply[Type <: DFAny.Type, Mod <: DFAny.Modifier](dfType: Type, modifier : Mod)(
       implicit ctx: DFAny.Context
     ): Value[Type, Mod] with Uninitialized = {
+      val specifyDefaultModifier = modifier match {
+        //Using a default dir modifier
+        case Modifier.DefaultDirVar => ctx.container match {
+          //The container is an interface, so the modifier may be different than NewVar
+          case ifc : DFInterface => ifc.DefaultDclDir.currentDefault match {
+            case dir : PortDir => Modifier.Port(dir)
+            case DFiant.VAR => Modifier.NewVar
+          }
+          //The container does not support a default direction override
+          case _ => Modifier.NewVar
+        }
+        //Not a default dir modifier -> leave it be
+        case _ => modifier
+      }
       val actualModifier : Modifier = ctx.dir match {
         case IN => Modifier.Port(IN)
         case OUT => Modifier.Port(OUT)
         case VAR => Modifier.NewVar
-        case FLIP => modifier match {
+        case FLIP => specifyDefaultModifier match {
           case Modifier.Port(IN) => Modifier.Port(OUT)
           case Modifier.Port(OUT) => Modifier.Port(IN)
-          case _ => modifier
+          case _ => specifyDefaultModifier
         }
-        case ASIS => modifier
+        case ASIS => specifyDefaultModifier
       }
       ctx.db.addMember(ctx.container, Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
     }
@@ -373,22 +388,27 @@ object DFAny {
   object NewVar {
     def apply[Type <: DFAny.Type](dfType: Type)(
       implicit ctx: Context
-    ) = Dcl(dfType, Modifier.NewVar)
+    ) = Dcl[Type, Modifier.NewVar](dfType, Modifier.DefaultDirVar)
     def unapply(arg: Dcl) : Boolean = arg.modifier match {
       case Modifier.NewVar => true
       case _ => false
     }
   }
   implicit class NewVarOps[Type <: DFAny.Type](val left : Value[Type, Modifier.NewVar] with Dcl.Uninitialized) {
-    def <> [D <: PortDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized = {
+    def <> [D <: DclDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized = {
       val modifier = ctx.dir match {
         case d : PortDir => Modifier.Port(d)
         case DFiant.VAR => Modifier.NewVar
         case DFiant.FLIP => dir match {
           case IN => Modifier.Port(OUT)
           case OUT => Modifier.Port(IN)
+          case VAR => Modifier.NewVar
         }
-        case DFiant.ASIS => Modifier.Port(dir)
+        case DFiant.ASIS => dir match {
+          case IN => Modifier.Port(IN)
+          case OUT => Modifier.Port(OUT)
+          case VAR => Modifier.NewVar
+        }
       }
       val newMember = Dcl(left.dfType, modifier, None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized]
       if (ctx.meta.namePosition == left.tags.meta.namePosition) {

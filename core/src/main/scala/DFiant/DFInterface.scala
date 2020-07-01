@@ -30,7 +30,11 @@ abstract class DFInterface(
     case FLIP => true
     case _ => false
   }
-  final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
+  //Use to set the default directionality in the interface
+  protected[DFiant] object DefaultDclDir {
+    private[DFiant] var currentDefault : DclDir = VAR
+    def <> (dir : DclDir) : Unit = currentDefault = dir
+  }
 }
 
 object DFInterface {
@@ -50,6 +54,7 @@ object DFInterface {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
+    final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
   }
   implicit class InterfaceExt[T <: DFInterface](t : T) {
     def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(t.owner)

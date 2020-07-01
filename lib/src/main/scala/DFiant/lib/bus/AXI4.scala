@@ -2,13 +2,19 @@ package DFiant.lib.bus
 
 import DFiant._
 import DFDesign.Implicits._
+import DFiant.DFOwner.NameFlatten
+import DFiant.lib.stream._
 
 @df final class AXI4 (axiDir : AXI4.Dir)(config : AXI4.Config) extends DFInterface {
-  final val AW = new AXI4.AddressChannel(axiDir)(config.wrEnabled, config.simple)
-  final val W  = new AXI4.WriteDataChannel(axiDir)(config.wrEnabled, config.simple)
-  final val AR = new AXI4.AddressChannel(axiDir)(config.rdEnabled, config.simple)
-  final val R  = new AXI4.ReadDataChannel(axiDir)(config.rdEnabled, config.simple)
-  final val B  = new AXI4.WriteResponseChannel(axiDir)(config.wrEnabled, config.simple)
+  private val streamDir : StreamDir = axiDir match {
+    case AXI4.Master => SOURCE
+    case AXI4.Slave => SINK
+  }
+  final val AW = new AXI4.AddressChannel(streamDir)(config.wrEnabled, config.simple)
+  final val W  = new AXI4.WriteDataChannel(streamDir)(config.wrEnabled, config.simple)
+  final val AR = new AXI4.AddressChannel(streamDir)(config.rdEnabled, config.simple)
+  final val R  = new AXI4.ReadDataChannel(streamDir.flip)(config.rdEnabled, config.simple)
+  final val B  = new AXI4.WriteResponseChannel(streamDir.flip)(config.wrEnabled, config.simple)
   def readRequest(address : DFBits[32], size : DFUInt[32])(implicit ctx : DFBlock.Context) : Unit = {}
   def writeRequest(address : DFBits[32], size : DFUInt[32])(implicit ctx : DFBlock.Context) : Unit = {}
 }
@@ -22,8 +28,8 @@ object AXI4 {
   final val SRW = AXI4(Config(rdEnabled = true, wrEnabled = true, simple = true)) //simple read-write
 
   trait Fire {
-    val VALID : DFBool <> VAR
-    val READY : DFBool <> VAR
+    val valid : DFBool <> VAR
+    val ready : DFBool <> VAR
     import fsm._
     final def fireFSM(onExit : => Unit)(implicit ctx : DFBlock.Context) = {
       stepR {
@@ -31,22 +37,19 @@ object AXI4 {
         val sig = DFBit()
         sig := 1
         ifdf(!reg.prev) {
-          sig := READY
-          VALID := 1
+          sig := ready
+          valid := 1
         }
         (sig, reg)
-      } =?> {x => x._1} =^> {x => x._2 := 0; onExit} =!> nextStep =?> {_ => READY} =^> {x => x._2 := 1} =!> thisStep
+      } =?> {x => x._1} =^> {x => x._2 := 0; onExit} =!> nextStep =?> {_ => ready} =^> {x => x._2 := 1} =!> thisStep
     }
   }
-  @df abstract class Interface(axiDir : Dir) extends DFInterface(DFOwner.NameFlatten.NoSuffix) {
-    def MasterDir(portDir : PortDir) : PortDir = axiDir match {
-      case Master => portDir
-      case Slave => portDir match {
-        case IN => OUT
-        case OUT => IN
-      }
-    }
+
+  object NoSuffixCapitalize extends NameFlatten {
+    def apply(memberName : String, ownerName : String) : String = s"${ownerName}${memberName.toUpperCase}"
   }
+
+  @df abstract class Interface(streamDir : StreamDir) extends RVStream(streamDir, NoSuffixCapitalize)
 
   sealed trait Dir extends Product with Serializable
   case object Master extends Dir
@@ -58,144 +61,140 @@ object AXI4 {
     simple : Boolean
   ) extends Product with Serializable
 
-  @df final protected class AddressChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) with Fire{
-    final val VALID   = DFBit()     <> MasterDir(OUT)
-    final val READY   = DFBit()     <> MasterDir(IN)
-    final val ADDR    = DFBits(32)  <> MasterDir(OUT)
-    final val ID      = DFBits(1)   <> MasterDir(OUT)
-    final val LEN     = DFBits(32)  <> MasterDir(OUT)
-    final val SIZE    = DFBits(3)   <> MasterDir(OUT)
-    final val BURST   = DFBits(2)   <> MasterDir(OUT)
-    final val LOCK    = DFBits(2)   <> MasterDir(OUT)
-    final val CACHE   = DFBits(4)   <> MasterDir(OUT)
-    final val PROT    = DFBits(3)   <> MasterDir(OUT)
-    final val QOS     = DFBits(4)   <> MasterDir(OUT)
-    final val REGION  = DFBits(4)   <> MasterDir(OUT)
-    final val USER    = DFBits(1)   <> MasterDir(OUT)
-    axiDir match {
-      case Master =>
+  @df final protected class AddressChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) with Fire{
+    final val addr    = DFBits(32)
+    final val id      = DFBits(1)
+    final val len     = DFBits(32)
+    final val size    = DFBits(3)
+    final val burst   = DFBits(2)
+    final val lock    = DFBits(2)
+    final val cache   = DFBits(4)
+    final val prot    = DFBits(3)
+    final val qos     = DFBits(4)
+    final val region  = DFBits(4)
+    final val user    = DFBits(1)
+    streamDir match {
+      case SOURCE =>
         if (!enabled) {
-          VALID := 0
-          ADDR := b0s
-          ID := b0s
-          LEN := b0s
-          SIZE := b0s
-          BURST := b0s
-          LOCK := b0s
-          CACHE := b0s
-          PROT := b0s
-          QOS := b0s
-          REGION := b0s
-          USER := b0s
+          valid := 0
+          addr := b0s
+          id := b0s
+          len := b0s
+          size := b0s
+          burst := b0s
+          lock := b0s
+          cache := b0s
+          prot := b0s
+          qos := b0s
+          region := b0s
+          user := b0s
         } else if (simple) {
-          ID := b0s
-          SIZE := b0s
-          BURST := b0s
-          LOCK := b0s
-          CACHE := b0s
-          PROT := b0s
-          QOS := b0s
-          REGION := b0s
-          USER := b0s
+          id := b0s
+          size := b0s
+          burst := b0s
+          lock := b0s
+          cache := b0s
+          prot := b0s
+          qos := b0s
+          region := b0s
+          user := b0s
         }
         if (hasNativeDir) {
-          VALID := 0
+          valid := 0
         }
-      case Slave =>
+      case SINK =>
         if (!enabled) {
-          READY := 0
+          ready := 0
         }
+      case FLOW =>
     }
   }
-  @df final protected class WriteDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) with Fire {
-    final val VALID   = DFBit()     <> MasterDir(OUT)
-    final val READY   = DFBit()     <> MasterDir(IN)
-    final val DATA    = DFBits(32)  <> MasterDir(OUT)
-    final val STRB    = DFBits(4)   <> MasterDir(OUT)
-    final val LAST    = DFBit()     <> MasterDir(OUT)
-    final val ID      = DFBits(1)   <> MasterDir(OUT)
-    final val USER    = DFBits(1)   <> MasterDir(OUT)
-    axiDir match {
-      case Master =>
+  @df final protected class WriteDataChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) with Fire {
+    final val data    = DFBits(32)
+    final val strb    = DFBits(4)
+    final val last    = DFBit()
+    final val id      = DFBits(1)
+    final val user    = DFBits(1)
+    streamDir match {
+      case SOURCE =>
         if (!enabled) {
-          VALID := 0
-          DATA := b0s
-          STRB := b0s
-          LAST := 0
-          ID := b0s
-          USER := b0s
+          valid := 0
+          data := b0s
+          strb := b0s
+          last := 0
+          id := b0s
+          user := b0s
         } else if (simple) {
-          STRB := b1s
-          LAST := 0
-          ID := b0s
-          USER := b0s
+          strb := b1s
+          last := 0
+          id := b0s
+          user := b0s
         }
         if (hasNativeDir) {
-          VALID := 0
+          valid := 0
         }
-      case Slave =>
+      case SINK =>
         if (!enabled) {
-          READY := 0
+          ready := 0
         }
+      case FLOW =>
     }
   }
-  @df final protected class WriteResponseChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) {
-    final val VALID   = DFBit()     <> MasterDir(IN)
-    final val READY   = DFBit()     <> MasterDir(OUT)
-    final val RESP    = DFBits(2)   <> MasterDir(IN)
-    final val ID      = DFBits(1)   <> MasterDir(IN)
-    final val USER    = DFBits(1)   <> MasterDir(IN)
-    axiDir match {
-      case Master =>
+  @df final protected class WriteResponseChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) {
+    final val resp    = DFBits(2)
+    final val id      = DFBits(1)
+    final val user    = DFBits(1)
+    streamDir match {
+      case SOURCE =>
         if (!enabled) {
-          READY := 0
+          valid := 0
+          resp := b0s
+          id := b0s
+          user := b0s
+        } else if (simple) {
+          resp := b0s
+          id := b0s
+          user := b0s
+        }
+      case SINK =>
+        if (!enabled) {
+          ready := 0
         }
         if (hasNativeDir) {
-          READY := 0
+          ready := 0
         }
-      case Slave =>
-        if (!enabled) {
-          VALID := 0
-          RESP := b0s
-          ID := b0s
-          USER := b0s
-        } else if (simple) {
-          RESP := b0s
-          ID := b0s
-          USER := b0s
-        }
+      case FLOW =>
     }
   }
-  @df final protected class ReadDataChannel(axiDir : Dir)(enabled : Boolean, simple : Boolean) extends Interface(axiDir) {
-    final val VALID   = DFBit()     <> MasterDir(IN)
-    final val READY   = DFBit()     <> MasterDir(OUT)
-    final val DATA    = DFBits(32)  <> MasterDir(IN)
-    final val LAST    = DFBit()     <> MasterDir(IN)
-    final val ID      = DFBits(1)   <> MasterDir(IN)
-    final val USER    = DFBits(1)   <> MasterDir(IN)
-    final val RESP    = DFBits(2)   <> MasterDir(IN)
-    axiDir match {
-      case Master =>
+  @df final protected class ReadDataChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) {
+    final val data    = DFBits(32)
+    final val last    = DFBit()
+    final val id      = DFBits(1)
+    final val user    = DFBits(1)
+    final val resp    = DFBits(2)
+    streamDir match {
+      case SOURCE =>
         if (!enabled) {
-          READY := 0
+          valid := 0
+          data := b0s
+          last := 0
+          id := b0s
+          user := b0s
+          resp := b0s
+        } else if (simple) {
+          last := 0
+          id := b0s
+          user := b0s
+          resp := b0s
+        }
+      case SINK =>
+        if (!enabled) {
+          ready := 0
         }
         if (hasNativeDir) {
-          READY := 0
+          ready := 0
         }
-      case Slave =>
-        if (!enabled) {
-          VALID := 0
-          DATA := b0s
-          LAST := 0
-          ID := b0s
-          USER := b0s
-          RESP := b0s
-        } else if (simple) {
-          LAST := 0
-          ID := b0s
-          USER := b0s
-          RESP := b0s
-        }
+      case FLOW =>
     }
   }
 }

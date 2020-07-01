@@ -61,8 +61,11 @@ package object DFiant {
   }
   type <>[DF <: DFAny, Dir <: DFDir] = Dir#Func[DF]
 //  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
+
+  //Declaration directionality (Var/PortDir)
+  sealed trait DclDir extends DFDir
   //Direction of a Port
-  sealed trait PortDir extends DFDir
+  sealed trait PortDir extends DclDir
   case object IN extends PortDir {
     type Func[DF <: DFAny] = DFAny.DefaultRet[DF#TType]
     override def toString: String = "IN "
@@ -73,7 +76,7 @@ package object DFiant {
     override def toString: String = "OUT"
   }
   type OUT = OUT.type
-  case object VAR extends DFDir {
+  case object VAR extends DclDir {
     type Func[DF <: DFAny] = DFAny.VarOf[DF#TType]
   }
   type VAR = VAR.type

@@ -24,11 +24,11 @@ import sim.DFSimDesign
   private val d_addr_read_reg = DFBits(32)
   private val notDataEnd = DFBit()
 
-  o.AW.LEN := size
-  o.AW.ADDR := o.offset.resize(32)
-  d.AR.LEN := size
-  d.AR.ADDR := d.offset.resize(32)
-  o.W.DATA := d_addr_read_reg
+  o.AW.len := size
+  o.AW.addr := o.offset.resize(32)
+  d.AR.len := size
+  d.AR.addr := d.offset.resize(32)
+  o.W.data := d_addr_read_reg
 
   i_plus1 := (i.uint + 1).bits
   notDataEnd := i.resize(32).sint < size.sint
@@ -38,13 +38,13 @@ import sim.DFSimDesign
   final val loopbackFSM : FSM = ap.startFSM ==> READ_BLOCK_REQ
   final val READ_BLOCK_REQ : FSM = d.AR.fireFSM{} ==> WRITE_BLOCK_REQ
   final val WRITE_BLOCK_REQ : FSM = o.AW.fireFSM{i := b0s} ==> READ_DATA
-  final val READ_DATA : FSM = step {} =?> (!d.R.VALID && notDataEnd) =!> thisStep =?> notDataEnd =^> {
-    d.R.READY := 1
+  final val READ_DATA : FSM = step {} =?> (!d.R.valid && notDataEnd) =!> thisStep =?> notDataEnd =^> {
+    d.R.ready := 1
     i_plus1_reg := i_plus1
-    d_addr_read_reg := d.R.DATA
+    d_addr_read_reg := d.R.data
   } =!> WRITE_DATA =!> FINISH
   final val WRITE_DATA : FSM = o.W.fireFSM{i := i_plus1_reg} ==> READ_DATA
-  final val FINISH : FSM = ap.finishFSM(o.B.VALID){o.B.READY := 1} ==> loopbackFSM
+  final val FINISH : FSM = ap.finishFSM(o.B.valid){o.B.ready := 1} ==> loopbackFSM
   //final val FINISH : FSM = waitUntil(o.B.VALID) =^> {o.B.READY := 1} ==> ap.finishFSM ==> loopbackFSM
 }
 
@@ -75,15 +75,15 @@ import sim.DFSimDesign
 
   private val d_addr_fsm =
     step {
-      d.AR.READY := 0
+      d.AR.ready := 0
     } ==> waitUntil(ap.start) ==> step {
-      d.AR.READY := 1
-    } ==> waitUntil(d.AR.VALID) ==> waitForever()
+      d.AR.ready := 1
+    } ==> waitUntil(d.AR.valid) ==> waitForever()
 
   private val read_flag = DFBool() init false
   private val read_first = DFBool() init true
   private val read_addr_checker : FSM =
-    doUntil(d.AR.READY && d.AR.VALID) {
+    doUntil(d.AR.ready && d.AR.valid) {
       ifdf (ap.done === 1 && !read_flag && !read_first) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
@@ -92,8 +92,8 @@ import sim.DFSimDesign
       }
     } ==> step {
       read_first := false
-      sim.assert(d.AR.ADDR === c_READ_BUF_ADDR, msg"Bad read address")
-      sim.assert(d.AR.LEN === c_SIZE, msg"Bad read size")
+      sim.assert(d.AR.addr === c_READ_BUF_ADDR, msg"Bad read address")
+      sim.assert(d.AR.len === c_SIZE, msg"Bad read size")
       sim.assert(!read_flag, msg"Unexpected address read")
       read_flag := true
     } ==> read_addr_checker
@@ -105,49 +105,49 @@ import sim.DFSimDesign
   private val read_size = DFUInt(32)
   private val d_data_fsm : FSM =
     step {
-      d.R.VALID := 0
-    } ==> waitUntil(d.AR.READY && d.AR.VALID) ==> step {
-      read_size := d.AR.LEN.uint
+      d.R.valid := 0
+    } ==> waitUntil(d.AR.ready && d.AR.valid) ==> step {
+      read_size := d.AR.len.uint
       read_cnt := 0
     } ==> doUntil(read_cnt === read_size) {
-      d.R.DATA := dataFunc(read_cnt)
-      d.R.VALID := 1
-      ifdf(d.R.READY) {
+      d.R.data := dataFunc(read_cnt)
+      d.R.valid := 1
+      ifdf(d.R.ready) {
         read_cnt := read_cnt + 1
       }
     } ==> step{} ==> d_data_fsm
 
   private val o_addr_fsm =
     step {
-      o.AW.READY := 0
+      o.AW.ready := 0
     } ==> waitUntil(ap.start) ==> step {
-      o.AW.READY := 1
-    } ==> waitUntil(o.AW.VALID) ==> waitForever()
+      o.AW.ready := 1
+    } ==> waitUntil(o.AW.valid) ==> waitForever()
 
   private val write_cnt = DFUInt(32) init 0
   private val write_size = DFUInt(32)
   private val o_data_fsm : FSM =
     step {
-      o.W.READY := 0
-      o.B.VALID := 0
-    } ==> waitUntil(o.AW.READY && o.AW.VALID) ==> step {
-      write_size := o.AW.LEN.uint
+      o.W.ready := 0
+      o.B.valid := 0
+    } ==> waitUntil(o.AW.ready && o.AW.valid) ==> step {
+      write_size := o.AW.len.uint
       write_cnt := 0
     } ==> doUntil(write_cnt === write_size) {
-      o.W.READY := 1
-      ifdf(o.W.VALID) {
-        sim.assert(dataFunc(write_cnt) === o.W.DATA, msg"Bad write data")
+      o.W.ready := 1
+      ifdf(o.W.valid) {
+        sim.assert(dataFunc(write_cnt) === o.W.data, msg"Bad write data")
         write_cnt := write_cnt + 1
       }
-    } ==> doUntil(o.B.READY) {
-      o.W.READY := 0
-      o.B.VALID := 1
+    } ==> doUntil(o.B.ready) {
+      o.W.ready := 0
+      o.B.valid := 1
     } ==> o_data_fsm
 
   private val write_flag = DFBool() init false
   private val write_first = DFBool() init true
   private val write_addr_checker : FSM =
-    doUntil(o.AW.READY && o.AW.VALID) {
+    doUntil(o.AW.ready && o.AW.valid) {
       ifdf (ap.done === 1 && !write_flag && !write_first) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
       }
@@ -156,8 +156,8 @@ import sim.DFSimDesign
       }
     } ==> step {
       write_first := false
-      sim.assert(o.AW.ADDR === c_WRITE_BUF_ADDR, msg"Bad write address")
-      sim.assert(o.AW.LEN === c_SIZE, msg"Bad write size")
+      sim.assert(o.AW.addr === c_WRITE_BUF_ADDR, msg"Bad write address")
+      sim.assert(o.AW.len === c_SIZE, msg"Bad write size")
       sim.assert(!write_flag, msg"Unexpected address write")
       write_flag := true
     } =^> {
