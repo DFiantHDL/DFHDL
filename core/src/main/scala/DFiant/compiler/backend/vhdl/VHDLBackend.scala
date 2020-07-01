@@ -31,9 +31,9 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
-        (If.ElsIf(Value.boolRef(cb.condRef.get), getProcessStatements(cb), closing), statements)
+        (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
       case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
-        ("", If(Value.boolRef(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
+        ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
       case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
         (Case.When(Case.Choice.Others(), getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.CasePatternBlock[_], (whens, statements)) =>

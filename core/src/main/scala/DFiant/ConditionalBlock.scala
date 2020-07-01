@@ -332,6 +332,13 @@ object ConditionalBlock {
           ctx.db.addConditionalBlock(IfBlock(cond, ctx.owner, ctx.meta), block).asRefOwner
         ret
       }
+      private[DFiant] def forcedHeader(cond : DFAny)(implicit ctx : DFBlock.Context)
+      : IfBlock = {
+        implicit lazy val ret : IfBlock with DFMember.RefOwner =
+          ctx.db.addMember(ctx.container, IfBlock(cond.asInstanceOf[DFBool], ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
+
     }
     final case class ElseIfBlock(
       condRef : CondRef, prevBlockRef : PrevBlockRef[NoRetVal], ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
@@ -356,6 +363,13 @@ object ConditionalBlock {
       ): ElseIfBlock = {
         implicit lazy val ret : ElseIfBlock with DFMember.RefOwner =
           ctx.db.addConditionalBlock(ElseIfBlock(cond, prevBlock, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
+      def forcedHeader(cond: DFAny, prevBlock: ConditionalBlock)(
+        implicit ctx: DFBlock.Context
+      ): ElseIfBlock = {
+        implicit lazy val ret : ElseIfBlock with DFMember.RefOwner =
+          ctx.db.addMember(ctx.container, ElseIfBlock(cond.asInstanceOf[DFBool], prevBlock.asInstanceOf[NoRetVal], ctx.owner, ctx.meta)).asRefOwner
         ret
       }
     }

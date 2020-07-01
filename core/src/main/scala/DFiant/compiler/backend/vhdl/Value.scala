@@ -122,16 +122,9 @@ private object Value {
       case m => m.name
     }
   }
-  def boolRef(boolOrBit : DFAny.Of[DFBool.Type])(implicit printer: Printer, revision: Revision) : String = {
-    import printer.config.formatter._
-    (revision, boolOrBit) match {
-      case (Revision.V93, cond @ DFBit()) => s"${Value.ref(cond).applyBrackets()} = '1'"
-      case (_, bool) => Value.ref(bool)
-    }
-  }
   def apply(member : DFAny)(implicit printer : Printer, revision: Revision) : String = member match {
     case c : DFAny.Const => const(c.token)
-    case f : DFAny.Func2 => func2(f).toString
+    case f : DFAny.Func2 => func2(f)
     case a : DFAny.Alias[_,_,_] => alias(a)
     case _ : DFAny.Dcl => ??? //shouldn't occur
   }

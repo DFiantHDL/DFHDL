@@ -71,24 +71,32 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : IRCo
           }
           Some(func -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
         } else None
-//      case cb : ConditionalBlock.IfBlock =>
-//        val cond = cb.condRef.get
-//        cond match {
-//          case DFBit() => Some(toggleLogical(cond))
-//          case _ => None
-//        }
-//      case cb : ConditionalBlock.ElseIfBlock =>
-//        val cond = cb.condRef.get
-//        cond match {
-//          case DFBit() => Some(toggleLogical(cond))
-//          case _ => None
-//        }
-//      case DFSimMember.Assert(Some(condRef), _, _, _, _) =>
-//        val cond = condRef.get
-//        cond match {
-//          case DFBit() => Some(toggleLogical(cond))
-//          case _ => None
-//        }
+      case cb : ConditionalBlock.IfBlock =>
+        val cond = cb.condRef.get
+        cond match {
+          case DFBit() =>
+            val dsn = new MetaDesign() {
+              ConditionalBlock.NoRetVal.IfBlock.forcedHeader(toggleLogical(cond))
+            }
+            Some(cb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
+          case _ => None
+        }
+      case cb : ConditionalBlock.ElseIfBlock =>
+        val cond = cb.condRef.get
+        val prevBlock = cb.prevBlockRef.get
+        cond match {
+          case DFBit() =>
+            val dsn = new MetaDesign() {
+              ConditionalBlock.NoRetVal.ElseIfBlock.forcedHeader(toggleLogical(cond), prevBlock)
+            }
+            Some(cb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
+          case _ => None
+        }
+      case asrt @ sim.DFSimMember.Assert.Unref(Some(cond @ DFBit()), msg, severity, _, _) =>
+        val dsn = new MetaDesign() {
+          sim.DFSimMember.Assert(Some(toggleLogical(cond).asInstanceOf[DFBool]), msg, severity)
+        }
+        Some(asrt -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
       case _ => None
     }
     c.newStage[ExplicitConversions](designDB.patch(patchList))
