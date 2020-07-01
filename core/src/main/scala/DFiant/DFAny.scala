@@ -272,7 +272,7 @@ object DFAny {
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
     : Of[Type] =
       ctx.db.addMember(ctx.container, Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
-    def forced[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
+    private[DFiant] def forced[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
     : Of[Type] =
       ctx.db.addMember(ctx.container, Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
   }
@@ -666,8 +666,8 @@ object DFAny {
 
   final case class Func2(
     dfType: Type, leftArgRef : Func2.Ref.LeftArg[DFAny], op : Func2.Op, rightArgRef : Func2.Ref.RightArg[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
-  )(func : (Token, Token) => Token) extends Func[Type] {
-    val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(func)
+  )(val tokenFunc : (Token, Token) => Token) extends Func[Type] {
+    val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(tokenFunc)
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Func2(dfType, leftArgRef, op, rightArgRef, _, tags) =>
         this.dfType == dfType && this.leftArgRef =~ leftArgRef && this.op == op && this.rightArgRef =~ rightArgRef && this.tags =~ tags
@@ -678,8 +678,8 @@ object DFAny {
       s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
     }
     override def show(implicit getSet : MemberGetSet) : String = s"$codeString : $dfType"
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)(func)
-    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(func))
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)(tokenFunc)
+    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(tokenFunc))
   }
   object Func2 {
     type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
@@ -763,8 +763,14 @@ object DFAny {
     )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
     : Func[Type] = {
       val func0 : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
+      forced(dfType, leftArg, op, rightArg)(func0)
+    }
+    private[DFiant] def forced[Type <: DFAny.Type](
+      dfType: Type, leftArg: DFAny, op: Func2.Op, rightArg: DFAny
+    )(tokenFunc: (Token, Token) => Token)(implicit ctx: Context)
+    : Func[Type] = {
       implicit lazy val ret : Func2 with DFMember.RefOwner =
-        ctx.db.addMember(ctx.container, Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(func0)).asRefOwner
+        ctx.db.addMember(ctx.container, Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(tokenFunc)).asRefOwner
       ret.asInstanceOf[Func[Type]]
     }
     object Unref {

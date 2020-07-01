@@ -84,10 +84,10 @@ import sim.DFSimDesign
   private val read_first = DFBool() init true
   private val read_addr_checker : FSM =
     doUntil(d.AR.ready && d.AR.valid) {
-      ifdf (ap.done === 1 && !read_flag && !read_first) {
+      ifdf (ap.done && !read_flag && !read_first) {
         sim.report(msg"No READ address given until ap_done", sim.Error)
       }
-      ifdf(ap.done === 1) {
+      ifdf(ap.done) {
         read_flag := false
       }
     } ==> step {
@@ -148,10 +148,10 @@ import sim.DFSimDesign
   private val write_first = DFBool() init true
   private val write_addr_checker : FSM =
     doUntil(o.AW.ready && o.AW.valid) {
-      ifdf (ap.done === 1 && !write_flag && !write_first) {
+      ifdf (ap.done && !write_flag && !write_first) {
         sim.report(msg"No WRITE address given until ap_done", sim.Error)
       }
-      ifdf (ap.done === 1) {
+      ifdf (ap.done) {
         write_flag := false
       }
     } ==> step {
