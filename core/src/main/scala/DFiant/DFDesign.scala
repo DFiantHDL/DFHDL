@@ -545,12 +545,12 @@ object DFDesign {
         def injectOwner(newOwner : DFOwner) : Unit =
           stack = stack.updated(0, stack.head.copy(owner = newOwner))
         def injectContainer(newContainer : DFOwner.Container) : Unit = {
+//          println(f"""${"injecting"}%-20s ${newContainer}""")
           injectedContainer = Some(newContainer)
         }
         def clearInjectedContainer() : Unit = injectedContainer = None
         private def enqContainerOwner(container : DFOwner.Container, owner : DFOwner) : Unit = {
           stack = OwnershipContext(container, owner, injectedContainer, fsmTrack, fsmDuringElaboration) :: stack
-          injectedContainer = None
           fsmTrack = ListSet()
           fsmDuringElaboration = false
 //          println(f"""${"enq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
@@ -558,7 +558,6 @@ object DFDesign {
         private def deqContainerOwner() : Unit = {
           elaborateFSMHistoryHead()
 //          println(f"""${"deq"}%-20s ${stack.head.container.nameAndType}%-30s ${stack.head.owner.nameAndType}""")
-          injectedContainer = stack.head.injectedContainer
           fsmTrack = stack.head.fsmTrack
           fsmDuringElaboration = stack.head.fsmDuringElaboration
           stack = stack.drop(1)
@@ -570,6 +569,7 @@ object DFDesign {
         def enterContainer(container : DFOwner.Container, owner : DFOwner) : Unit  = {
 //          println(f"""${"enteringContainer"}%-20s ${container.nameAndType}%-30s ${owner.nameAndType}""")
           enqContainerOwner(container, owner)
+          injectedContainer = None
           container.onEnterContainer()
         }
         def exitOwner(owner : DFOwner) : Unit = {
@@ -580,6 +580,7 @@ object DFDesign {
         def exitContainer(container : DFOwner.Container) : Unit = {
           duringExitContainer = true
           while (stack.head.container != container) deqContainerOwner()
+          injectedContainer = stack.head.injectedContainer
           deqContainerOwner()
           duringExitContainer = false
           val exitingContainer = stack.head.container
@@ -589,18 +590,18 @@ object DFDesign {
         }
 
         def checkContainerExits(container : DFOwner.Container) : Unit = {
+          val actualContainer = injectedContainer.getOrElse(container)
           while (
             !duringExitContainer &&
             stack.nonEmpty &&
-            !container.isInsideParent(stack.head.container)
+            !actualContainer.isInsideParent(stack.head.container)
           ) exitContainer(stack.head.container)
         }
 
         def exitAllContainers() : Unit = while (!duringExitContainer && stack.nonEmpty) deqContainerOwner()
 
         def getCurrentOwner(container : DFOwner.Container) : DFOwner = {
-          val actualContainer = injectedContainer.getOrElse(container)
-          checkContainerExits(actualContainer)
+          checkContainerExits(container)
           stack.head.owner
         }
         def injectOwnerAndRun[T](container : DFOwner.Container, injectedOwner : DFOwner)(block : => T) : T = {
