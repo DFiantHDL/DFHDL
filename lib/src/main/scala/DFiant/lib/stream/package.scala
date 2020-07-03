@@ -73,6 +73,7 @@ package object stream {
     }
 
     @df def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      require(left.dfType == right.dfType)
       val ret = left.asNewVar
       val sel = DFBool() init 0
 
@@ -88,6 +89,7 @@ package object stream {
     }
 
     @df def mergeNonBlockingdf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      require(left.dfType == right.dfType)
       val ret = left.asNewVar
       val sel = DFBool() init 0
 
@@ -107,6 +109,7 @@ package object stream {
     }
 
     @df def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      require(left.dfType == right.dfType)
       val ret = left.asNewVar
 
       ifdf (left.isNotEmpty) {
