@@ -5,7 +5,7 @@ import DFiant.internals._
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{immutable, mutable}
 import DFiant.compiler.printer.Printer
-import DFiant.fsm.FSM.Trackable
+import DFiant.fsm.FSMMember.Trackable
 import DFiant.sim._
 
 import scala.collection.immutable.ListSet
@@ -506,23 +506,23 @@ object DFDesign {
       //Tracking FSMs
       ///////////////////////////////////////////////////////////////
       import fsm._
-      private var fsmTrack : ListSet[FSM.Trackable] = ListSet()
+      private var fsmTrack : ListSet[FSMMember.Trackable] = ListSet()
       private var fsmDuringElaboration : Boolean = false
 
       private def elaborateFSMHistoryHead() : Unit = if (!fsmDuringElaboration && fsmTrack.nonEmpty) {
         fsmDuringElaboration = true
 //        println("fsm elaboration")
-        FSM.Elaboration(fsmTrack.toList)
+        FSMMember.Elaboration(fsmTrack.toList)
         fsmDuringElaboration = false
         fsmTrack = ListSet()
       }
-      def trackFSM[T <: FSM.Trackable](fsm : T)(implicit ctx : DFMember.Context) : T = {
+      def trackFSM[T <: FSMMember.Trackable](fsm : T)(implicit ctx : DFMember.Context) : T = {
 //        println("track", fsm)
         OwnershipContext.checkContainerExits(ctx.container)
         fsmTrack = fsmTrack + fsm
         fsm
       }
-      def untrackFSM[T <: FSM.Trackable](fsm : T) : T = {
+      def untrackFSM[T <: FSMMember.Trackable](fsm : T) : T = {
         fsmTrack = fsmTrack - fsm
 //        println("untrack", fsm)
         fsm
@@ -536,7 +536,7 @@ object DFDesign {
       @nowarn("msg=The outer reference in this type test cannot be checked at run time")
       protected final case class OwnershipContext(
         container : DFOwner.Container, owner : DFOwner, injectedContainer : Option[DFOwner.Container],
-        fsmTrack : ListSet[FSM.Trackable], fsmDuringElaboration : Boolean
+        fsmTrack : ListSet[FSMMember.Trackable], fsmDuringElaboration : Boolean
       )
       protected[DFiant] object OwnershipContext {
         private var stack : List[OwnershipContext] = List()

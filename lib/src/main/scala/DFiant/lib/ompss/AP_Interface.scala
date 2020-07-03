@@ -8,14 +8,14 @@ package lib.ompss
   final val ready   = DFBit() <> OUT
 
   import fsm._
-  @df def startFSM = doUntil(start) {
+  @fsm def startFSM = doUntil(start) {
     done := 1
     idle := 1
   } =^> {
     done := 0
     idle := 0
   }
-//  @df def startFSM = step {
+//  @fsm def startFSM = step {
 //    done := 0
 //    idle := 0
 //  } =?> start =^> {
@@ -23,13 +23,13 @@ package lib.ompss
 //    idle := 1
 //  } =!> nextStep
 
-  @df def finishFSM(cond : DFBool)(onExit : => Unit) = waitUntil(cond) =^> {
+  @fsm def finishFSM(cond : DFBool)(onExit : => Unit) = waitUntil(cond) =^> {
     onExit
     done := 1
     ready := 1
   }
 
-  //  @df def finishFSM = prevStep =^> {
+  //  @fsm def finishFSM = prevStep =^> {
   //    done := 1
   //    ready := 1
   //  }

@@ -4,14 +4,14 @@ import internals._
 import DFDesign.Implicits._
 
 package object fsm {
-  type FSM = FSM.Member with FSM.Complete
+  type FSM = FSMMember with FSMMember.Complete
   private[fsm] implicit def funcConv[T](t : => T) : () => T = () => t
   def step(block : => Unit)(
     implicit ctx : DFBlock.Context
-  ) : FSM.BasicStep[Unit] = new FSM.BasicStep[Unit](block).track
+  ) : FSMMember.BasicStep[Unit] = new FSMMember.BasicStep[Unit](block).track
   def stepR[R](block : => R)(
     implicit ctx : DFBlock.Context
-  ) : FSM.BasicStep[R] = new FSM.BasicStep[R](block).track
+  ) : FSMMember.BasicStep[R] = new FSMMember.BasicStep[R](block).track
 
   def doWhile[C](cond : => C)(block : => Unit)(
     implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context

@@ -16,9 +16,9 @@ package object stream {
 //  }
 
   implicit class StreamExt[Type <: DFAny.Type](left : DFAny.Of[Type]) {
-    def emptydf(implicit ctx : DFBlock.Context) : DFAny.Of[Type] = left.asNewVar
+    @df def emptydf : DFAny.Of[Type] = left.asNewVar
 
-    def dropdf(n : Int)(implicit ctx : DFBlock.Context) : DFAny.Of[Type] = {
+    @df def dropdf(n : Int) : DFAny.Of[Type] = {
       if (n <= 0) left
       else {
         val ret = left.asNewVar
@@ -33,7 +33,7 @@ package object stream {
       }
     }
 
-    def dropWhiledf(p : DFAny.Of[Type] => DFBool)(implicit ctx : DFBlock.Context) : DFAny.Of[Type] = {
+    @df def dropWhiledf(p : DFAny.Of[Type] => DFBool) : DFAny.Of[Type] = {
       val ret = left.asNewVar
       val stop = DFBool() init false
       ifdf(!stop && p(left)) {
@@ -45,12 +45,12 @@ package object stream {
       ret
     }
 
-    def takedf(n : Int)(implicit ctx : DFBlock.Context) : DFAny.Of[Type] = {
+    @df def takedf(n : Int) : DFAny.Of[Type] = {
       val ret = left.asNewVar
       if (n <= 0) ret
       else {
         val cnt = DFUInt.max(n) init 0
-        ifdf(cnt === n) {
+        ifdf((cnt === n).anonymize) {
           ret.dontProduce()
         }.elsedf {
           ret.assign(left)
@@ -60,7 +60,7 @@ package object stream {
       }
     }
 
-    def takeWhiledf(p : DFAny.Of[Type] => DFBool)(implicit ctx : DFBlock.Context) : DFAny.Of[Type] = {
+    @df def takeWhiledf(p : DFAny.Of[Type] => DFBool) : DFAny.Of[Type] = {
       val ret = left.asNewVar
       val stop = DFBool() init false
       ifdf(stop || !p(left)) {

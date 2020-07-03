@@ -7,16 +7,16 @@ import scala.collection.{immutable, mutable}
 import DFiant.internals._
 import singleton.ops.SafeBoolean
 
-object FSM {
-  sealed trait Member
+sealed trait FSMMember
+object FSMMember {
   sealed trait Complete
   object Complete {
     implicit def ev1[NS, R](of : Of[Type.EmptyConn[NS], R]) : FSM = of.asInstanceOf[FSM]
     implicit def ev2[NS, R](of : Of[Type.BranchDone[NS], R]) : FSM = of.asInstanceOf[FSM]
     implicit def ev3[NS, R](of : Of[Type.Branch[NS], R]) : FSM = of.asInstanceOf[FSM]
   }
-  sealed trait Trackable extends Member {
-    protected[fsm] def getEdges : List[Member]
+  sealed trait Trackable extends FSMMember {
+    protected[fsm] def getEdges : List[FSMMember]
     protected[fsm] def track : this.type
     protected[fsm] def untrack : this.type
   }
@@ -35,7 +35,7 @@ object FSM {
 
   sealed trait Of[T <: Type, R] extends Trackable {
     protected[fsm] def getR : R
-    protected[fsm] final def addEdge[O <: Type](fsm : Member)(implicit ctx : DFAny.Context) : Edges[O, R] = {
+    protected[fsm] final def addEdge[O <: Type](fsm : FSMMember)(implicit ctx : DFAny.Context) : Edges[O, R] = {
       untrack
       Edges[O, R](getEdges :+ fsm)(getR).track
     }
@@ -52,9 +52,9 @@ object FSM {
     implicit class `==>Ext`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
       implicit connOp : ConnOp[S[NS], `==>`, O], NS : SafeBoolean[NS]
     ) {
-      private def getSrcEdges(realNextStep : => Member) : List[Member] = if (NS) {
+      private def getSrcEdges(realNextStep : => FSMMember) : List[FSMMember] = if (NS) {
         src.getEdges.map {
-          case NextStep => FSM.=!>(realNextStep)
+          case NextStep => FSMMember.=!>(realNextStep)
           case x => x
         }
       } else src.getEdges
@@ -66,43 +66,43 @@ object FSM {
         src.untrack
         val dstEdges = dst.getEdges
         val dstHead = dstEdges.head
-        val nextHead = if (NS) dstHead else FSM.`==>`(dstHead)
+        val nextHead = if (NS) dstHead else FSMMember.`==>`(dstHead)
         val srcEdges = getSrcEdges(dstHead)
         Edges[O[false], DR](srcEdges ++ (nextHead :: dstEdges.drop(1)))(dst.getR).track
       }
-      def ==>(dst : => Member)(implicit ctx : DFAny.Context) : FSM = if (NS) {
+      def ==>(dst : => FSMMember)(implicit ctx : DFAny.Context) : FSM = if (NS) {
         src.untrack
         Edges[O[false], R](getSrcEdges(dst))(src.getR).track.asInstanceOf[FSM]
-      } else src.addEdge[O[false]](FSM.`==>`(dst)).asInstanceOf[FSM]
+      } else src.addEdge[O[false]](FSMMember.`==>`(dst)).asInstanceOf[FSM]
     }
     implicit class `=?>Ext`[S[_] <: Type, NS, O[_] <: Type](src : Of[S[NS], Unit])(
       implicit connOp : ConnOp[S[NS], `=?>`, O]
     ) {
-      def =?>[C](cond : => C)(implicit arg : => DFBool.Arg[0], ctx : DFAny.Context) : Edges[O[NS], Unit] = src.addEdge[O[NS]](FSM.`=?>`(arg()))
+      def =?>[C](cond : => C)(implicit arg : => DFBool.Arg[0], ctx : DFAny.Context) : Edges[O[NS], Unit] = src.addEdge[O[NS]](FSMMember.`=?>`(arg()))
     }
     implicit class `=?>ExtR`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
       implicit connOp : ConnOp[S[NS], `=?>`, O]
     ) {
-      def =?>[C](cond : R => DFBool)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSM.`=?>`(cond(src.getR)))
+      def =?>[C](cond : R => DFBool)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSMMember.`=?>`(cond(src.getR)))
     }
     implicit class `=^>Ext`[S[_] <: Type, NS, O[_] <: Type](src : Of[S[NS], Unit])(
       implicit connOp : ConnOp[S[NS], `=^>`, O]
     ) {
-      def =^>(block : => Unit)(implicit ctx : DFAny.Context) : Edges[O[NS], Unit] = src.addEdge[O[NS]](FSM.`=^>`(block))
+      def =^>(block : => Unit)(implicit ctx : DFAny.Context) : Edges[O[NS], Unit] = src.addEdge[O[NS]](FSMMember.`=^>`(block))
     }
     implicit class `=^>ExtR`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
       implicit connOp : ConnOp[S[NS], `=^>`, O]
     ) {
-      def =^>(block : R => Unit)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSM.`=^>`(block(src.getR)))
+      def =^>(block : R => Unit)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSMMember.`=^>`(block(src.getR)))
     }
     implicit class `=!>Ext`[S[_] <: Type, NS, O[_] <: Type, R](src : Of[S[NS], R])(
       implicit connOp : ConnOp[S[NS], `=!>`, O]
     ) {
-      def =!>(dst : => Member)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSM.`=!>`(dst))
+      def =!>(dst : => FSMMember)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSMMember.`=!>`(dst))
       def =!>(dst : nextStep.type)(implicit ctx : DFBlock.Context) : Edges[O[true], R] = src.addEdge[O[true]](NextStep)
       def =!>(dst : thisStep.type)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = {
         val realThisStep = src.getEdges.head
-        src.addEdge[O[NS]](FSM.`=!>`(realThisStep))
+        src.addEdge[O[NS]](FSMMember.`=!>`(realThisStep))
       }
     }
 
@@ -127,36 +127,36 @@ object FSM {
     implicit def `BranchNS==>`              = new ConnOp[Branch[true],        `==>`, EmptyConn]
   }
 
-  sealed trait Step extends Member {
+  sealed trait Step extends FSMMember {
     val ctx : DFBlock.Context
   }
   final class BasicStep[R](alwaysBlock : () => R)(implicit val ctx : DFBlock.Context) extends Of[Type.EmptyConn[false], R] with Step {
     private lazy val retVal : R = alwaysBlock()
     def getR : R = retVal
-    def getEdges : List[Member] = List(this)
+    def getEdges : List[FSMMember] = List(this)
     protected[fsm] def track : this.type = ctx.db.trackFSM(this)
     protected[fsm] def untrack : this.type = ctx.db.untrackFSM(this)
     override def toString : String = ctx.meta.name
   }
-  final case class Edges[T <: Type, R](list : List[Member])(retVal : => R)(implicit ctx : DFAny.Context) extends Of[T, R] {
+  final case class Edges[T <: Type, R](list : List[FSMMember])(retVal : => R)(implicit ctx : DFAny.Context) extends Of[T, R] {
     def getR : R = retVal
-    def getEdges : List[Member] = list
+    def getEdges : List[FSMMember] = list
     protected[fsm] def track : this.type = ctx.db.trackFSM(this)
     protected[fsm] def untrack : this.type = ctx.db.untrackFSM(this)
   }
-  final case class `==>`(dst : () => Member) extends Member {
+  final case class `==>`(dst : () => FSMMember) extends FSMMember {
     override def toString : String = "==>"
   }
-  final case class `=?>`(dst : () => DFBool) extends Member {
+  final case class `=?>`(dst : () => DFBool) extends FSMMember {
     override def toString : String = "=?> <cond>"
   }
-  final case class `=^>`(dst : () => Unit) extends Member {
+  final case class `=^>`(dst : () => Unit) extends FSMMember {
     override def toString : String = "=^> <exit-block>"
   }
-  final case class `=!>`(dst : () => Member) extends Member {
+  final case class `=!>`(dst : () => FSMMember) extends FSMMember {
     override def toString : String = "=!>"
   }
-  case object NextStep extends Member
+  case object NextStep extends FSMMember
 
   final case class Transition(cond : Option[() => DFBool], block : Option[() => Unit]) {
     def show(connStr : String) : String = (cond, block) match {
@@ -334,7 +334,7 @@ object FSM {
   object Elaboration {
     private def empty : Elaboration = new Elaboration(immutable.ListMap())
     @tailrec private def discover(
-      edgeQueue : List[Member], elaboration : Elaboration
+      edgeQueue : List[FSMMember], elaboration : Elaboration
     ) : Elaboration = edgeQueue match {
       case LastStep(src) :: `==>`(FirstStep(dst)) :: edgeList =>
         discover(dst :: edgeList, elaboration.addTransition(src, Transition(None, None), dst))
@@ -369,8 +369,8 @@ object FSM {
 }
 
 object prevStep {
-  def =^>(block : => Unit)(implicit ctx : DFAny.Context) : FSM.Edges[FSM.Type.BranchOnExit[false], Unit] = ??? //src.addEdge[O[NS]](FSM.`=^>`(block))
-  def ==>(dst : => FSM.Member)(implicit ctx : DFAny.Context) : FSM.Edges[FSM.Type.BranchDone[false], Unit] = ??? //src.addEdge[O[NS]](FSM.`=^>`(block))
+  def =^>(block : => Unit)(implicit ctx : DFAny.Context) : FSMMember.Edges[FSMMember.Type.BranchOnExit[false], Unit] = ??? //src.addEdge[O[NS]](FSM.`=^>`(block))
+  def ==>(dst : => FSMMember)(implicit ctx : DFAny.Context) : FSMMember.Edges[FSMMember.Type.BranchDone[false], Unit] = ??? //src.addEdge[O[NS]](FSM.`=^>`(block))
 }
 
 object nextStep

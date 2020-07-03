@@ -38,3 +38,14 @@ object DFScope {
     ) : Owner = ctx.db.addContainerOwner(container, Owner(nameFlatten, ctx.owner, ctx.meta))
   }
 }
+
+object funcdf {
+  def apply[R](block : => R)(implicit meta : Meta, ctx : DFBlock.Context) : R = {
+    val scope = new DFScope(Some(meta.name)) {
+      ctx.db.OwnershipContext.injectContainer(this)
+      val ret = block
+      ctx.db.OwnershipContext.clearInjectedContainer()
+    }
+    scope.ret
+  }
+}
