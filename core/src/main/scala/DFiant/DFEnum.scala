@@ -44,6 +44,9 @@ object DFEnum extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       Token(enumType, enumType.entries(fromToken.valueBits.toBigInt))
+    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+      case r @ DFEnum(_) if (enumType == r.asInstanceOf[DFEnum[_]].dfType.enumType) =>
+    }
     override def toString: String = s"DFEnum[$enumType]"
     def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFEnum($enumType)"
     override def equals(obj: Any): Boolean = obj match {

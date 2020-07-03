@@ -68,6 +68,7 @@ object DFAny {
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
     def getBubbleToken : TToken
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token
+    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit
     def codeString(implicit printConfig : Printer.Config) : String
   }
   object Type {
@@ -895,9 +896,12 @@ object DFAny {
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
-    def ::= [R](right : Any)(
-      implicit ctx : DFNet.Context, arg0 : GetArg0.Aux[R], op : left.dfType.`Op:=Builder`[Type, R]
-    ) : Unit = left.assign(op(left.dfType, arg0))
+    def := (right : DFAny.Of[Type])(
+      implicit ctx : DFNet.Context
+    ) : Unit = {
+      left.dfType.assignCheck(right)
+      left.assign(right)
+    }
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]

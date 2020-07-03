@@ -22,6 +22,11 @@ object DFUInt extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFUInt.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken.toUInt
+    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+      case r @ DFUInt(_) =>
+        val op = implicitly[`Op:=`.Builder[Type[W], DFUInt[Int]]]
+        op(this, r.asInstanceOf[DFUInt[Int]])
+    }
     override def toString: String = s"DFUInt[$width]"
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._

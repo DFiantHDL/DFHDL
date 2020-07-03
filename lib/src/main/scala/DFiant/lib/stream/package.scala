@@ -24,7 +24,7 @@ package object stream {
         val ret = left.asNewVar
         val cnt = DFUInt.max(n) init 0
         ifdf(cnt === n) {
-          ret.assign(left)
+          ret := left
         }.elsedf {
           ret.dontProduce()
           cnt := cnt + 1
@@ -37,7 +37,7 @@ package object stream {
       val ret = left.asNewVar
       val stop = DFBool() init false
       ifdf(!stop && p(left)) {
-        ret.assign(left)
+        ret := left
       }.elsedf {
         stop := true
         ret.dontProduce()
@@ -53,7 +53,7 @@ package object stream {
         ifdf((cnt === n).anonymize) {
           ret.dontProduce()
         }.elsedf {
-          ret.assign(left)
+          ret := left
           cnt := cnt + 1
         }
         ret
@@ -67,7 +67,7 @@ package object stream {
         stop := true
         ret.dontProduce()
       }.elsedf {
-        ret.assign(left)
+        ret := left
       }
       ret
     }

@@ -24,6 +24,9 @@ object DFBool extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       Token(logical = false, fromToken.valueBits(0), fromToken.bubbleMask(0))
+    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+      case DFBool() =>
+    }
     override def toString: String = if (logical) "DFBool" else "DFBit"
     def codeString(implicit printConfig : Printer.Config) : String =
       if (logical) s"${printConfig.TP}DFBool()" else s"${printConfig.TP}DFBit()"

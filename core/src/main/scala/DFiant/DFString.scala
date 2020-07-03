@@ -27,6 +27,11 @@ object DFString extends DFAny.Companion {
       assert(fromToken.value.length == length.getValue)
       Token(fromToken.value.toByteArray.toVector, fromToken.isBubble)
     }
+    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+      case r @ DFString(_) =>
+        val op = implicitly[`Op:=`.Builder[Type[L], DFString[Int]]]
+        op(this, r.asInstanceOf[DFString[Int]])
+    }
     def codeString(implicit printConfig : Printer.Config) : String = {
       import printConfig._
       s"$TP DFString($LIT$length)"
