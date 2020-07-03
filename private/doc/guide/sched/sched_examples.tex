@@ -501,8 +501,7 @@ Every constructed DF mutable variable always produces the previous token value i
 
 			ifdf (in.isNotEmpty()) {
 				cnt := cnt + 1
-			} elsedf {
-				in.dontConsume() 
+			} elsedf { //If we don't care about repeating count output, we can drop the else
 				cnt.dontProduce() //cnt.prev preserves latest valid value
 			}
 			return cnt
@@ -530,13 +529,11 @@ Every constructed DF mutable variable always produces the previous token value i
 	\begin{minted}[tabsize=2,gobble=2,framesep=5pt]{Scala}
 		def unstuckRepeater(in : DFBits) : DFBits = {
 			val out = DFBits(in.width) 
-
+			//We limit the dependency of out production to when `in` has a token
+			//In any other case, out can feely produce its own value
 			ifdf (in.isNotEmpty()) {
 				out := in
-			} elsedf {
-				//has implicit out := out.prev
-				in.dontConsume() 
-			}
+			} 
 			return out
 		}
 	\end{minted}

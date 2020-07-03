@@ -163,6 +163,7 @@ object DFAny {
       equalWidth.unsafeCheck(aliasType.width, width)
       DFAny.Alias.AsIs(aliasType, this)
     }
+    final def asNewVar(implicit ctx : DFAny.Context) : DFAny.Value[Type, Modifier.NewVar] = NewVar(dfType)
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
@@ -179,9 +180,10 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Dynamic Dataflow Control
     //////////////////////////////////////////////////////////////////////////
-    final def dontConsume()(implicit ctx : DFBlock.Context) : Unit = {}
-    final def consume()(implicit ctx : DFBlock.Context) : Unit = {}
-    final def isNotEmpty(implicit ctx : DFBlock.Context) : DFBool = ???
+    final def dontConsume()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontConsume(left)
+    final def consume()(implicit ctx : DFAny.Context) : Unit = Dynamic.Consume(left)
+    //fired only once for each new token
+    final def isNotEmpty(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotEmpty(left)
     //////////////////////////////////////////////////////////////////////////
     override lazy val typeName: String = dfType.toString
   }
@@ -784,13 +786,110 @@ object DFAny {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Dynamic Dataflow
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //Dynamic is a always boolean for implementation simplification. Only `IsNotEmpty` and `IsNotFull` are
+  //useable as boolean values.
+  final case class Dynamic(
+    relValRef : Dynamic.Ref[DFAny], func : Dynamic.Func, ownerRef : DFOwner.Ref, tags : DFAny.Tags
+  ) extends DFBool with CanBeAnonymous {
+    type TMod = Modifier.Val
+    val modifier : TMod = Modifier.Val
+    val dfType : DFBool.Type = DFBool.Type(true)
+    protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+      case Dynamic(relValRef, func, _, tags) =>
+        this.func == func && this.relValRef =~ relValRef && this.tags =~ tags
+      case _ => false
+    }
+    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = {
+      import printConfig.formatter._
+      s"${relValRef.refCodeString.applyBrackets()}.${func.codeString}"
+    }
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember =
+      getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+  }
+  object Dynamic {
+    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+    object Ref {
+      trait Type extends DFMember.OwnedRef.Type
+      implicit val ev : Type = new Type {}
+    }
+    sealed trait Func extends Product with Serializable {
+      def codeString : String
+    }
+    object Func {
+      case object IsNotEmpty extends Func {
+        def codeString : String = "isNotEmpty"
+      }
+      case object IsNotFull extends Func {
+        def codeString : String = "isNotFull"
+      }
+      case object Consume extends Func {
+        def codeString : String = "consume()"
+      }
+      case object DontConsume extends Func {
+        def codeString : String = "dontConsume()"
+      }
+      case object DontProduce extends Func {
+        def codeString : String = "dontProduce()"
+      }
+    }
+
+    def apply(relVal: DFAny, func : Func)(
+      implicit ctx: DFAny.Context
+    ): DFBool = {
+      implicit lazy val ret : Dynamic with DFMember.RefOwner =
+        ctx.db.addMember(ctx.container, Dynamic(relVal, func, ctx.owner, ctx.meta)).asRefOwner
+      ret
+    }
+
+    object Unref {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, Func, DFOwner, Tags)] =
+        Some((arg.relValRef.get, arg.func, arg.ownerRef.get, arg.tags))
+    }
+    object IsNotEmpty {
+      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotEmpty)
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+        case Unref(relVal, Func.IsNotEmpty, owner, tags) => Some((relVal, owner, tags))
+      }
+    }
+    object IsNotFull {
+      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotFull)
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+        case Unref(relVal, Func.IsNotFull, owner, tags) => Some((relVal, owner, tags))
+      }
+    }
+    object Consume {
+      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.Consume)
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+        case Unref(relVal, Func.Consume, owner, tags) => Some((relVal, owner, tags))
+      }
+    }
+    object DontConsume {
+      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontConsume)
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+        case Unref(relVal, Func.DontConsume, owner, tags) => Some((relVal, owner, tags))
+      }
+    }
+    object DontProduce {
+      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontProduce)
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+        case Unref(relVal, Func.DontProduce, owner, tags) => Some((relVal, owner, tags))
+      }
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Extension Classes
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   type ConnOf[Type <: DFAny.Type] = Value[Type, Modifier]
   type VarOf[Type <: DFAny.Type] = Value[Type, Modifier.Assignable]
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
-    def dontProduce() : Unit = {}
-    final def isNotFull(implicit ctx : DFBlock.Context) : DFBool = ???
+    def dontProduce()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontProduce(left)
+    final def isNotFull(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotFull(left)
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
