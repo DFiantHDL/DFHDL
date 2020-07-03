@@ -71,5 +71,53 @@ package object stream {
       }
       ret
     }
+
+    @df def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      val sel = DFBool() init 0
+
+      ifdf (sel) {
+        ret := right
+        left.dontConsume()
+      }.elsedf {
+        ret := left
+        right.dontConsume()
+      }
+      sel := !sel
+      ret
+    }
+
+    @df def mergeNonBlockingdf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      val sel = DFBool() init 0
+
+      ifdf (sel && right.isNotEmpty) {
+        ret := right
+        left.dontConsume()
+      }.elseifdf(!sel && left.isNotEmpty) {
+        ret := left
+        right.dontConsume()
+      }.elsedf {
+        left.dontConsume()
+        right.dontConsume()
+        ret.dontProduce()
+      }
+      sel := !sel
+      ret
+    }
+
+    @df def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+
+      ifdf (left.isNotEmpty) {
+        ret := left
+        right.dontConsume()
+      }.elseifdf(right.isNotEmpty) {
+        ret := right
+      }.elsedf {
+        ret.dontProduce()
+      }
+      ret
+    }
   }
 }
