@@ -45,6 +45,8 @@ object DFUInt extends DFAny.Companion {
     case Type(width) => Some(width.getValue)
     case _ => None
   }
+  def max[U](maxValue : Positive.Checked[U])(implicit ctx : DFAny.Context, w : BitsWidthOf.Int[U]) = DFAny.NewVar(Type(w(maxValue.getValue)))
+  def until[U](supremum : Positive.Checked[U])(implicit ctx : DFAny.Context, w : BitsWidthOf.Int[U-1]) = DFAny.NewVar(Type(w(supremum.getValue-1)))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
