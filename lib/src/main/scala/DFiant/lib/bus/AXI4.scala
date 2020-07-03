@@ -33,15 +33,14 @@ object AXI4 {
     import fsm._
     final def fireFSM(onExit : => Unit)(implicit ctx : DFBlock.Context) = {
       stepR {
-        val reg = DFBit() init 0
-        val sig = DFBit()
-        sig := 1
-        ifdf(!reg.prev) {
-          sig := ready
+        val ctrl = DFBit() init 0
+        ctrl := 1
+        ifdf(!ctrl.prev) {
+          ctrl := ready
           valid := 1
         }
-        (sig, reg)
-      } =?> {x => x._1} =^> {x => x._2 := 0; onExit} =!> nextStep =?> {_ => ready} =^> {x => x._2 := 1} =!> thisStep
+        ctrl
+      } =?> {ctrl => ctrl} =^> {ctrl => ctrl := 0; onExit} =!> nextStep =?> ready =^> {ctrl => ctrl := 1} =!> thisStep
     }
   }
 

@@ -84,6 +84,7 @@ object FSMMember {
       implicit connOp : ConnOp[S[NS], `=?>`, O]
     ) {
       def =?>[C](cond : R => DFBool)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSMMember.`=?>`(cond(src.getR)))
+      def =?>[C](cond : => DFBool)(implicit ctx : DFAny.Context) : Edges[O[NS], R] = src.addEdge[O[NS]](FSMMember.`=?>`(cond()))
     }
     implicit class `=^>Ext`[S[_] <: Type, NS, O[_] <: Type](src : Of[S[NS], Unit])(
       implicit connOp : ConnOp[S[NS], `=^>`, O]
