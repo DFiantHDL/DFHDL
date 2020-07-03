@@ -3,6 +3,8 @@ package compiler
 package backend
 import printer.Printer
 
+import scala.annotation.implicitNotFound
+
 object Backend {
   trait Stage extends compiler.Compilation.Stage
 
@@ -57,6 +59,7 @@ object Backend {
     db : DFDesign.DB, fileNameSeq : Seq[String]
   ) extends compiler.Compilation[D]
 
+  @implicitNotFound("Missing a compiler import (e.g., `import compiler.backend.vhdl.v2008`)")
   trait Compiler[B <: Stage] {
     def apply[D <: DFDesign, H <: shapeless.HList](c : IRCompilation[D, H]) : Backend.Compilation[D, B]
   }
