@@ -10,11 +10,11 @@ import DFiant.lib.stream._
     case AXI4.Master => SOURCE
     case AXI4.Slave => SINK
   }
-  final val AW = new AXI4.AddressChannel(streamDir)(config.wrEnabled, config.simple)
-  final val W  = new AXI4.WriteDataChannel(streamDir)(config.wrEnabled, config.simple)
-  final val AR = new AXI4.AddressChannel(streamDir)(config.rdEnabled, config.simple)
-  final val R  = new AXI4.ReadDataChannel(streamDir.flip)(config.rdEnabled, config.simple)
-  final val B  = new AXI4.WriteResponseChannel(streamDir.flip)(config.wrEnabled, config.simple)
+  final val AW = new AXI4.AddressChannel(streamDir)
+  final val W  = new AXI4.WriteDataChannel(streamDir)
+  final val AR = new AXI4.AddressChannel(streamDir)
+  final val R  = new AXI4.ReadDataChannel(streamDir.flip)
+  final val B  = new AXI4.WriteResponseChannel(streamDir.flip)
   def readRequest(address : DFBits[32], size : DFUInt[32])(implicit ctx : DFBlock.Context) : Unit = {}
   def writeRequest(address : DFBits[32], size : DFUInt[32])(implicit ctx : DFBlock.Context) : Unit = {}
 }
@@ -60,140 +60,64 @@ object AXI4 {
     simple : Boolean
   ) extends Product with Serializable
 
-  @df final protected class AddressChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) with Fire{
-    final val addr    = DFBits(32)
-    final val id      = DFBits(1)
-    final val len     = DFBits(32)
-    final val size    = DFBits(3)
-    final val burst   = DFBits(2)
-    final val lock    = DFBits(2)
-    final val cache   = DFBits(4)
-    final val prot    = DFBits(3)
-    final val qos     = DFBits(4)
-    final val region  = DFBits(4)
-    final val user    = DFBits(1)
+  @df final protected class AddressChannel(streamDir : StreamDir) extends Interface(streamDir) with Fire {
+    final val addr    = DFBits(32)  init b0s
+    final val id      = DFBits(1)   init b0s
+    final val len     = DFBits(32)  init b0s
+    final val size    = DFBits(3)   init b0s
+    final val burst   = DFBits(2)   init b0s
+    final val lock    = DFBits(2)   init b0s
+    final val cache   = DFBits(4)   init b0s
+    final val prot    = DFBits(3)   init b0s
+    final val qos     = DFBits(4)   init b0s
+    final val region  = DFBits(4)   init b0s
+    final val user    = DFBits(1)   init b0s
     streamDir match {
       case SOURCE =>
-        if (!enabled) {
-          valid := 0
-          addr := b0s
-          id := b0s
-          len := b0s
-          size := b0s
-          burst := b0s
-          lock := b0s
-          cache := b0s
-          prot := b0s
-          qos := b0s
-          region := b0s
-          user := b0s
-        } else if (simple) {
-          id := b0s
-          size := b0s
-          burst := b0s
-          lock := b0s
-          cache := b0s
-          prot := b0s
-          qos := b0s
-          region := b0s
-          user := b0s
-        }
         if (hasNativeDir) {
           valid := 0
         }
-      case SINK =>
-        if (!enabled) {
-          ready := 0
-        }
-      case FLOW =>
+      case _ =>
     }
   }
-  @df final protected class WriteDataChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) with Fire {
-    final val data    = DFBits(32)
-    final val strb    = DFBits(4)
-    final val last    = DFBit()
-    final val id      = DFBits(1)
-    final val user    = DFBits(1)
+  @df final protected class WriteDataChannel(streamDir : StreamDir) extends Interface(streamDir) with Fire {
+    final val data    = DFBits(32)  init b0s
+    final val strb    = DFBits(4)   init b0s
+    final val last    = DFBit()     init 0
+    final val id      = DFBits(1)   init b0s
+    final val user    = DFBits(1)   init b0s
     streamDir match {
       case SOURCE =>
-        if (!enabled) {
-          valid := 0
-          data := b0s
-          strb := b0s
-          last := 0
-          id := b0s
-          user := b0s
-        } else if (simple) {
-          strb := b1s
-          last := 0
-          id := b0s
-          user := b0s
-        }
         if (hasNativeDir) {
           valid := 0
         }
-      case SINK =>
-        if (!enabled) {
-          ready := 0
-        }
-      case FLOW =>
+      case _ =>
     }
   }
-  @df final protected class WriteResponseChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) {
-    final val resp    = DFBits(2)
-    final val id      = DFBits(1)
-    final val user    = DFBits(1)
+  @df final protected class WriteResponseChannel(streamDir : StreamDir) extends Interface(streamDir) {
+    final val resp    = DFBits(2)   init b0s
+    final val id      = DFBits(1)   init b0s
+    final val user    = DFBits(1)   init b0s
     streamDir match {
-      case SOURCE =>
-        if (!enabled) {
-          valid := 0
-          resp := b0s
-          id := b0s
-          user := b0s
-        } else if (simple) {
-          resp := b0s
-          id := b0s
-          user := b0s
-        }
       case SINK =>
-        if (!enabled) {
-          ready := 0
-        }
         if (hasNativeDir) {
           ready := 0
         }
-      case FLOW =>
+      case _ =>
     }
   }
-  @df final protected class ReadDataChannel(streamDir : StreamDir)(enabled : Boolean, simple : Boolean) extends Interface(streamDir) {
-    final val data    = DFBits(32)
-    final val last    = DFBit()
-    final val id      = DFBits(1)
-    final val user    = DFBits(1)
-    final val resp    = DFBits(2)
+  @df final protected class ReadDataChannel(streamDir : StreamDir) extends Interface(streamDir) {
+    final val data    = DFBits(32)  init b0s
+    final val last    = DFBit()     init 0
+    final val id      = DFBits(1)   init b0s
+    final val user    = DFBits(1)   init b0s
+    final val resp    = DFBits(2)   init b0s
     streamDir match {
-      case SOURCE =>
-        if (!enabled) {
-          valid := 0
-          data := b0s
-          last := 0
-          id := b0s
-          user := b0s
-          resp := b0s
-        } else if (simple) {
-          last := 0
-          id := b0s
-          user := b0s
-          resp := b0s
-        }
       case SINK =>
-        if (!enabled) {
-          ready := 0
-        }
         if (hasNativeDir) {
           ready := 0
         }
-      case FLOW =>
+      case _ =>
     }
   }
 }

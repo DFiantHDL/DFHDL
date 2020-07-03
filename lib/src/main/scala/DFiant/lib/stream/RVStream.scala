@@ -14,8 +14,8 @@ abstract class RVStream(streamDir: StreamDir, nameFlatten: DFOwner.NameFlatten =
     case FLOW => VAR
   }
 //  final val bubbleStall = DFBit() <> MasterDir(OUT)  init false
-  final val valid       = DFBit() <> SourceDir(OUT) //init false
-  final val ready       = DFBit() <> SourceDir(IN)  //init false
+  final val valid       = DFBit() <> SourceDir(OUT) init false
+  final val ready       = DFBit() <> SourceDir(IN)  init false
   DefaultDclDir <> SourceDir(OUT)
 }
 

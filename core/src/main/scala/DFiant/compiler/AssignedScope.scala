@@ -4,7 +4,7 @@ package compiler
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-final case class AssignedScope(latest : immutable.BitSet, branchHistory : Option[immutable.BitSet], parentScopeOption : Option[AssignedScope]) {
+final case class AssignedScope(latest : immutable.BitSet, branchHistory : Option[immutable.BitSet], parentScopeOption : Option[AssignedScope], hasAssignments : Boolean) {
   @tailrec private def getLatest(latest : immutable.BitSet, parentScopeOption : Option[AssignedScope]) : immutable.BitSet =
     parentScopeOption match {
       case Some(s) => getLatest(latest | s.latest, s.parentScopeOption)
@@ -12,10 +12,10 @@ final case class AssignedScope(latest : immutable.BitSet, branchHistory : Option
     }
   def getLatest : immutable.BitSet = getLatest(latest, parentScopeOption)
   def isConsumingPrevAt(consumeBitSet : immutable.BitSet) : Boolean = (consumeBitSet &~ getLatest).nonEmpty
-  def assign(assignBitSet : immutable.BitSet) : AssignedScope = copy(latest | assignBitSet)
+  def assign(assignBitSet : immutable.BitSet) : AssignedScope = copy(latest = latest | assignBitSet, hasAssignments = true)
   def branchEntry(firstBranch : Boolean) : AssignedScope = {
     val parentScope = if (firstBranch) this.copy(branchHistory = Some(getLatest)) else this
-    AssignedScope(immutable.BitSet(), None, Some(this))
+    AssignedScope(immutable.BitSet(), None, Some(this), hasAssignments)
   }
   def branchExit(lastBranch : Boolean, exhaustive : Boolean) : AssignedScope = parentScopeOption match {
     case Some(parentScope) =>
@@ -24,13 +24,13 @@ final case class AssignedScope(latest : immutable.BitSet, branchHistory : Option
         case None => latest
       }
       if (lastBranch) {
-        if (exhaustive) AssignedScope(parentScope.latest | updatedHistory, None, parentScope.parentScopeOption)
-        else AssignedScope(parentScope.latest, None, parentScope.parentScopeOption)
+        if (exhaustive) AssignedScope(parentScope.latest | updatedHistory, None, parentScope.parentScopeOption, hasAssignments)
+        else AssignedScope(parentScope.latest, None, parentScope.parentScopeOption, hasAssignments)
       } else
-        AssignedScope(parentScope.latest, Some(updatedHistory), parentScope.parentScopeOption)
+        AssignedScope(parentScope.latest, Some(updatedHistory), parentScope.parentScopeOption, hasAssignments)
     case None => this
   }
 }
 object AssignedScope {
-  val empty : AssignedScope = AssignedScope(immutable.BitSet(), None, None)
+  val empty : AssignedScope = AssignedScope(immutable.BitSet(), None, None, hasAssignments = false)
 }

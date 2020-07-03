@@ -101,7 +101,9 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
     assignTo(value, value.width, 0, assignMap)
   //retrieves a list of variables that are consumed as their implicit previous value.
   //the assignment stack map is pushed on every conditional block entry and popped on the block exit
-  @tailrec private def getImplicitPrevVars(remaining : List[DFMember], currentBlock : DFBlock, scopeMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
+  @tailrec private def getImplicitPrevVars(
+    remaining : List[DFMember], currentBlock : DFBlock, scopeMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]
+  ) : (Set[DFAny], Map[DFAny, AssignedScope]) = {
     remaining match {
       case (nextBlock : DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => //entering child block
         val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = nextBlock match {
@@ -166,14 +168,24 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
             case _ => scopeMap
           }
           getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
-        } else updatedSet
+        } else (updatedSet, scopeMap)
     }
   }
 
   def explicitPrev = {
-    val explicitPrevSet = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
+    val (currentSet, scopeMap) = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
+    val (explicitPrevSet, defaultsSet) = currentSet.partition(p => scopeMap(p).hasAssignments)
+    val defaultsPatchList = defaultsSet.flatMap {
+      case d @ DFAny.Dcl(dfType,_,Some(initHead +: _),_,_) if !initHead.isBubble => Some(
+        d -> Patch.Add(new MetaDesign() {
+          val initConst = DFAny.Const.forced(dfType, initHead)
+          d.assign(initConst)
+        }, Patch.Add.Config.After)
+      )
+      case _ => None
+    }
     val outs = explicitPrevSet.collect{case p @ DFAny.Port.Out() => p}.toList.groupBy(p => p.getOwnerDesign)
-    val outPatchList = outs.flatMap {
+    val outPrevPatchList = outs.flatMap {
       case (block, portSet) =>
         val portDsns = portSet.map { p =>
           val dsn = new MetaDesign() {
@@ -201,7 +213,7 @@ final class ExplicitPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
       case e => Some(e -> Patch.Add(new MetaDesign() {
         DFNet.Assignment(e, DFAny.Alias.Prev(e, 1))
       }, Patch.Add.Config.After))
-    } ++ outPatchList
+    } ++ outPrevPatchList ++ defaultsPatchList
 
     //      println(explicitPrevSet.map(e => e.getFullName).mkString(", "))
     c.newStage[ExplicitPrev](designDB.patch(patchList))
