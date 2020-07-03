@@ -31,7 +31,7 @@ object AXI4 {
     val valid : DFBool <> VAR
     val ready : DFBool <> VAR
     import fsm._
-    final def fireFSM(onExit : => Unit)(implicit ctx : DFBlock.Context) = {
+    @fsm final def fireFSM(onExit : => Unit) = {
       stepR {
         val ctrl = DFBit() init 0
         ctrl := 1
