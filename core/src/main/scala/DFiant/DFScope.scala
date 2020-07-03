@@ -39,7 +39,7 @@ object DFScope {
   }
 }
 
-object funcdf {
+object defdf {
   def apply[R](block : => R)(implicit meta : Meta, ctx : DFBlock.Context) : R = {
     val scope = new DFScope(Some(meta.name)) {
       ctx.db.OwnershipContext.injectContainer(this)
