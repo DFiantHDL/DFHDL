@@ -819,19 +819,21 @@ object DFAny {
       def codeString : String
     }
     object Func {
-      case object IsNotEmpty extends Func {
+      sealed trait Status extends Func
+      case object IsNotEmpty extends Status {
         def codeString : String = "isNotEmpty"
       }
-      case object IsNotFull extends Func {
+      case object IsNotFull extends Status {
         def codeString : String = "isNotFull"
       }
-      case object Consume extends Func {
+      sealed trait Control extends Func
+      case object Consume extends Control {
         def codeString : String = "consume()"
       }
-      case object DontConsume extends Func {
+      case object DontConsume extends Control {
         def codeString : String = "dontConsume()"
       }
-      case object DontProduce extends Func {
+      case object DontProduce extends Control {
         def codeString : String = "dontProduce()"
       }
     }
@@ -893,6 +895,9 @@ object DFAny {
     def := [R](right : left.dfType.OpAble[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
+    def ::= [R](right : Any)(
+      implicit ctx : DFNet.Context, arg0 : GetArg0.Aux[R], op : left.dfType.`Op:=Builder`[Type, R]
+    ) : Unit = left.assign(op(left.dfType, arg0))
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]

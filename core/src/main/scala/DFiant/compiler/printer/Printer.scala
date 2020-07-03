@@ -33,6 +33,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
         case _ => Some(n.codeString)
       }
+      case dc @ DFAny.Dynamic(_,_ : DFAny.Dynamic.Func.Control,_,_) => Some(dc.codeString)
       case sim : DFSimMember => Some(sim.codeString)
       case emitter : BackendEmitter => Some(emitter.codeString)
       case a : DFAny if !a.isAnonymous =>
