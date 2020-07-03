@@ -13,13 +13,13 @@ final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
         members.filter {
           case m : DFAny.CanBeAnonymous => !m.isAnonymous
           case _ => false
-        }.groupBy(m => (m.tags.meta.namePosition, m.name)).flatMap {
+        }.groupBy(m => m.tags.meta.namePosition).flatMap {
           //In case an anonymous member got a name from its owner. For example:
           //val ret = DFBits(8).ifdf(cond) {
           //  i & i
           //}
           //The `i & i` function would also get the `ret` name just as the if block itself
-          case ((pos, _), gm) if (pos == block.tags.meta.namePosition) => gm
+          case (pos, gm) if (pos == block.tags.meta.namePosition) => gm
           case (_, gm) if (gm.length > 1) =>
             //In case an anonymous member was used as an argument to an owner. For example:
             //val ret = DFBits(8).ifdf(i & i) {

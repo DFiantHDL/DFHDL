@@ -50,7 +50,7 @@ package object stream {
       if (n <= 0) ret
       else {
         val cnt = DFUInt.max(n) init 0
-        ifdf((cnt === n).anonymize) {
+        ifdf(cnt === n) {
           ret.dontProduce()
         }.elsedf {
           ret := left

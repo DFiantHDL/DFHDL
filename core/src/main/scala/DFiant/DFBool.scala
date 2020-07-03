@@ -26,6 +26,7 @@ object DFBool extends DFAny.Companion {
       Token(logical = false, fromToken.valueBits(0), fromToken.bubbleMask(0))
     def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
       case DFBool() =>
+      case DFBit() =>
     }
     override def toString: String = if (logical) "DFBool" else "DFBit"
     def codeString(implicit printConfig : Printer.Config) : String =
