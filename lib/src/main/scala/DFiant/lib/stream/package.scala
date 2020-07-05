@@ -72,6 +72,54 @@ package object stream {
       ret
     }
 
+    @df def filterdf(keepWhen : DFAny.Of[Type] => DFBool) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      ifdf(keepWhen(left)) {
+        ret := left
+      }.elsedf {
+        ret.dontProduce()
+      }
+      ret
+    }
+
+    @df def filterNotdf(discardWhen : DFAny.Of[Type] => DFBool) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      ifdf(discardWhen(left)) {
+        ret.dontProduce()
+      }.elsedf {
+        ret := left
+      }
+      ret
+    }
+
+    @df def prependdf(tokens : left.dfType.InitAble[DFAny.Of[Type]]*)(
+      implicit op: left.dfType.InitBuilder[DFAny.Of[Type]]
+    ) : DFAny.Of[Type] = {
+      val varInit = left.asNewVar forcedInit op(left, tokens)
+      val ret = varInit.prev[Int](tokens.length)
+      ret
+    }
+
+    @df def splitdf(num : Int)(
+      implicit op: left.dfType.InitBuilder[DFAny.Of[Type]]
+    ) : List[DFAny.Of[Type]] = {
+      val ret : List[DFAny.VarOf[Type]] = List.tabulate(num)(i => left.asNewVar.setName(s"ret$i"))
+      val sel = DFUInt.until(num) init 0
+      ret.zipWithIndex.foreach{case (r, i) =>
+        ifdf (sel === i){
+          r := left
+        }.elsedf {
+          r.dontProduce()
+        }
+      }
+      ifdf(sel === num) {
+        sel := 0
+      }.elsedf {
+        sel := sel + 1
+      }
+      ret
+    }
+
     @df def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
       require(left.dfType == right.dfType)
       val ret = left.asNewVar
@@ -120,6 +168,25 @@ package object stream {
       }.elsedf {
         ret.dontProduce()
       }
+      ret
+    }
+  }
+
+  implicit class StreamCollectionExt[Type <: DFAny.Type](iter : Iterable[DFAny.Of[Type]]) {
+    private def checkWidths() : Unit = {
+      require(iter.size > 1)
+      val dfType = iter.head.dfType
+      iter.foreach(i => require(i.dfType == dfType))
+    }
+    @df def mergedf : DFAny.Of[Type] = {
+      checkWidths()
+      val ret = iter.head.asNewVar
+      iter.foreach(e => e.dontConsume())
+      import fsm._
+      val start : FSMMember.Connectable = step{ret := iter.head}
+      val x : FSM = iter.drop(1).foldLeft(start){
+        case (s, e) => val sel_fsm = s ==> step{ret := e}; sel_fsm
+      } ==> start
       ret
     }
   }

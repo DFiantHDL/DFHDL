@@ -164,7 +164,7 @@ object DFAny {
       equalWidth.unsafeCheck(aliasType.width, width)
       DFAny.Alias.AsIs(aliasType, this)
     }
-    final def asNewVar(implicit ctx : DFAny.Context) : DFAny.Value[Type, Modifier.NewVar] = NewVar(dfType)
+    final def asNewVar(implicit ctx : DFAny.Context) : DFAny.Value[Type, Modifier.NewVar] with Dcl.Uninitialized = NewVar(dfType)
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
@@ -325,10 +325,12 @@ object DFAny {
   object Dcl {
     trait Uninitialized
     implicit class InitializableOps[Type <: DFAny.Type, Mod <: DFAny.Modifier](val i : Value[Type, Mod] with Uninitialized) {
-      def init(that : i.dfType.InitAble[i.This]*)(
-        implicit op : i.dfType.InitBuilder[i.This], ctx : DFAny.Context
-      ) : Value[Type, Mod] = {
-        val newMember = Dcl(i.dfType, i.modifier, Some(op(i, that)), ctx.owner, ctx.meta).asInstanceOf[Value[Type, Mod]]
+      def init(tokens : i.dfType.InitAble[DFAny.Of[Type]]*)(
+        implicit op : i.dfType.InitBuilder[DFAny.Of[Type]], ctx : DFAny.Context
+      ) : Value[Type, Mod] = forcedInit(op(i, tokens))
+
+      private[DFiant] def forcedInit(tokens : Seq[Token])(implicit ctx : DFAny.Context) : Value[Type, Mod] = {
+        val newMember = Dcl(i.dfType, i.modifier, Some(tokens), ctx.owner, ctx.meta).asInstanceOf[Value[Type, Mod]]
         if (ctx.meta.namePosition == i.tags.meta.namePosition) {
           implicitly[MemberGetSet].set[DFAny](i)(_ => newMember)
           newMember

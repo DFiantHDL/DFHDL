@@ -40,6 +40,7 @@ object FSMMember {
       Edges[O, R](getEdges :+ fsm)(getR).track
     }
   }
+  type Connectable = Of[Type.EmptyConn[false], Unit]
   object Of {
     sealed trait Conn
     sealed trait `==>` extends Conn
