@@ -13,7 +13,10 @@ object ClassArgs {
   def evMacro[T](c: whitebox.Context)(implicit n : c.WeakTypeTag[T]) : c.Tree = {
     import c.universe._
     val tp = weakTypeOf[T]
-    val lastTree = c.enclosingImplicits.last.tree
+    val lastTree = tp match {
+      case ConstantType(Constant(_ : String)) => q""
+      case _ => c.enclosingImplicits.last.tree
+    }
     val genTree = lastTree match {
       case q"new $_(...$paramValueTrees)" =>
         val paramSymbols = symbolOf[T].asClass.primaryConstructor.asMethod.paramLists
