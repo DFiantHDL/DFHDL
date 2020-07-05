@@ -31,7 +31,7 @@ abstract class DFInterface(
     case _ => false
   }
   //Use to set the default directionality in the interface
-  protected[DFiant] object DefaultDclDir {
+  protected[DFiant] object SET_DEFAULT_DIR {
     private[DFiant] var currentDefault : DclDir = VAR
     def <> (dir : DclDir) : Unit = currentDefault = dir
   }

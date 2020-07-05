@@ -342,7 +342,7 @@ object DFAny {
         //Using a default dir modifier
         case Modifier.DefaultDirVar => ctx.container match {
           //The container is an interface, so the modifier may be different than NewVar
-          case ifc : DFInterface => ifc.DefaultDclDir.currentDefault match {
+          case ifc : DFInterface => ifc.SET_DEFAULT_DIR.currentDefault match {
             case dir : PortDir => Modifier.Port(dir)
             case DFiant.VAR => Modifier.NewVar
           }
