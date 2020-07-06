@@ -81,20 +81,22 @@ import internals._
 
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
-  val i = DFUInt(8) <> IN
+  val i1 = DFUInt(8) <> IN
+  val i2 = DFUInt(8) <> IN
   val o = DFUInt(8) <> OUT
 //  val ididid = new IDTop
 //  ifdf(true) {
 //    val fib = DFUInt(8) init(0, 1)
 //    fib := fib.prev + fib.prev(2)
 //  }
-  o := i.takedf(5).takedf(5)
+  o := List(i1, i2).mergedf
 }
 
 object IDTopApp extends App {
   val top = new IDTopTest
   import compiler.backend.vhdl.v93
-  val designDB = top.printCodeString//.printGenFiles()
+  import compiler._
+  val designDB = top.flattenNames.db.printOwnership().blockMemberList//.printCodeString.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

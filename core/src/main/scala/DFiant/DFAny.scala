@@ -79,7 +79,15 @@ object DFAny {
   trait Context extends DFMember.Context {
     val dir : DFDir
   }
-  object Context {
+  trait LowPriority {
+    implicit def fromDefsCtx[T <: String with Singleton](implicit ctx : ContextOf[T], meta0 : Meta) : Context = new Context {
+      val dir: DFDir = ctx.dir
+      val meta: Meta = meta0
+      val container: DFOwner.Container = ctx.container
+      val db: DB.Mutable = ctx.db
+    }
+  }
+  object Context extends LowPriority {
     final object MissingError extends ErrorMsg (
       "Missing an implicit owner Context.",
       "missing-context"

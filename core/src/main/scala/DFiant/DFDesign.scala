@@ -48,6 +48,11 @@ object DFDesign {
     ///////////////////////////////////////////////////////////////////
     // Context implicits
     ///////////////////////////////////////////////////////////////////
+    final protected implicit def __contextOfDefs[T <: String with Singleton](
+      implicit meta : Meta
+    ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, new ClassArgs[T]{val value = List()}) {
+      def newInterface(updatedCtx : ContextOf[T]) : Any = ???
+    }
     final protected implicit def __contextOfDesign[T <: DFDesign](
       implicit meta : Meta, args : ClassArgs[T]
     ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, args) {
@@ -231,10 +236,14 @@ object DFDesign {
     //holds a hash table that lists members of each owner block. The member list order is maintained.
     lazy val designMemberTable : Map[DFDesign.Block, List[DFMember]] = Map(designMemberList : _*)
 
-    private implicit class RefTableOps(rt : Map[DFMember.Ref, DFMember]) {
-      def replaceMember(origMember : DFMember, repMember : DFMember, scope : DB.Patch.Replace.Scope) : Map[DFMember.Ref, DFMember] =
-        memberTable.get(origMember) match {
+    //                                              refTable                 replacementTable
+    private implicit class RefTableOps(rt : (Map[DFMember.Ref, DFMember], Map[DFMember, DFMember])) {
+      def replaceMember(origMember : DFMember, repMember : DFMember, scope : DB.Patch.Replace.Scope) : (Map[DFMember.Ref, DFMember], Map[DFMember, DFMember]) = {
+        if (origMember == repMember) rt else memberTable.get(origMember) match {
           case Some(refs) =>
+            //in case the replacement member already was replaced in the past, then we used the previous replacement
+            //as the most updated member
+            val actualReplacement = rt._2.getOrElse(repMember, repMember)
             val scopeRefs = scope match {
               case DB.Patch.Replace.Scope.All => refs
               case DB.Patch.Replace.Scope.Outside(block) =>
@@ -246,10 +255,11 @@ object DFDesign {
                 //to the requested scope
                 refs.collect{case r : DFMember.OwnedRef if r.owner.get.isInsideOwner(block) => r}
             }
-            scopeRefs.foldLeft(rt)((rt2, r) => rt2.updated(r, repMember))
+            (scopeRefs.foldLeft(rt._1)((rt2, r) => rt2.updated(r, actualReplacement)), rt._2 + (origMember -> actualReplacement))
           case None =>
             rt
         }
+      }
     }
 
     //replaces all members and references according to the patch list
@@ -311,7 +321,7 @@ object DFDesign {
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
       //Patching reference table
-      val patchedRefTable = patchList.foldLeft(refTable) {
+      val (patchedRefTable,_) = patchList.foldLeft((refTable, Map.empty[DFMember, DFMember])) {
         case (rt, (origMember, DB.Patch.Replace(repMember, _, scope))) if (origMember != repMember) => rt.replaceMember(origMember, repMember, scope)
         case (rt, (origMember, DB.Patch.Add(db, config))) =>
           val newOwner = config match {
@@ -331,14 +341,14 @@ object DFDesign {
               rt.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
             case _ => rt
           }
-          repRT ++ dbPatched.refTable
+          (repRT._1 ++ dbPatched.refTable, repRT._2)
         case (rt, (origMember, DB.Patch.Remove)) => memberTable.get(origMember) match {
-          case Some(refs) => refs.foldLeft(rt)((rt2, r) => rt2 - r)
+          case Some(refs) => (refs.foldLeft(rt._1)((rt2, r) => rt2 - r), rt._2)
           case None => rt
         }
         case (rt, (_, DB.Patch.ChangeRef(origMember, refFunc, updatedRefMember))) =>
           val ref = refFunc(origMember)
-          rt + (ref -> updatedRefMember)
+          (rt._1 + (ref -> updatedRefMember), rt._2)
         case (rt, _) => rt
       }
       DB(patchedMembers, patchedRefTable)
@@ -425,7 +435,9 @@ object DFDesign {
     def printOwnership() : DB = {
       println(members.map {
         case m : DFDesign.Block.Top => s"${m.name} <top>"
-        case m => (m.name -> m.getOwner.name).toString()
+        case m =>
+          val owner = m.getOwnerBlock
+          s"${m.name}_${m.hashCode().toHexString} : ${m.typeName}   ->   ${owner.name}_${owner.hashCode().toHexString} : ${owner.typeName}"
       }.mkString("\n"))
       this
     }

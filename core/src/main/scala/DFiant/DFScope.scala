@@ -31,6 +31,8 @@ object DFScope {
     def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+
+    override lazy val typeName : String = "DFScope.Owner"
   }
   object Owner {
     def apply(container : DFOwner.Container)(nameFlatten: DFOwner.NameFlatten)(
