@@ -120,41 +120,8 @@ package object stream {
       ret
     }
 
-    @df def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
-      require(left.dfType == right.dfType)
-      val ret = left.asNewVar
-      val sel = DFBool() init 0
-
-      ifdf (sel) {
-        ret := right
-        left.dontConsume()
-      }.elsedf {
-        ret := left
-        right.dontConsume()
-      }
-      sel := !sel
-      ret
-    }
-
-    @df def mergeNonBlockingdf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
-      require(left.dfType == right.dfType)
-      val ret = left.asNewVar
-      val sel = DFBool() init 0
-
-      ifdf (sel && right.isNotEmpty) {
-        ret := right
-        left.dontConsume()
-      }.elseifdf(!sel && left.isNotEmpty) {
-        ret := left
-        right.dontConsume()
-      }.elsedf {
-        left.dontConsume()
-        right.dontConsume()
-        ret.dontProduce()
-      }
-      sel := !sel
-      ret
-    }
+    @df(false) def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergedf
+    @df(false) def mergeNonBlockingdf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergeNonBlockingdf
 
     @df def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
       require(left.dfType == right.dfType)
@@ -178,15 +145,27 @@ package object stream {
       val dfType = iter.head.dfType
       iter.foreach(i => require(i.dfType == dfType))
     }
+    @df private def cyclicdf(func : DFAny.Of[Type] => Unit) : Unit = {
+      checkWidths()
+      import fsm._
+      val start : FSMMember.Connectable = step{func(iter.head)}.setName("sel")
+      val sel : FSM = iter.drop(1).foldLeft(start){
+        case (s, e) => s ==> step{func(e)}
+      } ==> start
+    }
     @df def mergedf : DFAny.Of[Type] = {
       checkWidths()
       val ret = iter.head.asNewVar
       iter.foreach(e => e.dontConsume())
-      import fsm._
-      val start : FSMMember.Connectable = step{ret := iter.head}.setName("sel")
-      val sel : FSM = iter.drop(1).foldLeft(start){
-        case (s, e) => s ==> step{ret := e}
-      } ==> start
+      cyclicdf{e => ret := e}
+      ret
+    }
+    @df def mergeNonBlockingdf : DFAny.Of[Type] = {
+      checkWidths()
+      val ret = iter.head.asNewVar
+      iter.foreach(e => e.dontConsume())
+      ret.dontProduce()
+      cyclicdf{e => ifdf(e.isNotEmpty){ret := e}}
       ret
     }
   }

@@ -90,7 +90,7 @@ import lib.stream._
 //    val fib = DFUInt(8) init(0, 1)
 //    fib := fib.prev + fib.prev(2)
 //  }
-  o := List(i1, i2, i3).mergedf.takedf(5)
+  o := List(i1, i2, i3).mergeNonBlockingdf
 }
 
 object IDTopApp extends App {

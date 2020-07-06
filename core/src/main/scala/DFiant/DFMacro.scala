@@ -15,7 +15,13 @@ object DFMacro {
           }; ..$tail"""
         case q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" :: Nil =>
           val cn = c.internal.constantType(Constant(tname.toString()))
-          q"$mods def $tname[..$tparams](...$paramss)(implicit ctx : ContextOf[$cn]) : $tpt = defdf{$expr}"
+          val q"new df(...$dfParams)" = c.prefix.tree
+          val withScope = dfParams match {
+            case List(List(Literal(Constant(withScope : Boolean)))) => withScope
+            case _ => true
+          }
+          val defdfTree = if (withScope) q"defdf{$expr}" else expr
+          q"$mods def $tname[..$tparams](...$paramss)(implicit ctx : ContextOf[$cn]) : $tpt = $defdfTree"
         case _ => c.abort(c.enclosingPosition, "Annotation @df can be used only with classes or definitions")
       }
     }
@@ -23,7 +29,7 @@ object DFMacro {
   }
 }
 
-class df extends StaticAnnotation {
+class df(withScope : Boolean = true) extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro DFMacro.dfImpl
 }
 
