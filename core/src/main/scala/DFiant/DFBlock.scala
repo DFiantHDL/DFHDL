@@ -25,7 +25,9 @@ trait DFBlock extends DFOwner {
 object DFBlock {
   @implicitNotFound(Context.MissingError.msg)
   class Context(val meta : Meta, val container : DFOwner.Container, val dir : DFDir, val db : DFDesign.DB.Mutable, val args : ClassArgs[_])
-    extends DFMember.Context
+    extends DFMember.Context {
+    def setName(name : String) = new Context(meta.setName(name), container, dir, db, args)
+  }
   trait VeryLowPriority {
     implicit def evCtxDefs[T <: String with Singleton](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T], meta: Meta) : Context =
       new Context(meta, ctx.container, ctx.dir, ctx.db, ctx.args)

@@ -138,6 +138,10 @@ object FSMMember {
     def getEdges : List[FSMMember] = List(this)
     protected[fsm] def track : this.type = ctx.db.trackFSM(this)
     protected[fsm] def untrack : this.type = ctx.db.untrackFSM(this)
+    def setName(name : String) : BasicStep[R] = {
+      untrack
+      new BasicStep[R](alwaysBlock)(ctx.setName(name)).track
+    }
     override def toString : String = ctx.meta.name
   }
   final case class Edges[T <: Type, R](list : List[FSMMember])(retVal : => R)(implicit ctx : DFAny.Context) extends Of[T, R] {

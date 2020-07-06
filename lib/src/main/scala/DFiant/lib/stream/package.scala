@@ -183,7 +183,7 @@ package object stream {
       val ret = iter.head.asNewVar
       iter.foreach(e => e.dontConsume())
       import fsm._
-      val start : FSMMember.Connectable = step{ret := iter.head}
+      val start : FSMMember.Connectable = step{ret := iter.head}.setName("sel")
       val sel : FSM = iter.drop(1).foldLeft(start){
         case (s, e) => s ==> step{ret := e}
       } ==> start
