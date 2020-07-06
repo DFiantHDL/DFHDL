@@ -14,7 +14,8 @@ object DFMacro {
           q"""$mods class $tpname[..$tparams] $ctorMods(...$paramss)(implicit ctx : ContextOf[$tpname[..$targs]]) extends ..$parents {$self => ..$stats
           }; ..$tail"""
         case q"$mods def $tname[..$tparams](...$paramss): $tpt = $expr" :: Nil =>
-          q"$mods def $tname[..$tparams](...$paramss)(implicit ctx : DFBlock.Context) : $tpt = defdf{$expr}"
+          val cn = c.internal.constantType(Constant(tname.toString()))
+          q"$mods def $tname[..$tparams](...$paramss)(implicit ctx : ContextOf[$cn]) : $tpt = defdf{$expr}"
         case _ => c.abort(c.enclosingPosition, "Annotation @df can be used only with classes or definitions")
       }
     }

@@ -94,15 +94,10 @@ object ContextOf {
     "Missing an implicit ContextOf[T].",
     "missing-context"
   ) {final val msg = getMsg}
-  implicit def evCtxContainer[T1 <: DFOwner.Container, T2 <: DFOwner.Container](
+  implicit def evCtxContainer[T1, T2](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
     args : ClassArgs[T2]
   ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.container, ctx.dir, ctx.db, args) {
-    def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
-  }
-  implicit def evCtxDefs[T1 <: String with Singleton, T2 <: String with Singleton](
-    implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg], meta : Meta
-  ) : ContextOf[T2] = new ContextOf[T2](meta, ctx.container, ctx.dir, ctx.db, ctx.args.asInstanceOf[ClassArgs[T2]]) {
     def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
   }
   implicit def evTop[T <: DFDesign](
