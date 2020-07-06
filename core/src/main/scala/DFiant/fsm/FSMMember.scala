@@ -168,20 +168,6 @@ object FSMMember {
       case (None, None) => s" $connStr "
     }
   }
-  implicit class GroupByOrderedImplicitImpl[T](val seq: Iterable[T]) extends AnyVal {
-    def groupByOrdered[P](f: T => P): Seq[(P, Iterable[T])] = {
-      @tailrec
-      def accumulator(seq: Iterable[T], f: T => P, res: List[(P, Iterable[T])]): Seq[(P, Iterable[T])] = seq.headOption match {
-        case None => res.reverse
-        case Some(h) => {
-          val key = f(h)
-          val subseq = seq.takeWhile(f(_) == key)
-          accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
-        }
-      }
-      accumulator(seq, f, Nil)
-    }
-  }
   final case class Elaboration(transitions : immutable.ListMap[Step, immutable.ListSet[(Transition, Step)]]) {
     def addTransition(src : Step, transition : Transition, dst : Step) : Elaboration = {
       val updatedTransitions = transitions.get(src) match {

@@ -19,11 +19,15 @@ package DFiant
 
 import java.lang.Double._
 import java.lang.Float._
+
 import singleton.ops._
 import singleton.twoface._
+
 import scala.math.{ceil, floor, log}
 import scodec.bits._
 import continuum._
+
+import scala.annotation.tailrec
 
 package object internals {
   trait DevAccess
@@ -373,4 +377,19 @@ package object internals {
   type Arg0IsNonLit = Require[IsNonLiteral[GetArg0]]
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  implicit class GroupByOrderedImplicitImpl[T](val seq: Iterable[T]) extends AnyVal {
+    def groupByOrdered[P](f: T => P): Seq[(P, Iterable[T])] = {
+      @tailrec
+      def accumulator(seq: Iterable[T], f: T => P, res: List[(P, Iterable[T])]): Seq[(P, Iterable[T])] = seq.headOption match {
+        case None => res.reverse
+        case Some(h) =>
+          val key = f(h)
+          val subseq = seq.takeWhile(f(_) == key)
+          accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
+      }
+      accumulator(seq, f, Nil)
+    }
+  }
 }
