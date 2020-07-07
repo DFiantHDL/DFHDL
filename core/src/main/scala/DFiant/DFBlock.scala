@@ -10,11 +10,11 @@ trait DFBlock extends DFOwner {
   ///////////////////////////////////////////////////////////////////
   val isTop : Boolean = false
   ///////////////////////////////////////////////////////////////////
-  def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String
-  final def codeString(body : String)(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
+  def headerCodeString(implicit printer: Printer) : String
+  final def codeString(body : String)(implicit printer: Printer) : String = {
     //if the body is a single row then no need for delimiters and extra new lines
     //otherwise, we add delimitation and new lines
-    import printConfig.formatter._
+    import printer.config.formatter._
     val delimitedBody =
       if (!body.contains("\n")) body.removeAlignment //single line body ==> we remove alignment for better view
       else s"\n${body.delim()}\n"

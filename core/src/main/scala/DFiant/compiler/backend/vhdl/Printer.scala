@@ -18,7 +18,7 @@ object Printer {
     val getSet: MemberGetSet = getset0
     val config: Config = config0
   }
-  sealed trait Config {
+  sealed class Config(val revision: Revision) {
     import io.AnsiColor._
     val LIT : String = "\u001B[38;5;5m"
     val KW : String = s"$BLUE$BOLD"
@@ -28,6 +28,6 @@ object Printer {
     final val formatter = new compiler.printer.Formatter("  ", List(25, 25))
   }
   object Config {
-    implicit object Default extends Config
+    implicit def ev(implicit revision: Revision) : Config = new Config(revision)
   }
 }

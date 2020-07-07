@@ -6,8 +6,8 @@ sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   type TCustomTag = DFMember.CustomTag
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef
-  def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
-    import printConfig._
+  def codeString(implicit printer: Printer) : String = {
+    import printer.config._
     import formatter._
     s"${toRef.refCodeString} ${ALGN(0)}$DF$op ${fromRef.refCodeString}"
   }

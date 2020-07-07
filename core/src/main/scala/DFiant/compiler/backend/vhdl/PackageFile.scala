@@ -2,7 +2,7 @@ package DFiant
 package compiler.backend.vhdl
 
 object PackageFile {
-  def apply()(implicit printer: Printer, revision: Revision) : String = {
+  def apply()(implicit printer: Printer) : String = {
     import printer.config._
     import formatter._
     val kwWords = Set("library", "use", "package", "end", "begin", "package", "is", "body", "all", "function",
@@ -43,7 +43,7 @@ object PackageFile {
       s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
     }.mkString("\n")
   }
-  private def helperFunctions(implicit printer: Printer, revision: Revision) : String = {
+  private def helperFunctions(implicit printer: Printer) : String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {
@@ -61,7 +61,7 @@ object PackageFile {
        |$to_hstring""".stripMargin
   }
 
-  private def helperFunctionsBody(implicit printer: Printer, revision: Revision) : String = {
+  private def helperFunctionsBody(implicit printer: Printer) : String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {

@@ -4,26 +4,29 @@ package compiler.backend.vhdl
 import internals._
 
 private object Value {
-  def const(token : DFAny.Token)(implicit printer : Printer, revision: Revision) : String = token match {
-    case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
-    case DFUInt.Token(width, value, _) => revision match {
-      case Revision.V93 if value.bitsWidth < 31 => s"to_unsigned($value, $width)"
-      case Revision.V93 if width % 4 == 0 => s"""unsigned(std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
-      case Revision.V93 => s"""unsigned(std_logic_vector'("${value.toBitVector(width).toBin}"))"""
-      case Revision.V2008 => s"""${width}d"$value""""
+  def const(token : DFAny.Token)(implicit printer : Printer) : String = {
+    import printer.config._
+    token match {
+      case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
+      case DFUInt.Token(width, value, _) => revision match {
+        case Revision.V93 if value.bitsWidth < 31 => s"to_unsigned($value, $width)"
+        case Revision.V93 if width % 4 == 0 => s"""unsigned(std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
+        case Revision.V93 => s"""unsigned(std_logic_vector'("${value.toBitVector(width).toBin}"))"""
+        case Revision.V2008 => s"""${width}d"$value""""
+      }
+      case DFSInt.Token(width, value, _) => revision match {
+        case Revision.V93 if value.bitsWidth < 31 => s"to_signed($value, $width)"
+        case Revision.V93 if width % 4 == 0 => s"""signed(std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
+        case Revision.V93 => s"""signed(std_logic_vector'("${value.toBitVector(width).toBin}"))"""
+        case Revision.V2008 => s"""${width}d"$value""""
+      }
+      case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
+      case DFBool.Token(true, value, _) => value.toString
+      case DFEnum.Token(enumType, value) => s"E_${enumType.name}_${value.get.name}".toUpperCase
+      case _ => ???
     }
-    case DFSInt.Token(width, value, _) => revision match {
-      case Revision.V93 if value.bitsWidth < 31 => s"to_signed($value, $width)"
-      case Revision.V93 if width % 4 == 0 => s"""signed(std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
-      case Revision.V93 => s"""signed(std_logic_vector'("${value.toBitVector(width).toBin}"))"""
-      case Revision.V2008 => s"""${width}d"$value""""
-    }
-    case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
-    case DFBool.Token(true, value, _) => value.toString
-    case DFEnum.Token(enumType, value) => s"E_${enumType.name}_${value.get.name}".toUpperCase
-    case _ => ???
   }
-  def func2(member : DFAny.Func2)(implicit printer : Printer, revision: Revision) : String = {
+  def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {
     import printer.config._
     import formatter._
     val leftArg = member.leftArgRef.get
@@ -72,7 +75,7 @@ private object Value {
       case _ => s"${leftArgStr.applyBrackets()} $OP$opStr ${rightArgStr.applyBrackets()}"
     }
   }
-  def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer, revision: Revision) : String = {
+  def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer) : String = {
     import printer.config._
     import formatter._
     val relVal = member.relValRef.get
@@ -106,7 +109,7 @@ private object Value {
     }
   }
 
-  def ref(member : DFAny)(implicit printer : Printer, revision: Revision) : String = {
+  def ref(member : DFAny)(implicit printer : Printer) : String = {
     import printer.config._
     member match {
       case c : DFAny.Const => const(c.token)
@@ -122,7 +125,7 @@ private object Value {
       case m => m.name
     }
   }
-  def apply(member : DFAny)(implicit printer : Printer, revision: Revision) : String = member match {
+  def apply(member : DFAny)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
     case f : DFAny.Func2 => func2(f)
     case a : DFAny.Alias[_,_,_] => alias(a)

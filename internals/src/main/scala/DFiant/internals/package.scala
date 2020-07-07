@@ -124,11 +124,6 @@ package object internals {
       }
     }
     def asUnsigned : BigInt = asUnsigned(bitsWidth)
-    def codeString : String = {
-      if (value.isValidInt) s"$value"
-      else if (value.isValidLong) s"${value}L"
-      else s"""BigInt("$value")"""
-    }
     def toBitVector(width : Int) : BitVector = BitVector(value.toByteArray).resize(width)
   }
 
@@ -182,9 +177,6 @@ package object internals {
       val ext = vec.padLeft(len + 1)
       BigInt(ext.padToMulsOf(8).toByteArray)
     }
-    def codeString : String =
-      if (vec.length % 4 == 0) s"""h"${vec.toHex}""""
-      else s"""b"${vec.toBin}""""
   }
 
   implicit class IntExtras(value : Int) {
@@ -222,26 +214,6 @@ package object internals {
   }
   implicit class IntervalLongExtras(value : Interval[Long]) {
     def toBigIntInterval : Interval[BigInt] = value.map(b => BigInt(b))
-  }
-  implicit def csoIntervalBigInt : CodeStringOf[Interval[BigInt]] = t => {
-    import continuum.bound._
-    val lower = t.lower.bound match {
-      case Closed(v) => v
-      case Open(v) => v-1
-      case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
-    }
-    val upper = t.upper.bound match {
-      case Closed(v) => v
-      case Open(v) => v+1
-      case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
-    }
-    if (lower == upper) lower.codeString
-    else s"${lower.codeString} to ${upper.codeString}"
-  }
-  implicit def csoBitVector : CodeStringOf[BitVector] = t => t.codeString
-
-  implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
-    def codeString : String = codeStringOf(t)
   }
 
   //from Map[K,V] to Map[V,Set[K]], traverse the input only once

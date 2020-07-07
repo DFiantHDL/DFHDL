@@ -92,7 +92,7 @@ object DFDesign {
     type TTags = DFMember.Tags.Basic
     type TCustomTag = Block.CustomTag
     val designType: String
-    def headerCodeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = s"trait $designType extends DFDesign"
+    def headerCodeString(implicit printer: Printer): String = s"trait $designType extends DFDesign"
   }
   object Block {
     trait CustomTag extends DFMember.CustomTag
@@ -186,6 +186,29 @@ object DFDesign {
     def getAssignmentsTo(v : DFAny) : Set[DFAny] = assignmentsTable.getOrElse(v, Set())
     def getAssignmentsFrom(v : DFAny) : Set[DFAny] = assignmentsTableInverted.getOrElse(v, Set())
 
+    //Map of all enum types in the design with their design block owners.
+    //If the enum type is global (used in IO or more than one design block),
+    //then its owner is set to None.
+    lazy val enumTypes : Map[EnumType, Option[DFDesign.Block]] =
+      members.foldLeft(Map.empty[EnumType, Option[DFDesign.Block]]) {
+        case (enumMap, enumMember @ DFEnum(enumType)) => //an enum member
+          if (enumMember.isPort) enumMap + (enumType -> None) //IO means a global enum type
+          else enumMap.get(enumType) match {
+            case Some(Some(owner)) => //enum type already found
+              if (owner == enumMember.getOwnerDesign) enumMap //same design block -> nothing to do
+              else enumMap + (enumType -> None) //used in more than one block -> global enum type
+            case Some(None) => enumMap //known to be a global type
+            case None => enumMap + (enumType -> Some(enumMember.getOwnerDesign)) //found new enum type
+          }
+        case (enumMap, _) => enumMap //not an enum member
+      }
+
+    private lazy val invertedEnumTypes = enumTypes.invert
+    lazy val globalEnumTypes : Set[EnumType] = invertedEnumTypes.getOrElse(None, Set())
+    lazy val localEnumTypes : Map[DFDesign.Block, Set[EnumType]] = invertedEnumTypes.flatMap{
+      case (Some(b), set) => Some(b -> set)
+      case _ => None
+    }
 //    def getAliasesTo(v : DFAny) : Option[DFAny] =
 //      members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}
 

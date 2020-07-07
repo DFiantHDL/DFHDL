@@ -6,7 +6,7 @@ import singleton.twoface._
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
-import compiler.printer.Printer
+import compiler.printer._
 import singleton.ops.impl.HasOut
 
 sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {
@@ -36,6 +36,7 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
     case DFAny.In() => true
     case _ => false
   }
+  def isPort : Boolean = isPortIn || isPortOut
   private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment =
     if (isAssignable) DFNet.Assignment(left, that)
     else throw new IllegalArgumentException(
@@ -45,10 +46,15 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
          |""".stripMargin
     )
 
-  def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String
-  def refCodeString(implicit ctx : Printer.Context) : String =
+  def codeString(implicit printer: Printer) : String
+  def refCodeString(implicit printer: Printer, owner : DFOwner) : String = {
+    val callOwner: DFBlock = owner match {
+      case b : DFBlock => b
+      case o => o.getOwnerBlock
+    }
     if (tags.meta.name.anonymous) codeString
-    else getRelativeName(ctx.callOwner, ctx.getSet)
+    else getRelativeName(callOwner, printer.getSet)
+  }
 }
 
 object DFAny {
@@ -69,7 +75,7 @@ object DFAny {
     def getBubbleToken : TToken
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token
     def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String
+    def codeString(implicit printer: Printer) : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -218,7 +224,7 @@ object DFAny {
   }
 
   sealed trait Modifier extends Product with Serializable {
-    def codeString(implicit printConfig : Printer.Config) : String = ""
+    def codeString(implicit printer: Printer) : String = ""
   }
   object Modifier {
     sealed trait Val extends Modifier
@@ -226,8 +232,8 @@ object DFAny {
     sealed trait Assignable extends Val
     sealed trait Connectable extends Modifier
     final case class Port[+D <: PortDir](dir : D) extends Connectable with Assignable {
-      override def codeString(implicit printConfig : Printer.Config) : String = {
-        import printConfig._
+      override def codeString(implicit printer: Printer) : String = {
+        import printer.config._
         import formatter._
         s" ${ALGN(1)}$DF<> $DF$dir"
       }
@@ -272,8 +278,8 @@ object DFAny {
         this.dfType == dfType && this.token == token && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = token.codeString
-    override def refCodeString(implicit ctx : Printer.Context) : String = codeString
+    def codeString(implicit printer: Printer) : String = token.codeString
+    override def refCodeString(implicit printer: Printer, owner : DFOwner) : String = codeString
     override def show(implicit getSet : MemberGetSet) : String = s"Const($token) : $dfType"
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
@@ -293,7 +299,7 @@ object DFAny {
 //  ) extends Value[Type, Mod] {
 //    type TMod = Mod
 //
-//    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = s"${dfType.codeString}${modifier.codeString}"
+//    def codeString(implicit printer: Printer) : String = s"${dfType.codeString}${modifier.codeString}"
 //    override lazy val typeName: String = s"$dfType"
 //  }
 //
@@ -309,12 +315,12 @@ object DFAny {
         this.dfType == dfType && this.modifier == modifier && this.externalInit == externalInit && this.tags =~ tags
       case _ => false
     }
-    override def refCodeString(implicit ctx : Printer.Context): String = getOwnerBlock match {
+    override def refCodeString(implicit printer: Printer, owner: DFOwner): String = getOwnerBlock match {
       case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep.inlineCodeString
       case _ => super.refCodeString
     }
-    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       val initStr = externalInit match {
         case Some(token +: Nil) => s" $DF init ${token.codeString}"
         case Some(tokens) => s" $DF init ${tokens.codeString}"
@@ -455,8 +461,8 @@ object DFAny {
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
     def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String
-    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = {
-      import printConfig.formatter._
+    def codeString(implicit printer: Printer): String = {
+      import printer.config.formatter._
       tags.codeStringOverride match {
         case Some(func) => func(relValRef.refCodeString.applyBrackets())
         case None => relCodeString(relValRef.refCodeString.applyBrackets())
@@ -605,7 +611,7 @@ object DFAny {
 //      type TMod = Modifier.Val
 //      val modifier : TMod = Modifier.Val
 //      def constFunc(t : DFAny.Token) : DFAny.Token = ???
-//      def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = s"${relValRef.refCodeString} $dir $count"
+//      def codeString(implicit printer: Printer) : String = s"${relValRef.refCodeString} $dir $count"
 //    }
 //    object Shift {
 //      sealed trait Direction
@@ -662,7 +668,7 @@ object DFAny {
 //    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFOwner.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
 //  ) extends Value[DFBits.Type[W], Mod] with CanBeAnonymous {
 //    type TMod = Mod
-//    override def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String =
+//    override def codeString(implicit printer: Printer): String =
 //      relValRefs.map(rvr => rvr.get.refCodeString).mkString(" ## ")
 //  }
 //  object ConcatBits {
@@ -686,8 +692,8 @@ object DFAny {
         this.dfType == dfType && this.leftArgRef =~ leftArgRef && this.op == op && this.rightArgRef =~ rightArgRef && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config) : String = {
-      import printConfig.formatter._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config.formatter._
       s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
     }
     override def show(implicit getSet : MemberGetSet) : String = s"$codeString : $dfType"
@@ -812,8 +818,8 @@ object DFAny {
         this.func == func && this.relValRef =~ relValRef && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = {
-      import printConfig.formatter._
+    def codeString(implicit printer: Printer): String = {
+      import printer.config.formatter._
       s"${relValRef.refCodeString.applyBrackets()}.${func.codeString}"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
@@ -1075,7 +1081,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(outBitsValue, outBubbleMask)
     }
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String
+    def codeString(implicit printer: Printer) : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
@@ -1161,20 +1167,20 @@ object DFAny {
     type TValue
     def matches(value : TValue) : Boolean
     def overlapsWith(pattern: P) : Boolean
-    def codeString : String
+    def codeString(implicit printer: Printer) : String
   }
   object Pattern {
     abstract class OfIntervalSet[T, P <: OfIntervalSet[T, P]](val patternSet : IntervalSet[T])(implicit codeStringOf: CodeStringOf[Interval[T]]) extends Pattern[P] {
       type TValue = T
       def matches(value : TValue) : Boolean = patternSet.containsPoint(value)
       def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
-      def codeString : String = patternSet.map(t => t.codeString).mkString(", ")
+      def codeString(implicit printer: Printer) : String = patternSet.map(t => t.codeString).mkString(", ")
     }
     abstract class OfSet[T, P <: OfSet[T, P]](val patternSet : Set[T])(implicit codeStringOf: CodeStringOf[T]) extends Pattern[P] {
       type TValue = T
       def matches(value : TValue) : Boolean = patternSet.contains(value)
       def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
-      def codeString : String = patternSet.map(t => t.codeString).mkString(", ")
+      def codeString(implicit printer: Printer) : String = patternSet.map(t => t.codeString).mkString(", ")
     }
     trait Able[+R] {
       val right : R

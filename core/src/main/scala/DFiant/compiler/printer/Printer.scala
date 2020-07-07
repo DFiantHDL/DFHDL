@@ -55,7 +55,8 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
   ) : String = {
     import printConfig._
     import formatter._
-    val body = blockBodyCodeString(block, members, lateConstruction = false)
+    val localEnumString = fixedDB.localEnumTypes.getOrElse(block, Set()).map(e => e.codeString).mkString("","\n","\n")
+    val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
     val classStr = block match {
       case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimulator"
       case _ => "DFDesign"
@@ -66,6 +67,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     import printConfig._
     import formatter._
     val uniqueDesigns = mutable.Set.empty[String]
+    val globalEnumString = fixedDB.globalEnumTypes.map(e => e.codeString)
     val codeStringList = fixedDB.blockMemberList.flatMap {
       case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
       case (block : DFDesign.Block, members) if !uniqueDesigns.contains(block.designType) =>
@@ -73,7 +75,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
         Some(designBlockCodeString(block, members))
       case _ => None
     }
-    codeStringList.mkString(s"\n$EMPTY\n").formatted
+    (globalEnumString ++ codeStringList).mkString(s"\n$EMPTY\n").formatted
   }
   def printCodeString(implicit printConfig : Printer.Config) : C = {
     println(codeString)
@@ -81,23 +83,15 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
   }
 }
 
+sealed trait Printer {
+  val getSet : MemberGetSet
+  val config : Printer.Config
+}
+
 object Printer {
-  trait Context {
-    val callOwner : DFBlock
-    val getSet : MemberGetSet
-  }
-  object Context {
-    implicit def evContext(implicit ctx : DFMember.Context) : Context = new Context {
-      override val callOwner: DFBlock = ctx.owner match {
-        case b : DFBlock => b
-        case o => o.getOwnerBlock
-      }
-      override val getSet: MemberGetSet = ctx.db.getSet
-    }
-    implicit def ev(implicit co : DFBlock, gs : MemberGetSet, lp : shapeless.LowPriority) : Context = new Context {
-      override val callOwner: DFBlock = co
-      override val getSet: MemberGetSet = gs
-    }
+  implicit def ev(implicit cfg: Config, gs: MemberGetSet) : Printer = new Printer {
+    val getSet: MemberGetSet = gs
+    val config: Config = cfg
   }
 
   sealed trait Config {

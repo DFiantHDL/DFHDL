@@ -5,7 +5,7 @@ import DFiant.compiler.printer.Printer
 
 sealed trait DFSimMember extends DFMember {
   type TTags = DFMember.Tags.Basic
-  def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String
+  def codeString(implicit printer: Printer) : String
 }
 object DFSimMember {
   final case class Assert(
@@ -22,13 +22,13 @@ object DFSimMember {
         condEq && this.msgRef =~ msg && this.severity == severity && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       condOptionRef match {
         case Some(c) =>
-          s"$DF sim.$DF assert(${c.refCodeString}, ${msgRef.codeString}, ${severity.codeString})"
+          s"$DF sim.$DF assert(${c.refCodeString}, ${msgRef.refCodeString}, ${severity.codeString})"
         case None =>
-          s"$DF sim.$DF report(${msgRef.codeString}, ${severity.codeString})"
+          s"$DF sim.$DF report(${msgRef.refCodeString}, ${severity.codeString})"
       }
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
@@ -81,7 +81,7 @@ object DFSimMember {
         case Left(ref) => Left(ref.get)
         case Right(s) => Right(s)
       })
-      def codeString(implicit ctx : Printer.Context) : String = "msg\"" + seq.collect {
+      def refCodeString(implicit printer: Printer, owner: DFOwner) : String = "msg\"" + seq.collect {
         case Left(x) => s"$${${x.refCodeString}}"
         case Right(x) => x
       }.mkString + "\""
@@ -96,8 +96,8 @@ object DFSimMember {
       case Finish(_, tags) => this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       s"$DF sim.$DF finish()"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)

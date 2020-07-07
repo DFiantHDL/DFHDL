@@ -21,10 +21,8 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
-import scala.collection.mutable
-import DFAny.Func2
-import DFAny.Func2
-import DFiant.compiler.printer.Printer
+import scala.collection.{immutable, mutable}
+import DFiant.compiler.printer._
 
 object DFEnum extends DFAny.Companion {
   final case class Type[E <: EnumType](enumType : E) extends DFAny.Type {
@@ -48,7 +46,7 @@ object DFEnum extends DFAny.Companion {
       case r @ DFEnum(_) if (enumType == r.asInstanceOf[DFEnum[_]].dfType.enumType) =>
     }
     override def toString: String = s"DFEnum[$enumType]"
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = s"${printConfig.TP}DFEnum(${enumType.refCodeString})"
+    def codeString(implicit printer: Printer) : String = s"${printer.config.TP}DFEnum(${enumType.refCodeString})"
     override def equals(obj: Any): Boolean = obj match {
       case Type(enumType) => this.enumType == enumType
       case _ => false
@@ -80,7 +78,7 @@ object DFEnum extends DFAny.Companion {
       DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : DFBool.Token =
       DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = value.get.codeString
+    def codeString(implicit printer: Printer) : String = value.get.codeString
 //    override def equals(obj: Any): Boolean = obj match {
 //      case Token(enumType, value) => this.enumType == enumType && this.value == value
 //      case _ => false
@@ -196,7 +194,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Comparison operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: Func2.Op](op : Op) {
+  protected abstract class OpsCompare[Op <: DFAny.Func2.Op](op : Op) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
     trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
@@ -205,8 +203,8 @@ object DFEnum extends DFAny.Companion {
       : Builder[L, R] = (leftL, rightR) => {
         val (left, right) = properLR(leftL, rightR)
         val func : (left.TToken, right.TToken) => DFBool.Token = op match {
-          case _ : Func2.Op.== => _ == _
-          case _ : Func2.Op.!= => _ != _
+          case _ : DFAny.Func2.Op.== => _ == _
+          case _ : DFAny.Func2.Op.!= => _ != _
         }
         DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
       }
@@ -223,10 +221,10 @@ object DFEnum extends DFAny.Companion {
         (DFAny.Const[Type[E]](Type(right.dfType.enumType), Token(right.dfType.enumType, leftEntry)), right))
     }
   }
-  object `Op==` extends OpsCompare(Func2.Op.==) with `Op==`
-  object `Op!=` extends OpsCompare(Func2.Op.!=) with `Op!=`
-  object `Op===` extends OpsCompare(Func2.Op.==)
-  object `Op=!=` extends OpsCompare(Func2.Op.!=)
+  object `Op==` extends OpsCompare(DFAny.Func2.Op.==) with `Op==`
+  object `Op!=` extends OpsCompare(DFAny.Func2.Op.!=) with `Op!=`
+  object `Op===` extends OpsCompare(DFAny.Func2.Op.==)
+  object `Op=!=` extends OpsCompare(DFAny.Func2.Op.!=)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }
@@ -234,11 +232,11 @@ object DFEnum extends DFAny.Companion {
 
 
 sealed abstract class EnumType(implicit meta : Meta) {
-  private[DFiant] val entries : mutable.Map[BigInt, EnumType.Entry] = mutable.Map.empty[BigInt, EnumType.Entry]
+  private[DFiant] var entries : immutable.ListMap[BigInt, EnumType.Entry] = immutable.ListMap.empty[BigInt, EnumType.Entry]
   private[DFiant] def update(entry : EnumType.Entry) : Unit = {
     entries.get(entry.value) match {
       case Some(existingEntry) => throw new IllegalArgumentException(s"\nDuplicate enum entry values. Attempted to create new entry `$entry` with the value ${entry.value}. The value is already taken by entry `$existingEntry`.")
-      case None => entries.update(entry.value, entry)
+      case None => entries = entries + (entry.value -> entry)
     }
   }
   final protected implicit val EnumTypeToBe : EnumType = this
@@ -249,7 +247,8 @@ sealed abstract class EnumType(implicit meta : Meta) {
     case Some(EnumType.NameTag(taggedName)) => taggedName
     case _ => meta.name
   }
-  def refCodeString(implicit getSet: MemberGetSet) : String = name
+  def codeString(implicit printer: Printer) : String
+  def refCodeString(implicit printer: Printer) : String = name
   override def toString: String = meta.name
 }
 
@@ -273,34 +272,36 @@ object EnumType {
     final override def toString: String = name
   }
   object Entry {
-    implicit def csoEnum[E <: Entry] : CodeStringOf[E] = t => t.toString
+    implicit def csoEnum[E <: Entry] : CodeStringOf[E] = new CodeStringOf[E] {
+      override def apply(t : E)(implicit printer: Printer) : String = t.codeString
+    }
   }
 
   trait Encoding extends HasCodeString {
     def calcWidth(entryCount : Int) : Int
     val func : Int => BigInt
-    def codeString : String
+    def codeString(implicit printer: Printer) : String
   }
   object Encoding {
     object Default extends Encoding {
       def calcWidth(entryCount : Int) : Int = BigInt(entryCount-1).bitsWidth
       val func : Int => BigInt = t => BigInt(t)
-      def codeString : String = "Enum.Encoding.Default"
+      def codeString(implicit printer: Printer) : String = "Enum.Encoding.Default"
     }
     object Grey extends Encoding {
       def calcWidth(entryCount : Int) : Int = BigInt(entryCount-1).bitsWidth
       val func : Int => BigInt = t => BigInt(t ^ (t >>> 1))
-      def codeString : String = "Enum.Encoding.Grey"
+      def codeString(implicit printer: Printer) : String = "Enum.Encoding.Grey"
     }
     case class StartAt[V <: Int with Singleton](value : V) extends Encoding {
       def calcWidth(entryCount : Int) : Int = BigInt(entryCount-1 + value).bitsWidth
       val func : Int => BigInt = t => BigInt(t + value)
-      def codeString : String = s"Enum.Encoding.StartAt($value)"
+      def codeString(implicit printer: Printer) : String = s"Enum.Encoding.StartAt($value)"
     }
     object OneHot extends Encoding {
       def calcWidth(entryCount : Int) : Int = entryCount
       val func : Int => BigInt = t => BigInt(1) << t
-      def codeString : String = "Enum.Encoding.OneHot"
+      def codeString(implicit printer: Printer) : String = "Enum.Encoding.OneHot"
     }
   }
 
@@ -309,9 +310,17 @@ object EnumType {
   ) extends EnumType { self =>
     type EntryWidth = Int
     final lazy val width : TwoFace.Int[EntryWidth] = encoding.calcWidth(entries.size)
-    private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry()  //${e._1.codeString}").mkString
-    private def encodingCodeString : String = if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
-    final def codeString(implicit getSet: MemberGetSet) : String = s"\nobject $name extends Enum.Auto$encodingCodeString {$entriesCodeString\n}"
+    private def entriesCodeString(implicit printer: Printer) : String = {
+      import printer.config._
+      f"$SC val ${entries.map(e => e._2.name).mkString(",")} = Entry()"
+    }
+    private def encodingCodeString(implicit printer: Printer) : String =
+      if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
+    final def codeString(implicit printer: Printer) : String = {
+      import printer.config._
+      import printer.config.formatter._
+      s"\n$SC object $name $SC extends $DF Enum.$DF Auto$encodingCodeString {\n${entriesCodeString.delim()}\n}"
+    }
 
     class Entry private[DFiant] (implicit val enumType : EnumType, private[DFiant] val meta : Meta) extends EnumType.Entry {
       val value : BigInt = encoding.func(entries.size)
@@ -326,8 +335,8 @@ object EnumType {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     private var latestEntryValue : Option[BigInt] = None
-    private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry(${e._1.toBitVector(width).codeString})").mkString
-    final def codeString(implicit getSet: MemberGetSet) : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
+    private def entriesCodeString(implicit printer: Printer) : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry(${e._1.toBitVector(width).codeString})").mkString
+    final def codeString(implicit printer: Printer) : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
 
     class Entry private[DFiant] (val value : BigInt, val enumType : EnumType)(implicit private[DFiant] val meta : Meta) extends EnumType.Entry {
       enumType.update(this)

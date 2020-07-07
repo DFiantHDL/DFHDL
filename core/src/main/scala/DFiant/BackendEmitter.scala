@@ -18,7 +18,7 @@ final case class BackendEmitter(
       !notEq && this.backendID == backendID && this.tags =~ tags
     case _ => false
   }
-  def codeString(implicit getSet: MemberGetSet, printConfig : Printer.Config) : String = backendID + "\"" + seq.collect {
+  def codeString(implicit printer: Printer) : String = backendID + "\"" + seq.collect {
     case Left(x) => s"$${${x.refCodeString}}"
     case Right(x) => x
   }.mkString + "\""

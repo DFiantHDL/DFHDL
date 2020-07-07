@@ -4,7 +4,7 @@ import compiler.sync.Sync
 
 private object Net {
   object External {
-    def unapply(net : DFNet)(implicit printer: Printer, revision: Revision) : Option[String] = {
+    def unapply(net : DFNet)(implicit printer: Printer) : Option[String] = {
         import printer.config._
         import formatter._
         val toVal = Value.ref(net.toRef.get)
@@ -18,7 +18,7 @@ private object Net {
     }
   }
   object Internal {
-    def unapply(net : DFNet)(implicit printer: Printer, revision: Revision) : Option[String] = {
+    def unapply(net : DFNet)(implicit printer: Printer) : Option[String] = {
       import printer.config._
       import formatter._
       val toVal = Value.ref(net.toRef.get)

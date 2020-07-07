@@ -24,7 +24,7 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
-    implicit printer : Printer, revision : Revision
+    implicit printer : Printer
   ) : List[String] = {
     import printer.config.formatter._
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {

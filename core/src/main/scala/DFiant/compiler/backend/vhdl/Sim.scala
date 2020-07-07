@@ -18,7 +18,7 @@ private object Sim {
     s"$OP rising_edge($clkName) $OP and $rstName $OP= $rstActive"
   }
   object Assert {
-    def unapply(assert : DFSimMember.Assert)(implicit printer: Printer, revision: Revision) : Option[String] = {
+    def unapply(assert : DFSimMember.Assert)(implicit printer: Printer) : Option[String] = {
       import printer.config._
       import formatter._
       val msg = assert.msgRef.seq.map {
@@ -53,7 +53,7 @@ private object Sim {
   }
 
   object Finish {
-    def unapply(assert : DFSimMember.Finish)(implicit printer: Printer, revision: Revision) : Option[String] = {
+    def unapply(assert : DFSimMember.Finish)(implicit printer: Printer) : Option[String] = {
       import printer.config._
       import formatter._
       val finish = revision match {

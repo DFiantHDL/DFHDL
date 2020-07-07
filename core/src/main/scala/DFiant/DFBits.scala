@@ -33,8 +33,8 @@ object DFBits extends DFAny.Companion {
         op(this, r.asInstanceOf[DFBits[Int]])
     }
     override def toString: String = s"DFBits[$width]"
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       s"$TP DFBits($LIT$width)"
     }
     override def equals(obj: Any): Boolean = obj match {
@@ -110,8 +110,8 @@ object DFBits extends DFAny.Companion {
       val outBubble = isBubble
       new DFSInt.Token(outWidth, outValueSInt, outBubble)
     }
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       import io.AnsiColor.BOLD
       if (value.length % 4 == 0) s"""$BOLD h$STR"${value.toHex}""""
       else s"""$BOLD b$STR"${value.toBin}""""

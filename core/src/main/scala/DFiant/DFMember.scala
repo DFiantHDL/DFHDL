@@ -196,7 +196,7 @@ trait MemberGetSet {
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet
-  implicit def evGetSet(implicit ctx : Printer.Context, lp : shapeless.LowPriority) : MemberGetSet = ctx.getSet
+  implicit def evGetSet(implicit printer : Printer, lp : shapeless.LowPriority) : MemberGetSet = printer.getSet
 }
 
 trait CanBeGuarded extends DFMember

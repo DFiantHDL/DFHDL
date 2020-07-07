@@ -28,8 +28,8 @@ object DFSInt extends DFAny.Companion {
         val op = implicitly[`Op:=`.Builder[Type[W], DFSInt[Int]]]
         op(this, r.asInstanceOf[DFSInt[Int]])
     }
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       s"$TP DFSInt($LIT$width)"
     }
     override def equals(obj: Any): Boolean = obj match {
@@ -82,8 +82,8 @@ object DFSInt extends DFAny.Companion {
       else if (toWidth < width) bits.resize(toWidth).toSInt
       else this.asInstanceOf[Token]
     }
-    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
-      import printConfig._
+    def codeString(implicit printer: Printer) : String = {
+      import printer.config._
       if (value.isValidInt) s"$LIT$value"
       else if (value.isValidLong) s"$LIT${value}L"
       else s"""$LIT BigInt($STR"$value")"""
