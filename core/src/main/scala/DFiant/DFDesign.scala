@@ -189,7 +189,7 @@ object DFDesign {
     //Map of all enum types in the design with their design block owners.
     //If the enum type is global (used in IO or more than one design block),
     //then its owner is set to None.
-    lazy val enumTypes : Map[EnumType, Option[DFDesign.Block]] =
+    private lazy val enumTypes : Map[EnumType, Option[DFDesign.Block]] =
       members.foldLeft(Map.empty[EnumType, Option[DFDesign.Block]]) {
         case (enumMap, enumMember @ DFEnum(enumType)) => //an enum member
           if (enumMember.isPort) enumMap + (enumType -> None) //IO means a global enum type
@@ -204,11 +204,14 @@ object DFDesign {
       }
 
     private lazy val invertedEnumTypes = enumTypes.invert
-    lazy val globalEnumTypes : Set[EnumType] = invertedEnumTypes.getOrElse(None, Set())
-    lazy val localEnumTypes : Map[DFDesign.Block, Set[EnumType]] = invertedEnumTypes.flatMap{
+    lazy val getGlobalEnumTypes : Set[EnumType] = invertedEnumTypes.getOrElse(None, Set())
+    private lazy val localEnumTypes : Map[DFDesign.Block, Set[EnumType]] = invertedEnumTypes.flatMap{
       case (Some(b), set) => Some(b -> set)
       case _ => None
     }
+    def getLocalEnumTypes(design : DFDesign.Block) : Set[EnumType] =
+      localEnumTypes.getOrElse(design, Set())
+
 //    def getAliasesTo(v : DFAny) : Option[DFAny] =
 //      members.collectFirst{case n : DFNet.Connection if n.toRef.get == v => n.fromRef.get}
 

@@ -55,7 +55,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
   ) : String = {
     import printConfig._
     import formatter._
-    val localEnumString = fixedDB.localEnumTypes.getOrElse(block, Set()).map(e => e.codeString).mkString("","\n","\n")
+    val localEnumString = fixedDB.getLocalEnumTypes(block).map(e => e.codeString).mkString("","\n","\n")
     val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
     val classStr = block match {
       case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimulator"
@@ -67,7 +67,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     import printConfig._
     import formatter._
     val uniqueDesigns = mutable.Set.empty[String]
-    val globalEnumString = fixedDB.globalEnumTypes.map(e => e.codeString)
+    val globalEnumString = fixedDB.getGlobalEnumTypes.map(e => e.codeString)
     val codeStringList = fixedDB.blockMemberList.flatMap {
       case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
       case (block : DFDesign.Block, members) if !uniqueDesigns.contains(block.designType) =>

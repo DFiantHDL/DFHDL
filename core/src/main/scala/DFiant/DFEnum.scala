@@ -335,8 +335,14 @@ object EnumType {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     private var latestEntryValue : Option[BigInt] = None
-    private def entriesCodeString(implicit printer: Printer) : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry(${e._1.toBitVector(width).codeString})").mkString
-    final def codeString(implicit printer: Printer) : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
+    private def entriesCodeString(implicit printer: Printer) : String = {
+      import printer.config._
+      entries.map(e => f"\n  $SC val ${e._2.name}%-15s = $DF Entry(${e._1.toBitVector(width).codeString})").mkString
+    }
+    final def codeString(implicit printer: Printer) : String = {
+      import printer.config._
+      s"\n$SC object $name $SC extends $DF Enum.$DF Manual($width) {$entriesCodeString\n}"
+    }
 
     class Entry private[DFiant] (val value : BigInt, val enumType : EnumType)(implicit private[DFiant] val meta : Meta) extends EnumType.Entry {
       enumType.update(this)

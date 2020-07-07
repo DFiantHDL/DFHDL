@@ -34,15 +34,8 @@ object PackageFile {
   }
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pkg"
 
-  private def enumDcl(implicit printer: Printer) : String = {
-    val enumTypes = printer.getSet.designDB.members.collect {
-      case DFEnum(enumType) => enumType
-    }.distinct
-    enumTypes.map { enumType =>
-      val typeList = enumType.entries.toList.sortBy(x => x._1).map(x => s"E_${enumType.name}_${x._2.name}".toUpperCase)
-      s"type ${enumType.name}_type is (${typeList.mkString(", ")});"
-    }.mkString("\n")
-  }
+  private def enumDcl(implicit printer: Printer) : String =
+    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl(e)).mkString("\n")
   private def helperFunctions(implicit printer: Printer) : String = {
     import printer.config._
     val to_hstring =

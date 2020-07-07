@@ -112,7 +112,9 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
         }.mkString("\n")
         val syncProcess = Process("sync_proc", syncSensitivityList, List(), syncStatements)
         val statements = componentInstances ++ List(asyncProcess, syncProcess, emits)
-        val architecture = Architecture(s"${entityName}_arch", entityName, signals, statements)
+        val enumTypeDcls = designDB.getLocalEnumTypes(design).map(e => EnumTypeDcl(e)).toList
+        val declarations = enumTypeDcls ++ signals
+        val architecture = Architecture(s"${entityName}_arch", entityName, declarations, statements)
         val file = File(s"${designDB.top.designType}_pkg", entity, architecture)
         Some(Backend.File(s"${design.designType}.vhdl", s"$file"))
       case _ => None
