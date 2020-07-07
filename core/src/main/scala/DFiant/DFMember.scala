@@ -191,6 +191,8 @@ trait MemberGetSet {
   def replace[M <: DFMember](originalMember : M)(newMember : M) : M
   def remove[M <: DFMember](member : M) : M
   def getMembersOf(owner : DFOwner) : List[DFMember]
+  def setGlobalTag(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit
+  def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag]
 }
 object MemberGetSet {
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet

@@ -32,7 +32,7 @@ object DFString extends DFAny.Companion {
         val op = implicitly[`Op:=`.Builder[Type[L], DFString[Int]]]
         op(this, r.asInstanceOf[DFString[Int]])
     }
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       s"$TP DFString($LIT$length)"
     }
@@ -62,7 +62,7 @@ object DFString extends DFAny.Companion {
     def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
 
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       val valueStr = new String(value.toArray, StandardCharsets.ISO_8859_1)
       s""""$valueStr""""

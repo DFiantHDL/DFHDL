@@ -33,7 +33,7 @@ object DFBits extends DFAny.Companion {
         op(this, r.asInstanceOf[DFBits[Int]])
     }
     override def toString: String = s"DFBits[$width]"
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       s"$TP DFBits($LIT$width)"
     }
@@ -110,7 +110,7 @@ object DFBits extends DFAny.Companion {
       val outBubble = isBubble
       new DFSInt.Token(outWidth, outValueSInt, outBubble)
     }
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       import io.AnsiColor.BOLD
       if (value.length % 4 == 0) s"""$BOLD h$STR"${value.toHex}""""

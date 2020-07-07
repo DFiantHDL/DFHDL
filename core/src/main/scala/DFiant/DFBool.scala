@@ -29,7 +29,7 @@ object DFBool extends DFAny.Companion {
       case DFBit() =>
     }
     override def toString: String = if (logical) "DFBool" else "DFBit"
-    def codeString(implicit printConfig : Printer.Config) : String =
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String =
       if (logical) s"${printConfig.TP}DFBool()" else s"${printConfig.TP}DFBit()"
   }
 
@@ -82,7 +82,7 @@ object DFBool extends DFAny.Companion {
     def == (that : Token) : Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
 
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       val valueStr = if (logical) {
         value.toString

@@ -69,7 +69,7 @@ object DFAny {
     def getBubbleToken : TToken
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token
     def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit
-    def codeString(implicit printConfig : Printer.Config) : String
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String
   }
   object Type {
     implicit def ev[T <: DFAny](t : T) : t.TType = t.dfType
@@ -454,7 +454,7 @@ object DFAny {
     val relValRef : Alias.RelValRef[RelVal]
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
-    def relCodeString(cs : String) : String
+    def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String
     def codeString(implicit getSet : MemberGetSet, printConfig : Printer.Config): String = {
       import printConfig.formatter._
       tags.codeStringOverride match {
@@ -481,7 +481,7 @@ object DFAny {
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
-      def relCodeString(cs : String) : String = s"$cs.as(${dfType.codeString})"
+      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = s"$cs.as(${dfType.codeString})"
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -508,7 +508,7 @@ object DFAny {
         case _ : DFBits.Type[_] => t.bitsWL(relWidth, relBitLow)
         case _ : DFBool.Type => t.bit(relBitLow)
       }
-      def relCodeString(cs : String) : String = dfType match {
+      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = dfType match {
         case _ : DFBits.Type[_] => s"$cs.bitsWL($relWidth, $relBitLow)"
         case _ : DFBool.Type => s"$cs.bit($relBitLow)"
       }
@@ -543,7 +543,7 @@ object DFAny {
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t
       override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
-      def relCodeString(cs : String) : String = if (step == 1) s"$cs.prev" else s"$cs.prev($step)"
+      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = if (step == 1) s"$cs.prev" else s"$cs.prev($step)"
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -572,7 +572,7 @@ object DFAny {
         case u : DFUInt.Token => u.resize(toWidth)
         case s : DFSInt.Token => s.resize(toWidth)
       }
-      def relCodeString(cs : String) : String = s"$cs.resize($toWidth)"
+      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = s"$cs.resize($toWidth)"
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -642,7 +642,7 @@ object DFAny {
         case _ : DFBits.Type[_] => "~"
         case _ : DFBool.Type => "!"
       }
-      def relCodeString(cs : String) : String = s"$op$cs"
+      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = s"$op$cs"
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -1075,7 +1075,7 @@ object DFAny {
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
       DFBits.Token(outBitsValue, outBubbleMask)
     }
-    def codeString(implicit printConfig : Printer.Config) : String
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String
     override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
@@ -1102,7 +1102,7 @@ object DFAny {
         tokenSeq.map(t => t.bits)
       def bitsWL(relWidth : Int, relBitLow : Int) : Seq[DFBits.Token] =
         tokenSeq.map(t => t.bitsWL(relWidth, relBitLow))
-      def codeString : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
+      def codeString(implicit getSet: MemberGetSet) : String = tokenSeq.map(t => t.codeString).mkString("(", ", ", ")")
       //      def patternMatch(pattern : T#TPattern) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
     }
   }
@@ -1162,7 +1162,6 @@ object DFAny {
     def matches(value : TValue) : Boolean
     def overlapsWith(pattern: P) : Boolean
     def codeString : String
-    override def toString: String = codeString
   }
   object Pattern {
     abstract class OfIntervalSet[T, P <: OfIntervalSet[T, P]](val patternSet : IntervalSet[T])(implicit codeStringOf: CodeStringOf[Interval[T]]) extends Pattern[P] {

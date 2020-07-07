@@ -138,7 +138,7 @@ object DFDesign {
   implicit class DevAccess(design : DFDesign) {
     def getDB : DB = design.__db.immutable
   }
-  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember]) {self =>
+  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember], globalTags : Map[(Any, String), DFMember.CustomTag]) {self =>
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
@@ -149,11 +149,13 @@ object DFDesign {
       def replace[M <: DFMember](originalMember : M)(newMember: M): M = newMember
       def remove[M <: DFMember](member : M) : M = member
       def getMembersOf(owner : DFOwner) : List[DFMember] = ownerMemberTable(owner)
+      def setGlobalTag(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit = {}
+      def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag] = globalTags.get((taggedElement, tagId))
     }
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
 
     //concatenating design databases (dropping the top owner of the added database)
-    def concat(db : DB) : DB = DB(this.members ++ db.members.drop(1), this.refTable ++ db.refTable)
+    def concat(db : DB) : DB = DB(this.members ++ db.members.drop(1), this.refTable ++ db.refTable, this.globalTags ++ db.globalTags)
     //There can only be a single connection to a value (but multiple assignments are possible)
     //                              To    From
     lazy val connectionTable : Map[DFAny, DFAny] =
@@ -351,8 +353,10 @@ object DFDesign {
           (rt._1 + (ref -> updatedRefMember), rt._2)
         case (rt, _) => rt
       }
-      DB(patchedMembers, patchedRefTable)
+      DB(patchedMembers, patchedRefTable, globalTags)
     }
+    def setGlobalTags(tagList : List[((Any, String), DFMember.CustomTag)]) : DB =
+      copy(globalTags = globalTags ++ tagList)
     def patch(singlePatch : (DFMember, DB.Patch)) : DB = patch(List(singlePatch))
     @tailrec private def getGuards(currentOwner : DFBlock, targetOwner : DFBlock, currentGuards : List[DFAny]) : List[DFAny] =
       currentOwner match {
@@ -627,6 +631,15 @@ object DFDesign {
       }
       ///////////////////////////////////////////////////////////////
 
+      ///////////////////////////////////////////////////////////////
+      //Extra Tags
+      ///////////////////////////////////////////////////////////////
+      object global_tags {
+        private[Mutable] val tagMap : mutable.Map[(Any, String), DFMember.CustomTag] = mutable.Map()
+        def set(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit = tagMap += ((taggedElement, tagId) -> tag)
+        def get(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag] = tagMap.get((taggedElement, tagId))
+      }
+
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
         addMember(ctx.container, cb)
         cb.applyBlock(block)
@@ -723,7 +736,7 @@ object DFDesign {
           }
         }
         val notIgnoredMembers = members.iterator.filterNot(e => e._3).map(e => e._1).toList
-        DB(notIgnoredMembers, refTable.toMap)
+        DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap)
       }
 
       implicit val getSet : MemberGetSet = new MemberGetSet {
@@ -733,6 +746,8 @@ object DFDesign {
         def replace[M <: DFMember](originalMember : M)(newMember: M): M = replaceMember(originalMember, newMember)
         def remove[M <: DFMember](member : M) : M = ignoreMember(member)
         def getMembersOf(owner : DFOwner) : List[DFMember] = self.getMembersOf(owner)
+        def setGlobalTag(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit = global_tags.set(taggedElement, tagId, tag)
+        def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag] = global_tags.get(taggedElement, tagId)
       }
     }
   }

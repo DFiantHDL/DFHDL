@@ -48,7 +48,7 @@ object DFEnum extends DFAny.Companion {
       case r @ DFEnum(_) if (enumType == r.asInstanceOf[DFEnum[_]].dfType.enumType) =>
     }
     override def toString: String = s"DFEnum[$enumType]"
-    def codeString(implicit printConfig : Printer.Config) : String = s"${printConfig.TP}DFEnum($enumType)"
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = s"${printConfig.TP}DFEnum(${enumType.refCodeString})"
     override def equals(obj: Any): Boolean = obj match {
       case Type(enumType) => this.enumType == enumType
       case _ => false
@@ -80,7 +80,7 @@ object DFEnum extends DFAny.Companion {
       DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : DFBool.Token =
       DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-    def codeString(implicit printConfig : Printer.Config) : String = value.get.codeString
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = value.get.codeString
 //    override def equals(obj: Any): Boolean = obj match {
 //      case Token(enumType, value) => this.enumType == enumType && this.value == value
 //      case _ => false
@@ -233,7 +233,7 @@ object DFEnum extends DFAny.Companion {
 
 
 
-sealed abstract class EnumType(implicit meta : Meta) extends HasCodeString {
+sealed abstract class EnumType(implicit meta : Meta) {
   private[DFiant] val entries : mutable.Map[BigInt, EnumType.Entry] = mutable.Map.empty[BigInt, EnumType.Entry]
   private[DFiant] def update(entry : EnumType.Entry) : Unit = {
     entries.get(entry.value) match {
@@ -245,21 +245,35 @@ sealed abstract class EnumType(implicit meta : Meta) extends HasCodeString {
   type Entry <: EnumType.Entry
   type EntryWidth
   val width : TwoFace.Int[EntryWidth]
-  final val name : String = meta.name
-  override def toString: String = name
+  final def name(implicit getSet: MemberGetSet) : String = getSet.getGlobalTag(this, "name") match {
+    case Some(EnumType.NameTag(taggedName)) => taggedName
+    case _ => meta.name
+  }
+  def refCodeString(implicit getSet: MemberGetSet) : String = name
+  override def toString: String = meta.name
 }
 
 object EnumType {
-  sealed trait Entry extends HasCodeString {
+  final case class NameTag(name : String) extends DFMember.CustomTag
+  class Context(val container : Option[DFOwner.Container], val meta : Meta)
+  trait LowPriority {
+    implicit def topCtx(implicit lp : shapeless.LowPriority, meta : Meta) : Context = new Context(None, meta)
+  }
+  object Context extends LowPriority {
+    implicit def fromCtx(implicit ctx : DFMember.Context, meta : Meta) : Context = new Context(Some(ctx.container), meta)
+  }
+
+  sealed trait Entry {
     val value : BigInt
     val enumType : EnumType
-    val name : String
-    final lazy val fullName = s"${enumType.name}.$name"
-    def codeString: String = fullName
+    private[DFiant] val meta : Meta
+    val name : String = meta.name
+    final def getFullName(implicit getSet: MemberGetSet) = s"${enumType.name}.$name"
+    def codeString(implicit getSet: MemberGetSet) : String = getFullName
     final override def toString: String = name
   }
   object Entry {
-    implicit def csoEnum[E <: Entry] : CodeStringOf[E] = t => t.codeString
+    implicit def csoEnum[E <: Entry] : CodeStringOf[E] = t => t.toString
   }
 
   trait Encoding extends HasCodeString {
@@ -290,58 +304,61 @@ object EnumType {
     }
   }
 
-  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(implicit meta : Meta) extends EnumType {
+  abstract class Auto[E <: Encoding](val encoding : E = Encoding.Default)(
+    implicit meta : Meta
+  ) extends EnumType { self =>
     type EntryWidth = Int
     final lazy val width : TwoFace.Int[EntryWidth] = encoding.calcWidth(entries.size)
     private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry()  //${e._1.codeString}").mkString
     private def encodingCodeString : String = if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
-    final def codeString : String = s"\nobject $name extends Enum.Auto$encodingCodeString {$entriesCodeString\n}"
+    final def codeString(implicit getSet: MemberGetSet) : String = s"\nobject $name extends Enum.Auto$encodingCodeString {$entriesCodeString\n}"
 
-    class Entry private[DFiant] (implicit val enumType : EnumType, meta : Meta) extends EnumType.Entry {
+    class Entry private[DFiant] (implicit val enumType : EnumType, private[DFiant] val meta : Meta) extends EnumType.Entry {
       val value : BigInt = encoding.func(entries.size)
-      val name : String = meta.name
       enumType.update(this)
     }
     def Entry()(implicit meta : Meta) : Entry = new Entry
   }
 
-  abstract class Manual[Width <: Int with Singleton](val width : TwoFace.Int[Width])(implicit meta : Meta) extends EnumType {
+  abstract class Manual[Width <: Int with Singleton](val width : TwoFace.Int[Width])(
+    implicit meta : Meta
+  ) extends EnumType { self =>
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     private var latestEntryValue : Option[BigInt] = None
     private def entriesCodeString : String = entries.map(e => f"\n  val ${e._2.name}%-15s = Entry(${e._1.toBitVector(width).codeString})").mkString
-    final def codeString : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
+    final def codeString(implicit getSet: MemberGetSet) : String = s"\nobject $name extends Enum.Manual($width) {$entriesCodeString\n}"
 
-    class Entry private[DFiant] (val value : BigInt, val enumType : EnumType, val name : String) extends EnumType.Entry {
+    class Entry private[DFiant] (val value : BigInt, val enumType : EnumType)(implicit private[DFiant] val meta : Meta) extends EnumType.Entry {
       enumType.update(this)
       latestEntryValue = Some(value)
     }
 
     def Entry[T <: Int with Singleton](t : T)(
       implicit check : RequireMsg[BitsWidthOf.CalcInt[T] <= Width, Msg[BitsWidthOf.CalcInt[T]]], enumOwner : EnumType, meta : Meta
-    ) : Entry = new Entry(t, enumOwner, meta.name)
+    ) : Entry = new Entry(t, enumOwner)
 
     def Entry[T <: Long with Singleton](t : T)(
       implicit check : RequireMsg[BitsWidthOf.CalcLong[T] <= Width, Msg[BitsWidthOf.CalcLong[T]]], enumOwner : EnumType, meta : Meta
-    ) : Entry = new Entry(t, enumOwner, meta.name)
+    ) : Entry = new Entry(t, enumOwner)
 
     def Entry(t : BigInt)(
       implicit enumOwner : EnumType, meta : Meta
     ) : Entry = {
       require(t.bitsWidth <= width, s"`${meta.name}` entry value width (${t.bitsWidth}) is bigger than the enumeration width ($width)")
-      new Entry(t, enumOwner, meta.name)
+      new Entry(t, enumOwner)
     }
 
     private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
     def Entry[W](t : XBitVector[W])(
       implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : EnumType, meta : Meta
-    ) : Entry = new Entry(t.toBigInt, enumOwner, meta.name)
+    ) : Entry = new Entry(t.toBigInt, enumOwner)
 
     def Entry(t : BitVector)(
       implicit enumOwner : EnumType, meta : Meta
     ) : Entry = {
       require(t.length.toInt == width.getValue, s"`${meta.name}` entry value width (${t.length}) is different than the enumeration width ($width)")
-      new Entry(t.toBigInt, enumOwner, meta.name)
+      new Entry(t.toBigInt, enumOwner)
     }
 
     def EntryDelta(t : BigInt = BigInt(1))(implicit meta : Meta) : Entry = Entry(latestEntryValue match {

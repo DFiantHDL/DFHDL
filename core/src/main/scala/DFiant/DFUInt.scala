@@ -28,7 +28,7 @@ object DFUInt extends DFAny.Companion {
         op(this, r.asInstanceOf[DFUInt[Int]])
     }
     override def toString: String = s"DFUInt[$width]"
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       s"$TP DFUInt($LIT$width)"
     }
@@ -80,7 +80,7 @@ object DFUInt extends DFAny.Companion {
     def << (that : DFUInt.Token) : Token = (bits << that).toUInt
     def >> (that : DFUInt.Token) : Token = (bits >> that).toUInt
     def resize(toWidth : Int) : Token = bits.resize(toWidth).toUInt
-    def codeString(implicit printConfig : Printer.Config) : String = {
+    def codeString(implicit printConfig : Printer.Config, getSet: MemberGetSet) : String = {
       import printConfig._
       if (value.isValidInt) s"$LIT$value"
       else if (value.isValidLong) s"$LIT${value}L"
