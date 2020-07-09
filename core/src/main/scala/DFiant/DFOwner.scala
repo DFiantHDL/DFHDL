@@ -2,6 +2,8 @@ package DFiant
 import internals._
 import singleton.ops._
 
+import scala.annotation.tailrec
+
 trait DFOwner extends DFMember {
   def connectWith(that : DFOwner)(implicit ctx : DFBlock.Context) : Unit = {
     val leftMembers = this.getMembers
@@ -31,13 +33,14 @@ object DFOwner {
     final protected implicit val __container : Container = this
     final private[DFiant] lazy val __parent : Container = if (__ctx.container == null) this else __ctx.container
     final def isTop : Boolean = __parent == this
-    final private[DFiant] def isInsideParent(that : Container) : Boolean = {
-      (this, that) match {
+    @tailrec private def isInsideParent(thisContainer : Container, thatContainer : Container) : Boolean = {
+      (thisContainer, thatContainer) match {
         case (a, b) if (a == b) => true
         case (p, _) if p.isTop => false
-        case _ => __parent.isInsideParent(that)
+        case _ => isInsideParent(thisContainer.__parent, thatContainer)
       }
     }
+    final private[DFiant] def isInsideParent(that : Container) : Boolean = isInsideParent(this, that)
     protected[DFiant] def onEnterContainer() : Unit = {}
     protected[DFiant] def onExitContainer() : Unit = {}
     protected[DFiant] def onCreateContainer() : Unit = {}

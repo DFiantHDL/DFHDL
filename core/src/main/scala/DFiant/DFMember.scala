@@ -68,14 +68,15 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     }
   //true if and only if the member is outside the design at any level
   final def isOutsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean = !isInsideOwner(that)
-  //true if and only if the member is inside the design at any level
-  final def isInsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean = {
-    (getOwner, that) match {
+  @tailrec private def isInsideOwner(thisMember : DFMember, thatOwner : DFOwner)(implicit getSet : MemberGetSet) : Boolean = {
+    (thisMember.getOwner, thatOwner) match {
       case (a, b) if a == b => true
       case (_ : DFDesign.Block.Top, _) => false
-      case (od, _) => od.isInsideOwner(that)
+      case (od, _) => isInsideOwner(od, thatOwner)
     }
   }
+  //true if and only if the member is inside the design at any level
+  final def isInsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean = isInsideOwner(this, that)
   //true if and only if the two members are equivalent in relation to their design construction context
   protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean
 
