@@ -198,6 +198,7 @@ object DFAny {
     final def fork(implicit ctx : DFAny.Context) : Fork.Of[Type] = Fork(left)
     //fired only once for each new token
     final def isNotEmpty(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotEmpty(left)
+    final def isStallBubble(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsStallBubble(left)
     //////////////////////////////////////////////////////////////////////////
     override lazy val typeName: String = dfType.toString
   }
@@ -899,6 +900,9 @@ object DFAny {
       case object IsNotFull extends Status {
         def codeString : String = "isNotFull"
       }
+      case object IsStallBubble extends Status {
+        def codeString : String = "isStallBubble"
+      }
       sealed trait Control extends Func
       case object Consume extends Control {
         def codeString : String = "consume()"
@@ -933,6 +937,12 @@ object DFAny {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotFull)
       def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
         case Unref(relVal, Func.IsNotFull, owner, tags) => Some((relVal, owner, tags))
+      }
+    }
+    object IsStallBubble {
+      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsStallBubble)
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+        case Unref(relVal, Func.IsStallBubble, owner, tags) => Some((relVal, owner, tags))
       }
     }
     object Consume {

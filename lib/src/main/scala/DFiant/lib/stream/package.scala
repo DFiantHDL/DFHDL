@@ -112,6 +112,25 @@ package object stream {
     @df(false) def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergedf
     @df(false) def mergeNonBlockingdf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergeNonBlockingdf
     @df(false) def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergePrioritydf
+
+    @df def repeaterdf : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      ifdf (left.isNotEmpty) {
+        ret := left
+      }
+      ret
+    }
+
+    @df def reducedf(op : (DFAny.Of[Type], DFAny.Of[Type]) => DFAny.Of[Type]) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      import fsm._
+      val set_fsm = step {
+        ret := left
+      } ==> step {
+        ret := op(ret, left).anonymize
+      }
+      ret
+    }
   }
 
   implicit class StreamCollectionExt[Type <: DFAny.Type, Mod <: DFAny.Modifier](iter : Iterable[DFAny.Value[Type, Mod]]) {

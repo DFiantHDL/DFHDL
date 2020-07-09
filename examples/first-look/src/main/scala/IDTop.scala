@@ -91,7 +91,7 @@ import lib.stream._
 //    fib := fib.prev + fib.prev(2)
 //  }
   i1.splitdf(3)
-  o := i2
+  o := i2.reducedf(_ + _)
 }
 
 object IDTopApp extends App {
