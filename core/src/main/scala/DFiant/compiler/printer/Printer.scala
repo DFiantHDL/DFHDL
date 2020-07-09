@@ -58,7 +58,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     val localEnumString = fixedDB.getLocalEnumTypes(block).map(e => e.codeString).mkString("","\n","\n")
     val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
     val classStr = block match {
-      case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimulator"
+      case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimDesign"
       case _ => "DFDesign"
     }
     s"$SC trait ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"

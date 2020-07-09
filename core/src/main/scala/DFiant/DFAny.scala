@@ -461,7 +461,7 @@ object DFAny {
     val relValRef : Alias.RelValRef[RelVal]
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
-    def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String
+    def relCodeString(cs : String)(implicit printer: Printer) : String
     def codeString(implicit printer: Printer): String = {
       import printer.config.formatter._
       tags.codeStringOverride match {
@@ -488,7 +488,10 @@ object DFAny {
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = dfType.getTokenFromBits(t.bits)
-      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = s"$cs.as(${dfType.codeString})"
+      def relCodeString(cs : String)(implicit printer: Printer) : String = {
+        import printer.config._
+        s"$cs.$DF as(${dfType.codeString})"
+      }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -515,9 +518,12 @@ object DFAny {
         case _ : DFBits.Type[_] => t.bitsWL(relWidth, relBitLow)
         case _ : DFBool.Type => t.bit(relBitLow)
       }
-      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = dfType match {
-        case _ : DFBits.Type[_] => s"$cs.bitsWL($relWidth, $relBitLow)"
-        case _ : DFBool.Type => s"$cs.bit($relBitLow)"
+      def relCodeString(cs : String)(implicit printer: Printer) : String = {
+        import printer.config._
+        dfType match {
+          case _ : DFBits.Type[_] => s"$cs.$DF bitsWL($relWidth, $relBitLow)"
+          case _ : DFBool.Type => s"$cs.$DF bit($relBitLow)"
+        }
       }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
@@ -550,7 +556,10 @@ object DFAny {
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t
       override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
-      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = if (step == 1) s"$cs.prev" else s"$cs.prev($step)"
+      def relCodeString(cs : String)(implicit printer: Printer) : String = {
+        import printer.config._
+        if (step == 1) s"$cs.$DF prev" else s"$cs.$DF prev($step)"
+      }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -579,7 +588,10 @@ object DFAny {
         case u : DFUInt.Token => u.resize(toWidth)
         case s : DFSInt.Token => s.resize(toWidth)
       }
-      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = s"$cs.resize($toWidth)"
+      def relCodeString(cs : String)(implicit printer: Printer) : String = {
+        import printer.config._
+        s"$cs.$DF resize($toWidth)"
+      }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -649,7 +661,7 @@ object DFAny {
         case _ : DFBits.Type[_] => "~"
         case _ : DFBool.Type => "!"
       }
-      def relCodeString(cs : String)(implicit getSet: MemberGetSet) : String = s"$op$cs"
+      def relCodeString(cs : String)(implicit printer: Printer) : String = s"$op$cs"
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
       def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
@@ -817,8 +829,9 @@ object DFAny {
       case _ => false
     }
     def codeString(implicit printer: Printer): String = {
-      import printer.config.formatter._
-      s"${relValRef.refCodeString.applyBrackets()}.fork"
+      import printer.config._
+      import formatter._
+      s"${relValRef.refCodeString.applyBrackets()}.$DF fork"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember =
@@ -861,8 +874,9 @@ object DFAny {
       case _ => false
     }
     def codeString(implicit printer: Printer): String = {
-      import printer.config.formatter._
-      s"${relValRef.refCodeString.applyBrackets()}.${func.codeString}"
+      import printer.config._
+      import formatter._
+      s"${relValRef.refCodeString.applyBrackets()}.$DF ${func.codeString}"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
     def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember =
