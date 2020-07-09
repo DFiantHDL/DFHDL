@@ -104,6 +104,7 @@ object Printer {
     val SC : String = s"$BLUE$BOLD"
     val DF : String = s"\u001B[38;5;92m$BOLD"
     val TP : String = "\u001B[38;5;94m"
+    val CMT : String = "\u001B[38;5;247m"
     val formatter : Formatter = new Formatter("  ", List(25, 25))
   }
   object Config {

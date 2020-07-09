@@ -9,7 +9,15 @@ sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   def codeString(implicit printer: Printer) : String = {
     import printer.config._
     import formatter._
-    s"${toRef.refCodeString} ${ALGN(0)}$DF$op ${fromRef.refCodeString}"
+    val toRefString = toRef.refCodeString
+    val fromRefString = fromRef.refCodeString
+    val opString = s"${ALGN(0)}$DF$op"
+    this match {
+      case _ : DFNet.Connection if hasLateConstruction =>
+        if (toRef.getOwner == this.getOwner) s"$toRefString $opString$CMT/*<--*/ $fromRefString"
+        else s"$fromRefString $opString$CMT/*-->*/ $toRefString"
+      case _ => s"$toRefString $opString $fromRefString"
+    }
   }
   override def show(implicit getSet : MemberGetSet) : String = codeString
 }
