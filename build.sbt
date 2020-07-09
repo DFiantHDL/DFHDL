@@ -19,6 +19,8 @@ scalaVersion in ThisBuild := "2.13.3"
 resolvers in ThisBuild += "scala-integration" at
   "https://scala-ci.typesafe.com/artifactory/scala-integration/"
 
+resolvers in ThisBuild += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
+
 //enablePlugins(ScalaJSPlugin)
 
 // PROJECTS
@@ -179,6 +181,7 @@ lazy val dependencies =
     private val macroParadiseV  = "2.1.1"
     private val macroCompatV    = "1.1.1"
     private val ammoniteV       = "2.1.4"
+    private val oscarV          = "4.1.0-SNAPSHOT"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
@@ -196,6 +199,7 @@ lazy val dependencies =
     val continuum      = "danburkert"                 %% "continuum"               % continuumV
     val macroCompat    = "org.typelevel"              %% "macro-compat"            % macroCompatV
     val ammonite       = "com.lihaoyi"                %  "ammonite"                % ammoniteV % "test" cross CrossVersion.full
+    val oscar          = "oscar"                      %% "oscar-cp"                % oscarV
     val macroParadise  = compilerPlugin("org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch)
   }
 
@@ -207,6 +211,7 @@ lazy val commonDependencies = Seq(
   dependencies.shapeless,
   dependencies.scodec,
   dependencies.akka,
+  dependencies.oscar,
 //  dependencies.ammonite,
   dependencies.scalacheck % "test",
   dependencies.scalatest % "test"
@@ -329,10 +334,6 @@ lazy val assemblySettings = Seq(
 ////////////////////////////////////////////////////////////////////
 // Oscar (constraints)
 ////////////////////////////////////////////////////////////////////
-
-//resolvers += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
-
-//libraryDependencies += "oscar" %% "oscar-cp" % "4.1.0-SNAPSHOT"
 
 //libraryDependencies += "oscar" %% "oscar-linprog" % "3.0.0"
 //
