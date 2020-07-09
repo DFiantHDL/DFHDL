@@ -131,6 +131,16 @@ package object stream {
       }
       ret
     }
+
+    @df def dropStallBubblesdf : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      ifdf (left.isStallBubble) {
+        ret.dontProduce()
+      }.elsedf {
+        ret := left
+      }
+      ret
+    }
   }
 
   implicit class StreamCollectionExt[Type <: DFAny.Type, Mod <: DFAny.Modifier](iter : Iterable[DFAny.Value[Type, Mod]]) {
