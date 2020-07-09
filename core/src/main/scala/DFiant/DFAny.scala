@@ -195,8 +195,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Dynamic Dataflow Control
     //////////////////////////////////////////////////////////////////////////
-    final def dontConsume()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontConsume(left)
-    final def consume()(implicit ctx : DFAny.Context) : Unit = Dynamic.Consume(left)
+    final def fork(implicit ctx : DFAny.Context) : Fork.Of[Type] = Fork(left)
     //fired only once for each new token
     final def isNotEmpty(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotEmpty(left)
     //////////////////////////////////////////////////////////////////////////
@@ -229,6 +228,8 @@ object DFAny {
   object Modifier {
     sealed trait Val extends Modifier
     case object Val extends Val
+    sealed trait Fork extends Val
+    case object Fork extends Fork
     sealed trait Assignable extends Val
     sealed trait Connectable extends Modifier
     final case class Port[+D <: PortDir](dir : D) extends Connectable with Assignable {
@@ -803,9 +804,50 @@ object DFAny {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Dynamic Dataflow
+  // Dynamic Dataflow Constructs
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //Dynamic is a always boolean for implementation simplification. Only `IsNotEmpty` and `IsNotFull` are
+  final case class Fork(
+    dfType : Type, relValRef : Fork.Ref[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+  ) extends Value[DFAny.Type, Modifier.Fork] {
+    type TMod = Modifier.Fork
+    val modifier : TMod = Modifier.Fork
+    protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
+      case Fork(dfType, relValRef, _, tags) =>
+        this.dfType == dfType && this.relValRef =~ relValRef && this.tags =~ tags
+      case _ => false
+    }
+    def codeString(implicit printer: Printer): String = {
+      import printer.config.formatter._
+      s"${relValRef.refCodeString.applyBrackets()}.fork"
+    }
+    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember =
+      getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+  }
+  object Fork {
+    type Of[Type <: DFAny.Type] = Value[Type, Modifier.Fork]
+    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+    object Ref {
+      trait Type extends DFMember.OwnedRef.Type
+      implicit val ev : Type = new Type {}
+    }
+    def apply[RelVal <: DFAny](refVal: RelVal)(
+      implicit ctx: DFAny.Context
+    ): Of[RelVal#TType] = {
+      implicit lazy val ret : Fork with DFMember.RefOwner =
+        ctx.db.addMember(ctx.container, Fork(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
+      ret.asInstanceOf[Of[RelVal#TType]]
+    }
+    object Unref {
+      def unapply(arg : Fork)(implicit getSet: MemberGetSet) : Option[(DFAny.Type, DFAny, DFOwner, Tags)] =
+        Some((arg.dfType, arg.relValRef.get, arg.ownerRef.get, arg.tags))
+    }
+  }
+  implicit class ForkOps[Type <: DFAny.Type](val left : Fork.Of[Type]) {
+    final def dontConsume()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontConsume(left)
+    final def consume()(implicit ctx : DFAny.Context) : Unit = Dynamic.Consume(left)
+  }
+    //Dynamic is a always boolean for implementation simplification. Only `IsNotEmpty` and `IsNotFull` are
   //useable as boolean values.
   final case class Dynamic(
     relValRef : Dynamic.Ref[DFAny], func : Dynamic.Func, ownerRef : DFOwner.Ref, tags : DFAny.Tags

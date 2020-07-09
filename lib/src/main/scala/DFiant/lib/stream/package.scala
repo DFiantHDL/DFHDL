@@ -122,21 +122,7 @@ package object stream {
 
     @df(false) def mergedf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergedf
     @df(false) def mergeNonBlockingdf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergeNonBlockingdf
-
-    @df def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = {
-      require(left.dfType == right.dfType)
-      val ret = left.asNewVar
-
-      ifdf (left.isNotEmpty) {
-        ret := left
-        right.dontConsume()
-      }.elseifdf(right.isNotEmpty) {
-        ret := right
-      }.elsedf {
-        ret.dontProduce()
-      }
-      ret
-    }
+    @df(false) def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergePrioritydf
   }
 
   implicit class StreamCollectionExt[Type <: DFAny.Type](iter : Iterable[DFAny.Of[Type]]) {
@@ -145,7 +131,7 @@ package object stream {
       val dfType = iter.head.dfType
       iter.foreach(i => require(i.dfType == dfType))
     }
-    @df private def cyclicdf(func : DFAny.Of[Type] => Unit) : Unit = {
+    @df private[stream] def cyclicdf(func : DFAny.Of[Type] => Unit) : Unit = {
       checkWidths()
       import fsm._
       val start : FSMMember.Connectable = step{func(iter.head)}.setName("sel")
@@ -156,16 +142,38 @@ package object stream {
     @df def mergedf : DFAny.Of[Type] = {
       checkWidths()
       val ret = iter.head.asNewVar
-      iter.foreach(e => e.dontConsume())
-      cyclicdf{e => ret := e}
+      val fork = iter.map(e => e.fork)
+      fork.foreach(e => e.dontConsume())
+      fork.cyclicdf{e => ret := e}
       ret
     }
     @df def mergeNonBlockingdf : DFAny.Of[Type] = {
       checkWidths()
       val ret = iter.head.asNewVar
-      iter.foreach(e => e.dontConsume())
+      val fork = iter.map(e => e.fork)
+      fork.foreach(e => e.dontConsume())
       ret.dontProduce()
-      cyclicdf{e => ifdf(e.isNotEmpty){ret := e}}
+      fork.cyclicdf{e => ifdf(e.isNotEmpty){ret := e}}
+      ret
+    }
+    @df def mergePrioritydf : DFAny.Of[Type] = {
+      checkWidths()
+      val ret = iter.head.asNewVar
+      val fork = iter.map(e => e.fork)
+      fork.foreach(e => e.dontConsume())
+      ret.dontProduce()
+      fork.foldLeft[Option[ConditionalBlock.NoRetVal.HasElseIfDF]](None){
+        case (None, e) => Some(
+          ifdf(e.isNotEmpty){
+            ret := e
+          }
+        )
+        case (Some(prevIf), e) => Some(
+          prevIf.elseifdf(e.isNotEmpty) {
+            ret := e
+          }
+        )
+      }
       ret
     }
   }
