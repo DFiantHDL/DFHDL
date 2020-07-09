@@ -90,7 +90,8 @@ import lib.stream._
 //    val fib = DFUInt(8) init(0, 1)
 //    fib := fib.prev + fib.prev(2)
 //  }
-  o := List(i1, i2, i3).mergePrioritydf
+  i1.splitdf(3)
+  o := i2
 }
 
 object IDTopApp extends App {

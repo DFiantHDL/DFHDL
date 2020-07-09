@@ -103,20 +103,9 @@ package object stream {
     @df def splitdf(num : Int)(
       implicit op: left.dfType.InitBuilder[DFAny.Of[Type]]
     ) : List[DFAny.Of[Type]] = {
-      val ret : List[DFAny.VarOf[Type]] = List.tabulate(num)(i => left.asNewVar.setName(s"ret$i"))
-      val sel = DFUInt.until(num) init 0
-      ret.zipWithIndex.foreach{case (r, i) =>
-        ifdf (sel === i){
-          r := left
-        }.elsedf {
-          r.dontProduce()
-        }
-      }
-      ifdf(sel === num) {
-        sel := 0
-      }.elsedf {
-        sel := sel + 1
-      }
+      val ret = List.fill(num)(left.asNewVar)
+      ret.foreach(r => r.dontProduce())
+      ret.cyclicdf(r => r := left)
       ret
     }
 
@@ -125,13 +114,13 @@ package object stream {
     @df(false) def mergePrioritydf(right : DFAny.Of[Type]) : DFAny.Of[Type] = List(left, right).mergePrioritydf
   }
 
-  implicit class StreamCollectionExt[Type <: DFAny.Type](iter : Iterable[DFAny.Of[Type]]) {
+  implicit class StreamCollectionExt[Type <: DFAny.Type, Mod <: DFAny.Modifier](iter : Iterable[DFAny.Value[Type, Mod]]) {
     private def checkWidths() : Unit = {
       require(iter.size > 1)
       val dfType = iter.head.dfType
       iter.foreach(i => require(i.dfType == dfType))
     }
-    @df private[stream] def cyclicdf(func : DFAny.Of[Type] => Unit) : Unit = {
+    @df private[stream] def cyclicdf(func : DFAny.Value[Type, Mod] => Unit) : Unit = {
       checkWidths()
       import fsm._
       val start : FSMMember.Connectable = step{func(iter.head)}.setName("sel")
