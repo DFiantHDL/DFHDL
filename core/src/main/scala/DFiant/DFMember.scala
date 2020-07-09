@@ -44,7 +44,8 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   final val name : String = if (isAnonymous) s"anon${hashCode.toHexString}" else tags.meta.name
   final val hasLateConstruction : Boolean = tags.meta.lateConstruction
   def getFullName(implicit getSet : MemberGetSet) : String = s"${getOwnerBlock.getFullName}.${name}"
-  final private[DFiant] def getOwnerChain(implicit getSet : MemberGetSet) : List[DFBlock] = if (getOwnerBlock.isTop) List(getOwnerBlock) else getOwnerBlock.getOwnerChain :+ getOwnerBlock
+  final private[DFiant] def getOwnerChain(implicit getSet : MemberGetSet) : List[DFBlock] =
+    if (getOwnerBlock.isTop) List(getOwnerBlock) else getOwnerBlock.getOwnerChain :+ getOwnerBlock
   def getRelativeName(implicit callOwner : DFBlock, getSet : MemberGetSet) : String = {
     val designOwner = callOwner.getThisOrOwnerDesign
     if (this isMemberOfDesign designOwner) name
