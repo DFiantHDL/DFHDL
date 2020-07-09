@@ -312,7 +312,7 @@ object EnumType {
     final lazy val width : TwoFace.Int[EntryWidth] = encoding.calcWidth(entries.size)
     private def entriesCodeString(implicit printer: Printer) : String = {
       import printer.config._
-      f"$SC val ${entries.map(e => e._2.name).mkString(",")} = Entry()"
+      f"$SC val ${entries.map(e => e._2.name).mkString(",")} = $DF Entry()"
     }
     private def encodingCodeString(implicit printer: Printer) : String =
       if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
