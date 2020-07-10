@@ -13,6 +13,9 @@ final case class IRCompilation[D <: DFDesign, H <: shapeless.HList](db : DFDesig
 }
 
 object Compilation {
+  implicit def fromDB : DFDesign.DB => IRCompilation[DFDesign, shapeless.HNil] =
+    db => IRCompilation[DFDesign, shapeless.HNil](db)
+
   implicit def fromDFDesign[D <: DFDesign] : D => IRCompilation[D, shapeless.HNil] =
     design => IRCompilation[D, shapeless.HNil](design.getDB)
 
