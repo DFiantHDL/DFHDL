@@ -4,11 +4,11 @@ package compiler.backend.vhdl
 import DFiant.compiler.sync.ResetParams.Active
 import compiler.sync._
 import DFiant.sim._
+import printer.formatter._
 
 private object Sim {
   private def clkRstGuard(implicit printer: Printer) : String = {
     import printer.config._
-    import formatter._
     val clkName = ClockParams.get.name
     val rstName = ResetParams.get.name
     val rstActive = ResetParams.get.active match {
@@ -20,7 +20,6 @@ private object Sim {
   object Assert {
     def unapply(assert : DFSimMember.Assert)(implicit printer: Printer) : Option[String] = {
       import printer.config._
-      import formatter._
       val msg = assert.msgRef.seq.map {
         case Left(v) =>
           v.get match {
@@ -55,7 +54,6 @@ private object Sim {
   object Finish {
     def unapply(assert : DFSimMember.Finish)(implicit printer: Printer) : Option[String] = {
       import printer.config._
-      import formatter._
       val finish = revision match {
         case Revision.V93 => List(s"""$KW report "Simulation Finished" $KW severity $TP FAILURE;""")
         case Revision.V2008 => List(s"finish(0);")

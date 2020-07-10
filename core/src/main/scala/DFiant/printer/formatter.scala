@@ -1,9 +1,9 @@
-package DFiant.compiler.printer
+package DFiant.printer
 
-class Formatter(delimiter : String, maxAlignments : List[Int]) {
+object formatter {
   import io.AnsiColor._
-  final def ALGN(idx : Int) : String = {
-    assert(idx < maxAlignments.size)
+  final def ALGN(idx : Int)(implicit printConfig: Printer.Config) : String = {
+    assert(idx < printConfig.maxAlignments.size)
     s"$$$$${idx}$$$$"
   }
   final val EMPTY = "$$EMPTY$$"
@@ -22,13 +22,13 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
     }
     def uncolor : String = text.replaceAll(colorCode, "")
     private[FormatString] def explicitEmptyLines : String = text.replaceAll("(?m)^\\s*$[\n\r]{1,}", "").replace(EMPTY, "")
-    def removeAlignment : String = {
-      maxAlignments.indices.foldLeft(text) {
+    def removeAlignment(implicit printConfig: Printer.Config) : String = {
+      printConfig.maxAlignments.indices.foldLeft(text) {
         case (text, i) => text.replace(ALGN(i), "")
       }
     }
-    def formatted : String = {
-      maxAlignments.zipWithIndex.foldLeft(text.colored.explicitEmptyLines){case (algnText, (algnMax, algnIdx)) =>
+    def formatted(implicit printConfig: Printer.Config) : String = {
+      printConfig.maxAlignments.zipWithIndex.foldLeft(text.colored.explicitEmptyLines){case (algnText, (algnMax, algnIdx)) =>
         val uncolored = algnText.uncolor
         val posList : List[Int] = uncolored.linesIterator.map(l => l.indexOf(ALGN(algnIdx))).toList
         val maxPos = posList.max
@@ -63,6 +63,6 @@ class Formatter(delimiter : String, maxAlignments : List[Int]) {
       if (uncolored.requiresBrackets || (!onlyIfRequired && !uncolored.hasBrackets)) s"($text)" else text
     }
 
-    def delim(count : Int = 1) : String = text.replaceAll("(?m)^", delimiter * count);
+    def delim(count : Int = 1)(implicit printConfig: Printer.Config) : String = text.replaceAll("(?m)^", printConfig.DELIM * count);
   }
 }

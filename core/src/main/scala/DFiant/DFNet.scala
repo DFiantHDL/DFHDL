@@ -1,14 +1,15 @@
 package DFiant
+import DFiant.csprinter.CSPrinter
 import DFiant.internals._
-import DFiant.compiler.printer.Printer
+import printer.formatter._
+
 sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
   type TCustomTag = DFMember.CustomTag
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef
-  def codeString(implicit printer: Printer) : String = {
+  def codeString(implicit printer: CSPrinter) : String = {
     import printer.config._
-    import formatter._
     val toRefString = toRef.refCodeString
     val fromRefString = fromRef.refCodeString
     val opString = s"${ALGN(0)}$DF$op"
@@ -19,7 +20,7 @@ sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
       case _ => s"$toRefString $opString $fromRefString"
     }
   }
-  override def show(implicit getSet : MemberGetSet) : String = codeString
+  override def show(implicit printer: CSPrinter) : String = codeString
 }
 
 object DFNet {

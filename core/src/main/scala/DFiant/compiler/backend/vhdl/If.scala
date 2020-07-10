@@ -1,12 +1,12 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 private object If {
   def apply(cond : String, statements : List[String], closing : String)(
     implicit printer : Printer
   ) : String = {
     import printer.config._
-    import formatter._
     s"""$KW if $cond $KW then
        |${statements.mkString("\n").delim()}
        |${if(closing.isEmpty) End() else closing}""".stripMargin
@@ -21,7 +21,6 @@ private object If {
   object ElsIf {
     def apply(cond : String, statements : List[String], closing : String)(implicit printer : Printer) : String = {
       import printer.config._
-      import formatter._
       s"""$KW elsif $cond $KW then
          |${statements.mkString("\n").delim()}
          |${if(closing.isEmpty) End() else closing}""".stripMargin
@@ -30,7 +29,6 @@ private object If {
   object Else {
     def apply(statements : List[String])(implicit printer : Printer) : String = {
       import printer.config._
-      import formatter._
       s"""$KW else
          |${statements.mkString("\n").delim()}
          |${End()}""".stripMargin

@@ -3,31 +3,15 @@ package compiler
 package backend
 package vhdl
 
-import DFiant.sim._
-
-sealed trait Printer {
-  val getSet : MemberGetSet
-  val config : Printer.Config
-  lazy val inSimulation : Boolean = getSet.designDB.top.simMode match {
-    case DFSimDesign.Mode.On => true
-    case _ => false
-  }
-}
 object Printer {
-  implicit def ev(implicit config0: Config, getset0: MemberGetSet) : Printer = new Printer {
-    val getSet: MemberGetSet = getset0
-    val config: Config = config0
-  }
-  sealed class Config(val revision: Revision) {
+  sealed class Config(val revision: Revision) extends DFiant.printer.Printer.Config {
     import io.AnsiColor._
+    val DELIM : String = "  "
+    val maxAlignments : List[Int] = List(25, 25)
     val LIT : String = "\u001B[38;5;5m"
     val KW : String = s"$BLUE$BOLD"
     val OP : String = s"$BOLD"
     val FN : String = "\u001B[38;5;54m"
     val TP : String = "\u001B[38;5;94m"
-    final val formatter = new compiler.printer.Formatter("  ", List(25, 25))
-  }
-  object Config {
-    implicit def ev(implicit revision: Revision) : Config = new Config(revision)
   }
 }

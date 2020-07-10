@@ -5,7 +5,8 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFiant.DFAny.Func2
-import DFiant.compiler.printer.{CodeStringOf, Printer}
+import DFiant.csprinter.{CSPrinter, CodeStringOf}
+
 object DFString extends DFAny.Companion {
   final case class Type[L](length : TwoFace.Int[L]) extends DFAny.Type {
     type Length = L
@@ -32,7 +33,7 @@ object DFString extends DFAny.Companion {
         val op = implicitly[`Op:=`.Builder[Type[L], DFString[Int]]]
         op(this, r.asInstanceOf[DFString[Int]])
     }
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"$TP DFString($LIT$length)"
     }
@@ -62,7 +63,7 @@ object DFString extends DFAny.Companion {
     def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
 
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       val valueStr = new String(value.toArray, StandardCharsets.ISO_8859_1)
       s""""$valueStr""""
@@ -83,7 +84,7 @@ object DFString extends DFAny.Companion {
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   implicit val codeStringOf: CodeStringOf[Vector[Byte]] = new CodeStringOf[Vector[Byte]] {
-    override def apply(t : Vector[Byte])(implicit printer: Printer) : String = new String(t.toArray, StandardCharsets.ISO_8859_1)
+    override def apply(t : Vector[Byte])(implicit printer: CSPrinter) : String = new String(t.toArray, StandardCharsets.ISO_8859_1)
   }
   class Pattern(set : Set[Vector[Byte]]) extends DFAny.Pattern.OfSet[Vector[Byte], Pattern](set)
   object Pattern extends PatternCO {

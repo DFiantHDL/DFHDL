@@ -1,10 +1,10 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 private object Emitter {
   def unapply(emitter : BackendEmitter)(implicit printer: Printer) : Option[String] = {
     import printer.config._
-    import formatter._
     val emit = emitter.seq.map {
       case Left(v) => Value.ref(v)
       case Right(s) => s

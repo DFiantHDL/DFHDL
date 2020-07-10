@@ -1,10 +1,10 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 object PackageFile {
   def apply()(implicit printer: Printer) : String = {
     import printer.config._
-    import formatter._
     val kwWords = Set("library", "use", "package", "end", "begin", "package", "is", "body", "all", "function",
     "return", "for", "loop", "if", "else", "elsif", "then", "variable", "in", "downto", "type")
     val tpWords = Set("std_logic_vector", "std_logic", "boolean", "unsigned", "signed", "ieee",

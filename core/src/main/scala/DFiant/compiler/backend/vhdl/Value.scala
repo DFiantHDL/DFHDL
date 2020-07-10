@@ -2,6 +2,7 @@ package DFiant
 package compiler.backend.vhdl
 
 import internals._
+import printer.formatter._
 
 private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = {
@@ -28,7 +29,6 @@ private object Value {
   }
   def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {
     import printer.config._
-    import formatter._
     val leftArg = member.leftArgRef.get
     val rightArg = member.rightArgRef.get
     import DFAny.Func2.Op
@@ -77,7 +77,6 @@ private object Value {
   }
   def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer) : String = {
     import printer.config._
-    import formatter._
     val relVal = member.relValRef.get
     val relValStr = ref(relVal)
     member match {

@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
-import DFiant.compiler.printer.Printer
+import DFiant.csprinter.CSPrinter
 
 object DFSInt extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {
@@ -28,7 +28,7 @@ object DFSInt extends DFAny.Companion {
         val op = implicitly[`Op:=`.Builder[Type[W], DFSInt[Int]]]
         op(this, r.asInstanceOf[DFSInt[Int]])
     }
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"$TP DFSInt($LIT$width)"
     }
@@ -82,7 +82,7 @@ object DFSInt extends DFAny.Companion {
       else if (toWidth < width) bits.resize(toWidth).toSInt
       else this.asInstanceOf[Token]
     }
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       if (value.isValidInt) s"$LIT$value"
       else if (value.isValidLong) s"$LIT${value}L"

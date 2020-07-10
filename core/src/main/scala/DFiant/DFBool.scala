@@ -3,8 +3,8 @@ package DFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
+import csprinter.CSPrinter
 import DFAny.Func2
-import DFiant.compiler.printer._
 
 object DFBool extends DFAny.Companion {
   final case class Type(logical : Boolean) extends DFAny.Type {
@@ -29,7 +29,7 @@ object DFBool extends DFAny.Companion {
       case DFBit() =>
     }
     override def toString: String = if (logical) "DFBool" else "DFBit"
-    def codeString(implicit printer: Printer) : String =
+    def codeString(implicit printer: CSPrinter) : String =
       if (logical) s"${printer.config.TP}DFBool()" else s"${printer.config.TP}DFBit()"
   }
 
@@ -82,7 +82,7 @@ object DFBool extends DFAny.Companion {
     def == (that : Token) : Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
 
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       val valueStr = if (logical) {
         value.toString

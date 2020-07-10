@@ -1,10 +1,10 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 private object Case {
   def apply(expression : String, whens : String)(implicit printer : Printer) : String = {
     import printer.config._
-    import formatter._
     s"""$KW case $expression $KW is
        |${whens.delim()}
        |$KW end $KW case;""".stripMargin
@@ -13,7 +13,6 @@ private object Case {
   object When {
     def apply(choice : String, statements : List[String])(implicit printer : Printer) : String = {
       import printer.config._
-      import formatter._
       s"""$KW when $choice =>
          |${statements.mkString("\n").delim()}""".stripMargin
     }

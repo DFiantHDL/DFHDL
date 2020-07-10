@@ -1,11 +1,11 @@
 package DFiant
 package sim
 
-import DFiant.compiler.printer.Printer
+import DFiant.csprinter.CSPrinter
 
 sealed trait DFSimMember extends DFMember {
   type TTags = DFMember.Tags.Basic
-  def codeString(implicit printer: Printer) : String
+  def codeString(implicit printer: CSPrinter) : String
 }
 object DFSimMember {
   final case class Assert(
@@ -22,7 +22,7 @@ object DFSimMember {
         condEq && this.msgRef =~ msg && this.severity == severity && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       condOptionRef match {
         case Some(c) =>
@@ -81,7 +81,7 @@ object DFSimMember {
         case Left(ref) => Left(ref.get)
         case Right(s) => Right(s)
       })
-      def refCodeString(implicit printer: Printer, owner: DFOwner) : String = "msg\"" + seq.collect {
+      def refCodeString(implicit printer: CSPrinter, owner: DFOwner) : String = "msg\"" + seq.collect {
         case Left(x) => s"$${${x.refCodeString}}"
         case Right(x) => x
       }.mkString + "\""
@@ -96,7 +96,7 @@ object DFSimMember {
       case Finish(_, tags) => this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"$DF sim.$DF finish()"
     }

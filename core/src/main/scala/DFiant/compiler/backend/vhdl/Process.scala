@@ -1,12 +1,12 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 private object Process {
   def apply(name : String, sensitivity : String, variables : List[String], statements : List[String])(
     implicit printer : Printer
   ) : String = {
     import printer.config._
-    import formatter._
     val variablesStr = if (variables.isEmpty) "" else variables.mkString("\n","\n","").delim()
     if (statements.isEmpty) "" else
     s"""$name : $KW process ($sensitivity)$variablesStr

@@ -17,12 +17,14 @@
 
 package DFiant
 
+import DFiant.csprinter.{CodeStringOf, HasCodeString}
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
 import scala.collection.{immutable, mutable}
-import DFiant.compiler.printer._
+import DFiant.csprinter.CSPrinter
+import printer.formatter._
 
 object DFEnum extends DFAny.Companion {
   final case class Type[E <: EnumType](enumType : E) extends DFAny.Type {
@@ -46,7 +48,7 @@ object DFEnum extends DFAny.Companion {
       case r @ DFEnum(_) if (enumType == r.asInstanceOf[DFEnum[_]].dfType.enumType) =>
     }
     override def toString: String = s"DFEnum[$enumType]"
-    def codeString(implicit printer: Printer) : String = s"${printer.config.TP}DFEnum(${enumType.refCodeString})"
+    def codeString(implicit printer: CSPrinter) : String = s"${printer.config.TP}DFEnum(${enumType.refCodeString})"
     override def equals(obj: Any): Boolean = obj match {
       case Type(enumType) => this.enumType == enumType
       case _ => false
@@ -78,7 +80,7 @@ object DFEnum extends DFAny.Companion {
       DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
     def != (that : Token) : DFBool.Token =
       DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-    def codeString(implicit printer: Printer) : String = value.get.codeString
+    def codeString(implicit printer: CSPrinter) : String = value.get.codeString
 //    override def equals(obj: Any): Boolean = obj match {
 //      case Token(enumType, value) => this.enumType == enumType && this.value == value
 //      case _ => false
@@ -247,8 +249,8 @@ sealed abstract class EnumType(implicit meta : Meta) {
     case Some(EnumType.NameTag(taggedName)) => taggedName
     case _ => meta.name
   }
-  def codeString(implicit printer: Printer) : String
-  def refCodeString(implicit printer: Printer) : String = name
+  def codeString(implicit printer: CSPrinter) : String
+  def refCodeString(implicit printer: CSPrinter) : String = name
   override def toString: String = meta.name
 }
 
@@ -268,40 +270,40 @@ object EnumType {
     private[DFiant] val meta : Meta
     val name : String = meta.name
     final def getFullName(implicit getSet: MemberGetSet) = s"${enumType.name}.$name"
-    def codeString(implicit getSet: MemberGetSet) : String = getFullName
+    def codeString(implicit printer: CSPrinter) : String = getFullName
     final override def toString: String = name
   }
   object Entry {
     implicit def csoEnum[E <: Entry] : CodeStringOf[E] = new CodeStringOf[E] {
-      override def apply(t : E)(implicit printer: Printer) : String = t.codeString
+      override def apply(t : E)(implicit printer: CSPrinter) : String = t.codeString
     }
   }
 
   trait Encoding extends HasCodeString {
     def calcWidth(entryCount : Int) : Int
     val func : Int => BigInt
-    def codeString(implicit printer: Printer) : String
+    def codeString(implicit printer: CSPrinter) : String
   }
   object Encoding {
     object Default extends Encoding {
       def calcWidth(entryCount : Int) : Int = BigInt(entryCount-1).bitsWidth
       val func : Int => BigInt = t => BigInt(t)
-      def codeString(implicit printer: Printer) : String = "Enum.Encoding.Default"
+      def codeString(implicit printer: CSPrinter) : String = "Enum.Encoding.Default"
     }
     object Grey extends Encoding {
       def calcWidth(entryCount : Int) : Int = BigInt(entryCount-1).bitsWidth
       val func : Int => BigInt = t => BigInt(t ^ (t >>> 1))
-      def codeString(implicit printer: Printer) : String = "Enum.Encoding.Grey"
+      def codeString(implicit printer: CSPrinter) : String = "Enum.Encoding.Grey"
     }
     case class StartAt[V <: Int with Singleton](value : V) extends Encoding {
       def calcWidth(entryCount : Int) : Int = BigInt(entryCount-1 + value).bitsWidth
       val func : Int => BigInt = t => BigInt(t + value)
-      def codeString(implicit printer: Printer) : String = s"Enum.Encoding.StartAt($value)"
+      def codeString(implicit printer: CSPrinter) : String = s"Enum.Encoding.StartAt($value)"
     }
     object OneHot extends Encoding {
       def calcWidth(entryCount : Int) : Int = entryCount
       val func : Int => BigInt = t => BigInt(1) << t
-      def codeString(implicit printer: Printer) : String = "Enum.Encoding.OneHot"
+      def codeString(implicit printer: CSPrinter) : String = "Enum.Encoding.OneHot"
     }
   }
 
@@ -310,15 +312,14 @@ object EnumType {
   ) extends EnumType { self =>
     type EntryWidth = Int
     final lazy val width : TwoFace.Int[EntryWidth] = encoding.calcWidth(entries.size)
-    private def entriesCodeString(implicit printer: Printer) : String = {
+    private def entriesCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       f"$SC val ${entries.map(e => e._2.name).mkString(",")} = $DF Entry()"
     }
-    private def encodingCodeString(implicit printer: Printer) : String =
+    private def encodingCodeString(implicit printer: CSPrinter) : String =
       if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
-    final def codeString(implicit printer: Printer) : String = {
+    final def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
-      import printer.config.formatter._
       s"\n$SC object $name $SC extends $DF Enum.$DF Auto$encodingCodeString {\n${entriesCodeString.delim()}\n}"
     }
 
@@ -335,11 +336,12 @@ object EnumType {
     type EntryWidth = Width
     private type Msg[EW] = "Entry value width (" + ToString[EW] + ") is bigger than the enumeration width (" + ToString[Width] + ")"
     private var latestEntryValue : Option[BigInt] = None
-    private def entriesCodeString(implicit printer: Printer) : String = {
+    private def entriesCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
-      entries.map(e => f"\n  $SC val ${e._2.name}%-15s = $DF Entry(${e._1.toBitVector(width).codeString})").mkString
+      val cs = implicitly[CodeStringOf[BitVector]]
+      entries.map(e => f"\n  $SC val ${e._2.name}%-15s = $DF Entry(${cs(e._1.toBitVector(width))})").mkString
     }
-    final def codeString(implicit printer: Printer) : String = {
+    final def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"\n$SC object $name $SC extends $DF Enum.$DF Manual($width) {$entriesCodeString\n}"
     }

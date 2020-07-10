@@ -1,9 +1,9 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 private object File {
   def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer) : String = {
-    import printer.config.formatter._
     s"""
        |${Library(packageName)}
        |${SimLibrary()}
@@ -30,7 +30,6 @@ private object Library {
 private object SimLibrary {
   def apply()(implicit printer: Printer) : String = {
     import printer.config._
-    import formatter._
     if (printer.inSimulation) revision match {
       case Revision.V93 => ""
       case Revision.V2008 =>

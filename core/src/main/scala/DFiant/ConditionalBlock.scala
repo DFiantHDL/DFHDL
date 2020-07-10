@@ -16,8 +16,8 @@
  */
 
 package DFiant
+import DFiant.csprinter.CSPrinter
 import DFiant.internals._
-import DFiant.compiler.printer.Printer
 
 sealed trait ConditionalBlock extends DFBlock with CanBeGuarded with DFAny.CanBeAnonymous {
   type TTags = DFMember.Tags.Basic
@@ -63,7 +63,7 @@ object ConditionalBlock {
     type TMVType <: DFAny.Type
     val matchValRef : MatchValRef[TMVType]
     val matchConfig : MatchConfig
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       matchConfig match  {
         case MatchConfig.NoOverlappingCases => s"$DF matchdf(${matchValRef.refCodeString})"
@@ -81,7 +81,7 @@ object ConditionalBlock {
   }
   sealed trait IfBlock extends ConditionalBlock {
     val condRef : CondRef
-    def headerCodeString(implicit printer: Printer) : String = {
+    def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"$DF ifdf(${condRef.refCodeString})"
     }
@@ -89,14 +89,14 @@ object ConditionalBlock {
   sealed trait ElseIfBlock extends ConditionalBlock {
     val condRef : CondRef
     val prevBlockRef : PrevBlockRef[ConditionalBlock]
-    def headerCodeString(implicit printer: Printer) : String = {
+    def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s".$DF elseifdf(${condRef.refCodeString})"
     }
   }
   sealed trait ElseBlock extends ConditionalBlock {
     val prevBlockRef : PrevBlockRef[ConditionalBlock]
-    def headerCodeString(implicit printer: Printer) : String = {
+    def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s".$DF elsedf"
     }
@@ -106,7 +106,7 @@ object ConditionalBlock {
     val pattern : MVType#TPattern
     val matchHeaderRef : MatchHeader.Ref[MatchHeader]
     val prevCaseRefOption : Option[PrevBlockRef[CasePatternBlock[MVType]]]
-    def headerCodeString(implicit printer: Printer) : String = {
+    def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s".$DF casedf(${pattern.codeString})"
     }
@@ -114,7 +114,7 @@ object ConditionalBlock {
   sealed trait Case_Block[MVType <: DFAny.Type] extends ConditionalBlock {
     val matchHeaderRef : MatchHeader.Ref[MatchHeader]
     val prevCaseRef : PrevBlockRef[CasePatternBlock[MVType]]
-    def headerCodeString(implicit printer: Printer) : String = {
+    def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s".$DF casedf_"
     }

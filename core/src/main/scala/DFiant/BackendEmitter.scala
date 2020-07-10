@@ -1,7 +1,7 @@
 package DFiant
 
 import DFiant.DFAny.CanBeAnonymous
-import DFiant.compiler.printer.Printer
+import DFiant.csprinter.CSPrinter
 
 final case class BackendEmitter(
   seq : Seq[Either[BackendEmitter.Ref, String]], backendID : String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
@@ -18,7 +18,7 @@ final case class BackendEmitter(
       !notEq && this.backendID == backendID && this.tags =~ tags
     case _ => false
   }
-  def codeString(implicit printer: Printer) : String = backendID + "\"" + seq.collect {
+  def codeString(implicit printer: CSPrinter) : String = backendID + "\"" + seq.collect {
     case Left(x) => s"$${${x.refCodeString}}"
     case Right(x) => x
   }.mkString + "\""

@@ -1,13 +1,12 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 object Port {
   def apply(name : String, dir : String, rtType : String, initStr : String)(
     implicit printer: Printer
   ) : String = {
     import printer.config._
-    import formatter._
-
     s"$name ${ALGN(0)}: $dir $rtType$initStr"
   }
   object Dir {
@@ -25,8 +24,6 @@ object Signal {
     implicit printer: Printer
   ) : String = {
     import printer.config._
-    import formatter._
-
     s"$KW signal $name ${ALGN(0)}: $rtType$initStr;"
   }
 }
@@ -36,8 +33,6 @@ object Variable {
     implicit printer: Printer
   ) : String = {
     import printer.config._
-    import formatter._
-
     s"$KW variable $name ${ALGN(0)}: $rtType$initStr;"
   }
 }

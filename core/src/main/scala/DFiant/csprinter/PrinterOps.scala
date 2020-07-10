@@ -1,21 +1,20 @@
 package DFiant
-package compiler
-package printer
+package csprinter
 
-import DFiant.internals._
+import DFiant.compiler.Compilation
+import DFiant.printer.formatter._
 import DFiant.sim._
 
-import collection.mutable
+import scala.collection.mutable
 
 final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D]) {
   private val fixedDB = conv(c).flattenNames.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
   private def blockBodyCodeString(owner : DFOwner, members : List[DFMember], lateConstruction : Boolean)(
-    implicit printConfig : Printer.Config
+    implicit printer : CSPrinter
   ) : String = {
-    import printConfig._
-    import formatter._
+    import printer.config._
     val finalStr = owner match {
       case _ : ConditionalBlock => "" //local values cannot be annotated as "final"
       case _ => s"$SC final "
@@ -37,12 +36,12 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       case sim : DFSimMember => Some(sim.codeString)
       case emitter : BackendEmitter => Some(emitter.codeString)
       case a : DFAny if !a.isAnonymous =>
-        val initInfo = if (printConfig.showInits) a.tags.init match {
+        val initInfo = if (showInits) a.tags.init match {
           case Some(init) => s"//init = ${init.codeString}"
           case None => "//init = Unknown"
         } else ""
         val customTagInfo =
-          if (printConfig.showCustomTags && a.tags.customTags.nonEmpty)
+          if (showCustomTags && a.tags.customTags.nonEmpty)
             a.tags.customTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
           else ""
         Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
@@ -51,10 +50,9 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     membersCodeString.mkString("\n")
   }
   private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(
-    implicit printConfig : Printer.Config
+    implicit printer : CSPrinter
   ) : String = {
-    import printConfig._
-    import formatter._
+    import printer.config._
     val localEnumString = fixedDB.getLocalEnumTypes(block).map(e => e.codeString).mkString("","\n","\n")
     val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
     val classStr = block match {
@@ -63,9 +61,11 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     }
     s"$SC trait ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
   }
-  def codeString(implicit printConfig : Printer.Config) : String = {
-    import printConfig._
-    import formatter._
+  def codeString(implicit printConfig : CSPrinter.Config) : String = {
+    implicit val printer : CSPrinter = new CSPrinter {
+      val getSet : MemberGetSet = __getset
+      val config : CSPrinter.Config = printConfig
+    }
     val uniqueDesigns = mutable.Set.empty[String]
     val globalEnumString = fixedDB.getGlobalEnumTypes.map(e => e.codeString)
     val codeStringList = fixedDB.blockMemberList.flatMap {
@@ -77,40 +77,8 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     }
     (globalEnumString ++ codeStringList).mkString(s"\n$EMPTY\n").formatted
   }
-  def printCodeString(implicit printConfig : Printer.Config) : C = {
+  def printCodeString(implicit printConfig : CSPrinter.Config) : C = {
     println(codeString)
     c
-  }
-}
-
-sealed trait Printer {
-  val getSet : MemberGetSet
-  val config : Printer.Config
-}
-
-object Printer {
-  implicit def ev(implicit cfg: Config, gs: MemberGetSet) : Printer = new Printer {
-    val getSet: MemberGetSet = gs
-    val config: Config = cfg
-  }
-
-  sealed trait Config {
-    import io.AnsiColor._
-    val showCustomTags : Boolean = true
-    val showInits : Boolean = false
-    val DELIM : String = "  "
-    val LIT : String = BLUE
-    val STR : String = s"\u001B[38;5;34m$BOLD"
-    val SC : String = s"$BLUE$BOLD"
-    val DF : String = s"\u001B[38;5;92m$BOLD"
-    val TP : String = "\u001B[38;5;94m"
-    val CMT : String = "\u001B[38;5;247m"
-    val formatter : Formatter = new Formatter("  ", List(25, 25))
-  }
-  object Config {
-    implicit case object Default extends Config
-    case object ShowInits extends Config {
-      override val showInits: Boolean = true
-    }
   }
 }

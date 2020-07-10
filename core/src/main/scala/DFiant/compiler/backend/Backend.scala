@@ -1,7 +1,7 @@
 package DFiant
 package compiler
 package backend
-import printer.Printer
+import DFiant.printer.formatter
 
 import scala.annotation.implicitNotFound
 
@@ -11,8 +11,7 @@ object Backend {
   final case class Compilation[D <: DFDesign, B <: Stage](
     db : DFDesign.DB, fileSeq : Seq[File]
   ) extends compiler.Compilation[D] {
-    def printGenFiles()(implicit printConfig : Printer.Config) : this.type = {
-      import printConfig.formatter._
+    def printGenFiles() : this.type = {
       fileSeq.foreach {
         case Backend.File(fileName, contents) => println(
           s"""\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -24,9 +23,9 @@ object Backend {
       }
       this
     }
-    def toFolder(folderName : String)(implicit printConfig : Printer.Config) : CommittedCompilation[D, B] = {
+    def toFolder(folderName : String) : CommittedCompilation[D, B] = {
       import java.io._
-      import printConfig.formatter._
+      import formatter._
       new java.io.File(folderName).mkdirs()
       //writing entity and architecture files
       val fileNameSeq = fileSeq.map {
@@ -40,9 +39,9 @@ object Backend {
       }
       CommittedCompilation[D, B](db, fileNameSeq)
     }
-    def toFile(fileName : String)(implicit printConfig : Printer.Config) : CommittedCompilation[D, B] = {
+    def toFile(fileName : String) : CommittedCompilation[D, B] = {
       import java.io._
-      import printConfig.formatter._
+      import formatter._
       //writing entity and architecture files
       val pw = new FileWriter(new java.io.File(s"$fileName"))
       fileSeq.foreach{

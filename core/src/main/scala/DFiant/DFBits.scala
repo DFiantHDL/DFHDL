@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
-import DFiant.compiler.printer.Printer
+import DFiant.csprinter.CSPrinter
 
 import scala.annotation.nowarn
 
@@ -33,7 +33,7 @@ object DFBits extends DFAny.Companion {
         op(this, r.asInstanceOf[DFBits[Int]])
     }
     override def toString: String = s"DFBits[$width]"
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"$TP DFBits($LIT$width)"
     }
@@ -110,7 +110,7 @@ object DFBits extends DFAny.Companion {
       val outBubble = isBubble
       new DFSInt.Token(outWidth, outValueSInt, outBubble)
     }
-    def codeString(implicit printer: Printer) : String = {
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       import io.AnsiColor.BOLD
       if (value.length % 4 == 0) s"""$BOLD h$STR"${value.toHex}""""

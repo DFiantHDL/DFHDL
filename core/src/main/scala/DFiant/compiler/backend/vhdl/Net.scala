@@ -1,12 +1,12 @@
 package DFiant
 package compiler.backend.vhdl
 import compiler.sync.Sync
+import printer.formatter._
 
 private object Net {
   object External {
     def unapply(net : DFNet)(implicit printer: Printer) : Option[String] = {
         import printer.config._
-        import formatter._
         val toVal = Value.ref(net.toRef.get)
         val fromVal = Value.ref(net.fromRef.get)
         net match {
@@ -20,7 +20,6 @@ private object Net {
   object Internal {
     def unapply(net : DFNet)(implicit printer: Printer) : Option[String] = {
       import printer.config._
-      import formatter._
       val toVal = Value.ref(net.toRef.get)
       val fromVal = Value.ref(net.fromRef.get)
       net match {

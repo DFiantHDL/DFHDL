@@ -1,8 +1,9 @@
 package DFiant
+import DFiant.csprinter.CSPrinter
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
-import compiler.printer.Printer
+import printer.formatter._
 
 trait DFBlock extends DFOwner {
   ///////////////////////////////////////////////////////////////////
@@ -10,11 +11,10 @@ trait DFBlock extends DFOwner {
   ///////////////////////////////////////////////////////////////////
   val isTop : Boolean = false
   ///////////////////////////////////////////////////////////////////
-  def headerCodeString(implicit printer: Printer) : String
-  final def codeString(body : String)(implicit printer: Printer) : String = {
+  def headerCodeString(implicit printer: CSPrinter) : String
+  final def codeString(body : String)(implicit printer: CSPrinter) : String = {
     //if the body is a single row then no need for delimiters and extra new lines
     //otherwise, we add delimitation and new lines
-    import printer.config.formatter._
     val delimitedBody =
       if (!body.contains("\n")) body.removeAlignment //single line body ==> we remove alignment for better view
       else s"\n${body.delim()}\n"

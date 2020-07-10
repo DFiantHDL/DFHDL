@@ -6,6 +6,7 @@ package vhdl
 import compiler.sync._
 import DFiant.sim._
 import scala.collection.mutable
+import printer.formatter._
 
 final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB =
@@ -26,7 +27,6 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
     implicit printer : Printer
   ) : List[String] = {
-    import printer.config.formatter._
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
@@ -50,6 +50,10 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
     statements
   }
   def vhdlCompile[R <: Revision](implicit revision : R) = {
+    implicit val printer : Printer = new Printer {
+      val getSet : MemberGetSet = __getset
+      val config : Printer.Config = new Printer.Config(revision)
+    }
     val designTypes = mutable.Set.empty[String]
     val files = designDB.designMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None

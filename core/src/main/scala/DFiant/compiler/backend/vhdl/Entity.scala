@@ -1,10 +1,10 @@
 package DFiant
 package compiler.backend.vhdl
+import printer.formatter._
 
 private object Entity {
   def apply(name : String, ports : List[String])(implicit printer : Printer) : String = {
     import printer.config._
-    import formatter._
     val portCluster =
       if (ports.isEmpty) ""
       else

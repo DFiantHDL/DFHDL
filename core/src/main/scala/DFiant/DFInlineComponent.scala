@@ -1,7 +1,7 @@
 package DFiant
 
 import DFiant.EdgeDetect.Edge
-import compiler.printer.Printer
+import DFiant.csprinter.CSPrinter
 abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   implicit ctx : ContextOf[DFInlineComponent[_]]
 ) extends DFDesign with DFAny.DefaultRet[Type] {
@@ -13,7 +13,7 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
 object DFInlineComponent {
   trait Rep extends Product with Serializable {
     protected[DFiant] def =~(that : DFInlineComponent.Rep)(implicit getSet : MemberGetSet) : Boolean
-    def inlineCodeString(implicit printer: Printer, owner: DFOwner) : String
+    def inlineCodeString(implicit printer: CSPrinter, owner: DFOwner) : String
   }
   type Ref = DFMember.Ref.Of[Ref.Type, DFBit]
   object Ref {
@@ -53,7 +53,7 @@ object EdgeDetect {
       case Rep(bitRef, edge) => this.bitRef =~ bitRef && this.edge == edge
       case _ => false
     }
-    def inlineCodeString(implicit printer: Printer, owner: DFOwner) : String = edge match {
+    def inlineCodeString(implicit printer: CSPrinter, owner: DFOwner) : String = edge match {
       case Edge.Rising => s"${bitRef.refCodeString}.rising()"
       case Edge.Falling => s"${bitRef.refCodeString}.falling()"
     }

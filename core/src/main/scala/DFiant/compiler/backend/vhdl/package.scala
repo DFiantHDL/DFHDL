@@ -29,4 +29,5 @@ package object vhdl {
   implicit object v2008 extends Backend.Compiler[VHDLBackend[Revision.V2008]] {
     def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VHDLBackend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
   }
+  type Printer = DFiant.printer.Printer[Printer.Config]
 }

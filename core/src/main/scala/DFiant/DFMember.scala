@@ -1,6 +1,6 @@
 package DFiant
 import DFiant.internals.Meta
-import compiler.printer.Printer
+import csprinter.CSPrinter
 import scala.annotation.tailrec
 
 trait HasTypeName {
@@ -84,7 +84,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember
   private[DFiant] final def updateOwner(implicit ctx : DFMember.Context) : this.type = setOwnerRef(ctx.owner).asInstanceOf[this.type]
   def setTags(tagsFunc : TTags => TTags)(implicit getSet : MemberGetSet) : DFMember
-  def show(implicit getSet : MemberGetSet) : String = s"$getFullName : $typeName"
+  def show(implicit printer: CSPrinter) : String = s"$getFullName : $typeName"
 }
 
 
@@ -187,7 +187,7 @@ object DFMember {
 
 
 trait MemberGetSet {
-  def designDB : DFDesign.DB
+  val designDB : DFDesign.DB
   def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0
   def set[M <: DFMember](originalMember : M)(newMemberFunc : M => M) : M
   def replace[M <: DFMember](originalMember : M)(newMember : M) : M
@@ -197,8 +197,9 @@ trait MemberGetSet {
   def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag]
 }
 object MemberGetSet {
+  import DFiant.printer.Printer
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet
-  implicit def evGetSet(implicit printer : Printer, lp : shapeless.LowPriority) : MemberGetSet = printer.getSet
+  implicit def evGetSet[C <: Printer.Config](implicit printer : Printer[C], lp : shapeless.LowPriority) : MemberGetSet = printer.getSet
 }
 
 trait CanBeGuarded extends DFMember

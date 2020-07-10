@@ -3,7 +3,7 @@ package compiler
 
 import DFiant.internals._
 import DFDesign.DB.Patch
-import DFiant.compiler.printer.Printer
+import DFiant.csprinter.CSPrinter
 
 import scala.annotation.tailrec
 import scala.collection.mutable

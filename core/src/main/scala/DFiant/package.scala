@@ -18,7 +18,7 @@
 import DFiant.internals._
 import DFiant.compiler.{Compilation, IRCompilation}
 import DFiant.compiler.backend.Backend
-import DFiant.compiler.printer.PrinterOps
+import DFiant.csprinter.PrinterOps
 
 import scala.language.experimental.macros
 import singleton.ops._

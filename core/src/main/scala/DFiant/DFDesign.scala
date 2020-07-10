@@ -1,10 +1,10 @@
 package DFiant
 import DFiant.DFDesign.DB.Patch
+import DFiant.csprinter.CSPrinter
 import DFiant.internals._
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{immutable, mutable}
-import DFiant.compiler.printer.Printer
 import DFiant.fsm.FSMMember.Trackable
 import DFiant.sim._
 
@@ -92,7 +92,7 @@ object DFDesign {
     type TTags = DFMember.Tags.Basic
     type TCustomTag = Block.CustomTag
     val designType: String
-    def headerCodeString(implicit printer: Printer): String = s"trait $designType extends DFDesign"
+    def headerCodeString(implicit printer: CSPrinter): String = s"trait $designType extends DFDesign"
   }
   object Block {
     trait CustomTag extends DFMember.CustomTag
@@ -143,7 +143,7 @@ object DFDesign {
       case m : Block.Top => m
     }
     implicit val __getset : MemberGetSet = new MemberGetSet {
-      def designDB : DFDesign.DB = self
+      val designDB : DFDesign.DB = self
       def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref : DFMember.Ref.Of[T, M]) : M0 = refTable(ref).asInstanceOf[M0]
       def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = newMemberFunc(originalMember)
       def replace[M <: DFMember](originalMember : M)(newMember: M): M = newMember
@@ -244,8 +244,14 @@ object DFDesign {
     //holds the topological order of owner owner dependency
     lazy val ownerMemberList : List[(DFOwner, List[DFMember])] =
       OMLGen[DFOwner](_.getOwner)(List(), members.drop(1), List(top -> List())).reverse //head will always be the TOP owner
-    def printOwnerMemberList() : Unit =
+    def printOwnerMemberList(implicit printConfig : CSPrinter.Config) : DB = {
+      implicit val printer : CSPrinter = new CSPrinter {
+        val getSet : MemberGetSet = __getset
+        val config : CSPrinter.Config = printConfig
+      }
       println(ownerMemberList.map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})")).mkString("\n"))
+      this
+    }
 
     //holds a hash table that lists members of each owner owner. The member list order is maintained.
     lazy val ownerMemberTable : Map[DFOwner, List[DFMember]] = Map(ownerMemberList : _*)
@@ -766,7 +772,7 @@ object DFDesign {
       }
 
       implicit val getSet : MemberGetSet = new MemberGetSet {
-        def designDB : DFDesign.DB = immutable
+        val designDB : DFDesign.DB = immutable
         def apply[M <: DFMember, T <: DFMember.Ref.Type, M0 <: M](ref: DFMember.Ref.Of[T, M]): M0 = getMember(ref)
         def set[M <: DFMember](originalMember : M)(newMemberFunc: M => M): M = setMember(originalMember, newMemberFunc)
         def replace[M <: DFMember](originalMember : M)(newMember: M): M = replaceMember(originalMember, newMember)
