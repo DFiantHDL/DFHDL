@@ -3,7 +3,7 @@ import DFiant.internals.Meta
 import csprinter.CSPrinter
 
 import scala.annotation.tailrec
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
 
 trait HasTypeName {
   lazy val typeName: String = {
@@ -115,7 +115,7 @@ object DFMember {
     def setKeep(keep : Boolean) : TTags
     def !![CT <: CustomTag : ClassTag](customTag : CT) : TTags
     final def getTagOf[CT <: CustomTag : ClassTag] : Option[CT] =
-      customTags.get(implicitly[ClassTag[CT]]).asInstanceOf[Option[CT]]
+      customTags.get(classTag[CT]).asInstanceOf[Option[CT]]
     def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
     final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
@@ -132,7 +132,7 @@ object DFMember {
       type TTags = P
       final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
       final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
-      final def !![CT <: CustomTag : ClassTag](customTag : CT) : P = customTagsL().modify(self)(tList => tList + (implicitly[ClassTag[CT]] -> customTag))
+      final def !![CT <: CustomTag : ClassTag](customTag : CT) : P = customTagsL().modify(self)(tList => tList + (classTag[CT] -> customTag))
     }
 
     final case class Basic(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Tags.CC[Basic]
@@ -200,8 +200,8 @@ trait MemberGetSet {
   def replace[M <: DFMember](originalMember : M)(newMember : M) : M
   def remove[M <: DFMember](member : M) : M
   def getMembersOf(owner : DFOwner) : List[DFMember]
-  def setGlobalTag(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit
-  def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag]
+  def setGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any, tag : CT) : Unit
+  def getGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any) : Option[CT]
 }
 object MemberGetSet {
   import DFiant.printer.Printer

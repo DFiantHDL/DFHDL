@@ -139,7 +139,7 @@ object DFDesign {
   implicit class DevAccess(design : DFDesign) {
     def getDB : DB = design.__db.immutable
   }
-  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember], globalTags : Map[(Any, String), DFMember.CustomTag]) {self =>
+  final case class DB(members : List[DFMember], refTable : Map[DFMember.Ref, DFMember], globalTags : Map[(Any, ClassTag[_]), DFMember.CustomTag]) {self =>
     lazy val top : Block.Top = members.head match {
       case m : Block.Top => m
     }
@@ -150,8 +150,9 @@ object DFDesign {
       def replace[M <: DFMember](originalMember : M)(newMember: M): M = newMember
       def remove[M <: DFMember](member : M) : M = member
       def getMembersOf(owner : DFOwner) : List[DFMember] = ownerMemberTable(owner)
-      def setGlobalTag(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit = {}
-      def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag] = globalTags.get((taggedElement, tagId))
+      def setGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any, tag : CT) : Unit = {}
+      def getGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any) : Option[CT] =
+        globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
     }
     lazy val memberTable : Map[DFMember, Set[DFMember.Ref]] = refTable.invert
 
@@ -388,7 +389,7 @@ object DFDesign {
       }
       DB(patchedMembers, patchedRefTable, globalTags)
     }
-    def setGlobalTags(tagList : List[((Any, String), DFMember.CustomTag)]) : DB =
+    def setGlobalTags(tagList : List[((Any, ClassTag[_]), DFMember.CustomTag)]) : DB =
       copy(globalTags = globalTags ++ tagList)
     def patch(singlePatch : (DFMember, DB.Patch)) : DB = patch(List(singlePatch))
     @tailrec private def getGuards(currentOwner : DFBlock, targetOwner : DFBlock, currentGuards : List[DFAny]) : List[DFAny] =
@@ -668,9 +669,11 @@ object DFDesign {
       //Extra Tags
       ///////////////////////////////////////////////////////////////
       object global_tags {
-        private[Mutable] val tagMap : mutable.Map[(Any, String), DFMember.CustomTag] = mutable.Map()
-        def set(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit = tagMap += ((taggedElement, tagId) -> tag)
-        def get(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag] = tagMap.get((taggedElement, tagId))
+        private[Mutable] val tagMap : mutable.Map[(Any, ClassTag[_]), DFMember.CustomTag] = mutable.Map()
+        def set[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any, tag : CT) : Unit =
+          tagMap += ((taggedElement, classTag[CT]) -> tag)
+        def get[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any) : Option[CT] =
+          tagMap.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
       }
 
       def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
@@ -779,8 +782,8 @@ object DFDesign {
         def replace[M <: DFMember](originalMember : M)(newMember: M): M = replaceMember(originalMember, newMember)
         def remove[M <: DFMember](member : M) : M = ignoreMember(member)
         def getMembersOf(owner : DFOwner) : List[DFMember] = self.getMembersOf(owner)
-        def setGlobalTag(taggedElement : Any, tagId : String, tag : DFMember.CustomTag) : Unit = global_tags.set(taggedElement, tagId, tag)
-        def getGlobalTag(taggedElement : Any, tagId : String) : Option[DFMember.CustomTag] = global_tags.get(taggedElement, tagId)
+        def setGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any, tag : CT) : Unit = global_tags.set(taggedElement, tag)
+        def getGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any) : Option[CT] = global_tags.get(taggedElement)
       }
     }
   }

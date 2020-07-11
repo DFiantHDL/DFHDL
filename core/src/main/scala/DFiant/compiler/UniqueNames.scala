@@ -3,6 +3,8 @@ package compiler
 
 import DFDesign.DB.Patch
 
+import scala.reflect.classTag
+
 final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
@@ -25,7 +27,7 @@ final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
     val reservedNamesLC = lowerCases(reservedNames)
     val globalTagList = renamer(designDB.getGlobalEnumTypes, reservedNamesLC)(
       _.name,
-      (e, n) => (e, "name") -> EnumType.NameTag(n)
+      (e, n) => (e, classTag[EnumType.NameTag]) -> EnumType.NameTag(n)
     )
     val globalNames : Set[String] =
       (designDB.getGlobalEnumTypes.map(e => e.name) ++ globalTagList.map(e => e._2.name) ++ reservedNames)
@@ -33,7 +35,7 @@ final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
     val patchesAndTags = designDB.designMemberList.map {case (design, members) =>
       val localTagList = renamer(designDB.getLocalEnumTypes(design), globalNamesLC)(
         _.name,
-        (e, n) => (e, "name") -> EnumType.NameTag(n)
+        (e, n) => (e, classTag[EnumType.NameTag]) -> EnumType.NameTag(n)
       )
       val patchList = renamer(members.filterNot(_.isAnonymous), globalNamesLC ++ localTagList.map(e => lowerCase(e._2.name)))(
         _.name,

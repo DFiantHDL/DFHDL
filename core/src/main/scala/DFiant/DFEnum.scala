@@ -245,7 +245,7 @@ sealed abstract class EnumType(implicit meta : Meta) {
   type Entry <: EnumType.Entry
   type EntryWidth
   val width : TwoFace.Int[EntryWidth]
-  final def name(implicit getSet: MemberGetSet) : String = getSet.getGlobalTag(this, "name") match {
+  final def name(implicit getSet: MemberGetSet) : String = getSet.getGlobalTag[EnumType.NameTag](this) match {
     case Some(EnumType.NameTag(taggedName)) => taggedName
     case _ => meta.name
   }

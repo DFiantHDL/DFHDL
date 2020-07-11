@@ -2,7 +2,9 @@ package DFiant
 package compiler
 
 import DFDesign.DB.Patch
+
 import scala.annotation.tailrec
+import scala.reflect.{ClassTag, classTag}
 
 final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.db
@@ -17,7 +19,7 @@ final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
   }
   private def recursiveNameFlatten(member : DFMember) : String => String = recursiveNameFlatten(member, n => n)
   def flattenNames = {
-    val (patchList, tagList) = designDB.members.foldRight((List.empty[(DFMember, Patch)], List.empty[((Any, String), DFMember.CustomTag)])) {
+    val (patchList, tagList) = designDB.members.foldRight((List.empty[(DFMember, Patch)], List.empty[((Any, ClassTag[_]), DFMember.CustomTag)])) {
       case (_ : DFDesign.Block.Top, ret) => ret
       case (o : DFOwner.NameFlattenOwner, ret) =>
         (o -> Patch.Replace(o.getOwnerBlock, Patch.Replace.Config.ChangeRefAndRemove) :: ret._1, ret._2)
@@ -27,7 +29,7 @@ final class FlattenNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
           val updatedName = updatedNameFunc(m.name)
           val updatedTags = m match {
             case DFAny.Dcl(DFEnum.Type(enumType),DFAny.Modifier.NewVar,_,_,_) =>
-              val tag = (enumType, "name") -> EnumType.NameTag(updatedNameFunc(enumType.name))
+              val tag = (enumType, classTag[EnumType.NameTag]) -> EnumType.NameTag(updatedNameFunc(enumType.name))
               tag :: ret._2
             case _ =>
               ret._2
