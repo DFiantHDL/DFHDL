@@ -6,7 +6,9 @@ import DFiant.printer.formatter
 import scala.annotation.implicitNotFound
 
 object Backend {
-  trait Stage extends compiler.Compilation.Stage
+  trait Stage extends compiler.Compilation.Stage {
+    def codeString : String
+  }
 
   final case class Compilation[D <: DFDesign, B <: Stage](
     db : DFDesign.DB, fileSeq : Seq[File]

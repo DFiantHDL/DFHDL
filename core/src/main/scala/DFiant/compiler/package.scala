@@ -5,6 +5,8 @@ package object compiler {
   : FixAnonymousOps[D, S] = new FixAnonymousOps[D, S](c)
   implicit def evUniqueDesigns[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
   : UniqueDesignsOps[D, S] = new UniqueDesignsOps[D, S](c)
+  implicit def evNamedSelection[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
+  : NamedSelectionOps[D, S] = new NamedSelectionOps[D, S](c)
   implicit def evUniqueNames[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
   : UniqueNamesOps[D, S] = new UniqueNamesOps[D, S](c)
   implicit def evFlattenNamesOps[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])

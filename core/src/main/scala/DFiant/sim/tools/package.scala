@@ -11,5 +11,9 @@ package object tools {
     implicit revision : R
   ) : Simulator[D, verilog.VerilogBackend[R], VerilatorSimulation[D, R]] =
     (cc : Backend.CommittedCompilation[D, verilog.VerilogBackend[R]]) => VerilatorSimulation[D, R](cc.db, cc.fileNameSeq)
+  implicit def modelsim[D <: DFSimDesign, B <: Backend.Stage](
+    implicit supportedBackend : ModelsimSimulation.SupportedBackend[B]
+  ) : Simulator[D, B, ModelsimSimulation[D, B]] =
+    (cc : Backend.CommittedCompilation[D, B]) => ModelsimSimulation[D, B](cc.db, cc.fileNameSeq)
 
 }

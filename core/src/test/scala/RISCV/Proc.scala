@@ -62,11 +62,19 @@ import DFiant.sim._
   this !! ResetParams("rstn", ResetParams.Mode.Async, ResetParams.Active.Low)
 }
 
+object ProcSynth extends App {
+  import compiler.backend.verilog.v2005
+  final val proc = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump"))
+  proc
+    .compile
+    .printCodeString.printGenFiles()
+    .toFolder("testProcSynth")
+
+}
+
 object ProcTest extends App {
   import compiler.backend.vhdl.v2008
-  import DFiant.sim.tools.ghdl
-//  val riscv = new Proc(Program.fromFile("riscv-bmarks/towers.riscv.dump")) {}
-//  riscv.compile.printCodeString()
+  import sim.tools.modelsim
   val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump"))
   riscv_tb
     .compile

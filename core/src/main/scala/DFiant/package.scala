@@ -151,7 +151,8 @@ package object DFiant {
         case x => Right(x.toString)
       }
     def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
-    def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), "vhdl")
+    def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.VHDLBackend)
+    def verilog(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.verilog.VerilogBackend)
   }
   trait Interpolator[T] extends HasOut {
     type Out <: T

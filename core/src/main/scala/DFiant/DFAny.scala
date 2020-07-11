@@ -54,7 +54,7 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
       case b : DFBlock => b
       case o => o.getOwnerBlock
     }
-    if (tags.meta.name.anonymous) codeString
+    if (isAnonymous) codeString
     else getRelativeName(callOwner, printer.getSet)
   }
 }
@@ -504,6 +504,10 @@ object DFAny {
           ctx.db.addMember(ctx.container, AsIs(dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[Type, RelVal, refVal.TMod]]
       }
+      object Unref {
+        def unapply(arg : AsIs)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, DFOwner, DFAny.Tags)] =
+          Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.ownerRef.get, arg.tags)
+      }
     }
     final case class BitsWL(
       dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], relWidth : Int, relBitLow : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags
@@ -543,6 +547,10 @@ object DFAny {
         implicit lazy val ret : BitsWL with DFMember.RefOwner =
           ctx.db.addMember(ctx.container, BitsWL(DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBool.Type, RelVal, refVal.TMod]]
+      }
+      object Unref {
+        def unapply(arg : BitsWL)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, Int, Int, DFOwner, DFAny.Tags)] =
+          Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.relWidth, arg.relBitLow, arg.ownerRef.get, arg.tags)
       }
     }
     final case class Prev(
@@ -617,6 +625,10 @@ object DFAny {
         implicit lazy val ret : Resize with DFMember.RefOwner =
           ctx.db.addMember(ctx.container, Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val]]
+      }
+      object Unref {
+        def unapply(arg : Resize)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, DFOwner, DFAny.Tags)] =
+          Some(arg.dfType, arg.relValRef.get, arg.ownerRef.get, arg.tags)
       }
     }
 //    final case class Shift[RelVal <: DFAny](

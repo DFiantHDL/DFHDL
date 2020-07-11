@@ -1,11 +1,9 @@
 package DFiant
-package compiler.backend.vhdl
-import printer.formatter._
+package compiler.backend.verilog
 
 private object Emitter {
   def unapply(emitter : BackendEmitter)(implicit printer: Printer) : Option[String] = emitter.backendStage match {
-    case VHDLBackend =>
-      import printer.config._
+    case VerilogBackend =>
       val emit = emitter.seq.map {
         case Left(v) => Value.ref(v)
         case Right(s) => s

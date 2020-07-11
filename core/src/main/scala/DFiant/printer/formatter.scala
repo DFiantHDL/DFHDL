@@ -9,7 +9,7 @@ object formatter {
   final val EMPTY = "$$EMPTY$$"
   private val colorCode = "\u001B\\[[;\\d]*m"
   private val optionalSpaces = "[ \t]*"
-  private val word = "([0-9a-zA-Z_]+)"
+  private val word = "([`0-9a-zA-Z_]+)"
   private val operator = "([<>+\\-*/=:!^&%|#]+)"
   private val string = """(".*")"""
   private val noreset = "\u001B{0}"

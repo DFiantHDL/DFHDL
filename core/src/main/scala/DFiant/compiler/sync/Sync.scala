@@ -42,17 +42,17 @@ private[compiler] object Sync {
   }
 
   object IfBlock {
-    def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = (cb.condRef.get : DFAny) match {
-      case DFAny.Func2.Unref(_, rst @ IsReset(), DFAny.Func2.Op.==, _, _, _) => Some(rst)
+    def unapply(cb : ConditionalBlock.IfBlock)(implicit getSet: MemberGetSet) : Option[(DFAny, Boolean)] = (cb.condRef.get : DFAny) match {
+      case DFAny.Func2.Unref(_, rst @ IsReset(), DFAny.Func2.Op.==, DFAny.Const(_, DFBool.Token(_,edge,_),_,_), _, _) => Some(rst, edge)
       case x => x.getOwnerBlock match {
-        case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), _)) => Some(clk)
+        case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), edge)) => Some(clk, edge == EdgeDetect.Edge.Rising)
         case _ => None
       }
     }
   }
   object ElseIfBlock {
-    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Option[DFAny] = cb.condRef.get.getOwnerBlock match {
-      case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), _)) => Some(clk)
+    def unapply(cb : ConditionalBlock.ElseIfBlock)(implicit getSet: MemberGetSet) : Option[(DFAny, Boolean)] = cb.condRef.get.getOwnerBlock match {
+      case DFInlineComponent.Block(EdgeDetect.Rep.Unref(clk @ IsClock(), edge)) => Some(clk, edge == EdgeDetect.Edge.Rising)
       case _ => None
     }
   }

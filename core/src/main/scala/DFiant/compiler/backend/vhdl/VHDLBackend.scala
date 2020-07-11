@@ -21,7 +21,7 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
-    case Sync.IfBlock(_) | Sync.ElseIfBlock(_) => true
+    case Sync.IfBlock(_,_) | Sync.ElseIfBlock(_,_) => true
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
@@ -108,8 +108,8 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
         val asyncProcess = Process("async_proc", asyncSensitivityList, variables, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
         val syncSensitivityList = Process.Sensitivity.List(members.collect {
-          case Sync.IfBlock(clkOrReset) => clkOrReset.name
-          case Sync.ElseIfBlock(clk) => clk.name
+          case cb @ Sync.IfBlock(clkOrReset,_) if cb.getOwner == design => clkOrReset.name
+          case Sync.ElseIfBlock(clk,_) => clk.name
         })
         val emits = members.collect {
           case Emitter(emitStr) => emitStr
@@ -136,4 +136,10 @@ object Revision {
   type V2008 = V2008.type
 }
 
-sealed trait VHDLBackend[R <: Revision] extends Backend.Stage
+trait VHDLBackend[R <: Revision] extends Backend.Stage {
+  def codeString : String = "vhdl"
+  val revision : R
+}
+object VHDLBackend extends VHDLBackend[Revision] {
+  lazy val revision : Revision = ???
+}

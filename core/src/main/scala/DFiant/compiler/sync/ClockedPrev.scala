@@ -66,13 +66,14 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
           if (hasBlockClk || hasPrevClk) clk //touch lazy clock
           if (hasBlockRst || hasPrevRst) rst //touch lazy reset
 
+          //Clock and Reset toggling
           if (topSimulation) {
-            val inactiveStdLogic = resetParams.active match {
+            val inactiveVHDL = resetParams.active match {
               case Active.Low => "'1'"
               case Active.High => "'0'"
             }
             vhdl"$clk <= not $clk after 5000 ps;"
-            if (hasRst) vhdl"$rst <= $inactiveStdLogic after 10000 ps;"
+            if (hasRst) vhdl"$rst <= $inactiveVHDL after 10000 ps;"
           }
         }
         val connPatchList = clockedBlocks.map {cb =>

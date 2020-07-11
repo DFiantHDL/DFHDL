@@ -10,8 +10,10 @@ final class FixAnonymousOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilati
   def fixAnonymous = {
     val anonymizeList = designDB.designMemberList.flatMap {
       case (block, members) =>
+        //We first filter to scan only members that
+        //can be anonymous, are not already anonymous AND are not forcibly named (via .setName)
         members.filter {
-          case m : DFAny.CanBeAnonymous => !m.isAnonymous
+          case m : DFAny.CanBeAnonymous => !m.isAnonymous && !m.isNameForced
           case _ => false
         }.groupBy(m => m.tags.meta.namePosition).flatMap {
           //In case an anonymous member got a name from its owner. For example:

@@ -19,8 +19,9 @@ scalaVersion in ThisBuild := "2.13.3"
 resolvers in ThisBuild += "scala-integration" at
   "https://scala-ci.typesafe.com/artifactory/scala-integration/"
 
-resolvers in ThisBuild += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
+//resolvers in ThisBuild += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
 
+version in ThisBuild := "0.0.20-SNAPSHOT"
 //enablePlugins(ScalaJSPlugin)
 
 // PROJECTS
@@ -198,6 +199,7 @@ lazy val dependencies =
     val oslib          = "com.lihaoyi"                %% "os-lib"                  % oslibV
     val continuum      = "danburkert"                 %% "continuum"               % continuumV
     val macroCompat    = "org.typelevel"              %% "macro-compat"            % macroCompatV
+    val ammoniteOps    = "com.lihaoyi"                %% "ammonite-ops"            % ammoniteV
     val ammonite       = "com.lihaoyi"                %  "ammonite"                % ammoniteV % "test" cross CrossVersion.full
     val oscar          = "oscar"                      %% "oscar-cp"                % oscarV
     val macroParadise  = compilerPlugin("org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch)
@@ -211,7 +213,8 @@ lazy val commonDependencies = Seq(
   dependencies.shapeless,
   dependencies.scodec,
   dependencies.akka,
-  dependencies.oscar,
+//  dependencies.oscar,
+  dependencies.ammoniteOps,
 //  dependencies.ammonite,
   dependencies.scalacheck % "test",
   dependencies.scalatest % "test"

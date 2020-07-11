@@ -42,7 +42,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
         } else ""
         val customTagInfo =
           if (showCustomTags && a.tags.customTags.nonEmpty)
-            a.tags.customTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
+            a.tags.customTags.values.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
           else ""
         Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
       case _ => None

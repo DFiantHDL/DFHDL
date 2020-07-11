@@ -129,6 +129,8 @@ private object Value {
     case f : DFAny.Func2 => func2(f)
     case a : DFAny.Alias[_,_,_] => alias(a)
     case _ : DFAny.Dcl => ??? //shouldn't occur
+    case _ : DFAny.Dynamic => ??? //shouldn't occur
+    case _ : DFAny.Fork => ??? //shouldn't occur
   }
 }
 

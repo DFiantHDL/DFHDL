@@ -22,12 +22,13 @@ import internals._
 @df class ID extends DFDesign { //This our `ID` dataflow design
   val i = DFUInt(8) <> IN init 0 //The input port is a signed 16-bit integer
   val o = DFUInt(8) <> OUT init 0	//The output port is a signed 16-bit integer
-  o := o + i.prev
-  val a = new Ifc <> FLIP
-  val b = new Ifc <> ASIS
-  a <> b
-  sim.assert(true, msg"HAHA$i")
-  sim.finish()
+//  o := o + i.prev
+//  val a = new Ifc <> FLIP
+//  val b = new Ifc <> ASIS
+//  a <> b
+//  sim.assert(true, msg"HAHA$i")
+//  sim.finish()
+  o <> i
 }
 
 @df class IDTop extends DFDesign { //This our `IDTop` dataflow design
@@ -81,25 +82,25 @@ import internals._
 
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
-  val i1 = DFUInt(8) <> IN
-  val i2 = DFUInt(8) <> IN
-  val i3 = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-//  val ididid = new IDTop
-//  ifdf(true) {
-//    val fib = DFUInt(8) init(0, 1)
-//    fib := fib.prev + fib.prev(2)
-//  }
-  i1.splitdf(3)
-  o := i2.reducedf(_ + _)
+  val fib = DFUInt(8) init(0, 1)
+  fib := fib.prev + fib.prev(2)
+  val ididid = new IDTop
+  ididid.x <> fib
+  object XX extends EnumType.Auto {
+    val AAA, BBB, CCC = Entry()
+  }
+  sim.report(msg"$fib")
 }
 
 object IDTopApp extends App {
-  val top = new IDTopTest
-  import compiler.backend.vhdl.v93
-  import compiler._
-
-  val designDB = top.printCodeString//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
+  import compiler.sync._
+  val top = new IDTopTest {
+    this !! ClockParams("clk", ClockParams.Edge.Rising)
+    this !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
+  }
+  import compiler.backend.verilog.v2005
+  import sim.tools.verilator
+  val designDB = top.compile.printCodeString.printGenFiles().toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

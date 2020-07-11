@@ -1,5 +1,7 @@
 package DFiant.internals
 
+import DFiant.internals.Meta.Name.Anonymous
+
 import scala.annotation.tailrec
 import scala.reflect.macros.blackbox
 sealed trait LateConstructionConfig {
@@ -14,8 +16,10 @@ object LateConstructionConfig {
   }
 }
 final case class Meta(name : Meta.Name, position : Meta.Position, namePosition : Meta.Position, lateConstruction : Boolean) {
-  def anonymize : Meta = copy(name = name.copy(anonymous = true))
-  def setName(name : String) : Meta = copy(name = this.name.copy(name, anonymous = false))
+  def anonymize : Meta = copy(name = name.anonymize)
+  def isAnonymous : Boolean = name.isAnonymous
+  def isNameForced : Boolean = name.isNameForced
+  def setName(name : String) : Meta = copy(name = this.name.set(name))
 }
 
 object Meta {
@@ -42,7 +46,7 @@ object Meta {
   /////////////////////////////////////////////////////////
   //Position
   /////////////////////////////////////////////////////////
-  case class Position(file : String, line : Int, column : Int) {
+  final case class Position(file : String, line : Int, column : Int) {
     def > (that : Position) : Boolean = {
       assert(file == that.file, "Can only compare positions within the same file")
       line > that.line || (line == that.line && column > that.column)
@@ -57,11 +61,30 @@ object Meta {
   /////////////////////////////////////////////////////////
   //Name
   /////////////////////////////////////////////////////////
-  case class Name(value : String, anonymous : Boolean) {
-    def prefix : String = if (anonymous) Name.AnonStart else ""
+  final case class Name(value : String, anonymous : Name.Anonymous) {
+    def prefix : String = anonymous match {
+      case Anonymous.On => Name.AnonStart
+      case _ => ""
+    }
+    def anonymize : Name = copy(anonymous = Name.Anonymous.On)
+    def isAnonymous : Boolean = anonymous match {
+      case Anonymous.On => true
+      case _ => false
+    }
+    def isNameForced : Boolean = anonymous match {
+      case Anonymous.ForceOff => true
+      case _ => false
+    }
+    def set(value : String) : Name = Name(value, Name.Anonymous.ForceOff)
     override def toString: String = s"$prefix$value"
   }
   object Name {
+    sealed trait Anonymous extends Product with Serializable
+    object Anonymous {
+      case object Off extends Anonymous
+      case object On extends Anonymous
+      case object ForceOff extends Anonymous
+    }
     final val AnonStart : String = "dFt_"
     final val Separator : String = "_d_" //"ǂ"
     implicit def getString(name : Name) : String = name.toString
@@ -111,7 +134,9 @@ object Meta {
     val nameFile = owner.pos.source.path
     val nameLine = owner.pos.line
     val nameColumn = owner.pos.column
-    val anonymous = c.internal.enclosingOwner.name.toString.contains("<local")//!(owner.isTerm || owner.isModuleClass || owner.isMethod) //not a val, lazy val, var, object or def
+    val anonymous =
+      if (c.internal.enclosingOwner.name.toString.contains("<local")) q"DFiant.internals.Meta.Name.Anonymous.On"
+      else q"DFiant.internals.Meta.Name.Anonymous.Off"
     c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
   }
 

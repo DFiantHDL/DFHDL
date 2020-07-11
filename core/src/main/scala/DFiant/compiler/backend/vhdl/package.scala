@@ -4,7 +4,6 @@ package backend
 
 import shapeless.HList
 
-
 package object vhdl {
   private[vhdl] val reservedKeywords : Set[String] = Set(
     "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin",
@@ -17,8 +16,6 @@ package object vhdl {
     "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable",
     "wait", "when", "while", "with", "xnor", "xor",
   )
-  private[vhdl] implicit def getsetFromPrinter(implicit printer : Printer, lp : shapeless.LowPriority)
-  : MemberGetSet = printer.getSet
 
   private implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
   : VHDLBackendOps[D, S] = new VHDLBackendOps[D, S](c)

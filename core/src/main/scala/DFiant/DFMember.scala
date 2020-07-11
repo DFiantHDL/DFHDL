@@ -42,7 +42,8 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
     case d : DFDesign.Block => d
     case x => x.getOwnerDesign
   }
-  final val isAnonymous : Boolean = tags.meta.name.anonymous
+  final val isAnonymous : Boolean = tags.meta.isAnonymous
+  final val isNameForced : Boolean = tags.meta.isNameForced
   final val name : String = if (isAnonymous) s"anon${hashCode.toHexString}" else tags.meta.name
   final val hasLateConstruction : Boolean = tags.meta.lateConstruction
   def getFullName(implicit getSet : MemberGetSet) : String = s"${getOwnerBlock.getFullName}.${name}"
@@ -117,9 +118,9 @@ object DFMember {
     final def getTagOf[CT <: CustomTag : ClassTag] : Option[CT] =
       customTags.get(classTag[CT]).asInstanceOf[Option[CT]]
     def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
-    final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
+    final def setName(value : String) : TTags = setMeta(meta.setName(value))
     final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
-    final def anonymize : TTags = setMeta(meta.copy(name = meta.name.copy(anonymous = true)))
+    final def anonymize : TTags = setMeta(meta.anonymize)
   }
   object Tags {
     import shapeless._
