@@ -67,8 +67,8 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
           case (s : DFAny, (ports, signals, variables))
             if !s.isAnonymous && (
               designDB.getConnectionTo(s).isDefined
-              || s.tags.customTags.exists{case _ : Sync.Tag => true}
-              || designDB.getAssignmentsFrom(s).exists(x => x.tags.customTags.contains(Sync.Tag.Reg))) =>
+              || s.tags.customTags.values.exists{case _ : Sync.Tag => true}
+              || designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(Sync.Tag.Reg))) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
           case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
@@ -99,7 +99,7 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
             }
             val signalsOrPorts = producers.distinct.collect {
               case p @ DFAny.Port.In() => p
-              case v @ DFAny.NewVar() if v.tags.customTags.contains(Sync.Tag.Reg) => v
+              case v @ DFAny.NewVar() if v.isTaggedWith(Sync.Tag.Reg) => v
               case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
             }
             Process.Sensitivity.List(signalsOrPorts.map(e => e.name))

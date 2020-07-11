@@ -18,6 +18,8 @@
 package DFiant
 package compiler.sync
 
+import DFiant.compiler.sync
+
 private[compiler] object Sync {
   sealed trait Tag extends DFAny.CustomTag
   object Tag {
@@ -33,10 +35,10 @@ private[compiler] object Sync {
   }
 
   object IsReset {
-    def unapply(arg : DFAny) : Boolean = arg.tags.customTags.contains(Tag.Rst)
+    def unapply(arg : DFAny)(implicit getSet: MemberGetSet) : Boolean = arg.isTaggedWith(Tag.Rst)
   }
   object IsClock {
-    def unapply(arg : DFAny) : Boolean = arg.tags.customTags.contains(Tag.Clk)
+    def unapply(arg : DFAny)(implicit getSet: MemberGetSet) : Boolean = arg.isTaggedWith(Tag.Clk)
   }
 
   object IfBlock {
@@ -55,7 +57,7 @@ private[compiler] object Sync {
     }
   }
   object Net {
-    def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.tags.customTags.contains(Sync.Tag.Reg)
+    def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.isTaggedWith(Sync.Tag.Reg)
   }
 }
 
@@ -64,9 +66,7 @@ object ClockParams {
   type Edge = EdgeDetect.Edge
   final val Edge = EdgeDetect.Edge
   final val default = ClockParams("clk", Edge.Rising)
-  def get(implicit getSet: MemberGetSet) : ClockParams = getSet.designDB.top.tags.customTags.collectFirst {
-    case cp : ClockParams => cp
-  }.getOrElse(default)
+  def get(implicit getSet: MemberGetSet) : ClockParams = getSet.designDB.top.getTagOf[sync.ClockParams].getOrElse(default)
 }
 
 final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFDesign.Block.CustomTag
@@ -82,7 +82,5 @@ object ResetParams {
     case object High extends Active
   }
   final val default = ResetParams("rst", Mode.Async, Active.Low)
-  def get(implicit getSet: MemberGetSet) : ResetParams = getSet.designDB.top.tags.customTags.collectFirst {
-    case cp : ResetParams => cp
-  }.getOrElse(default)
+  def get(implicit getSet: MemberGetSet) : ResetParams = getSet.designDB.top.getTagOf[sync.ResetParams].getOrElse(default)
 }

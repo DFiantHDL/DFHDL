@@ -85,7 +85,8 @@ object DFDesign {
     }
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
-    def !!(customTag : Block.CustomTag) : T = onBlock(_.!!(customTag))
+    def !![CT <: Block.CustomTag : ClassTag](customTag : CT) : T = onBlock(_.!!(customTag))
+    def getTagOf[CT <: Block.CustomTag : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
   }
 
   sealed trait Block extends DFBlock {

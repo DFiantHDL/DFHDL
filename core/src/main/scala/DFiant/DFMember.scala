@@ -1,7 +1,9 @@
 package DFiant
 import DFiant.internals.Meta
 import csprinter.CSPrinter
+
 import scala.annotation.tailrec
+import scala.reflect.ClassTag
 
 trait HasTypeName {
   lazy val typeName: String = {
@@ -95,20 +97,25 @@ object DFMember {
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
     def anonymize : M = member.setTags(_.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(_.setKeep(true)).asInstanceOf[M]
-    def !!(customTag : member.TCustomTag) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def !![CT <: member.TCustomTag : ClassTag](customTag : CT) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def getTagOf[CT <: member.TCustomTag : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
+    def isTaggedWith[CT <: member.TCustomTag : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined
     def setLateContruction(value : Boolean) : M = member.setTags(_.setLateContruction(value)).asInstanceOf[M]
     def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
   trait CustomTag extends Product with Serializable
+  type CustomTagMap = Map[ClassTag[_], CustomTag]
   trait Tags extends Product with Serializable {
     type TTags <: Tags
     val meta : Meta
     val keep : Boolean
-    val customTags : Set[CustomTag]
+    val customTags : CustomTagMap
     def setMeta(meta : Meta) : TTags
     def setKeep(keep : Boolean) : TTags
-    def !!(customTag : CustomTag) : TTags
+    def !![CT <: CustomTag : ClassTag](customTag : CT) : TTags
+    final def getTagOf[CT <: CustomTag : ClassTag] : Option[CT] =
+      customTags.get(implicitly[ClassTag[CT]]).asInstanceOf[Option[CT]]
     def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
     final def setName(value : String) : TTags = setMeta(meta.copy(name = meta.name.copy(value = value, anonymous = false)))
     final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
@@ -120,16 +127,16 @@ object DFMember {
     final protected val keepP = ^.keep
     final protected val customTagsP = ^.customTags
     abstract class CC[P <: CC[P]](
-      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean], customTagsL : customTagsP.Lens[P, Set[CustomTag]]
+      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean], customTagsL : customTagsP.Lens[P, CustomTagMap]
     ) extends Tags {self : P =>
       type TTags = P
       final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
       final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
-      final def !!(customTag : CustomTag) : P = customTagsL().modify(self)(tList => tList + customTag)
+      final def !![CT <: CustomTag : ClassTag](customTag : CT) : P = customTagsL().modify(self)(tList => tList + (implicitly[ClassTag[CT]] -> customTag))
     }
 
-    final case class Basic(meta : Meta, keep : Boolean, customTags : Set[CustomTag]) extends Tags.CC[Basic]
-    implicit def fromMeta(meta : Meta) : Basic = Basic(meta, keep = false, Set())
+    final case class Basic(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Tags.CC[Basic]
+    implicit def fromMeta(meta : Meta) : Basic = Basic(meta, keep = false, Map())
   }
 
   trait Context {

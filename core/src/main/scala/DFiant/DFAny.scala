@@ -253,7 +253,7 @@ object DFAny {
 
   trait CustomTag extends DFMember.CustomTag
   final case class Tags(
-    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : Set[DFMember.CustomTag], codeStringOverride : Option[String => String]
+    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : DFMember.CustomTagMap, codeStringOverride : Option[String => String]
   ) extends DFMember.Tags.CC[Tags] {
     override def =~(that : DFMember.Tags) : Boolean = that match {
       case Tags(_,_,init,_,_,_) => this.init == init && super.=~(that)
@@ -263,7 +263,7 @@ object DFAny {
     def overrideCodeString(func : String => String) : Tags = copy(codeStringOverride = Some(func))
   }
   object Tags {
-    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags = Tags(meta, keep = false, None, None, Set(), None)
+    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags = Tags(meta, keep = false, None, None, Map(), None)
   }
 
   implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
