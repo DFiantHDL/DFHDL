@@ -26,5 +26,17 @@ package object vhdl {
   implicit object v2008 extends Backend.Compiler[VHDLBackend[Revision.V2008]] {
     def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VHDLBackend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
   }
-  type Printer = DFiant.printer.Printer[Printer.Config]
+  private[vhdl] type Printer = DFiant.printer.Printer[Printer.Config]
+  private[vhdl] object Printer {
+    sealed class Config(val revision: Revision) extends DFiant.printer.Printer.Config {
+      import io.AnsiColor._
+      val DELIM : String = "  "
+      val maxAlignments : List[Int] = List(25, 25)
+      val LIT : String = "\u001B[38;5;5m"
+      val KW : String = s"$BLUE$BOLD"
+      val OP : String = s"$BOLD"
+      val FN : String = "\u001B[38;5;54m"
+      val TP : String = "\u001B[38;5;94m"
+    }
+  }
 }

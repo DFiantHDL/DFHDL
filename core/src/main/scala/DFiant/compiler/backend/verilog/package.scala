@@ -25,5 +25,17 @@ package object verilog {
   implicit object v2005 extends Backend.Compiler[VerilogBackend[Revision.V2005]] {
     def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VerilogBackend[Revision.V2005]] = c.verilogCompile[Revision.V2005]
   }
-  type Printer = DFiant.printer.Printer[Printer.Config]
+  private[verilog] type Printer = DFiant.printer.Printer[Printer.Config]
+  private[verilog] object Printer {
+    sealed class Config(val revision: Revision) extends DFiant.printer.Printer.Config {
+      import io.AnsiColor._
+      val DELIM : String = "  "
+      val maxAlignments : List[Int] = List(25, 25)
+      val LIT : String = "\u001B[38;5;5m"
+      val KW : String = s"$BLUE$BOLD"
+      val OP : String = s"$BOLD"
+      val FN : String = "\u001B[38;5;54m"
+      val TP : String = "\u001B[38;5;94m"
+    }
+  }
 }
