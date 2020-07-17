@@ -11,7 +11,7 @@ trait Simulation[D <: DFSimDesign, B <: BackendStage] {
   def run() : this.type
 }
 
-@implicitNotFound("Missing a simulator import that supports the backend ${B}")
+@implicitNotFound("Missing a simulator import that supports the backend ${B} (e.g., `import sim.tools.modelsim`")
 trait Simulator[D <: DFSimDesign, B <: BackendStage, S <: Simulation[D, B]] {
   def apply(c : BackendStage.CommittedCompilation[D, B]) : S
 }
