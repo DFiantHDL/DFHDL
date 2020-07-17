@@ -3,9 +3,7 @@ package sim.tools
 
 import java.io.{File, FileWriter}
 
-import DFiant.compiler.backend.Backend
-import DFiant.compiler.backend.verilog.VerilogBackend
-import DFiant.compiler.backend.vhdl.VHDLBackend
+import DFiant.compiler.backend.BackendStage
 import compiler.backend.verilog
 import compiler.backend.vhdl
 import DFiant.sim.{DFSimDesign, Simulation}
@@ -13,7 +11,7 @@ import DFiant.sim.{DFSimDesign, Simulation}
 import scala.language.postfixOps
 import scala.sys.process._
 
-final case class ModelsimSimulation[D <: DFSimDesign, B <: Backend.Stage](
+final case class ModelsimSimulation[D <: DFSimDesign, B <: BackendStage](
   db : DFDesign.DB,
   fileNameSeq : Seq[String],
   modelsimDir : String = "", //default: assumes the program 'vcom' is in path
@@ -44,9 +42,9 @@ final case class ModelsimSimulation[D <: DFSimDesign, B <: Backend.Stage](
   private def compileSim() : Unit = {
     println("Compiling Modelsim simulation... ")
     supportedBackend.backend match {
-      case vlog : verilog.VerilogBackend[_] =>
+      case vlog : verilog.Backend[_] =>
         verilogCompileCmd !!
-      case vcom : vhdl.VHDLBackend[_] =>
+      case vcom : vhdl.Backend[_] =>
         val revisionCmd = vcom.revision match {
           case vhdl.Revision.V93 => "-93"
           case vhdl.Revision.V2008 => "-2008"
@@ -68,20 +66,20 @@ final case class ModelsimSimulation[D <: DFSimDesign, B <: Backend.Stage](
 }
 
 object ModelsimSimulation {
-  sealed trait SupportedBackend[B <: Backend.Stage] {
+  sealed trait SupportedBackend[B <: BackendStage] {
     val backend : B
   }
   implicit def verilogSupport[R <: verilog.Revision](
     implicit revision0 : R
-  ) : SupportedBackend[verilog.VerilogBackend[R]] = new SupportedBackend[verilog.VerilogBackend[R]] {
-    val backend : VerilogBackend[R] = new VerilogBackend[R] {
+  ) : SupportedBackend[verilog.Backend[R]] = new SupportedBackend[verilog.Backend[R]] {
+    val backend : verilog.Backend[R] = new verilog.Backend[R] {
       val revision : R = revision0
     }
   }
   implicit def vhdlSupport[R <: vhdl.Revision](
     implicit revision0 : R
-  ) : SupportedBackend[vhdl.VHDLBackend[R]] = new SupportedBackend[vhdl.VHDLBackend[R]] {
-    val backend : VHDLBackend[R] = new VHDLBackend[R] {
+  ) : SupportedBackend[vhdl.Backend[R]] = new SupportedBackend[vhdl.Backend[R]] {
+    val backend : vhdl.Backend[R] = new vhdl.Backend[R] {
       val revision : R = revision0
     }
   }

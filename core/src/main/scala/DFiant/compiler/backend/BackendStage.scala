@@ -5,18 +5,17 @@ import DFiant.printer.formatter
 
 import scala.annotation.implicitNotFound
 
-object Backend {
-  trait Stage extends compiler.Compilation.Stage {
-    def codeString : String
-  }
-
-  final case class Compilation[D <: DFDesign, B <: Stage](
+trait BackendStage extends compiler.Compilation.Stage {
+  def codeString : String
+}
+object BackendStage {
+  final case class Compilation[D <: DFDesign, B <: BackendStage](
     db : DFDesign.DB, fileSeq : Seq[File]
   ) extends compiler.Compilation[D] {
     def printGenFiles(includeGlobalDefsPackage : Boolean = false) : this.type = {
       val printSeq = if (includeGlobalDefsPackage) fileSeq else fileSeq.drop(1)
       printSeq.foreach {
-        case Backend.File(fileName, contents) => println(
+        case BackendStage.File(fileName, contents) => println(
           s"""\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
              |@ Contents of $fileName
              |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -32,7 +31,7 @@ object Backend {
       new java.io.File(folderName).mkdirs()
       //writing entity and architecture files
       val fileNameSeq = fileSeq.map {
-        case Backend.File(fileName, contents) =>
+        case BackendStage.File(fileName, contents) =>
           val fullName = s"$folderName/$fileName"
           val uncolored = contents.uncolor
           val pw = new FileWriter(new java.io.File(fullName))
@@ -48,7 +47,7 @@ object Backend {
       //writing entity and architecture files
       val pw = new FileWriter(new java.io.File(s"$fileName"))
       fileSeq.foreach{
-        case Backend.File(_, contents) =>
+        case BackendStage.File(_, contents) =>
           val uncolored = contents.uncolor
           pw.write(uncolored)
       }
@@ -58,15 +57,15 @@ object Backend {
     override def toString : String = s"The Design ${db.top.designType} is compiled. The files are (not committed):\n ${fileSeq.map(f => f.name).mkString(", ")}"
   }
 
-  final case class CommittedCompilation[D <: DFDesign, B <: Stage](
+  final case class CommittedCompilation[D <: DFDesign, B <: BackendStage](
     db : DFDesign.DB, fileNameSeq : Seq[String]
   ) extends compiler.Compilation[D] {
     override def toString : String = s"Design ${db.top.designType} committed as the following files:\n ${fileNameSeq.mkString("\n")}"
   }
 
   @implicitNotFound("Missing a compiler import (e.g., `import compiler.backend.vhdl.v2008`)")
-  trait Compiler[B <: Stage] {
-    def apply[D <: DFDesign, H <: shapeless.HList](c : IRCompilation[D, H]) : Backend.Compilation[D, B]
+  trait Compiler[B <: BackendStage] {
+    def apply[D <: DFDesign, H <: shapeless.HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, B]
   }
 
   final case class File(name : String, contents : String)

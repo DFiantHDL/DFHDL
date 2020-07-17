@@ -1,7 +1,7 @@
 package DFiant
 package sim.tools
 
-import DFiant.compiler.backend.vhdl.{Revision, VHDLBackend}
+import DFiant.compiler.backend.vhdl.{Revision, Backend}
 import DFiant.sim.{DFSimDesign, Simulation}
 
 import sys.process._
@@ -13,7 +13,7 @@ final case class GHDLSimulation[D <: DFSimDesign, R <: Revision](
   programFile : String = "ghdl", //default: assumes the program 'ghdl' is in path
   workDir : String = "work",     //default: work folder at current path
   userFlags : String = ""        //default: no additional user flags
-)(implicit revision: R) extends Simulation[D, VHDLBackend[R]] {
+)(implicit revision: R) extends Simulation[D, Backend[R]] {
   private val workDirFlag = s"--workdir=$workDir"
   private val std = (revision : Revision) match {
     case Revision.V2008 => "08"

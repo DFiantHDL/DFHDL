@@ -16,14 +16,30 @@ package object verilog {
     "not", "release", "time", "wor", "edge", "highz1", "notif0", "repeat", "tran", "xnor", "else", "if", "notif1", "rnmos", "tranif0", "xor"
   )
 
-  private implicit def VerilogBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
-  : VerilogBackendOps[D, S] = new VerilogBackendOps[D, S](c)
+  private implicit def compiler[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
+  : Compiler[D, S] = new Compiler[D, S](c)
 
-  implicit object v95 extends Backend.Compiler[VerilogBackend[Revision.V95]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VerilogBackend[Revision.V95]] = c.verilogCompile[Revision.V95]
+  sealed trait Revision extends Product with Serializable
+  object Revision {
+    implicit case object V95 extends Revision
+    type V95 = V95.type
+    implicit case object V2005 extends Revision
+    type V2005 = V2005.type
   }
-  implicit object v2005 extends Backend.Compiler[VerilogBackend[Revision.V2005]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VerilogBackend[Revision.V2005]] = c.verilogCompile[Revision.V2005]
+
+  trait Backend[R <: Revision] extends BackendStage {
+    def codeString : String = "verilog"
+    val revision : R
+  }
+  object Backend extends Backend[Revision] {
+    lazy val revision : Revision = ???
+  }
+
+  implicit object v95 extends BackendStage.Compiler[Backend[Revision.V95]] {
+    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V95]] = c.verilogCompile[Revision.V95]
+  }
+  implicit object v2005 extends BackendStage.Compiler[Backend[Revision.V2005]] {
+    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V2005]] = c.verilogCompile[Revision.V2005]
   }
   private[verilog] type Printer = DFiant.printer.Printer[Printer.Config]
   private[verilog] object Printer {

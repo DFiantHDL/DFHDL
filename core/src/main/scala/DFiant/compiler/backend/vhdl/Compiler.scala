@@ -8,7 +8,7 @@ import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
 
-final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class Compiler[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB =
     c.flattenNames
      .explicitPrev
@@ -123,26 +123,10 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
         val declarations = enumTypeDcls ++ signals
         val architecture = Architecture(s"${entityName}_arch", entityName, declarations, statements)
         val file = File(s"${designDB.top.designType}_pkg", entity, architecture)
-        Some(Backend.File(s"${design.designType}.vhdl", s"$file"))
+        Some(BackendStage.File(s"${design.designType}.vhdl", s"$file"))
       case _ => None
     }
-    val packageFile = Backend.File(s"${PackageFile.Name()}.vhdl", PackageFile())
-    Backend.Compilation[D, VHDLBackend[R]](designDB, packageFile :: files)
+    val packageFile = BackendStage.File(s"${PackageFile.Name()}.vhdl", PackageFile())
+    BackendStage.Compilation[D, Backend[R]](designDB, packageFile :: files)
   }
-}
-
-sealed trait Revision extends Product with Serializable
-object Revision {
-  implicit case object V93 extends Revision
-  type V93 = V93.type
-  implicit case object V2008 extends Revision
-  type V2008 = V2008.type
-}
-
-trait VHDLBackend[R <: Revision] extends Backend.Stage {
-  def codeString : String = "vhdl"
-  val revision : R
-}
-object VHDLBackend extends VHDLBackend[Revision] {
-  lazy val revision : Revision = ???
 }

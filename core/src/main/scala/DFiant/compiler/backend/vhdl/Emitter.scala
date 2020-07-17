@@ -4,7 +4,7 @@ import printer.formatter._
 
 private object Emitter {
   def unapply(emitter : BackendEmitter)(implicit printer: Printer) : Option[String] = emitter.backendStage match {
-    case VHDLBackend =>
+    case Backend =>
       import printer.config._
       val emit = emitter.seq.map {
         case Left(v) => Value.ref(v)

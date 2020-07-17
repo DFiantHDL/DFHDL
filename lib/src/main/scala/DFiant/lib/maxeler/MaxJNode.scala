@@ -1,8 +1,8 @@
 package DFiant
 package lib.maxeler
-import DFiant.compiler.backend.Backend
+import DFiant.compiler.backend.BackendStage
 import DFiant.compiler.backend.vhdl.Revision.V93
-import DFiant.compiler.backend.vhdl.VHDLBackendOps
+import DFiant.compiler.backend.vhdl.Compiler
 import compiler.{Compilation, IRCompilation, sync}
 import compiler.sync._
 
@@ -125,14 +125,14 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D
        |""".stripMargin
   }
 
-  def maxjCompile : Backend.Compilation[D, MaxJNode] = {
-    val vhdlCompile = new VHDLBackendOps(IRCompilation[D, shapeless.HNil](db)).vhdlCompile[V93]
+  def maxjCompile : BackendStage.Compilation[D, MaxJNode] = {
+    val vhdlCompile = new Compiler(IRCompilation[D, shapeless.HNil](db)).vhdlCompile[V93]
     val vhdlFileNames = vhdlCompile.fileSeq.collect {
-      case Backend.File(fileName, _) if fileName.endsWith(".vhdl") => fileName
+      case BackendStage.File(fileName, _) if fileName.endsWith(".vhdl") => fileName
     }
-    val addedFile = Backend.File(s"$className.maxj", nodeMaxJString(vhdlFileNames))
-    Backend.Compilation[D, MaxJNode](vhdlCompile.db, vhdlCompile.fileSeq :+ addedFile)
+    val addedFile = BackendStage.File(s"$className.maxj", nodeMaxJString(vhdlFileNames))
+    BackendStage.Compilation[D, MaxJNode](vhdlCompile.db, vhdlCompile.fileSeq :+ addedFile)
   }
 }
 
-trait MaxJNode extends Backend.Stage
+trait MaxJNode extends BackendStage

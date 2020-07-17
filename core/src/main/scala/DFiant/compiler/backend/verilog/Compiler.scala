@@ -8,7 +8,7 @@ import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
 
-final class VerilogBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class Compiler[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB =
     c.flattenNames
       .explicitPrev
@@ -164,27 +164,10 @@ final class VerilogBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompila
         val declarations = enumTypeDcls ++ wires ++ clkrstRegs ++ moduleInstances :+ asyncBlock ++ syncProcess ++ emits
         val module = Module(moduleName, clkrstPorts, declarations)
         val file = File(GlobalDefsFile.Name(), "", module)
-        Some(Backend.File(s"${moduleName}.v", s"$file"))
+        Some(BackendStage.File(s"${moduleName}.v", s"$file"))
       case _ => None
     }
-    val globalDefsFile = Backend.File(s"${GlobalDefsFile.Name()}.v", GlobalDefsFile())
-    Backend.Compilation[D, VerilogBackend[R]](designDB, globalDefsFile :: files)
+    val globalDefsFile = BackendStage.File(s"${GlobalDefsFile.Name()}.v", GlobalDefsFile())
+    BackendStage.Compilation[D, Backend[R]](designDB, globalDefsFile :: files)
   }
-}
-
-
-sealed trait Revision extends Product with Serializable
-object Revision {
-  implicit case object V95 extends Revision
-  type V95 = V95.type
-  implicit case object V2005 extends Revision
-  type V2005 = V2005.type
-}
-
-trait VerilogBackend[R <: Revision] extends Backend.Stage {
-  def codeString : String = "verilog"
-  val revision : R
-}
-object VerilogBackend extends VerilogBackend[Revision] {
-  lazy val revision : Revision = ???
 }

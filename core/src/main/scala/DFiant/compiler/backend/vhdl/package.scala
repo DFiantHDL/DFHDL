@@ -17,14 +17,30 @@ package object vhdl {
     "wait", "when", "while", "with", "xnor", "xor",
   )
 
-  private implicit def VHDLBackend[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
-  : VHDLBackendOps[D, S] = new VHDLBackendOps[D, S](c)
+  private implicit def compiler[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
+  : Compiler[D, S] = new Compiler[D, S](c)
 
-  implicit object v93 extends Backend.Compiler[VHDLBackend[Revision.V93]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VHDLBackend[Revision.V93]] = c.vhdlCompile[Revision.V93]
+  sealed trait Revision extends Product with Serializable
+  object Revision {
+    implicit case object V93 extends Revision
+    type V93 = V93.type
+    implicit case object V2008 extends Revision
+    type V2008 = V2008.type
   }
-  implicit object v2008 extends Backend.Compiler[VHDLBackend[Revision.V2008]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : Backend.Compilation[D, VHDLBackend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
+
+  trait Backend[R <: Revision] extends BackendStage {
+    def codeString : String = "vhdl"
+    val revision : R
+  }
+  object Backend extends Backend[Revision] {
+    lazy val revision : Revision = ???
+  }
+
+  implicit object v93 extends BackendStage.Compiler[Backend[Revision.V93]] {
+    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V93]] = c.vhdlCompile[Revision.V93]
+  }
+  implicit object v2008 extends BackendStage.Compiler[Backend[Revision.V2008]] {
+    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
   }
   private[vhdl] type Printer = DFiant.printer.Printer[Printer.Config]
   private[vhdl] object Printer {

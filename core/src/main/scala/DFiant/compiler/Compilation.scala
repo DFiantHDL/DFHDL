@@ -1,6 +1,6 @@
 package DFiant
 package compiler
-import backend.Backend
+import backend.BackendStage
 import shapeless.{:: => #:}
 
 trait Compilation[D <: DFDesign] {

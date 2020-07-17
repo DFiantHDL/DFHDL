@@ -3,7 +3,7 @@ package compiler.backend.verilog
 
 private object Emitter {
   def unapply(emitter : BackendEmitter)(implicit printer: Printer) : Option[String] = emitter.backendStage match {
-    case VerilogBackend =>
+    case Backend =>
       val emit = emitter.seq.map {
         case Left(v) => Value.ref(v)
         case Right(s) => s

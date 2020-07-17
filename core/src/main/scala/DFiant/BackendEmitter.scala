@@ -2,10 +2,10 @@ package DFiant
 
 import DFiant.DFAny.CanBeAnonymous
 import DFiant.csprinter.CSPrinter
-import compiler.backend.Backend
+import compiler.backend.BackendStage
 
 final case class BackendEmitter(
-  seq : Seq[Either[BackendEmitter.Ref, String]], backendStage : Backend.Stage, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+  seq : Seq[Either[BackendEmitter.Ref, String]], backendStage : BackendStage, ownerRef : DFOwner.Ref, tags : DFMember.Tags
 ) extends CanBeGuarded with CanBeAnonymous {
   override protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
     case BackendEmitter(seq, backendStage, _, tags) =>
@@ -28,7 +28,7 @@ final case class BackendEmitter(
 }
 object BackendEmitter {
   type Ref = DFAny.Ref.ConsumeFrom[DFAny]
-  def apply(seq : Seq[Either[DFAny, String]], backendStage : Backend.Stage)(
+  def apply(seq : Seq[Either[DFAny, String]], backendStage : BackendStage)(
     implicit ctx : DFAny.Context
   ) : BackendEmitter = {
     implicit lazy val ret : BackendEmitter with DFMember.RefOwner =

@@ -1,18 +1,18 @@
 package DFiant.sim
 
 import DFiant.DFDesign
-import DFiant.compiler.backend.Backend
+import DFiant.compiler.backend.BackendStage
 
 import scala.annotation.implicitNotFound
 
-trait Simulation[D <: DFSimDesign, B <: Backend.Stage] {
+trait Simulation[D <: DFSimDesign, B <: BackendStage] {
   val db : DFDesign.DB
   val fileNameSeq : Seq[String]
   def run() : this.type
 }
 
 @implicitNotFound("Missing a simulator import that supports the backend ${B}")
-trait Simulator[D <: DFSimDesign, B <: Backend.Stage, S <: Simulation[D, B]] {
-  def apply(c : Backend.CommittedCompilation[D, B]) : S
+trait Simulator[D <: DFSimDesign, B <: BackendStage, S <: Simulation[D, B]] {
+  def apply(c : BackendStage.CommittedCompilation[D, B]) : S
 }
 

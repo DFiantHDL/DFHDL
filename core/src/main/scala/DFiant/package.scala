@@ -17,7 +17,7 @@
 
 import DFiant.internals._
 import DFiant.compiler.{Compilation, IRCompilation}
-import DFiant.compiler.backend.Backend
+import DFiant.compiler.backend.BackendStage
 import DFiant.csprinter.PrinterOps
 
 import scala.language.experimental.macros
@@ -37,9 +37,9 @@ package object DFiant {
   implicit def evPrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D])
   : PrinterOps[D, C] = new PrinterOps[D, C](c)
   implicit class BackendExt[D <: DFDesign, H <: shapeless.HList, T](t : T)(implicit conv : T => IRCompilation[D, H]) {
-    def compile[B <: Backend.Stage](implicit compiler : Backend.Compiler[B]) : Backend.Compilation[D, B] = compiler(t)
+    def compile[B <: BackendStage](implicit compiler : BackendStage.Compiler[B]) : BackendStage.Compilation[D, B] = compiler(t)
   }
-  implicit class SimulatorExt[D <: DFSimDesign, B <: Backend.Stage](c : Backend.CommittedCompilation[D, B]) {
+  implicit class SimulatorExt[D <: DFSimDesign, B <: BackendStage](c : BackendStage.CommittedCompilation[D, B]) {
     def simulation[S <: Simulation[D, B]](implicit simulator : Simulator[D, B, S]) : S = simulator(c)
   }
 
@@ -151,8 +151,8 @@ package object DFiant {
         case x => Right(x.toString)
       }
     def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
-    def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.VHDLBackend)
-    def verilog(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.verilog.VerilogBackend)
+    def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.Backend)
+    def verilog(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.verilog.Backend)
   }
   trait Interpolator[T] extends HasOut {
     type Out <: T

@@ -3,7 +3,7 @@ package sim.tools
 
 import java.io.{FileWriter, File}
 
-import DFiant.compiler.backend.verilog.{Revision, VerilogBackend}
+import DFiant.compiler.backend.verilog.{Revision, Backend}
 import DFiant.sim.{DFSimDesign, Simulation}
 
 import scala.language.postfixOps
@@ -16,7 +16,7 @@ final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
   programFile : String = "verilator", //default: assumes the program 'verilator' is in path
   workDir : String = "obj_dir",     //default: work folder at current path
   userFlags : String = ""        //default: no additional user flags
-)(implicit revision: R) extends Simulation[D, VerilogBackend[R]] {
+)(implicit revision: R) extends Simulation[D, Backend[R]] {
   import db.__getset
   private val topVerilogFilePath = fileNameSeq.last
   private val dir = {
