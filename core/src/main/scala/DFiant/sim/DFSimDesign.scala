@@ -15,7 +15,7 @@ trait DFSimDesign extends DFDesign {
 
 object DFSimDesign {
   private object Tag {
-    final case class After(time : Int) extends DFAny.CustomTag
+    final case class After(time : Int) extends DFMember.CustomTagOf[DFAny]
   }
 
   sealed trait Mode extends Product with Serializable

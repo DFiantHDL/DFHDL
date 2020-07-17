@@ -22,7 +22,6 @@ trait HasTypeName {
   }
 }
 trait DFMember extends HasTypeName with Product with Serializable {self =>
-  type TCustomTag <: DFMember.CustomTag
   val ownerRef : DFOwner.Ref
   val tags : DFMember.Tags
   final def getOwner(implicit getSet: MemberGetSet) : DFOwner = this match {
@@ -97,15 +96,16 @@ object DFMember {
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
     def anonymize : M = member.setTags(_.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(_.setKeep(true)).asInstanceOf[M]
-    def !![CT <: member.TCustomTag : ClassTag](customTag : CT) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
-    def removeTagOf[CT <: member.TCustomTag : ClassTag] : M = member.setTags(_.removeTagOf[CT]).asInstanceOf[M]
-    def getTagOf[CT <: member.TCustomTag : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
-    def isTaggedWith[CT <: member.TCustomTag : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined
+    def !![CT <: CustomTagOf[M]](customTag : CT)(implicit ct : ClassTag[CT]) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def removeTagOf[CT <: CustomTagOf[M] : ClassTag] : M = member.setTags(_.removeTagOf[CT]).asInstanceOf[M]
+    def getTagOf[CT <: CustomTagOf[M] : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
+    def isTaggedWith[CT <: CustomTagOf[M] : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined
     def setLateContruction(value : Boolean) : M = member.setTags(_.setLateContruction(value)).asInstanceOf[M]
     def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
-  trait CustomTag extends Product with Serializable
+  sealed trait CustomTag extends Product with Serializable
+  trait CustomTagOf[-T <: DFMember] extends CustomTag
   type CustomTagMap = Map[ClassTag[_], CustomTag]
   final case class Tags(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Product with Serializable {
     def setMeta(meta : Meta) : Tags = copy(meta = meta)

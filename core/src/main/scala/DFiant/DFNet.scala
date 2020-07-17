@@ -4,7 +4,6 @@ import DFiant.internals._
 import printer.formatter._
 
 sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
-  type TCustomTag = DFMember.CustomTag
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef
   def codeString(implicit printer: CSPrinter) : String = {

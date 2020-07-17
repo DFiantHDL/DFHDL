@@ -14,7 +14,6 @@ import singleton.ops.impl.HasOut
 sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {
   type TType <: DFAny.Type
   type TMod <: DFAny.Modifier
-  type TCustomTag = DFAny.CustomTag
   val dfType : TType
   val modifier : TMod
   type Width = dfType.Width
@@ -250,9 +249,8 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  trait CustomTag extends DFMember.CustomTag
-  final case class CodeStringOverride(func : String => String) extends CustomTag
-  final case class Init(seq : Seq[Token]) extends CustomTag
+  final case class CodeStringOverride(func : String => String) extends DFMember.CustomTagOf[DFAny]
+  final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
 
   protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
     def setCodeStringOverride(func : String => String) : T = member !! CodeStringOverride(func)

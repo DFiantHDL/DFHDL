@@ -21,7 +21,7 @@ package compiler.sync
 import DFiant.compiler.sync
 
 private[compiler] object Sync {
-  sealed trait Tag extends DFAny.CustomTag
+  sealed trait Tag extends DFMember.CustomTagOf[DFAny]
   object Tag {
     case object Clk extends Tag {
       override def toString: String = "Sync.Tag.Clk"
@@ -61,7 +61,7 @@ private[compiler] object Sync {
   }
 }
 
-final case class ClockParams(name : String, edge : ClockParams.Edge = ClockParams.Edge.Rising) extends DFDesign.Block.CustomTag
+final case class ClockParams(name : String, edge : ClockParams.Edge = ClockParams.Edge.Rising) extends DFMember.CustomTagOf[DFDesign.Block]
 object ClockParams {
   type Edge = EdgeDetect.Edge
   final val Edge = EdgeDetect.Edge
@@ -69,7 +69,7 @@ object ClockParams {
   def get(implicit getSet: MemberGetSet) : ClockParams = getSet.designDB.top.getTagOf[sync.ClockParams].getOrElse(default)
 }
 
-final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFDesign.Block.CustomTag
+final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFMember.CustomTagOf[DFDesign.Block]
 object ResetParams {
   sealed trait Mode extends Product with Serializable
   object Mode {

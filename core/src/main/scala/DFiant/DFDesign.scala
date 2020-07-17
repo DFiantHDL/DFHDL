@@ -85,17 +85,15 @@ object DFDesign {
     }
     def setName(value : String) : T = onBlock(_.setName(value))
     def keep : T = onBlock(_.keep)
-    def !![CT <: Block.CustomTag : ClassTag](customTag : CT) : T = onBlock(_.!!(customTag))
-    def getTagOf[CT <: Block.CustomTag : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
+    def !![CT <: DFMember.CustomTagOf[Block] : ClassTag](customTag : CT) : T = onBlock(_.!!(customTag))
+    def getTagOf[CT <: DFMember.CustomTagOf[Block] : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
   }
 
   sealed trait Block extends DFBlock {
-    type TCustomTag = Block.CustomTag
     val designType: String
     def headerCodeString(implicit printer: CSPrinter): String = s"trait $designType extends DFDesign"
   }
   object Block {
-    trait CustomTag extends DFMember.CustomTag
     final case class Internal(designType: String, ownerRef : DFOwner.Ref, tags : DFMember.Tags, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>

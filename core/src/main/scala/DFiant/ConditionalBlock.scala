@@ -20,7 +20,6 @@ import DFiant.csprinter.CSPrinter
 import DFiant.internals._
 
 sealed trait ConditionalBlock extends DFBlock with CanBeGuarded with DFAny.CanBeAnonymous {
-  type TCustomTag = DFMember.CustomTag
   type TRet
   private[DFiant] def applyBlock(block : => TRet)(implicit ctx : DFBlock.Context) : Unit
 }
@@ -57,7 +56,6 @@ object ConditionalBlock {
   }
 
   sealed trait MatchHeader extends CanBeGuarded with DFAny.CanBeAnonymous {
-    type TCustomTag = DFMember.CustomTag
     type TMVType <: DFAny.Type
     val matchValRef : MatchValRef[TMVType]
     val matchConfig : MatchConfig

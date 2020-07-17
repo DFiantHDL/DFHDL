@@ -7,7 +7,6 @@ import compiler.backend.Backend
 final case class BackendEmitter(
   seq : Seq[Either[BackendEmitter.Ref, String]], backendStage : Backend.Stage, ownerRef : DFOwner.Ref, tags : DFMember.Tags
 ) extends CanBeGuarded with CanBeAnonymous {
-  type TCustomTag = DFMember.CustomTag
   override protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
     case BackendEmitter(seq, backendStage, _, tags) =>
       val notEq = (this.seq lazyZip seq).exists {

@@ -21,7 +21,6 @@ object DFScope {
   final case class Owner(
     nameFlatten : DFOwner.NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends DFOwner.NameFlattenOwner {
-    type TCustomTag = DFMember.CustomTag
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Owner(_, _, tags) => this.tags =~ tags //Deliberately ignoring nameFlatten. Only the final name (in tags) matters.
       case _ => false
