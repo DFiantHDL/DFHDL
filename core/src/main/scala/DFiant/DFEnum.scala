@@ -155,12 +155,12 @@ object DFEnum extends DFAny.Companion {
       final def =!= [E <: EnumType](right : DFEnum[E])(implicit op: `Op=!=`.Builder[L, DFEnum[E]]) = op(left, right)
     }
     trait Implicits {
-      sealed class DFEnumFromEntry[L <: EnumType.Entry](left : L) extends AbleOps[L](left)
-      final implicit def DFEnumFromEntry[L <: EnumType.Entry](left: L): DFEnumFromEntry[L] = new DFEnumFromEntry(left)
-      sealed class DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) extends AbleOps[DFEnum[E]](left)
-      final implicit def DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) : DFEnumFromDefaultRet[E] = new DFEnumFromDefaultRet(left)
-      final implicit def ofDFEnum[E <: EnumType](left : DFEnum[E]) : Able[DFEnum[E]] = new Able(left)
-      final implicit class DFEnumOps[E <: EnumType](val left : DFEnum[E]){
+      sealed class __DFEnumFromEntry[L <: EnumType.Entry](left : L) extends AbleOps[L](left)
+      final implicit def __DFEnumFromEntry[L <: EnumType.Entry](left: L): __DFEnumFromEntry[L] = new __DFEnumFromEntry(left)
+      sealed class __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) extends AbleOps[DFEnum[E]](left)
+      final implicit def __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) : __DFEnumFromDefaultRet[E] = new __DFEnumFromDefaultRet(left)
+      final implicit def __ofDFEnum[E <: EnumType](left : DFEnum[E]) : Able[DFEnum[E]] = new Able(left)
+      final implicit class __DFEnumOps[E <: EnumType](val left : DFEnum[E]){
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFEnum[E], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFEnum[E], R]) = op(left, right)
       }
@@ -255,7 +255,7 @@ sealed abstract class EnumType(implicit meta : Meta) {
 }
 
 object EnumType {
-  final case class NameTag(name : String) extends DFMember.CustomTag
+  final case class NameTag(name : String) extends DFMember.CustomTagOf[DFMember]
   class Context(val container : Option[DFOwner.Container], val meta : Meta)
   trait LowPriority {
     implicit def topCtx(implicit lp : shapeless.LowPriority, meta : Meta) : Context = new Context(None, meta)

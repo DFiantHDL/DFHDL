@@ -195,16 +195,16 @@ object DFString extends DFAny.Companion {
       final def ++  [RL](right : DFString[RL])(implicit op: `Op++`.Builder[L, DFString[RL]]) = op(left, right)
     }
     trait Implicits {
-      sealed class DFStringFromByteVector(left : Vector[Byte]) extends AbleOps[Vector[Byte]](left)
-      final implicit def DFStringFromByteVector(left: Vector[Byte]): DFStringFromByteVector = new DFStringFromByteVector(left)
-      sealed class DFStringFromString(left : String) extends AbleOps[String](left)
-      final implicit def DFStringFromString(left: String): DFStringFromString = new DFStringFromString(left)
-      sealed class DFStringFromXString[S <: XString](left : S) extends AbleOps[S](left)
-      final implicit def DFStringFromXString[S <: XString](left: S): DFStringFromXString[S] = new DFStringFromXString[S](left)
-      sealed class DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFString[W]](left)
-      final implicit def DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFStringFromDefaultRet[W] = new DFStringFromDefaultRet(left)
-      final implicit def ofDFString[W](left : DFString[W]) : Able[DFString[W]] = new Able(left)
-      final implicit class DFStringOps[LL](val left : DFString[LL]){
+      sealed class __DFStringFromByteVector(left : Vector[Byte]) extends AbleOps[Vector[Byte]](left)
+      final implicit def __DFStringFromByteVector(left: Vector[Byte]): __DFStringFromByteVector = new __DFStringFromByteVector(left)
+      sealed class __DFStringFromString(left : String) extends AbleOps[String](left)
+      final implicit def __DFStringFromString(left: String): __DFStringFromString = new __DFStringFromString(left)
+      sealed class __DFStringFromXString[S <: XString](left : S) extends AbleOps[S](left)
+      final implicit def __DFStringFromXString[S <: XString](left: S): __DFStringFromXString[S] = new __DFStringFromXString[S](left)
+      sealed class __DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFString[W]](left)
+      final implicit def __DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFStringFromDefaultRet[W] = new __DFStringFromDefaultRet(left)
+      final implicit def __ofDFString[W](left : DFString[W]) : Able[DFString[W]] = new Able(left)
+      final implicit class __DFStringOps[LL](val left : DFString[LL]){
         def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFString[LL], R]) = op(left, right)
         def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFString[LL], R]) = op(left, right)
         def ++  [R](right : Able[R])(implicit op: `Op++`.Builder[DFString[LL], R]) = op(left, right)

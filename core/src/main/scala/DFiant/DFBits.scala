@@ -246,19 +246,19 @@ object DFBits extends DFAny.Companion {
       final def ++  [RW](right : DFBits[RW])(implicit op: `Op++`.Builder[L, DFBits[RW]]) = op(left, right)
     }
     trait Implicits {
-      final implicit def DFBitsWiden[FW, TW](c : DFBits[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFBits[TW] = c.asInstanceOf[DFBits[TW]]
-      sealed class DFBitsFromBitVector(left : BitVector) extends AbleOps[BitVector](left)
-      final implicit def DFBitsFromBitVector(left: BitVector): DFBitsFromBitVector = new DFBitsFromBitVector(left)
-      sealed class DFBitsFromXBitVector[W](left : XBitVector[W]) extends AbleOps[XBitVector[W]](left)
-      final implicit def DFBitsFromXBitVector[W](left: XBitVector[W]): DFBitsFromXBitVector[W] = new DFBitsFromXBitVector[W](left)
-      sealed class DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) extends AbleOps[SBV](left)
-      final implicit def DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : DFBitsFromZeros[SBV] = new DFBitsFromZeros(left)
+      final implicit def __DFBitsWiden[FW, TW](c : DFBits[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFBits[TW] = c.asInstanceOf[DFBits[TW]]
+      sealed class __DFBitsFromBitVector(left : BitVector) extends AbleOps[BitVector](left)
+      final implicit def __DFBitsFromBitVector(left: BitVector): __DFBitsFromBitVector = new __DFBitsFromBitVector(left)
+      sealed class __DFBitsFromXBitVector[W](left : XBitVector[W]) extends AbleOps[XBitVector[W]](left)
+      final implicit def __DFBitsFromXBitVector[W](left: XBitVector[W]): __DFBitsFromXBitVector[W] = new __DFBitsFromXBitVector[W](left)
+      sealed class __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) extends AbleOps[SBV](left)
+      final implicit def __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : __DFBitsFromZeros[SBV] = new __DFBitsFromZeros(left)
 //      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
 //      final implicit def DFBitsFromDFBool(left: DFBool)(implicit ctx : DFAny.Context): DFBitsFromDFBool = new DFBitsFromDFBool(left)
-      sealed class DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFBits[W]](left)
-      final implicit def DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFBitsFromDefaultRet[W] = new DFBitsFromDefaultRet(left)
-      final implicit def ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
-      final implicit class DFBitsOps[LW](val left : DFBits[LW]){
+      sealed class __DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFBits[W]](left)
+      final implicit def __DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFBitsFromDefaultRet[W] = new __DFBitsFromDefaultRet(left)
+      final implicit def __ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
+      final implicit class __DFBitsOps[LW](val left : DFBits[LW]){
         def |   [R](right : Able[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
         def &   [R](right : Able[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
         def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
@@ -281,7 +281,7 @@ object DFBits extends DFAny.Companion {
           ret.asInstanceOf[DFBits[RW]]
         }
       }
-      final implicit class DFBitsAliases[LW, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LW], Mod]) {
+      final implicit class __DFBitsAliases[LW, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LW], Mod]) {
         def uint(implicit ctx : DFAny.Context) : DFAny.Value[DFUInt.Type[LW], Mod] =
           left.as(DFUInt.Type(left.width)).setCodeStringOverride(rs => s"$rs.uint")
         def sint(implicit ctx : DFAny.Context) : DFAny.Value[DFSInt.Type[LW], Mod] =
@@ -303,14 +303,14 @@ object DFBits extends DFAny.Companion {
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // Tuple-handling Implicits
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      sealed abstract class VarProductExtender(e : Product) {
+      sealed abstract class __VarProductExtender(e : Product) {
         type WSum
         protected val wsum : Int = e.productIterator.toList.asInstanceOf[List[DFAny]].map(f => f.width.getValue).sum
         def bits(implicit ctx : DFAny.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFAny.VarOf[Type[w.Out]] = ???
 //          new DFBits.Alias[w.Out](DFAny.Alias.Reference.Concat(e.productIterator.toList.asInstanceOf[List[DFAny]], ".bits"))
       }
 
-      sealed abstract class ValProductExtender(e : Product) {
+      sealed abstract class __ValProductExtender(e : Product) {
         type WSum
         protected val wsum : Int = e.productIterator.toList.collect{
           case dfAny : DFAny => dfAny.width.getValue
@@ -334,9 +334,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width
 //      }
 
-      implicit class ValTuple1[T1 <: HasWidth](
+      implicit class __ValTuple1[T1 <: HasWidth](
         val e : Tuple1[T1]
-      ) extends ValProductExtender(e){
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -350,9 +350,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width
 //      }
 
-      implicit class ValTuple2[T1 <: HasWidth, T2 <: HasWidth](
+      implicit class __ValTuple2[T1 <: HasWidth, T2 <: HasWidth](
         val e : Tuple2[T1, T2]
-      ) extends ValProductExtender(e){
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -366,9 +366,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width + e._3.Width
 //      }
 
-      implicit class ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](
+      implicit class __ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](
         val e : Tuple3[T1, T2, T3]
-      ) extends ValProductExtender(e){
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width + e._3.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -382,9 +382,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
 //      }
 
-      implicit class ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](
+      implicit class __ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](
         val e : Tuple4[T1, T2, T3, T4]
-      ) extends ValProductExtender(e){
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -398,9 +398,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
 //      }
 
-      implicit class ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](
+      implicit class __ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](
         val e : Tuple5[T1, T2, T3, T4, T5]
-      ) extends ValProductExtender(e){
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////

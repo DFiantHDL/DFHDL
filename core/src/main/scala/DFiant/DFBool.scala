@@ -219,22 +219,22 @@ object DFBool extends DFAny.Companion {
       final def =!= (right : DFBool)(implicit op: `Op=!=`.Builder[L, DFBool]) = op(left, right)
     }
     trait Implicits {
-      sealed class DFBoolFrom0(left : 0) extends AbleOps[0](left)
-      final implicit def DFBoolFrom0(left: 0): DFBoolFrom0 = new DFBoolFrom0(left)
-      sealed class DFBoolFrom1(left : 1) extends AbleOps[1](left)
-      final implicit def DFBoolFrom1(left: 1): DFBoolFrom1 = new DFBoolFrom1(left)
-      sealed class DFBoolFromBoolean[L <: Boolean](left : L) extends AbleOps[L](left)
-      final implicit def DFBoolFromBoolean[L <: Boolean](left: L): DFBoolFromBoolean[L] = new DFBoolFromBoolean[L](left)
-      sealed class DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
+      sealed class __DFBoolFrom0(left : 0) extends AbleOps[0](left)
+      final implicit def __DFBoolFrom0(left: 0): __DFBoolFrom0 = new __DFBoolFrom0(left)
+      sealed class __DFBoolFrom1(left : 1) extends AbleOps[1](left)
+      final implicit def __DFBoolFrom1(left: 1): __DFBoolFrom1 = new __DFBoolFrom1(left)
+      sealed class __DFBoolFromBoolean[L <: Boolean](left : L) extends AbleOps[L](left)
+      final implicit def __DFBoolFromBoolean[L <: Boolean](left: L): __DFBoolFromBoolean[L] = new __DFBoolFromBoolean[L](left)
+      sealed class __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
       ) extends AbleOps[DFBool](DFAny.Alias.AsIs(Type(logical = false), left))
-      final implicit def DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
+      final implicit def __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
-      ) : DFBoolFromDFBitsW1[LW] = new DFBoolFromDFBitsW1[LW](left)
-      sealed class DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) extends AbleOps[DFBool](left)
-      final implicit def DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) : DFBoolFromDefaultRet = new DFBoolFromDefaultRet(left)
-      final implicit def ofDFBool(left : DFBool) : Able[DFBool] = new Able(left)
-      implicit class DFBoolOps(val left : DFBool) {
+      ) : __DFBoolFromDFBitsW1[LW] = new __DFBoolFromDFBitsW1[LW](left)
+      sealed class __DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) extends AbleOps[DFBool](left)
+      final implicit def __DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) : __DFBoolFromDefaultRet = new __DFBoolFromDefaultRet(left)
+      final implicit def __ofDFBool(left : DFBool) : Able[DFBool] = new Able(left)
+      implicit class __DFBoolOps(val left : DFBool) {
         final def rising()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Rising).outPort
         final def falling()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Falling).outPort
         final def ||  [R](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)

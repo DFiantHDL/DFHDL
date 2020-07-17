@@ -256,25 +256,25 @@ object DFSInt extends DFAny.Companion {
       final def =!= [RW](right : DFSInt[RW])(implicit op: `Op=!=`.Builder[L, DFSInt[RW]]) = op(left, right)
     }
     trait Implicits {
-      final implicit def DFSIntWiden[FW, TW](c : DFSInt[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFSInt[TW] = c.asInstanceOf[DFSInt[TW]]
-      sealed class DFSIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
-      final implicit def DFSIntFromInt[L <: Int](left: L): DFSIntFromInt[L] = new DFSIntFromInt(left)
-      sealed class DFSIntFromXInt[L <: XInt](left : L) extends AbleOps[L](left)
-      final implicit def DFSIntFromXInt[L <: XInt](left: L): DFSIntFromXInt[L] = new DFSIntFromXInt(left)
-      sealed class DFSIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
-      final implicit def DFSIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): DFSIntFromLong[L] = new DFSIntFromLong(left)
-      sealed class DFSIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
-      final implicit def DFSIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFSIntFromXLong[L] = new DFSIntFromXLong(left)
-      sealed class DFSIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
-      final implicit def DFSIntFromBigInt[L <: BigInt](left: L): DFSIntFromBigInt[L] = new DFSIntFromBigInt[L](left)
-      sealed class DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFSInt[W]](left)
-      final implicit def DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFSIntFromDefaultRet[W] = new DFSIntFromDefaultRet(left)
-      final implicit def ofDFSInt[W](left : DFSInt[W]) : Able[DFSInt[W]] = new Able(left)
-      implicit class ExtendableDFSIntOps[LW](val left : DFSInt[LW] with Extendable){
+      final implicit def __DFSIntWiden[FW, TW](c : DFSInt[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFSInt[TW] = c.asInstanceOf[DFSInt[TW]]
+      sealed class __DFSIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
+      final implicit def __DFSIntFromInt[L <: Int](left: L): __DFSIntFromInt[L] = new __DFSIntFromInt(left)
+      sealed class __DFSIntFromXInt[L <: XInt](left : L) extends AbleOps[L](left)
+      final implicit def __DFSIntFromXInt[L <: XInt](left: L): __DFSIntFromXInt[L] = new __DFSIntFromXInt(left)
+      sealed class __DFSIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
+      final implicit def __DFSIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): __DFSIntFromLong[L] = new __DFSIntFromLong(left)
+      sealed class __DFSIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
+      final implicit def __DFSIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): __DFSIntFromXLong[L] = new __DFSIntFromXLong(left)
+      sealed class __DFSIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
+      final implicit def __DFSIntFromBigInt[L <: BigInt](left: L): __DFSIntFromBigInt[L] = new __DFSIntFromBigInt[L](left)
+      sealed class __DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFSInt[W]](left)
+      final implicit def __DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFSIntFromDefaultRet[W] = new __DFSIntFromDefaultRet(left)
+      final implicit def __ofDFSInt[W](left : DFSInt[W]) : Able[DFSInt[W]] = new Able(left)
+      implicit class __ExtendableDFSIntOps[LW](val left : DFSInt[LW] with Extendable){
         final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFSInt[LW], true, R]) = op(left, right)
         final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFSInt[LW], true, R]) = op(left, right)
       }
-      final implicit class DFSIntOps[LW](val left : DFSInt[LW]){
+      final implicit class __DFSIntOps[LW](val left : DFSInt[LW]){
         def maxValue : BigInt = BigInt(2) << (left.width - 1) - 1
         def sign(implicit ctx : DFAny.Context) : DFBool = left.asInstanceOf[DFSInt[Int]].bit(left.width-1)
         def unary_- (implicit op: `Op-`.Builder[0, false, DFSInt[LW]]) = op(0, left)

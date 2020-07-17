@@ -304,25 +304,25 @@ object DFUInt extends DFAny.Companion {
       final def =!= [RW](right : DFUInt[RW])(implicit op: `Op=!=`.Builder[L, DFUInt[RW]]) = op(left, right)
     }
     trait Implicits {
-      final implicit def DFUIntWiden[FW, TW](c : DFUInt[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFUInt[TW] = c.asInstanceOf[DFUInt[TW]]
-      sealed class DFUIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
-      final implicit def DFUIntFromInt[L <: Int](left: L): DFUIntFromInt[L] = new DFUIntFromInt(left)
-      sealed class DFUIntFromXInt[L <: XInt](left : L) extends AbleOps[L](left)
-      final implicit def DFUIntFromXInt[L <: XInt](left: L): DFUIntFromXInt[L] = new DFUIntFromXInt(left)
-      sealed class DFUIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
-      final implicit def DFUIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): DFUIntFromLong[L] = new DFUIntFromLong(left)
-      sealed class DFUIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
-      final implicit def DFUIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): DFUIntFromXLong[L] = new DFUIntFromXLong(left)
-      sealed class DFUIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
-      final implicit def DFUIntFromBigInt[L <: BigInt](left: L): DFUIntFromBigInt[L] = new DFUIntFromBigInt[L](left)
-      sealed class DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFUInt[W]](left)
-      final implicit def DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : DFUIntFromDefaultRet[W] = new DFUIntFromDefaultRet(left)
-      final implicit def ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
-      implicit class ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
+      final implicit def __DFUIntWiden[FW, TW](c : DFUInt[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFUInt[TW] = c.asInstanceOf[DFUInt[TW]]
+      sealed class __DFUIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
+      final implicit def __DFUIntFromInt[L <: Int](left: L): __DFUIntFromInt[L] = new __DFUIntFromInt(left)
+      sealed class __DFUIntFromXInt[L <: XInt](left : L) extends AbleOps[L](left)
+      final implicit def __DFUIntFromXInt[L <: XInt](left: L): __DFUIntFromXInt[L] = new __DFUIntFromXInt(left)
+      sealed class __DFUIntFromLong[L <: Long](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
+      final implicit def __DFUIntFromLong[L <: Long](left: L)(implicit di: DummyImplicit): __DFUIntFromLong[L] = new __DFUIntFromLong(left)
+      sealed class __DFUIntFromXLong[L <: XLong](left : L)(implicit di : DummyImplicit) extends AbleOps[L](left)
+      final implicit def __DFUIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): __DFUIntFromXLong[L] = new __DFUIntFromXLong(left)
+      sealed class __DFUIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
+      final implicit def __DFUIntFromBigInt[L <: BigInt](left: L): __DFUIntFromBigInt[L] = new __DFUIntFromBigInt[L](left)
+      sealed class __DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFUInt[W]](left)
+      final implicit def __DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFUIntFromDefaultRet[W] = new __DFUIntFromDefaultRet(left)
+      final implicit def __ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
+      implicit class __ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
         final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
         final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
       }
-      final implicit class DFUIntOps[LW](val left : DFUInt[LW]){
+      final implicit class __DFUIntOps[LW](val left : DFUInt[LW]){
         def +   [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
         def -   [R](right : Able[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
         def <   [R](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
