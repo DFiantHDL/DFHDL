@@ -5,9 +5,8 @@ import DFiant.csprinter.CSPrinter
 import compiler.backend.Backend
 
 final case class BackendEmitter(
-  seq : Seq[Either[BackendEmitter.Ref, String]], backendStage : Backend.Stage, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+  seq : Seq[Either[BackendEmitter.Ref, String]], backendStage : Backend.Stage, ownerRef : DFOwner.Ref, tags : DFMember.Tags
 ) extends CanBeGuarded with CanBeAnonymous {
-  type TTags = DFMember.Tags.Basic
   type TCustomTag = DFMember.CustomTag
   override protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
     case BackendEmitter(seq, backendStage, _, tags) =>
@@ -24,7 +23,7 @@ final case class BackendEmitter(
     case Right(x) => x
   }.mkString + "\""
   private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-  def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
+  def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
     implicit getSet : MemberGetSet
   ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
 }

@@ -66,9 +66,12 @@ final class VHDLBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
             (Port(p.name, Port.Dir.Out(), Type(p), Init(p)) :: ports, signals, variables)
           case (s : DFAny, (ports, signals, variables))
             if !s.isAnonymous && (
-              designDB.getConnectionTo(s).isDefined
-              || s.tags.customTags.values.exists{case _ : Sync.Tag => true}
-              || designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(Sync.Tag.Reg))) =>
+              designDB.getConnectionTo(s).isDefined ||
+              s.tags.customTags.values.exists{
+                case _ : Sync.Tag => true
+                case _ => false
+              } ||
+              designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(Sync.Tag.Reg))) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
           case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)

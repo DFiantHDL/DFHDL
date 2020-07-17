@@ -19,16 +19,15 @@ class DFScope(val customName : Option[String] = None, val nameFlatten : DFOwner.
 
 object DFScope {
   final case class Owner(
-    nameFlatten : DFOwner.NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+    nameFlatten : DFOwner.NameFlatten, ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends DFOwner.NameFlattenOwner {
-    type TTags = DFMember.Tags.Basic
     type TCustomTag = DFMember.CustomTag
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Owner(_, _, tags) => this.tags =~ tags //Deliberately ignoring nameFlatten. Only the final name (in tags) matters.
       case _ => false
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
 

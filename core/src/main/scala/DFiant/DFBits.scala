@@ -283,21 +283,21 @@ object DFBits extends DFAny.Companion {
       }
       final implicit class DFBitsAliases[LW, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LW], Mod]) {
         def uint(implicit ctx : DFAny.Context) : DFAny.Value[DFUInt.Type[LW], Mod] =
-          left.as(DFUInt.Type(left.width)).overrideCodeString(rs => s"$rs.uint")
+          left.as(DFUInt.Type(left.width)).setCodeStringOverride(rs => s"$rs.uint")
         def sint(implicit ctx : DFAny.Context) : DFAny.Value[DFSInt.Type[LW], Mod] =
-          left.as(DFSInt.Type(left.width)).overrideCodeString(rs => s"$rs.sint")
+          left.as(DFSInt.Type(left.width)).setCodeStringOverride(rs => s"$rs.sint")
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
         ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] =
-          left.bits(relBitHigh, relBitLow).overrideCodeString(rs => s"$rs($relBitHigh, $relBitLow)")
+          left.bits(relBitHigh, relBitLow).setCodeStringOverride(rs => s"$rs($relBitHigh, $relBitLow)")
         def apply[I](relBit: BitIndex.Checked[I, left.Width])(
           implicit ctx : DFAny.Context
         ) : DFAny.Value[DFBool.Type, Mod] =
-          left.bit(relBit).overrideCodeString(rs => s"$rs($relBit)")
+          left.bit(relBit).setCodeStringOverride(rs => s"$rs($relBit)")
         def msbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
-          DFAny.Alias.BitsWL.bit(left, left.width-1).overrideCodeString(rs => s"$rs.msbit")
+          DFAny.Alias.BitsWL.bit(left, left.width-1).setCodeStringOverride(rs => s"$rs.msbit")
         def lsbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
-          DFAny.Alias.BitsWL.bit(left, 0).overrideCodeString(rs => s"$rs.lsbit")
+          DFAny.Alias.BitsWL.bit(left, 0).setCodeStringOverride(rs => s"$rs.lsbit")
       }
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

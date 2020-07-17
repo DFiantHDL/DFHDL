@@ -90,14 +90,13 @@ object DFDesign {
   }
 
   sealed trait Block extends DFBlock {
-    type TTags = DFMember.Tags.Basic
     type TCustomTag = Block.CustomTag
     val designType: String
     def headerCodeString(implicit printer: CSPrinter): String = s"trait $designType extends DFDesign"
   }
   object Block {
     trait CustomTag extends DFMember.CustomTag
-    final case class Internal(designType: String, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
+    final case class Internal(designType: String, ownerRef : DFOwner.Ref, tags : DFMember.Tags, inlinedRep : Option[DFInlineComponent.Rep]) extends Block {
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Internal(designType, _, tags, inlinedRep) =>
           val inlineRepEq = (this.inlinedRep, inlinedRep) match {
@@ -109,7 +108,7 @@ object DFDesign {
         case _ => false
       }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
       override lazy val typeName : String = designType
     }
     object Internal {
@@ -120,7 +119,7 @@ object DFDesign {
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
     }
-    final case class Top(designType: String, tags : DFMember.Tags.Basic, simMode : DFSimDesign.Mode)(db: DB.Mutable) extends Block {
+    final case class Top(designType: String, tags : DFMember.Tags, simMode : DFSimDesign.Mode)(db: DB.Mutable) extends Block {
       override lazy val ownerRef : DFOwner.Ref = ???
       override def getOwnerBlock(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
@@ -132,7 +131,7 @@ object DFDesign {
       override lazy val typeName : String = designType
       override def getFullName(implicit getSet : MemberGetSet): String = name
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : this.type = ???
-      def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
     }
   }
 

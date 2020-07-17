@@ -74,7 +74,7 @@ object ProcSynth extends App {
 
 object ProcTest extends App {
   import compiler.backend.vhdl.v2008
-  import sim.tools.modelsim
+  import sim.tools.ghdl
   val riscv_tb = new riscv_tb(Program.fromFile("riscv-bmarks/towers.riscv.dump"))
   riscv_tb
     .compile

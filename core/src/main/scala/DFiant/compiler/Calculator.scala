@@ -8,7 +8,7 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation
   private val designDB = c.db
   import designDB.__getset
   @tailrec private def calcInitRec(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]], requestedCalc : Set[DFAny]) : Map[DFAny, Seq[DFAny.Token]] = {
-    def getInit(member : DFAny) : Option[Seq[DFAny.Token]] = member.tags.init match {
+    def getInit(member : DFAny) : Option[Seq[DFAny.Token]] = member.getInit match {
       case Some(init) => Some(init)
       case None => calc.get(member)
     }
@@ -58,10 +58,10 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation
   def calcInit = {
     //we request init calculation for all members that can have initialization and currently do not have
     //a calculated init tag (the tag is empty).
-    val calcMembers = designDB.members.collect{case v : DFAny if v.tags.init.isEmpty => v}
+    val calcMembers = designDB.members.collect{case v : DFAny if v.getInit.isEmpty => v}
     val initMap = calcInitRec(calcMembers, Map(), Set())
     val patchList = initMap.toList.map{
-      case (v, init) => v -> Patch.Replace(v.setTags(_.setInit(init)), Patch.Replace.Config.FullReplacement)
+      case (v, init) => v -> Patch.Replace(v.setInit(init), Patch.Replace.Config.FullReplacement)
     }
     c.newStage[Calculator](designDB.patch(patchList))
   }

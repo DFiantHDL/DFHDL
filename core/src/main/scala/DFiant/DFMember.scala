@@ -22,10 +22,9 @@ trait HasTypeName {
   }
 }
 trait DFMember extends HasTypeName with Product with Serializable {self =>
-  type TTags <: DFMember.Tags{type TTags = self.TTags}
   type TCustomTag <: DFMember.CustomTag
   val ownerRef : DFOwner.Ref
-  val tags : TTags
+  val tags : DFMember.Tags
   final def getOwner(implicit getSet: MemberGetSet) : DFOwner = this match {
     case top : DFDesign.Block.Top => top
     case _ => ownerRef.get
@@ -86,7 +85,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
   private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember
   private[DFiant] final def updateOwner(implicit ctx : DFMember.Context) : this.type = setOwnerRef(ctx.owner).asInstanceOf[this.type]
-  def setTags(tagsFunc : TTags => TTags)(implicit getSet : MemberGetSet) : DFMember
+  def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember
   def show(implicit printer: CSPrinter) : String = s"$getFullName : $typeName"
 }
 
@@ -99,6 +98,7 @@ object DFMember {
     def anonymize : M = member.setTags(_.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(_.setKeep(true)).asInstanceOf[M]
     def !![CT <: member.TCustomTag : ClassTag](customTag : CT) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def removeTagOf[CT <: member.TCustomTag : ClassTag] : M = member.setTags(_.removeTagOf[CT]).asInstanceOf[M]
     def getTagOf[CT <: member.TCustomTag : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
     def isTaggedWith[CT <: member.TCustomTag : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined
     def setLateContruction(value : Boolean) : M = member.setTags(_.setLateContruction(value)).asInstanceOf[M]
@@ -107,37 +107,20 @@ object DFMember {
 
   trait CustomTag extends Product with Serializable
   type CustomTagMap = Map[ClassTag[_], CustomTag]
-  trait Tags extends Product with Serializable {
-    type TTags <: Tags
-    val meta : Meta
-    val keep : Boolean
-    val customTags : CustomTagMap
-    def setMeta(meta : Meta) : TTags
-    def setKeep(keep : Boolean) : TTags
-    def !![CT <: CustomTag : ClassTag](customTag : CT) : TTags
-    final def getTagOf[CT <: CustomTag : ClassTag] : Option[CT] =
+  final case class Tags(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Product with Serializable {
+    def setMeta(meta : Meta) : Tags = copy(meta = meta)
+    def setKeep(keep : Boolean) : Tags = copy(keep = keep)
+    def !![CT <: CustomTag : ClassTag](customTag : CT) : Tags = copy(customTags = customTags + (classTag[CT] -> customTag))
+    def removeTagOf[CT <: CustomTag : ClassTag] : Tags = copy(customTags = customTags - classTag[CT])
+    def getTagOf[CT <: CustomTag : ClassTag] : Option[CT] =
       customTags.get(classTag[CT]).asInstanceOf[Option[CT]]
     def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
-    final def setName(value : String) : TTags = setMeta(meta.setName(value))
-    final def setLateContruction(value : Boolean) : TTags = setMeta(meta.copy(lateConstruction = value))
-    final def anonymize : TTags = setMeta(meta.anonymize)
+    def setName(value : String) : Tags = setMeta(meta.setName(value))
+    def setLateContruction(value : Boolean) : Tags = setMeta(meta.copy(lateConstruction = value))
+    def anonymize : Tags = setMeta(meta.anonymize)
   }
   object Tags {
-    import shapeless._
-    final protected val metaP = ^.meta
-    final protected val keepP = ^.keep
-    final protected val customTagsP = ^.customTags
-    abstract class CC[P <: CC[P]](
-      implicit metaL: metaP.Lens[P, Meta], keepL : keepP.Lens[P, Boolean], customTagsL : customTagsP.Lens[P, CustomTagMap]
-    ) extends Tags {self : P =>
-      type TTags = P
-      final def setMeta(meta : Meta) : P = metaL().set(self)(meta)
-      final def setKeep(keep : Boolean) : P = keepL().set(self)(keep)
-      final def !![CT <: CustomTag : ClassTag](customTag : CT) : P = customTagsL().modify(self)(tList => tList + (classTag[CT] -> customTag))
-    }
-
-    final case class Basic(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Tags.CC[Basic]
-    implicit def fromMeta(meta : Meta) : Basic = Basic(meta, keep = false, Map())
+    implicit def fromMeta(meta : Meta) : Tags = Tags(meta, keep = false, Map())
   }
 
   trait Context {

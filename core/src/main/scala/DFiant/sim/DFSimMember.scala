@@ -4,13 +4,12 @@ package sim
 import DFiant.csprinter.CSPrinter
 
 sealed trait DFSimMember extends DFMember {
-  type TTags = DFMember.Tags.Basic
   def codeString(implicit printer: CSPrinter) : String
 }
 object DFSimMember {
   final case class Assert(
     condOptionRef : Option[Assert.CondRef], msgRef : Assert.MessageRef, severity : Severity,
-    ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+    ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends DFSimMember  with CanBeGuarded with DFAny.CanBeAnonymous {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Assert(condOptionRef, msg, severity, _, tags) =>
@@ -32,7 +31,7 @@ object DFSimMember {
       }
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
@@ -52,7 +51,7 @@ object DFSimMember {
     }
     object Unref {
       def unapply(arg: Assert)(implicit getSet: MemberGetSet)
-      : Option[(Option[DFBool], Message, Severity, DFOwner.Ref, DFMember.Tags.Basic)] = {
+      : Option[(Option[DFBool], Message, Severity, DFOwner.Ref, DFMember.Tags)] = {
         import arg._
         Some((condOptionRef.map(c => c.get), msgRef.get, severity, ownerRef, tags))
       }
@@ -90,7 +89,7 @@ object DFSimMember {
   }
 
   final case class Finish(
-    ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic
+    ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends DFSimMember with CanBeGuarded with DFAny.CanBeAnonymous {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Finish(_, tags) => this.tags =~ tags
@@ -101,7 +100,7 @@ object DFSimMember {
       s"$DF sim.$DF finish()"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }

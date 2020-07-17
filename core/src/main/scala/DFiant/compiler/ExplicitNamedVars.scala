@@ -29,7 +29,7 @@ final class ExplicitNamedVarsOps[D <: DFDesign, S <: shapeless.HList](c : IRComp
         case DFAny.Dcl(_,Modifier.MatchRetVar | Modifier.IfRetVar | Modifier.Port(_),_,_,_) => None //ignoring ports and match/if return variables
         case _ =>
           val anon = named.anonymize
-          val externalInit = named.tags.init match {
+          val externalInit = named.getInit match {
             case Some(i +: _) if !i.isBubble => Some(Seq(i))
             case _ => None
           }

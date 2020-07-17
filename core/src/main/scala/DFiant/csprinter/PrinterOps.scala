@@ -36,7 +36,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       case sim : DFSimMember => Some(sim.codeString)
       case emitter : BackendEmitter => Some(emitter.codeString)
       case a : DFAny if !a.isAnonymous =>
-        val initInfo = if (showInits) a.tags.init match {
+        val initInfo = if (showInits) a.getInit match {
           case Some(init) => s"//init = ${init.codeString}"
           case None => "//init = Unknown"
         } else ""

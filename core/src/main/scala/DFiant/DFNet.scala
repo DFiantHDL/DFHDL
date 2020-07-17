@@ -4,7 +4,6 @@ import DFiant.internals._
 import printer.formatter._
 
 sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
-  type TTags = DFMember.Tags.Basic
   type TCustomTag = DFMember.CustomTag
   val toRef : DFNet.ToRef
   val fromRef : DFNet.FromRef
@@ -41,14 +40,14 @@ object DFNet {
     implicit val ev : Type = new Type {}
   }
 
-  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFNet(":=") with CanBeGuarded {
+  final case class Assignment(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags) extends DFNet(":=") with CanBeGuarded {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Assignment(toRef, fromRef, _, tags) =>
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
       case _ => false
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Assignment {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
@@ -58,21 +57,21 @@ object DFNet {
       ret
     }
     object Unref {
-      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags.Basic)] = arg match {
+      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Assignment(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
         case _ => None
       }
     }
   }
 
-  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags.Basic) extends DFNet("<>") {
+  final case class Connection(toRef : DFNet.ToRef, fromRef : DFNet.FromRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags) extends DFNet("<>") {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Connection(toRef, fromRef, _, tags) =>
         this.toRef =~ toRef && this.fromRef =~ fromRef && this.tags =~ tags
       case _ => false
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFMember.Tags.Basic => DFMember.Tags.Basic)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Connection {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
@@ -82,7 +81,7 @@ object DFNet {
       ret
     }
     object Unref {
-      def unapply(arg : Connection)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags.Basic)] = arg match {
+      def unapply(arg : Connection)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Connection(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
         case _ => None
       }

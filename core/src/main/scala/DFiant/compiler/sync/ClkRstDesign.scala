@@ -17,12 +17,12 @@ protected[sync] abstract class ClkRstDesign(clkParams : ClockParams, rstParams :
   }
   final lazy val clk = {
     _hasClk = true
-    if (simulation) DFBit().setTags(t => t.copy(init = Some(Seq(DFBool.Token(clkInit))))).asInstanceOf[DFBit].setName(clkParams.name) !! Sync.Tag.Clk
+    if (simulation) DFBit().setInit(Seq(DFBool.Token(clkInit))).asInstanceOf[DFBit].setName(clkParams.name) !! Sync.Tag.Clk
     else DFBit() <> IN !! Sync.Tag.Clk setName(clkParams.name)
   }
   final lazy val rst = {
     _hasRst = true
-    if (simulation) DFBit().setTags(t => t.copy(init = Some(Seq(DFBool.Token(rstInit))))).asInstanceOf[DFBit].setName(rstParams.name) !! Sync.Tag.Rst
+    if (simulation) DFBit().setInit(Seq(DFBool.Token(rstInit))).asInstanceOf[DFBit].setName(rstParams.name) !! Sync.Tag.Rst
     else DFBit() <> IN !! Sync.Tag.Rst setName(rstParams.name)
   }
   final def hasClk : Boolean = _hasClk

@@ -14,7 +14,6 @@ import singleton.ops.impl.HasOut
 sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {
   type TType <: DFAny.Type
   type TMod <: DFAny.Modifier
-  type TTags = DFAny.Tags
   type TCustomTag = DFAny.CustomTag
   val dfType : TType
   val modifier : TMod
@@ -135,13 +134,13 @@ object DFAny {
 
     final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
       DFAny.Alias.BitsWL(this, dfType.width, 0)
-        .overrideCodeString(rs => s"$rs.bits")
+        .setCodeStringOverride(rs => s"$rs.bits")
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
     ) : AsType[DFBits.Type[relWidth.Out]] =
       DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow)
-        .overrideCodeString(rs => s"$rs.bits($relBitHigh, $relBitLow)")
+        .setCodeStringOverride(rs => s"$rs.bits($relBitHigh, $relBitLow)")
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
@@ -252,26 +251,19 @@ object DFAny {
   trait CanBeAnonymous extends DFMember
 
   trait CustomTag extends DFMember.CustomTag
-  final case class Tags(
-    meta : Meta, keep : Boolean, init : Option[Seq[Token]], const : Option[Token], customTags : DFMember.CustomTagMap, codeStringOverride : Option[String => String]
-  ) extends DFMember.Tags.CC[Tags] {
-    override def =~(that : DFMember.Tags) : Boolean = that match {
-      case Tags(_,_,init,_,_,_) => this.init == init && super.=~(that)
-      case _ => false
-    }
-    def setInit(init : Seq[Token]) : Tags = copy(init = Some(init))
-    def overrideCodeString(func : String => String) : Tags = copy(codeStringOverride = Some(func))
-  }
-  object Tags {
-    implicit def fromMeta[Token <: DFAny.Token](meta : Meta) : Tags = Tags(meta, keep = false, None, None, Map(), None)
-  }
+  final case class CodeStringOverride(func : String => String) extends CustomTag
+  final case class Init(seq : Seq[Token]) extends CustomTag
 
-  implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
-    def overrideCodeString(func : String => String) : T = member.setTags(_.overrideCodeString(func)).asInstanceOf[T]
+  protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
+    def setCodeStringOverride(func : String => String) : T = member !! CodeStringOverride(func)
+    def getCodeStringOverride : Option[String => String] = member.getTagOf[CodeStringOverride].map(_.func)
+    def setInit(seq : Seq[Token]) : T = member !! Init(seq)
+    def clearInit : T = member.removeTagOf[Init]
+    def getInit : Option[Seq[Token]] = member.getTagOf[Init].map(_.seq)
   }
 
   final case class Const(
-    dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFOwner.Ref, tags : DFAny.Tags
+    dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends Value[DFAny.Type, Modifier.Val] with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
@@ -285,7 +277,7 @@ object DFAny {
     override def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = codeString
     override def show(implicit printer: CSPrinter) : String = s"Const($token) : $dfType"
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Const {
     type Of[Type <: DFAny.Type] = Value[Type, Modifier.Val]{type TMod = Modifier.Val}
@@ -298,7 +290,7 @@ object DFAny {
   }
 
 //  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
-//    dfType : Type, modifier : Mod, ownerRef : DFOwner.Ref, tags : DFAny.Tags[Type#TToken]
+//    dfType : Type, modifier : Mod, ownerRef : DFOwner.Ref, tags : DFMember.Tags[Type#TToken]
 //  ) extends Value[Type, Mod] {
 //    type TMod = Mod
 //
@@ -310,7 +302,7 @@ object DFAny {
 
 
   final case class Dcl(
-    dfType : DFAny.Type, modifier : DFAny.Modifier, externalInit : Option[Seq[DFAny.Token]], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+    dfType : DFAny.Type, modifier : DFAny.Modifier, externalInit : Option[Seq[DFAny.Token]], ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends Value[Type, DFAny.Modifier] {
     type TMod = DFAny.Modifier
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -337,7 +329,7 @@ object DFAny {
       case _ => s"$dfType"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Dcl {
     trait Uninitialized
@@ -465,7 +457,7 @@ object DFAny {
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
     def relCodeString(cs : String)(implicit printer: CSPrinter) : String
     def codeString(implicit printer: CSPrinter): String = {
-      tags.codeStringOverride match {
+      this.getCodeStringOverride match {
         case Some(func) => func(relValRef.refCodeString.applyBrackets())
         case None => relCodeString(relValRef.refCodeString.applyBrackets())
       }
@@ -480,7 +472,7 @@ object DFAny {
     type Of[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier] = Alias[Type, RelVal, Mod]{type TMod = Mod}
 
     final case class AsIs(
-      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
     ) extends Alias[Type, DFAny, Modifier] {
       type TMod = Modifier
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -494,7 +486,7 @@ object DFAny {
         s"$cs.$DF as(${dfType.codeString})"
       }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object AsIs {
       def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, refVal: RelVal)(
@@ -505,12 +497,12 @@ object DFAny {
         ret.asInstanceOf[Of[Type, RelVal, refVal.TMod]]
       }
       object Unref {
-        def unapply(arg : AsIs)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, DFOwner, DFAny.Tags)] =
+        def unapply(arg : AsIs)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.ownerRef.get, arg.tags)
       }
     }
     final case class BitsWL(
-      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], relWidth : Int, relBitLow : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags
+      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], relWidth : Int, relBitLow : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags
     ) extends Alias[Type, DFAny, Modifier]{
       type TMod = Modifier
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -531,7 +523,7 @@ object DFAny {
         }
       }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object BitsWL {
       def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
@@ -549,12 +541,12 @@ object DFAny {
         ret.asInstanceOf[Of[DFBool.Type, RelVal, refVal.TMod]]
       }
       object Unref {
-        def unapply(arg : BitsWL)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, Int, Int, DFOwner, DFAny.Tags)] =
+        def unapply(arg : BitsWL)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, Int, Int, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.relWidth, arg.relBitLow, arg.ownerRef.get, arg.tags)
       }
     }
     final case class Prev(
-      dfType : Type, relValRef : RelValRef[DFAny], step : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags
+      dfType : Type, relValRef : RelValRef[DFAny], step : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags
     ) extends Alias[Type, DFAny, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -570,7 +562,7 @@ object DFAny {
         if (step == 1) s"$cs.$DF prev" else s"$cs.$DF prev($step)"
       }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Prev {
       def apply[RelVal <: DFAny](refVal: RelVal, step: Int)(
@@ -582,7 +574,7 @@ object DFAny {
       }
     }
     final case class Resize(
-      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
     ) extends Alias[Type, DFAny, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -602,7 +594,7 @@ object DFAny {
         s"$cs.$DF resize($toWidth)"
       }
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Resize {
       def bits[LW, RW](refVal: DFBits[LW], toWidth: TwoFace.Int[RW])(
@@ -627,12 +619,12 @@ object DFAny {
         ret.asInstanceOf[Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val]]
       }
       object Unref {
-        def unapply(arg : Resize)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, DFOwner, DFAny.Tags)] =
+        def unapply(arg : Resize)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.relValRef.get, arg.ownerRef.get, arg.tags)
       }
     }
 //    final case class Shift[RelVal <: DFAny](
-//      dfType : RelVal#TType, relValRef : RelValRef[RelVal], dir : Shift.Direction, count : Int, ownerRef : DFOwner.Ref, tags : DFAny.Tags[RelVal#TType#TToken]
+//      dfType : RelVal#TType, relValRef : RelValRef[RelVal], dir : Shift.Direction, count : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags[RelVal#TType#TToken]
 //    ) extends Alias[RelVal#TType, RelVal, Modifier.Val] {
 //      type TMod = Modifier.Val
 //      val modifier : TMod = Modifier.Val
@@ -657,7 +649,7 @@ object DFAny {
 //      }
 //    }
     final case class Invert(
-      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
     ) extends Alias[Type, DFAny, Modifier.Val] {
       type TMod = Modifier.Val
       val modifier : TMod = Modifier.Val
@@ -676,7 +668,7 @@ object DFAny {
       }
       def relCodeString(cs : String)(implicit printer: CSPrinter) : String = s"$op$cs"
       private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Invert {
       def apply[RelVal <: DFAny](refVal: RelVal)(
@@ -691,7 +683,7 @@ object DFAny {
 
   //TODO: Mutable concat
 //  final case class ConcatBits[W, Mod <: Modifier](
-//    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFOwner.Ref, tags : DFAny.Tags[DFBits.Type[W]#TToken]
+//    dfType : DFBits.Type[W], modifier : Mod, relValRefs : Seq[Alias.RelValRef[DFBits[_]]], ownerRef : DFOwner.Ref, tags : DFMember.Tags[DFBits.Type[W]#TToken]
 //  ) extends Value[DFBits.Type[W], Mod] with CanBeAnonymous {
 //    type TMod = Mod
 //    override def codeString(implicit printer: Printer): String =
@@ -710,7 +702,7 @@ object DFAny {
   }
 
   final case class Func2(
-    dfType: Type, leftArgRef : Func2.Ref.LeftArg[DFAny], op : Func2.Op, rightArgRef : Func2.Ref.RightArg[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+    dfType: Type, leftArgRef : Func2.Ref.LeftArg[DFAny], op : Func2.Op, rightArgRef : Func2.Ref.RightArg[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
   )(val tokenFunc : (Token, Token) => Token) extends Func[Type] {
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(tokenFunc)
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
@@ -723,7 +715,7 @@ object DFAny {
     }
     override def show(implicit printer: CSPrinter) : String = s"$codeString : $dfType"
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)(tokenFunc)
-    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(tokenFunc))
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(tokenFunc))
   }
   object Func2 {
     type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
@@ -818,7 +810,7 @@ object DFAny {
       ret.asInstanceOf[Func[Type]]
     }
     object Unref {
-      def unapply(arg : Func2)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Op, DFAny, DFOwner, DFAny.Tags)] = arg match {
+      def unapply(arg : Func2)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Op, DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Func2(dfType, leftArgRef, op, rightArgRef, ownerRef, tags) => Some((dfType, leftArgRef.get, op, rightArgRef.get, ownerRef.get, tags))
         case _ => None
       }
@@ -831,7 +823,7 @@ object DFAny {
   // Dynamic Dataflow Constructs
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final case class Fork(
-    dfType : Type, relValRef : Fork.Ref[DFAny], ownerRef : DFOwner.Ref, tags : DFAny.Tags
+    dfType : Type, relValRef : Fork.Ref[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends Value[DFAny.Type, Modifier.Fork] {
     type TMod = Modifier.Fork
     val modifier : TMod = Modifier.Fork
@@ -845,7 +837,7 @@ object DFAny {
       s"${relValRef.refCodeString.applyBrackets()}.$DF fork"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember =
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Fork {
@@ -863,7 +855,7 @@ object DFAny {
       ret.asInstanceOf[Of[RelVal#TType]]
     }
     object Unref {
-      def unapply(arg : Fork)(implicit getSet: MemberGetSet) : Option[(DFAny.Type, DFAny, DFOwner, Tags)] =
+      def unapply(arg : Fork)(implicit getSet: MemberGetSet) : Option[(DFAny.Type, DFAny, DFOwner, DFMember.Tags)] =
         Some((arg.dfType, arg.relValRef.get, arg.ownerRef.get, arg.tags))
     }
   }
@@ -874,7 +866,7 @@ object DFAny {
     //Dynamic is a always boolean for implementation simplification. Only `IsNotEmpty` and `IsNotFull` are
   //useable as boolean values.
   final case class Dynamic(
-    relValRef : Dynamic.Ref[DFAny], func : Dynamic.Func, ownerRef : DFOwner.Ref, tags : DFAny.Tags
+    relValRef : Dynamic.Ref[DFAny], func : Dynamic.Func, ownerRef : DFOwner.Ref, tags : DFMember.Tags
   ) extends DFBool with CanBeAnonymous {
     type TMod = Modifier.Val
     val modifier : TMod = Modifier.Val
@@ -889,7 +881,7 @@ object DFAny {
       s"${relValRef.refCodeString.applyBrackets()}.$DF ${func.codeString}"
     }
     private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFAny.Tags => DFAny.Tags)(implicit getSet : MemberGetSet) : DFMember =
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Dynamic {
@@ -933,42 +925,42 @@ object DFAny {
     }
 
     object Unref {
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, Func, DFOwner, Tags)] =
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, Func, DFOwner, DFMember.Tags)] =
         Some((arg.relValRef.get, arg.func, arg.ownerRef.get, arg.tags))
     }
     object IsNotEmpty {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotEmpty)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.IsNotEmpty, owner, tags) => Some((relVal, owner, tags))
       }
     }
     object IsNotFull {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotFull)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.IsNotFull, owner, tags) => Some((relVal, owner, tags))
       }
     }
     object IsStallBubble {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsStallBubble)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.IsStallBubble, owner, tags) => Some((relVal, owner, tags))
       }
     }
     object Consume {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.Consume)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.Consume, owner, tags) => Some((relVal, owner, tags))
       }
     }
     object DontConsume {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontConsume)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.DontConsume, owner, tags) => Some((relVal, owner, tags))
       }
     }
     object DontProduce {
       def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontProduce)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, Tags)] = arg match {
+      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.DontProduce, owner, tags) => Some((relVal, owner, tags))
       }
     }

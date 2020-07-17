@@ -51,7 +51,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
         case _ => false
       }
       lazy val hasPrevRst = members.exists{
-        case p : DFAny.Alias.Prev => p.tags.init match {
+        case p : DFAny.Alias.Prev => p.getInit match {
           case Some(_ :: _) => true
           case _ => false
         }
@@ -105,7 +105,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
           sig
         case _ => relVal
       }
-      def rstAssign(implicit ctx : DFBlock.Context) : Unit = relVal.tags.init match {
+      def rstAssign(implicit ctx : DFBlock.Context) : Unit = relVal.getInit match {
         case Some(i +: _) =>
           val initConst = DFAny.Const.forced(regVar.dfType, i)
           regVar.assign(initConst)
@@ -118,8 +118,8 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
       import designDB.__getset
       var hasPrevRst = false
       val prevReplacements : List[PrevReplacements] = members.collect {
-        case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev(_, relValRef, _, _, tags), _, _) =>
-          tags.init match {
+        case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev(_, relValRef, _, _, _), _, _) =>
+          prevVal.getInit match {
             case Some(i +: _) if !i.isBubble => hasPrevRst = true
             case _ =>
           }
@@ -161,7 +161,7 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
         (block -> Patch.Add(prevDB, Patch.Add.Config.Inside)) ::
           prevReplacements.flatMap {
             case PrevReplacements(prevNet, prevVar, prevVal, relVal, regVar) =>
-              val prevVarNoInit = prevVar.copy(externalInit = None).setTags(t => t.copy(init = None))
+              val prevVarNoInit = prevVar.copy(externalInit = None).clearInit
               List (
                 prevVar -> Patch.Add(List(prevVarNoInit, regVar), Patch.Add.Config.ReplaceWithFirst()),
                 prevVal -> Patch.Replace(regVar, Patch.Replace.Config.ChangeRefAndRemove),

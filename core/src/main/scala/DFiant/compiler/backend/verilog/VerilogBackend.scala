@@ -101,7 +101,7 @@ final class VerilogBackendOps[D <: DFDesign, S <: shapeless.HList](c : IRCompila
           def unapply(rst : DFAny) : Option[String] = rst match {
             case Sync.IsReset() =>
               val reg = Reg(rst.name, Type(rst), Init(rst))
-              val inactiveVerilog = rst.tags.init.head.head match {
+              val inactiveVerilog = rst.getInit.head.head match {
                 case DFBool.Token(_,false,_) => "1"
                 case DFBool.Token(_,true,_) => "0"
               }
