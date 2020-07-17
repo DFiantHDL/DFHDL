@@ -249,8 +249,8 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  final case class CodeStringOverride(func : String => String) extends DFMember.CustomTagOf[DFAny]
-  final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
+  protected final case class CodeStringOverride(func : String => String) extends DFMember.CustomTagOf[DFAny]
+  protected final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
 
   protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
     def setCodeStringOverride(func : String => String) : T = member !! CodeStringOverride(func)
