@@ -168,6 +168,6 @@ final class Compiler[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S
       case _ => None
     }
     val globalDefsFile = BackendStage.File(s"${GlobalDefsFile.Name()}.v", GlobalDefsFile())
-    BackendStage.Compilation[D, Backend[R]](designDB, globalDefsFile :: files)
+    BackendStage.Compilation[D, Backend[R]](c.dsn, designDB, globalDefsFile :: files)
   }
 }

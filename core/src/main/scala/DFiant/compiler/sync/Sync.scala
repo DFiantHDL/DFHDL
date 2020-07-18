@@ -60,27 +60,3 @@ private[compiler] object Sync {
     def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.isTaggedWith(Sync.Tag.Reg)
   }
 }
-
-final case class ClockParams(name : String, edge : ClockParams.Edge = ClockParams.Edge.Rising) extends DFMember.CustomTagOf[DFDesign.Block]
-object ClockParams {
-  type Edge = EdgeDetect.Edge
-  final val Edge = EdgeDetect.Edge
-  final val default = ClockParams("clk", Edge.Rising)
-  def get(implicit getSet: MemberGetSet) : ClockParams = getSet.designDB.top.getTagOf[sync.ClockParams].getOrElse(default)
-}
-
-final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFMember.CustomTagOf[DFDesign.Block]
-object ResetParams {
-  sealed trait Mode extends Product with Serializable
-  object Mode {
-    case object Async extends Mode
-    case object Sync extends Mode
-  }
-  sealed trait Active extends Product with Serializable
-  object Active {
-    case object Low extends Active
-    case object High extends Active
-  }
-  final val default = ResetParams("rst", Mode.Async, Active.Low)
-  def get(implicit getSet: MemberGetSet) : ResetParams = getSet.designDB.top.getTagOf[sync.ResetParams].getOrElse(default)
-}

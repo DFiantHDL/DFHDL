@@ -2,9 +2,12 @@ package DFiant
 package compiler.sync
 
 import DFiant.EdgeDetect.Edge
-import DFiant.compiler.sync.ResetParams.Active
+import constraints.timing.sync._
+import ResetParams.Active
 
-protected[sync] abstract class ClkRstDesign(clkParams : ClockParams, rstParams : ResetParams, simulation : Boolean)(implicit ctx : ContextOf[ClkRstDesign]) extends MetaDesign {
+protected[sync] abstract class ClkRstDesign(clkParams : ClockParams, rstParams : ResetParams, simulation : Boolean)(
+  implicit ctx : ContextOf[ClkRstDesign]
+) extends MetaDesign {
   private var _hasClk = false
   private var _hasRst = false
   private val clkInit : Int = clkParams.edge match {

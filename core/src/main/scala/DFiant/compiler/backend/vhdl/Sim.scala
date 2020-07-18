@@ -1,8 +1,8 @@
 package DFiant
 package compiler.backend.vhdl
 
-import DFiant.compiler.sync.ResetParams.Active
-import compiler.sync._
+import constraints.timing.sync._
+import ResetParams.Active
 import DFiant.sim._
 import printer.formatter._
 

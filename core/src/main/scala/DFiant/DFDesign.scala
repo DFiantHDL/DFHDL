@@ -44,6 +44,7 @@ object DFDesign {
     protected[DFiant] final implicit lazy val __db : DFDesign.DB.Mutable = __ctx.db
     private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(typeName, inlinedRep, simMode)(__ctx)
     protected[DFiant] final implicit val __dir : DFDir = ASIS
+    final protected val dsn : this.type = this
 
     ///////////////////////////////////////////////////////////////////
     // Context implicits
@@ -64,8 +65,23 @@ object DFDesign {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
-  }
 
+    implicit class __DesignExtender[D <: DFDesign](design : D) {
+      private def onBlock(blockMod : Block => Block) : D = {
+        blockMod(design.owner)
+        design
+      }
+      def setName(value : String) : D = onBlock(_.setName(value))
+      def keep : D = onBlock(_.keep)
+      def !![CT <: DFMember.CustomTagOf[Block] : ClassTag](customTag : CT) : D = onBlock(_.!!(customTag))
+      def !!(tags : TagsOf[D]) : D = {
+        tags.attachDesign(design)
+        tags.getTagMap.foreach{case (member, tagMap) => member !! tagMap}
+        design
+      }
+      def getTagOf[CT <: DFMember.CustomTagOf[Block] : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
+    }
+  }
 
   trait Implicits extends
     DFBits.Op.Implicits with
@@ -76,18 +92,6 @@ object DFDesign {
     DFString.Op.Implicits
 
   object Implicits extends Implicits
-
-  implicit class DesignExtender[T <: DFDesign](design : T) {
-    import design.__db.getSet
-    private def onBlock(blockMod : Block => Block) : T = {
-      blockMod(design.owner)
-      design
-    }
-    def setName(value : String) : T = onBlock(_.setName(value))
-    def keep : T = onBlock(_.keep)
-    def !![CT <: DFMember.CustomTagOf[Block] : ClassTag](customTag : CT) : T = onBlock(_.!!(customTag))
-    def getTagOf[CT <: DFMember.CustomTagOf[Block] : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
-  }
 
   sealed trait Block extends DFBlock {
     val designType: String

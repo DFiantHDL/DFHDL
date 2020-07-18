@@ -8,7 +8,7 @@ import DFiant.sim.{DFSimDesign, Simulation}
 
 import scala.language.postfixOps
 import scala.sys.process._
-import compiler.sync._
+import constraints.timing.sync._
 
 final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
   db : DFDesign.DB,

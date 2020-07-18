@@ -127,6 +127,6 @@ final class Compiler[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S
       case _ => None
     }
     val packageFile = BackendStage.File(s"${PackageFile.Name()}.vhdl", PackageFile())
-    BackendStage.Compilation[D, Backend[R]](designDB, packageFile :: files)
+    BackendStage.Compilation[D, Backend[R]](c.dsn, designDB, packageFile :: files)
   }
 }

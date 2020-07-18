@@ -10,7 +10,7 @@ trait BackendStage extends compiler.Compilation.Stage {
 }
 object BackendStage {
   final case class Compilation[D <: DFDesign, B <: BackendStage](
-    db : DFDesign.DB, fileSeq : Seq[File]
+    dsn : D, db : DFDesign.DB, fileSeq : Seq[File]
   ) extends compiler.Compilation[D] {
     def printGenFiles(includeGlobalDefsPackage : Boolean = false) : this.type = {
       val printSeq = if (includeGlobalDefsPackage) fileSeq else fileSeq.drop(1)
@@ -39,7 +39,7 @@ object BackendStage {
           pw.close()
           fullName
       }
-      CommittedCompilation[D, B](db, fileNameSeq)
+      CommittedCompilation[D, B](dsn, db, fileNameSeq)
     }
     def toFile(fileName : String) : CommittedCompilation[D, B] = {
       import java.io._
@@ -52,13 +52,13 @@ object BackendStage {
           pw.write(uncolored)
       }
       pw.close()
-      CommittedCompilation[D, B](db, Seq(fileName))
+      CommittedCompilation[D, B](dsn, db, Seq(fileName))
     }
     override def toString : String = s"The Design ${db.top.designType} is compiled. The files are (not committed):\n ${fileSeq.map(f => f.name).mkString(", ")}"
   }
 
   final case class CommittedCompilation[D <: DFDesign, B <: BackendStage](
-    db : DFDesign.DB, fileNameSeq : Seq[String]
+    dsn : D, db : DFDesign.DB, fileNameSeq : Seq[String]
   ) extends compiler.Compilation[D] {
     override def toString : String = s"Design ${db.top.designType} committed as the following files:\n ${fileNameSeq.mkString("\n")}"
   }

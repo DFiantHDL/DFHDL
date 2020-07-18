@@ -96,7 +96,8 @@ object DFMember {
     def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
     def anonymize : M = member.setTags(_.anonymize).asInstanceOf[M]
     def keep : M = member.setTags(_.setKeep(true)).asInstanceOf[M]
-    def !![CT <: CustomTagOf[M]](customTag : CT)(implicit ct : ClassTag[CT]) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def !![CT <: CustomTagOf[M] : ClassTag](customTag : CT) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
+    def !!(customTags : CustomTagMap) : M = member.setTags(t => t.copy(customTags = t.customTags ++ customTags)).asInstanceOf[M]
     def removeTagOf[CT <: CustomTagOf[M] : ClassTag] : M = member.setTags(_.removeTagOf[CT]).asInstanceOf[M]
     def getTagOf[CT <: CustomTagOf[M] : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
     def isTaggedWith[CT <: CustomTagOf[M] : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined

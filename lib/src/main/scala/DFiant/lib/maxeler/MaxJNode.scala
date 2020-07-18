@@ -3,8 +3,8 @@ package lib.maxeler
 import DFiant.compiler.backend.BackendStage
 import DFiant.compiler.backend.vhdl.Revision.V93
 import DFiant.compiler.backend.vhdl.Compiler
-import compiler.{Compilation, IRCompilation, sync}
-import compiler.sync._
+import compiler.{Compilation, IRCompilation}
+import constraints.timing.sync._
 
 final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
   private val designDB = c.db
@@ -94,8 +94,8 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D
   private val instName : String = designDB.top.name
   private val packName : String = designDB.top.name
   private val className : String = s"${designDB.top.typeName}Node"
-  private val clkName : String = db.top.getTagOf[sync.ClockParams].getOrElse(ClockParams.default).name
-  private val rstName : String = db.top.getTagOf[sync.ResetParams].getOrElse(ResetParams.default).name
+  private val clkName : String = ClockParams.get.name
+  private val rstName : String = ResetParams.get.name
 
   private val pullInStr : String = pullInputs.map(p => s"""\n\t\taddInputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
   private val pullOutStr : String = pullOutputs.map(p => s"""\n\t\taddOutputStream("${p.name}", ${p.width}, nodeClock, CustomNodeFlowControl.PULL, 1);""").mkString
@@ -126,12 +126,12 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D
   }
 
   def maxjCompile : BackendStage.Compilation[D, MaxJNode] = {
-    val vhdlCompile = new Compiler(IRCompilation[D, shapeless.HNil](db)).vhdlCompile[V93]
+    val vhdlCompile = new Compiler(IRCompilation[D, shapeless.HNil](c.dsn, db)).vhdlCompile[V93]
     val vhdlFileNames = vhdlCompile.fileSeq.collect {
       case BackendStage.File(fileName, _) if fileName.endsWith(".vhdl") => fileName
     }
     val addedFile = BackendStage.File(s"$className.maxj", nodeMaxJString(vhdlFileNames))
-    BackendStage.Compilation[D, MaxJNode](vhdlCompile.db, vhdlCompile.fileSeq :+ addedFile)
+    BackendStage.Compilation[D, MaxJNode](c.dsn, vhdlCompile.db, vhdlCompile.fileSeq :+ addedFile)
   }
 }
 

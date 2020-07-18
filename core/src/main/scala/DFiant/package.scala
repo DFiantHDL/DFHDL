@@ -16,7 +16,7 @@
  */
 
 import DFiant.internals._
-import DFiant.compiler.{Compilation, IRCompilation}
+import DFiant.compiler.{AddTagsOps, Compilation, IRCompilation}
 import DFiant.compiler.backend.BackendStage
 import DFiant.csprinter.PrinterOps
 
@@ -36,6 +36,12 @@ package object DFiant {
 
   implicit def evPrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D])
   : PrinterOps[D, C] = new PrinterOps[D, C](c)
+  implicit class evAddTagOps[D <: DFDesign, H <: shapeless.HList, C](c : C)(
+    implicit conv : C => IRCompilation[D, H], externalExtension: ExternalExtension
+  ) {
+    def !!(tags : TagsOf[D]) = new AddTagsOps[D, H](conv(c)).addTags(tags)
+  }
+
   implicit class BackendExt[D <: DFDesign, H <: shapeless.HList, T](t : T)(implicit conv : T => IRCompilation[D, H]) {
     def compile[B <: BackendStage](implicit compiler : BackendStage.Compiler[B]) : BackendStage.Compilation[D, B] = compiler(t)
   }

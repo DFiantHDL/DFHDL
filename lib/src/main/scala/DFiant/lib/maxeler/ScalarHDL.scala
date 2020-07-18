@@ -1,6 +1,6 @@
 package DFiant
 package lib.maxeler
-import compiler.sync._
+import constraints.timing.sync._
 import scala.language.postfixOps
 
 object ModeType extends EnumType.Auto {
@@ -49,8 +49,8 @@ object ScalarHDLApp extends App {
     max !! Maxeler.StreamIOPull
     count !! Maxeler.StreamIOPush
     hold_count !! Maxeler.ScalarIO
-    this !! ClockParams("clk", ClockParams.Edge.Rising)
-    this !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
+    dsn !! ClockParams("clk", ClockParams.Edge.Rising)
+    dsn !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
   }
   scalar_hdl.compile.printCodeString.printGenFiles()
 }

@@ -57,9 +57,9 @@ import DFiant.sim._
 
 @df class riscv_tb(program : Program) extends DFSimDesign {
   final val proc = new Proc(program)
-  import compiler.sync._
-  this !! ClockParams("clk", ClockParams.Edge.Rising)
-  this !! ResetParams("rstn", ResetParams.Mode.Async, ResetParams.Active.Low)
+  import constraints.timing.sync._
+  dsn !! ClockParams("clk", ClockParams.Edge.Rising)
+  dsn !! ResetParams("rstn", ResetParams.Mode.Async, ResetParams.Active.Low)
 }
 
 object ProcSynth extends App {

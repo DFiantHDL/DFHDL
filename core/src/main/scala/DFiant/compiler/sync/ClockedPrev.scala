@@ -21,7 +21,8 @@ package sync
 
 import DFDesign.DB.Patch
 import DFiant.EdgeDetect.Edge
-import DFiant.compiler.sync.ResetParams.{Active, Mode}
+import constraints.timing.sync._
+import ResetParams.{Active, Mode}
 import DFiant.sim._
 import collection.mutable
 

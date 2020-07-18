@@ -24,7 +24,7 @@ trait DFOwner extends DFMember {
 }
 
 object DFOwner {
-  trait Container extends HasTypeName with DFDesign.Implicits {
+  trait Container extends HasTypeName with DFDesign.Implicits with DisallowExternalExtensions {
     type Owner <: DFOwner
     private[DFiant] val owner : Owner
     protected[DFiant] val __db: DFDesign.DB.Mutable

@@ -93,10 +93,10 @@ import lib.stream._
 }
 
 object IDTopApp extends App {
-  import compiler.sync._
+  import constraints.timing.sync._
   val top = new IDTopTest {
-    this !! ClockParams("clk", ClockParams.Edge.Rising)
-    this !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
+    dsn !! ClockParams("clk", ClockParams.Edge.Rising)
+    dsn !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
   }
   import compiler.backend.verilog.v2005
   import sim.tools.verilator

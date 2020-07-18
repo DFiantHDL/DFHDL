@@ -1,5 +1,5 @@
 import DFiant._
-import compiler.sync._
+import constraints.timing.sync._
 import compiler.backend.vhdl.v93
 import lib.ompss._
 import internals.BitVectorExtras
@@ -173,8 +173,8 @@ import sim.DFSimDesign
 
 object LoopbackTestApp extends App {
   object loopback_test extends LoopbackTest {
-    this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
-    this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
+    dsn !! ClockParams("ap_clk", ClockParams.Edge.Rising)
+    dsn !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
   import sim.tools.ghdl
   loopback_test.printCodeString.compile.printCodeString.toFolder("loopback").simulation.run()
@@ -182,8 +182,8 @@ object LoopbackTestApp extends App {
 
 object LoopbackApp extends App {
   object loopback_moved extends loopback_moved {
-    this !! ClockParams("ap_clk", ClockParams.Edge.Rising)
-    this !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
+    dsn !! ClockParams("ap_clk", ClockParams.Edge.Rising)
+    dsn !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
   }
   loopback_moved.printCodeString.compile.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
 }
