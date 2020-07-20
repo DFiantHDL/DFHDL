@@ -1,37 +1,36 @@
 package DFiant
-import shapeless.HList
 
 package object compiler {
-  implicit def evFixAnonymous[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : FixAnonymousOps[D, H] = new FixAnonymousOps[D, H](c)
-  implicit def evUniqueDesigns[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : UniqueDesignsOps[D, H] = new UniqueDesignsOps[D, H](c)
-  implicit def evNamedSelection[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : NamedSelectionOps[D, H] = new NamedSelectionOps[D, H](c)
-  implicit def evUniqueNames[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : UniqueNamesOps[D, H] = new UniqueNamesOps[D, H](c)
-  implicit def evFlattenNamesOps[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : FlattenNamesOps[D, H] = new FlattenNamesOps[D, H](c)
-  implicit def evExplicitPrev[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : ExplicitPrevOps[D, H] = new ExplicitPrevOps[D, H](c)
-  implicit def evExplicitConversions[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : ExplicitConversionsOps[D, H] = new ExplicitConversionsOps[D, H](c)
-  implicit def evExplicitNamedVars[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : ExplicitNamedVarsOps[D, H] = new ExplicitNamedVarsOps[D, H](c)
-  implicit def evViaPortConnection[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : ViaPortConnectionOps[D, H] = new ViaPortConnectionOps[D, H](c)
-  implicit def evFlatten[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : FlattenOps[D, H] = new FlattenOps[D, H](c)
-  implicit def evCalculator[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : CalculatorOps[D, H] = new CalculatorOps[D, H](c)
-  implicit def evSingleStepPrev[D <: DFDesign, H <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, H])
-  : SingleStepPrevOps[D, H] = new SingleStepPrevOps[D, H](c)
+  implicit def evFixAnonymous[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : FixAnonymousOps[D] = new FixAnonymousOps[D](c)
+  implicit def evUniqueDesigns[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : UniqueDesignsOps[D] = new UniqueDesignsOps[D](c)
+  implicit def evNamedSelection[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : NamedSelectionOps[D] = new NamedSelectionOps[D](c)
+  implicit def evUniqueNames[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : UniqueNamesOps[D] = new UniqueNamesOps[D](c)
+  implicit def evFlattenNamesOps[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : FlattenNamesOps[D] = new FlattenNamesOps[D](c)
+  implicit def evExplicitPrev[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : ExplicitPrevOps[D] = new ExplicitPrevOps[D](c)
+  implicit def evExplicitConversions[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : ExplicitConversionsOps[D] = new ExplicitConversionsOps[D](c)
+  implicit def evExplicitNamedVars[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : ExplicitNamedVarsOps[D] = new ExplicitNamedVarsOps[D](c)
+  implicit def evViaPortConnection[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : ViaPortConnectionOps[D] = new ViaPortConnectionOps[D](c)
+  implicit def evFlatten[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : FlattenOps[D] = new FlattenOps[D](c)
+  implicit def evCalculator[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : CalculatorOps[D] = new CalculatorOps[D](c)
+  implicit def evSingleStepPrev[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : SingleStepPrevOps[D] = new SingleStepPrevOps[D](c)
   
-  trait PreCompiler[D <: DFDesign, H <: shapeless.HList, H2 <: shapeless.HList] {
-    def apply(fromStage : IRCompilation[D, H]) : IRCompilation[D, H2]
+  trait PreCompiler[D <: DFDesign] {
+    def apply(fromStage : IRCompilation[D]) : IRCompilation[D]
   }
   object PreCompiler {
-    implicit def defaultDoesNothing[D <: DFDesign, H <: shapeless.HList] : PreCompiler[D, H, H] =
-      (fromStage : IRCompilation[D, H]) => fromStage
+    implicit def defaultDoesNothing[D <: DFDesign] : PreCompiler[D] =
+      (fromStage : IRCompilation[D]) => fromStage
   }
 }

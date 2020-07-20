@@ -2,8 +2,6 @@ package DFiant
 package compiler
 package backend
 
-import shapeless.HList
-
 package object verilog {
   private[verilog] val reservedKeywords : Set[String] = Set(
     "always", "end", "ifnone", "or", "rpmos", "tranif1", "and", "endcase", "initial", "output",
@@ -16,8 +14,8 @@ package object verilog {
     "not", "release", "time", "wor", "edge", "highz1", "notif0", "repeat", "tran", "xnor", "else", "if", "notif1", "rnmos", "tranif0", "xor"
   )
 
-  private implicit def compiler[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
-  : Compiler[D, S] = new Compiler[D, S](c)
+  private implicit def compiler[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : Compiler[D] = new Compiler[D](c)
 
   sealed trait Revision extends Product with Serializable
   object Revision {
@@ -36,10 +34,10 @@ package object verilog {
   }
 
   implicit object v95 extends BackendStage.Compiler[Backend[Revision.V95]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V95]] = c.verilogCompile[Revision.V95]
+    def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, Backend[Revision.V95]] = c.verilogCompile[Revision.V95]
   }
   implicit object v2005 extends BackendStage.Compiler[Backend[Revision.V2005]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V2005]] = c.verilogCompile[Revision.V2005]
+    def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, Backend[Revision.V2005]] = c.verilogCompile[Revision.V2005]
   }
   private[verilog] type Printer = DFiant.printer.Printer[Printer.Config]
   private[verilog] object Printer {

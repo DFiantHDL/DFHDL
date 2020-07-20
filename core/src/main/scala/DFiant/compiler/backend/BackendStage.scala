@@ -5,7 +5,7 @@ import DFiant.printer.formatter
 
 import scala.annotation.implicitNotFound
 
-trait BackendStage extends compiler.Compilation.Stage {
+trait BackendStage {
   def codeString : String
 }
 object BackendStage {
@@ -65,7 +65,7 @@ object BackendStage {
 
   @implicitNotFound("Missing a compiler import (e.g., `import compiler.backend.vhdl.v2008`)")
   trait Compiler[B <: BackendStage] {
-    def apply[D <: DFDesign, H <: shapeless.HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, B]
+    def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, B]
   }
 
   final case class File(name : String, contents : String)

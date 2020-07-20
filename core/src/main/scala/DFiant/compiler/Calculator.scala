@@ -4,7 +4,7 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class CalculatorOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   @tailrec private def calcInitRec(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]], requestedCalc : Set[DFAny]) : Map[DFAny, Seq[DFAny.Token]] = {
@@ -63,8 +63,6 @@ final class CalculatorOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation
     val patchList = initMap.toList.map{
       case (v, init) => v -> Patch.Replace(v.setInit(init), Patch.Replace.Config.FullReplacement)
     }
-    c.newStage[Calculator](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait Calculator extends Compilation.Stage

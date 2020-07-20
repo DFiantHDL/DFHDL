@@ -5,7 +5,7 @@ import DFDesign.DB.Patch
 
 import scala.reflect.classTag
 
-final class AddTagsOps[D <: DFDesign, H <: shapeless.HList](c : IRCompilation[D, H]) {
+final class AddTagsOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   def addTags(tags : TagsOf[D]) = {
@@ -13,8 +13,6 @@ final class AddTagsOps[D <: DFDesign, H <: shapeless.HList](c : IRCompilation[D,
       case (member, customTagMap) =>
         member -> Patch.Replace(member !! customTagMap, Patch.Replace.Config.FullReplacement)
     }
-    c.newStage[AddTags](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait AddTags extends Compilation.Stage

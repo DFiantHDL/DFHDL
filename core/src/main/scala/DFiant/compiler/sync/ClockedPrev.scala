@@ -26,7 +26,7 @@ import ResetParams.{Active, Mode}
 import DFiant.sim._
 import collection.mutable
 
-final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class ClockedPrevOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.singleStepPrev.calcInit.explicitNamedVars.db
 
   private val clockParams = {
@@ -170,10 +170,6 @@ final class ClockedPrevOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
           }
       } else None
     }
-    c.newStage[ClockedPrev](clockedDB.patch(patchList))
+    c.newStage(clockedDB.patch(patchList))
   }
 }
-
-
-trait ClockedPrev extends Compilation.Stage
-

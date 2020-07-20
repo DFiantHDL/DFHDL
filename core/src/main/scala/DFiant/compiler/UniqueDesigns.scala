@@ -17,7 +17,7 @@ private final class UniqueBlock(val block : DFDesign.Block.Internal, val members
   override def hashCode(): Int = block.designType.hashCode
 }
 
-final class UniqueDesignsOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class UniqueDesignsOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   def uniqueDesigns = {
@@ -33,8 +33,6 @@ final class UniqueDesignsOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilat
       }
       case _ => Nil
     }.toList
-    c.newStage[UniqueDesigns](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait UniqueDesigns extends Compilation.Stage

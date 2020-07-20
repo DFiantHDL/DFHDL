@@ -5,7 +5,7 @@ import DFDesign.DB.Patch
 
 import scala.reflect.classTag
 
-final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class UniqueNamesOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
   def uniqueNames(reservedNames : Set[String], caseSensitive : Boolean) = {
@@ -45,8 +45,6 @@ final class UniqueNamesOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilatio
     }.unzip
     val patchList = patchesAndTags._1.flatten
     val tagList = patchesAndTags._2.flatten ++ globalTagList
-    c.newStage[UniqueNames](designDB.patch(patchList).setGlobalTags(tagList))
+    c.newStage(designDB.patch(patchList).setGlobalTags(tagList))
   }
 }
-
-trait UniqueNames extends Compilation.Stage

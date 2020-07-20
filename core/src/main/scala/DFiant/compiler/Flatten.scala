@@ -3,7 +3,7 @@ package compiler
 
 import DFDesign.DB.Patch
 
-final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class FlattenOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   private def flattenName(member : DFMember) : DFMember = member.setName(s"${member.getOwnerBlock.name}_${member.name}")
@@ -43,9 +43,7 @@ final class FlattenOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D,
   def flattenInline = {
     val inlineBlocks = designDB.members.collect{case ib@DFDesign.Block.Internal(_,_,_,Some(_)) => ib}
     val patchList = inlineBlocks.flatMap(ib => flattenPatch(ib))
-    c.newStage[Flatten](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
   def flatten(design : DFDesign*) : DFDesign.DB = designDB.patch(design.flatMap(d => flattenPatch(d.owner)).toList)
 }
-
-trait Flatten extends Compilation.Stage

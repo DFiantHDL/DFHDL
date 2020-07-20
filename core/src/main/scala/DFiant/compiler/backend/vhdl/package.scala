@@ -2,8 +2,6 @@ package DFiant
 package compiler
 package backend
 
-import shapeless.HList
-
 package object vhdl {
   private[vhdl] val reservedKeywords : Set[String] = Set(
     "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin",
@@ -17,8 +15,8 @@ package object vhdl {
     "wait", "when", "while", "with", "xnor", "xor",
   )
 
-  private implicit def compiler[D <: DFDesign, S <: shapeless.HList, C](c : C)(implicit conv : C => IRCompilation[D, S])
-  : Compiler[D, S] = new Compiler[D, S](c)
+  private implicit def compiler[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : Compiler[D] = new Compiler[D](c)
 
   sealed trait Revision extends Product with Serializable
   object Revision {
@@ -37,10 +35,10 @@ package object vhdl {
   }
 
   implicit object v93 extends BackendStage.Compiler[Backend[Revision.V93]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V93]] = c.vhdlCompile[Revision.V93]
+    def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, Backend[Revision.V93]] = c.vhdlCompile[Revision.V93]
   }
   implicit object v2008 extends BackendStage.Compiler[Backend[Revision.V2008]] {
-    def apply[D <: DFDesign, H <: HList](c : IRCompilation[D, H]) : BackendStage.Compilation[D, Backend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
+    def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, Backend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
   }
   private[vhdl] type Printer = DFiant.printer.Printer[Printer.Config]
   private[vhdl] object Printer {

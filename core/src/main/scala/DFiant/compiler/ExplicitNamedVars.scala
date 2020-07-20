@@ -6,7 +6,7 @@ import DFDesign.DB.Patch
 import scala.annotation.tailrec
 import DFAny.Modifier
 
-final class ExplicitNamedVarsOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class ExplicitNamedVarsOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
 
@@ -68,8 +68,6 @@ final class ExplicitNamedVarsOps[D <: DFDesign, S <: shapeless.HList](c : IRComp
       }
       case _ => None
     }
-    c.newStage[ExplicitNamedVars](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait ExplicitNamedVars extends Compilation.Stage

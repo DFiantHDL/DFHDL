@@ -9,7 +9,7 @@ import scala.reflect.{ClassTag, classTag}
 //For verilog simulation in verilator (and possibly other tools), bit selection from unnamed values is limited.
 //This compilation stage names the intermediate values. A future stage (UniqueNames) is responsible for
 //making sure the names will be unique.
-final class NamedSelectionOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class NamedSelectionOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   def namedSelection = {
@@ -23,8 +23,6 @@ final class NamedSelectionOps[D <: DFDesign, S <: shapeless.HList](c : IRCompila
     }
     //we force set the underlying original name before it was anonymized
     val patchList = membersToName.map(m => m -> (Patch.Replace(m.setName(m.tags.meta.name.value), Patch.Replace.Config.FullReplacement)))
-    c.newStage[NamedSelection](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait NamedSelection extends Compilation.Stage

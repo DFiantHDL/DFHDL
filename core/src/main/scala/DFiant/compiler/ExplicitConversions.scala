@@ -3,7 +3,7 @@ package compiler
 
 import DFDesign.DB.Patch
 import DFDesign.Implicits._
-final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class ExplicitConversionsOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   private def resizeUInt(dfVal : DFAny, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny = dfVal match {
     case DFAny.Const(dfType, token : DFUInt.Token, ownerRef, tags) =>
@@ -99,8 +99,6 @@ final class ExplicitConversionsOps[D <: DFDesign, S <: shapeless.HList](c : IRCo
         Some(asrt -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
       case _ => None
     }
-    c.newStage[ExplicitConversions](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait ExplicitConversions extends Compilation.Stage

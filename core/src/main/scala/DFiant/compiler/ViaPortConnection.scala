@@ -50,7 +50,7 @@ For example:
     y <> id2_o
   }
 */
-final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class ViaPortConnectionOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   def viaPortConnection = {
     val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect {
@@ -98,8 +98,6 @@ final class ViaPortConnectionOps[D <: DFDesign, S <: shapeless.HList](c : IRComp
       (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
         (ib -> Patch.Add(connectDsn, Patch.Add.Config.Inside)) :: connectDsn.refPatches
     }
-    c.newStage[ViaPortConnection](designDB.patch(patchList))
+    c.newStage(designDB.patch(patchList))
   }
 }
-
-trait ViaPortConnection extends Compilation.Stage

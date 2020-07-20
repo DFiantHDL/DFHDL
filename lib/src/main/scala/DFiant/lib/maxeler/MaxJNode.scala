@@ -6,7 +6,7 @@ import DFiant.compiler.backend.vhdl.Compiler
 import compiler.{Compilation, IRCompilation}
 import constraints.timing.sync._
 
-final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   private val topMembers = designDB.blockMemberTable(designDB.top)
   import designDB.__getset
@@ -126,7 +126,7 @@ final class MaxJNodeOps[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D
   }
 
   def maxjCompile : BackendStage.Compilation[D, MaxJNode] = {
-    val vhdlCompile = new Compiler(IRCompilation[D, shapeless.HNil](c.dsn, db)).vhdlCompile[V93]
+    val vhdlCompile = new Compiler(IRCompilation[D](c.dsn, db)).vhdlCompile[V93]
     val vhdlFileNames = vhdlCompile.fileSeq.collect {
       case BackendStage.File(fileName, _) if fileName.endsWith(".vhdl") => fileName
     }

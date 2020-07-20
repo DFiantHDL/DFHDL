@@ -8,7 +8,7 @@ import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
 
-final class Compiler[D <: DFDesign, S <: shapeless.HList](c : IRCompilation[D, S]) {
+final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB =
     c.flattenNames
      .explicitPrev
