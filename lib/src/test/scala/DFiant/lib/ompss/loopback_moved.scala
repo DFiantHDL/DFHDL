@@ -172,18 +172,12 @@ import sim.DFSimDesign
 }
 
 object LoopbackTestApp extends App {
-  object loopback_test extends LoopbackTest {
-    dsn !! ClockParams("ap_clk", ClockParams.Edge.Rising)
-    dsn !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
-  }
+  object loopback_test extends LoopbackTest
   import sim.tools.ghdl
   loopback_test.printCodeString.compile.printCodeString.toFolder("loopback").simulation.run()
 }
 
 object LoopbackApp extends App {
-  object loopback_moved extends loopback_moved {
-    dsn !! ClockParams("ap_clk", ClockParams.Edge.Rising)
-    dsn !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
-  }
+  object loopback_moved extends loopback_moved
   loopback_moved.printCodeString.compile.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
 }
