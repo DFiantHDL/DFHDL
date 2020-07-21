@@ -1,5 +1,6 @@
 package DFiant
 
+import compiler.backend.BackendStage
 package object compiler {
   implicit def evFixAnonymous[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : FixAnonymousOps[D] = new FixAnonymousOps[D](c)
@@ -32,5 +33,12 @@ package object compiler {
   object PreCompiler {
     implicit def defaultDoesNothing[D <: DFDesign] : PreCompiler[D] =
       (fromStage : IRCompilation[D]) => fromStage
+  }
+  trait PostCompiler[D <: DFDesign, B <: BackendStage] {
+    def apply(fromStage : BackendStage.Compilation[D, B]) : BackendStage.Compilation[D, B]
+  }
+  object PostCompiler {
+    implicit def defaultDoesNothing[D <: DFDesign, B <: BackendStage] : PostCompiler[D, B] =
+      (fromStage : BackendStage.Compilation[D, B]) => fromStage
   }
 }

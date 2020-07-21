@@ -7,7 +7,11 @@ import compiler.{Compilation, IRCompilation}
 import constraints.timing.sync._
 
 final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
-  private val designDB = c.db
+  private val clkrstConstraints = new Tags {
+    dsn !! ClockParams("clk", ClockParams.Edge.Rising)
+    dsn !! ResetParams("rst", ResetParams.Mode.Async, ResetParams.Active.High)
+  }
+  private val designDB = (c !! clkrstConstraints).db
   private val topMembers = designDB.blockMemberTable(designDB.top)
   import designDB.__getset
   private val topPorts : List[DFAny.Of[_ <: DFAny.Type]] = topMembers.collect{
@@ -112,7 +116,7 @@ final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
        |import com.maxeler.maxcompiler.v2.managers.custom.blocks.CustomHDLNode;
        |
        |final class $className extends CustomHDLNode {
-       |	ScalarHDLNode(CustomManager manager, String instance_name) {
+       |	$className(CustomManager manager, String instance_name) {
        |		super(manager, instance_name, "$instName");
        |
        |		CustomNodeClock nodeClock = addClockDomain("$clkName");
@@ -126,6 +130,7 @@ final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
   }
 
   def maxjCompile : BackendStage.Compilation[D, MaxJNode] = {
+    db.printCodeString
     val vhdlCompile = new Compiler(IRCompilation[D](c.dsn, db)).vhdlCompile[V93]
     val vhdlFileNames = vhdlCompile.fileSeq.collect {
       case BackendStage.File(fileName, _) if fileName.endsWith(".vhdl") => fileName
