@@ -320,7 +320,7 @@ object EnumType {
       if (encoding == Encoding.Default) "" else s"(${encoding.codeString})"
     final def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
-      s"\n$SC object $name $SC extends $DF Enum.$DF Auto$encodingCodeString {\n${entriesCodeString.delim()}\n}"
+      s"\n$SC object $name $SC extends $DF EnumType.$DF Auto$encodingCodeString {\n${entriesCodeString.delim()}\n}"
     }
 
     class Entry private[DFiant] (implicit val enumType : EnumType, private[DFiant] val meta : Meta) extends EnumType.Entry {
@@ -343,7 +343,7 @@ object EnumType {
     }
     final def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
-      s"\n$SC object $name $SC extends $DF Enum.$DF Manual($width) {$entriesCodeString\n}"
+      s"\n$SC object $name $SC extends $DF EnumType.$DF Manual($width) {$entriesCodeString\n}"
     }
 
     class Entry private[DFiant] (val value : BigInt, val enumType : EnumType)(implicit private[DFiant] val meta : Meta) extends EnumType.Entry {
