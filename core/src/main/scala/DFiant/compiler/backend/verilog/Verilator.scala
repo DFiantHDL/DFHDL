@@ -6,7 +6,7 @@ object Verilator {
   private def macroDef(macroKeyword : String, statementBlock : String)(implicit printer: Printer) : String = {
     import printer.config._
     s"""$FN`$macroKeyword VERILATOR
-       |${statementBlock.delim()}
+       |${statementBlock}
        |$FN`endif
        |""".stripMargin
   }
@@ -15,9 +15,9 @@ object Verilator {
   def ifelsedef(ifBlock : String, elseBlock : String)(implicit printer: Printer) : String = {
     import printer.config._
     s"""$FN`ifdef VERILATOR
-       |${ifBlock.delim()}
+       |${ifBlock}
        |$FN`else
-       |${elseBlock.delim()}
+       |${elseBlock}
        |$FN`endif
        |""".stripMargin
   }

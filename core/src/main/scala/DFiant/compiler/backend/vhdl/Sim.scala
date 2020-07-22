@@ -24,7 +24,6 @@ private object Sim {
         case Left(v) =>
           v.get match {
             case DFBits(w) if w % 4 == 0 => s"$FN to_hstring(${Value.ref(v)})"
-            case DFUInt(w) if w % 4 == 0 => s"$FN to_hstring($FN to_slv(${Value.ref(v)}))"
             case value => revision match {
               case Revision.V93 => value match {
                 case DFBits(_) => s"$TP std_logic_vector'image(${Value.ref(value)})"

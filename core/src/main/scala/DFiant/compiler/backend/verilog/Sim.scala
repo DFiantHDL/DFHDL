@@ -7,14 +7,10 @@ import ResetParams.Active
 import DFiant.sim._
 
 private object Sim {
+  val guardName = "clk_sim_guard"
   private def clkGuarded(statement : String)(implicit printer: Printer) : String = {
     import printer.config._
-    val clkName = ClockParams.get.name
-    val edgeKeyword = ClockParams.get.edge match {
-      case Edge.Rising => "posedge"
-      case Edge.Falling => "negedge"
-    }
-    s"""$KW @($KW $edgeKeyword $clkName) $KW begin $statement $KW end"""
+    s"""$KW if ($guardName) $KW begin $statement $KW end"""
   }
   private def guarded(cond : Option[DFBool], guardedStatement : String)(implicit printer: Printer) : String = {
     import printer.config._
@@ -26,10 +22,10 @@ private object Sim {
     cond match {
       case Some(value) =>
         val condStr = Value.ref(value)
-        val statement = s"$KW if ($rstGuard && $OP!${condStr.applyBrackets()}) $guardedStatement"
+        val statement = s"$KW if ($OP!${condStr.applyBrackets()}) $guardedStatement"
         Verilator.ifelsedef(statement, clkGuarded(statement))
       case None =>
-        val statement = s"$KW if ($rstGuard) $guardedStatement"
+        val statement = guardedStatement
         Verilator.ifelsedef(statement, clkGuarded(statement))
     }
   }
@@ -39,7 +35,7 @@ private object Sim {
       val msg = assert.msgRef.seq.map {
         case Left(v) =>
           v.get match {
-            case DFBits(w) if w % 4 == 0 => s"0x%0h"
+            case DFBits(w) if w % 4 == 0 => s"0x%.${w / 4}H"
             case DFBits(_) => s"%0b"
             case DFUInt(_) => s"%0d"
             case DFSInt(_) => s"%0d"

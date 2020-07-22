@@ -31,7 +31,7 @@ object Reg {
     implicit printer: Printer
   ) : String = {
     import printer.config._
-    s"$KW reg         $rtType ${ALGN(0)}$name;$initStr"
+    s"$KW reg         $rtType ${ALGN(0)}$name$initStr;"
   }
 }
 

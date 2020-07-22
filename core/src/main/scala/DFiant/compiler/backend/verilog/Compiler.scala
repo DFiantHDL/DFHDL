@@ -15,7 +15,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       .uniqueDesigns
       .fixAnonymous
       .namedSelection
-      .uniqueNames(reservedKeywords, caseSensitive = true)
+      .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)
       .clockedPrev
       .viaPortConnection
       .db
@@ -25,18 +25,23 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     case Sync.IfBlock(_,_) | Sync.ElseIfBlock(_,_) => true
     case _ => false
   }
+
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
     implicit printer : Printer
   ) : List[String] = {
+    import printer.config._
+    val simGuardSetOption : Option[String] =
+      if (printer.inSimulation) Some(Verilator.ifndef(s"${Sim.guardName} = $LIT 1;"))
+      else None
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb @ Sync.ElseIfBlock(_,_), (closing, statements)) =>
-        (If.Else(getProcessStatements(cb)), statements)
+        (If.Else(getProcessStatements(cb) ++ simGuardSetOption), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
         (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
       case (cb @ Sync.IfBlock(Sync.IsClock(),_), (closing, statements)) =>
-        ("", getProcessStatements(cb) ++ statements)
+        ("", getProcessStatements(cb) ++ statements ++ simGuardSetOption)
       case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
         ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
       case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
@@ -106,9 +111,16 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             case _ => None
           }
         }
+        val simGuardRegOption : Option[String] =
+          if (printer.inSimulation && clkRstMembers.nonEmpty) Some(Verilator.ifndef(Reg(Sim.guardName, "", s" = $LIT 0")))
+          else None
+        val simGuardClearOption : Option[String] =
+          if (printer.inSimulation && clkRstMembers.nonEmpty) Some(Verilator.ifndef(s"${Sim.guardName} = $LIT 0;"))
+          else None
+
         val clkrstRegs = if (design.isTop && printer.inSimulation)
-          Verilator.ifndef(clkRstMembers.map{case ClkSim(s) => s case RstSim(s) => s}.mkString("\n")) :: regs
-        else regs
+          Verilator.ifndef(clkRstMembers.map{case ClkSim(s) => s case RstSim(s) => s}.mkString("\n")) :: regs ++ simGuardRegOption
+        else regs ++ simGuardRegOption
 
         val moduleName = design.designType
         val moduleInstances = members.collect {
@@ -118,7 +130,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             }
             ModuleInstance(x.name, x.designType, connections)
         }
-        val asyncStatements = getProcessStatements(design, !isSyncMember(_))
+        val asyncStatements = getProcessStatements(design, !isSyncMember(_)) ++ simGuardClearOption
         val asyncSensitivityList : String = revision match {
           case Revision.V95 =>
             val producers = members.flatMap {
