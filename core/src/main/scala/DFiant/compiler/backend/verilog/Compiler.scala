@@ -60,7 +60,6 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       val config : Printer.Config = new Printer.Config(revision)
     }
     import printer.config.{KW, FN, LIT, OP}
-    val externalSIMPortsDefName = "VERILATOR"
     val designTypes = mutable.Set.empty[String]
     val files = designDB.designMemberList.flatMap {
       case (design : DFDesign.Block.Internal, _) if design.inlinedRep.nonEmpty => None
@@ -83,10 +82,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           case m @ Sync.IsReset() => m
         }
         val clkrstPorts = if (design.isTop && printer.inSimulation)
-          s"""$FN`ifdef $externalSIMPortsDefName
-             |${clkRstMembers.map(cr => Port(cr.name, Port.Dir.In(), Type(cr))).mkString(",\n").delim()}
-             |$FN`endif
-             |""".stripMargin :: ports
+          Verilator.ifdef(clkRstMembers.map(cr => Port(cr.name, Port.Dir.In(), Type(cr))).mkString(",\n")) :: ports
         else ports
         object ClkSim {
           def unapply(clk : DFAny) : Option[String] = clk match {
@@ -111,9 +107,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           }
         }
         val clkrstRegs = if (design.isTop && printer.inSimulation)
-          s"""$FN`ifndef $externalSIMPortsDefName
-             |${clkRstMembers.map{case ClkSim(s) => s case RstSim(s) => s}.mkString("\n").delim()}
-             |$FN`endif""".stripMargin :: regs
+          Verilator.ifndef(clkRstMembers.map{case ClkSim(s) => s case RstSim(s) => s}.mkString("\n")) :: regs
         else regs
 
         val moduleName = design.designType

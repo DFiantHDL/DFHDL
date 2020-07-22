@@ -7,19 +7,31 @@ import ResetParams.Active
 import DFiant.sim._
 
 private object Sim {
-  private def clkRstGuard(implicit printer: Printer) : String = {
+  private def clkGuarded(statement : String)(implicit printer: Printer) : String = {
     import printer.config._
     val clkName = ClockParams.get.name
-    val rstName = ResetParams.get.name
-    val clkGuard = ClockParams.get.edge match {
-      case Edge.Rising => clkName
-      case Edge.Falling => s"$OP!$clkName"
+    val edgeKeyword = ClockParams.get.edge match {
+      case Edge.Rising => "posedge"
+      case Edge.Falling => "negedge"
     }
+    s"""$KW @($KW $edgeKeyword $clkName) $KW begin $statement $KW end"""
+  }
+  private def guarded(cond : Option[DFBool], guardedStatement : String)(implicit printer: Printer) : String = {
+    import printer.config._
+    val rstName = ResetParams.get.name
     val rstGuard = ResetParams.get.active match {
       case Active.Low => rstName
       case Active.High => s"$OP!$rstName"
     }
-    s"$clkGuard && $rstGuard"
+    cond match {
+      case Some(value) =>
+        val condStr = Value.ref(value)
+        val statement = s"$KW if ($rstGuard && $OP!${condStr.applyBrackets()}) $guardedStatement"
+        Verilator.ifelsedef(statement, clkGuarded(statement))
+      case None =>
+        val statement = s"$KW if ($rstGuard) $guardedStatement"
+        Verilator.ifelsedef(statement, clkGuarded(statement))
+    }
   }
   object Assert {
     def unapply(assert : DFSimMember.Assert)(implicit printer: Printer) : Option[String] = {
@@ -28,7 +40,6 @@ private object Sim {
         case Left(v) =>
           v.get match {
             case DFBits(w) if w % 4 == 0 => s"0x%0h"
-            case DFUInt(w) if w % 4 == 0 => s"0x%0h"
             case DFBits(_) => s"%0b"
             case DFUInt(_) => s"%0d"
             case DFSInt(_) => s"%0d"
@@ -42,21 +53,14 @@ private object Sim {
         case Left(v) => Value.ref(v)
       }.mkString(", ")
       val display = if (args.isEmpty) s"$$$KW display($msg);" else s"$$$KW display($msg, $args);"
-      val statement = assert.condOptionRef match {
-        case Some(condRef) =>
-          val cond = Value.ref(condRef.get)
-          s"$KW if ($clkRstGuard && $OP!${cond.applyBrackets()}) $display"
-        case None =>
-          s"$KW if ($clkRstGuard) $display"
-      }
-      Some(statement)
+      Some(guarded(assert.condOptionRef.map(c => c.get), display))
     }
   }
 
   object Finish {
     def unapply(assert : DFSimMember.Finish)(implicit printer: Printer) : Option[String] = {
       import printer.config._
-      Some(s"if (${clkRstGuard}) $$$KW finish;")
+      Some(guarded(None, s"$$$KW finish;"))
     }
   }
 }
