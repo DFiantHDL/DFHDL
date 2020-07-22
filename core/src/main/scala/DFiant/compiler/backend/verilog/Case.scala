@@ -44,7 +44,7 @@ private object Case {
           case x : DFBool.Pattern =>
             x.patternSet.map(p => if (p) s"$LIT 1" else s"$LIT 0").mkString(",")
           case x : DFEnum.Pattern =>
-            x.patternSet.map(p => s"`E_${p.enumType.name}_${p.enumType.entries(p.value).name}".toUpperCase).mkString(",")
+            x.patternSet.map(p => EnumTypeDcl.enumEntryRefName(p)).mkString(",")
           case _ => throw new IllegalArgumentException(s"\nUnsupported pattern type for Verilog compilation: $pattern")
         }
       }

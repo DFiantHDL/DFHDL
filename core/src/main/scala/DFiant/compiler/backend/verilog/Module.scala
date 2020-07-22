@@ -7,9 +7,8 @@ private object Module {
     implicit printer : Printer
   )  : String = {
     import printer.config._
-    s"""$KW module $moduleName(
-       |${ports.mkString(",\n").delim()}
-       |);
+    val portsStr = if (ports.isEmpty) "();" else s"(\n${ports.mkString(",\n").delim()}\n);"
+    s"""$KW module $moduleName$portsStr
        |${statements.mkString("\n").delim()}
        |$KW endmodule""".stripMargin
   }

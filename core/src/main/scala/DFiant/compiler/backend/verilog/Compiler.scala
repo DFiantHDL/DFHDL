@@ -86,6 +86,11 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           case m @ Sync.IsClock() => m
           case m @ Sync.IsReset() => m
         }
+        val enumInstances =
+          if (printer.inSimulation) members.collect {
+            case DFEnum(enumType) => enumType
+          }.distinct.map(e => EnumInstance(e))
+          else Nil
         val clkrstPorts = if (design.isTop && printer.inSimulation)
           Verilator.ifdef(clkRstMembers.map(cr => Port(cr.name, Port.Dir.In(), Type(cr))).mkString(",\n")) :: ports
         else ports
@@ -166,10 +171,18 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           case Emitter(emitStr) => emitStr
         }.mkString("\n")
         val syncProcess = AlwaysBlock(syncSensitivityList, syncStatements)
-        val enumTypeDcls = designDB.getLocalEnumTypes(design).map(e => EnumTypeDcl(e)).toList
-        val declarations = enumTypeDcls ++ wires ++ clkrstRegs ++ moduleInstances :+ asyncBlock ++ syncProcess ++ emits
-        val module = Module(moduleName, clkrstPorts, declarations)
-        val file = File(GlobalDefsFile.Name(), "", module)
+        val localEnumTypes = designDB.getLocalEnumTypes(design)
+        val enumDefines = localEnumTypes.map(e => EnumTypeDcl.defines(e)).toList
+        val enumModuleDcls =
+          if (printer.inSimulation) localEnumTypes.map(e =>
+            s"""/* verilator lint_off DECLFILENAME */
+               |${EnumTypeDcl.module(e)}""".stripMargin
+          ).toList
+          else Nil
+        val declarations =
+          wires ++ clkrstRegs ++ enumDefines ++ enumInstances ++ moduleInstances :+ asyncBlock ++ syncProcess ++ emits
+        val modules = enumModuleDcls :+ Module(moduleName, clkrstPorts, declarations)
+        val file = File(GlobalDefsFile.Name(), "", modules.mkString(s"\n$EMPTY\n"))
         Some(BackendStage.File(s"${moduleName}.v", s"$file"))
       case _ => None
     }

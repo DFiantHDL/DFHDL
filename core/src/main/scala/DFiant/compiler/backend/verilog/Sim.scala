@@ -41,12 +41,17 @@ private object Sim {
             case DFSInt(_) => s"%0d"
             case DFBool() => s"%0d"
             case DFBit() => s"%0d"
-            case DFEnum(enumType) => s"%0d"
+            case DFEnum(_) => s"%0s"
           }
         case Right(s) => s
       }.mkString("\"","","\"")
       val args = assert.msgRef.seq.collect {
-        case Left(v) => Value.ref(v)
+        case Left(v) =>
+          val vStr = Value.ref(v)
+          v.get match {
+            case DFEnum(enumType) => s"${EnumTypeDcl.tostrFuncName(enumType)}($vStr)"
+            case _ => vStr
+          }
       }.mkString(", ")
       val display = if (args.isEmpty) s"$$$KW display($msg);" else s"$$$KW display($msg, $args);"
       Some(guarded(assert.condOptionRef.map(c => c.get), display))

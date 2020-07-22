@@ -7,20 +7,14 @@ object GlobalDefsFile {
     import printer.config._
     val name = Name()
     val defName = s"${name.toUpperCase}_H"
-    s"""$KW`ifndef $defName
-       |$KW`define $defName
-       |${enumDcl.delim()}
-       |$KW`endif""".stripMargin.formatted
+    s"""$FN`ifndef $defName
+       |$FN`define $defName
+       |$enumDcl
+       |$FN`endif""".stripMargin.formatted
   }
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_defs"
-//  def assertMacro(implicit printer: Printer) : String =  {
-//    s"""
-//       |`define assert(cond, msg) \
-//       |    if (!cond) begin \
-//       |        $$display("ASSERTION FAILED in %m: signal != value"); \
-//       |    end
-//       |""".stripMargin
-//  }
   private def enumDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl(e)).mkString("\n")
+    printer.getSet.designDB.getGlobalEnumTypes.map(e =>
+      s"${EnumTypeDcl.defines(e)}\n${if (printer.inSimulation) EnumTypeDcl.module(e) else ""}"
+    ).mkString("\n")
 }

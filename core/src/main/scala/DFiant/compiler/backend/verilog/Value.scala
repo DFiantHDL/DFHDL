@@ -16,7 +16,7 @@ private object Value {
         else s"""-${width}'sd${-value}"""
       case DFBool.Token(true, value, _) => if (value) "1" else "0"
       case DFBool.Token(false, value, _) => if (value) "1'b1" else "1'b0"
-      case DFEnum.Token(enumType, value) => s"`E_${enumType.name}_${value.get.name}".toUpperCase
+      case DFEnum.Token(_, entry) => EnumTypeDcl.enumEntryRefName(entry.get)
       case _ => ???
     }
   }
