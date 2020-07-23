@@ -59,7 +59,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimDesign"
       case _ => "DFDesign"
     }
-    s"$SC trait ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
+    s"$DF@df $SC class ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
   }
   def codeString(implicit printConfig : CSPrinter.Config) : String = {
     implicit val printer : CSPrinter = new CSPrinter {
