@@ -12,21 +12,30 @@ private object Sim {
     import printer.config._
     s"""$KW if ($guardName) $KW begin $statement $KW end"""
   }
-  private def guarded(cond : Option[DFBool], guardedStatement : String)(implicit printer: Printer) : String = {
+  private def rstGuarded(statement : String)(implicit printer: Printer) : String = {
     import printer.config._
     val rstName = ResetParams.get.name
     val rstGuard = ResetParams.get.active match {
       case Active.Low => rstName
       case Active.High => s"$OP!$rstName"
     }
+    val clkName = ClockParams.get.name
+    val clkGuard = ClockParams.get.edge match {
+      case Edge.Rising => s"$OP!$clkName"
+      case Edge.Falling => clkName
+    }
+    s"""$KW if ($rstGuard && $clkGuard) $KW begin $statement $KW end"""
+  }
+  private def guarded(cond : Option[DFBool], guardedStatement : String)(implicit printer: Printer) : String = {
+    import printer.config._
     cond match {
       case Some(value) =>
         val condStr = Value.ref(value)
         val statement = s"$KW if ($OP!${condStr.applyBrackets()}) $guardedStatement"
-        Verilator.ifelsedef(statement, clkGuarded(statement))
+        Verilator.ifelsedef(rstGuarded(statement), clkGuarded(statement))
       case None =>
         val statement = guardedStatement
-        Verilator.ifelsedef(statement, clkGuarded(statement))
+        Verilator.ifelsedef(rstGuarded(statement), clkGuarded(statement))
     }
   }
   object Assert {

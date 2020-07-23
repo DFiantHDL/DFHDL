@@ -82,14 +82,14 @@ import internals._
 
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
-  val fib = DFUInt(8) init(0, 1)
+  val fib = DFUInt(8) init(1, 0)
   fib := fib.prev + fib.prev(2)
   val ididid = new IDTop
-  ididid.x <> fib
-  object XX extends EnumType.Auto {
-    val AAA, BBB, CCC = Entry()
+  ididid.x <> fib.prev(2)
+  sim.report(msg"Fib: ${ididid.y}")
+  ifdf (ididid.y === 55) {
+    sim.finish()
   }
-  sim.report(msg"$fib")
 }
 
 object IDTopApp extends App {
