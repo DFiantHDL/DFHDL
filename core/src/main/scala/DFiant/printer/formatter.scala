@@ -27,6 +27,7 @@ object formatter {
         case (text, i) => text.replace(ALGN(i), "")
       }
     }
+    def unformatted(implicit printConfig: Printer.Config) : String = removeAlignment.uncolor
     def formatted(implicit printConfig: Printer.Config) : String = {
       printConfig.maxAlignments.zipWithIndex.foldLeft(text.colored.explicitEmptyLines){case (algnText, (algnMax, algnIdx)) =>
         val uncolored = algnText.uncolor

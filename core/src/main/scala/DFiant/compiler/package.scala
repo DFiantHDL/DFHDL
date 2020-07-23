@@ -2,6 +2,8 @@ package DFiant
 
 import compiler.backend.BackendStage
 package object compiler {
+  implicit def evSanityCheck[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : SanityCheckOps[D] = new SanityCheckOps[D](c)
   implicit def evFixAnonymous[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : FixAnonymousOps[D] = new FixAnonymousOps[D](c)
   implicit def evUniqueDesigns[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
