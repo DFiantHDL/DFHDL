@@ -69,12 +69,9 @@ final class ClockedPrevOps[D <: DFDesign](c : IRCompilation[D]) {
 
           //Clock and Reset toggling
           if (topSimulation) {
-            val inactiveVHDL = resetParams.active match {
-              case Active.Low => "'1'"
-              case Active.High => "'0'"
-            }
+            val rstInactive = s"'${resetParams.inactiveInt}'"
             vhdl"$clk <= not $clk after 5000 ps;"
-            if (hasRst) vhdl"$rst <= $inactiveVHDL after 10000 ps;"
+            if (hasRst) vhdl"$rst <= $rstInactive after 10000 ps;"
           }
         }
         val connPatchList = clockedBlocks.map {cb =>
@@ -119,12 +116,17 @@ final class ClockedPrevOps[D <: DFDesign](c : IRCompilation[D]) {
       import designDB.__getset
       var hasPrevRst = false
       val prevReplacements : List[PrevReplacements] = members.collect {
-        case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev(_, relValRef, _, _, _), _, _) =>
+        case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev.Unref(_, relVal, _, _, _), _, _) =>
           prevVal.getInit match {
             case Some(i +: _) if !i.isBubble => hasPrevRst = true
             case _ =>
           }
-          PrevReplacements(n, prevVar, prevVal, relValRef.get, prevVar.setNameSuffix("_reg") !! Sync.Tag.Reg)
+          val prevVarInit = relVal.getInit match {
+            case Some(i +: _) if !i.isBubble => Some(Seq(i))
+            case _ => None
+          }
+          val prevVarRep = prevVar.copy(externalInit = prevVarInit).clearInit.setNameSuffix("_reg") !! Sync.Tag.Reg
+          PrevReplacements(n, prevVar, prevVal, relVal, prevVarRep)
       }
       val topSimulation = block match {
         case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => true

@@ -5,9 +5,12 @@ import printer.formatter._
 private object Init {
   def apply(member : DFAny)(implicit printer : Printer) : String = {
     import printer.config._
-    member.getInit match {
-      case Some(token +: Nil) if !token.isBubble && !member.isPortIn =>
-        s" = ${Value.const(token)}"
+    member match {
+      case dcl : DFAny.Dcl => dcl.externalInit match {
+        case Some(token +: Nil) if !token.isBubble && !member.isPortIn =>
+          s" = ${Value.const(token)}"
+        case _ => ""
+      }
       case _ => ""
     }
   }

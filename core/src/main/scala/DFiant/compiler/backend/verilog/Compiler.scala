@@ -4,6 +4,7 @@ package backend
 package verilog
 
 import compiler.sync._
+import constraints.timing.sync.{ResetParams, ClockParams}
 import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
@@ -107,11 +108,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           def unapply(rst : DFAny) : Option[String] = rst match {
             case Sync.IsReset() =>
               val reg = Reg(rst.name, Type(rst), Init(rst))
-              val inactiveVerilog = rst.getInit.head.head match {
-                case DFBool.Token(_,false,_) => "1"
-                case DFBool.Token(_,true,_) => "0"
-              }
-              val sim = s"$KW initial #10 ${Value.ref(rst)} = $LIT$inactiveVerilog;"
+              val sim = s"$KW initial #10 ${Value.ref(rst)} = $LIT${ResetParams.get.inactiveInt};"
               Some(s"$reg\n$sim")
             case _ => None
           }

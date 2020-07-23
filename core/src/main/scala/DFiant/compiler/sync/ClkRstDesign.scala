@@ -10,22 +10,16 @@ protected[sync] abstract class ClkRstDesign(clkParams : ClockParams, rstParams :
 ) extends MetaDesign {
   private var _hasClk = false
   private var _hasRst = false
-  private val clkInit : Int = clkParams.edge match {
-    case Edge.Rising => 0
-    case Edge.Falling => 1
-  }
-  private val rstInit : Int = rstParams.active match {
-    case Active.Low => 0
-    case Active.High => 1
-  }
+  private val clkInit : Int = clkParams.inactiveInt
+  private val rstInit : Int = rstParams.activeInt
   final lazy val clk = {
     _hasClk = true
-    if (simulation) DFBit().setInit(Seq(DFBool.Token(clkInit))).asInstanceOf[DFBit].setName(clkParams.name) !! Sync.Tag.Clk
+    if (simulation) DFBit().forcedInit(Seq(DFBool.Token(clkInit))).setName(clkParams.name) !! Sync.Tag.Clk
     else DFBit() <> IN !! Sync.Tag.Clk setName(clkParams.name)
   }
   final lazy val rst = {
     _hasRst = true
-    if (simulation) DFBit().setInit(Seq(DFBool.Token(rstInit))).asInstanceOf[DFBit].setName(rstParams.name) !! Sync.Tag.Rst
+    if (simulation) DFBit().forcedInit(Seq(DFBool.Token(rstInit))).setName(rstParams.name) !! Sync.Tag.Rst
     else DFBit() <> IN !! Sync.Tag.Rst setName(rstParams.name)
   }
   final def hasClk : Boolean = _hasClk

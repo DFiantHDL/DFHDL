@@ -570,6 +570,10 @@ object DFAny {
           ctx.db.addMember(ctx.container, Prev(refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[RelVal#TType, RelVal, Modifier.Val]]
       }
+      object Unref {
+        def unapply(arg : Prev)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Int, DFOwner, DFMember.Tags)] =
+          Some(arg.dfType, arg.relValRef.get, arg.step, arg.ownerRef.get, arg.tags)
+      }
     }
     final case class Resize(
       dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags

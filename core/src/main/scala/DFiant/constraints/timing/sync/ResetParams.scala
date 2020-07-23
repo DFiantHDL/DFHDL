@@ -1,7 +1,13 @@
 package DFiant
 package constraints.timing.sync
 
-final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFMember.CustomTagOf[DFDesign.Block]
+final case class ResetParams(name : String, mode : ResetParams.Mode, active : ResetParams.Active) extends DFMember.CustomTagOf[DFDesign.Block] {
+  val activeInt : Int = active match {
+    case ResetParams.Active.Low => 0
+    case ResetParams.Active.High => 1
+  }
+  val inactiveInt : Int = 1 - activeInt
+}
 object ResetParams {
   sealed trait Mode extends Product with Serializable
   object Mode {

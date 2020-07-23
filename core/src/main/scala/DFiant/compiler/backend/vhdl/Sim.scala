@@ -11,11 +11,8 @@ private object Sim {
     import printer.config._
     val clkName = ClockParams.get.name
     val rstName = ResetParams.get.name
-    val rstActive = ResetParams.get.active match {
-      case Active.Low => "'1'"
-      case Active.High => "'0'"
-    }
-    s"$OP rising_edge($clkName) $OP and $rstName $OP= $rstActive"
+    val rstInactive = s"'${ResetParams.get.inactiveInt}'"
+    s"$OP rising_edge($clkName) $OP and $rstName $OP= $rstInactive"
   }
   object Assert {
     def unapply(assert : DFSimMember.Assert)(implicit printer: Printer) : Option[String] = {
