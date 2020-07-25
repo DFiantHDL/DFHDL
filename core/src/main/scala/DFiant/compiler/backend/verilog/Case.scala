@@ -13,11 +13,12 @@ private object Case {
   object Item {
     def apply(pattern : String, statements : List[String])(implicit printer : Printer) : String = {
       import printer.config._
+      val statementsStr = statements.mkString("\n")
       if (statements.length == 1)
-        s"""$pattern : ${statements.mkString("\n").removeAlignment}""".stripMargin
+        s"""$pattern : ${if (statementsStr.contains("\n")) statementsStr else statementsStr.removeAlignment}""".stripMargin
       else
         s"""$pattern : $KW begin
-           |${statements.mkString("\n").delim()}
+           |${statementsStr.delim()}
            |$KW end""".stripMargin
     }
   }
