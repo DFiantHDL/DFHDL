@@ -53,7 +53,7 @@ final class ClockedPrevOps[D <: DFDesign](c : IRCompilation[D]) {
       }
       lazy val hasPrevRst = members.exists{
         case p : DFAny.Alias.Prev => p.getInit match {
-          case Some(_ :: _) => true
+          case Some(_ :+ _) => true
           case _ => false
         }
         case _ => false
