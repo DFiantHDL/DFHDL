@@ -17,7 +17,7 @@
 
 package DFiant
 package compiler
-package sync
+package rtl
 
 import DFDesign.DB.Patch
 import DFiant.EdgeDetect.Edge
@@ -125,7 +125,7 @@ final class ClockedPrevOps[D <: DFDesign](c : IRCompilation[D]) {
             case Some(i +: _) if !i.isBubble => Some(Seq(i))
             case _ => None
           }
-          val prevVarRep = prevVar.copy(externalInit = prevVarInit).clearInit.setNameSuffix("_reg") !! Sync.Tag.Reg
+          val prevVarRep = prevVar.copy(externalInit = prevVarInit).clearInit.setNameSuffix("_reg") !! RTL.Tag.Reg
           PrevReplacements(n, prevVar, prevVal, relVal, prevVarRep)
       }
       val topSimulation = block match {

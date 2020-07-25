@@ -3,7 +3,7 @@ package compiler
 package backend
 package verilog
 
-import compiler.sync._
+import compiler.rtl._
 import constraints.timing.sync.{ResetParams, ClockParams}
 import DFiant.sim._
 import scala.collection.mutable
@@ -23,7 +23,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
-    case Sync.IfBlock(_,_) | Sync.ElseIfBlock(_,_) => true
+    case RTL.IfBlock(_,_) | RTL.ElseIfBlock(_,_) => true
     case _ => false
   }
 
@@ -37,11 +37,11 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
-      case (cb @ Sync.ElseIfBlock(_,_), (closing, statements)) =>
+      case (cb @ RTL.ElseIfBlock(_,_), (closing, statements)) =>
         (If.Else(getProcessStatements(cb) ++ simGuardSetOption), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
         (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
-      case (cb @ Sync.IfBlock(Sync.IsClock(),_), (closing, statements)) =>
+      case (cb @ RTL.IfBlock(RTL.IsClock(),_), (closing, statements)) =>
         ("", getProcessStatements(cb) ++ statements ++ simGuardSetOption)
       case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
         ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
@@ -76,7 +76,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             (Port(p.name, Port.Dir.In(), Type(p)) :: ports, wires, regs)
           case (p @ DFAny.Port.Out(), (ports, wires, regs)) =>
             (Port(p.name, Port.Dir.Out(), Type(p)) :: ports, wires, regs)
-          case (Sync.IsClock() | Sync.IsReset(), pwr) if design.isTop && printer.inSimulation => pwr
+          case (RTL.IsClock() | RTL.IsReset(), pwr) if design.isTop && printer.inSimulation => pwr
           case (s : DFAny, (ports, wires, regs)) if !s.isAnonymous => designDB.getConnectionTo(s) match {
             case Some(v) if v.isPortOut => (ports, Wire(s.name, Type(s)) :: wires, regs)
             case _ => (ports, wires, Reg(s.name, Type(s), Init(s)) :: regs)
@@ -84,8 +84,8 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           case (_, pwr) => pwr
         }
         val clkRstMembers = members.collect {
-          case m @ Sync.IsClock() => m
-          case m @ Sync.IsReset() => m
+          case m @ RTL.IsClock() => m
+          case m @ RTL.IsReset() => m
         }
         val enumInstances =
           if (printer.inSimulation) members.collect {
@@ -97,7 +97,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         else ports
         object ClkSim {
           def unapply(clk : DFAny) : Option[String] = clk match {
-            case Sync.IsClock() =>
+            case RTL.IsClock() =>
               val reg = Reg(clk.name, Type(clk), Init(clk))
               val sim = s"$KW always #5 ${Value.ref(clk)} = $OP!${Value.ref(clk)};"
               Some(s"$reg\n$sim")
@@ -106,7 +106,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         }
         object RstSim {
           def unapply(rst : DFAny) : Option[String] = rst match {
-            case Sync.IsReset() =>
+            case RTL.IsReset() =>
               val reg = Reg(rst.name, Type(rst), Init(rst))
               val sim = s"$KW initial #10 ${Value.ref(rst)} = $LIT${ResetParams.get.inactiveInt};"
               Some(s"$reg\n$sim")
@@ -148,7 +148,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             }
             val signalsOrPorts = producers.distinct.collect {
               case p @ DFAny.Port.In() => p
-              case v @ DFAny.NewVar() if v.isTaggedWith(Sync.Tag.Reg) => v
+              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Reg) => v
               case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
             }
             AlwaysBlock.Sensitivity.List(signalsOrPorts.map(e => e.name))
@@ -157,10 +157,10 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         val asyncBlock = AlwaysBlock(asyncSensitivityList, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
         val syncSensitivityList = AlwaysBlock.Sensitivity.List(members.collect {
-          case cb @ Sync.IfBlock(clkOrRst, edge) if cb.getOwner == design =>
+          case cb @ RTL.IfBlock(clkOrRst, edge) if cb.getOwner == design =>
             if (edge) s"$KW posedge ${clkOrRst.name}"
             else s"$KW negedge ${clkOrRst.name}"
-          case Sync.ElseIfBlock(clk, edge) =>
+          case RTL.ElseIfBlock(clk, edge) =>
             if (edge) s"$KW posedge ${clk.name}"
             else s"$KW negedge ${clk.name}"
         })

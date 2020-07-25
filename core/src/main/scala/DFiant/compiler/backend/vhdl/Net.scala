@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import compiler.sync.Sync
+import compiler.rtl.RTL
 import printer.formatter._
 
 private object Net {
@@ -25,9 +25,9 @@ private object Net {
       net match {
         case DFNet.Inlined() => None
         case _ if net.hasLateConstruction => None
-        case _ : DFNet.Connection | Sync.Net() | DFNet.Assignment.Unref(DFAny.In() | DFAny.Out(),_,_,_) =>
+        case _ : DFNet.Connection | RTL.Net() | DFNet.Assignment.Unref(DFAny.In() | DFAny.Out(),_,_,_) =>
           Some(s"$toVal ${ALGN(0)}<= $fromVal;")
-        case _ if printer.getSet.designDB.getAssignmentsFrom(net.toRef.get).exists(x => x.isTaggedWith(Sync.Tag.Reg)) =>
+        case _ if printer.getSet.designDB.getAssignmentsFrom(net.toRef.get).exists(x => x.isTaggedWith(RTL.Tag.Reg)) =>
           Some(s"$toVal ${ALGN(0)}<= $fromVal;")
         case _ : DFNet.Assignment =>
           Some(s"$toVal ${ALGN(0)}:= $fromVal;")

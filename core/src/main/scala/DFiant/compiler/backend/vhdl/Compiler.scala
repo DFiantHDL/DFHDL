@@ -3,7 +3,7 @@ package compiler
 package backend
 package vhdl
 
-import compiler.sync._
+import compiler.rtl._
 import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
@@ -21,7 +21,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {
-    case Sync.IfBlock(_,_) | Sync.ElseIfBlock(_,_) => true
+    case RTL.IfBlock(_,_) | RTL.ElseIfBlock(_,_) => true
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
@@ -68,10 +68,10 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             if !s.isAnonymous && (
               designDB.getConnectionTo(s).isDefined ||
               s.tags.customTags.values.exists{
-                case _ : Sync.Tag => true
+                case _ : RTL.Tag => true
                 case _ => false
               } ||
-              designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(Sync.Tag.Reg))) =>
+              designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(RTL.Tag.Reg))) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
           case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
@@ -102,7 +102,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             }
             val signalsOrPorts = producers.distinct.collect {
               case p @ DFAny.Port.In() => p
-              case v @ DFAny.NewVar() if v.isTaggedWith(Sync.Tag.Reg) => v
+              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Reg) => v
               case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
             }
             Process.Sensitivity.List(signalsOrPorts.map(e => e.name))
@@ -111,8 +111,8 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         val asyncProcess = Process("async_proc", asyncSensitivityList, variables, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
         val syncSensitivityList = Process.Sensitivity.List(members.collect {
-          case cb @ Sync.IfBlock(clkOrReset,_) if cb.getOwner == design => clkOrReset.name
-          case Sync.ElseIfBlock(clk,_) => clk.name
+          case cb @ RTL.IfBlock(clkOrReset,_) if cb.getOwner == design => clkOrReset.name
+          case RTL.ElseIfBlock(clk,_) => clk.name
         })
         val emits = members.collect {
           case Emitter(emitStr) => emitStr

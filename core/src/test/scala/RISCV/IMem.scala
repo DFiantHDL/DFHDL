@@ -31,7 +31,7 @@ trait IMem_Bram_Ifc extends DFDesign.Abstract {
 }
 
 @df class IMem_Bram(programIMem : ProgramIMem) extends DFDesign with IMem_Bram_Ifc {
-  final val clka = DFBit() //!! compiler.sync.Sync.Tag.Clk
+  final val clka = DFBit() //!! compiler.sync.RTL.Tag.Clk
   //need to generate COE file
 }
 

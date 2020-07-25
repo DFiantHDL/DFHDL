@@ -2,7 +2,7 @@ package DFiant
 package compiler
 
 import DFDesign.DB.Patch
-import DFiant.compiler.sync.Sync
+import DFiant.compiler.rtl.RTL
 
 /*
 Internal design blocks will be connected via dedicated "wiring" variables.
@@ -69,7 +69,7 @@ final class ViaPortConnectionOps[D <: DFDesign](c : IRCompilation[D]) {
         case p @ DFAny.Port.In() =>
 //          import designDB.__getset
 //          designDB.getConnectionTo(p) match {
-//            case Some(v @ DFAny.NewVar()) if v.tags.customTags.exists{case _ : Sync.Tag => true} => Some(p)
+//            case Some(v @ DFAny.NewVar()) if v.tags.customTags.exists{case _ : RTL.Tag => true} => Some(p)
 //            case Some(v @ DFAny.NewVar()) => None
 //            case Some(_ @ DFAny.Port.In()) => Some(p)
 //            case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None

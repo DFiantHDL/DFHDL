@@ -47,7 +47,7 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
 
 
 @df class DMem_Bram(programDMem : ProgramDMem) extends DFDesign with DMem_Bram_Ifc {
-  final val clka  = DFBit() //!! compiler.sync.Sync.Tag.Clk
+  final val clka  = DFBit() //!! compiler.sync.RTL.Tag.Clk
 }
 
 @df class DMem(programDMem : ProgramDMem)(executeInst : ExecuteInst) extends DFDesign {

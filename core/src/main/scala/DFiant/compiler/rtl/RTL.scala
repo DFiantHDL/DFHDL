@@ -16,21 +16,19 @@
  */
 
 package DFiant
-package compiler.sync
+package compiler.rtl
 
-import DFiant.compiler.sync
-
-private[compiler] object Sync {
+private[compiler] object RTL {
   sealed trait Tag extends DFMember.CustomTagOf[DFAny]
   object Tag {
     case object Clk extends Tag {
-      override def toString: String = "Sync.Tag.Clk"
+      override def toString: String = "RTL.Tag.Clk"
     }
     case object Rst extends Tag {
-      override def toString: String = "Sync.Tag.Rst"
+      override def toString: String = "RTL.Tag.Rst"
     }
     case object Reg extends Tag {
-      override def toString: String = "Sync.Tag.Reg"
+      override def toString: String = "RTL.Tag.Reg"
     }
   }
 
@@ -57,6 +55,6 @@ private[compiler] object Sync {
     }
   }
   object Net {
-    def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.isTaggedWith(Sync.Tag.Reg)
+    def unapply(net : DFNet)(implicit getSet: MemberGetSet) : Boolean = net.toRef.get.isTaggedWith(RTL.Tag.Reg)
   }
 }
