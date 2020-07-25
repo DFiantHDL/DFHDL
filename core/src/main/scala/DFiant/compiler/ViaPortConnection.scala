@@ -2,7 +2,6 @@ package DFiant
 package compiler
 
 import DFDesign.DB.Patch
-import DFiant.compiler.rtl.RTL
 
 /*
 Internal design blocks will be connected via dedicated "wiring" variables.
@@ -50,9 +49,9 @@ For example:
     y <> id2_o
   }
 */
-final class ViaPortConnectionOps[D <: DFDesign](c : IRCompilation[D]) {
+final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
-  def viaPortConnection = {
+  def viaPortConnection : IRCompilation[D] = {
     val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect {
       case d : DFDesign.Block.Internal if d.inlinedRep.isEmpty => d
     }

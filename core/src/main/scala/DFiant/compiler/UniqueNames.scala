@@ -5,10 +5,10 @@ import DFDesign.DB.Patch
 
 import scala.reflect.classTag
 
-final class UniqueNamesOps[D <: DFDesign](c : IRCompilation[D]) {
+final class UniqueNames[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
-  def uniqueNames(reservedNames : Set[String], caseSensitive : Boolean) = {
+  def uniqueNames(reservedNames : Set[String], caseSensitive : Boolean) : IRCompilation[D] = {
     def lowerCase(name : String) : String = if (caseSensitive) name else name.toLowerCase
     def lowerCases(names : Set[String]) : Set[String] = if (caseSensitive) names else names.map(_.toLowerCase)
     def renamer[T, R](iter : Iterable[T], existingNamesLC : Set[String])

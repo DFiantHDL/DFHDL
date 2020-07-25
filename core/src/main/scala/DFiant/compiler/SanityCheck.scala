@@ -6,7 +6,7 @@ import printer.formatter._
 
 import scala.annotation.tailrec
 
-final class SanityCheckOps[D <: DFDesign](c : IRCompilation[D]) {
+final class SanityCheck[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   implicit val printer : CSPrinter = new CSPrinter {
@@ -61,7 +61,7 @@ final class SanityCheckOps[D <: DFDesign](c : IRCompilation[D]) {
         ownershipCheck(currentOwner.getOwner, members) //exiting current owner
     }
   }
-  def sanityCheck = {
+  def sanityCheck : IRCompilation[D] = {
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.members.drop(1))
     c

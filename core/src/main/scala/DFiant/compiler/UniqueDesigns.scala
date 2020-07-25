@@ -17,10 +17,10 @@ private final class UniqueBlock(val block : DFDesign.Block.Internal, val members
   override def hashCode(): Int = block.designType.hashCode
 }
 
-final class UniqueDesignsOps[D <: DFDesign](c : IRCompilation[D]) {
+final class UniqueDesigns[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
-  def uniqueDesigns = {
+  def uniqueDesigns : IRCompilation[D] = {
     val uniqueBlockMap : Map[UniqueBlock, List[DFDesign.Block.Internal]] = designDB.members.collect {
       case block : DFDesign.Block.Internal if block.inlinedRep.isEmpty => block
     }.groupBy(b => new UniqueBlock(b, designDB.designMemberTable(b)))

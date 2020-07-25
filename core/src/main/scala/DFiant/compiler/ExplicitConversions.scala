@@ -3,7 +3,7 @@ package compiler
 
 import DFDesign.DB.Patch
 import DFDesign.Implicits._
-final class ExplicitConversionsOps[D <: DFDesign](c : IRCompilation[D]) {
+final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   private def resizeUInt(dfVal : DFAny, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny = dfVal match {
     case DFAny.Const(dfType, token : DFUInt.Token, ownerRef, tags) =>
@@ -27,7 +27,7 @@ final class ExplicitConversionsOps[D <: DFDesign](c : IRCompilation[D]) {
   }
 
   import designDB.__getset
-  def explicitConversions = {
+  def explicitConversions : IRCompilation[D] = {
     val patchList = designDB.members.flatMap {
       case net : DFNet =>
         val toVal = net.toRef.get

@@ -4,7 +4,7 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class CalculatorOps[D <: DFDesign](c : IRCompilation[D]) {
+final class Calculator[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   @tailrec private def calcInitRec(remaining : List[DFAny], calc : Map[DFAny, Seq[DFAny.Token]], requestedCalc : Set[DFAny]) : Map[DFAny, Seq[DFAny.Token]] = {
@@ -55,7 +55,7 @@ final class CalculatorOps[D <: DFDesign](c : IRCompilation[D]) {
     }
   }
 
-  def calcInit = {
+  def calcInit : IRCompilation[D] = {
     //we request init calculation for all members that can have initialization and currently do not have
     //a calculated init tag (the tag is empty).
     val calcMembers = designDB.members.collect{case v : DFAny if v.getInit.isEmpty => v}

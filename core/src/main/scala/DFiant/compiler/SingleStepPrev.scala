@@ -8,7 +8,7 @@ import DFiant.csprinter.CSPrinter
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-final class SingleStepPrevOps[D <: DFDesign](c : IRCompilation[D]) {
+final class SingleStepPrev[D <: DFDesign](c : IRCompilation[D]) {
   //TODO: currently assuming explicitPrev has run
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
@@ -20,7 +20,7 @@ final class SingleStepPrevOps[D <: DFDesign](c : IRCompilation[D]) {
       case _ => (relVal, step)
     }
   }
-  def singleStepPrev = {
+  def singleStepPrev : IRCompilation[D] = {
     val namedPrevTable : mutable.Map[DFAny, List[DFAny]] = mutable.Map()
     val prevNamePattern = "(.*_prev)([0-9]+)".r
     val sigNamePattern = "(.*)_sig".r

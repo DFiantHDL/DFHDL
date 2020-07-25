@@ -4,10 +4,10 @@ package compiler
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
 
-final class FixAnonymousOps[D <: DFDesign](c : IRCompilation[D]) {
+final class FixAnonymous[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
-  def fixAnonymous = {
+  def fixAnonymous : IRCompilation[D] = {
     val anonymizeList = designDB.designMemberList.flatMap {
       case (block, members) =>
         //We first filter to scan only members that

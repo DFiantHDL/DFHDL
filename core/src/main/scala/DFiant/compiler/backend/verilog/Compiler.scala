@@ -3,7 +3,6 @@ package compiler
 package backend
 package verilog
 
-import compiler.rtl._
 import constraints.timing.sync.{ResetParams, ClockParams}
 import DFiant.sim._
 import scala.collection.mutable
@@ -17,7 +16,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       .fixAnonymous
       .namedSelection
       .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)
-      .clockedPrev
+      .toRTLForm
       .viaPortConnection
       .db
 
@@ -148,7 +147,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             }
             val signalsOrPorts = producers.distinct.collect {
               case p @ DFAny.Port.In() => p
-              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Reg) => v
+              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Mod.Reg) => v
               case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
             }
             AlwaysBlock.Sensitivity.List(signalsOrPorts.map(e => e.name))

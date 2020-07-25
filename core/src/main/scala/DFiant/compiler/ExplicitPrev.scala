@@ -8,7 +8,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 import sim.DFSimMember
 
-final class ExplicitPrevOps[D <: DFDesign](c : IRCompilation[D]) {
+final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   implicit class ConditionalBlockExtension(cb : ConditionalBlock) {
@@ -172,7 +172,7 @@ final class ExplicitPrevOps[D <: DFDesign](c : IRCompilation[D]) {
     }
   }
 
-  def explicitPrev = {
+  def explicitPrev : IRCompilation[D] = {
     val (currentSet, scopeMap) = getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
     val (explicitPrevSet, defaultsSet) = currentSet.partition(p => scopeMap(p).hasAssignments)
     val defaultsPatchList = defaultsSet.flatMap {

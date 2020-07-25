@@ -6,7 +6,7 @@ import DFDesign.DB.Patch
 import scala.annotation.tailrec
 import DFAny.Modifier
 
-final class ExplicitNamedVarsOps[D <: DFDesign](c : IRCompilation[D]) {
+final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
 
@@ -23,7 +23,7 @@ final class ExplicitNamedVarsOps[D <: DFDesign](c : IRCompilation[D]) {
         case block: ConditionalBlock.Case_Block[_] => block.matchHeaderRef
       }
     }
-  def explicitNamedVars = {
+  def explicitNamedVars : IRCompilation[D] = {
     val patchList = designDB.members.flatMap {
       case named : DFAny if !named.isAnonymous => named match { //all named values
         case DFAny.Dcl(_,Modifier.MatchRetVar | Modifier.IfRetVar | Modifier.Port(_),_,_,_) => None //ignoring ports and match/if return variables

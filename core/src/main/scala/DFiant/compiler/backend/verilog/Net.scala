@@ -1,7 +1,8 @@
 package DFiant
-package compiler.backend.verilog
+package compiler
+package backend
+package verilog
 import printer.formatter._
-import compiler.rtl._
 
 private object Net {
   object External {
@@ -23,7 +24,7 @@ private object Net {
       net match {
         case DFNet.Inlined() => None
         case _ if net.hasLateConstruction => None
-        case _ if net.toRef.get.isTaggedWith(RTL.Tag.Reg) =>
+        case _ if net.toRef.get.isTaggedWith(RTL.Tag.Mod.Reg) =>
           Some(s"$toVal ${ALGN(0)}<= $fromVal;")
         case _ : DFNet =>
           Some(s"$toVal ${ALGN(0)}= $fromVal;")

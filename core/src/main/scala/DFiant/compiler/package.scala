@@ -1,34 +1,36 @@
 package DFiant
 
-import compiler.backend.BackendStage
+import compiler.backend._
 package object compiler {
   implicit def evSanityCheck[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : SanityCheckOps[D] = new SanityCheckOps[D](c)
+  : SanityCheck[D] = new SanityCheck[D](c)
   implicit def evFixAnonymous[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : FixAnonymousOps[D] = new FixAnonymousOps[D](c)
+  : FixAnonymous[D] = new FixAnonymous[D](c)
   implicit def evUniqueDesigns[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : UniqueDesignsOps[D] = new UniqueDesignsOps[D](c)
+  : UniqueDesigns[D] = new UniqueDesigns[D](c)
   implicit def evNamedSelection[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : NamedSelectionOps[D] = new NamedSelectionOps[D](c)
+  : NamedSelection[D] = new NamedSelection[D](c)
   implicit def evUniqueNames[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : UniqueNamesOps[D] = new UniqueNamesOps[D](c)
-  implicit def evFlattenNamesOps[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : FlattenNamesOps[D] = new FlattenNamesOps[D](c)
+  : UniqueNames[D] = new UniqueNames[D](c)
+  implicit def evFlattenNames[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : FlattenNames[D] = new FlattenNames[D](c)
   implicit def evExplicitPrev[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : ExplicitPrevOps[D] = new ExplicitPrevOps[D](c)
+  : ExplicitPrev[D] = new ExplicitPrev[D](c)
   implicit def evExplicitConversions[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : ExplicitConversionsOps[D] = new ExplicitConversionsOps[D](c)
+  : ExplicitConversions[D] = new ExplicitConversions[D](c)
   implicit def evExplicitNamedVars[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : ExplicitNamedVarsOps[D] = new ExplicitNamedVarsOps[D](c)
+  : ExplicitNamedVars[D] = new ExplicitNamedVars[D](c)
   implicit def evViaPortConnection[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : ViaPortConnectionOps[D] = new ViaPortConnectionOps[D](c)
+  : ViaPortConnection[D] = new ViaPortConnection[D](c)
   implicit def evFlatten[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : FlattenOps[D] = new FlattenOps[D](c)
+  : Flatten[D] = new Flatten[D](c)
   implicit def evCalculator[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : CalculatorOps[D] = new CalculatorOps[D](c)
+  : Calculator[D] = new Calculator[D](c)
   implicit def evSingleStepPrev[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
-  : SingleStepPrevOps[D] = new SingleStepPrevOps[D](c)
-  
+  : SingleStepPrev[D] = new SingleStepPrev[D](c)
+  implicit def evRTL[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : RTL[D] = new RTL[D](c)
+
   trait PreCompiler[D <: DFDesign] {
     def apply(fromStage : IRCompilation[D]) : IRCompilation[D]
   }

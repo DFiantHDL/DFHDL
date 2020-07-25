@@ -3,7 +3,6 @@ package compiler
 package backend
 package vhdl
 
-import compiler.rtl._
 import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
@@ -15,7 +14,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
      .explicitConversions
      .uniqueDesigns
      .uniqueNames(reservedKeywords, caseSensitive = false)
-     .clockedPrev
+     .toRTLForm
      .viaPortConnection
      .db
 
@@ -68,10 +67,10 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             if !s.isAnonymous && (
               designDB.getConnectionTo(s).isDefined ||
               s.tags.customTags.values.exists{
-                case _ : RTL.Tag => true
+                case _ : RTL.Tag[_] => true
                 case _ => false
               } ||
-              designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(RTL.Tag.Reg))) =>
+              designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(RTL.Tag.Mod.Reg))) =>
             (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
           case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
@@ -102,7 +101,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             }
             val signalsOrPorts = producers.distinct.collect {
               case p @ DFAny.Port.In() => p
-              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Reg) => v
+              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Mod.Reg) => v
               case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
             }
             Process.Sensitivity.List(signalsOrPorts.map(e => e.name))
