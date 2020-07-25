@@ -40,10 +40,15 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
           case Some(init) => s"//init = ${init.codeString}"
           case None => "//init = Unknown"
         } else ""
-        val customTagInfo =
-          if (showCustomTags && a.tags.customTags.nonEmpty)
-            a.tags.customTags.values.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
+        val customTagInfo = {
+          val nonInvisibleTags = a.tags.customTags.values.filter {
+            case _ : DFMember.InvisibleTag => false
+            case _ => true
+          }
+          if (showCustomTags && nonInvisibleTags.nonEmpty)
+            nonInvisibleTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
           else ""
+        }
         Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
       case _ => None
     }

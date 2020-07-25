@@ -249,7 +249,7 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  protected final case class CodeStringOverride(func : String => String) extends DFMember.CustomTagOf[DFAny]
+  protected final case class CodeStringOverride(func : String => String) extends DFMember.CustomTagOf[DFAny] with DFMember.InvisibleTag
   protected final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
 
   protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
@@ -274,7 +274,7 @@ object DFAny {
     def codeString(implicit printer: CSPrinter) : String = token.codeString
     override def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = codeString
     override def show(implicit printer: CSPrinter) : String = s"Const($token) : $dfType"
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Const {
@@ -326,7 +326,7 @@ object DFAny {
       case Modifier.Port(OUT) => s"$dfType <> OUT"
       case _ => s"$dfType"
     }
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Dcl {
@@ -483,7 +483,7 @@ object DFAny {
         import printer.config._
         s"$cs.$DF as(${dfType.codeString})"
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object AsIs {
@@ -520,7 +520,7 @@ object DFAny {
           case _ : DFBool.Type => s"$cs.$DF bit($relBitLow)"
         }
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object BitsWL {
@@ -559,7 +559,7 @@ object DFAny {
         import printer.config._
         if (step == 1) s"$cs.$DF prev" else s"$cs.$DF prev($step)"
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Prev {
@@ -595,7 +595,7 @@ object DFAny {
         import printer.config._
         s"$cs.$DF resize($toWidth)"
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Resize {
@@ -669,8 +669,8 @@ object DFAny {
         case _ : DFBool.Type => "!"
       }
       def relCodeString(cs : String)(implicit printer: CSPrinter) : String = s"$op$cs"
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+
+  def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Invert {
       def apply[RelVal <: DFAny](refVal: RelVal)(
@@ -716,7 +716,7 @@ object DFAny {
       s"${leftArgRef.refCodeString.applyBrackets()} $op ${rightArgRef.refCodeString.applyBrackets()}"
     }
     override def show(implicit printer: CSPrinter) : String = s"$codeString : $dfType"
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)(tokenFunc)
+
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(tokenFunc))
   }
   object Func2 {
@@ -838,7 +838,7 @@ object DFAny {
       import printer.config._
       s"${relValRef.refCodeString.applyBrackets()}.$DF fork"
     }
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
@@ -882,8 +882,8 @@ object DFAny {
       import printer.config._
       s"${relValRef.refCodeString.applyBrackets()}.$DF ${func.codeString}"
     }
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
-    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
+
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Dynamic {

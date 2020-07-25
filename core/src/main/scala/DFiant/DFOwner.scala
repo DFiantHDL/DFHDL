@@ -5,6 +5,11 @@ import singleton.ops._
 import scala.annotation.tailrec
 
 trait DFOwner extends DFMember {
+  ///////////////////////////////////////////////////////////////////
+  // Ownership
+  ///////////////////////////////////////////////////////////////////
+  val isTop : Boolean = false
+  ///////////////////////////////////////////////////////////////////
   def connectWith(that : DFOwner)(implicit ctx : DFBlock.Context) : Unit = {
     val leftMembers = this.getMembers
     val rightMembers = that.getMembers

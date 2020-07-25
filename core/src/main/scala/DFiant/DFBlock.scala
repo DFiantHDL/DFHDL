@@ -6,11 +6,6 @@ import scala.annotation.implicitNotFound
 import printer.formatter._
 
 trait DFBlock extends DFOwner {
-  ///////////////////////////////////////////////////////////////////
-  // Ownership
-  ///////////////////////////////////////////////////////////////////
-  val isTop : Boolean = false
-  ///////////////////////////////////////////////////////////////////
   def headerCodeString(implicit printer: CSPrinter) : String
   final def codeString(body : String)(implicit printer: CSPrinter) : String = {
     //if the body is a single row then no need for delimiters and extra new lines

@@ -113,7 +113,7 @@ final class ClockedPrevOps[D <: DFDesign](c : IRCompilation[D]) {
     }
     val (clockedDB, addedClkRst) = getClockedDB
     val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
-      import designDB.__getset
+      import clockedDB.__getset
       var hasPrevRst = false
       val prevReplacements : List[PrevReplacements] = members.collect {
         case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev.Unref(_, relVal, _, _, _), _, _) =>

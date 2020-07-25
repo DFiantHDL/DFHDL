@@ -29,7 +29,7 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
 }
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
-  final def plantMember[T <: DFMember](member : T) : T = __db.addMember(this, member.updateOwner(implicitly[DFBlock.Context]))
+  final def plantMember[T <: DFMember](member : T) : T = __db.plantMember(this, member)
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
@@ -109,7 +109,7 @@ object DFDesign {
           this.designType == designType && this.tags =~ tags && inlineRepEq
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
       override lazy val typeName : String = designType
     }
@@ -132,7 +132,7 @@ object DFDesign {
       }
       override lazy val typeName : String = designType
       override def getFullName(implicit getSet : MemberGetSet): String = name
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : this.type = ???
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
     }
   }
@@ -706,6 +706,11 @@ object DFDesign {
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
         member
+      }
+      //same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
+      def plantMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
+        newRefFor[DFOwner, DFOwner.Ref.Type, DFOwner.Ref](member.ownerRef, container.owner) //now this reference will refer to meta design owner
+        addMember(container, member)
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
       private val refTable : mutable.Map[DFMember.Ref, DFMember] = mutable.Map()

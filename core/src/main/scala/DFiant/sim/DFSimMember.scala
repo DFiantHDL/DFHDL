@@ -30,7 +30,7 @@ object DFSimMember {
           s"$DF sim.$DF report(${msgRef.refCodeString}, ${severity.codeString})"
       }
     }
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
@@ -99,7 +99,7 @@ object DFSimMember {
       import printer.config._
       s"$DF sim.$DF finish()"
     }
-    private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
       implicit getSet : MemberGetSet
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))

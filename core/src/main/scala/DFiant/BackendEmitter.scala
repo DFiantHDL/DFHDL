@@ -21,7 +21,7 @@ final case class BackendEmitter(
     case Left(x) => s"$${${x.refCodeString}}"
     case Right(x) => x
   }.mkString + "\""
-  private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
   def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(
     implicit getSet : MemberGetSet
   ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))

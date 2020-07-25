@@ -148,7 +148,7 @@ object ConditionalBlock {
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object IfBlock {
@@ -174,7 +174,7 @@ object ConditionalBlock {
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseIfBlock {
@@ -194,7 +194,7 @@ object ConditionalBlock {
           this.dfType == dfType && this.retVarRef =~ retVarRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseBlock {
@@ -219,7 +219,7 @@ object ConditionalBlock {
           this.matchValRef =~ matchValRef && this.matchConfig == matchConfig && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object MatchHeader {
@@ -257,7 +257,7 @@ object ConditionalBlock {
           this.matchHeaderRef =~ matchHeaderRef && this.pattern == pattern && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCasePatternBlock {
@@ -280,7 +280,7 @@ object ConditionalBlock {
             this.matchHeaderRef =~ matchHeaderRef && this.prevCaseRef =~ prevCaseRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCase_Block {
@@ -318,7 +318,7 @@ object ConditionalBlock {
           this.condRef =~ condRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object IfBlock {
@@ -350,7 +350,7 @@ object ConditionalBlock {
           this.condRef =~ condRef && this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseIfBlock {
@@ -375,7 +375,7 @@ object ConditionalBlock {
           this.prevBlockRef =~ prevBlockRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object ElseBlock {
@@ -406,7 +406,7 @@ object ConditionalBlock {
             this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object MatchHeader {
@@ -443,7 +443,7 @@ object ConditionalBlock {
           prevCaseEq && this.mvType == mvType && this.matchHeaderRef =~ matchHeaderRef && this.pattern == pattern && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCasePatternBlock {
@@ -466,7 +466,7 @@ object ConditionalBlock {
           this.mvType == mvType && this.matchHeaderRef =~ matchHeaderRef && this.prevCaseRef =~ prevCaseRef && this.tags =~ tags
         case _ => false
       }
-      private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember = copy(ownerRef = ref)
+
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object DFCase_Block {

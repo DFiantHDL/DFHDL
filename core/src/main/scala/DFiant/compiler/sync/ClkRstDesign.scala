@@ -1,9 +1,7 @@
 package DFiant
 package compiler.sync
 
-import DFiant.EdgeDetect.Edge
 import constraints.timing.sync._
-import ResetParams.Active
 
 protected[sync] abstract class ClkRstDesign(clkParams : ClockParams, rstParams : ResetParams, simulation : Boolean)(
   implicit ctx : ContextOf[ClkRstDesign]

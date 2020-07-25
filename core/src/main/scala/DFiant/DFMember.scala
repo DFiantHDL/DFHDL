@@ -82,8 +82,6 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   //true if and only if the two members are equivalent in relation to their design construction context
   protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean
 
-  private[DFiant] def setOwnerRef(ref : DFOwner.Ref) : DFMember
-  private[DFiant] final def updateOwner(implicit ctx : DFMember.Context) : this.type = setOwnerRef(ctx.owner).asInstanceOf[this.type]
   def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember
   def show(implicit printer: CSPrinter) : String = s"$getFullName : $typeName"
 }
@@ -106,6 +104,7 @@ object DFMember {
   }
 
   sealed trait CustomTag extends Product with Serializable
+  trait InvisibleTag extends CustomTag
   trait CustomTagOf[-T <: DFMember] extends CustomTag
   type CustomTagMap = Map[ClassTag[_], CustomTag]
   final case class Tags(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Product with Serializable {

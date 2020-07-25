@@ -33,7 +33,7 @@ final class ExplicitNamedVarsOps[D <: DFDesign](c : IRCompilation[D]) {
             case Some(i +: _) if !i.isBubble => Some(Seq(i))
             case _ => None
           }
-          val newVar = DFAny.Dcl(named.dfType, DFAny.Modifier.NewVar, externalInit, named.ownerRef, named.tags)
+          def newVar(implicit ctx : DFAny.Context) = DFAny.Dcl(named.dfType, DFAny.Modifier.NewVar, externalInit, ctx.owner, named.tags)
           named.getOwner match {
             case cb : ConditionalBlock => //inside a conditional block
               val dsnNewVar = new MetaDesign() {
