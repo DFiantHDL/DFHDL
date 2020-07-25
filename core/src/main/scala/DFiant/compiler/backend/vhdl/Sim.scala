@@ -21,16 +21,13 @@ private object Sim {
         case Left(v) =>
           v.get match {
             case DFBits(w) if w % 4 == 0 => s"$FN to_hstring(${Value.ref(v)})"
-            case value => revision match {
-              case Revision.V93 => value match {
-                case DFBits(_) => s"$TP std_logic_vector'image(${Value.ref(value)})"
-                case DFUInt(_) => s"$TP unsigned'image(${Value.ref(value)})"
-                case DFSInt(_) => s"$TP signed'image(${Value.ref(value)})"
-                case DFBool() => s"$TP boolean'image(${Value.ref(value)})"
-                case DFBit() => s"$TP std_logic'image(${Value.ref(value)})"
-                case DFEnum(enumType) => s"${enumType.name}_type'image(${Value.ref(value)})"
-              }
-              case Revision.V2008 => s"$FN to_string(${Value.ref(v)})"
+            case value => value match {
+              case DFBits(_) => s"$TP std_logic_vector'image(${Value.ref(value)})"
+              case DFUInt(_) => s"$TP integer'image(to_integer(${Value.ref(value)}))"
+              case DFSInt(_) => s"$TP integer'image(to_integer(${Value.ref(value)}))"
+              case DFBool() => s"$TP boolean'image(${Value.ref(value)})"
+              case DFBit() => s"$TP std_logic'image(${Value.ref(value)})"
+              case DFEnum(enumType) => s"${EnumTypeDcl(enumType)}'image(${Value.ref(value)})"
             }
           }
         case Right(s) => s""""$s""""
