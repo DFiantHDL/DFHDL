@@ -133,13 +133,16 @@ object DFAny {
 
     final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
       DFAny.Alias.BitsWL(this, dfType.width, 0)
-        .setCodeStringOverride(rs => s"$rs.bits")
+        .setCodeStringOverride((_, rs) => s"$rs.bits")
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
     ) : AsType[DFBits.Type[relWidth.Out]] =
       DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow)
-        .setCodeStringOverride(rs => s"$rs.bits($relBitHigh, $relBitLow)")
+        .setCodeStringOverride { (printer, rs) =>
+          import printer.config.LIT
+          s"$rs.bits($LIT$relBitHigh, $LIT$relBitLow)"
+        }
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
@@ -249,12 +252,12 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  protected final case class CodeStringOverride(func : String => String) extends DFMember.CustomTagOf[DFAny] with DFMember.InvisibleTag
+  protected final case class CodeStringOverride(func : (CSPrinter, String) => String) extends DFMember.CustomTagOf[DFAny] with DFMember.InvisibleTag
   protected final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny] with DFMember.InvisibleTag
 
   protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
-    def setCodeStringOverride(func : String => String) : T = member !! CodeStringOverride(func)
-    def getCodeStringOverride : Option[String => String] = member.getTagOf[CodeStringOverride].map(_.func)
+    def setCodeStringOverride(func : (CSPrinter, String) => String) : T = member !! CodeStringOverride(func)
+    def getCodeStringOverride : Option[(CSPrinter, String) => String] = member.getTagOf[CodeStringOverride].map(_.func)
     def setInit(seq : Seq[Token]) : T = member !! Init(seq)
     def clearInit : T = member.removeTagOf[Init]
     def getInit : Option[Seq[Token]] = member.getTagOf[Init].map(_.seq)
@@ -456,7 +459,7 @@ object DFAny {
     def relCodeString(cs : String)(implicit printer: CSPrinter) : String
     def codeString(implicit printer: CSPrinter): String = {
       this.getCodeStringOverride match {
-        case Some(func) => func(relValRef.refCodeString.applyBrackets())
+        case Some(func) => func(printer, relValRef.refCodeString.applyBrackets())
         case None => relCodeString(relValRef.refCodeString.applyBrackets())
       }
     }
@@ -516,8 +519,8 @@ object DFAny {
       def relCodeString(cs : String)(implicit printer: CSPrinter) : String = {
         import printer.config._
         dfType match {
-          case _ : DFBits.Type[_] => s"$cs.$DF bitsWL($relWidth, $relBitLow)"
-          case _ : DFBool.Type => s"$cs.$DF bit($relBitLow)"
+          case _ : DFBits.Type[_] => s"$cs.$DF bitsWL($LIT$relWidth, $LIT$relBitLow)"
+          case _ : DFBool.Type => s"$cs.$DF bit($LIT$relBitLow)"
         }
       }
 
@@ -557,7 +560,7 @@ object DFAny {
       override def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = t.prevInit(step)
       def relCodeString(cs : String)(implicit printer: CSPrinter) : String = {
         import printer.config._
-        if (step == 1) s"$cs.$DF prev" else s"$cs.$DF prev($step)"
+        if (step == 1) s"$cs.$DF prev" else s"$cs.$DF prev($LIT$step)"
       }
 
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
