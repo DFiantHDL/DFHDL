@@ -95,39 +95,31 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
 
   def toRTLForm : IRCompilation[D] = {
     final case class PrevReplacements(
-      prevVal : DFAny.Alias.Prev, relVal : DFAny, prevVar : DFAny.Dcl
+      prevNet : DFNet, prevVar : DFAny.Dcl, prevVal : DFAny.Alias.Prev, relVal : DFAny, regVar : DFAny.Dcl
     ) {
       private var sig : DFAny = _
-      def sigAssign(implicit ctx : DFBlock.Context) : Unit = sig = (relVal, prevVar) match {
+      def sigAssign(implicit ctx : DFBlock.Context) : Unit = sig = (relVal, regVar) match {
         case (DFAny.In(),_) => relVal
         case _ if !relVal.name.endsWith("_sig") =>
           implicit val __getSet : MemberGetSet = ctx.db.getSet
-          val sig = DFAny.NewVar(prevVar.dfType).setName(s"${relVal.name}_sig") !! RTL.Tag.Mod.Wire
+          val sig = DFAny.NewVar(regVar.dfType) setName s"${relVal.name}_sig"
           sig.assign(relVal)
           sig
         case _ => relVal
       }
       def rstAssign(implicit ctx : DFBlock.Context) : Unit = relVal.getInit match {
         case Some(i +: _) =>
-          val initConst = DFAny.Const.forced(prevVar.dfType, i)
-          prevVar.assign(initConst)
+          val initConst = DFAny.Const.forced(regVar.dfType, i)
+          regVar.assign(initConst)
         case _ =>
       }
-      def clkAssign(implicit ctx : DFBlock.Context) : Unit = prevVar.assign(sig)
+      def clkAssign(implicit ctx : DFBlock.Context) : Unit = regVar.assign(sig)
     }
     val (clockedDB, addedClkRst) = getClockedDB
     val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
       import clockedDB.__getset
       var hasPrevRst = false
       val prevReplacements : List[PrevReplacements] = members.collect {
-        case prevVal @ DFAny.Alias.Prev.Unref(_, relVal, _, _ , _) =>
-          prevVal.getInit match {
-            case Some(i +: _) if !i.isBubble => hasPrevRst = true
-            case _ =>
-          }
-          val prevVar =
-            prevVar.copy(externalInit = prevVarInit).clearInit.setNameSuffix("_reg") !! RTL.Tag.Mod.Reg
-          PrevReplacements(prevVal, relVal, prevVar)
         case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev.Unref(_, relVal, _, _, _), _, _) =>
           prevVal.getInit match {
             case Some(i +: _) if !i.isBubble => hasPrevRst = true

@@ -91,7 +91,7 @@ final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
             case _ @ DFAny.Port.In() => DFNet.Connection(p, v)
             case _ => ???
           }
-          (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Outside(ib)))
+          (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Outside(ib)))
         }
       }
       (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::

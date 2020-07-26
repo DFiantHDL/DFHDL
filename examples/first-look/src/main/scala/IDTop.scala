@@ -82,9 +82,12 @@ import internals._
 
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
-  ifdf(true) {
+  val i = DFBool() <> IN
+  val o = DFUInt(8) <> OUT
+  ifdf(i) {
     val fib = DFUInt(8) init(1, 0)
     fib := fib.prev + fib.prev(2)
+    o := fib.prev(2)
   }
 //  val ididid = new IDTop
 //  ididid.x <> fib.prev(2)

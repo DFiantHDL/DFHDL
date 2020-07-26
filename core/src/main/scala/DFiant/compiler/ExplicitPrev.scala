@@ -197,7 +197,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
           (p, dsn)
         }
         val addedVarPatches = portDsns.map {
-          case (p, dsn) => p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.ChangeRefOnly, Patch.Replace.Scope.Inside(block)))
+          case (p, dsn) => p -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Inside(block)))
         }
         val addedAssignments = block -> Patch.Add(new MetaDesign() {
           portDsns.foreach {

@@ -279,25 +279,14 @@ object DFDesign {
       memberRepTable : Map[DFMember, DFMember]
     ) {
 //      def replaceRef(origRef : DFMember.Ref,)
-      def replaceMember(origMember : DFMember, repMember : DFMember, scope : DB.Patch.Replace.Scope) : ReplacementContext = {
+      def replaceMember(origMember : DFMember, repMember : DFMember, refFilter : DB.Patch.Replace.RefFilter) : ReplacementContext = {
         if (origMember == repMember) this else memberTable.get(origMember) match {
           case Some(refs) =>
             //in case the replacement member already was replaced in the past, then we used the previous replacement
             //as the most updated member
             val actualReplacement = this.memberRepTable.getOrElse(repMember, repMember)
-            val scopeRefs = scope match {
-              case DB.Patch.Replace.Scope.All => refs
-              case DB.Patch.Replace.Scope.Outside(block) =>
-                //for references that have owner references of their own, we check the owners location with respect
-                //to the requested scope
-                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isOutsideOwner(block) => r}
-              case DB.Patch.Replace.Scope.Inside(block) =>
-                //for references that have owner references of their own, we check the owners location with respect
-                //to the requested scope
-                refs.collect{case r : DFMember.OwnedRef if r.owner.get.isInsideOwner(block) => r}
-            }
             ReplacementContext(
-              scopeRefs.foldLeft(refTable)((rt2, r) => rt2.updated(r, actualReplacement)),
+              refFilter(refs).foldLeft(refTable)((rt2, r) => rt2.updated(r, actualReplacement)),
               memberRepTable + (origMember -> actualReplacement)
             )
           case None =>
@@ -370,7 +359,7 @@ object DFDesign {
       })
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(ReplacementContext.fromRefTable(refTable)) {
-        case (rc, (origMember, DB.Patch.Replace(repMember, _, scope))) if (origMember != repMember) => rc.replaceMember(origMember, repMember, scope)
+        case (rc, (origMember, DB.Patch.Replace(repMember, _, refFilter))) if (origMember != repMember) => rc.replaceMember(origMember, repMember, refFilter)
         case (rc, (origMember, DB.Patch.Add(db, config))) =>
           val newOwner = config match {
             case DB.Patch.Add.Config.Inside => origMember
@@ -379,15 +368,15 @@ object DFDesign {
           val actualNewOwner = rc.memberRepTable.getOrElse(newOwner, newOwner) //owner may have been replaced before
           val dbPatched = db.patch(db.top -> DB.Patch.Replace(actualNewOwner, DB.Patch.Replace.Config.ChangeRefOnly))
           val repRT = config match {
-            case DB.Patch.Add.Config.ReplaceWithFirst(_, replacementScope) =>
+            case DB.Patch.Add.Config.ReplaceWithFirst(_, refFilter) =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
-              rc.replaceMember(origMember, repMember, replacementScope)
-            case DB.Patch.Add.Config.ReplaceWithLast(_, replacementScope) =>
+              rc.replaceMember(origMember, repMember, refFilter)
+            case DB.Patch.Add.Config.ReplaceWithLast(_, refFilter) =>
               val repMember = db.members.last
-              rc.replaceMember(origMember, repMember, replacementScope)
+              rc.replaceMember(origMember, repMember, refFilter)
             case DB.Patch.Add.Config.Via =>
               val repMember = db.members.last //The last member is used for Via addition.
-              rc.replaceMember(origMember, repMember, DB.Patch.Replace.Scope.All)
+              rc.replaceMember(origMember, repMember, DB.Patch.Replace.RefFilter.All)
             case _ => rc
           }
           repRT.copy(refTable = repRT.refTable ++ dbPatched.refTable)
@@ -498,7 +487,7 @@ object DFDesign {
     sealed trait Patch extends Product with Serializable
     object Patch {
       final case object Remove extends Patch
-      final case class Replace(updatedMember : DFMember, config : Replace.Config, scope : Replace.Scope = Replace.Scope.All) extends Patch
+      final case class Replace(updatedMember : DFMember, config : Replace.Config, refFilter : Replace.RefFilter = Replace.RefFilter.All) extends Patch
       object Replace {
         sealed trait Config extends Product with Serializable
         object Config {
@@ -514,14 +503,24 @@ object DFDesign {
           //removed from the list without being replaced in its position.
           case object FullReplacement extends Config
         }
-        sealed trait Scope extends Product with Serializable
-        object Scope {
+        trait RefFilter {
+          def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref]
+        }
+        object RefFilter {
           //All references are replaced
-          case object All extends Scope
+          object All extends RefFilter {
+            def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref] = refs
+          }
           //Only references from outside the given block are replaced
-          case class Outside(block : DFDesign.Block.Internal) extends Scope
+          final case class Outside(block : DFDesign.Block.Internal) extends RefFilter {
+            def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref] =
+              refs.collect{case r : DFMember.OwnedRef if r.owner.get.isOutsideOwner(block) => r}
+          }
           //Only references from inside the given block are replaced
-          case class Inside(block : DFDesign.Block) extends Scope
+          final case class Inside(block : DFDesign.Block) extends RefFilter {
+            def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref] =
+              refs.collect{case r : DFMember.OwnedRef if r.owner.get.isInsideOwner(block) => r}
+          }
         }
       }
       final case class Add private (db : DB, config : Add.Config) extends Patch
@@ -545,11 +544,11 @@ object DFDesign {
           //adds members after the patched member, which will be replaced.
           //The FIRST (non-Top) member is considered the reference replacement member
           //Replacement is done as specified by the scope argument
-          final case class ReplaceWithFirst(replacementConfig : Replace.Config = Replace.Config.ChangeRefAndRemove, replacementScope : Replace.Scope = Replace.Scope.All) extends Config
+          final case class ReplaceWithFirst(replacementConfig : Replace.Config = Replace.Config.ChangeRefAndRemove, refFilter : Replace.RefFilter = Replace.RefFilter.All) extends Config
           //adds members before the patched member, which will be replaced.
           //The LAST member is considered the reference replacement member
           //Replacement is done as specified by the scope argument
-          final case class ReplaceWithLast(replacementConfig : Replace.Config = Replace.Config.ChangeRefAndRemove, replacementScope : Replace.Scope = Replace.Scope.All) extends Config
+          final case class ReplaceWithLast(replacementConfig : Replace.Config = Replace.Config.ChangeRefAndRemove, refFilter : Replace.RefFilter = Replace.RefFilter.All) extends Config
           //adds members after the patched member.
           //The LAST member is considered the reference replacement member
           case object Via extends Config

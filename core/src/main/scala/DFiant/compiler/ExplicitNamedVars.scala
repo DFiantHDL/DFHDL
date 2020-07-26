@@ -23,6 +23,20 @@ final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
         case block: ConditionalBlock.Case_Block[_] => block.matchHeaderRef
       }
     }
+
+  private def requiresDefaultInit(member : DFMember) : Boolean = {
+    val refs = designDB.memberTable.getOrElse(member , Set())
+    refs.exists{
+      case r : DFMember.OwnedRef => r.refType match {
+        case _ : DFAny.Alias.RelValRef.Type => r.owner.get match {
+          case _ : DFAny.Alias.Prev => true
+          case _ => false
+        }
+        case _ => false
+      }
+      case _ => false
+    }
+  }
   def explicitNamedVars : IRCompilation[D] = {
     val patchList = designDB.members.flatMap {
       case named : DFAny if !named.isAnonymous => named match { //all named values
@@ -38,7 +52,7 @@ final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
             case cb : ConditionalBlock => //inside a conditional block
               val dsnNewVar = new MetaDesign() {
                 final val plantedNewVar = plantMember(newVar)
-                if (externalInit.isDefined) {
+                if (externalInit.isDefined && requiresDefaultInit(named)) {
                   plantedNewVar.assign(DFAny.Const.forced(plantedNewVar.dfType, externalInit.get.head))
                 }
               }
