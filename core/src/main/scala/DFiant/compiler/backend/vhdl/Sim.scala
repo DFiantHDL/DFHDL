@@ -27,7 +27,7 @@ private object Sim {
               case DFSInt(_) => s"$TP integer'image(to_integer(${Value.ref(value)}))"
               case DFBool() => s"$TP boolean'image(${Value.ref(value)})"
               case DFBit() => s"$TP std_logic'image(${Value.ref(value)})"
-              case DFEnum(enumType) => s"${EnumTypeDcl(enumType)}'image(${Value.ref(value)})"
+              case DFEnum(enumType) => s"${EnumTypeDcl.enumTypeName(enumType)}'image(${Value.ref(value)})"
             }
           }
         case Right(s) => s""""$s""""

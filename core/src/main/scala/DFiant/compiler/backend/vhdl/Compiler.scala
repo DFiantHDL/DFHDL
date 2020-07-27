@@ -6,6 +6,7 @@ package vhdl
 import DFiant.sim._
 import scala.collection.mutable
 import printer.formatter._
+import RTL.Analysis
 
 final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB =
@@ -16,6 +17,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
      .uniqueNames(reservedKeywords, caseSensitive = false)
      .toRTLForm
      .viaPortConnection
+     .orderMembers
      .db
 
   import designDB.__getset
@@ -87,24 +89,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         }
         val asyncStatements = getProcessStatements(design, !isSyncMember(_))
         val asyncSensitivityList : String = revision match {
-          case Revision.V93 =>
-            val producers = members.flatMap {
-              case a @ DFNet.Assignment.Unref(_,fromVal,_,_) if !a.hasLateConstruction => Some(fromVal)
-              case c @ DFNet.Connection.Unref(_,fromVal,_,_) if !c.hasLateConstruction => Some(fromVal)
-              case DFAny.Func2.Unref(_,left,_,right,_,_) => List(left, right)
-              case a : DFAny.Alias[_,_,_] => Some(a.relValRef.get)
-              case DFSimMember.Assert.Unref(condOption,msg,_,_,_) => msg.seq ++ condOption
-              case ifBlock : ConditionalBlock.IfBlock => Some(ifBlock.condRef.get)
-              case elseIfBlock : ConditionalBlock.ElseIfBlock => Some(elseIfBlock.condRef.get)
-              case mh : ConditionalBlock.MatchHeader => Some(mh.matchValRef.get)
-              case _ => Nil
-            }
-            val signalsOrPorts = producers.distinct.collect {
-              case p @ DFAny.Port.In() => p
-              case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Mod.Reg) => v
-              case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
-            }
-            Process.Sensitivity.List(signalsOrPorts.map(e => e.name))
+          case Revision.V93 => Process.Sensitivity.List(designDB.getSensitivityList(design))
           case Revision.V2008 => Process.Sensitivity.All()
         }
         val asyncProcess = Process("async_proc", asyncSensitivityList, variables, asyncStatements)

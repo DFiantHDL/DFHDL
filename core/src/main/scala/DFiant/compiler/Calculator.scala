@@ -55,13 +55,20 @@ final class Calculator[D <: DFDesign](c : IRCompilation[D]) {
     }
   }
 
-  def calcInit : IRCompilation[D] = {
+  def initCalc : IRCompilation[D] = {
     //we request init calculation for all members that can have initialization and currently do not have
     //a calculated init tag (the tag is empty).
     val calcMembers = designDB.members.collect{case v : DFAny if v.getInit.isEmpty => v}
     val initMap = calcInitRec(calcMembers, Map(), Set())
     val patchList = initMap.toList.map{
       case (v, init) => v -> Patch.Replace(v.setInit(init), Patch.Replace.Config.FullReplacement)
+    }
+    c.newStage(designDB.patch(patchList))
+  }
+  def clearInitCalc : IRCompilation[D] = {
+    val calcMembers = designDB.members.collect{case v : DFAny if v.getInit.nonEmpty => v}
+    val patchList = calcMembers.map{m =>
+      m -> Patch.Replace(m.clearInit, Patch.Replace.Config.FullReplacement)
     }
     c.newStage(designDB.patch(patchList))
   }

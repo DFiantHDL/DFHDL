@@ -6,6 +6,8 @@ package object compiler {
   : SanityCheck[D] = new SanityCheck[D](c)
   implicit def evFixAnonymous[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : FixAnonymous[D] = new FixAnonymous[D](c)
+  implicit def evOrderMembers[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : OrderMembers[D] = new OrderMembers[D](c)
   implicit def evUniqueDesigns[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : UniqueDesigns[D] = new UniqueDesigns[D](c)
   implicit def evNamedSelection[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])

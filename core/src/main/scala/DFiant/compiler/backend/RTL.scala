@@ -20,17 +20,19 @@ package compiler
 package backend
 
 import DFDesign.DB.Patch
+import DFiant.DFDesign.DB.Patch.Replace
 import DFiant.EdgeDetect.Edge
 import constraints.timing.sync._
 import ResetParams.{Active, Mode}
 import DFiant.sim._
+
 import collection.mutable
 
 final class RTL[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB =
-    c.singleStepPrev.printCodeString
-     .calcInit.printCodeString
-//     .explicitNamedVars.printCodeString
+    c.singleStepPrev
+     .initCalc
+     .explicitNamedVars
      .db
 
   private val clockParams = {
@@ -40,6 +42,24 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
   private val resetParams = {
     import designDB.__getset
     ResetParams.get
+  }
+
+  //Filter for DB Patch replacement of only assigned values
+  private object Assigned extends Replace.RefFilter {
+    def apply(refs : Set[DFMember.Ref])(implicit getSet : MemberGetSet) : Set[DFMember.Ref] =
+      refs.filter {
+        case r : DFMember.OwnedRef => r.refType match {
+          case _ : DFNet.ToRef.Type => true
+          case _ => false
+        }
+        case _ => false
+      }
+  }
+
+  //Filter for DB Patch replacement of only non-assigned values
+  private object NotAssigned extends Replace.RefFilter {
+    def apply(refs : Set[DFMember.Ref])(implicit getSet : MemberGetSet) : Set[DFMember.Ref] =
+      refs -- Assigned(refs)
   }
 
   private def getClockedDB : (DFDesign.DB, Map[DFDesign.Block, RTL.ClkRstDesign]) = {
@@ -95,42 +115,59 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
 
   def toRTLForm : IRCompilation[D] = {
     final case class PrevReplacements(
-      prevNet : DFNet, prevVar : DFAny.Dcl, prevVal : DFAny.Alias.Prev, relVal : DFAny, regVar : DFAny.Dcl
+      prevRegDcl : DFAny.Dcl, relVal : DFAny, prevPatch : List[(DFMember, Patch)]
     ) {
       private var sig : DFAny = _
-      def sigAssign(implicit ctx : DFBlock.Context) : Unit = sig = (relVal, regVar) match {
+      def sigAssign(implicit ctx : DFBlock.Context) : Unit = sig = (relVal, prevRegDcl) match {
         case (DFAny.In(),_) => relVal
         case _ if !relVal.name.endsWith("_sig") =>
           implicit val __getSet : MemberGetSet = ctx.db.getSet
-          val sig = DFAny.NewVar(regVar.dfType) setName s"${relVal.name}_sig"
+          val sig = DFAny.NewVar(prevRegDcl.dfType) setName s"${relVal.name}_sig"
           sig.assign(relVal)
           sig
         case _ => relVal
       }
       def rstAssign(implicit ctx : DFBlock.Context) : Unit = relVal.getInit match {
         case Some(i +: _) =>
-          val initConst = DFAny.Const.forced(regVar.dfType, i)
-          regVar.assign(initConst)
+          val initConst = DFAny.Const.forced(prevRegDcl.dfType, i)
+          prevRegDcl.assign(initConst)
         case _ =>
       }
-      def clkAssign(implicit ctx : DFBlock.Context) : Unit = regVar.assign(sig)
+      def clkAssign(implicit ctx : DFBlock.Context) : Unit = prevRegDcl.assign(sig)
     }
     val (clockedDB, addedClkRst) = getClockedDB
     val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
       import clockedDB.__getset
       var hasPrevRst = false
+      //Locating all xyz_prev := xyz.prev assignments
       val prevReplacements : List[PrevReplacements] = members.collect {
-        case n @ DFNet.Assignment.Unref(prevVar @ DFAny.NewVar(), prevVal @ DFAny.Alias.Prev.Unref(_, relVal, _, _, _), _, _) =>
-          prevVal.getInit match {
-            case Some(i +: _) if !i.isBubble => hasPrevRst = true
-            case _ =>
-          }
+        case prevNet @ DFNet.Assignment.Unref(xyz_prev @ DFAny.NewVar(), xyzDOTprev @ DFAny.Alias.Prev.Unref(_, relVal, _, _, _), _, _) =>
           val prevVarInit = relVal.getInit match {
             case Some(i +: _) if !i.isBubble => Some(Seq(i))
             case _ => None
           }
-          val prevVarRep = prevVar.copy(externalInit = prevVarInit).clearInit.setNameSuffix("_reg") !! RTL.Tag.Mod.Reg
-          PrevReplacements(n, prevVar, prevVal, relVal, prevVarRep)
+          val prevReg = xyz_prev.copy(externalInit = prevVarInit) !! RTL.Tag.Mod.Reg
+          val prevPatch = Assigned(designDB.memberTable(xyz_prev)).size match {
+            case 1 => //remove the net
+              List(
+                prevNet -> Patch.Remove,
+                xyz_prev -> Patch.Replace(prevReg, Patch.Replace.Config.FullReplacement),
+                xyzDOTprev -> Patch.Replace(prevReg, Patch.Replace.Config.ChangeRefAndRemove)
+              )
+            case _ =>
+              val newVar = xyz_prev.setNameSuffix("_var").copy(externalInit = None)
+              List(
+                xyz_prev -> Patch.Add(List(prevReg, newVar), Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement, Assigned)),
+                xyz_prev -> Patch.Replace(prevReg, Patch.Replace.Config.ChangeRefAndRemove, NotAssigned),
+                xyzDOTprev -> Patch.Replace(prevReg, Patch.Replace.Config.ChangeRefAndRemove)
+              )
+          }
+
+          xyzDOTprev.getInit match {
+            case Some(i +: _) if !i.isBubble => hasPrevRst = true
+            case _ =>
+          }
+          PrevReplacements(prevReg, relVal, prevPatch)
       }
       val topSimulation = block match {
         case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => true
@@ -165,18 +202,10 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
         val prevPatchList = clkPatch :: rstPatch
         val prevDB = prevDsn.getDB.patch(prevPatchList)
         //adding the clocked prev "signaling" with the clk-rst guards
-        (block -> Patch.Add(prevDB, Patch.Add.Config.Inside)) ::
-          prevReplacements.flatMap {
-            case PrevReplacements(prevNet, prevVar, prevVal, relVal, regVar) =>
-              val prevVarNoInit = prevVar.copy(externalInit = None).clearInit
-              List (
-                prevVar -> Patch.Add(List(prevVarNoInit, regVar), Patch.Add.Config.ReplaceWithFirst()),
-                prevVal -> Patch.Replace(regVar, Patch.Replace.Config.ChangeRefAndRemove),
-              )
-          }
+        (block -> Patch.Add(prevDB, Patch.Add.Config.Inside)) :: prevReplacements.flatMap(_.prevPatch)
       } else None
     }
-    c.newStage(clockedDB.patch(patchList))
+    c.newStage(clockedDB.patch(patchList)).clearInitCalc
   }
 }
 
@@ -294,5 +323,29 @@ object RTL {
     }
     final def hasClk : Boolean = _hasClk
     final def hasRst : Boolean = _hasRst
+  }
+
+  implicit class Analysis(designDB : DFDesign.DB) {
+    import designDB.__getset
+
+    def getSensitivityList(design : DFDesign.Block) : List[String] = {
+      val producers = designDB.designMemberTable(design).flatMap {
+        case a @ DFNet.Assignment.Unref(_,fromVal,_,_) if !a.hasLateConstruction => Some(fromVal)
+        case c @ DFNet.Connection.Unref(_,fromVal,_,_) if !c.hasLateConstruction => Some(fromVal)
+        case DFAny.Func2.Unref(_,left,_,right,_,_) => List(left, right)
+        case a : DFAny.Alias[_,_,_] => Some(a.relValRef.get)
+        case DFSimMember.Assert.Unref(condOption,msg,_,_,_) => msg.seq ++ condOption
+        case ifBlock : ConditionalBlock.IfBlock => Some(ifBlock.condRef.get)
+        case elseIfBlock : ConditionalBlock.ElseIfBlock => Some(elseIfBlock.condRef.get)
+        case mh : ConditionalBlock.MatchHeader => Some(mh.matchValRef.get)
+        case _ => Nil
+      }
+      val signalsOrPorts = producers.distinct.collect {
+        case p @ DFAny.Port.In() => p
+        case v @ DFAny.NewVar() if v.isTaggedWith(RTL.Tag.Mod.Reg) => v
+        case v @ DFAny.NewVar() if designDB.getAssignmentsTo(v).isEmpty => v
+      }
+      signalsOrPorts.map(_.name)
+    }
   }
 }

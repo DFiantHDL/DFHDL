@@ -327,8 +327,13 @@ object DFDesign {
           //add followed by a replacement is allowed via a tandem patch execution
           case (add : Patch.Add, Patch.Remove) =>
             tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
+          //allow the same member to be removed more than once by getting rid of the redundant removals
+          case (Patch.Remove, Patch.Remove) => tbl + (m -> Patch.Remove)
           //don't allow using the same member for patching if it's not an addition of the same configuration
-          case _ => throw new IllegalArgumentException(
+          case (l, r) =>
+            println(l)
+            println(r)
+            throw new IllegalArgumentException(
             s"Received two different patches for the same member: $m"
           )
         }
@@ -434,26 +439,6 @@ object DFDesign {
         case _ => dt
       })
     }
-
-    @tailrec private def mcf(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
-      remaining match {
-        case (block : DFBlock) :: mList =>
-          val members = blockMemberTable(block)
-          val sortedMembers = block match {
-            case _ : DFDesign.Block =>
-              val split = members.partition {
-                case _ : CanBeGuarded => false
-                case _ => true
-              }
-              split._1 ++ split._2
-            case _ => members
-          }
-          mcf(sortedMembers ++ mList, block :: retList)
-        case m :: mList => mcf(mList, m :: retList)
-        case Nil => retList.reverse
-      }
-    def moveConnectableFirst : DFDesign.DB = copy(members = mcf(List(top), List()))
-
 
     //for a given producer, we get a set of its consumers
     lazy val producerDependencyTable : Map[DFAny, Set[DFAny]] = {
