@@ -97,7 +97,7 @@ final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
 
   private val instName : String = designDB.top.name
   private val packName : String = designDB.top.name
-  private val className : String = s"${designDB.top.typeName}Node"
+  private val className : String = s"${designDB.top.designType}Node"
   private val clkName : String = ClockParams.get.name
   private val rstName : String = ResetParams.get.name
 

@@ -27,7 +27,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       case d : DFDesign.Block =>
         val body = blockBodyCodeString(d, fixedDB.blockMemberTable(d), lateConstruction = true)
         val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
-        Some(s"$finalStr$SC val ${d.name} ${ALGN(0)}= $SC new ${d.typeName} $bodyBrackets") //TODO: fix
+        Some(s"$finalStr$SC val ${d.name} ${ALGN(0)}= $SC new ${d.designType} $bodyBrackets") //TODO: fix
       case n : DFNet => n.toRef.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
         case _ => Some(n.codeString)

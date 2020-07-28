@@ -25,7 +25,6 @@ trait DFOwner extends DFMember {
       case _ =>
     }
   }
-  def nameAndType : String = s"$name : $typeName"
 }
 
 object DFOwner {
@@ -49,7 +48,6 @@ object DFOwner {
     protected[DFiant] def onEnterContainer() : Unit = {}
     protected[DFiant] def onExitContainer() : Unit = {}
     protected[DFiant] def onCreateContainer() : Unit = {}
-    def nameAndType : String = s"${__ctx.meta.name} : $typeName"
   }
 
   implicit class AbstractExt[T <: DFOwner](t : T) {
@@ -89,10 +87,10 @@ object DFOwner {
 }
 
 abstract class ContextOf[T](
-  val meta : Meta, val container : DFOwner.Container, val dir: DFDir, val db: DFDesign.DB.Mutable, val args : ClassArgs[T]
+  val meta : Meta, val symbol : Meta.SymbolOf[T], val container : DFOwner.Container, val dir: DFDir, val db: DFDesign.DB.Mutable, val args : ClassArgs[T]
 ) extends DFMember.Context { self =>
   def newInterface(updatedCtx : ContextOf[T]) : Any
-  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, container, updatedDir, db, args) {
+  final def updateDir(updatedDir : DFDir) : ContextOf[T] = new ContextOf[T](meta, symbol, container, updatedDir, db, args) {
     override def newInterface(updatedCtx : ContextOf[T]) : Any = self.newInterface(updatedCtx)
   }
 }
@@ -104,14 +102,14 @@ object ContextOf {
   ) {final val msg = getMsg}
   implicit def evCtxContainer[T1, T2](
     implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
-    args : ClassArgs[T2]
-  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, ctx.container, ctx.dir, ctx.db, args) {
+    symbol : Meta.SymbolOf[T2], args : ClassArgs[T2]
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, symbol, ctx.container, ctx.dir, ctx.db, args) {
     def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
   }
   implicit def evTop[T <: DFDesign](
-    implicit topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], meta: Meta,
+    implicit topLevel : RequireMsg[ImplicitFound[TopLevel], MissingError.Msg], meta: Meta, symbol : Meta.SymbolOf[T],
     mustBeTheClassOf: MustBeTheClassOf[T], lp : shapeless.LowPriority, args : ClassArgs[T]
-  ) : ContextOf[T] = new ContextOf[T](meta, null, ASIS, new DFDesign.DB.Mutable, args) {
+  ) : ContextOf[T] = new ContextOf[T](meta, symbol, null, ASIS, new DFDesign.DB.Mutable, args) {
     def newInterface(updatedCtx : ContextOf[T]) : Any = ???
   }
 }

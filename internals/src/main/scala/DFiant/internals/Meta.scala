@@ -107,20 +107,19 @@ object Meta {
         c.Expr[OfType[T]](q"""${c.prefix}($name)""")
       }
     }
-
-    case class OfSymbol[T](value: String)
-    object OfSymbol {
-      implicit def ev[T]: OfSymbol[T] = macro evMacro[T]
-      def evMacro[T](c: blackbox.Context)(implicit t : c.WeakTypeTag[T]): c.Expr[OfSymbol[T]] = {
-        import c.universe._
-        val sym = symbolOf[T]
-        val name = sym.name.toString
-        c.Expr[OfSymbol[T]](q"""${c.prefix}($name)""")
-      }
-    }
-
   }
   /////////////////////////////////////////////////////////
+
+  final case class SymbolOf[T](value: String)
+  object SymbolOf {
+    implicit def ev[T]: SymbolOf[T] = macro evMacro[T]
+    def evMacro[T](c: blackbox.Context)(implicit t : c.WeakTypeTag[T]): c.Expr[SymbolOf[T]] = {
+      import c.universe._
+      val sym = symbolOf[T]
+      val name = sym.fullName
+      c.Expr[SymbolOf[T]](q"""${c.prefix}($name)""")
+    }
+  }
 
   implicit def ev(implicit lateConstructionConfig: LateConstructionConfig) : Meta = macro evMacro
   def evMacro(c: blackbox.Context)(lateConstructionConfig : c.Tree): c.Expr[Meta] = {

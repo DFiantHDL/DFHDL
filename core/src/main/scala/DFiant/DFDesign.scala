@@ -42,7 +42,8 @@ object DFDesign {
     private[DFiant] lazy val simMode : DFSimDesign.Mode = DFSimDesign.Mode.Off
     private[DFiant] val __ctx : DFDesign.Context
     protected[DFiant] final implicit lazy val __db : DFDesign.DB.Mutable = __ctx.db
-    private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(typeName, inlinedRep, simMode)(__ctx)
+    private lazy val designType : String = typeName.split("\\.").last
+    private[DFiant] final val owner : DFDesign.Block = DFDesign.Block.Internal(this)(designType, inlinedRep, simMode)(__ctx)
     protected[DFiant] final implicit val __dir : DFDir = ASIS
     final protected val dsn : this.type = this
 
@@ -50,18 +51,18 @@ object DFDesign {
     // Context implicits
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __contextOfDefs[T <: String with Singleton](
-      implicit meta : Meta
-    ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, new ClassArgs[T]{val value = List()}) {
+      implicit meta : Meta, v : ValueOf[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, Meta.SymbolOf(valueOf[T]), this, ASIS, __db, new ClassArgs[T]{val value = List()}) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = ???
     }
     final protected implicit def __contextOfDesign[T <: DFDesign](
-      implicit meta : Meta, args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, args) {
+      implicit meta : Meta, symbol : Meta.SymbolOf[T], args : ClassArgs[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, symbol, this, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = ???
     }
     final protected implicit def __contextOfInterface[T <: DFInterface](
-      implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, this, ASIS, __db, args) {
+      implicit meta : Meta, symbol : Meta.SymbolOf[T], cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, symbol, this, ASIS, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
@@ -81,6 +82,8 @@ object DFDesign {
       }
       def getTagOf[CT <: DFMember.CustomTagOf[Block] : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
     }
+
+    override lazy val typeName : String = __ctx.symbol.value
   }
 
   trait Implicits extends

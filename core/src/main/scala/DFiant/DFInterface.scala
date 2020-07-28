@@ -49,12 +49,13 @@ object DFInterface {
     // Context implicits
     ///////////////////////////////////////////////////////////////////
     final protected implicit def __contextOfInterface[T <: DFInterface](
-      implicit meta : Meta, cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
-    ) : ContextOf[T] = new ContextOf[T](meta, this, __dir, __db, args) {
+      implicit meta : Meta, symbol : Meta.SymbolOf[T], cc : CloneClassWithContext[ContextOf[T]], args : ClassArgs[T]
+    ) : ContextOf[T] = new ContextOf[T](meta, symbol, this, __dir, __db, args) {
       def newInterface(updatedCtx : ContextOf[T]) : Any = cc(updatedCtx)
     }
     ///////////////////////////////////////////////////////////////////
     final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(false)
+    override lazy val typeName : String = __ctx.symbol.value
   }
   implicit class InterfaceExt[T <: DFInterface](t : T) {
     def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(t.owner)
@@ -89,10 +90,12 @@ object DFInterface {
   final class Singular[T <: DFAny.Type](dfType : T)(implicit ctx : ContextOf[Singular[T]]) extends DFInterface {
     final val value = DFAny.NewVar(dfType)
   }
-  abstract class Context(val meta : Meta, val container : DFOwner.Container, val dir : DFDir, val db : DFDesign.DB.Mutable)
-    extends DFAny.Context { self =>
+  abstract class Context(
+    val meta : Meta, val symbol : Meta.SymbolOf[_], val container : DFOwner.Container,
+    val dir : DFDir, val db : DFDesign.DB.Mutable
+  ) extends DFAny.Context { self =>
     def newInterface(updatedCtx : DFInterface.Context) : Any
-    final def updateDir(updatedDir : DFDir) : Context = new Context(meta, container, updatedDir, db) {
+    final def updateDir(updatedDir : DFDir) : Context = new Context(meta, symbol, container, updatedDir, db) {
       override def newInterface(updatedCtx : DFInterface.Context) : Any = self.newInterface(updatedCtx)
     }
   }
@@ -105,7 +108,7 @@ object DFInterface {
       implicit
       ctx : ContextOf[T],
       mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T]], MissingError.Msg]
-    ) : Context = new Context(ctx.meta, ctx.container, ctx.dir, ctx.db){
+    ) : Context = new Context(ctx.meta, ctx.symbol, ctx.container, ctx.dir, ctx.db){
       def newInterface(updatedCtx : DFInterface.Context) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
     }
   }
