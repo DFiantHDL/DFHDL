@@ -11,7 +11,7 @@ import sim.DFSimDesign
   final val size      = DFBits(32)  <> IN
 }
 
-@df class loopback_moved extends DFDesign {
+@df class loopback extends DFDesign {
   final val io = new loopback_ifc
   import io._
 
@@ -166,18 +166,18 @@ import sim.DFSimDesign
 }
 
 @df class LoopbackTest extends DFSimDesign  {
-  final val lb = new loopback_moved {}
+  final val lb = new loopback {}
   final val lb_drv = new LoopbackDriver {}
   lb.io <> lb_drv.io
 }
 
 object LoopbackTestApp extends App {
-  object loopback_test extends LoopbackTest
+  object top_test extends LoopbackTest
   import sim.tools.ghdl
-  loopback_test.printCodeString.compile.printCodeString.toFolder("loopback").simulation.run()
+  top_test.printCodeString.compile.printCodeString.toFolder("loopback").simulation.run()
 }
 
 object LoopbackApp extends App {
-  object loopback_moved extends loopback_moved
-  loopback_moved.printCodeString.compile.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
+  object top extends loopback
+  top.printCodeString.compile.printCodeString.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
 }

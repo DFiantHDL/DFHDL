@@ -120,11 +120,11 @@ object DFDesign {
       def apply(container : DFOwner.Container)(designType : String, inlinedRep : Option[DFInlineComponent.Rep], simMode : DFSimDesign.Mode)(
         implicit ctx : Context
       ) : Block = ctx.db.addContainerOwner(container,
-        if (ctx.container == null) Top(designType, ctx.meta, simMode)(ctx.db)
+        if (ctx.container == null) Top(designType, ctx.meta, simMode)
         else Internal(designType, ctx.owner, ctx.meta, inlinedRep)
       )
     }
-    final case class Top(designType: String, tags : DFMember.Tags, simMode : DFSimDesign.Mode)(db: DB.Mutable) extends Block {
+    final case class Top(designType: String, tags : DFMember.Tags, simMode : DFSimDesign.Mode) extends Block {
       override lazy val ownerRef : DFOwner.Ref = ???
       override def getOwnerBlock(implicit getSet : MemberGetSet): DFBlock = this
       override val isTop: Boolean = true
@@ -136,7 +136,7 @@ object DFDesign {
       override lazy val typeName : String = designType
       override def getFullName(implicit getSet : MemberGetSet): String = name
 
-      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(db))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
   }
 
