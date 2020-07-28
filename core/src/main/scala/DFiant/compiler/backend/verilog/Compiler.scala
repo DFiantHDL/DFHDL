@@ -157,7 +157,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         val enumModuleDcls =
           if (printer.inSimulation) localEnumTypes.map(e =>
             s"""/* verilator lint_off DECLFILENAME */
-               |${EnumTypeDcl.module(e)}""".stripMargin
+               |${EnumTypeDcl(e)}""".stripMargin
           ).toList
           else Nil
         val declarations =

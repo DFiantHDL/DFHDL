@@ -31,8 +31,12 @@ private object EnumTypeDcl {
        |$KW endfunction
        |""".stripMargin
   }
-  def module(enumType: EnumType)(implicit printer: Printer) : String =
+  private def module(enumType: EnumType)(implicit printer: Printer) : String =
     Module(moduleName(enumType), Nil, List(tostrFuncDcl(enumType)))
+  def apply(enumType: EnumType)(implicit printer: Printer) : String =
+    s"""/* verilator lint_off DECLFILENAME */
+       |${module(enumType)}""".stripMargin
+
 }
 
 private object EnumInstance {
