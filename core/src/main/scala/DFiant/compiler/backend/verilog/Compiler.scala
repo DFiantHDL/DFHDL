@@ -11,16 +11,16 @@ import RTL.Analysis
 
 final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB =
-    c.flattenNames
-      .explicitPrev
-      .uniqueDesigns
-      .fixAnonymous
-      .namedSelection
-      .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)
-      .toRTLForm
-      .viaPortConnection
-      .orderMembers
-      .db
+    c.fixAnonymous
+     .flattenNames
+     .explicitPrev
+     .uniqueDesigns
+     .namedSelection
+     .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)
+     .toRTLForm
+     .viaPortConnection
+     .orderMembers
+     .db
 
   import designDB.__getset
   private val isSyncMember : DFMember => Boolean = {

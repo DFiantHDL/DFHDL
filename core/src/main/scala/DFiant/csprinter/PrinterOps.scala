@@ -8,7 +8,7 @@ import DFiant.sim._
 import scala.collection.mutable
 
 final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D]) {
-  private val fixedDB = conv(c).flattenNames.fixAnonymous.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
+  private val fixedDB = conv(c).fixAnonymous.flattenNames.uniqueNames(Set(), caseSensitive = true).uniqueDesigns.db
   import fixedDB.__getset
 
   private def blockBodyCodeString(owner : DFOwner, members : List[DFMember], lateConstruction : Boolean)(

@@ -10,7 +10,8 @@ import RTL.Analysis
 
 final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB =
-    c.flattenNames
+    c.fixAnonymous
+     .flattenNames
      .explicitPrev
      .explicitConversions
      .uniqueDesigns
