@@ -127,7 +127,7 @@ package object stream {
       val set_fsm = step {
         ret := left
       } ==> step {
-        ret := op(ret, left).anonymize
+        ret := op(ret, left)
       }
       ret
     }
