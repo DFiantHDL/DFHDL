@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
-import DFiant.csprinter.CSPrinter
+import DFiant.csprinter.{CSPrinter, CodeStringOf}
 
 import scala.annotation.nowarn
 
@@ -32,6 +32,8 @@ object DFBits extends DFAny.Companion {
         val op = implicitly[`Op:=`.Builder[Type[W], DFBits[Int]]]
         op(this, r.asInstanceOf[DFBits[Int]])
     }
+    def valueCodeString(value : BitVector)(implicit printer : CSPrinter) : String = ???
+    def valueToBitVector(value : BitVector) : BitVector = value
     override def toString: String = s"DFBits[$width]"
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -60,73 +62,146 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token(value : BitVector, bubbleMask : BitVector) extends DFAny.Token.Of[BitVector] {
-    assert(value.length == bubbleMask.length)
-    val width : Int = value.length.toInt
-    lazy val valueBits : BitVector = value
-    def | (that : Token) : Token = {
-      assert(that.width == width)
-      Token(this.valueBits | that.valueBits, this.bubbleMask | that.bubbleMask)
+  type TokenW[W] = Token with WidthTag[W]
+  final case class Token(valueBits : BitVector, bubbleMask : BitVector) extends DFAny.Token {left =>
+    assert(valueBits.length == bubbleMask.length)
+    val width : Int = valueBits.length.toInt
+    def & (right : Token)(implicit bb : Bubble.Behaviour) : Token = {
+      assert(right.width == width)
+      bb match {
+        case Bubble.Stall =>
+          Token(left.valueBits & right.valueBits, left.bubbleMask | right.bubbleMask)
+        case Bubble.DontCare =>
+          val valueBits = (left.valueBits | left.bubbleMask) & (right.valueBits | right.bubbleMask)
+          val bubbleMask = (left.bubbleMask & right.bubbleMask) | (left.bubbleMask & right.valueBits) |
+            (right.bubbleMask & left.valueBits)
+          Token(valueBits, bubbleMask)
+      }
     }
-    def & (that : Token) : Token = {
-      assert(that.width == width)
-      Token(this.valueBits & that.valueBits, this.bubbleMask | that.bubbleMask)
+    def | (right : Token)(implicit bb : Bubble.Behaviour) : Token = {
+      assert(right.width == width)
+      bb match {
+        case Bubble.Stall =>
+          Token(left.valueBits & right.valueBits, left.bubbleMask | right.bubbleMask)
+        case Bubble.DontCare =>
+          val valueBits = (left.valueBits & left.bubbleMask.unary_~()) | (right.valueBits & right.bubbleMask.unary_~())
+          val bubbleMask = (left.bubbleMask & right.bubbleMask) | (left.bubbleMask & right.valueBits.unary_~()) |
+            (right.bubbleMask & left.valueBits.unary_~())
+          Token(valueBits, bubbleMask)
+      }
     }
-    def ^ (that : Token) : Token = {
-      assert(that.width == width)
-      Token(this.valueBits ^ that.valueBits, this.bubbleMask | that.bubbleMask)
+    //dontcare in xor will always produce dontcare, like stall bubbles
+    def ^ (right : Token) : Token = {
+      assert(right.width == width)
+      val valueBits = left.valueBits ^ right.valueBits
+      val bubbleMask = left.bubbleMask | right.bubbleMask
+      Token(valueBits, bubbleMask)
     }
-    def ++ (that : Token) : Token = {
-      Token(this.valueBits ++ that.valueBits, this.bubbleMask ++ that.bubbleMask)
+    def ++ (right : Token) : Token = {
+      Token(left.valueBits ++ right.valueBits, left.bubbleMask ++ right.bubbleMask)
     }
-    def << (that : DFUInt.Token) : Token = {
-      val shift = that.value.toInt
-      new Token(this.valueBits << shift, this.bubbleMask << shift)
+    def << (shift : DFUInt.Token) : Token = shift.value match {
+      case Some(value) => Token(left.valueBits << value.toInt, left.bubbleMask << value.toInt)
+      case None => Token.bubble(width)
     }
-    def >> (that : DFUInt.Token) : Token = {
-      val shift = that.value.toInt
-      new Token(this.valueBits >>> shift, this.bubbleMask >>> shift)
+    def >> (shift : DFUInt.Token) : Token = shift.value match {
+      case Some(value) => Token(left.valueBits >>> value.toInt, left.bubbleMask >>> value.toInt)
+      case None => Token.bubble(width)
     }
-    @nowarn("msg=Auto-application to `()` is deprecated. Supply the empty argument list `()` explicitly to invoke method unary_~")
-    def unary_~ : Token = Token(this.valueBits.unary_~(), this.bubbleMask)
-    def reverse : Token = Token(valueBits.reverseBitOrder, bubbleMask.reverseBitOrder)
+    def unary_~ : Token = Token(left.valueBits.unary_~(), left.bubbleMask)
+    def reverse : Token = Token(left.valueBits.reverseBitOrder, left.bubbleMask.reverseBitOrder)
     def resize(toWidth : Int) : Token = {
       if (toWidth < width) bitsWL(toWidth, 0)
-      else if (toWidth > width) (Token(toWidth - width, 0) ++ this)
+      else if (toWidth > width) (Token.zero(toWidth - width) ++ this)
       else this
     }
-    def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.valueBits == that.valueBits, this.isBubble || that.isBubble)
-    def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.valueBits != that.valueBits, this.isBubble || that.isBubble)
+    def == (right : Token)(implicit bb : Bubble.Behaviour) : DFBool.Token = {
+      assert(right.width == width)
+      bb match {
+        case Bubble.Stall => 
+          if (left.isBubble || right.isBubble) DFBool.Token.bubble(logical = true)
+          else DFBool.Token(logical = true, left.valueBits == right.valueBits)
+        case Bubble.DontCare =>
+          val valueBits = (left.bubbleMask | right.bubbleMask | (left.valueBits ^ right.valueBits).unary_~()) == BitVector.high(width)
+          DFBool.Token(logical = true, valueBits)
+      }
+    }
+    def != (that : Token)(implicit bb : Bubble.Behaviour) : DFBool.Token = !(this == that)
 
     def toUInt : DFUInt.Token = {
-      val outWidth = this.width
-      val outValueUInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width)
-      val outBubble = isBubble
-      DFUInt.Token(outWidth, outValueUInt, outBubble)
+      if (isBubble) DFUInt.Token.bubble(width)
+      else DFUInt.Token(width, BigInt(this.valueBits.padToMulsOf(8).toByteArray).asUnsigned(width))
     }
     def toSInt : DFSInt.Token = {
-      val outWidth = this.width
-      val outValueSInt = BigInt(this.valueBits.padToMulsOf(8).toByteArray)
-      val outBubble = isBubble
-      new DFSInt.Token(outWidth, outValueSInt, outBubble)
+      if (isBubble) DFSInt.Token.bubble(width)
+      else DFSInt.Token(width, BigInt(this.valueBits.padToMulsOf(8).toByteArray))
+    }
+    def getUIntValue : BigInt = valueBits.toBigInt.asUnsigned(width)
+    def getSIntValue : BigInt = valueBits.toBigInt
+    def toBinString : String = {
+      val valueString = valueBits.toBin
+      val bubbleString = bubbleMask.toBin
+      valueString.zip(bubbleString).map {
+        case (_, '1') => '?'
+        case (zeroOrOne, _) => zeroOrOne
+      }.mkString
+    }
+    def toHexString : String = {
+//      if (width % 4 == 0)
+      val valueString = valueBits.toHex
+      val bubbleString = bubbleMask.toHex
+      valueString.zip(bubbleString).map {
+        case (_, 'F') => '?'
+        case (h, '0') => h
+      }.mkString
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       import io.AnsiColor.BOLD
-      if (value.length % 4 == 0) s"""$BOLD h$STR"${value.toHex}""""
-      else s"""$BOLD b$STR"${value.toBin}""""
+      if (width % 4 == 0) s"""$BOLD h$STR"${valueBits.toHex}""""
+      else s"""$BOLD b$STR"${valueBits.toBin}""""
     }
-//    override def equals(obj: Any): Boolean = obj match {
-//      case Token(width, value, bubbleMask) => this.width.getValue == width.getValue && this.value == value && this.bubbleMask == bubbleMask
-//      case _ => false
-//    }
   }
   object Token {
-    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token(t.width, Bubble)
-    def apply(width : Int, value : Int) : Token = Token(BigInt(value).toBitVector(width))
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => bubble(t.width)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => bubble(t.width.getValue)
+    def zero(width : Int) : Token = Token(BitVector.low(width))
     def apply(value : BitVector) : Token = Token(value, BitVector.low(value.length))
-    def apply(width : Int, value : Bubble) : Token = Token(BitVector.low(width), BitVector.high(width))
+    def apply(width : Int, value : BigInt) : Token = Token(value.toBitVector(width))
+    def bubble(width : Int) : Token = Token(BitVector.low(width), BitVector.high(width))
+    def fromBinString(bin : String) : Option[Token] = {
+      val noUnderscore = bin.replaceAll("_", "")
+      val valuePart = noUnderscore.replace('?', '0')
+      val bubblePart = noUnderscore.replaceAll("[1|0]","0").replace('?','1')
+      val valueBitsOption = BitVector.fromBin(valuePart)
+      val bubbleBitsOption = BitVector.fromBin(bubblePart)
+      (valueBitsOption, bubbleBitsOption) match {
+        case (Some(v), Some(b)) => Some(Token(v, b))
+        case _ => None
+      }
+    }
+
+    def fromHexString(hex : String) : Option[Token] = {
+      val isHex = "[0-9a-fA-F]".r
+      val (valueBits, bubbleMask, binMode) = hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
+        case (t, '_') => t //ignoring underscore
+        case ((v, b, false), c) => c match { //hex mode
+          case '{' => (v, b, true)
+          case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
+          case isHex() => (v ++ BitVector.fromHex(c.toString).get, b ++ BitVector.low(4), false)
+          case _ => return None
+        }
+        case ((v, b, true), c) => c match { //bin mode
+          case '}' => (v, b, false)
+          case '?' => (v :+ false, b :+ true, true)
+          case '0' => (v :+ false, b :+ false, true)
+          case '1' => (v :+ true, b :+ false, true)
+          case _ => return None
+        }
+      }
+      if (binMode) None
+      else Some(Token(valueBits, bubbleMask))
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -134,24 +209,27 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Pattern(set : Set[BitVector]) extends DFAny.Pattern.OfSet[BitVector, Pattern](set)
+  private val patternCodeString : CodeStringOf[Token] = new CodeStringOf[Token] {
+    def apply(t : Token)(implicit printer : CSPrinter) : String = t.codeString
+  }
+  class Pattern(set : Set[Token]) extends DFAny.Pattern.OfSet[Token, Pattern](set)(patternCodeString)
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R] {
-      val bitVector : BitVector
+      val token : Token
     }
     object Able {
-      implicit class DFUIntPatternBitVector[R <: BitVector](val right : R) extends Able[R] {
-        val bitVector : BitVector = right
+      implicit class DFBitsPattern[R <: Token](val right : R) extends Able[R] {
+        val token : Token = right
       }
     }
     trait Builder[LType <: DFAny.Type] extends DFAny.Pattern.Builder[LType, Able]
     object Builder {
       implicit def ev[LW] : Builder[Type[LW]] = new Builder[Type[LW]] {
         def apply[R](left: Type[LW], right: Seq[Able[R]]): Pattern = {
-          val patternSet = right.map(e => e.bitVector).foldLeft(Set.empty[BitVector])((set, bitVector) => {
-            if (set.contains(bitVector)) throw new IllegalArgumentException(s"\nThe bitvector $bitVector already intersects with $set")
-            if (bitVector.length > left.width) throw new IllegalArgumentException(s"\nThe bitvector $bitVector is wider than ${left.width}")
-            set + bitVector
+          val patternSet = right.map(e => e.token).foldLeft(Set.empty[Token])((set, token) => {
+            if (set.contains(token)) throw new IllegalArgumentException(s"\nThe bitvector $token already intersects with $set")
+            if (token.width > left.width) throw new IllegalArgumentException(s"\nThe bitvector $token is wider than ${left.width}")
+            set + token
           })
 
           new Pattern(patternSet)
@@ -170,24 +248,21 @@ object DFBits extends DFAny.Companion {
     object Able {
       trait VerifyWidth[T, W]
       object VerifyWidth {
-        implicit def ev[W] : VerifyWidth[BitVector, W] = new VerifyWidth[BitVector, W]{}
-        implicit def evX[W, XW](implicit req : Require[W == XW]) : VerifyWidth[XBitVector[XW], W] = new VerifyWidth[XBitVector[XW], W]{}
+        implicit def ev[W] : VerifyWidth[Token, W] = new VerifyWidth[Token, W]{}
+        implicit def evX[W, XW](implicit req : Require[W == XW]) : VerifyWidth[TokenW[XW], W] = new VerifyWidth[TokenW[XW], W]{}
       }
       implicit class DFBitsBubble[LW](val right : Bubble) extends Able[DFBits[LW]]
       implicit class DFBitsSameBitsVector[LW](val right : SameBitsVector) extends Able[DFBits[LW]]
-      implicit class DFBitsToken[LW](val right : Token) extends Able[DFBits[LW]]
+      implicit class DFBitsToken[LW, R](val right : Token)(implicit arg : GetArg0.Aux[R], req : VerifyWidth[R, LW]) extends Able[DFBits[LW]]
       implicit class DFBitsTokenSeq[LW](val right : Seq[Token]) extends Able[DFBits[LW]]
-      implicit class DFBitsBitVector[LW, R](val right : BitVector)(implicit arg : GetArg0.Aux[R], req : VerifyWidth[R, LW]) extends Able[DFBits[LW]]
-      implicit class DFBitsSeqOfBitVector[LW](val right : Seq[BitVector]) extends Able[DFBits[LW]]
 
       private def checkWidth(leftWidth : Int, rightWidth : Int) : Unit =
         if (leftWidth != rightWidth)
           throw new IllegalArgumentException(s"Init value width $rightWidth doesn't match the vector width ${leftWidth}")
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFBits[LW]]]) : Seq[Token] =
         right.toSeqAny.collect {
-          case t : Bubble => Token(width, t)
+          case t : Bubble => Token.bubble(width)
           case t : Token => checkWidth(width, t.width); t
-          case t : BitVector => checkWidth(width, t.length.toInt); Token(t)
           case t : SameBitsVector => Token(XBitVector.fill(width)(t.value))
         }
     }
@@ -210,20 +285,19 @@ object DFBits extends DFAny.Companion {
     }
     object Builder {
       type Aux[N, W0] = Builder[N]{type W = W0}
-      implicit def fromBitVector(implicit ctx : DFAny.Context)
-      : Aux[BitVector, Int] = new Builder[BitVector] {
+      implicit def fromToken(implicit ctx : DFAny.Context)
+      : Aux[Token, Int] = new Builder[Token] {
         type W = Int
-        def apply(value : BitVector) : Const[W] = {
-          val width = TwoFace.Int(value.length.toInt)
-          DFAny.Const[Type[Int]](Type(width), Token(value))
+        def apply(value : Token) : Const[W] = {
+          DFAny.Const[Type[Int]](Type(value.width), value)
         }
       }
-      implicit def fromXBitVector[W0](implicit ctx : DFAny.Context)
-      : Aux[XBitVector[W0], W0] = new Builder[XBitVector[W0]] {
+      implicit def fromTokenW[W0](implicit ctx : DFAny.Context)
+      : Aux[TokenW[W0], W0] = new Builder[TokenW[W0]] {
         type W = W0
-        def apply(value : XBitVector[W0]) : Const[W] = {
-          val width = TwoFace.Int.create[W0](value.length.toInt)
-          DFAny.Const[Type[W0]](Type(width), Token(value))
+        def apply(value : TokenW[W0]) : Const[W] = {
+          val width = TwoFace.Int.create[W0](value.width)
+          DFAny.Const[Type[W0]](Type(width), value)
         }
       }
     }
@@ -247,10 +321,10 @@ object DFBits extends DFAny.Companion {
     }
     trait Implicits {
       final implicit def __DFBitsWiden[FW, TW](c : DFBits[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFBits[TW] = c.asInstanceOf[DFBits[TW]]
-      sealed class __DFBitsFromBitVector(left : BitVector) extends AbleOps[BitVector](left)
-      final implicit def __DFBitsFromBitVector(left: BitVector): __DFBitsFromBitVector = new __DFBitsFromBitVector(left)
-      sealed class __DFBitsFromXBitVector[W](left : XBitVector[W]) extends AbleOps[XBitVector[W]](left)
-      final implicit def __DFBitsFromXBitVector[W](left: XBitVector[W]): __DFBitsFromXBitVector[W] = new __DFBitsFromXBitVector[W](left)
+      sealed class __DFBitsFromToken(left : Token) extends AbleOps[Token](left)
+      final implicit def __DFBitsFromToken(left: Token): __DFBitsFromToken = new __DFBitsFromToken(left)
+      sealed class __DFBitsFromTokenW[W](left : TokenW[W]) extends AbleOps[TokenW[W]](left)
+      final implicit def __DFBitsFromTokenW[W](left: TokenW[W]): __DFBitsFromTokenW[W] = new __DFBitsFromTokenW[W](left)
       sealed class __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) extends AbleOps[SBV](left)
       final implicit def __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : __DFBitsFromZeros[SBV] = new __DFBitsFromZeros(left)
 //      sealed class DFBitsFromDFBool(left : DFBool)(implicit ctx : DFAny.Context) extends AbleOps[DFBits[1]](DFAny.Alias.AsIs(Type(1), left))
@@ -273,7 +347,7 @@ object DFBits extends DFAny.Companion {
         def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = {
           val ret = if (left.width < toWidth) {
             val zeroWidth = toWidth - left.width
-            val zeros = DFAny.Const.forced(Type(zeroWidth), Token(zeroWidth, 0))
+            val zeros = DFAny.Const.forced(Type(zeroWidth), Token.zero(zeroWidth))
             `Op++`.forced(left, zeros)
           }
           else if (left.width > toWidth) DFAny.Alias.BitsWL(left, toWidth, left.width - toWidth)
@@ -320,12 +394,12 @@ object DFBits extends DFAny.Companion {
         type WSum
         protected val wsum : Int = e.productIterator.toList.collect{
           case dfAny : DFAny => dfAny.width.getValue
-          case bv : BitVector => bv.length.toInt
+          case token : Token => token.width
         }.sum
         def bits(implicit ctx : DFAny.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] = {
           val list : List[DFBits[Int]] = e.productIterator.toList.collect{
             case dfAny : DFAny.Value[_,_] => dfAny.bits.asInstanceOf[DFBits[Int]]
-            case bv : BitVector => DFAny.Const.forced(Type(bv.length.toInt), DFBits.Token(bv))
+            case token : Token => DFAny.Const.forced(Type(token.width), token)
           }
           list.reduce((l, r) => `Op++`.forced(l, r)).asInstanceOf[DFBits[w.Out]]
         }

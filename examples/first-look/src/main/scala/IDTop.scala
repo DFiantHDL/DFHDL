@@ -82,13 +82,11 @@ import internals._
 
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
-  val i = DFBool() <> IN
-  val o = DFUInt(8) <> OUT
-  ifdf(i) {
-    val fib = DFUInt(8) init(1, 0)
-    fib := fib.prev + fib.prev(2)
-    o := fib.prev(2)
-  }
+  val i = DFBits(8) <> IN
+
+  matchdf(i)
+    .casedf(b"1100????"){}
+    .casedf_{}
 //  val ididid = new IDTop
 //  ididid.x <> fib.prev(2)
 //  sim.report(msg"Fib: ${ididid.y}")
@@ -105,7 +103,7 @@ object IDTopApp extends App {
   }
   import compiler.backend.vhdl.v2008
   import sim.tools.ghdl
-  val designDB = top.compile.printCodeString.printGenFiles()//.toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
+  val designDB = top.printCodeString.compile.printCodeString.printGenFiles()//.toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

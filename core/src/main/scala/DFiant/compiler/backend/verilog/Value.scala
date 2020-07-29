@@ -10,12 +10,12 @@ private object Value {
       case t @ DFBits.Token(value, _) =>
         if (t.width % 4 == 0) s"""${t.width}'h${value.toHex}"""
         else s"""${t.width}'b${value.toBin}"""
-      case DFUInt.Token(width, value, _) => s"""${width}'d${value}"""
-      case DFSInt.Token(width, value, _) =>
+      case DFUInt.Token(width, Some(value)) => s"""${width}'d${value}"""
+      case DFSInt.Token(width, Some(value)) =>
         if (value >= 0) s"""${width}'sd${value}"""
         else s"""-${width}'sd${-value}"""
-      case DFBool.Token(true, value, _) => if (value) "1" else "0"
-      case DFBool.Token(false, value, _) => if (value) "1'b1" else "1'b0"
+      case DFBool.Token(true, Some(value)) => if (value) "1" else "0"
+      case DFBool.Token(false, Some(value)) => if (value) "1'b1" else "1'b0"
       case DFEnum.Token(_, entry) => EnumTypeDcl.enumEntryRefName(entry.get)
       case _ => ???
     }
@@ -38,13 +38,13 @@ private object Value {
       case op => op.toString
     }
     val leftArgStr = leftArg match {
-      case DFAny.Const(_,DFUInt.Token(_,value,false),_,_) => s"$LIT$value"
-      case DFAny.Const(_,DFSInt.Token(_,value,false),_,_) => s"$LIT$value"
+      case DFAny.Const(_,DFUInt.Token(_,Some(value)),_,_) => s"$LIT$value"
+      case DFAny.Const(_,DFSInt.Token(_,Some(value)),_,_) => s"$LIT$value"
       case _ => ref(leftArg)
     }
     val rightArgStr = (member.op, rightArg) match {
-      case (_, DFAny.Const(_,DFUInt.Token(_,value,false),_,_)) => s"$LIT$value"
-      case (_, DFAny.Const(_,DFSInt.Token(_,value,false),_,_)) => s"$LIT$value"
+      case (_, DFAny.Const(_,DFUInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
+      case (_, DFAny.Const(_,DFSInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
       case (_, ra) => ref(ra)
     }
     (leftArg, member.op, revision) match {

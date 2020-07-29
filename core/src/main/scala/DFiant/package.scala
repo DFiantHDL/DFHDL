@@ -32,7 +32,7 @@ package object DFiant {
   type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
   type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
   type DFEnum[E <: EnumType] = DFAny.Of[DFEnum.Type[E]]
-  type DFString[L] = DFAny.Of[DFString.Type[L]]
+//  type DFString[L] = DFAny.Of[DFString.Type[L]]
 
   implicit def evPrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D])
   : PrinterOps[D, C] = new PrinterOps[D, C](c)
@@ -57,7 +57,11 @@ package object DFiant {
   // A Dataflow Bubble
   ////////////////////////////////////////////////////////////////////////////////////
   sealed trait Bubble
-  object Bubble extends Bubble
+  object Bubble extends Bubble {
+    sealed trait Behaviour extends Product with Serializable
+    implicit case object Stall extends Behaviour
+    case object DontCare extends Behaviour
+  }
 
   type Φ = Bubble
   final val Φ = Bubble
@@ -134,23 +138,8 @@ package object DFiant {
     * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
   final implicit class BinStringSyntax(val sc: StringContext) {
-    //    def w[W](args: WidthTag*) : XBitVector[W] = macro Macro.hexStringInterpolator
-    /**
-      * Converts this binary literal string to a `BitVector`. Whitespace characters are ignored.
-      *
-      * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
-      * of type `BitVector`.
-      */
-    //    def h[W](args: BitVector*) : XBitVector[W] = macro Macro.hexStringInterpolator
-    def h[W](args: BitVector*) : BitVector = macro Macro.hexStringInterpolator
-
-    /**
-      * Converts this hexadecimal literal string to a `BitVector`. Whitespace characters are ignored.
-      *
-      * Named arguments are supported in the same manner as the standard `s` interpolator but they must be
-      * of type `BitVector`.
-      */
-    def b[W](args: BitVector*)(implicit interpolator : Interpolator[BitVector]) : interpolator.Out = interpolator.value
+    def b[W](args: DFBits.Token*)(implicit interpolator : Interpolator[DFBits.Token, "b"]) : interpolator.Out = interpolator.value
+    def h[W](args: DFBits.Token*)(implicit interpolator : Interpolator[DFBits.Token, "h"]) : interpolator.Out = interpolator.value
 
     private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny, String]] =
       Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
@@ -164,20 +153,60 @@ package object DFiant {
     def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.Backend)
     def verilog(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.verilog.Backend)
   }
-  trait Interpolator[T] extends HasOut {
+  trait Interpolator[T, K] extends HasOut {
     type Out <: T
     val value : Out
   }
 
   object Interpolator {
-    type Aux[T, Out0 <: T] = Interpolator[T]{type Out = Out0}
-    implicit def ev[W] : Interpolator.Aux[BitVector, XBitVector[W]] = macro Macro.binImplStringInterpolator
+    type Aux[T, K, Out0 <: T] = Interpolator[T, K]{type Out = Out0}
+    implicit def evb[W] : Interpolator.Aux[DFBits.Token, "b", DFBits.TokenW[W]] = macro Macro.binImplStringInterpolator
+    implicit def evh[W] : Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] = macro Macro.hexImplStringInterpolator
   }
 
   protected object Macro {
     object whitebox { type Context = scala.reflect.macros.whitebox.Context }
-    def binImplStringInterpolator(c: whitebox.Context) : c.Tree = {
+    def binImplStringInterpolator(c: whitebox.Context) : c.Tree = stringInterpolatorGen("b")(c)
+    def hexImplStringInterpolator(c: whitebox.Context) : c.Tree = stringInterpolatorGen("h")(c)
+    def stringInterpolatorGen(k : String)(c: whitebox.Context) : c.Tree = {
       import c.universe._
+      ////////////////////////////////////////////////////////////////////
+      // Code thanks to Shapeless
+      // https://github.com/milessabin/shapeless/blob/master/core/src/main/scala/shapeless/lazy.scala
+      ////////////////////////////////////////////////////////////////////
+      val defaultAnnotatedSym : Option[TypeSymbol] =
+        if (c.enclosingImplicits.isEmpty) None else c.enclosingImplicits.last.pt match {
+          case TypeRef(_,sym,_) => Some(sym.asType)
+          case x => Some(x.typeSymbol.asType)
+        }
+      def setAnnotation(msg: String, annotatedSym : TypeSymbol) : Unit = {
+        import c.internal._
+        import decorators._
+        val tree0 =
+          c.typecheck(
+            q"""new _root_.scala.annotation.implicitNotFound("dummy")""",
+            silent = false
+          )
+
+        class SubstMessage extends Transformer {
+          val global = c.universe.asInstanceOf[scala.tools.nsc.Global]
+
+          override def transform(tree: Tree): Tree = {
+            super.transform {
+              tree match {
+                case Literal(Constant("dummy")) => Literal(Constant(msg))
+                case t => t
+              }
+            }
+          }
+        }
+
+        val tree = new SubstMessage().transform(tree0)
+
+        annotatedSym.setAnnotations(Annotation(tree))
+        ()
+      }
+      ////////////////////////////////////////////////////////////////////
       def calcArgsLength(argsTrees : List[Tree]) : Option[Int] = {
         if (argsTrees.isEmpty) Some(0)
         else {
@@ -196,61 +225,53 @@ package object DFiant {
           lengths.reduceLeft(sumOption)
         }
       }
-
+      val kTpe = c.internal.constantType(Constant(k))
       val Apply(TypeApply(Select(properTree,_), _), argsTrees) = c.enclosingImplicits.last.tree
-      val args = argsTrees.map(e => c.Expr[BitVector](e))
+      val args = argsTrees.map(e => c.Expr[DFBits.Token](e))
       val Apply(_, List(Apply(_, parts))) = properTree
       val partLiterals: List[String] = parts map {
         case Literal(Constant(part: String)) =>
-          if (BitVector.fromBin(part).isEmpty)
-            c.error(c.enclosingPosition, "binary string literal may only contain characters [0, 1]")
+          k match {
+            case "b" =>
+              if (DFBits.Token.fromBinString(part).isEmpty)
+                c.error(c.enclosingPosition, "binary string literal may only contain the characters: {0,1,?,_} (? is Don't Care)")
+            case "h" =>
+              if (DFBits.Token.fromHexString(part).isEmpty)
+                c.error(c.enclosingPosition, "hex string literal may only contain the characters: {0-9,A-F,?,_} (? is Don't Care)")
+          }
           part
       }
-      val length = BitVector.fromBin(partLiterals.head).get.length.toInt
+      val width = k match {
+        case "b" => DFBits.Token.fromBinString(partLiterals.head).get.width
+        case "h" => DFBits.Token.fromHexString(partLiterals.head).get.width
+      }
 
       val headPart = c.Expr[String](Literal(Constant(partLiterals.head)))
       val initialStringBuilder = reify { new StringBuilder().append(headPart.splice) }
       val stringBuilder = (args zip partLiterals.tail).foldLeft(initialStringBuilder) {
         case (sb, (arg, part)) =>
           val partExpr = c.Expr[String](Literal(Constant(part)))
-          reify { sb.splice.append(arg.splice.toBin).append(partExpr.splice) }
+          k match {
+            case "b" => reify { sb.splice.append(arg.splice.toBinString).append(partExpr.splice) }
+            case "h" => reify { sb.splice.append(arg.splice.toHexString).append(partExpr.splice) }
+          }
       }
-      val buildTree = reify { BitVector.fromValidBin(stringBuilder.splice.toString) }.tree
+
+      val buildTree = k match {
+        case "b" => reify { DFBits.Token.fromBinString(stringBuilder.splice.toString).get }.tree
+        case "h" => reify { DFBits.Token.fromHexString(stringBuilder.splice.toString).get }.tree
+      }
+
       val widthTpe : Type = calcArgsLength(argsTrees) match {
-        case Some(t) => c.internal.constantType(Constant(length + t))
+        case Some(t) => c.internal.constantType(Constant(width + t))
         case _ => typeOf[Int]
       }
       q"""
-         new DFiant.Interpolator[scodec.bits.BitVector] {
-           type Out = DFiant.internals.XBitVector[$widthTpe]
-           val value : DFiant.internals.XBitVector[$widthTpe] = $buildTree.asInstanceOf[DFiant.internals.XBitVector[$widthTpe]]
+         new DFiant.Interpolator[DFiant.DFBits.Token, $kTpe] {
+           type Out = DFiant.DFBits.TokenW[$widthTpe]
+           val value : DFiant.DFBits.TokenW[$widthTpe] = $buildTree.asInstanceOf[DFiant.DFBits.TokenW[$widthTpe]]
          }
        """
-    }
-
-    def hexStringInterpolator(c: whitebox.Context)(args: c.Expr[BitVector]*): c.Tree = {
-      import c.universe._
-
-      val Apply(_, List(Apply(_, parts))) = c.prefix.tree
-      val partLiterals: List[String] = parts map {
-        case Literal(Constant(part: String)) =>
-          if (BitVector.fromHex(part).isEmpty)
-            c.error(c.enclosingPosition, "binary string literal may only contain characters [0, 1]")
-          part
-      }
-      val length = BitVector.fromHex(partLiterals.head).get.length.toInt
-
-      val headPart = c.Expr[String](Literal(Constant(partLiterals.head)))
-      val initialStringBuilder = reify { new StringBuilder().append(headPart.splice) }
-      val stringBuilder = (args zip partLiterals.tail).foldLeft(initialStringBuilder) {
-        case (sb, (arg, part)) =>
-          val partExpr = c.Expr[String](Literal(Constant(part)))
-          reify { sb.splice.append(arg.splice.toBin).append(partExpr.splice) }
-      }
-      val buildTree = reify { BitVector.fromValidHex(stringBuilder.splice.toString) }.tree
-      val widthTpe = c.internal.constantType(Constant(length))
-      //      q"$buildTree.asInstanceOf[XBitVector[$widthTpe]]"
-      q"$buildTree"
     }
   }
   ////////////////////////////////////////////////////////////////////////////////////
@@ -274,12 +295,12 @@ package object DFiant {
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
       val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
-      val matcherFirstCase = blockMatchDF.casedf(BigInt(0).toBitVector(sel.width))(block(list.head))
-      list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(BigInt(b._2 + 1).toBitVector(sel.width))(block(b._1))).casedf_{}
+      val matcherFirstCase = blockMatchDF.casedf(DFBits.Token(sel.width.getValue, BigInt(0)))(block(list.head))
+      list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1))).casedf_{}
     }
   }
 
-  implicit class MatchList(list : List[(BitVector, BitVector)]) {
+  implicit class MatchList(list : List[(DFBits.Token, DFBits.Token)]) {
     def matchdf[MW, RW](matchValue : DFBits[MW], resultVar : DFAny.VarOf[DFBits.Type[RW]])(implicit ctx : DFBlock.Context) : Unit = {
       val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
       if (list.nonEmpty) {

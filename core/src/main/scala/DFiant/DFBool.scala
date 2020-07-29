@@ -23,7 +23,8 @@ object DFBool extends DFAny.Companion {
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
-      Token(logical = false, fromToken.valueBits(0), fromToken.bubbleMask(0))
+      if (fromToken.isBubble) Token.bubble(logical = false)
+      else Token(logical = false, fromToken.valueBits(0))
     def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
       case DFBool() =>
       case DFBit() =>
@@ -62,39 +63,51 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token(logical : Boolean, value : Boolean, bubble : Boolean) extends DFAny.Token.Of[Boolean] {
-    val width: Int = 1
-    lazy val valueBits : BitVector = XBitVector.bit(value)
-    lazy val bubbleMask: BitVector = XBitVector.bit(bubble)
-    def && (that : Token) : Token = {
-      val logicalResult = this.logical || that.logical
-      if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)
-      else Token.fromValue(logicalResult, this.value && that.value)
+  final case class Token(logical : Boolean, value : Option[Boolean]) extends DFAny.Token.Of[Type, Boolean] { left =>
+    val width = 1
+    def && (right : Token)(implicit bb : Bubble.Behaviour) : Token = {
+      val logical = left.logical || right.logical
+      (left.value, right.value, bb) match {
+        case (Some(l), Some(r), _) => Token(logical, l && r)
+        case (_, _, Bubble.Stall) => Token.bubble(logical)
+        case (Some(false), None, Bubble.DontCare) => Token(logical, value = false)
+        case (None, Some(false), Bubble.DontCare) => Token(logical, value = false)
+        case (Some(true), None, Bubble.DontCare) => Token.bubble(logical)
+        case (None, Some(true) | None, Bubble.DontCare) => Token.bubble(logical)
+      }
     }
-    def || (that : Token) : Token = {
-      val logicalResult = this.logical || that.logical
-      if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)
-      else Token.fromValue(logicalResult, this.value || that.value)
+    def || (right : Token)(implicit bb : Bubble.Behaviour) : Token = {
+      val logical = left.logical || right.logical
+      (left.value, right.value, bb) match {
+        case (Some(l), Some(r), _) => Token(logical, l || r)
+        case (_, _, Bubble.Stall) => Token.bubble(logical)
+        case (Some(true), None, Bubble.DontCare) => Token(logical, value = true)
+        case (None, Some(true), Bubble.DontCare) => Token(logical, value = true)
+        case (Some(false), None, Bubble.DontCare) => Token.bubble(logical)
+        case (None, Some(false) | None, Bubble.DontCare) => Token.bubble(logical)
+      }
     }
-    def ^ (that : Token) : Token = {
-      val logicalResult = this.logical || that.logical
-      if (this.isBubble || that.isBubble) Token(logicalResult, Bubble)
-      else Token.fromValue(logicalResult, this.value ^ that.value)
+    //dontcare in xor will always produce dontcare, like stall bubbles
+    def ^ (right : Token) : Token = {
+      val logical = left.logical || right.logical
+      (left.value, right.value) match {
+        case (Some(l), Some(r)) => Token(logical, l ^ r)
+        case _ => Token.bubble(logical)
+      }
     }
-    def unary_! : Token = {
-      if (this.isBubble) Token(logical, Bubble)
-      else Token.fromValue(logical, !this.value)
+    def unary_! : Token = left.value match {
+      case Some(l) => Token(logical, !l)
+      case _ => left
     }
     def select[ST <: DFAny.Token](thenSel : ST, elseSel : ST)(
-      implicit bubbleOf : DFAny.Token.BubbleOfToken[ST]
+      implicit bubbleOf : DFAny.Token.BubbleOfToken[ST], bb : Bubble.Behaviour
     ) : ST = {
-      if (this.value) if (this.isBubble) bubbleOf(thenSel) else thenSel
-      else if (this.isBubble) bubbleOf(elseSel) else elseSel
+      //      if (this.value) if (this.isBubble) bubbleOf(thenSel) else thenSel
+      //      else if (this.isBubble) bubbleOf(elseSel) else elseSel
+      ???
     }
-    def == (that : Token) : Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
-    def != (that : Token) : Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-
-    def codeString(implicit printer: CSPrinter) : String = {
+    def valueToBitVector(value : Boolean) : BitVector = value.toBitVector(width)
+    def valueCodeString(value : Boolean)(implicit printer: CSPrinter) : String = {
       import printer.config._
       val valueStr = if (logical) {
         value.toString
@@ -104,25 +117,14 @@ object DFBool extends DFAny.Companion {
   }
 
   object Token {
-    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.logical, Bubble)
-    implicit val bubbleOfDFType : DFAny.Token.BubbleOfDFType[DFBool.Type] = t => Token(t.logical, Bubble)
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token.bubble(t.logical)
+    implicit val bubbleOfDFType : DFAny.Token.BubbleOfDFType[DFBool.Type] = t => Token.bubble(t.logical)
     def apply(value : Int) : Token = value match {
-      case 0 => Token(logical = false, value = false, bubble = false)
-      case 1 => Token(logical = false, value = true, bubble = false)
+      case 0 => Token(logical = false, value = false)
+      case 1 => Token(logical = false, value = true)
     }
-    def fromValue(logical : Boolean, value : Boolean) : Token = new Token(logical, value, false)
-    def apply(logical : Boolean, value : Bubble) : Token = new Token(logical, false, true)
-
-    import DFAny.TokenSeq
-    val || : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l || r)
-    val && : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l && r)
-    val ^  : (Seq[Token], Seq[Token]) => Seq[Token] = (left, right) => TokenSeq(left, right)((l, r) => l ^ r)
-    val == : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l == r)
-    val != : (Seq[Token], Seq[Token]) => Seq[DFBool.Token] = (left, right) => TokenSeq(left, right)((l, r) => l != r)
-    def unary_! (left : Seq[Token]) : Seq[Token] = TokenSeq(left)(t => !t)
-    def select[ST <: DFAny.Token](cond : Seq[Token], thenSel : Seq[ST], elseSel : Seq[ST])(
-      implicit bubbleOf : DFAny.Token.BubbleOfToken[ST]
-    ) : Seq[ST] = TokenSeq(cond, thenSel, elseSel)((c, t, e) => c.select(t, e))
+    def apply(logical : Boolean, value : Boolean) : Token = Token(logical, Some(value))
+    def bubble(logical : Boolean) : Token = Token(logical, None)
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -174,10 +176,10 @@ object DFBool extends DFAny.Companion {
 
       def toTokenSeq(left : DFBool, right : Seq[Able[DFBool]]) : Seq[DFBool.Token] =
         right.toSeqAny.map {
-          case t : Bubble => DFBool.Token(left.dfType.logical, t)
+          case t : Bubble => DFBool.Token.bubble(left.dfType.logical)
           case t : DFBool.Token => t.copy(logical = left.dfType.logical)
           case t : Int => DFBool.Token(t).copy(logical = left.dfType.logical)
-          case t : Boolean => DFBool.Token.fromValue(left.dfType.logical, t)
+          case t : Boolean => DFBool.Token(left.dfType.logical, t)
         }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
@@ -203,7 +205,7 @@ object DFBool extends DFAny.Companion {
         DFAny.Const[Type](Type(logical = false),Token(value))
       }
       implicit def fromBoolean[C <: Boolean](implicit ctx : DFAny.Context)
-      : Builder[C] = value => DFAny.Const[Type](Type(logical = true), Token.fromValue(logical = true, value))
+      : Builder[C] = value => DFAny.Const[Type](Type(logical = true), Token(logical = true, value))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

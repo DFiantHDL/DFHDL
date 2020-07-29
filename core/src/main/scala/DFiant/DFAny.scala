@@ -1135,31 +1135,58 @@ object DFAny {
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   trait Token extends Product with Serializable {
-    type TValue
     //maximum token value width
     val width : Int
-    val value : TValue
     val bubbleMask : BitVector
     val valueBits : BitVector
     final def isBubble : Boolean = !(bubbleMask === BitVector.low(width))
     final def bits : DFBits.Token = DFBits.Token(valueBits, bubbleMask)
+    final def bits(relBitHigh : Int, relBitLow : Int) : DFBits.Token =
+      bitsWL(relBitHigh - relBitLow + 1, relBitLow)
     final def bit(relBit : Int) : DFBool.Token = {
-      val outBitsValue = valueBits.bit(relBit)
+      val outValueBits = valueBits.bit(relBit)
       val outBubbleMask = bubbleMask.bit(relBit)
-      DFBool.Token(logical = false, outBitsValue, outBubbleMask)
+      if (outBubbleMask) DFBool.Token.bubble(logical = false)
+      else DFBool.Token(logical = false, outValueBits)
     }
     final def bitsWL(relWidth : Int, relBitLow : Int) : DFBits.Token = {
-      val outBitsValue = valueBits.bitsWL(relWidth, relBitLow)
+      val outValueBits = valueBits.bitsWL(relWidth, relBitLow)
       val outBubbleMask = bubbleMask.bitsWL(relWidth, relBitLow)
-      DFBits.Token(outBitsValue, outBubbleMask)
+      DFBits.Token(outValueBits, outBubbleMask)
     }
     def codeString(implicit printer: CSPrinter) : String
-    override def toString : String = if (isBubble) "Φ" else value.toString
   }
   object Token {
-    trait Of[Value] extends Token {
-      type TValue = Value
+    trait Of[Type <: DFAny.Type, Value] extends Token {left =>
+      val value : Option[Value]
+      final lazy val (valueBits, bubbleMask) : (BitVector, BitVector) = value match {
+        case Some(t) => (valueToBitVector(t), false.toBitVector(width))
+        case None => (0.toBitVector(width), true.toBitVector(width))
+      }
+      final protected def mkTokenB(right : Of[Type, Value], f : (Value, Value) => Boolean) : DFBool.Token = {
+        (left.value, right.value) match {
+          case (Some(l), Some(r)) => DFBool.Token(logical = true, f(l, r))
+          case _ => DFBool.Token.bubble(logical = true)
+        }
+      }
+      final def == (right : Of[Type, Value]) : DFBool.Token = mkTokenB(right, _ == _)
+      final def != (right : Of[Type, Value]) : DFBool.Token = !(left == right)
+
+      final def codeString(implicit printer : CSPrinter) : String = value match {
+        case Some(t) => valueCodeString(t)
+        case None => "Φ"
+      }
+      def valueToBitVector(value : Value) : BitVector
+      def valueCodeString(value : Value)(implicit printer: CSPrinter) : String
     }
+//    implicit class OfOps[Type <: DFAny.Type](left : Of[Type]) {
+//      def mkToken[R <: DFAny.Type, O <: DFAny.Type](right : Of[R])(outType : O)(
+//        f : (left.dfType.TValue, right.dfType.TValue) => outType.TValue
+//      ) : Of[O] = (left.value, right.value) match {
+//        case (Some(l), Some(r)) => Of[O](outType)(Some(f(l.asInstanceOf[left.dfType.TValue], r.asInstanceOf[right.dfType.TValue])))
+//        case _ => Of[O](outType)(None)
+//      }
+//    }
     trait BubbleOfToken[T <: Token] {
       def apply(t : T) : T
     }

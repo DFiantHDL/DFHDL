@@ -48,7 +48,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
             val fullRange = Interval.closed(BigInt.minSignedFromWidth(matchVal.width), BigInt.maxSignedFromWidth(matchVal.width))
             union.contains(fullRange)
           case _ : DFBits.Type[_] =>
-            val union = patterns.asInstanceOf[List[DFBits.Pattern]].foldLeft(Set.empty[BitVector]){case (s, p) => s | p.patternSet}
+            val union = patterns.asInstanceOf[List[DFBits.Pattern]].foldLeft(Set.empty[DFBits.Token]){case (s, p) => s | p.patternSet}
             union.size == BigInt.maxUnsignedFromWidth(matchVal.width).toInt + 1
           case _ : DFBool.Type =>
             val union = patterns.asInstanceOf[List[DFBool.Pattern]].foldLeft(Set.empty[Boolean]){case (s, p) => s | p.patternSet}

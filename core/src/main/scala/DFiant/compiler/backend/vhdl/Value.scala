@@ -8,22 +8,30 @@ private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = {
     import printer.config._
     token match {
-      case t @ DFBits.Token(value, _) => if (t.width % 4 == 0) s"""x"${value.toHex}"""" else s""""${value.toBin}""""
-      case DFUInt.Token(width, value, _) => revision match {
-        case Revision.V93 if value.bitsWidth < 31 => s"to_unsigned($value, $width)"
-        case Revision.V93 if width % 4 == 0 => s"""unsigned(std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
-        case Revision.V93 => s"""unsigned(std_logic_vector'("${value.toBitVector(width).toBin}"))"""
+      case t @ DFBits.Token(valueBits, _) if t.width % 4 == 0 && !t.isBubble => s"""x"${valueBits.toHex}""""
+      case t @ DFBits.Token(valueBits, bubbleMask) if !t.isBubble && t.width % 4 == 0 =>
+        val vhdlBin = valueBits.toBin.zip(bubbleMask.toBin).foldLeft("") {
+          case (vp, (_, '1')) => vp + "-" //dontcare
+          case (vp, (zeroOrOne, '0')) => vp + zeroOrOne
+        }
+        s""""$vhdlBin""""
+      case DFUInt.Token(width, Some(value)) => revision match {
+        case Revision.V93 if value.bitsWidth < 31 => s"$FN to_unsigned($value, $width)"
+        case Revision.V93 if width % 4 == 0 => s"""$TP unsigned($TP std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
+        case Revision.V93 => s"""$TP unsigned($TP std_logic_vector'("${value.toBitVector(width).toBin}"))"""
         case Revision.V2008 => s"""${width}d"$value""""
       }
-      case DFSInt.Token(width, value, _) => revision match {
-        case Revision.V93 if value.bitsWidth < 31 => s"to_signed($value, $width)"
-        case Revision.V93 if width % 4 == 0 => s"""signed(std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
-        case Revision.V93 => s"""signed(std_logic_vector'("${value.toBitVector(width).toBin}"))"""
-        case Revision.V2008 => s"""${width}d"$value""""
+      case DFSInt.Token(width, Some(value)) => revision match {
+        case Revision.V93 if value.bitsWidth < 31 => s"$FN to_signed($value, $width)"
+        case Revision.V93 if width % 4 == 0 => s"""$TP signed($TP std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
+        case Revision.V93 => s"""$TP signed($TP std_logic_vector'("${value.toBitVector(width).toBin}"))"""
+        case Revision.V2008 if value >= 0 => s"""${width}d"$value""""
+        case Revision.V2008 if value < 0 => s"""-${width}d"${-value}""""
       }
-      case DFBool.Token(false, value, _) => if (value) "'1'" else "'0'"
-      case DFBool.Token(true, value, _) => value.toString
-      case DFEnum.Token(_, entry) => EnumTypeDcl.enumEntryFullName(entry.get)
+      case DFBool.Token(false, None) => "'-'"
+      case DFBool.Token(false, Some(value)) => if (value) "'1'" else "'0'"
+      case DFBool.Token(true, Some(value)) => value.toString
+      case DFEnum.Token(_, Some(entry)) => EnumTypeDcl.enumEntryFullName(entry)
       case _ => ???
     }
   }
@@ -57,14 +65,14 @@ private object Value {
       case _ => ???
     }
     val leftArgStr = leftArg match {
-      case DFAny.Const(_,DFUInt.Token(_,value,false),_,_) => s"$LIT$value"
-      case DFAny.Const(_,DFSInt.Token(_,value,false),_,_) => s"$LIT$value"
+      case DFAny.Const(_,DFUInt.Token(_,Some(value)),_,_) => s"$LIT$value"
+      case DFAny.Const(_,DFSInt.Token(_,Some(value)),_,_) => s"$LIT$value"
       case _ => ref(leftArg)
     }
     val rightArgStr = (member.op, rightArg) match {
       case (Op.<< | Op.>>, ra) => s"$FN to_integer(${ref(ra)})"
-      case (_, DFAny.Const(_,DFUInt.Token(_,value,false),_,_)) => s"$LIT$value"
-      case (_, DFAny.Const(_,DFSInt.Token(_,value,false),_,_)) => s"$LIT$value"
+      case (_, DFAny.Const(_,DFUInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
+      case (_, DFAny.Const(_,DFSInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
       case (_, ra) => ref(ra)
     }
     (leftArg, member.op, revision) match {
@@ -80,16 +88,28 @@ private object Value {
     val relVal = member.relValRef.get
     val relValStr = ref(relVal)
     member match {
-      case toVal : DFAny.Alias.AsIs => (toVal, relVal) match {
-        case (l, r) if (l.dfType == r.dfType) => relValStr
-        case (DFBits(_), _) => s"$FN to_slv($relValStr)"
-        case (DFUInt(_), _) => s"$TP unsigned($relValStr)"
-        case (DFSInt(_), _) => s"$TP signed($relValStr)"
-        case (DFEnum(_), _) => ???
-        case (DFBool(), DFBit()) => s"$FN to_bool($relValStr)"
-        case (DFBit(), DFBits(w)) if (w == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
-        case (DFBit(), DFBool()) => s"$FN to_sl($relValStr)"
-      }
+      case toVal : DFAny.Alias.AsIs =>
+        (toVal, relVal) match {
+          case (l, r) if (l.dfType == r.dfType) => relValStr
+          case (_, DFEnum(enumType)) => enumType match {
+              case _ : EnumType.Auto[_] =>
+                val enumAsIntegerStr = s"${EnumTypeDcl.enumTypeName(enumType)}$OP'pos($relValStr)"
+                val enumAsUnsignedStr = s"$FN to_unsigned($enumAsIntegerStr, ${toVal.width})"
+                toVal match {
+                  case DFUInt(_) => enumAsUnsignedStr
+                  case DFSInt(_) => s"$FN to_signed($enumAsIntegerStr, ${toVal.width})"
+                  case DFBits(_) => s"$FN to_slv($enumAsUnsignedStr)"
+                }
+              case _ : EnumType.Manual[_] => relValStr
+            }
+          case (DFBits(_), _) => s"$FN to_slv($relValStr)"
+          case (DFUInt(_), _) => s"$TP unsigned($relValStr)"
+          case (DFSInt(_), _) => s"$TP signed($relValStr)"
+          case (DFEnum(_), _) => ???
+          case (DFBool(), DFBit()) => s"$FN to_bool($relValStr)"
+          case (DFBit(), DFBits(w)) if (w == 1) => s"${relValStr.applyBrackets()}($LIT 0)"
+          case (DFBit(), DFBool()) => s"$FN to_sl($relValStr)"
+        }
       case DFAny.Alias.BitsWL(dfType, _, _, relWidth, relBitLow, _, _) =>
         val relBitHigh = relBitLow + relWidth - 1
         val bitsConv = relVal match {

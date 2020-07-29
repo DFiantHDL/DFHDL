@@ -39,7 +39,7 @@ private object Case {
         else s"$LIT$lower ${printer.config.KW}to $LIT$upper"
       }
       def apply(pattern : DFAny.Pattern[_])(implicit printer : Printer) : String = pattern match {
-        case x : DFBits.Pattern => x.patternSet.map(p => s""""${p.toBin}"""").mkString("|")
+        case x : DFBits.Pattern => x.patternSet.map(p => Value.const(p)).mkString("|")
         case x : DFUInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
         case x : DFSInt.Pattern => x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
         case x : DFBool.Pattern => x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")

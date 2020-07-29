@@ -18,8 +18,8 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
       dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth).anonymize
   }
   private def toggleLogical(dfVal : DFAny)(implicit ctx : DFBlock.Context) : DFAny = dfVal match {
-    case DFAny.Const(_, DFBool.Token(logical, value, bubble), ownerRef, tags) =>
-      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value, bubble), ownerRef, tags)
+    case DFAny.Const(_, DFBool.Token(logical, value), ownerRef, tags) =>
+      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value), ownerRef, tags)
     case DFBit() =>
       (dfVal.asInstanceOf[DFBit] === 1).anonymize
     case DFBool() =>

@@ -58,55 +58,52 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token(width : Int, value : BigInt, bubble : Boolean) extends DFAny.Token.Of[BigInt] {
-    lazy val valueBits : BitVector = value.toBitVector(width)
-    lazy val bubbleMask: BitVector = bubble.toBitVector(width)
-    def mkTokenU[RW, OW](that : Token, result : BigInt, resultWidth : Int) : Token = {
-      if (this.isBubble || that.isBubble) Token(resultWidth, Bubble)
-      else Token(resultWidth, result.asUnsigned(resultWidth))
+  final case class Token(width : Int, value : Option[BigInt]) extends DFAny.Token.Of[Type[Int], BigInt] { left =>
+    private def mkTokenU(right : Token, f : (BigInt, BigInt) => BigInt, resultWidth : Int) : Token = {
+      (left.value, right.value) match {
+        case (Some(l), Some(r)) => Token(resultWidth, f(l, r).asUnsigned(resultWidth))
+        case _ => Token.bubble(resultWidth)
+      }
     }
-    def + (that : Token) : Token = mkTokenU(that, this.value + that.value, this.width max that.width)
-    def - (that : Token) : Token = mkTokenU(that, this.value - that.value, this.width max that.width)
 
-//    final def * [RW](that : Token[RW]) : Token = mkTokenU(that, this.value * that.value, this.width + that.width)
-//    final def / [RW](that : Token[RW]) : Token = mkTokenU(that, this.value / that.value, this.width)
-//    final def % [RW](that : Token[RW]) : Token = mkTokenU(that, this.value % that.value, that.width)
-    def <  (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value < that.value, this.isBubble || that.isBubble)
-    def >  (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value > that.value, this.isBubble || that.isBubble)
-    def <= (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value <= that.value, this.isBubble || that.isBubble)
-    def >= (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value >= that.value, this.isBubble || that.isBubble)
-    def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
-    def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-    def << (that : DFUInt.Token) : Token = (bits << that).toUInt
-    def >> (that : DFUInt.Token) : Token = (bits >> that).toUInt
-    def resize(toWidth : Int) : Token = bits.resize(toWidth).toUInt
-    def codeString(implicit printer: CSPrinter) : String = {
+    def + (right : Token) : Token = mkTokenU(right, _ + _, left.width max right.width)
+    def - (right : Token) : Token = mkTokenU(right, _ - _, left.width max right.width)
+
+    //    final def * [RW](right : Token[RW]) : Token = mkTokenU(right, left.value * right.value, left.width + right.width)
+    //    final def / [RW](right : Token[RW]) : Token = mkTokenU(right, left.value / right.value, left.width)
+    //    final def % [RW](right : Token[RW]) : Token = mkTokenU(right, left.value % right.value, right.width)
+    def <  (right : Token) : DFBool.Token = mkTokenB(right, _ < _)
+    def >  (right : Token) : DFBool.Token = mkTokenB(right, _ > _)
+    def <= (right : Token) : DFBool.Token = mkTokenB(right, _ <= _)
+    def >= (right : Token) : DFBool.Token = mkTokenB(right, _ >= _)
+    def == (right : Token) : DFBool.Token = mkTokenB(right, _ == _)
+    def != (right : Token) : DFBool.Token = mkTokenB(right, _ != _)
+    def << (right : DFUInt.Token) : Token = (left.bits << right).toUInt
+    def >> (right : DFUInt.Token) : Token = (left.bits >> right).toUInt
+    def resize(toWidth : Int) : Token = left.bits.resize(toWidth).toUInt
+    def valueToBitVector(value : BigInt) : BitVector = value.toBitVector(width)
+    def valueCodeString(value : BigInt)(implicit printer: CSPrinter) : String = {
       import printer.config._
       if (value.isValidInt) s"$LIT$value"
       else if (value.isValidLong) s"$LIT${value}L"
       else s"""$LIT BigInt($STR"$value")"""
     }
-//    override def equals(obj: Any): Boolean = obj match {
-//      case Token(width, value, bubble) => this.width.getValue == width.getValue && this.value == value && this.bubble == bubble
-//      case _ => false
-//    }
   }
 
   object Token {
-    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token(t.width, Bubble)
-    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token(t.width, Bubble)
-
+    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token.bubble(t.width)
+    implicit def bubbleOfDFType[W] : DFAny.Token.BubbleOfDFType[Type[W]] = t => Token.bubble(t.width)
     def apply(width : Int, value : Int) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : Long) : Token = Token(width, BigInt(value))
     def apply(width : Int, value : BigInt) : Token = {
       if (value < 0) throw new IllegalArgumentException(s"Unsigned token value must not be negative. Found $value")
       assert(value.bitsWidth <= width, s"\nThe init value $value width must smaller or equal to $width")
-      new Token(width, value, false)
+      Token(width, Some(value))
     }
-    def apply(width : Int, value : Bubble) : Token = new Token(width, 0, true)
+    def bubble(width : Int) : Token = Token(width, None)
     def apply(width : Int, token : Token) : Token = {
       assert(token.width <= width, s"\nThe init value $token width must smaller or equal to $width")
-      new Token(width, token.value, token.bubble)
+      Token(width, token.value)
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -183,7 +180,7 @@ object DFUInt extends DFAny.Companion {
 
       def toTokenSeq[LW](width : Int, right : Seq[Able[DFUInt[LW]]]) : Seq[Token] =
         right.toSeqAny.collect {
-          case (t : Bubble) => DFUInt.Token(width, t)
+          case (t : Bubble) => DFUInt.Token.bubble(width)
           case (t : Token) => assert(t.width == width); t
           case (t : Int) => DFUInt.Token(width, t)
           case (t : Long) => DFUInt.Token(width, t)

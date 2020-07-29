@@ -32,8 +32,8 @@ private object Case {
         pattern match {
           case x : DFBits.Pattern =>
             x.patternSet.map{p =>
-              if (width % 4 == 0) s"""$LIT${width}'h${p.toHex}"""
-              else s"""$LIT${width}'b${p.toBin}"""
+              if (width % 4 == 0) s"""$LIT${width}'h${p.valueBits.toHex}"""
+              else s"""$LIT${width}'b${p.valueBits.toBin}"""
             }.mkString(",")
           case x : DFUInt.Pattern =>
             x.patternSet.map(p => p.toRange.map(v => s"$LIT${width}'$LIT d${v}").mkString(",")).mkString(",")

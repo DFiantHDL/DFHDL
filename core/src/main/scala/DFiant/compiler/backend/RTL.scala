@@ -271,7 +271,7 @@ object RTL {
         _,
         rst @ IsReset(),
         DFAny.Func2.Op.==,
-        DFAny.Const(_, DFBool.Token(_, edge, _), _, _),
+        DFAny.Const(_, DFBool.Token(_, Some(edge)), _, _),
         _,
         _
         ) =>

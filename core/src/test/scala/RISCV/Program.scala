@@ -22,19 +22,18 @@ package RISCV
   *************************************************************************************************************/
 
 import DFiant._
-import DFiant.internals.BitVectorExtras
+import DFBits.Token
+case class IMemEntry(addr : Token, inst : Token, instStr : String)
+case class DMemEntry(addr : Token, data : Token)
 
-case class IMemEntry(addr : BitVector, inst : BitVector, instStr : String)
-case class DMemEntry(addr : BitVector, data : BitVector)
-
-case class ProgramIMem(list : List[IMemEntry], startAddress : BitVector, finishAddress : BitVector, failAddress : Option[BitVector])
+case class ProgramIMem(list : List[IMemEntry], startAddress : Token, finishAddress : Token, failAddress : Option[Token])
 case class ProgramDMem(list : List[DMemEntry]) {
-  def toInitArr(size : Int) : Array[BitVector] = {
-    val initArr = Array.fill(size)(BitVector.low(32))
+  def toInitArr(size : Int) : Array[Token] = {
+    val initArr = Array.fill(size)(Token(32, BigInt(0)))
     list.foreach(e => {
-      val i = e.addr.bits(9, 2).toBigInt.toInt
-      e.data.length match {
-        case 32 => e.addr.bits(1, 0).toBigInt.toInt match {
+      val i = e.addr.bits(9, 2).getUIntValue.toInt
+      e.data.width match {
+        case 32 => e.addr.bits(1, 0).getUIntValue.toInt match {
           case 0 => initArr(i) = e.data
           case 1 =>
             initArr(i) = e.data.bits(23, 0) ++ initArr(i).bits(7, 0)
@@ -46,7 +45,7 @@ case class ProgramDMem(list : List[DMemEntry]) {
             initArr(i) = e.data.bits(7, 0) ++ initArr(i).bits(23, 0)
             initArr(i+1) = initArr(i+1).bits(31, 24) ++ e.data.bits(31, 8)
         }
-        case 16 => e.addr.bits(1, 0).toBigInt.toInt match {
+        case 16 => e.addr.bits(1, 0).getUIntValue.toInt match {
           case 0 => initArr(i) = initArr(i).bits(31, 16) ++ e.data
           case 1 => initArr(i) = initArr(i).bits(31, 24) ++ e.data ++ initArr(i).bits(7, 0)
           case 2 => initArr(i) = e.data ++ initArr(i).bits(15, 0)
@@ -54,7 +53,7 @@ case class ProgramDMem(list : List[DMemEntry]) {
             initArr(i) = e.data.bits(7, 0) ++ initArr(i).bits(23, 0)
             initArr(i+1) = initArr(i+1).bits(31, 8) ++ e.data.bits(15, 8)
         }
-        case 8 => e.addr.bits(1, 0).toBigInt.toInt match {
+        case 8 => e.addr.bits(1, 0).getUIntValue.toInt match {
           case 0 => initArr(i) = initArr(i).bits(31, 8) ++ e.data
           case 1 => initArr(i) = initArr(i).bits(31, 16) ++ e.data ++ initArr(i).bits(7, 0)
           case 2 => initArr(i) = initArr(i).bits(31, 24) ++ e.data ++ initArr(i).bits(15, 0)
@@ -77,28 +76,28 @@ object Program {
   private val dataStart = "Disassembly of section .data:"
   private def imemFromFile(progMemFile : String) : ProgramIMem = {
     val file = Source.fromFile(progMemFile)
-    var mainAddr : Option[BitVector] = None
-    var endAddr : Option[BitVector] = None
-    var failAddr : Option[BitVector] = None
+    var mainAddr : Option[Token] = None
+    var endAddr : Option[Token] = None
+    var failAddr : Option[Token] = None
     var reachedData : Boolean = false
     val list = file.getLines().collect {
       case extractor(addr, inst, asm) if mainAddr.isDefined && endAddr.isEmpty && asm == "ret" & !reachedData =>
-        endAddr = Some(BitVector.fromHex(addr).get.resize(32))
-        Some(IMemEntry(endAddr.get, BitVector.fromHex(inst).get, asm))
+        endAddr = Some(Token.fromHexString(addr).get.resize(32))
+        Some(IMemEntry(endAddr.get, Token.fromHexString(inst).get, asm))
       case extractor(addr, inst, asm) if !reachedData =>
         if (inst.length < 8) None
-        else Some(IMemEntry(BitVector.fromHex(addr).get.resize(32), BitVector.fromHex(inst).get, asm))
+        else Some(IMemEntry(Token.fromHexString(addr).get.resize(32), Token.fromHexString(inst).get, asm))
       case mainExtractor(addr) =>
-        mainAddr = Some(BitVector.fromHex(addr).get.resize(32))
+        mainAddr = Some(Token.fromHexString(addr).get.resize(32))
         None
       case testExtractor(addr) =>
-        mainAddr = Some(BitVector.fromHex(addr).get.resize(32))
+        mainAddr = Some(Token.fromHexString(addr).get.resize(32))
         None
       case passExtractor(addr) =>
-        endAddr = Some(BitVector.fromHex(addr).get.resize(32))
+        endAddr = Some(Token.fromHexString(addr).get.resize(32))
         None
       case failExtractor(addr) =>
-        failAddr = Some(BitVector.fromHex(addr).get.resize(32))
+        failAddr = Some(Token.fromHexString(addr).get.resize(32))
         None
       case l if l == dataStart =>
         reachedData = true
@@ -114,7 +113,7 @@ object Program {
     var reachedData : Boolean = false
     val list = file.getLines().collect {
       case extractor(addr, inst, asm) if reachedData =>
-        Some(DMemEntry(BitVector.fromHex(addr).get.resize(32), BitVector.fromHex(inst).get))
+        Some(DMemEntry(Token.fromHexString(addr).get.resize(32), Token.fromHexString(inst).get))
       case l if l == dataStart =>
         reachedData = true
         None
@@ -126,7 +125,7 @@ object Program {
 
 
   def empty() : ProgramIMem =
-    ProgramIMem(List(), BitVector.fromHex("0").get.resize(32), BitVector.fromHex("0").get.resize(32), None)
+    ProgramIMem(List(), Token.fromHexString("0").get.resize(32), Token.fromHexString("0").get.resize(32), None)
 }
 
 

@@ -70,23 +70,11 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Token
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final case class Token(enumType : EnumType, value : Option[EnumType.Entry]) extends DFAny.Token.Of[Option[EnumType.Entry]] {
-    val width : Int = enumType.width
-    val (valueBits, bubbleMask) : (BitVector, BitVector) =
-      if (value.isDefined) (value.get.value.toBitVector(width), false.toBitVector(width))
-      else (0.toBitVector(width), true.toBitVector(width))
-
-    def == (that : Token) : DFBool.Token =
-      DFBool.Token(logical = true, this.value == that.value, this.isBubble || that.isBubble)
-    def != (that : Token) : DFBool.Token =
-      DFBool.Token(logical = true, this.value != that.value, this.isBubble || that.isBubble)
-    def codeString(implicit printer: CSPrinter) : String = value.get.codeString
-//    override def equals(obj: Any): Boolean = obj match {
-//      case Token(enumType, value) => this.enumType == enumType && this.value == value
-//      case _ => false
-//    }
+  final case class Token(enumType : EnumType, value : Option[EnumType.Entry]) extends DFAny.Token.Of[Type[EnumType], EnumType.Entry] {
+    val width : Int = enumType.width.getValue
+    def valueToBitVector(value : EnumType.Entry) : BitVector = value.value.toBitVector(width)
+    def valueCodeString(value : EnumType.Entry)(implicit printer: CSPrinter) : String = value.codeString
   }
-
   object Token {
     implicit def bubbleOfToken : DFAny.Token.BubbleOfToken[Token] = t => Token.bubble(t.enumType)
     implicit def bubbleOfDFType[E <: EnumType] : DFAny.Token.BubbleOfDFType[Type[E]] = t => Token.bubble(t.enumType)
@@ -339,7 +327,7 @@ object EnumType {
     private def entriesCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       val cs = implicitly[CodeStringOf[BitVector]]
-      entries.map(e => f"\n  $SC val ${e._2.name}%-15s = $DF Entry(${cs(e._1.toBitVector(width))})").mkString
+      entries.map(e => f"\n  $SC final $SC val ${e._2.name} ${ALGN(0)}= $DF Entry(${cs(e._1.toBitVector(width))})").mkString
     }
     final def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
