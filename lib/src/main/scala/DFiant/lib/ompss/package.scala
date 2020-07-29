@@ -7,6 +7,8 @@ import compiler.{IRCompilation, PreCompiler}
 import constraints.timing.sync._
 
 package object ompss {
+  implicit val __defaultVHDL93 = compiler.backend.vhdl.v93
+
   implicit def __clkrstConstraints[D <: DFDesign] : PreCompiler[D] =
     (fromStage : IRCompilation[D]) => {
       //applying default ompss clock and reset constraints

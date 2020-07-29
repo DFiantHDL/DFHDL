@@ -1,6 +1,4 @@
 import DFiant._
-import constraints.timing.sync._
-import compiler.backend.vhdl.v93
 import lib.ompss._
 import internals.BitVectorExtras
 import sim.DFSimDesign
@@ -172,12 +170,12 @@ import sim.DFSimDesign
 }
 
 object LoopbackTestApp extends App {
-  object top_test extends LoopbackTest
+  val top_test = new LoopbackTest
   import sim.tools.ghdl
   top_test.printCodeString.compile.printCodeString.toFolder("loopback").simulation.run()
 }
 
 object LoopbackApp extends App {
-  object top extends loopback
+  val top = new loopback
   top.printCodeString.compile.printCodeString.toFile("/media/soronpo/loopback/zedboard/loopback_ait/xilinx/HLS/loopback/solution1/impl/ip/hdl/vhdl/loopback_moved.vhd")
 }
