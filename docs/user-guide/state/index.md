@@ -16,27 +16,27 @@ Semantically, every DFiant dataflow variable references a token stream (TS).
 
   * `init` returns a reference to a new (initialized) dataflow variable, but maintains the *mutability* trait dataflow variable. 
 
-* Bubble tokens (Φ) :
+* Bubble tokens (?) :
 
   * Produced when a `prev` is called on a non-initialized dataflow variable. E.g.,
   
     | Code                                   | Init        | Token Stream          |
     | -------------------------------------- | ----------- | --------------------- |
-    | `in : DFUInt[32]`                      | `Φ`         | `2, 3, 1, 5, 9`       |
-    | `in.prev`                              | `Φ`         | `Φ, 2, 3, 1, 5, 9`    |
-    | `in.prev(2)`                           | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
-    | `in.prev.prev`                         | `Φ`         | `Φ, Φ, 2, 3, 1, 5, 9` |
+    | `in : DFUInt[32]`                      | `?`         | `2, 3, 1, 5, 9`       |
+    | `in.prev`                              | `?`         | `?, 2, 3, 1, 5, 9`    |
+    | `in.prev(2)`                           | `?`         | `?, ?, 2, 3, 1, 5, 9` |
+    | `in.prev.prev`                         | `?`         | `?, ?, 2, 3, 1, 5, 9` |
     | `val in1 = in.init(1); in1`            | `1`         | `2, 3, 1, 5, 9`       |
     | `in1.prev`                             | `1`         | `1, 2, 3, 1, 5, 9`    |
     | `in1.prev(2)`                          | `1`         | `1, 1, 2, 3, 1, 5, 9` |
     | `in1.prev.init(8)`                     | `8`         | `1, 2, 3, 1, 5, 9`    |
-    | `val innew = DFUInt(32) := in1; innew` | `Φ`         | `2, 3, 1, 5, 9`       |
-    | `val ins7 = in.init(7, Φ); ins7`       | `(7, Φ)`    | `2, 3, 1, 5, 9`       |
-    | `ins7.prev`                            | `Φ`         | `7, 2, 3, 1, 5, 9`    |
-    | `val ins78 = in.init(7, 8, Φ); ins78`  | `(7, 8, Φ)` | `2, 3, 1, 5, 9`       |
-    | `ins78.prev`                           | `(8, Φ)`    | `7, 2, 3, 1, 5, 9`    |
-    | `ins78.prev(2)`                        | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
-    | `in.init(7).prev.init(8, Φ).prev`      | `Φ`         | `8, 7, 2, 3, 1, 5, 9` |
+    | `val innew = DFUInt(32) := in1; innew` | `?`         | `2, 3, 1, 5, 9`       |
+    | `val ins7 = in.init(7, ?); ins7`       | `(7, ?)`    | `2, 3, 1, 5, 9`       |
+    | `ins7.prev`                            | `?`         | `7, 2, 3, 1, 5, 9`    |
+    | `val ins78 = in.init(7, 8, ?); ins78`  | `(7, 8, ?)` | `2, 3, 1, 5, 9`       |
+    | `ins78.prev`                           | `(8, ?)`    | `7, 2, 3, 1, 5, 9`    |
+    | `ins78.prev(2)`                        | `?`         | `8, 7, 2, 3, 1, 5, 9` |
+    | `in.init(7).prev.init(8, ?).prev`      | `?`         | `8, 7, 2, 3, 1, 5, 9` |
   
     
   
@@ -49,7 +49,7 @@ Semantically, every DFiant dataflow variable references a token stream (TS).
     ```scala
     def foo(a : DFUInt(8)) = a + a.prev
     //'in' is token stream of:    2, 3, 1, 5, 9
-    //'foo(in)' returns:          Φ, 5, 4, 6, 14
+    //'foo(in)' returns:          ?, 5, 4, 6, 14
     ```
   
   * `prev` maintains *Distributivity* through basic operations e.g.: 
@@ -58,13 +58,13 @@ Semantically, every DFiant dataflow variable references a token stream (TS).
   
     | Code                                  | Init                                    | Token Stream                             |
     | ------------------------------------- | --------------------------------------- | ---------------------------------------- |
-    | `inL : DFUInt(32)`                    | `Φ`                                     | `2, 3, 1, 5, 9`                          |
-    | `inR : DFUInt(32)`                    | `Φ`                                     | `4, 0, 2`                                |
-    | `inL + inR`                           | `Φ` `+`<br />`Φ` `=`<br />`Φ`           | `2, 3, 1, 5, 9` `+`<br />`4, 0, 2` `=`<br />`6, 3, 3` |
-    | `inL + inR.prev`                      | `Φ` `+`<br />`Φ` `=`<br />`Φ`           | `2, 3, 1, 5, 9` `+`<br />`Φ, 4, 0, 2` `=`<br />`Φ, 7, 1, 7` |
+    | `inL : DFUInt(32)`                    | `?`                                     | `2, 3, 1, 5, 9`                          |
+    | `inR : DFUInt(32)`                    | `?`                                     | `4, 0, 2`                                |
+    | `inL + inR`                           | `?` `+`<br />`?` `=`<br />`?`           | `2, 3, 1, 5, 9` `+`<br />`4, 0, 2` `=`<br />`6, 3, 3` |
+    | `inL + inR.prev`                      | `?` `+`<br />`?` `=`<br />`?`           | `2, 3, 1, 5, 9` `+`<br />`?, 4, 0, 2` `=`<br />`?, 7, 1, 7` |
     | `inL.init(1) + inR.init(3).prev`      | `1` `+`<br />`3` `=`<br />`4`           | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
-    | `inL.init(1, Φ) + inR.init(3).prev`   | `(1, Φ)` `+`<br />`3` `=`<br />`(4, Φ)` | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
-    | `inL.init(1) + inR.init(3, Φ).prev`   | `1` `+`<br />`Φ` `=`<br />`Φ`           | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
+    | `inL.init(1, ?) + inR.init(3).prev`   | `(1, ?)` `+`<br />`3` `=`<br />`(4, ?)` | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
+    | `inL.init(1) + inR.init(3, ?).prev`   | `1` `+`<br />`?` `=`<br />`?`           | `2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`5, 7, 1, 7` |
     | `inL.init(1).prev + inR.init(3).prev` | `1` `+`<br />`3` `=`<br />`4`           | `1, 2, 3, 1, 5, 9` `+`<br />`3, 4, 0, 2` `=`<br />`4, 6, 3, 3` |
     | `(inL.init(1) + inR.init(3)).prev`    | `1` `+`<br />`3` `=`<br />`4`           | `(2, 3, 1, 5, 9` `+`<br />`4, 0, 2)` `.prev =`<br />`4, 6, 3, 3` |
   

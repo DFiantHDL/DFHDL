@@ -83,7 +83,8 @@ import internals._
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
-
+  val o = DFBits(3) <> OUT
+  o := ?
   matchdf(i)
     .casedf(b"1100????"){}
     .casedf_{}
@@ -103,7 +104,7 @@ object IDTopApp extends App {
   }
   import compiler.backend.vhdl.v2008
   import sim.tools.ghdl
-  val designDB = top.printCodeString.compile.printCodeString.printGenFiles()//.toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
+  val designDB = top.printCodeString//.compile.printCodeString.printGenFiles()//.toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

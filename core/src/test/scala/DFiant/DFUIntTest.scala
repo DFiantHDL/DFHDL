@@ -56,7 +56,7 @@
 //  }
 //
 //  property("DFUInt conversion from DFBits") = {
-//    val a = DFBits(8).init(bin"11",20,Φ,15L)
+//    val a = DFBits(8).init(bin"11",20,?,15L)
 //    val b = a.toDFUInt
 //    implicitly[b.type <:< DFUInt[8]]
 //    bi(0).valueUInt == BigInt(3) && bi(1).valueUInt == BigInt(20) && bi(2).isBubble && bi(3).valueUInt == BigInt(15)

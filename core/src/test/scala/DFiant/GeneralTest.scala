@@ -57,7 +57,7 @@
 ////  (1 < d) && (d > 3)
 //
 //  val ff = DFUInt[8]
-//  ff.init(1, 7L, aaa, 100, Φ, Seq(aaa, aaa))
+//  ff.init(1, 7L, aaa, 100, ?, Seq(aaa, aaa))
 //
 ////  ff + d
 //  val u = DFUInt(one)

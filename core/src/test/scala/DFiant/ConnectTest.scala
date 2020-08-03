@@ -203,9 +203,9 @@
 ////    val compare =
 ////      """
 ////        |trait Relational extends DFDesign {
-////        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
+////        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, ?, 1)
 ////        |  val inRight = DFUInt(4) <> IN                              //init = (8)
-////        |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
+////        |  val outResult = DFBool() <> OUT                            //init = (true, true, ?, true)
 ////        |  val rtInst = new Xilinx.Series$basicLib$DFUIntOps$RTInfixRelationalOp(<)(8, 4) {}
 ////        |  rtInst.A <> inLeft
 ////        |  rtInst.B <> inRight
@@ -213,9 +213,9 @@
 ////        |}
 ////        |
 ////        |trait `Func2Comp<` extends DFDesign {
-////        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, Φ, 1)
+////        |  val inLeft = DFUInt(8) <> IN                               //init = (1, 1, ?, 1)
 ////        |  val inRight = DFUInt(4) <> IN                              //init = (8)
-////        |  val outResult = DFBool() <> OUT                            //init = (true, true, Φ, true)
+////        |  val outResult = DFBool() <> OUT                            //init = (true, true, ?, true)
 ////        |  val dFt_anon = new Relational {}
 ////        |  dFt_anon.inLeft <> inLeft
 ////        |  dFt_anon.inRight <> inRight
@@ -223,10 +223,10 @@
 ////        |}
 ////        |
 ////        |trait IODesignIf extends DFDesign {
-////        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
-////        |  val i2 = DFUInt(8) <> IN init(2, Φ)                        //init = (2, Φ)
+////        |  val i1 = DFUInt(8) <> IN init(1, 1, ?, 1)                  //init = (1, 1, ?, 1)
+////        |  val i2 = DFUInt(8) <> IN init(2, ?)                        //init = (2, ?)
 ////        |  val o1 = DFUInt(8) <> OUT                                  //init = ()
-////        |  val o2 = DFUInt(8) <> OUT                                  //init = (2, 1, Φ, 1)
+////        |  val o2 = DFUInt(8) <> OUT                                  //init = (2, 1, ?, 1)
 ////        |  val b = DFBool() <> IN init(false, true, true, true)       //init = (false, true, true, true)
 ////        |  val myIf = ifdf(b) {
 ////        |    val myIf2 = ifdf(b) {
@@ -237,9 +237,9 @@
 ////        |  }.elsedf {
 ////        |    o1 := i1
 ////        |  }
-////        |  val ret = DFUInt(8) init(2, 1, Φ, 1)                       //init = (2, 1, Φ, 1)
+////        |  val ret = DFUInt(8) init(2, 1, ?, 1)                       //init = (2, 1, ?, 1)
 ////        |  val ret_d_if = ifdf(b) {
-////        |    val dFt_anon = DFUInt(8) init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
+////        |    val dFt_anon = DFUInt(8) init(1, 1, ?, 1)                  //init = (1, 1, ?, 1)
 ////        |    val dFt_anon_d_1 = new `Func2Comp<` {}
 ////        |    dFt_anon_d_1.inLeft <> i1
 ////        |    dFt_anon_d_1.inRight <> 8
@@ -268,8 +268,8 @@
 ////    val compare =
 ////      """
 ////        |trait IODesignIf extends DFDesign {
-////        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)
-////        |  val i2 = DFUInt(8) <> IN init(2, Φ)
+////        |  val i1 = DFUInt(8) <> IN init(1, 1, ?, 1)
+////        |  val i2 = DFUInt(8) <> IN init(2, ?)
 ////        |  val o1 = DFUInt(8) <> OUT
 ////        |  val o2 = DFUInt(8) <> OUT
 ////        |  val b = DFBool() <> IN init(false, true, true, true)
@@ -282,9 +282,9 @@
 ////        |  }.elsedf {
 ////        |    o1 := i1
 ////        |  }
-////        |  val ret = DFUInt(8) init(2, 1, Φ, 1)
+////        |  val ret = DFUInt(8) init(2, 1, ?, 1)
 ////        |  ifdf(b) {
-////        |    val ret2 = DFUInt(8) init(1, 1, Φ, 1)
+////        |    val ret2 = DFUInt(8) init(1, 1, ?, 1)
 ////        |    ifdf(i1 < 8) {
 ////        |      ret2 := i1
 ////        |    }.elseifdf(b) {
@@ -339,26 +339,26 @@
 //    val compare =
 //      """
 //        |trait IODesignConn5 extends DFDesign {
-//        |  val i_0 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-//        |  val o_0 = DFUInt(8) <> OUT                                 //init = (Φ)
-//        |  val dFt_myloop = i_0.prev                                  //init = (2, 3, 4, Φ)
-//        |  val dFt_myloop = dFt_myloop.prev                           //init = (3, 4, Φ)
-//        |  val dFt_myloop = dFt_myloop.prev                           //init = (4, Φ)
-//        |  val myloop_0 = dFt_myloop.prev                             //init = (Φ)
+//        |  val i_0 = DFUInt(8) <> IN init(1, 2, 3, 4, ?)              //init = (1, 2, 3, 4, ?)
+//        |  val o_0 = DFUInt(8) <> OUT                                 //init = (?)
+//        |  val dFt_myloop = i_0.prev                                  //init = (2, 3, 4, ?)
+//        |  val dFt_myloop = dFt_myloop.prev                           //init = (3, 4, ?)
+//        |  val dFt_myloop = dFt_myloop.prev                           //init = (4, ?)
+//        |  val myloop_0 = dFt_myloop.prev                             //init = (?)
 //        |  o_0 <> myloop_0
-//        |  val i_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-//        |  val o_1 = DFUInt(8) <> OUT                                 //init = (Φ)
-//        |  val dFt_myloop = i_1.prev                                  //init = (2, 3, 4, Φ)
-//        |  val dFt_myloop = dFt_myloop.prev                           //init = (3, 4, Φ)
-//        |  val dFt_myloop = dFt_myloop.prev                           //init = (4, Φ)
-//        |  val myloop_1 = dFt_myloop.prev                             //init = (Φ)
+//        |  val i_1 = DFUInt(8) <> IN init(1, 2, 3, 4, ?)              //init = (1, 2, 3, 4, ?)
+//        |  val o_1 = DFUInt(8) <> OUT                                 //init = (?)
+//        |  val dFt_myloop = i_1.prev                                  //init = (2, 3, 4, ?)
+//        |  val dFt_myloop = dFt_myloop.prev                           //init = (3, 4, ?)
+//        |  val dFt_myloop = dFt_myloop.prev                           //init = (4, ?)
+//        |  val myloop_1 = dFt_myloop.prev                             //init = (?)
 //        |  o_1 <> myloop_1
-//        |  val i_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)              //init = (1, 2, 3, 4, Φ)
-//        |  val o_2 = DFUInt(8) <> OUT                                 //init = (Φ)
-//        |  val dFt_myloop = i_2.prev                                  //init = (2, 3, 4, Φ)
-//        |  val dFt_myloop = dFt_myloop.prev                           //init = (3, 4, Φ)
-//        |  val dFt_myloop = dFt_myloop.prev                           //init = (4, Φ)
-//        |  val myloop_2 = dFt_myloop.prev                             //init = (Φ)
+//        |  val i_2 = DFUInt(8) <> IN init(1, 2, 3, 4, ?)              //init = (1, 2, 3, 4, ?)
+//        |  val o_2 = DFUInt(8) <> OUT                                 //init = (?)
+//        |  val dFt_myloop = i_2.prev                                  //init = (2, 3, 4, ?)
+//        |  val dFt_myloop = dFt_myloop.prev                           //init = (3, 4, ?)
+//        |  val dFt_myloop = dFt_myloop.prev                           //init = (4, ?)
+//        |  val myloop_2 = dFt_myloop.prev                             //init = (?)
 //        |  o_2 <> myloop_2
 //        |}
 //        |
@@ -373,13 +373,13 @@
 ////    val compare =
 ////      """
 ////        |trait IODesignConn5 extends DFDesign {
-////        |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+////        |  val i = DFUInt(8) <> IN init(1, 2, 3, 4, ?)
 ////        |  val o = DFUInt(8) <> OUT
 ////        |  o <> i.prev.prev.prev.prev
-////        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+////        |  val i_d_1 = DFUInt(8) <> IN init(1, 2, 3, 4, ?)
 ////        |  val o_d_1 = DFUInt(8) <> OUT
 ////        |  o_d_1 <> i_d_1.prev.prev.prev.prev
-////        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, Φ)
+////        |  val i_d_2 = DFUInt(8) <> IN init(1, 2, 3, 4, ?)
 ////        |  val o_d_2 = DFUInt(8) <> OUT
 ////        |  o_d_2 <> i_d_2.prev.prev.prev.prev
 ////        |}
@@ -481,7 +481,7 @@
 //    val compare =
 //      """
 //        |trait IODesignMatch extends DFDesign {
-//        |  val i1 = DFUInt(8) <> IN init(1, 1, Φ, 1)                  //init = (1, 1, Φ, 1)
+//        |  val i1 = DFUInt(8) <> IN init(1, 1, ?, 1)                  //init = (1, 1, ?, 1)
 //        |  val i2 = DFUInt(8) <> IN init(2, 8, 7, 11, 21)             //init = (2, 8, 7, 11, 21)
 //        |  val o1 = DFUInt(8) <> OUT                                  //init = ()
 //        |  matchdf(i2, MatchConfig.AllowOverlappingCases)

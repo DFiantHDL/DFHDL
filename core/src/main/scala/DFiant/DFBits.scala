@@ -138,28 +138,39 @@ object DFBits extends DFAny.Companion {
     }
     def getUIntValue : BigInt = valueBits.toBigInt.asUnsigned(width)
     def getSIntValue : BigInt = valueBits.toBigInt
-    def toBinString : String = {
-      val valueString = valueBits.toBin
-      val bubbleString = bubbleMask.toBin
-      valueString.zip(bubbleString).map {
-        case (_, '1') => '?'
-        case (zeroOrOne, _) => zeroOrOne
-      }.mkString
-    }
+    private def binZip(v : BitVector, b : BitVector) : String = v.toBin.zip(b.toBin).map {
+      case (_, '1') => '?'
+      case (zeroOrOne, _) => zeroOrOne
+    }.mkString
+    private def hexZip(v : BitVector, b : BitVector) : String = v.toHex.zip(b.toHex).flatMap {
+      case (_, 'F' | 'f') => "?"
+      case (h, '0') => s"$h"
+      case (h, b) => s"{${binZip(BitVector(h), BitVector(b))}}"
+    }.mkString
+    def toBinString : String = binZip(valueBits, bubbleMask)
     def toHexString : String = {
-//      if (width % 4 == 0)
-      val valueString = valueBits.toHex
-      val bubbleString = bubbleMask.toHex
-      valueString.zip(bubbleString).map {
-        case (_, 'F') => '?'
-        case (h, '0') => h
-      }.mkString
+      if (width % 4 == 0) hexZip(valueBits, bubbleMask)
+      else  {
+        val headWidth = width % 4
+        val (headValue, theRestValue) = valueBits.splitAt(headWidth)
+        val (headBubble, theRestBubble) = bubbleMask.splitAt(headWidth)
+
+        val headStr = {
+          if (headBubble == BitVector.high(headWidth)) "?"
+          else hexZip(headValue.resize(4), headBubble.resize(4))
+        }
+        val hexStr = headStr + hexZip(theRestValue, theRestBubble)
+        s"${width}'$hexStr"
+      }
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       import io.AnsiColor.BOLD
-      if (width % 4 == 0) s"""$BOLD h$STR"${valueBits.toHex}""""
-      else s"""$BOLD b$STR"${valueBits.toBin}""""
+      val binRep = toBinString
+      val hexRep = toHexString
+      //choosing the shorter representation for readability
+      if (binRep.length <= hexRep.length) s"""$BOLD b$STR"$binRep""""
+      else s"""$BOLD h$STR"$hexRep""""
     }
   }
   object Token {

@@ -990,6 +990,9 @@ object DFAny {
       left.dfType.assignCheck(right)
       left.assign(right)
     }
+    def := (bubble: Bubble)(implicit ctx : DFNet.Context) : Unit = {
+      left.assign(DFAny.Const(left.dfType, left.dfType.getBubbleToken))
+    }
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]
@@ -1174,7 +1177,7 @@ object DFAny {
 
       final def codeString(implicit printer : CSPrinter) : String = value match {
         case Some(t) => valueCodeString(t)
-        case None => "Φ"
+        case None => "?"
       }
       def valueToBitVector(value : Value) : BitVector
       def valueCodeString(value : Value)(implicit printer: CSPrinter) : String
@@ -1234,7 +1237,7 @@ object DFAny {
   ////    abstract class Of[V, P <: DFAny.Pattern[P]{type TValue = V}](implicit codeStringOf : CodeStringOf[V]) extends Token {
   ////      type TValue = V
   ////      protected[DFiant] type TPattern = P
-  ////      final def codeString : String = if (isBubble) "Φ" else value.codeString
+  ////      final def codeString : String = if (isBubble) "?" else value.codeString
   ////    }
   ////    def patternMatch[T <: Token, P <: Pattern[_]](tokenSeq : Seq[T], pattern : P) : Seq[DFBool.Token] = TokenSeq(tokenSeq, pattern)((l, r) => l.patternMatch(r.asInstanceOf[l.TPattern]))
   //  }
