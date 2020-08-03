@@ -74,6 +74,9 @@ object Program {
   private val failExtractor = """[ \t]*([0-9a-f]+) <fail>:[ \t]*""".r
   private val passExtractor = """[ \t]*([0-9a-f]+) <pass>:[ \t]*""".r
   private val dataStart = "Disassembly of section .data:"
+  private def token32(addr : String) : DFBits.Token = {
+    Token.fromHexString(addr).toOption.get.resize(32)
+  }
   private def imemFromFile(progMemFile : String) : ProgramIMem = {
     val file = Source.fromFile(progMemFile)
     var mainAddr : Option[Token] = None
@@ -82,22 +85,22 @@ object Program {
     var reachedData : Boolean = false
     val list = file.getLines().collect {
       case extractor(addr, inst, asm) if mainAddr.isDefined && endAddr.isEmpty && asm == "ret" & !reachedData =>
-        endAddr = Some(Token.fromHexString(addr).get.resize(32))
-        Some(IMemEntry(endAddr.get, Token.fromHexString(inst).get, asm))
+        endAddr = Some(token32(addr))
+        Some(IMemEntry(endAddr.get, Token.fromHexString(inst).toOption.get, asm))
       case extractor(addr, inst, asm) if !reachedData =>
         if (inst.length < 8) None
-        else Some(IMemEntry(Token.fromHexString(addr).get.resize(32), Token.fromHexString(inst).get, asm))
+        else Some(IMemEntry(token32(addr), Token.fromHexString(inst).toOption.get, asm))
       case mainExtractor(addr) =>
-        mainAddr = Some(Token.fromHexString(addr).get.resize(32))
+        mainAddr = Some(token32(addr))
         None
       case testExtractor(addr) =>
-        mainAddr = Some(Token.fromHexString(addr).get.resize(32))
+        mainAddr = Some(token32(addr))
         None
       case passExtractor(addr) =>
-        endAddr = Some(Token.fromHexString(addr).get.resize(32))
+        endAddr = Some(token32(addr))
         None
       case failExtractor(addr) =>
-        failAddr = Some(Token.fromHexString(addr).get.resize(32))
+        failAddr = Some(token32(addr))
         None
       case l if l == dataStart =>
         reachedData = true
@@ -113,7 +116,7 @@ object Program {
     var reachedData : Boolean = false
     val list = file.getLines().collect {
       case extractor(addr, inst, asm) if reachedData =>
-        Some(DMemEntry(Token.fromHexString(addr).get.resize(32), Token.fromHexString(inst).get))
+        Some(DMemEntry(token32(addr), Token.fromHexString(inst).toOption.get))
       case l if l == dataStart =>
         reachedData = true
         None
@@ -125,7 +128,7 @@ object Program {
 
 
   def empty() : ProgramIMem =
-    ProgramIMem(List(), Token.fromHexString("0").get.resize(32), Token.fromHexString("0").get.resize(32), None)
+    ProgramIMem(List(), b"32'0", b"32'0", None)
 }
 
 

@@ -8,8 +8,12 @@ private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = {
     import printer.config._
     token match {
-      case t @ DFBits.Token(valueBits, _) if t.width % 4 == 0 && !t.isBubble => s"""x"${valueBits.toHex}""""
-      case t @ DFBits.Token(valueBits, bubbleMask) if !t.isBubble && t.width % 4 == 0 =>
+      case t @ DFBits.Token(valueBits, _) if !t.isBubble => revision match {
+        case Revision.V93 if t.width % 4 == 0 => s"""x"${valueBits.toHex}""""
+        case Revision.V2008 => s"""${t.width}x"${valueBits.toHexProper}""""
+        case Revision.V93 => s""""${valueBits.toBin}""""
+      }
+      case t @ DFBits.Token(valueBits, bubbleMask) if t.width % 4 == 0 =>
         val vhdlBin = valueBits.toBin.zip(bubbleMask.toBin).foldLeft("") {
           case (vp, (_, '1')) => vp + "-" //dontcare
           case (vp, (zeroOrOne, '0')) => vp + zeroOrOne
@@ -32,7 +36,9 @@ private object Value {
       case DFBool.Token(false, Some(value)) => if (value) "'1'" else "'0'"
       case DFBool.Token(true, Some(value)) => value.toString
       case DFEnum.Token(_, Some(entry)) => EnumTypeDcl.enumEntryFullName(entry)
-      case _ => ???
+      case t =>
+        println(t)
+        ???
     }
   }
   def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {

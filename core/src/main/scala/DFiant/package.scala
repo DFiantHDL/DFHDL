@@ -138,8 +138,8 @@ package object DFiant {
     * Provides the `b` and `h` string interpolator, which returns `BitVector` instances from binary strings.
     */
   final implicit class BinStringSyntax(val sc: StringContext) {
-    def b[W](args: DFBits.Token*)(implicit interpolator : Interpolator[DFBits.Token, "b"]) : interpolator.Out = interpolator.value
-    def h[W](args: DFBits.Token*)(implicit interpolator : Interpolator[DFBits.Token, "h"]) : interpolator.Out = interpolator.value
+    def b[W](args: Any*)(implicit interpolator : Interpolator[DFBits.Token, "b"]) : interpolator.Out = interpolator.value
+    def h[W](args: Any*)(implicit interpolator : Interpolator[DFBits.Token, "h"]) : interpolator.Out = interpolator.value
 
     private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny, String]] =
       Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
@@ -160,119 +160,8 @@ package object DFiant {
 
   object Interpolator {
     type Aux[T, K, Out0 <: T] = Interpolator[T, K]{type Out = Out0}
-    implicit def evb[W] : Interpolator.Aux[DFBits.Token, "b", DFBits.TokenW[W]] = macro Macro.binImplStringInterpolator
-    implicit def evh[W] : Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] = macro Macro.hexImplStringInterpolator
-  }
-
-  protected object Macro {
-    object whitebox { type Context = scala.reflect.macros.whitebox.Context }
-    def binImplStringInterpolator(c: whitebox.Context) : c.Tree = stringInterpolatorGen("b")(c)
-    def hexImplStringInterpolator(c: whitebox.Context) : c.Tree = stringInterpolatorGen("h")(c)
-    def stringInterpolatorGen(k : String)(c: whitebox.Context) : c.Tree = {
-      import c.universe._
-      ////////////////////////////////////////////////////////////////////
-      // Code thanks to Shapeless
-      // https://github.com/milessabin/shapeless/blob/master/core/src/main/scala/shapeless/lazy.scala
-      ////////////////////////////////////////////////////////////////////
-      val defaultAnnotatedSym : Option[TypeSymbol] =
-        if (c.enclosingImplicits.isEmpty) None else c.enclosingImplicits.last.pt match {
-          case TypeRef(_,sym,_) => Some(sym.asType)
-          case x => Some(x.typeSymbol.asType)
-        }
-      def setAnnotation(msg: String, annotatedSym : TypeSymbol) : Unit = {
-        import c.internal._
-        import decorators._
-        val tree0 =
-          c.typecheck(
-            q"""new _root_.scala.annotation.implicitNotFound("dummy")""",
-            silent = false
-          )
-
-        class SubstMessage extends Transformer {
-          val global = c.universe.asInstanceOf[scala.tools.nsc.Global]
-
-          override def transform(tree: Tree): Tree = {
-            super.transform {
-              tree match {
-                case Literal(Constant("dummy")) => Literal(Constant(msg))
-                case t => t
-              }
-            }
-          }
-        }
-
-        val tree = new SubstMessage().transform(tree0)
-
-        annotatedSym.setAnnotations(Annotation(tree))
-        ()
-      }
-      ////////////////////////////////////////////////////////////////////
-      def calcArgsLength(argsTrees : List[Tree]) : Option[Int] = {
-        if (argsTrees.isEmpty) Some(0)
-        else {
-          val tpes = argsTrees.map(e => e.tpe.dealias)
-          val lengths : List[Option[Int]] = tpes.collect {
-            case RefinedType(parents, scope) => parents.last.typeArgs.head match {
-              case ConstantType(Constant(t : Int)) => Some(t)
-              case _ => None
-            }
-            case _ => None
-          }
-          def sumOption(a : Option[Int], b : Option[Int]) : Option[Int] = (a, b) match {
-            case (Some(aa), Some(bb)) => Some(aa + bb)
-            case _ => None
-          }
-          lengths.reduceLeft(sumOption)
-        }
-      }
-      val kTpe = c.internal.constantType(Constant(k))
-      val Apply(TypeApply(Select(properTree,_), _), argsTrees) = c.enclosingImplicits.last.tree
-      val args = argsTrees.map(e => c.Expr[DFBits.Token](e))
-      val Apply(_, List(Apply(_, parts))) = properTree
-      val partLiterals: List[String] = parts map {
-        case Literal(Constant(part: String)) =>
-          k match {
-            case "b" =>
-              if (DFBits.Token.fromBinString(part).isEmpty)
-                c.error(c.enclosingPosition, "binary string literal may only contain the characters: {0,1,?,_} (? is Don't Care)")
-            case "h" =>
-              if (DFBits.Token.fromHexString(part).isEmpty)
-                c.error(c.enclosingPosition, "hex string literal may only contain the characters: {0-9,A-F,?,_} (? is Don't Care)")
-          }
-          part
-      }
-      val width = k match {
-        case "b" => DFBits.Token.fromBinString(partLiterals.head).get.width
-        case "h" => DFBits.Token.fromHexString(partLiterals.head).get.width
-      }
-
-      val headPart = c.Expr[String](Literal(Constant(partLiterals.head)))
-      val initialStringBuilder = reify { new StringBuilder().append(headPart.splice) }
-      val stringBuilder = (args zip partLiterals.tail).foldLeft(initialStringBuilder) {
-        case (sb, (arg, part)) =>
-          val partExpr = c.Expr[String](Literal(Constant(part)))
-          k match {
-            case "b" => reify { sb.splice.append(arg.splice.toBinString).append(partExpr.splice) }
-            case "h" => reify { sb.splice.append(arg.splice.toHexString).append(partExpr.splice) }
-          }
-      }
-
-      val buildTree = k match {
-        case "b" => reify { DFBits.Token.fromBinString(stringBuilder.splice.toString).get }.tree
-        case "h" => reify { DFBits.Token.fromHexString(stringBuilder.splice.toString).get }.tree
-      }
-
-      val widthTpe : Type = calcArgsLength(argsTrees) match {
-        case Some(t) => c.internal.constantType(Constant(width + t))
-        case _ => typeOf[Int]
-      }
-      q"""
-         new DFiant.Interpolator[DFiant.DFBits.Token, $kTpe] {
-           type Out = DFiant.DFBits.TokenW[$widthTpe]
-           val value : DFiant.DFBits.TokenW[$widthTpe] = $buildTree.asInstanceOf[DFiant.DFBits.TokenW[$widthTpe]]
-         }
-       """
-    }
+    implicit def evb[W] : Interpolator.Aux[DFBits.Token, "b", DFBits.TokenW[W]] = macro DFBits.Token.binImplStringInterpolator
+    implicit def evh[W] : Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] = macro DFBits.Token.hexImplStringInterpolator
   }
   ////////////////////////////////////////////////////////////////////////////////////
 

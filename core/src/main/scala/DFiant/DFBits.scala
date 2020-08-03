@@ -180,38 +180,103 @@ object DFBits extends DFAny.Companion {
     def apply(value : BitVector) : Token = Token(value, BitVector.low(value.length))
     def apply(width : Int, value : BigInt) : Token = Token(value.toBitVector(width))
     def bubble(width : Int) : Token = Token(BitVector.low(width), BitVector.high(width))
-    def fromBinString(bin : String) : Option[Token] = {
-      val noUnderscore = bin.replaceAll("_", "")
-      val valuePart = noUnderscore.replace('?', '0')
-      val bubblePart = noUnderscore.replaceAll("[1|0]","0").replace('?','1')
-      val valueBitsOption = BitVector.fromBin(valuePart)
-      val bubbleBitsOption = BitVector.fromBin(bubblePart)
-      (valueBitsOption, bubbleBitsOption) match {
-        case (Some(v), Some(b)) => Some(Token(v, b))
-        case _ => None
+
+    private val widthExp = "([0-9]+)'(.*)".r
+    def fromBinString(bin : String) : Either[String, Token] = {
+      val (explicitWidth, word) = bin match {
+        case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
+        case _ => (None, bin)
+      }
+      val (valueBits, bubbleMask) = word.foldLeft((BitVector.empty, BitVector.empty)) {
+        case (t, '_') => t //ignoring underscore
+        case ((v, b), c) => c match { //bin mode
+          case '?' => (v :+ false, b :+ true)
+          case '0' => (v :+ false, b :+ false)
+          case '1' => (v :+ true, b :+ false)
+          case x => return Left(s"Found invalid binary character: $x")
+        }
+      }
+      val token = Token(valueBits, bubbleMask)
+      val actualWidth = (valueBits.lengthOfValue max bubbleMask.lengthOfValue).toInt
+      explicitWidth match {
+        case Some(value) if value < actualWidth => Left(s"Explicit given width ($value) is smaller than the actual width ($actualWidth)")
+        case Some(value) => Right(token.resize(value))
+        case None => Right(token)
       }
     }
-
-    def fromHexString(hex : String) : Option[Token] = {
+    def fromHexString(hex : String) : Either[String, Token] = {
       val isHex = "[0-9a-fA-F]".r
-      val (valueBits, bubbleMask, binMode) = hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
+      val (explicitWidth, word) = hex match {
+        case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
+        case _ => (None, hex)
+      }
+      val (valueBits, bubbleMask, binMode) = word.foldLeft((BitVector.empty, BitVector.empty, false)) {
         case (t, '_') => t //ignoring underscore
         case ((v, b, false), c) => c match { //hex mode
           case '{' => (v, b, true)
           case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
           case isHex() => (v ++ BitVector.fromHex(c.toString).get, b ++ BitVector.low(4), false)
-          case _ => return None
+          case x => return Left(s"Found invalid hex character: $x")
         }
         case ((v, b, true), c) => c match { //bin mode
           case '}' => (v, b, false)
           case '?' => (v :+ false, b :+ true, true)
           case '0' => (v :+ false, b :+ false, true)
           case '1' => (v :+ true, b :+ false, true)
-          case _ => return None
+          case x => return Left(s"Found invalid binary character in binary mode: $x")
         }
       }
-      if (binMode) None
-      else Some(Token(valueBits, bubbleMask))
+      if (binMode) Left(s"Missing closing braces of binary mode")
+      else {
+        val token = Token(valueBits, bubbleMask)
+        val actualWidth = (valueBits.lengthOfValue max bubbleMask.lengthOfValue).toInt
+        explicitWidth match {
+          case Some(value) if value < actualWidth => Left(s"Explicit given width ($value) is smaller than the actual width ($actualWidth)")
+          case Some(value) => Right(token.resize(value))
+          case None => Right(token)
+        }
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // String interpolation macros
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    import scala.reflect.macros.whitebox
+    def binImplStringInterpolator(c: whitebox.Context) : c.Tree = stringInterpolatorGen("b")(c)
+    def hexImplStringInterpolator(c: whitebox.Context) : c.Tree = stringInterpolatorGen("h")(c)
+    def stringInterpolatorGen(k : String)(c: whitebox.Context) : c.Tree = {
+      import c.universe._
+      val kTpe = c.internal.constantType(Constant(k))
+      val Apply(TypeApply(Select(properTree,_), _), argsTrees) = c.enclosingImplicits.last.tree
+      val Apply(_, List(Apply(_, parts))) = properTree
+      val fullExpressionParts = Seq(parts,argsTrees).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1)
+      val fullExpressionTree = fullExpressionParts.reduce[Tree] {
+        case (Literal(Constant(l)), Literal(Constant(r))) => Literal(Constant(l.toString + r.toString))
+        case (l, r) => q"${l}.toString + ${r}.toString"
+      }
+      val widthTpe : c.Type = fullExpressionTree match {
+        case Literal(Constant(t : String)) => k match {
+          case "b" => DFBits.Token.fromBinString(t) match {
+            case Right(value) => c.internal.constantType(Constant(value.width))
+            case Left(msg) => c.abort(msg)
+          }
+          case "h" => DFBits.Token.fromHexString(t) match {
+            case Right(value) => c.internal.constantType(Constant(value.width))
+            case Left(msg) => c.abort(msg)
+          }
+        }
+        case _ => typeOf[Int]
+      }
+      val buildTree = k match {
+        case "b" => q"DFiant.DFBits.Token.fromBinString($fullExpressionTree).toOption.get"
+        case "h" => q"DFiant.DFBits.Token.fromHexString($fullExpressionTree).toOption.get"
+      }
+      q"""
+         new DFiant.Interpolator[DFiant.DFBits.Token, $kTpe] {
+           type Out = DFiant.DFBits.TokenW[$widthTpe]
+           val value : DFiant.DFBits.TokenW[$widthTpe] = $buildTree.asInstanceOf[DFiant.DFBits.TokenW[$widthTpe]]
+         }
+       """
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -162,6 +162,7 @@ package object internals {
       val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
       vec.padLeft(paddedVecLength)
     }
+    def toHexProper : String = padToMulsOf(4).toHex
     def toShortString : String = {
       val nibble = 4
       val lov = lengthOfValue
@@ -371,6 +372,50 @@ package object internals {
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0)/1000000 + "ms")
     result
+  }
+
+
+  implicit class WhiteboxMacroExt(c : scala.reflect.macros.whitebox.Context) {
+    import c.universe._
+    private val defaultAnnotatedSym : Option[TypeSymbol] =
+      if (c.enclosingImplicits.isEmpty) None else c.enclosingImplicits.last.pt match {
+        case TypeRef(_,sym,_) => Some(sym.asType)
+        case x => Some(x.typeSymbol.asType)
+      }
+    ////////////////////////////////////////////////////////////////////
+    // Code thanks to Shapeless
+    // https://github.com/milessabin/shapeless/blob/master/core/src/main/scala/shapeless/lazy.scala
+    ////////////////////////////////////////////////////////////////////
+    private def setAnnotation(msg: String, annotatedSym : TypeSymbol) : Unit = {
+      import c.internal._
+      import decorators._
+      val tree0 =
+        c.typecheck(
+          q"""new _root_.scala.annotation.implicitNotFound("dummy")""",
+          silent = false
+        )
+
+      class SubstMessage extends Transformer {
+        val global = c.universe.asInstanceOf[scala.tools.nsc.Global]
+
+        override def transform(tree: Tree): Tree = {
+          super.transform {
+            tree match {
+              case Literal(Constant("dummy")) => Literal(Constant(msg))
+              case t => t
+            }
+          }
+        }
+      }
+      val tree = new SubstMessage().transform(tree0)
+      annotatedSym.setAnnotations(Annotation(tree))
+      ()
+    }
+
+    def abort(msg : String) : Nothing = {
+      defaultAnnotatedSym.foreach(sym => setAnnotation(msg, sym))
+      c.abort(c.enclosingPosition, msg)
+    }
   }
 
 }
