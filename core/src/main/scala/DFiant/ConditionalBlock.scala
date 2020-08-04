@@ -59,6 +59,13 @@ object ConditionalBlock {
     type TMVType <: DFAny.Type
     val matchValRef : MatchValRef[TMVType]
     val matchConfig : MatchConfig
+    def getCases(implicit getSet: MemberGetSet) : Iterable[CaseBlock[TMVType]] = {
+      getSet.designDB.blockMemberTable(this.getOwnerBlock).dropWhile(_ != this).drop(1).takeWhile {
+        case _ : CaseBlock[_] => true
+      }.collect {
+        case cb : CaseBlock[_] => cb.asInstanceOf[CaseBlock[TMVType]]
+      }
+    }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       matchConfig match  {
@@ -98,17 +105,18 @@ object ConditionalBlock {
     }
   }
 
-  sealed trait CasePatternBlock[MVType <: DFAny.Type] extends ConditionalBlock {
-    val pattern : MVType#TPattern
+  sealed trait CaseBlock[MVType <: DFAny.Type] extends ConditionalBlock {
     val matchHeaderRef : MatchHeader.Ref[MatchHeader]
+  }
+  sealed trait CasePatternBlock[MVType <: DFAny.Type] extends CaseBlock[MVType] {
+    val pattern : MVType#TPattern
     val prevCaseRefOption : Option[PrevBlockRef[CasePatternBlock[MVType]]]
     def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s".$DF casedf(${pattern.codeString})"
     }
   }
-  sealed trait Case_Block[MVType <: DFAny.Type] extends ConditionalBlock {
-    val matchHeaderRef : MatchHeader.Ref[MatchHeader]
+  sealed trait Case_Block[MVType <: DFAny.Type] extends CaseBlock[MVType] {
     val prevCaseRef : PrevBlockRef[CasePatternBlock[MVType]]
     def headerCodeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -382,6 +390,13 @@ object ConditionalBlock {
       def apply(prevBlock: NoRetVal)(block: => Unit)(
         implicit ctx: DFBlock.Context
       ): ElseBlock = ctx.db.addConditionalBlock(ElseBlock(prevBlock, ctx.owner, ctx.meta), block)
+      def forcedHeader(prevBlock: ConditionalBlock)(
+        implicit ctx: DFBlock.Context
+      ): ElseBlock = {
+        implicit lazy val ret : ElseBlock with DFMember.RefOwner =
+          ctx.db.addMember(ctx.container, ElseBlock(prevBlock.asInstanceOf[NoRetVal], ctx.owner, ctx.meta)).asRefOwner
+        ret
+      }
     }
 
     sealed trait HasCaseDF[MVType <: DFAny.Type] {
@@ -472,8 +487,11 @@ object ConditionalBlock {
     object DFCase_Block {
       def apply[MVType <: DFAny.Type](
         matchHeader: MatchHeader[MVType], prevCase: DFCasePatternBlock[MVType]
-      )(block: => Unit)(implicit ctx: DFBlock.Context): DFCase_Block[MVType] =
-        ctx.db.addConditionalBlock(DFCase_Block(matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block)
+      )(block: => Unit)(implicit ctx: DFBlock.Context): DFCase_Block[MVType] = {
+        implicit lazy val ret : DFCase_Block[MVType] with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(DFCase_Block(matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
     }
   }
 }

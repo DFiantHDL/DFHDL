@@ -47,12 +47,12 @@ object CodeStringOf {
       import continuum.bound._
       val lower = t.lower.bound match {
         case Closed(v) => v
-        case Open(v) => v-1
+        case Open(v) => v+1
         case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
       }
       val upper = t.upper.bound match {
         case Closed(v) => v
-        case Open(v) => v+1
+        case Open(v) => v-1
         case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
       }
       if (lower == upper) lower.codeString

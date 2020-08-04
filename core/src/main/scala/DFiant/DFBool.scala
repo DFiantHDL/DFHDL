@@ -132,7 +132,14 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Pattern(set : Set[Boolean]) extends DFAny.Pattern.OfSet[Boolean, Pattern](set)
+  class Pattern(set : Set[Boolean]) extends DFAny.Pattern.OfSet[Type, Boolean, Pattern](set) {
+    protected def matchCond(matchVal: DFAny.Of[Type], value : Boolean)(
+      implicit ctx: DFAny.Context
+    ): DFBool = {
+      import DFDesign.Implicits._
+      matchVal === value
+    }
+  }
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R] {
       val bool : Boolean

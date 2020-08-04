@@ -9,27 +9,14 @@ import printer.formatter._
 import RTL.Analysis
 
 final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
-  private val designDB =
-    c.fixAnonymous
-     .flattenNames
-     .explicitPrev
-     .explicitConversions
-     .uniqueDesigns
-     .uniqueNames(reservedKeywords, caseSensitive = false)
-     .toRTLForm
-     .viaPortConnection
-     .orderMembers
-     .db
-
-  import designDB.__getset
-  private val isSyncMember : DFMember => Boolean = {
+  private def isSyncMember(member : DFMember)(implicit printer : Printer) : Boolean = member match {
     case RTL.IfBlock(_,_) | RTL.ElseIfBlock(_,_) => true
     case _ => false
   }
   private def getProcessStatements(block : DFBlock, filterFunc : DFMember => Boolean = _ => true)(
     implicit printer : Printer
   ) : List[String] = {
-    val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
+    val (_, statements) = printer.getSet.designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
@@ -43,7 +30,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         //TODO: handle matchval func @ vhdl93
-        ("", Case(Value.ref(mh.matchValRef.get), whens, designDB.caseWithDontCare(mh)) :: statements)
+        ("", Case(Value.ref(mh.matchValRef.get), whens, printer.getSet.designDB.caseWithDontCare(mh)) :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (Sim.Assert(assertStr), (closing, statements)) => (closing, assertStr :: statements)
       case (Sim.Finish(finishStr), (closing, statements)) => (closing, finishStr :: statements)
@@ -51,7 +38,37 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     }
     statements
   }
-  def vhdlCompile[R <: Revision](implicit revision : R) = {
+
+  private def matchToIfs(getSet : MemberGetSet)(
+    implicit revision : Revision
+  ) : Iterable[ConditionalBlock.MatchHeader] = revision match {
+    case Revision.V93 =>
+      val matchHeaders = getSet.designDB.members.collect{case mh : ConditionalBlock.MatchHeader => mh}
+      matchHeaders.filter {mh =>
+        mh.matchConfig match {
+          case MatchConfig.NoOverlappingCases => getSet.designDB.caseWithDontCare(mh)
+          case MatchConfig.AllowOverlappingCases => true
+        }
+      }
+    case Revision.V2008 =>
+      Iterable.empty
+  }
+
+  def vhdlCompile[R <: Revision](implicit revision : R): BackendStage.Compilation[D, Backend[R]] = {
+    val designDB =
+      c.fixAnonymous
+       .flattenNames
+       .explicitPrev
+       .convertMatchToIf(matchToIfs)
+       .explicitConversions
+       .uniqueDesigns
+       .uniqueNames(reservedKeywords, caseSensitive = false)
+       .toRTLForm
+       .viaPortConnection
+       .orderMembers
+       .db
+
+    import designDB.__getset
     implicit val printer : Printer = new Printer {
       val getSet : MemberGetSet = __getset
       val config : Printer.Config = new Printer.Config(revision)
@@ -88,7 +105,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             }
             ComponentInstance(x.name, x.designType, connections)
         }
-        val asyncStatements = getProcessStatements(design, !isSyncMember(_))
+        val asyncStatements = getProcessStatements(design, m => !isSyncMember(m))
         val asyncSensitivityList : String = revision match {
           case Revision.V93 => Process.Sensitivity.List(designDB.getSensitivityList(design))
           case Revision.V2008 => Process.Sensitivity.All()

@@ -303,7 +303,7 @@ object DFDesign {
     }
 
     //replaces all members and references according to the patch list
-    def patch(patchList : List[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
+    def patch(patchList : Iterable[(DFMember, DB.Patch)]) : DB = if (patchList.isEmpty) this else {
       val patchTable = patchList.flatMap {
         //Replacing a member with the same member does nothing
         case (m, DB.Patch.Replace(m2, _, _)) if (m == m2) => None

@@ -16,6 +16,8 @@ package object compiler {
   : UniqueNames[D] = new UniqueNames[D](c)
   implicit def evFlattenNames[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : FlattenNames[D] = new FlattenNames[D](c)
+  implicit def evConvertMatchToIf[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : ConvertMatchToIf[D] = new ConvertMatchToIf[D](c)
   implicit def evExplicitPrev[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : ExplicitPrev[D] = new ExplicitPrev[D](c)
   implicit def evExplicitConversions[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])

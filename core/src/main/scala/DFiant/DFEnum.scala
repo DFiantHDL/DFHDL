@@ -87,7 +87,14 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Pattern(set : Set[EnumType.Entry]) extends DFAny.Pattern.OfSet[EnumType.Entry, Pattern](set)
+  class Pattern(set : Set[EnumType.Entry]) extends DFAny.Pattern.OfSet[Type[EnumType], EnumType.Entry, Pattern](set) {
+    protected def matchCond(matchVal: DFAny.Of[Type[EnumType]], value : EnumType.Entry)(
+      implicit ctx: DFAny.Context
+    ): DFBool = {
+      import DFDesign.Implicits._
+      matchVal === value.asInstanceOf[EnumType#Entry]
+    }
+  }
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R]
     object Able {

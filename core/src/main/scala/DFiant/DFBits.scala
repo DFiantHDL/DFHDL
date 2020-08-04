@@ -288,7 +288,14 @@ object DFBits extends DFAny.Companion {
   private val patternCodeString : CodeStringOf[Token] = new CodeStringOf[Token] {
     def apply(t : Token)(implicit printer : CSPrinter) : String = t.codeString
   }
-  class Pattern(set : Set[Token]) extends DFAny.Pattern.OfSet[Token, Pattern](set)(patternCodeString)
+  class Pattern(set : Set[Token]) extends DFAny.Pattern.OfSet[Type[Int], Token, Pattern](set)(patternCodeString) {
+    protected def matchCond(matchVal: DFAny.Of[Type[Int]], value : Token)(
+      implicit ctx: DFAny.Context
+    ): DFBool = {
+      import DFDesign.Implicits._
+      matchVal === value
+    }
+  }
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R] {
       val token : Token

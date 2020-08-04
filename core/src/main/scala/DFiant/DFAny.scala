@@ -1266,23 +1266,51 @@ object DFAny {
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   sealed trait Pattern[P <: Pattern[P]] {
+    type TType <: Type
     type TValue
     def matches(value : TValue) : Boolean
     def overlapsWith(pattern: P) : Boolean
+    protected[DFiant] def matchCond(matchVal : DFAny.Of[TType])(
+      implicit ctx : DFAny.Context
+    ) : DFBool
     def codeString(implicit printer: CSPrinter) : String
   }
   object Pattern {
-    abstract class OfIntervalSet[T, P <: OfIntervalSet[T, P]](val patternSet : IntervalSet[T])(implicit codeStringOf: CodeStringOf[Interval[T]]) extends Pattern[P] {
-      type TValue = T
-      def matches(value : TValue) : Boolean = patternSet.containsPoint(value)
-      def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
-      def codeString(implicit printer: CSPrinter) : String = patternSet.map(t => codeStringOf(t)).mkString(", ")
+    abstract class OfIntervalSet[T <: Type, V, P <: OfIntervalSet[T, V, P]](val patternSet : IntervalSet[V])(
+      implicit codeStringOf: CodeStringOf[Interval[V]]
+    ) extends Pattern[P] {
+      type TType = T
+      type TValue = V
+      protected def matchCond(matchVal: DFAny.Of[T], interval : Interval[V])(
+        implicit ctx: DFAny.Context
+      ): DFBool
+      final protected[DFiant] def matchCond(matchVal: DFAny.Of[T])(
+        implicit ctx: DFAny.Context
+      ): DFBool = {
+        import DFDesign.Implicits._
+        patternSet.toList.map(matchCond(matchVal, _)).reduce(_ || _)
+      }
+      final def matches(value : TValue) : Boolean = patternSet.containsPoint(value)
+      final def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
+      final def codeString(implicit printer: CSPrinter) : String = patternSet.map(t => codeStringOf(t)).mkString(", ")
     }
-    abstract class OfSet[T, P <: OfSet[T, P]](val patternSet : Set[T])(implicit codeStringOf: CodeStringOf[T]) extends Pattern[P] {
-      type TValue = T
-      def matches(value : TValue) : Boolean = patternSet.contains(value)
-      def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
-      def codeString(implicit printer: CSPrinter) : String = patternSet.map(t => codeStringOf(t)).mkString(", ")
+    abstract class OfSet[T <: Type, V, P <: OfSet[T, V, P]](val patternSet : Set[V])(
+      implicit codeStringOf: CodeStringOf[V]
+    ) extends Pattern[P] {
+      type TType = T
+      type TValue = V
+      protected def matchCond(matchVal: DFAny.Of[T], value : V)(
+        implicit ctx: DFAny.Context
+      ): DFBool
+      final protected[DFiant] def matchCond(matchVal: DFAny.Of[T])(
+        implicit ctx: DFAny.Context
+      ): DFBool = {
+        import DFDesign.Implicits._
+        patternSet.toList.map(matchCond(matchVal, _)).reduce(_ || _)
+      }
+      final def matches(value : TValue) : Boolean = patternSet.contains(value)
+      final def overlapsWith(pattern: P) : Boolean = patternSet.intersect(pattern.patternSet).nonEmpty
+      final def codeString(implicit printer: CSPrinter) : String = patternSet.map(t => codeStringOf(t)).mkString(", ")
     }
     trait Able[+R] {
       val right : R

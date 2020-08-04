@@ -3,7 +3,7 @@ package DFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
-import DFAny.Func2
+import DFAny.{Func2, Of}
 import DFiant.csprinter.CSPrinter
 
 object DFUInt extends DFAny.Companion {
@@ -112,7 +112,26 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  class Pattern(intervalSet : IntervalSet[BigInt]) extends DFAny.Pattern.OfIntervalSet[BigInt, Pattern](intervalSet)
+  class Pattern(intervalSet : IntervalSet[BigInt]) extends DFAny.Pattern.OfIntervalSet[Type[Int], BigInt, Pattern](intervalSet) {
+    protected def matchCond(matchVal: DFAny.Of[Type[Int]], interval : Interval[BigInt])(
+      implicit ctx: DFAny.Context
+    ): DFBool = {
+      import DFDesign.Implicits._
+      import continuum.bound._
+      val (lower, lowerCond) = interval.lower.bound match {
+        case Closed(v) => (v, matchVal >= v)
+        case Open(v) => (v + 1, matchVal > v)
+        case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
+      }
+      val (upper, upperCond) = interval.upper.bound match {
+        case Closed(v) => (v, matchVal <= v)
+        case Open(v) => (v - 1, matchVal < v)
+        case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
+      }
+      if (lower == upper) (matchVal === lower).anonymize
+      else (lowerCond.anonymize && upperCond.anonymize).anonymize
+    }
+  }
   object Pattern extends PatternCO {
     trait Able[+R] extends DFAny.Pattern.Able[R] {
       val interval : Interval[BigInt]
