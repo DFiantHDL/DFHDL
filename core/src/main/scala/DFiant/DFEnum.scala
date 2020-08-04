@@ -355,15 +355,15 @@ object EnumType {
     }
 
     private type Msg2[EW] = "Entry value width (" + ToString[EW] + ") is different than the enumeration width (" + ToString[Width] + ")"
-    def Entry[W](t : XBitVector[W])(
+    def Entry[W](t : DFBits.TokenW[W])(
       implicit check : RequireMsg[W == Width, Msg2[W]], enumOwner : EnumType, meta : Meta
-    ) : Entry = new Entry(t.toBigInt, enumOwner)
+    ) : Entry = new Entry(t.valueBits.toBigInt, enumOwner)
 
-    def Entry(t : BitVector)(
+    def Entry(t : DFBits.Token)(
       implicit enumOwner : EnumType, meta : Meta
     ) : Entry = {
-      require(t.length.toInt == width.getValue, s"`${meta.name}` entry value width (${t.length}) is different than the enumeration width ($width)")
-      new Entry(t.toBigInt, enumOwner)
+      require(t.width == width.getValue, s"`${meta.name}` entry value width (${t.width}) is different than the enumeration width ($width)")
+      new Entry(t.valueBits.toBigInt, enumOwner)
     }
 
     def EntryDelta(t : BigInt = BigInt(1))(implicit meta : Meta) : Entry = Entry(latestEntryValue match {

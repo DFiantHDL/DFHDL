@@ -339,7 +339,7 @@ object DFBits extends DFAny.Companion {
         right.toSeqAny.collect {
           case t : Bubble => Token.bubble(width)
           case t : Token => checkWidth(width, t.width); t
-          case t : SameBitsVector => Token(XBitVector.fill(width)(t.value))
+          case t : SameBitsVector => Token(BitVector.fill(width)(t.value))
         }
     }
     trait Builder[L <: DFAny, Token <: DFAny.Token] extends DFAny.Init.Builder[L, Able, Token]
@@ -577,7 +577,7 @@ object DFBits extends DFAny.Companion {
     }
     object Builder {
       implicit def ev[W](implicit ctx : DFAny.Context)
-      : Builder[W] = (bits, sbv) => DFAny.Const[Type[W]](Type(bits.width), Token(XBitVector.fill(bits.width)(sbv.value)))
+      : Builder[W] = (bits, sbv) => DFAny.Const[Type[W]](Type(bits.width), Token(BitVector.fill(bits.width.getValue.toLong)(sbv.value)))
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

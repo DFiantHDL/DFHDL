@@ -17,6 +17,7 @@
 
 package DFiant
 package csprinter
+import internals.BitVector
 
 trait HasCodeString {
   def codeString(implicit printer: CSPrinter) : String
