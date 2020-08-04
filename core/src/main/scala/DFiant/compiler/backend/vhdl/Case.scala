@@ -3,9 +3,9 @@ package compiler.backend.vhdl
 import printer.formatter._
 
 private object Case {
-  def apply(expression : String, whens : String)(implicit printer : Printer) : String = {
+  def apply(expression : String, whens : String, allowDontCare : Boolean)(implicit printer : Printer) : String = {
     import printer.config._
-    s"""$KW case $expression $KW is
+    s"""$KW case${if (allowDontCare) "?" else ""} $expression $KW is
        |${whens.delim()}
        |$KW end $KW case;""".stripMargin
   }

@@ -104,7 +104,7 @@ object IDTopApp extends App {
   }
   import compiler.backend.vhdl.v2008
   import sim.tools.ghdl
-  val designDB = top.printCodeString//.compile.printCodeString.printGenFiles()//.toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
+  val designDB = top.printCodeString.compile.printCodeString.printGenFiles()//.toFolder("id").simulation.run()//.getDB.printOwnership().blockMemberList//.printCodeString//.printGenFiles()
 //  val cmp = new Compiled(designDB, designDB.top)
 //  println(cmp.entity)
 

@@ -26,7 +26,7 @@ private object EnumTypeDcl {
     }.toList :+ Case.Item(Case.Choice.Default(), List(s"""tostr = "XXXX";"""))
     s"""$KW function [$LIT ${longestName}$OP*$LIT 8:$LIT 1] tostr ($KW input [$LIT ${enumType.width-1}:$LIT 0] e);
        |$KW begin
-       |${Case("e", caseItems.mkString("\n")).delim()}
+       |${Case("e", caseItems.mkString("\n"), allowDontCare = false).delim()}
        |$KW end
        |$KW endfunction
        |""".stripMargin

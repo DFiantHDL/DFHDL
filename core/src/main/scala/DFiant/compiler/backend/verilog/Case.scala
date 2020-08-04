@@ -3,9 +3,9 @@ package compiler.backend.verilog
 import printer.formatter._
 
 private object Case {
-  def apply(expression : String, items : String)(implicit printer : Printer) : String = {
+  def apply(expression : String, items : String, allowDontCare : Boolean)(implicit printer : Printer) : String = {
     import printer.config._
-    s"""$KW case ($expression)
+    s"""$KW case${if (allowDontCare) "z" else ""} ($expression)
        |${items.delim()}
        |$KW endcase""".stripMargin
   }

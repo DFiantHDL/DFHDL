@@ -9,16 +9,34 @@ private object Value {
     import printer.config._
     token match {
       case t @ DFBits.Token(valueBits, _) if !t.isBubble => revision match {
-        case Revision.V93 if t.width % 4 == 0 => s"""x"${valueBits.toHex}""""
+        case _ if t.width % 4 == 0 => s"""x"${valueBits.toHex}""""
         case Revision.V2008 => s"""${t.width}x"${valueBits.toHexProper}""""
         case Revision.V93 => s""""${valueBits.toBin}""""
       }
-      case t @ DFBits.Token(valueBits, bubbleMask) if t.width % 4 == 0 =>
-        val vhdlBin = valueBits.toBin.zip(bubbleMask.toBin).foldLeft("") {
+      case t @ DFBits.Token(valueBits, bubbleMask) =>
+        //a hex representation may not be possible if the don't-cares are not in a complete nibble
+        lazy val hexRepOption : Option[String] =
+          valueBits.toHexProper.zip(bubbleMask.toHexProper).foldLeft[Option[String]](Some("")) {
+            case (Some(vp), (_, 'F' | 'f')) => Some(vp + "-") //dontcare
+            case (Some(vp), (h, '0')) => Some(vp + h)
+            case _ => None
+          }
+        lazy val binRep = valueBits.toBin.zip(bubbleMask.toBin).foldLeft("") {
           case (vp, (_, '1')) => vp + "-" //dontcare
           case (vp, (zeroOrOne, '0')) => vp + zeroOrOne
         }
-        s""""$vhdlBin""""
+        lazy val vhdlBin = s""""$binRep""""
+        revision match {
+          case _ if t.width % 4 == 0 => hexRepOption match {
+            case Some(value) => s"""x"$value""""
+            case None => vhdlBin
+          }
+          case Revision.V2008 => hexRepOption match {
+            case Some(value) => s"""${t.width}x"$value""""
+            case None => vhdlBin
+          }
+          case Revision.V93 => vhdlBin
+        }
       case DFUInt.Token(width, Some(value)) => revision match {
         case Revision.V93 if value.bitsWidth < 31 => s"$FN to_unsigned($value, $width)"
         case Revision.V93 if width % 4 == 0 => s"""$TP unsigned($TP std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
@@ -81,7 +99,21 @@ private object Value {
       case (_, DFAny.Const(_,DFSInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
       case (_, ra) => ref(ra)
     }
-    (leftArg, member.op, revision) match {
+    val dontCareComparison = (leftArg, member.op, rightArg) match {
+      case (DFAny.Const(_, token, _,_), Op.== | Op.!=, _) => token.isBubble
+      case (_, Op.== | Op.!=, DFAny.Const(_, token, _,_)) => token.isBubble
+      case _ => false
+    }
+    if (dontCareComparison) {
+      val comparison = revision match {
+        case Revision.V93 => s"$FN std_match($leftArgStr, $rightArgStr)"
+        case Revision.V2008 => s"${leftArgStr.applyBrackets()} $OP?= ${rightArgStr.applyBrackets()}"
+      }
+      member.op match {
+        case Op.== => comparison
+        case _ => s"$OP not ${comparison.applyBrackets()}"
+      }
+    } else (leftArg, member.op, revision) match {
       case (DFBits(_), Op.<<, Revision.V93) => s"$FN to_slv($FN shift_left($TP unsigned($leftArgStr), $rightArgStr))"
       case (DFBits(_), Op.>>, Revision.V93) => s"$FN to_slv($FN shift_right($TP unsigned($leftArgStr), $rightArgStr))"
       case (DFUInt(_) | DFSInt(_), Op.<<, Revision.V93) => s"$FN shift_left($leftArgStr, $rightArgStr)"

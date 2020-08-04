@@ -53,7 +53,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         val item = Case.Item(Case.Choice.Pattern(cb.pattern, width), getProcessStatements(cb))
         (if (items.isEmpty) item else s"$item\n$items", statements)
       case (mh : ConditionalBlock.MatchHeader, (items, statements)) =>
-        ("", Case(Value.ref(mh.matchValRef.get), items) :: statements)
+        ("", Case(Value.ref(mh.matchValRef.get), items, designDB.caseWithDontCare(mh)) :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (Sim.Assert(assertStr), (closing, statements)) => (closing, assertStr :: statements)
       case (Sim.Finish(finishStr), (closing, statements)) => (closing, finishStr :: statements)

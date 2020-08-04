@@ -43,7 +43,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         //TODO: handle matchval func @ vhdl93
-        ("", Case(Value.ref(mh.matchValRef.get), whens) :: statements)
+        ("", Case(Value.ref(mh.matchValRef.get), whens, designDB.caseWithDontCare(mh)) :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (Sim.Assert(assertStr), (closing, statements)) => (closing, assertStr :: statements)
       case (Sim.Finish(finishStr), (closing, statements)) => (closing, finishStr :: statements)

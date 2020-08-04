@@ -130,7 +130,6 @@ final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
   }
 
   def maxjCompile : BackendStage.Compilation[D, MaxJNode] = {
-    db.printCodeString
     val vhdlCompile = new Compiler(IRCompilation[D](c.dsn, db)).vhdlCompile[V93]
     val vhdlFileNames = vhdlCompile.fileSeq.collect {
       case BackendStage.File(fileName, _) if fileName.endsWith(".vhdl") => fileName

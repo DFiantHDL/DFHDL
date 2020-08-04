@@ -328,6 +328,22 @@ object RTL {
   implicit class Analysis(designDB : DFDesign.DB) {
     import designDB.__getset
 
+    def caseWithDontCare(matchHeader : ConditionalBlock.MatchHeader) : Boolean = {
+      val refs = designDB.memberTable(matchHeader)
+      refs.exists {
+        case r : DFMember.OwnedRef => r.refType match {
+          case _ : ConditionalBlock.MatchHeader.Ref.Type => r.owner.get match {
+            case cb : ConditionalBlock.CasePatternBlock[_] => cb.pattern match {
+              case b : DFBits.Pattern => b.patternSet.exists(_.isBubble)
+              case _ => false
+            }
+            case _ => false
+          }
+          case _ => false
+        }
+        case _ => false
+      }
+    }
     def getSensitivityList(design : DFDesign.Block) : List[String] = {
       val producers = designDB.designMemberTable(design).flatMap {
         case a @ DFNet.Assignment.Unref(_,fromVal,_,_) if !a.hasLateConstruction => Some(fromVal)
