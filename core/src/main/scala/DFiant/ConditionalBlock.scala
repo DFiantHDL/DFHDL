@@ -294,8 +294,11 @@ object ConditionalBlock {
     object DFCase_Block {
       def apply[Type <: DFAny.Type, MVType <: DFAny.Type](
         retVar : DFAny.VarOf[Type], matchHeader: MatchHeader[Type, MVType], prevCase: DFCasePatternBlock[Type, MVType]
-      )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCase_Block[Type, MVType] =
-        ctx.db.addConditionalBlock(DFCase_Block[Type, MVType](retVar.dfType, retVar, matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block)
+      )(block: => DFAny.Of[Type])(implicit ctx: DFBlock.Context): DFCase_Block[Type, MVType] = {
+        implicit lazy val ret : DFCase_Block[Type, MVType] with DFMember.RefOwner =
+          ctx.db.addConditionalBlock(DFCase_Block[Type, MVType](retVar.dfType, retVar, matchHeader.mvType, matchHeader, prevCase, ctx.owner, ctx.meta), block).asRefOwner
+        ret
+      }
     }
   }
   sealed trait NoRetVal extends ConditionalBlock.Of[Unit] {

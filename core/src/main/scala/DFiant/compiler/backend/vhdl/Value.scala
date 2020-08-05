@@ -39,21 +39,25 @@ private object Value {
         }
       case DFUInt.Token(width, Some(value)) => revision match {
         case Revision.V93 if value.bitsWidth < 31 => s"$FN to_unsigned($value, $width)"
-        case Revision.V93 if width % 4 == 0 => s"""$TP unsigned($TP std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
-        case Revision.V93 => s"""$TP unsigned($TP std_logic_vector'("${value.toBitVector(width).toBin}"))"""
+        case Revision.V93 if width % 4 == 0 => s"""$TP unsigned'(x"${value.toBitVector(width).toHex}")"""
+        case Revision.V93 => s"""$TP unsigned'("${value.toBitVector(width).toBin}")"""
         case Revision.V2008 => s"""${width}d"$value""""
       }
       case DFSInt.Token(width, Some(value)) => revision match {
         case Revision.V93 if value.bitsWidth < 31 => s"$FN to_signed($value, $width)"
-        case Revision.V93 if width % 4 == 0 => s"""$TP signed($TP std_logic_vector'(x"${value.toBitVector(width).toHex}"))"""
-        case Revision.V93 => s"""$TP signed($TP std_logic_vector'("${value.toBitVector(width).toBin}"))"""
+        case Revision.V93 if width % 4 == 0 => s"""$TP signed'(x"${value.toBitVector(width).toHex}")"""
+        case Revision.V93 => s"""$TP signed'("${value.toBitVector(width).toBin}")"""
         case Revision.V2008 if value >= 0 => s"""${width}d"$value""""
         case Revision.V2008 if value < 0 => s"""-${width}d"${-value}""""
       }
-      case DFBool.Token(false, None) => "'-'"
       case DFBool.Token(false, Some(value)) => if (value) "'1'" else "'0'"
       case DFBool.Token(true, Some(value)) => value.toString
       case DFEnum.Token(_, Some(entry)) => EnumTypeDcl.enumEntryFullName(entry)
+      case DFUInt.Token(_, None) => const(token.bits)
+      case DFSInt.Token(_, None) => const(token.bits)
+      case DFEnum.Token(enumType, None) => EnumTypeDcl.enumEntryFullName(enumType.entries.head._2)
+      case DFBool.Token(false, None) => "'-'"
+      case DFBool.Token(true, None) => s"$LIT false"
       case t =>
         println(t)
         ???
