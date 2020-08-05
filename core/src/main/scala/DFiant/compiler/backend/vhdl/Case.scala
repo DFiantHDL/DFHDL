@@ -5,9 +5,10 @@ import printer.formatter._
 private object Case {
   def apply(expression : String, whens : String, allowDontCare : Boolean)(implicit printer : Printer) : String = {
     import printer.config._
-    s"""$KW case${if (allowDontCare) "?" else ""} $expression $KW is
+    val caseKW = s"$KW case${if (allowDontCare) "?" else ""}"
+    s"""$caseKW $expression $KW is
        |${whens.delim()}
-       |$KW end $KW case;""".stripMargin
+       |$KW end $caseKW;""".stripMargin
   }
 
   object When {
