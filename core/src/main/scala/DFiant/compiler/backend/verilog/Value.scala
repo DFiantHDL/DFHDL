@@ -7,9 +7,13 @@ private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = {
     import printer.config._
     token match {
-      case t @ DFBits.Token(value, _) =>
-        if (t.width % 4 == 0) s"""${t.width}'h${value.toHex}"""
-        else s"""${t.width}'b${value.toBin}"""
+      case t @ DFBits.Token(_, _) =>
+        val hexRepOption : Option[String] = t.toHexString('?', allowBinMode = false)
+        hexRepOption match {
+          case Some(value) => s"""${t.width}'h$value"""
+          case None => s"""${t.width}'b${t.toBinString('?')}"""
+        }
+      case t if t.isBubble => const(t.bits)
       case DFUInt.Token(width, Some(value)) => s"""${width}'d${value}"""
       case DFSInt.Token(width, Some(value)) =>
         if (value >= 0) s"""${width}'sd${value}"""
@@ -17,7 +21,9 @@ private object Value {
       case DFBool.Token(true, Some(value)) => if (value) "1" else "0"
       case DFBool.Token(false, Some(value)) => if (value) "1'b1" else "1'b0"
       case DFEnum.Token(_, entry) => EnumTypeDcl.enumEntryRefName(entry.get)
-      case _ => ???
+      case t =>
+        println(t)
+        ???
     }
   }
   def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {

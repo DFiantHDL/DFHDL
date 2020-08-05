@@ -138,36 +138,38 @@ object DFBits extends DFAny.Companion {
     }
     def getUIntValue : BigInt = valueBits.toBigInt.asUnsigned(width)
     def getSIntValue : BigInt = valueBits.toBigInt
-    private def binZip(v : BitVector, b : BitVector) : String = v.toBin.zip(b.toBin).map {
-      case (_, '1') => '?'
+    private def binZip(v : BitVector, b : BitVector, bubbleChar : Char) : String = v.toBin.zip(b.toBin).map {
+      case (_, '1') => bubbleChar
       case (zeroOrOne, _) => zeroOrOne
     }.mkString
-    private def hexZip(v : BitVector, b : BitVector) : String = v.toHex.zip(b.toHex).flatMap {
-      case (_, 'F' | 'f') => "?"
-      case (h, '0') => s"$h"
-      case (h, b) => s"{${binZip(BitVector(h), BitVector(b))}}"
-    }.mkString
-    def toBinString : String = binZip(valueBits, bubbleMask)
-    def toHexString : String = {
-      if (width % 4 == 0) hexZip(valueBits, bubbleMask)
+    private def hexZip(v : BitVector, b : BitVector, bubbleChar : Char, allowBinMode : Boolean) : Option[String] =
+      Some(v.toHex.zip(b.toHex).flatMap {
+        case (_, 'F' | 'f') => s"$bubbleChar"
+        case (h, '0') => s"$h"
+        case (h, b) if allowBinMode => s"{${binZip(BitVector(h), BitVector(b), bubbleChar)}}"
+        case _ => return None
+      }.mkString)
+    def toBinString(bubbleChar : Char) : String = binZip(valueBits, bubbleMask, bubbleChar)
+    def toHexString(bubbleChar : Char, allowBinMode : Boolean) : Option[String] = {
+      if (width % 4 == 0) hexZip(valueBits, bubbleMask, bubbleChar, allowBinMode)
       else  {
         val headWidth = width % 4
         val (headValue, theRestValue) = valueBits.splitAt(headWidth)
         val (headBubble, theRestBubble) = bubbleMask.splitAt(headWidth)
 
-        val headStr = {
-          if (headBubble == BitVector.high(headWidth)) "?"
-          else hexZip(headValue.resize(4), headBubble.resize(4))
+        val headOption = {
+          if (headBubble == BitVector.high(headWidth)) Some(s"$bubbleChar")
+          else hexZip(headValue.resize(4), headBubble.resize(4), bubbleChar, allowBinMode)
         }
-        val hexStr = headStr + hexZip(theRestValue, theRestBubble)
-        s"${width}'$hexStr"
+        val theRestOption = hexZip(theRestValue, theRestBubble, bubbleChar, allowBinMode)
+        for (h <- headOption; tr <- theRestOption) yield h + tr
       }
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       import io.AnsiColor.BOLD
-      val binRep = toBinString
-      val hexRep = toHexString
+      val binRep = toBinString('?')
+      val hexRep = s"${width}'${toHexString('?', allowBinMode = true).get}"
       //choosing the shorter representation for readability
       if (binRep.length <= hexRep.length) s"""$BOLD b$STR"$binRep""""
       else s"""$BOLD h$STR"$hexRep""""

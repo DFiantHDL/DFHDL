@@ -13,27 +13,15 @@ private object Value {
         case Revision.V2008 => s"""${t.width}x"${valueBits.toHexProper}""""
         case Revision.V93 => s""""${valueBits.toBin}""""
       }
-      case t @ DFBits.Token(valueBits, bubbleMask) =>
+      case t @ DFBits.Token(_, _) => //bits token with bubbles
         //a hex representation may not be possible if the don't-cares are not in a complete nibble
-        lazy val hexRepOption : Option[String] =
-          valueBits.toHexProper.zip(bubbleMask.toHexProper).foldLeft[Option[String]](Some("")) {
-            case (Some(vp), (_, 'F' | 'f')) => Some(vp + "-") //dontcare
-            case (Some(vp), (h, '0')) => Some(vp + h)
-            case _ => None
-          }
-        lazy val binRep = valueBits.toBin.zip(bubbleMask.toBin).foldLeft("") {
-          case (vp, (_, '1')) => vp + "-" //dontcare
-          case (vp, (zeroOrOne, '0')) => vp + zeroOrOne
-        }
+        lazy val hexRepOption : Option[String] = t.toHexString('-', allowBinMode = false)
+        lazy val binRep = t.toBinString('-')
         lazy val vhdlBin = s""""$binRep""""
         revision match {
-          case _ if t.width % 4 == 0 => hexRepOption match {
-            case Some(value) => s"""x"$value""""
-            case None => vhdlBin
-          }
           case Revision.V2008 => hexRepOption match {
-            case Some(value) => s"""${t.width}x"$value""""
-            case None => vhdlBin
+            case Some(value) if t.width % 4 == 0 || value.head != '-' => s"""${t.width}x"$value""""
+            case _ => vhdlBin
           }
           case Revision.V93 => vhdlBin
         }
