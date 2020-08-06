@@ -10,8 +10,8 @@ private object Value {
       case t @ DFBits.Token(_, _) =>
         val hexRepOption : Option[String] = t.toHexString('?', allowBinMode = false)
         hexRepOption match {
-          case Some(value) => s"""${t.width}'h$value"""
-          case None => s"""${t.width}'b${t.toBinString('?')}"""
+          case Some(value) if t.width > 3 => s"""${t.width}'h$value"""
+          case _ => s"""${t.width}'b${t.toBinString('?')}"""
         }
       case t if t.isBubble => const(t.bits)
       case DFUInt.Token(width, Some(value)) => s"""${width}'d${value}"""

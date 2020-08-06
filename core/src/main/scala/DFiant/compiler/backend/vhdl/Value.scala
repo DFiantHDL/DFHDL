@@ -10,8 +10,8 @@ private object Value {
     token match {
       case t @ DFBits.Token(valueBits, _) if !t.isBubble => revision match {
         case _ if t.width % 4 == 0 => s"""x"${valueBits.toHex}""""
-        case Revision.V2008 => s"""${t.width}x"${valueBits.toHexProper}""""
-        case Revision.V93 => s""""${valueBits.toBin}""""
+        case Revision.V2008 if t.width > 3 => s"""${t.width}x"${valueBits.toHexProper}""""
+        case _ => s""""${valueBits.toBin}""""
       }
       case t @ DFBits.Token(_, _) => //bits token with bubbles
         //a hex representation may not be possible if the don't-cares are not in a complete nibble
@@ -19,11 +19,11 @@ private object Value {
         lazy val binRep = t.toBinString('-')
         lazy val vhdlBin = s""""$binRep""""
         revision match {
-          case Revision.V2008 => hexRepOption match {
+          case Revision.V2008 if t.width > 3 => hexRepOption match {
             case Some(value) if t.width % 4 == 0 || value.head != '-' => s"""${t.width}x"$value""""
             case _ => vhdlBin
           }
-          case Revision.V93 => vhdlBin
+          case _ => vhdlBin
         }
       case DFUInt.Token(width, Some(value)) => revision match {
         case Revision.V93 if value.bitsWidth < 31 => s"$FN to_unsigned($value, $width)"
