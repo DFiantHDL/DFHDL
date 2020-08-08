@@ -3,27 +3,16 @@ package compiler
 package backend
 package verilog
 
-import constraints.timing.sync.{ResetParams, ClockParams}
+import DFiant.internals.BigIntExtrasCO
+import constraints.timing.sync.{ClockParams, ResetParams}
 import DFiant.sim._
+
 import scala.collection.mutable
 import printer.formatter._
 import RTL.Analysis
 
 final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
-  private val designDB =
-    c.fixAnonymous
-     .flattenNames
-     .explicitPrev
-     .uniqueDesigns
-     .namedSelection
-     .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)
-     .toRTLForm
-     .viaPortConnection
-     .orderMembers
-     .db
-
-  import designDB.__getset
-  private val isSyncMember : DFMember => Boolean = {
+  private def isSyncMember(member : DFMember)(implicit printer : Printer) : Boolean = member match {
     case RTL.IfBlock(_,_) | RTL.ElseIfBlock(_,_) => true
     case _ => false
   }
@@ -35,7 +24,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     val simGuardSetOption : Option[String] =
       if (printer.inSimulation) Some(Verilator.ifndef(s"${Sim.guardName} = $LIT 1;"))
       else None
-    val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
+    val (_, statements) = printer.getSet.designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
       case (cb @ ConditionalBlock.IfElseBlock(None,Some(_),_,_), (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb @ RTL.ElseIfBlock(_,_), (closing, statements)) =>
@@ -53,7 +42,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         val item = Case.Item(Case.Choice.Pattern(pattern, width), getProcessStatements(cb))
         (if (items.isEmpty) item else s"$item\n$items", statements)
       case (mh : ConditionalBlock.MatchHeader, (items, statements)) =>
-        ("", Case(Value.ref(mh.matchValRef.get), items, designDB.caseWithDontCare(mh)) :: statements)
+        ("", Case(Value.ref(mh.matchValRef.get), items, printer.getSet.designDB.caseWithDontCare(mh)) :: statements)
       case (Net.Internal(netStr), (closing, statements)) => (closing, netStr :: statements)
       case (Sim.Assert(assertStr), (closing, statements)) => (closing, assertStr :: statements)
       case (Sim.Finish(finishStr), (closing, statements)) => (closing, finishStr :: statements)
@@ -61,7 +50,38 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     }
     statements
   }
+
+  private def matchForceCover(getSet : MemberGetSet) : Iterable[ConditionalBlock.MatchHeader] = {
+    implicit val __getSet : MemberGetSet = getSet
+    val matchHeaders = getSet.designDB.members.collect{case mh : ConditionalBlock.MatchHeader => mh}
+    matchHeaders.filter { mh =>
+      mh.matchValRef.get match {
+        //For enumeration only, we check the bits-width exhaustively coverage, since RTL enumeration
+        //is more limited than the DFiant enumeration coverage check. In Verilog, all enumerations are
+        //manually encoded, so bits-width coverage is a must.
+        case DFEnum(enumType) if BigInt.maxUnsignedFromWidth(enumType.width) > enumType.entries.size => true
+        //Non-enumeration exhaustively coverage is already handled in the ExplicitPrev stage
+        case _ => false
+      }
+    }
+  }
+
   def verilogCompile[R <: Revision](implicit revision : R) = {
+    val designDB =
+      c.fixAnonymous
+        .flattenNames
+        .explicitPrev
+        .forceOthersCaseCoverage(matchForceCover)
+        .uniqueDesigns
+        .namedSelection
+        .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)
+        .toRTLForm
+        .viaPortConnection
+        .orderMembers
+        .db
+
+    import designDB.__getset
+
     implicit val printer : Printer = new Printer {
       val getSet : MemberGetSet = __getset
       val config : Printer.Config = new Printer.Config(revision)

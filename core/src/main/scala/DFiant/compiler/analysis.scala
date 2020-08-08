@@ -13,15 +13,43 @@ object analysis {
     dfVal : DFAny, relBitHigh : Int, relBitLow : Int, reversed : Boolean, inverted : Boolean, prevStep : Int
   )
 
-  implicit class MatchHeaderAnalysis[MVType <: DFAny.Type](mh : ConditionalBlock.MatchHeader)(implicit getSet: MemberGetSet) {
+  implicit class DFAnyAnalysis(value : DFAny)(implicit getSet: MemberGetSet) {
+    @tailrec final def dealias : DFAny = {
+      value match {
+        case alias : DFAny.Alias[_,_,_] => alias.relValRef.get.dealias
+        case v : DFAny => v
+      }
+    }
+  }
+
+  implicit class MatchHeaderAnalysis(mh : ConditionalBlock.MatchHeader)(implicit getSet: MemberGetSet) {
     import ConditionalBlock.CaseBlock
     def getCases : Iterable[CaseBlock] = {
       getSet.designDB.blockMemberTable(mh.getOwnerBlock).dropWhile(_ != mh).drop(1).takeWhile {
         case _ : CaseBlock => true
+        case _ => false
       }.collect {
         case cb : CaseBlock => cb
       }
     }
+
+    @tailrec final def anyCaseContains(member : DFMember) : Boolean = member match {
+      case cb : CaseBlock if cb.matchHeaderRef.get == mh => true
+      case _ : DFDesign.Block => false
+      case _ => anyCaseContains(member.getOwnerBlock)
+    }
+    //gets all the assigned variables within the match statement (at any level)
+    def getAssignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = {
+      getSet.designDB.members.toIterable
+        .dropWhile(_ != mh).drop(1) //reaching the match header
+        .takeWhile(anyCaseContains) //taking all case members
+        .collect{case n : DFNet.Assignment => n.toRef.get} //collecting assigned values
+        .map(_.dealias.asInstanceOf[DFAny.VarOf[DFAny.Type]]) //dealiasing and casting
+        .distinct
+    }
+    //gets all the assigned variables within the match statement (at any level), but defined externally
+    def getExternalAssignedVars : Iterable[DFAny.VarOf[DFAny.Type]] =
+      getAssignedVars.filterNot(anyCaseContains)
   }
 
   implicit class ConditionalBlockAnalysis(cb : ConditionalBlock.Owner)(implicit getSet: MemberGetSet) {

@@ -3,7 +3,9 @@ package compiler
 package backend
 package vhdl
 
+import DFiant.internals.BigIntExtrasCO
 import DFiant.sim._
+
 import scala.collection.mutable
 import printer.formatter._
 import RTL.Analysis
@@ -54,11 +56,37 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       Iterable.empty
   }
 
+  private def matchForceCover(getSet : MemberGetSet) : Iterable[ConditionalBlock.MatchHeader] = {
+    implicit val __getSet : MemberGetSet = getSet
+    val matchHeaders = getSet.designDB.members.collect{case mh : ConditionalBlock.MatchHeader => mh}
+    matchHeaders.filter { mh =>
+      mh.matchValRef.get match {
+        //For enumeration only, we check the bits-width exhaustively coverage, since RTL enumeration
+        //is more limited than the DFiant enumeration coverage check
+        case DFEnum(enumType) if BigInt.maxUnsignedFromWidth(enumType.width) > enumType.entries.size => enumType match {
+          case auto: EnumType.Auto[_] => auto.encoding match {
+            //In VHDL, the default encoding is be set by the synthesizer. Since the synthesizer knows the coverage,
+            //it will handle don't-care encoding automatically and we don't need to force them.
+            case EnumType.Encoding.Default => false
+            //Other encodings are implemented as constants when compiled to VHDL, and the underlying
+            //enumeration type is changed to std_logic_vector. In this case, a width coverage is required.
+            case _ => true
+          }
+          //Manual encoding force width check coverage.
+          case _: EnumType.Manual[_] => true
+        }
+        //Non-enumeration exhaustively coverage is already handled in the ExplicitPrev stage
+        case _ => false
+      }
+    }
+  }
+
   def vhdlCompile[R <: Revision](implicit revision : R): BackendStage.Compilation[D, Backend[R]] = {
     val designDB =
       c.fixAnonymous
        .flattenNames
        .explicitPrev
+       .forceOthersCaseCoverage(matchForceCover)
        .convertMatchToIf(matchToIfs)
        .explicitConversions
        .uniqueDesigns

@@ -30,6 +30,9 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
 
 abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
   final def plantMember[T <: DFMember](member : T) : T = __db.plantMember(this, member)
+  final def applyBlock(owner : DFOwner)(block : => Unit) : Unit =
+    ctx.db.OwnershipContext.injectOwnerAndRun(this, owner)(block)
+
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
 }
 
@@ -312,14 +315,16 @@ object DFDesign {
         //If we attempt to replace with an existing member, then we convert the patch to remove
         //the old member just for the member list (references are replaced).
         case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => Some((m, DB.Patch.Remove))
-        //If we add after a design block, we need to actually place after the last member of the block
-        case (block : DFDesign.Block.Internal, DB.Patch.Add(db, DB.Patch.Add.Config.After)) =>
-          Some((designMemberTable(block).last, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
-        //If we add inside a design block, we need to actually place after the last member of the block
-        case (block : DFDesign.Block, DB.Patch.Add(db, DB.Patch.Add.Config.Inside)) =>
-          designMemberTable(block).lastOption match {
+        //If we add after/inside an owner, we need to actually place after the last member of the owner
+        case (owner : DFOwner, DB.Patch.Add(db, DB.Patch.Add.Config.After | DB.Patch.Add.Config.Inside)) =>
+          val lastMemberOption = owner match {
+            case block : DFDesign.Block => designMemberTable(block).lastOption
+            case block : DFBlock => blockMemberTable(block).lastOption
+            case _ => ownerMemberTable(owner).lastOption
+          }
+          lastMemberOption match {
             case Some(l) => Some((l, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
-            case None => Some((block, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
+            case None => Some((owner, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
           }
         case x => Some(x)
       }.foldLeft(Map.empty[DFMember, DB.Patch]){

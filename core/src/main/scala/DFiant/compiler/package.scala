@@ -8,6 +8,8 @@ package object compiler {
   : FixAnonymous[D] = new FixAnonymous[D](c)
   implicit def evOrderMembers[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : OrderMembers[D] = new OrderMembers[D](c)
+  implicit def evForceOthersCaseCoverage[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
+  : ForceOthersCaseCoverage[D] = new ForceOthersCaseCoverage[D](c)
   implicit def evUniqueDesigns[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
   : UniqueDesigns[D] = new UniqueDesigns[D](c)
   implicit def evNamedSelection[D <: DFDesign, C](c : C)(implicit conv : C => IRCompilation[D])
