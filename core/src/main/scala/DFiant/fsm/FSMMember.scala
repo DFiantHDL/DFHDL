@@ -244,25 +244,25 @@ object FSMMember {
       object states extends EnumType.Auto()(ctx.meta.setName(s"${fsmName}_states"))
       val entries : Map[Step, states.Entry] = stepNames.map(e => e._1 -> states.Entry()(ctx.meta.setName(e._2)))
       val state = DFEnum(states) init(entries(steps.head)) setName (s"${fsmName}_state")
-      val matchHeader : ConditionalBlock.NoRetVal.HasCaseDF[DFEnum.Type[states.type]] = matchdf(state)
-      steps.foldLeft(matchHeader) {
+      val matchHeader = matchdf(state)
+      steps.foldLeft[ConditionalBlock.NoRetVal.HasCaseDF[DFEnum.Type[states.type], true]](matchHeader) {
         case (pm, step) => pm.casedf(entries(step)) {
           val scope = new DFScope(Some(s"${fsmName}_${entries(step).name}")) {
             __db.OwnershipContext.injectContainer(this)
             step match {
               case bs : BasicStep[_] => bs.getR
             }
-            transitions(step).toList.foldLeft[Option[ConditionalBlock.NoRetVal.HasElseIfDF]](None) {
+            transitions(step).toList.foldLeft[Option[ConditionalBlock.IfElseBlock]](None) {
               case (None, (t, dst)) => t match {
                 case Transition(Some(cond), Some(block)) =>
                   Some(ifdf(cond()) {
                     block()
                     state := entries(dst)
-                  })
+                  }.owner)
                 case Transition(Some(cond), None) =>
                   Some(ifdf(cond()) {
                     state := entries(dst)
-                  })
+                  }.owner)
                 case Transition(None, Some(block)) =>
                   block()
                   state := entries(dst)
@@ -271,27 +271,17 @@ object FSMMember {
                   state := entries(dst)
                   None
               }
-              case (Some(ib), (t, dst)) => t match {
-                case Transition(Some(cond), Some(block)) =>
-                  Some(ib.elseifdf(cond()) {
-                    block()
+              case (prevIfBlock, (t, dst)) => t match {
+                case Transition(condOption, blockOption) =>
+                  def block : Unit = {
+                    blockOption.foreach(b => b())
                     state := entries(dst)
-                  })
-                case Transition(Some(cond), None) =>
-                  Some(ib.elseifdf(cond()) {
-                    state := entries(dst)
-                  })
-                case Transition(None, Some(block)) =>
-                  Some(ib.elsedf {
-                    block()
-                    state := entries(dst)
-                  })
-                  None
-                case Transition(None, None) =>
-                  Some(ib.elsedf {
-                    state := entries(dst)
-                  })
-                  None
+                  }
+                  val ifBlock = new ConditionalBlock.NoRetVal.IfElseBlock(condOption.map(c => c()), prevIfBlock)(block)
+                  condOption match {
+                    case Some(_) => Some(ifBlock.owner)
+                    case None => None
+                  }
               }
             }
             __db.OwnershipContext.clearInjectedContainer()

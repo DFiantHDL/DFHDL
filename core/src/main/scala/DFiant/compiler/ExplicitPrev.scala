@@ -8,59 +8,11 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 import sim.DFSimMember
 
+import analysis.ConditionalBlockAnalysis
+
 final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
-  implicit class ConditionalBlockExtension(cb : ConditionalBlock) {
-    def isFirstCB : Boolean = cb match {
-      case _ : ConditionalBlock.IfBlock => true
-      case x : ConditionalBlock.CasePatternBlock[_] if x.prevCaseRefOption.isEmpty => true
-      case _ => false
-    }
-    def isLastCB : Boolean = {
-      val refs = designDB.memberTable.getOrElse(cb, Set())
-      //the conditional block is last if there is no reference to it as a previous block
-      refs.flatMap {
-        case r@ConditionalBlock.PrevBlockRef() => Some(r)
-        case _ => None
-      }.isEmpty
-    }
-    @tailrec private def getPatterns(casePattenBlock : ConditionalBlock.CasePatternBlock[_], patterns : List[DFAny.Pattern[_]]) : List[DFAny.Pattern[_]] = {
-      val updatedPattens = casePattenBlock.pattern :: patterns
-      casePattenBlock.prevCaseRefOption match {
-        case Some(r) => getPatterns(r.get, updatedPattens)
-        case None => updatedPattens
-      }
-    }
-    def isExhaustive : Boolean = cb match {
-      case _ : ConditionalBlock.ElseBlock => true
-      case _ : ConditionalBlock.Case_Block[_] => true
-      case x : ConditionalBlock.CasePatternBlock[_] if x.isLastCB =>
-        val matchVal = x.matchHeaderRef.matchValRef.get
-        val patterns = getPatterns(x, List())
-        matchVal.dfType match {
-          case _ : DFUInt.Type[_] =>
-            val union = patterns.asInstanceOf[List[DFUInt.Pattern]].foldLeft(IntervalSet.empty[BigInt]){case (is, p) => is | p.patternSet}
-            val fullRange = Interval.closed(BigInt(0), BigInt.maxUnsignedFromWidth(matchVal.width))
-            union.contains(fullRange)
-          case _ : DFSInt.Type[_] =>
-            val union = patterns.asInstanceOf[List[DFSInt.Pattern]].foldLeft(IntervalSet.empty[BigInt]){case (is, p) => is | p.patternSet}
-            val fullRange = Interval.closed(BigInt.minSignedFromWidth(matchVal.width), BigInt.maxSignedFromWidth(matchVal.width))
-            union.contains(fullRange)
-          case _ : DFBits.Type[_] =>
-            val union = patterns.asInstanceOf[List[DFBits.Pattern]].foldLeft(Set.empty[DFBits.Token]){case (s, p) => s | p.patternSet}
-            union.size == BigInt.maxUnsignedFromWidth(matchVal.width).toInt + 1
-          case _ : DFBool.Type =>
-            val union = patterns.asInstanceOf[List[DFBool.Pattern]].foldLeft(Set.empty[Boolean]){case (s, p) => s | p.patternSet}
-            union.size == 2
-          case e : DFEnum.Type[_] =>
-            val union = patterns.asInstanceOf[List[DFEnum.Pattern]].foldLeft(Set.empty[EnumType.Entry]){case (s, p) => s | p.patternSet}
-            union.size == e.enumType.entries.size
-        }
-      case _ => false
-    }
-  }
-
   @tailrec private def consumeFrom(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match {
@@ -107,11 +59,9 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
     remaining match {
       case (nextBlock : DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => //entering child block
         val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = nextBlock match {
-          case ifBlock : ConditionalBlock.IfBlock =>
-            (consumeFrom(ifBlock.condRef.get, scopeMap, currentSet), scopeMap.branchEntry(firstBranch = true))
-          case elseIfBlock : ConditionalBlock.ElseIfBlock =>
-            (consumeFrom(elseIfBlock.condRef.get, scopeMap, currentSet), scopeMap.branchEntry(firstBranch = false))
-          case cb : ConditionalBlock =>
+          case ConditionalBlock.IfElseBlock(Some(condRef),_,_,_) =>
+            (consumeFrom(condRef.get, scopeMap, currentSet), scopeMap.branchEntry(firstBranch = true))
+          case cb : ConditionalBlock.Owner =>
             (currentSet, scopeMap.branchEntry(cb.isFirstCB))
           case _ =>
             (currentSet, scopeMap)
@@ -159,7 +109,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
         }
         if (exitingBlock) {
           val updatedScopeMap = currentBlock match {
-            case cb : ConditionalBlock =>
+            case cb : ConditionalBlock.Owner =>
               //                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
               //                val ret =
               scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)

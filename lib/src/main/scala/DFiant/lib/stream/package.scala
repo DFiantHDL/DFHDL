@@ -180,16 +180,9 @@ package object stream {
       val fork = iter.map(e => e.fork)
       fork.foreach(e => e.dontConsume())
       ret.dontProduce()
-      fork.foldLeft[Option[ConditionalBlock.NoRetVal.HasElseIfDF]](None){
-        case (None, e) => Some(
-          ifdf(e.isNotEmpty){
-            ret := e
-          }
-        )
-        case (Some(prevIf), e) => Some(
-          prevIf.elseifdf(e.isNotEmpty) {
-            ret := e
-          }
+      fork.foldLeft[Option[ConditionalBlock.IfElseBlock]](None){
+        case (prevIfOption, e) => Some(
+          new ConditionalBlock.NoRetVal.IfElseBlock(Some(e.isNotEmpty),prevIfOption)(ret := e).owner
         )
       }
       ret

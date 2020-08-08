@@ -39,7 +39,7 @@ object DFSimMember {
     def apply(condOption : Option[DFBool], msg : Message, severity : Severity)(implicit ctx: DFAny.Context)
     : Assert = {
       implicit lazy val ret : Assert with DFMember.RefOwner =
-        ctx.db.addMember(ctx.container, Assert(condOption.map(e => DFMember.OwnedRef(e)), msgRef, severity, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMember(Assert(condOption.map(e => DFMember.OwnedRef(e)), msgRef, severity, ctx.owner, ctx.meta)).asRefOwner
       lazy val msgRef = MessageRef({
         val eitherSeq : Seq[Either[MsgRef, String]] = msg.seq.map {
           case Left(dfAny) => Left(DFMember.OwnedRef(dfAny))
@@ -108,7 +108,7 @@ object DFSimMember {
     def apply()(implicit ctx: DFAny.Context)
     : Finish = {
       implicit lazy val ret : Finish with DFMember.RefOwner =
-        ctx.db.addMember(ctx.container, Finish(ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMember(Finish(ctx.owner, ctx.meta)).asRefOwner
       ret
     }
   }

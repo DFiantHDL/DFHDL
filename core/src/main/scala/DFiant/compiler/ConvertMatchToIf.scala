@@ -2,6 +2,7 @@ package DFiant
 package compiler
 
 import DFiant.DFDesign.DB.Patch
+import analysis.MatchHeaderAnalysis
 
 final class ConvertMatchToIf[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
@@ -13,28 +14,18 @@ final class ConvertMatchToIf[D <: DFDesign](c : IRCompilation[D]) {
       val condDsn = new MetaDesign() {
         //we declare all the match conditions
         val conds = cases.map {
-          case mc : ConditionalBlock.CasePatternBlock[_] =>
-            Some(mc.pattern.matchCond(matchVal.asInstanceOf[DFAny.Of[mc.pattern.TType]]).anonymize)
-          case mc : ConditionalBlock.Case_Block[_] => None
+          case mc @ ConditionalBlock.CaseBlock(_,_,Some(pattern),_,_) =>
+            Some(pattern.matchCond(matchVal.asInstanceOf[DFAny.Of[pattern.TType]]).anonymize)
+          case _ => None
         }
       }
       val casePatches =
-        (cases.lazyZip(condDsn.conds)).foldLeft[(List[(DFMember, Patch)], Option[ConditionalBlock])](List(), None) {
-          case ((patches, None), (mc, Some(cond))) =>
+        (cases.lazyZip(condDsn.conds)).foldLeft[(List[(DFMember, Patch)], Option[ConditionalBlock.IfElseBlock])](List(), None) {
+          case ((patches, prevIfOption), (mc, condOption)) =>
             val dsn = new MetaDesign() {
-              val ifBlock = ConditionalBlock.NoRetVal.IfBlock.forcedHeader(cond)
+              val ifElseBlock = ConditionalBlock.IfElseBlock(condOption, prevIfOption)
             }
-            (mc -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()) :: patches, Some(dsn.ifBlock))
-          case ((patches, Some(prevIf)), (mc, Some(cond))) =>
-            val dsn = new MetaDesign() {
-              val elseIfBlock = ConditionalBlock.NoRetVal.ElseIfBlock.forcedHeader(cond, prevIf)
-            }
-            (mc -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()) :: patches, Some(dsn.elseIfBlock))
-          case ((patches, Some(prevIf)), (mc, None)) =>
-            val dsn = new MetaDesign() {
-              val elseBlock = ConditionalBlock.NoRetVal.ElseBlock.forcedHeader(prevIf)
-            }
-            (mc -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()) :: patches, Some(dsn.elseBlock))
+            (mc -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()) :: patches, Some(dsn.ifElseBlock))
           case t =>
             println(t)
             ???

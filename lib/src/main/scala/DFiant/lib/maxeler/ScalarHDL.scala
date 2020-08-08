@@ -49,5 +49,5 @@ object ScalarHDLApp extends App {
     count !! Maxeler.StreamIOPush
     hold_count !! Maxeler.ScalarIO
   }
-  scalar_hdl.compile//.printCodeString.printGenFiles()
+  scalar_hdl.compile.printCodeString.printGenFiles()
 }

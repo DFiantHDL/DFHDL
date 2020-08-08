@@ -174,6 +174,20 @@ object DFMember {
         member
       )
   }
+
+  type OwnedRefOption[T <: OwnedRef.Type, +M <: DFMember] = Option[OwnedRef.Of[T, M]]
+  object OwnedRefOption {
+    implicit class OwnedRefOptionOps[T <: OwnedRef.Type, M <: DFMember](left : OwnedRefOption[T, M]) {
+      def =~ (right : OwnedRefOption[T, M])(implicit getSet: MemberGetSet) : Boolean = (left, right) match {
+        case (Some(l), Some(r)) => l.get =~ r.get
+        case (None, None) => true
+        case _ => false
+      }
+    }
+    def apply[M <: DFMember, T <: OwnedRef.Type, O <: DFMember](member: Option[M])(
+      implicit ctx : DFMember.Context, rt : T, refOwner : => O with RefOwner
+    ) : OwnedRefOption[T, M] = member.map(m => OwnedRef[M, T, O](m.asRefOwner)(ctx, rt, refOwner))
+  }
 }
 
 

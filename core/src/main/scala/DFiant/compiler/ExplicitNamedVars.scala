@@ -12,15 +12,13 @@ final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
 
   //Gets the topmost member of an if/match chain.
   //For ifs it's the if owner, and for matches it's the match header.
-  @tailrec private def getTopConditionalMember(currentBlock : ConditionalBlock) : DFMember =
+  @tailrec private def getTopConditionalMember(currentBlock : ConditionalBlock.Owner) : DFMember =
     currentBlock.getOwnerBlock match {
-      case cb : ConditionalBlock => getTopConditionalMember(cb)
+      case cb : ConditionalBlock.Owner => getTopConditionalMember(cb)
       case _ => currentBlock match {
-        case block: ConditionalBlock.IfBlock => block
-        case block: ConditionalBlock.ElseIfBlock => getTopConditionalMember(block.prevBlockRef)
-        case block: ConditionalBlock.ElseBlock => getTopConditionalMember(block.prevBlockRef)
-        case block: ConditionalBlock.CasePatternBlock[_] => block.matchHeaderRef
-        case block: ConditionalBlock.Case_Block[_] => block.matchHeaderRef
+        case ConditionalBlock.IfElseBlock(_,Some(prevBlockRef),_,_) => prevBlockRef.get
+        case block : ConditionalBlock.IfElseBlock => block
+        case block : ConditionalBlock.CaseBlock => block.matchHeaderRef.get
       }
     }
 
@@ -49,7 +47,7 @@ final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
           }
           def newVar(implicit ctx : DFAny.Context) = DFAny.Dcl(named.dfType, DFAny.Modifier.NewVar, externalInit, ctx.owner, named.tags)
           named.getOwner match {
-            case cb : ConditionalBlock => //inside a conditional block
+            case cb : ConditionalBlock.Owner => //inside a conditional block
               val dsnNewVar = new MetaDesign() {
                 final val plantedNewVar = plantMember(newVar)
                 if (externalInit.isDefined && requiresDefaultInit(named)) {

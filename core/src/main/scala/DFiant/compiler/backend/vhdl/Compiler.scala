@@ -17,16 +17,16 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     implicit printer : Printer
   ) : List[String] = {
     val (_, statements) = printer.getSet.designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
-      case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
+      case (cb @ ConditionalBlock.IfElseBlock(None,Some(_),_,_), (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
-      case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
-        (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
-      case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
-        ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
-      case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
+      case (cb @ ConditionalBlock.IfElseBlock(Some(condRef),Some(_),_,_), (closing, statements)) =>
+        (If.ElsIf(Value.ref(condRef.get), getProcessStatements(cb), closing), statements)
+      case (cb @ ConditionalBlock.IfElseBlock(Some(condRef),None,_,_), (closing, statements)) =>
+        ("", If(Value.ref(condRef.get), getProcessStatements(cb), closing) :: statements)
+      case (cb @ ConditionalBlock.CaseBlock(_,_,None,_,_), (_, statements)) =>
         (Case.When(Case.Choice.Others(), getProcessStatements(cb)), statements)
-      case (cb : ConditionalBlock.CasePatternBlock[_], (whens, statements)) =>
-        val when = Case.When(Case.Choice.Pattern(cb.pattern), getProcessStatements(cb))
+      case (cb @ ConditionalBlock.CaseBlock(_,_,Some(pattern),_,_), (whens, statements)) =>
+        val when = Case.When(Case.Choice.Pattern(pattern), getProcessStatements(cb))
         (if (whens.isEmpty) when else s"$when\n$whens", statements)
       case (mh : ConditionalBlock.MatchHeader, (whens, statements)) =>
         //TODO: handle matchval func @ vhdl93

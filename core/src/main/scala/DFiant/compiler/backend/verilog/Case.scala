@@ -27,7 +27,7 @@ private object Case {
       def apply()(implicit printer : Printer) : String = s"${printer.config.KW}default"
     }
     object Pattern {
-      def apply(pattern : DFAny.Pattern[_], width : Int)(implicit printer : Printer) : String = {
+      def apply(pattern : DFAny.Pattern, width : Int)(implicit printer : Printer) : String = {
         import printer.config._
         pattern match {
           case x : DFBits.Pattern =>

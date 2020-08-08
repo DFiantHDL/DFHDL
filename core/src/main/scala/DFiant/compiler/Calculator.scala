@@ -12,12 +12,12 @@ final class Calculator[D <: DFDesign](c : IRCompilation[D]) {
       case Some(init) => Some(init)
       case None => calc.get(member)
     }
-    def getRetVal(cb : ConditionalBlock.WithRetVal[_]) : DFAny = {
-      designDB.blockMemberTable(cb).last match {
-        case n : DFNet.Assignment if n.toRef.get == cb.retVarRef.get => n.fromRef.get
-        case m => throw new IllegalArgumentException(s"Unexpected last member in conditional block. Expected assignment to the return variable, but got $m")
-      }
-    }
+//    def getRetVal(cb : ConditionalBlock.WithRetVal[_]) : DFAny = {
+//      designDB.blockMemberTable(cb).last match {
+//        case n : DFNet.Assignment if n.toRef.get == cb.retVarRef.get => n.fromRef.get
+//        case m => throw new IllegalArgumentException(s"Unexpected last member in conditional block. Expected assignment to the return variable, but got $m")
+//      }
+//    }
     object CalcDep {
       def unapply(member : DFAny) : Option[(List[DFAny], List[Seq[DFAny.Token]] => Seq[DFAny.Token])] = member match {
         case c : DFAny.Const => Some(Nil, _ => Seq(c.token))

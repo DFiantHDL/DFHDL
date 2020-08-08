@@ -264,39 +264,45 @@ object RTL {
 
   object IfBlock {
     def unapply(
-      cb: ConditionalBlock.IfBlock
-    )(implicit getSet: MemberGetSet): Option[(DFAny, Boolean)] =
-      (cb.condRef.get: DFAny) match {
-        case DFAny.Func2.Unref(
-        _,
-        rst @ IsReset(),
-        DFAny.Func2.Op.==,
-        DFAny.Const(_, DFBool.Token(_, Some(edge)), _, _),
-        _,
-        _
-        ) =>
-          Some(rst, edge)
-        case x =>
-          x.getOwnerBlock match {
-            case DFInlineComponent.Block(
-            EdgeDetect.Rep.Unref(clk @ IsClock(), edge)
-            ) =>
-              Some(clk, edge == EdgeDetect.Edge.Rising)
-            case _ => None
-          }
-      }
+      cb: ConditionalBlock.IfElseBlock
+    )(implicit getSet: MemberGetSet): Option[(DFAny, Boolean)] = cb match {
+      case ConditionalBlock.IfElseBlock(Some(condRef), None, _, _) =>
+        (condRef.get : DFAny) match {
+          case DFAny.Func2.Unref(
+          _,
+          rst @ IsReset(),
+          DFAny.Func2.Op.==,
+          DFAny.Const(_, DFBool.Token(_, Some(edge)), _, _),
+          _,
+          _
+          ) =>
+            Some(rst, edge)
+          case x =>
+            x.getOwnerBlock match {
+              case DFInlineComponent.Block(
+              EdgeDetect.Rep.Unref(clk @ IsClock(), edge)
+              ) =>
+                Some(clk, edge == EdgeDetect.Edge.Rising)
+              case _ => None
+            }
+        }
+      case _ => None
+    }
   }
   object ElseIfBlock {
     def unapply(
-      cb: ConditionalBlock.ElseIfBlock
-    )(implicit getSet: MemberGetSet): Option[(DFAny, Boolean)] =
-      cb.condRef.get.getOwnerBlock match {
-        case DFInlineComponent.Block(
-        EdgeDetect.Rep.Unref(clk @ IsClock(), edge)
-        ) =>
-          Some(clk, edge == EdgeDetect.Edge.Rising)
-        case _ => None
-      }
+      cb: ConditionalBlock.IfElseBlock
+    )(implicit getSet: MemberGetSet): Option[(DFAny, Boolean)] = cb match {
+      case ConditionalBlock.IfElseBlock(Some(condRef), Some(_), _, _) =>
+        condRef.get.getOwnerBlock match {
+          case DFInlineComponent.Block(
+          EdgeDetect.Rep.Unref(clk @ IsClock(), edge)
+          ) =>
+            Some(clk, edge == EdgeDetect.Edge.Rising)
+          case _ => None
+        }
+      case _ => None
+    }
   }
   object Net {
     def unapply(net: DFNet)(implicit getSet: MemberGetSet): Boolean =
@@ -333,7 +339,7 @@ object RTL {
       refs.exists {
         case r : DFMember.OwnedRef => r.refType match {
           case _ : ConditionalBlock.MatchHeader.Ref.Type => r.owner.get match {
-            case cb : ConditionalBlock.CasePatternBlock[_] => cb.pattern match {
+            case ConditionalBlock.CaseBlock(_,_,Some(pattern),_,_) => pattern match {
               case b : DFBits.Pattern => b.patternSet.exists(_.isBubble)
               case _ => false
             }
@@ -351,8 +357,7 @@ object RTL {
         case DFAny.Func2.Unref(_,left,_,right,_,_) => List(left, right)
         case a : DFAny.Alias[_,_,_] => Some(a.relValRef.get)
         case DFSimMember.Assert.Unref(condOption,msg,_,_,_) => msg.seq ++ condOption
-        case ifBlock : ConditionalBlock.IfBlock => Some(ifBlock.condRef.get)
-        case elseIfBlock : ConditionalBlock.ElseIfBlock => Some(elseIfBlock.condRef.get)
+        case ConditionalBlock.IfElseBlock(Some(condRef),_,_,_) => Some(condRef.get)
         case mh : ConditionalBlock.MatchHeader => Some(mh.matchValRef.get)
         case _ => Nil
       }

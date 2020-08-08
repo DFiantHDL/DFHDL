@@ -62,7 +62,7 @@ object DFAny {
     type TToken <: DFAny.Token
     type Width
     val width : TwoFace.Int[Width]
-    type TPattern <: DFAny.Pattern[TPattern]
+    type TPattern <: DFAny.Pattern.Of[TPattern]
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
     type TPatternBuilder[LType <: Type] <: DFAny.Pattern.Builder[LType, TPatternAble]
     type OpAble[R] <: DFAny.Op.Able[R]
@@ -284,10 +284,10 @@ object DFAny {
     type Of[Type <: DFAny.Type] = Value[Type, Modifier.Val]{type TMod = Modifier.Val}
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
     : Of[Type] =
-      ctx.db.addMember(ctx.container, Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
+      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
     private[DFiant] def forced[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
     : Of[Type] =
-      ctx.db.addMember(ctx.container, Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
+      ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asInstanceOf[Of[Type]]
   }
 
 //  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
@@ -344,7 +344,7 @@ object DFAny {
         if (ctx.meta.namePosition == i.tags.meta.namePosition) {
           implicitly[MemberGetSet].set[DFAny](i)(_ => newMember)
           newMember
-        } else ctx.db.addMember(ctx.container, newMember)
+        } else ctx.db.addMember(newMember)
       }
     }
     def apply[Type <: DFAny.Type, Mod <: DFAny.Modifier](dfType: Type, modifier : Mod)(
@@ -375,7 +375,7 @@ object DFAny {
         }
         case ASIS => specifyDefaultModifier
       }
-      ctx.db.addMember(ctx.container, Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
+      ctx.db.addMember(Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asInstanceOf[Value[Type, Mod] with Uninitialized]
     }
   }
 
@@ -429,7 +429,7 @@ object DFAny {
       if (ctx.meta.namePosition == left.tags.meta.namePosition) {
         implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
         newMember
-      } else ctx.db.addMember(ctx.container, newMember)
+      } else ctx.db.addMember(newMember)
     }
 
     def <>[R](right: DFAny.ConnOf[Type])(
@@ -438,17 +438,17 @@ object DFAny {
 
     def ifdf[C, B](cond : C)(block : => left.dfType.OpAble[B])(
       implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : left.dfType.`Op:=Builder`[Type, B]
-    ) : ConditionalBlock.WithRetVal.IfBlock[Type] = {
+    ) : ConditionalBlock.WithRetVal.IfElseBlock[Type, true] = {
       val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
       implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-      ConditionalBlock.WithRetVal.IfBlock[Type](newMember, condArg())(blockConv(left.dfType, block))(ctx)
+      new ConditionalBlock.WithRetVal.IfElseBlock[Type, true](newMember, Some(condArg()), None)(blockConv(left.dfType, block))
     }
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] = {
       val newMember = Dcl(left.dfType, Modifier.MatchRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
       implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-      ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](newMember, matchValue, matchConfig)(ctx)
+      new ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](newMember, matchValue, matchConfig)
     }
   }
 
@@ -494,7 +494,7 @@ object DFAny {
         implicit ctx: Context
       ): Of[Type, RelVal, refVal.TMod] = {
         implicit lazy val ret : AsIs with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, AsIs(dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(AsIs(dfType, refVal.modifier, refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[Type, RelVal, refVal.TMod]]
       }
       object Unref {
@@ -531,14 +531,14 @@ object DFAny {
         implicit ctx: Context
       ): Of[DFBits.Type[W], RelVal, refVal.TMod] = {
         implicit lazy val ret : BitsWL with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, BitsWL(DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(BitsWL(DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBits.Type[W], RelVal, refVal.TMod]]
       }
       def bit[I, RelVal <: DFAny](refVal: RelVal, relBit: TwoFace.Int[I])(
         implicit ctx: Context
       ): Of[DFBool.Type, RelVal, refVal.TMod] = {
         implicit lazy val ret : BitsWL with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, BitsWL(DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(BitsWL(DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBool.Type, RelVal, refVal.TMod]]
       }
       object Unref {
@@ -570,7 +570,7 @@ object DFAny {
         implicit ctx: Context
       ): Of[RelVal#TType, RelVal, Modifier.Val] = {
         implicit lazy val ret : Prev with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, Prev(refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(Prev(refVal.dfType, refVal, step, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[RelVal#TType, RelVal, Modifier.Val]]
       }
       object Unref {
@@ -606,21 +606,21 @@ object DFAny {
         implicit ctx: Context
       ): Of[DFBits.Type[RW], DFBits[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, Resize(DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(Resize(DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFBits.Type[RW], DFBits[LW], Modifier.Val]]
       }
       def uint[LW, RW](refVal: DFUInt[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
       ): Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, Resize(DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(Resize(DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val]]
       }
       def sint[LW, RW](refVal: DFSInt[LW], toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
       ): Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val] = {
         implicit lazy val ret : Resize with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val]]
       }
       object Unref {
@@ -680,7 +680,7 @@ object DFAny {
         implicit ctx: Context
       ): Of[RelVal#TType, RelVal, Modifier.Val] = {
         implicit lazy val ret : Invert with DFMember.RefOwner =
-          ctx.db.addMember(ctx.container, Invert(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
+          ctx.db.addMember(Invert(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
         ret.asInstanceOf[Of[RelVal#TType, RelVal, Modifier.Val]]
       }
     }
@@ -811,7 +811,7 @@ object DFAny {
     )(tokenFunc: (Token, Token) => Token)(implicit ctx: Context)
     : Func[Type] = {
       implicit lazy val ret : Func2 with DFMember.RefOwner =
-        ctx.db.addMember(ctx.container, Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(tokenFunc)).asRefOwner
+        ctx.db.addMember(Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(tokenFunc)).asRefOwner
       ret.asInstanceOf[Func[Type]]
     }
     object Unref {
@@ -856,7 +856,7 @@ object DFAny {
       implicit ctx: DFAny.Context
     ): Of[RelVal#TType] = {
       implicit lazy val ret : Fork with DFMember.RefOwner =
-        ctx.db.addMember(ctx.container, Fork(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMember(Fork(refVal.dfType, refVal, ctx.owner, ctx.meta)).asRefOwner
       ret.asInstanceOf[Of[RelVal#TType]]
     }
     object Unref {
@@ -916,6 +916,7 @@ object DFAny {
       case object DontConsume extends Control {
         def codeString : String = "dontConsume()"
       }
+      type DontProduce = DontProduce.type
       case object DontProduce extends Control {
         def codeString : String = "dontProduce()"
       }
@@ -925,7 +926,7 @@ object DFAny {
       implicit ctx: DFAny.Context
     ): DFBool = {
       implicit lazy val ret : Dynamic with DFMember.RefOwner =
-        ctx.db.addMember(ctx.container, Dynamic(relVal, func, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMember(Dynamic(relVal, func, ctx.owner, ctx.meta)).asRefOwner
       ret
     }
 
@@ -1130,7 +1131,6 @@ object DFAny {
       DFNet.Connection(toPort, from)
     }
   }
-  type CBOf[Type <: DFAny.Type] = ConditionalBlock.WithRetVal[Type]
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -1265,20 +1265,22 @@ object DFAny {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Match Pattern
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  sealed trait Pattern[P <: Pattern[P]] {
+  sealed trait Pattern {
     type TType <: Type
     type TValue
     def matches(value : TValue) : Boolean
-    def overlapsWith(pattern: P) : Boolean
     protected[DFiant] def matchCond(matchVal : DFAny.Of[TType])(
       implicit ctx : DFAny.Context
     ) : DFBool
     def codeString(implicit printer: CSPrinter) : String
   }
   object Pattern {
+    sealed trait Of[P <: Of[P]] extends Pattern {
+      def overlapsWith(pattern: P) : Boolean
+    }
     abstract class OfIntervalSet[T <: Type, V, P <: OfIntervalSet[T, V, P]](val patternSet : IntervalSet[V])(
       implicit codeStringOf: CodeStringOf[Interval[V]]
-    ) extends Pattern[P] {
+    ) extends Of[P] {
       type TType = T
       type TValue = V
       protected def matchCond(matchVal: DFAny.Of[T], interval : Interval[V])(
@@ -1296,7 +1298,7 @@ object DFAny {
     }
     abstract class OfSet[T <: Type, V, P <: OfSet[T, V, P]](val patternSet : Set[V])(
       implicit codeStringOf: CodeStringOf[V]
-    ) extends Pattern[P] {
+    ) extends Of[P] {
       type TType = T
       type TValue = V
       protected def matchCond(matchVal: DFAny.Of[T], value : V)(

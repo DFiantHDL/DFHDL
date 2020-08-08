@@ -406,11 +406,8 @@ object DFDesign {
       currentOwner match {
         case _ : DFDesign.Block => currentGuards //reached the design block
         case o : DFBlock if o == targetOwner => currentGuards //can't go past the target owner
-        case cb : ConditionalBlock.IfBlock => getGuards(cb.getOwnerBlock, targetOwner, cb.condRef.get :: currentGuards)
-        case cb : ConditionalBlock.ElseIfBlock => getGuards(cb.prevBlockRef, targetOwner, cb.condRef.get :: currentGuards)
-        case cb : ConditionalBlock.ElseBlock => getGuards(cb.prevBlockRef, targetOwner, currentGuards)
-        case cb : ConditionalBlock.CasePatternBlock[_] => getGuards(cb.getOwnerBlock, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
-        case cb : ConditionalBlock.Case_Block[_] => getGuards(cb.getOwnerBlock, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
+        case cb : ConditionalBlock.IfElseBlock => getGuards(cb.getOwnerBlock, targetOwner, cb.condRefOption.map(c => c.get).toList ++ currentGuards)
+        case cb : ConditionalBlock.CaseBlock => getGuards(cb.getOwnerBlock, targetOwner, cb.matchHeaderRef.matchValRef.get :: currentGuards)
       }
 
     //for a given consumer, we get a set of its producers
@@ -676,11 +673,6 @@ object DFDesign {
           tagMap.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
       }
 
-      def addConditionalBlock[Ret, CB <: ConditionalBlock.Of[Ret]](cb : CB, block : => Ret)(implicit ctx : DFBlock.Context) : CB = {
-        addMember(ctx.container, cb)
-        cb.applyBlock(block)
-        cb
-      }
       def addContainerOwner[O <: DFOwner](container : DFOwner.Container, owner : O) : O = {
         addMember(container.__parent, owner)
         OwnershipContext.enterContainer(container, owner)
@@ -689,11 +681,14 @@ object DFDesign {
       def addMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
         elaborateFSMHistoryHead()
         OwnershipContext.checkContainerExits(container)
-//        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
+        //        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
         memberTable += (member -> members.length)
         members += Tuple3(member, Set(), false)
         member
       }
+      def addMember[M <: DFMember](member : M)(implicit ctx : DFMember.Context) : M =
+        addMember(ctx.container, member)
+
       //same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
       def plantMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
         newRefFor[DFOwner, DFOwner.Ref.Type, DFOwner.Ref](member.ownerRef, container.owner) //now this reference will refer to meta design owner

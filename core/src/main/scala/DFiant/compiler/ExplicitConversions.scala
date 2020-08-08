@@ -17,9 +17,9 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
     case _ =>
       dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth).anonymize
   }
-  private def toggleLogical(dfVal : DFAny)(implicit ctx : DFBlock.Context) : DFAny = dfVal match {
+  private def toggleLogical(dfVal : DFAny)(implicit ctx : DFBlock.Context) : DFBool = dfVal match {
     case DFAny.Const(_, DFBool.Token(logical, value), ownerRef, tags) =>
-      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value), ownerRef, tags)
+      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value), ownerRef, tags).asInstanceOf[DFBool]
     case DFBit() =>
       (dfVal.asInstanceOf[DFBit] === 1).anonymize
     case DFBool() =>
@@ -71,23 +71,13 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
           }
           Some(func -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
         } else None
-      case cb : ConditionalBlock.IfBlock =>
-        val cond = cb.condRef.get
+      case cb @ ConditionalBlock.IfElseBlock(Some(condRef),prevBlockRefOption,_,_) =>
+        val cond = condRef.get
+        val prevIfOption = prevBlockRefOption.map(r => r.get)
         cond match {
           case DFBit() =>
             val dsn = new MetaDesign() {
-              ConditionalBlock.NoRetVal.IfBlock.forcedHeader(toggleLogical(cond))
-            }
-            Some(cb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
-          case _ => None
-        }
-      case cb : ConditionalBlock.ElseIfBlock =>
-        val cond = cb.condRef.get
-        val prevBlock = cb.prevBlockRef.get
-        cond match {
-          case DFBit() =>
-            val dsn = new MetaDesign() {
-              ConditionalBlock.NoRetVal.ElseIfBlock.forcedHeader(toggleLogical(cond), prevBlock)
+              ConditionalBlock.IfElseBlock(Some(toggleLogical(cond)), prevIfOption)
             }
             Some(cb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
           case _ => None

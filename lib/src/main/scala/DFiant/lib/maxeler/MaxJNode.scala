@@ -77,7 +77,7 @@ final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
     pushOutZ.foreach{case (_,d) => d.valid := false}
     final val guard = ifdf(ready.prev){
       pushOutZ.foreach{case (_,d) => d.valid := true}
-    }
+    }.owner
   }
 
 

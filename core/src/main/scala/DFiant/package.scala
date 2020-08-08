@@ -163,19 +163,21 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   def ifdf[C](cond : C)(block : => Unit)(
     implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
-  ) : ConditionalBlock.NoRetVal.IfBlock = ConditionalBlock.NoRetVal.IfBlock(condArg())(block)
+  ) : ConditionalBlock.NoRetVal.IfElseBlock[true] =
+    new ConditionalBlock.NoRetVal.IfElseBlock[true](Some(condArg()), None)(block)
   def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
     implicit ctx : DFBlock.Context
-  ): ConditionalBlock.NoRetVal.MatchHeader[MVType] = ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)
+  ): ConditionalBlock.NoRetVal.MatchHeader[MVType] =
+    new ConditionalBlock.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)
 
   implicit class ListExtender[+T](val list : Iterable[T]) {
     def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context) : Unit = {
-      val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
+      val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(0)(block(list.head))
       list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1))).casedf_{}
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
-      val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
+      val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(DFBits.Token(sel.width.getValue, BigInt(0)))(block(list.head))
       list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1))).casedf_{}
     }
@@ -183,7 +185,7 @@ package object DFiant {
 
   implicit class MatchList(list : List[(DFBits.Token, DFBits.Token)]) {
     def matchdf[MW, RW](matchValue : DFBits[MW], resultVar : DFAny.VarOf[DFBits.Type[RW]])(implicit ctx : DFBlock.Context) : Unit = {
-      val blockMatchDF = ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
+      val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
       if (list.nonEmpty) {
         val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
         list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2}).casedf_{}

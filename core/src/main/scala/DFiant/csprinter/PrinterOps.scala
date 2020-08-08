@@ -16,13 +16,13 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
   ) : String = {
     import printer.config._
     val finalStr = owner match {
-      case _ : ConditionalBlock => "" //local values cannot be annotated as "final"
+      case _ : ConditionalBlock.Owner => "" //local values cannot be annotated as "final"
       case _ => s"$SC final "
     }
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
-      case cb : ConditionalBlock => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.blockMemberTable(cb), lateConstruction)))
+      case cb : ConditionalBlock.Owner => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.blockMemberTable(cb), lateConstruction)))
       case DFDesign.Block.Internal(_,_,_,Some(_)) => None
       case d : DFDesign.Block =>
         val body = blockBodyCodeString(d, fixedDB.blockMemberTable(d), lateConstruction = true)

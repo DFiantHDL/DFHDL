@@ -36,21 +36,21 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       if (printer.inSimulation) Some(Verilator.ifndef(s"${Sim.guardName} = $LIT 1;"))
       else None
     val (_, statements) = designDB.blockMemberTable(block).filter(filterFunc).foldRight(("", List.empty[String])) {
-      case (cb : ConditionalBlock.ElseBlock, (_, statements)) =>
+      case (cb @ ConditionalBlock.IfElseBlock(None,Some(_),_,_), (_, statements)) =>
         (If.Else(getProcessStatements(cb)), statements)
       case (cb @ RTL.ElseIfBlock(_,_), (closing, statements)) =>
         (If.Else(getProcessStatements(cb) ++ simGuardSetOption), statements)
-      case (cb : ConditionalBlock.ElseIfBlock, (closing, statements)) =>
-        (If.ElsIf(Value.ref(cb.condRef.get), getProcessStatements(cb), closing), statements)
+      case (cb @ ConditionalBlock.IfElseBlock(Some(condRef),Some(_),_,_), (closing, statements)) =>
+        (If.ElsIf(Value.ref(condRef.get), getProcessStatements(cb), closing), statements)
       case (cb @ RTL.IfBlock(RTL.IsClock(),_), (closing, statements)) =>
         ("", getProcessStatements(cb) ++ statements ++ simGuardSetOption)
-      case (cb : ConditionalBlock.IfBlock, (closing, statements)) =>
-        ("", If(Value.ref(cb.condRef.get), getProcessStatements(cb), closing) :: statements)
-      case (cb : ConditionalBlock.Case_Block[_], (_, statements)) =>
+      case (cb @ ConditionalBlock.IfElseBlock(Some(condRef),None,_,_), (closing, statements)) =>
+        ("", If(Value.ref(condRef.get), getProcessStatements(cb), closing) :: statements)
+      case (cb @ ConditionalBlock.CaseBlock(_,_,None,_,_), (_, statements)) =>
         (Case.Item(Case.Choice.Default(), getProcessStatements(cb)), statements)
-      case (cb : ConditionalBlock.CasePatternBlock[_], (items, statements)) =>
-        val width = cb.matchHeaderRef.get.matchValRef.get.width
-        val item = Case.Item(Case.Choice.Pattern(cb.pattern, width), getProcessStatements(cb))
+      case (cb @ ConditionalBlock.CaseBlock(matchHeaderRef,_,Some(pattern),_,_), (items, statements)) =>
+        val width = matchHeaderRef.get.matchValRef.get.width
+        val item = Case.Item(Case.Choice.Pattern(pattern, width), getProcessStatements(cb))
         (if (items.isEmpty) item else s"$item\n$items", statements)
       case (mh : ConditionalBlock.MatchHeader, (items, statements)) =>
         ("", Case(Value.ref(mh.matchValRef.get), items, designDB.caseWithDontCare(mh)) :: statements)
