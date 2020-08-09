@@ -29,6 +29,7 @@ object PackageFile {
        |$EMPTY
        |package body $name is
        |${helperFunctionsBody.delim()}
+       |${enumBodyDcl.delim()}
        |end package body $name;
        |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN).formatted
   }
@@ -36,6 +37,8 @@ object PackageFile {
 
   private def enumDcl(implicit printer: Printer) : String =
     printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl(e)).mkString("\n")
+  private def enumBodyDcl(implicit printer: Printer) : String =
+    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl.body(e)).mkString("\n")
   private def helperFunctions(implicit printer: Printer) : String = {
     import printer.config._
     val to_hstring =

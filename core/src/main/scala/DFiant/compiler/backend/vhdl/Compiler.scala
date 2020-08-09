@@ -149,7 +149,9 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         }.mkString("\n")
         val syncProcess = Process("sync_proc", syncSensitivityList, List(), syncStatements)
         val statements = componentInstances ++ List(asyncProcess, syncProcess, emits)
-        val enumTypeDcls = designDB.getLocalEnumTypes(design).map(e => EnumTypeDcl(e)).toList
+        val enumTypeDcls = designDB.getLocalEnumTypes(design).map(e =>
+          s"${EnumTypeDcl(e)}\n${EnumTypeDcl.body(e)}"
+        ).toList
         val declarations = enumTypeDcls ++ signals
         val architecture = Architecture(s"${entityName}_arch", entityName, declarations, statements)
         val file = File(s"${designDB.top.designType}_pkg", entity, architecture)

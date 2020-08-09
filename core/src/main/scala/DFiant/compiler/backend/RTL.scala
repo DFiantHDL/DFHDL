@@ -73,6 +73,7 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
       val hasBlockRst = clockedBlocks.exists{b => addedClkRst(b).hasRst}
       lazy val hasPrevClk = members.exists{
         case _ : DFAny.Alias.Prev => true
+        case _ : DFSimMember => true //simulation members are dependent on clock
         case _ => false
       }
       lazy val hasPrevRst = members.exists{
@@ -80,6 +81,7 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
           case Some(_ :+ _) => true
           case _ => false
         }
+        case _ : DFSimMember => true //simulation members are dependent on reset
         case _ => false
       }
       val topSimulation = block match {
