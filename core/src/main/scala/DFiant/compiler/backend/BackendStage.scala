@@ -1,7 +1,7 @@
 package DFiant
 package compiler
 package backend
-import DFiant.printer.formatter
+import compiler.printer.formatter
 
 import scala.annotation.implicitNotFound
 

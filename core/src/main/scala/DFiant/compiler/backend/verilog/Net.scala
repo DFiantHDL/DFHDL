@@ -2,7 +2,7 @@ package DFiant
 package compiler
 package backend
 package verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Net {
   object External {

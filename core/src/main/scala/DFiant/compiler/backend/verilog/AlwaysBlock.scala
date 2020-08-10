@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object AlwaysBlock {
   def apply(sensitivity : String, statements : List[String])(

@@ -4,7 +4,7 @@ package compiler.backend.vhdl
 import constraints.timing.sync._
 import ResetParams.Active
 import DFiant.sim._
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Sim {
   private def clkRstGuard(implicit printer: Printer) : String = {

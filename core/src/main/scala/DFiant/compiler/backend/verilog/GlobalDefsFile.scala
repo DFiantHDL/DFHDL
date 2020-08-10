@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 object GlobalDefsFile {
   def apply()(implicit printer: Printer) : String = {

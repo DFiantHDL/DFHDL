@@ -40,9 +40,9 @@ package object vhdl {
   implicit object v2008 extends BackendStage.Compiler[Backend[Revision.V2008]] {
     def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, Backend[Revision.V2008]] = c.vhdlCompile[Revision.V2008]
   }
-  private[vhdl] type Printer = DFiant.printer.Printer[Printer.Config]
+  private[vhdl] type Printer = printer.Printer[Printer.Config]
   private[vhdl] object Printer {
-    sealed class Config(val revision: Revision) extends DFiant.printer.Printer.Config {
+    sealed class Config(val revision: Revision) extends printer.Printer.Config {
       import io.AnsiColor._
       val DELIM : String = "  "
       val maxAlignments : List[Int] = List(25, 25)

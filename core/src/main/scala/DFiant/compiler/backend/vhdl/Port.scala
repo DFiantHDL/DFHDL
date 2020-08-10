@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 object Port {
   def apply(name : String, dir : String, rtType : String, initStr : String)(

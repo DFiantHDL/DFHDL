@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.{Func2, Of}
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 
 object DFUInt extends DFAny.Companion {
   final case class Type[W](width : TwoFace.Int[W]) extends DFAny.Type {

@@ -1,9 +1,9 @@
 package DFiant
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
-import printer.formatter._
+import compiler.printer.formatter._
 
 trait DFBlock extends DFOwner {
   def headerCodeString(implicit printer: CSPrinter) : String

@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 object PackageFile {
   def apply()(implicit printer: Printer) : String = {

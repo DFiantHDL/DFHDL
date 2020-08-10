@@ -1,7 +1,7 @@
 package DFiant
 package compiler
 
-import DFiant.csprinter.CSPrinter
+import csprinter.CSPrinter
 import printer.formatter._
 
 import scala.annotation.tailrec

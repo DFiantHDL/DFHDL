@@ -1,7 +1,7 @@
 package DFiant
 
 import DFiant.DFAny.CanBeAnonymous
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 import compiler.backend.BackendStage
 
 final case class BackendEmitter(

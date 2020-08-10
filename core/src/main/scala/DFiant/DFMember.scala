@@ -1,6 +1,6 @@
 package DFiant
 import DFiant.internals.Meta
-import csprinter.CSPrinter
+import DFiant.compiler.csprinter.CSPrinter
 
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
@@ -202,7 +202,7 @@ trait MemberGetSet {
   def getGlobalTag[CT <: DFMember.CustomTag : ClassTag](taggedElement : Any) : Option[CT]
 }
 object MemberGetSet {
-  import DFiant.printer.Printer
+  import DFiant.compiler.printer.Printer
   implicit def ev(implicit ctx : DFMember.Context) : MemberGetSet = ctx.db.getSet
   implicit def evGetSet[C <: Printer.Config](implicit printer : Printer[C], lp : shapeless.LowPriority) : MemberGetSet = printer.getSet
 }

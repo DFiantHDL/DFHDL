@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object If {
   def apply(cond : String, statements : List[String], closing : String)(

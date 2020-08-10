@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Process {
   def apply(name : String, sensitivity : String, variables : List[String], statements : List[String])(

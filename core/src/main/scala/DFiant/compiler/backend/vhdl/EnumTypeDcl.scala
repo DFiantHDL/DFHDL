@@ -2,7 +2,7 @@ package DFiant
 package compiler.backend.vhdl
 
 import DFiant.internals.BigIntExtras
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object EnumTypeDcl {
   def constants(enumType: EnumType)(implicit printer : Printer) : String = {

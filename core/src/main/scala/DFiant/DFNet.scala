@@ -1,7 +1,7 @@
 package DFiant
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 import DFiant.internals._
-import printer.formatter._
+import compiler.printer.formatter._
 
 sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
   val toRef : DFNet.ToRef

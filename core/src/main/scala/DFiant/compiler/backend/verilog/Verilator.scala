@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 object Verilator {
   private def macroDef(macroKeyword : String, statementBlock : String)(implicit printer: Printer) : String = {

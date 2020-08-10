@@ -1,8 +1,8 @@
 package DFiant
-package csprinter
+package compiler.csprinter
 
 object CSPrinter {
-  sealed trait Config extends DFiant.printer.Printer.Config {
+  sealed trait Config extends compiler.printer.Printer.Config {
     import io.AnsiColor._
     val showCustomTags : Boolean = true
     val showInits : Boolean = false

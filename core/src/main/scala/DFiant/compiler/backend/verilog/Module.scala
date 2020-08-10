@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Module {
   def apply(moduleName : String, ports : List[String], statements : List[String])(

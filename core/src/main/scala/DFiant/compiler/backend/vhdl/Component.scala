@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Component {
   def apply(entityName : String, ports : List[String])(implicit printer : Printer) : String = {

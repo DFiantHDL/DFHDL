@@ -2,7 +2,7 @@ package DFiant
 package compiler.backend.vhdl
 
 import internals._
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Value {
   def const(token : DFAny.Token)(implicit printer : Printer) : String = {

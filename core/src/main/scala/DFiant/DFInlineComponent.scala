@@ -1,7 +1,7 @@
 package DFiant
 
 import DFiant.EdgeDetect.Edge
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   implicit ctx : ContextOf[DFInlineComponent[_]]
 ) extends DFDesign with DFAny.DefaultRet[Type] {

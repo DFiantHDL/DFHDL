@@ -16,9 +16,9 @@
  */
 
 import DFiant.internals._
-import DFiant.compiler.{AddTags, Compilation, IRCompilation, PostCompiler, PreCompiler}
-import DFiant.compiler.backend.BackendStage
-import DFiant.csprinter.PrinterOps
+import DFiant.compiler._
+import backend.BackendStage
+import csprinter.PrinterOps
 
 import scala.language.experimental.macros
 import singleton.ops._

@@ -1,6 +1,6 @@
 package DFiant
 import DFiant.DFDesign.DB.Patch
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 import DFiant.internals._
 
 import scala.annotation.{nowarn, tailrec}

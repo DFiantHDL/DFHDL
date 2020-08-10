@@ -7,7 +7,7 @@ import DFiant.internals.BigIntExtrasCO
 import DFiant.sim._
 
 import scala.collection.mutable
-import printer.formatter._
+import compiler.printer.formatter._
 import RTL.Analysis
 
 final class Compiler[D <: DFDesign](c : IRCompilation[D]) {

@@ -1,14 +1,12 @@
 package DFiant
-
-import DFiant.DFDesign.DB
-import DFiant.csprinter.CodeStringOf
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
 import scala.annotation.implicitNotFound
-import printer.formatter._
-import csprinter.CSPrinter
+import DFiant.DFDesign.DB
+import compiler.printer.formatter._
+import compiler.csprinter._
 import singleton.ops.impl.HasOut
 
 sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {

@@ -1,6 +1,7 @@
-package DFiant.sim
+package DFiant
+package sim
 
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 
 sealed trait Severity extends Product with Serializable {
   def codeString(implicit printer: CSPrinter) : String = {

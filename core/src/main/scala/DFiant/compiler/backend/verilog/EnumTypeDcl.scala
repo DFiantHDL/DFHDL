@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object EnumTypeDcl {
   def defines(enumType: EnumType)(implicit printer : Printer) : String = {

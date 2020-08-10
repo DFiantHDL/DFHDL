@@ -39,9 +39,9 @@ package object verilog {
   implicit object v2005 extends BackendStage.Compiler[Backend[Revision.V2005]] {
     def apply[D <: DFDesign](c : IRCompilation[D]) : BackendStage.Compilation[D, Backend[Revision.V2005]] = c.verilogCompile[Revision.V2005]
   }
-  private[verilog] type Printer = DFiant.printer.Printer[Printer.Config]
+  private[verilog] type Printer = printer.Printer[Printer.Config]
   private[verilog] object Printer {
-    sealed class Config(val revision: Revision) extends DFiant.printer.Printer.Config {
+    sealed class Config(val revision: Revision) extends printer.Printer.Config {
       import io.AnsiColor._
       val DELIM : String = "  "
       val maxAlignments : List[Int] = List(25, 25)

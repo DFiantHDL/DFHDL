@@ -1,4 +1,4 @@
-package DFiant.printer
+package DFiant.compiler.printer
 
 object formatter {
   import io.AnsiColor._

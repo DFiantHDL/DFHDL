@@ -1,4 +1,5 @@
 package DFiant
+package compiler
 package printer
 
 trait Printer[C <: Printer.Config] {

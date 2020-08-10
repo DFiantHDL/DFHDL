@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Init {
   def apply(member : DFAny)(implicit printer : Printer) : String = {

@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Emitter {
   def unapply(emitter : BackendEmitter)(implicit printer: Printer) : Option[String] = emitter.backendStage match {

@@ -1,8 +1,8 @@
 package DFiant
+package compiler
 package csprinter
 
-import DFiant.compiler.Compilation
-import DFiant.printer.formatter._
+import printer.formatter._
 import DFiant.sim._
 
 import scala.collection.mutable

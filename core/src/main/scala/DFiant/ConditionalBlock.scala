@@ -16,7 +16,7 @@
  */
 
 package DFiant
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 import DFMember.OwnedRefOption
 import OwnedRefOption._
 

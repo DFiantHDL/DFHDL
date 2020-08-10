@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.vhdl
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Case {
   def apply(expression : String, whens : String, allowDontCare : Boolean)(implicit printer : Printer) : String = {

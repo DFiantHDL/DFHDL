@@ -1,7 +1,7 @@
 package DFiant
 package sim
 
-import DFiant.csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 
 sealed trait DFSimMember extends DFMember {
   def codeString(implicit printer: CSPrinter) : String

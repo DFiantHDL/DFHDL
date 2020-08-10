@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 
 private object Case {
   def apply(expression : String, items : String, allowDontCare : Boolean)(implicit printer : Printer) : String = {

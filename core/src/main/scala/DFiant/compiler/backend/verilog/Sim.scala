@@ -1,6 +1,6 @@
 package DFiant
 package compiler.backend.verilog
-import printer.formatter._
+import compiler.printer.formatter._
 import constraints.timing.sync._
 import ClockParams.Edge
 import ResetParams.Active

@@ -17,14 +17,13 @@
 
 package DFiant
 
-import DFiant.csprinter.{CodeStringOf, HasCodeString}
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 
 import scala.collection.{immutable, mutable}
-import DFiant.csprinter.CSPrinter
-import printer.formatter._
+import compiler.csprinter._
+import compiler.printer.formatter._
 
 object DFEnum extends DFAny.Companion {
   final case class Type[E <: EnumType](enumType : E) extends DFAny.Type {

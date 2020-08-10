@@ -3,7 +3,7 @@ package DFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
-import csprinter.CSPrinter
+import compiler.csprinter.CSPrinter
 import DFAny.Func2
 
 object DFBool extends DFAny.Companion {

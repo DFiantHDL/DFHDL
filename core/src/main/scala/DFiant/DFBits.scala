@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import DFAny.Func2
-import DFiant.csprinter.{CSPrinter, CodeStringOf}
+import compiler.csprinter._
 
 import scala.annotation.nowarn
 
