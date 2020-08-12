@@ -141,6 +141,28 @@ package object stream {
       }
       ret
     }
+
+    @df def orElsedf[R](secondary : Precise[R])(
+      implicit op : left.dfType.`Op:=Builder`[Type, R]
+    ) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      ifdf (left.isNotEmpty) {
+        ret := left
+      }.elsedf {
+        ret.assign(op(left.dfType, secondary))
+      }
+      ret
+    }
+
+    @df def stallBypassdf(cond : DFBool, from : DFAny.Of[Type]) : DFAny.Of[Type] = {
+      val ret = left.asNewVar
+      ifdf (cond) {
+
+      }.elsedf {
+
+      }
+      ret
+    }
   }
 
   implicit class StreamCollectionExt[Type <: DFAny.Type, Mod <: DFAny.Modifier](iter : Iterable[DFAny.Value[Type, Mod]]) {
