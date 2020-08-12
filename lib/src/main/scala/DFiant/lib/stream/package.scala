@@ -143,7 +143,7 @@ package object stream {
     }
 
     @df def orElsedf[R](secondary : Precise[R])(
-      implicit op : left.dfType.`Op:=Builder`[Type, R]
+      implicit op : DFAny.`Op:=,<>`.Builder[Type, R]
     ) : DFAny.Of[Type] = {
       val ret = left.asNewVar
       ifdf (left.isNotEmpty) {

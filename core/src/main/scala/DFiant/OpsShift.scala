@@ -11,7 +11,7 @@ protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : Func2
   def tokenFunc[LW](left : T[LW]#TToken, right : DFUInt.Token) : T[LW]#TToken
 
   @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
-  trait Builder[L <: DFAny, R] extends DFAny.Op.Builder[L, R] {
+  trait Builder[L <: DFAny, -R] extends DFAny.Op.Builder[L, R] {
     type Out = L
   }
 
@@ -37,7 +37,7 @@ protected abstract class OpsShift[T[W] <: DFAny.Type{type Width = W}](op : Func2
       checkLWvRW : SmallShift.CheckedShell[LW, RW]
     ) : Builder[DFAny.Of[T[LW]], DFUInt[RW]] = (left, right) => create(left, right)
 
-    implicit def evDFSInt_op_Const[LW, R <: Int, RW](
+    implicit def evDFSInt_op_Const[LW, R, RW](
       implicit
       ctx : DFAny.Context,
       rConst : DFUInt.Const.NatOnly.Aux[R, RW],

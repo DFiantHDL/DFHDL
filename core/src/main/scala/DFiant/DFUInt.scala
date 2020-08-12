@@ -13,18 +13,16 @@ object DFUInt extends DFAny.Companion {
     type TPattern = DFUInt.Pattern
     type TPatternAble[+R] = DFUInt.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFUInt.Pattern.Builder[LType]
-    type OpAble[R] = DFUInt.Op.Able[R]
-    type `Op==Builder`[L, R] = DFUInt.`Op==`.Builder[L, R]
-    type `Op!=Builder`[L, R] = DFUInt.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, R] = DFUInt.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, R] = DFUInt.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[-L, -R] = DFUInt.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] = DFUInt.`Op!=`.Builder[L, R]
     type InitAble[L <: DFAny] = DFUInt.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFUInt.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken.toUInt
     def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
       case r @ DFUInt(_) =>
-        val op = implicitly[`Op:=`.Builder[Type[W], DFUInt[Int]]]
+        import DFDesign.Implicits._
+        val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFUInt[Int]]]
         op(this, r.asInstanceOf[DFUInt[Int]])
     }
     override def toString: String = s"DFUInt[$width]"
@@ -226,7 +224,13 @@ object DFUInt extends DFAny.Companion {
     object PosNeg {
       type Aux[N, W0] = PosNeg[N]{type W = W0}
       import singleton.ops.math.Abs
-      implicit def fromInt[N <: Int](implicit ctx : DFAny.Context, w : BitsWidthOf.Int[Abs[N]])
+      implicit def fromValueOf[N](
+        implicit const : PosNeg[N]
+      ) : Aux[ValueOf[N], const.W] = new PosNeg[ValueOf[N]] {
+        type W = const.W
+        def apply(value : ValueOf[N]) : (DFUInt[W], Boolean) = const(value.value)
+      }
+      implicit def fromInt[N <: Int](implicit ctx : DFAny.Context, w : BitsWidthOf.Int[Abs[N]], di : DummyImplicit)
       : Aux[N, w.Out] = new PosNeg[N] {
         type W = w.Out
         def apply(value : N) : (DFUInt[W], Boolean) = {
@@ -235,7 +239,7 @@ object DFUInt extends DFAny.Companion {
           (DFAny.Const[Type[W]](Type(width), Token(width, absValue)), value < 0)
         }
       }
-      implicit def fromLong[N <: Long](implicit ctx : DFAny.Context, w : BitsWidthOf.Long[Abs[N]])
+      implicit def fromLong[N <: Long](implicit ctx : DFAny.Context, w : BitsWidthOf.Long[Abs[N]], di : DummyImplicit)
       : Aux[N, w.Out] = new PosNeg[N] {
         type W = w.Out
         def apply(value : N) : (DFUInt[W], Boolean) = {
@@ -263,11 +267,18 @@ object DFUInt extends DFAny.Companion {
       object `N >= 0` extends `N >= 0` {
         type MsgCommon[N] = "Operation or assignment do not permit a negative number. Found literal: " + ToString[N]
       }
+      implicit def fromValueOf[N](
+        implicit const : NatOnly[N]
+      ) : Aux[ValueOf[N], const.W] = new NatOnly[ValueOf[N]] {
+        type W = const.W
+        def apply(value : ValueOf[N]) : DFUInt[W] = const(value.value)
+      }
       implicit def fromInt[N <: Int](
         implicit
         ctx : DFAny.Context,
         checkPos : `N >= 0`.Int.CheckedShell[N],
-        w : BitsWidthOf.Int[N]
+        w : BitsWidthOf.Int[N],
+        di : DummyImplicit
       ) : Aux[N, w.Out] = new NatOnly[N] {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
@@ -280,7 +291,8 @@ object DFUInt extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         checkPos : `N >= 0`.Long.CheckedShell[N],
-        w : BitsWidthOf.Long[N]
+        w : BitsWidthOf.Long[N],
+        di : DummyImplicit
       ) : Aux[N, w.Out] = new NatOnly[N] {
         type W = w.Out
         def apply(value : N) : DFUInt[W] = {
@@ -306,7 +318,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends OpCO {
+  object Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able[L](value) {
       val left = value
@@ -319,7 +331,7 @@ object DFUInt extends DFAny.Companion {
       final def === [RW](right : DFUInt[RW])(implicit op: `Op===`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def =!= [RW](right : DFUInt[RW])(implicit op: `Op=!=`.Builder[L, DFUInt[RW]]) = op(left, right)
     }
-    trait Implicits {
+    trait Implicits extends `Op:=,<>`.Implicits {
       final implicit def __DFUIntWiden[FW, TW](c : DFUInt[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFUInt[TW] = c.asInstanceOf[DFUInt[TW]]
       sealed class __DFUIntFromInt[L <: Int](left : L) extends AbleOps[L](left)
       final implicit def __DFUIntFromInt[L <: Int](left: L): __DFUIntFromInt[L] = new __DFUIntFromInt(left)
@@ -335,26 +347,25 @@ object DFUInt extends DFAny.Companion {
       final implicit def __DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFUIntFromDefaultRet[W] = new __DFUIntFromDefaultRet(left)
       final implicit def __ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
       implicit class __ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
-        final def +  [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
-        final def -  [R](right : Able[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
+        final def +  [R](right : Precise[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
+        final def -  [R](right : Precise[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
       }
       final implicit class __DFUIntOps[LW](val left : DFUInt[LW]){
-        def +   [R](right : Able[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
-        def -   [R](right : Able[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
-        def <   [R](right : Able[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
-        def >   [R](right : Able[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
-        def <=  [R](right : Able[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
-        def >=  [R](right : Able[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
-        def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFUInt[LW], R]) = op(left, right)
-        def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFUInt[LW], R]) = op(left, right)
-        def << [R](right: DFUInt.Op.Able[R])(implicit op: `Op<<`.Builder[DFUInt[LW], R]) = op(left, right)
-        def >> [R](right: DFUInt.Op.Able[R])(implicit op: `Op>>`.Builder[DFUInt[LW], R]) = op(left, right)
+        def +   [R](right : Precise[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        def -   [R](right : Precise[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        def <   [R](right : Precise[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >   [R](right : Precise[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
+        def <=  [R](right : Precise[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >=  [R](right : Precise[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFUInt[LW], R]) = op(left, right)
+        def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def << [R](right: Precise[R])(implicit op: `Op<<`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >> [R](right: Precise[R])(implicit op: `Op>>`.Builder[DFUInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFUInt[RW] =
           DFAny.Alias.Resize.uint(left, toWidth)
         def extendable : DFUInt[LW] with Extendable = left.asInstanceOf[DFUInt[LW] with Extendable]
       }
     }
-    object Able extends Implicits
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -362,20 +373,16 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
-      type Out = DFAny.Of[LType]
+  object `Op:=,<>` {
+    import DFAny.`Op:=,<>`.Builder
+    object `LW >= RW` extends Checked1Param.Int {
+      type Cond[LW, RW] = LW >= RW
+      type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+      type ParamFace = Int
     }
 
-    object Builder {
-      object `LW >= RW` extends Checked1Param.Int {
-        type Cond[LW, RW] = LW >= RW
-        type Msg[LW, RW] = "An assignment operation does not permit a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
-        type ParamFace = Int
-      }
-
-      implicit def evDFUInt_op_DFUInt[LW, RW](
+    trait Implicits {
+      implicit def __DFUInt_ac_DFUInt[LW, RW](
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
@@ -384,7 +391,7 @@ object DFUInt extends DFAny.Companion {
         right.asInstanceOf[DFAny.Of[Type[LW]]]
       }
 
-      implicit def evDFUInt_op_Const[LW, R, RW](
+      implicit def __DFUInt_ac_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
         rConst : Const.NatOnly.Aux[R, RW],
@@ -396,8 +403,6 @@ object DFUInt extends DFAny.Companion {
       }
     }
   }
-  object `Op:=` extends `Ops:=,<>`
-  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -406,7 +411,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       object `LW == RW` extends Checked1Param.Int {
@@ -487,7 +492,7 @@ object DFUInt extends DFAny.Companion {
 //    }
 
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
-    trait Builder[L, LE, R] extends DFAny.Op.Builder[L, R]
+    trait Builder[-L, LE, -R] extends DFAny.Op.Builder[L, R]
 
     object Builder {
       type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
@@ -541,12 +546,12 @@ object DFUInt extends DFAny.Companion {
           }
       }
 
-      implicit def evDFUInt_op_DFUInt[L <: DFUInt[LW], LW, LE, R <: DFUInt[RW], RW](
+      implicit def evDFUInt_op_DFUInt[LW, LE, RW](
         implicit
         detailedBuilder: DetailedBuilder[DFUInt[LW], LW, LE, DFUInt[RW], RW]
       ) = detailedBuilder((left, right) => (op, left, right))
 
-      implicit def evDFUInt_op_Const[L <: DFUInt[LW], LW, LE, R, RW](
+      implicit def evDFUInt_op_Const[LW, LE, R, RW](
         implicit
         ctx : DFAny.Context,
         rConst : Const.PosNeg.Aux[R, RW],
@@ -557,7 +562,7 @@ object DFUInt extends DFAny.Companion {
         (updatedOp, left, right)
       })
 
-      implicit def evConst_op_DFUInt[L, LW, LE, R <: DFUInt[RW], RW](
+      implicit def evConst_op_DFUInt[L, LW, LE, RW](
         implicit
         ctx : DFAny.Context,
         lConst : Const.NatOnly.Aux[L, LW],

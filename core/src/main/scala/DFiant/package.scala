@@ -184,6 +184,7 @@ package object DFiant {
   }
 
   implicit class MatchList(list : List[(DFBits.Token, DFBits.Token)]) {
+    import DFDesign.Implicits._
     def matchdf[MW, RW](matchValue : DFBits[MW], resultVar : DFAny.VarOf[DFBits.Type[RW]])(implicit ctx : DFBlock.Context) : Unit = {
       val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
       if (list.nonEmpty) {

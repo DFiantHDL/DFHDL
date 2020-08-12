@@ -33,11 +33,8 @@ object DFEnum extends DFAny.Companion {
     type TPattern = Pattern
     type TPatternAble[+R] = Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = Pattern.Builder[LType]
-    type OpAble[R] = Op.Able[R]
-    type `Op==Builder`[L, R] = `Op==`.Builder[L, R]
-    type `Op!=Builder`[L, R] = `Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, R] = `Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, R] = `Op:=`.Builder[LType, R]
+    type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] = `Op!=`.Builder[L, R]
     type InitAble[L <: DFAny] = Init.Able[L]
     type InitBuilder[L <: DFAny] = Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
@@ -141,25 +138,24 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object Op extends OpCO {
+  object Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able[L](value) {
       val left = value
       final def === [E <: EnumType](right : DFEnum[E])(implicit op: `Op===`.Builder[L, DFEnum[E]]) = op(left, right)
       final def =!= [E <: EnumType](right : DFEnum[E])(implicit op: `Op=!=`.Builder[L, DFEnum[E]]) = op(left, right)
     }
-    trait Implicits {
+    trait Implicits extends `Op:=,<>`.Implicits  {
       sealed class __DFEnumFromEntry[L <: EnumType.Entry](left : L) extends AbleOps[L](left)
       final implicit def __DFEnumFromEntry[L <: EnumType.Entry](left: L): __DFEnumFromEntry[L] = new __DFEnumFromEntry(left)
       sealed class __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) extends AbleOps[DFEnum[E]](left)
       final implicit def __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) : __DFEnumFromDefaultRet[E] = new __DFEnumFromDefaultRet(left)
       final implicit def __ofDFEnum[E <: EnumType](left : DFEnum[E]) : Able[DFEnum[E]] = new Able(left)
       final implicit class __DFEnumOps[E <: EnumType](val left : DFEnum[E]){
-        def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFEnum[E], R]) = op(left, right)
-        def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFEnum[E], R]) = op(left, right)
+        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFEnum[E], R]) = op(left, right)
+        def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFEnum[E], R]) = op(left, right)
       }
     }
-    object Able extends Implicits
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -167,23 +163,17 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
-      type Out = DFAny.Of[LType]
-    }
-
-    object Builder {
-      implicit def evDFEnum_op_DFEnum[E <: EnumType](implicit ctx : DFAny.Context)
+  object `Op:=,<>` {
+    import DFAny.`Op:=,<>`.Builder
+    trait Implicits {
+      implicit def __DFEnum_ac_DFEnum[E <: EnumType](implicit ctx : DFAny.Context)
       : Builder[Type[E], DFEnum[E]] = (left, right) => right
 
-      implicit def evDFEnum_op_Entry[E <: EnumType, Entry <: E#Entry](implicit ctx : DFAny.Context)
+      implicit def __DFEnum_ac_Entry[E <: EnumType, Entry <: E#Entry](implicit ctx : DFAny.Context)
       : Builder[Type[E], Entry] =
         (left, rightEntry) => DFAny.Const[Type[E]](Type(left.enumType), Token(left.enumType, rightEntry))
     }
   }
-  object `Op:=` extends `Ops:=,<>`
-  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -192,7 +182,7 @@ object DFEnum extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsCompare[Op <: DFAny.Func2.Op](op : Op) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       def create[E <: EnumType, L, R](properLR : (L, R) => (DFEnum[E], DFEnum[E]))(implicit ctx : DFAny.Context)

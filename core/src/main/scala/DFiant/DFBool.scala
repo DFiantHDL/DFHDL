@@ -13,11 +13,8 @@ object DFBool extends DFAny.Companion {
     type TPattern = DFBool.Pattern
     type TPatternAble[+R] = DFBool.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFBool.Pattern.Builder[LType]
-    type OpAble[R] = DFBool.Op.Able[R]
-    type `Op==Builder`[L, R] = DFBool.`Op==`.Builder[L, R]
-    type `Op!=Builder`[L, R] = DFBool.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: DFAny.Type, R] = DFBool.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: DFAny.Type, R] = DFBool.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[-L, -R] = DFBool.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] = DFBool.`Op!=`.Builder[L, R]
     type InitAble[L <: DFAny] = DFBool.Init.Able[L]
     type InitBuilder[L <: DFAny] = DFBool.Init.Builder[L, TToken]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
@@ -206,6 +203,9 @@ object DFBool extends DFAny.Companion {
       def apply(value : C) : Const
     }
     object Builder {
+      implicit def fromValueOf[N](
+        implicit const : Builder[N]
+      ) : Builder[ValueOf[N]] = (value : ValueOf[N]) => const(value.value)
       implicit def fromInt[C <: Int](implicit ctx : DFAny.Context, checkBin : BinaryInt.CheckedShell[C])
       : Builder[C] = value => {
         checkBin.unsafeCheck(value)
@@ -226,10 +226,10 @@ object DFBool extends DFAny.Companion {
   }
   object Arg {
     implicit def ev[Idx, B](
-      implicit arg : GetArg.Aux[Idx, B], conv : DFBool.`Op:=`.Builder[DFBool.Type, B]
+      implicit arg : GetArg.Aux[Idx, B], conv : DFAny.`Op:=,<>`.Builder[DFBool.Type, B]
     ) : Arg[Idx] = () => conv(DFBool.Type(logical = true), arg.value.asInstanceOf[B])
   }
-  object Op extends OpCO {
+  object Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L]
     class AbleOps[L](value : L) extends Able(value) {
       final val left = value
@@ -239,7 +239,7 @@ object DFBool extends DFAny.Companion {
       final def === (right : DFBool)(implicit op: `Op===`.Builder[L, DFBool]) = op(left, right)
       final def =!= (right : DFBool)(implicit op: `Op=!=`.Builder[L, DFBool]) = op(left, right)
     }
-    trait Implicits {
+    trait Implicits extends `Op:=,<>`.Implicits {
       sealed class __DFBoolFrom0(left : 0) extends AbleOps[0](left)
       final implicit def __DFBoolFrom0(left: 0): __DFBoolFrom0 = new __DFBoolFrom0(left)
       sealed class __DFBoolFrom1(left : 1) extends AbleOps[1](left)
@@ -258,15 +258,14 @@ object DFBool extends DFAny.Companion {
       implicit class __DFBoolOps(val left : DFBool) {
         final def rising()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Rising).outPort
         final def falling()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Falling).outPort
-        final def ||  [R](right : Able[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
-        final def &&  [R](right : Able[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
-        final def ^   [R](right : Able[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
-        final def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
-        final def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
+        final def ||  [R](right : Precise[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
+        final def &&  [R](right : Precise[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
+        final def ^   [R](right : Precise[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
+        final def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
+        final def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
         final def unary_!(implicit ctx : DFAny.Context) : DFBool = DFAny.Alias.Invert(left)
       }
     }
-    object Able extends Implicits
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -274,24 +273,11 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
-      type Out = DFAny.Of[LType]
-    }
+  object `Op:=,<>` {
+    import DFAny.`Op:=,<>`.Builder
 
-    object Builder {
-      implicit def evDFBool_op_DFBool[R <: DFBool](
-        implicit
-        ctx : DFAny.Context
-      ) : Builder[Type, R] = (left, right) => right
-
-      implicit def evDFBool_op_RVal[R <: DFAny.DefaultRet[Type]](
-        implicit
-        ctx : DFAny.Context
-      ) : Builder[Type, R] = (left, right) => right.thisVal
-
-      implicit def evDFBool_op_Const[L <: DFBool, R](
+    trait Implicits {
+      implicit def __DFBool_ac_Const[L <: DFBool, R](
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder[R]
@@ -301,8 +287,6 @@ object DFBool extends DFAny.Companion {
       }
     }
   }
-  object `Op:=` extends `Ops:=,<>`
-  object `Op<>` extends `Ops:=,<>`
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -311,7 +295,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class BoolOps[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
     @scala.annotation.implicitNotFound("Operation is not supported between type ${L} and type ${R}")
-    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(

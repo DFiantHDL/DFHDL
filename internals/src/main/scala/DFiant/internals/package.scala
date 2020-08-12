@@ -368,9 +368,10 @@ package object internals {
     result
   }
 
+  implicit def fromValueOf[T](valueOf: ValueOf[T]) : T = valueOf.value
   class Precise[T](val value : T)
   object Precise {
-    implicit def fromValueSing[T <: Singleton](value : T) : Precise[T] = new Precise[T](value)
+    implicit def fromValueSing[T <: Singleton](value : T) : Precise[ValueOf[T]] = new Precise[ValueOf[T]](new ValueOf(value))
     implicit def fromValueNonSing[T](value : T)(implicit di : DummyImplicit) : Precise[T] = new Precise[T](value)
     implicit def toValue[T](precise: Precise[T]) : T = precise.value
   }

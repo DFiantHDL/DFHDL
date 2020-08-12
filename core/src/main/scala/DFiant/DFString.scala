@@ -15,11 +15,8 @@
 //    type TPattern = DFString.Pattern
 //    type TPatternAble[+R] = DFString.Pattern.Able[R]
 //    type TPatternBuilder[LType <: DFAny.Type] = DFString.Pattern.Builder[LType]
-//    type OpAble[R] = DFString.Op.Able[R]
 //    type `Op==Builder`[L0, R] = DFString.`Op==`.Builder[L0, R]
 //    type `Op!=Builder`[L0, R] = DFString.`Op!=`.Builder[L0, R]
-//    type `Op<>Builder`[LType <: DFAny.Type, R] = DFString.`Op<>`.Builder[LType, R]
-//    type `Op:=Builder`[LType <: DFAny.Type, R] = DFString.`Op:=`.Builder[LType, R]
 //    type InitAble[L0 <: DFAny] = DFString.Init.Able[L0]
 //    type InitBuilder[L0 <: DFAny] = DFString.Init.Builder[L0, TToken]
 //    val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](length * 8)
@@ -30,7 +27,7 @@
 //    }
 //    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
 //      case r @ DFString(_) =>
-//        val op = implicitly[`Op:=`.Builder[Type[L], DFString[Int]]]
+//        val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[L], DFString[Int]]]
 //        op(this, r.asInstanceOf[DFString[Int]])
 //    }
 //    def codeString(implicit printer: CSPrinter) : String = {
@@ -186,7 +183,7 @@
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  // Op
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  object Op extends OpCO {
+//  object Op {
 //    class Able[L](val value : L) extends DFAny.Op.Able[L]
 //    class AbleOps[L](value : L) extends Able[L](value) {
 //      final val left = value
@@ -205,9 +202,9 @@
 //      final implicit def __DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFStringFromDefaultRet[W] = new __DFStringFromDefaultRet(left)
 //      final implicit def __ofDFString[W](left : DFString[W]) : Able[DFString[W]] = new Able(left)
 //      final implicit class __DFStringOps[LL](val left : DFString[LL]){
-//        def === [R](right : Able[R])(implicit op: `Op===`.Builder[DFString[LL], R]) = op(left, right)
-//        def =!= [R](right : Able[R])(implicit op: `Op=!=`.Builder[DFString[LL], R]) = op(left, right)
-//        def ++  [R](right : Able[R])(implicit op: `Op++`.Builder[DFString[LL], R]) = op(left, right)
+//        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFString[LL], R]) = op(left, right)
+//        def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFString[LL], R]) = op(left, right)
+//        def ++  [R](right : Precise[R])(implicit op: `Op++`.Builder[DFString[LL], R]) = op(left, right)
 //      }
 ////      final implicit class DFStringAliases[LL, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LL], Mod]) {
 ////        def apply[H, L](relBitHigh : BitIndex.Checked[H, left.dfType.Length], relBitLow : BitIndex.Checked[L, left.dfType.Width])(
@@ -220,7 +217,6 @@
 ////          left.bit(relBit).overrideCodeString(rs => s"$rs($relBit)")
 ////      }
 //    }
-//    object Able extends Implicits
 //  }
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -228,9 +224,8 @@
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  // Assign & Connect
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  trait `Ops:=,<>` extends `Op:=` with `Op<>` {
-//    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
-//    trait Builder[LType <: DFAny.Type, R] extends DFAny.Op.Builder[LType, R] {
+//  object `Op:=,<>` {
+//    import DFAny.`Op:=,<>`.Builder {
 //      type Out = DFAny.Of[LType]
 //    }
 //
@@ -262,8 +257,7 @@
 //      }
 //    }
 //  }
-//  object `Op:=` extends `Ops:=,<>`
-//  object `Op<>` extends `Ops:=,<>`
+////  object `Op<>` extends `Ops:=,<>`
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //
@@ -272,7 +266,7 @@
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
 //    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-//    trait Builder[L, R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
+//    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
 //    object Builder {
 //      object `LL == RL` extends Checked1Param.Int {
 //        type Cond[LL, RL] = LL == RL
@@ -332,7 +326,7 @@
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  object `Op++` {
 //    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support a Concatenation Op with the type ${R}")
-//    trait Builder[L, R] extends DFAny.Op.Builder[L, R]
+//    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
 //
 //    def forced[LL, RL](left : DFString[LL], right : DFString[RL])(implicit ctx : DFAny.Context) : DFString[Int] =
 //      DFAny.Func2(Type(left.dfType.length + right.dfType.length), left, DFAny.Func2.Op.++, right)(_ ++ _).asInstanceOf[DFString[Int]]

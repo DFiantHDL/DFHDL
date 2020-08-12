@@ -53,6 +53,7 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
     if (isAnonymous) codeString
     else getRelativeName(callOwner, printer.getSet)
   }
+  override lazy val typeName: String = dfType.toString
 }
 
 object DFAny {
@@ -63,11 +64,8 @@ object DFAny {
     type TPattern <: DFAny.Pattern.Of[TPattern]
     type TPatternAble[+R] <: DFAny.Pattern.Able[R]
     type TPatternBuilder[LType <: Type] <: DFAny.Pattern.Builder[LType, TPatternAble]
-    type OpAble[R] <: DFAny.Op.Able[R]
-    type `Op==Builder`[L, R] <: DFAny.`Op==`.Builder[L, R]
-    type `Op!=Builder`[L, R] <: DFAny.`Op!=`.Builder[L, R]
-    type `Op<>Builder`[LType <: Type, R] <: DFAny.`Op<>`.Builder[LType, R]
-    type `Op:=Builder`[LType <: Type, R] <: DFAny.`Op:=`.Builder[LType, R]
+    type `Op==Builder`[-L, -R] <: DFAny.`Op==`.Builder[L, R]
+    type `Op!=Builder`[-L, -R] <: DFAny.`Op!=`.Builder[L, R]
     type InitAble[L <: DFAny] <: DFAny.Init.Able[L]
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
     def getBubbleToken : TToken
@@ -187,7 +185,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     final def == [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]]
-    ) = ccs(op => op(left, right), left.asInstanceOf[Any] == right.asInstanceOf[Any])
+    ) = ccs(op => op(left, right), (left : Any) == (right : Any))
     final def != [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]]
     ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
@@ -201,7 +199,6 @@ object DFAny {
     final def isNotEmpty(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotEmpty(left)
     final def isStallBubble(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsStallBubble(left)
     //////////////////////////////////////////////////////////////////////////
-    override lazy val typeName: String = dfType.toString
   }
 
   type Of[Type <: DFAny.Type] = Value[Type, Modifier]
@@ -431,11 +428,11 @@ object DFAny {
     }
 
     def <>[R](right: DFAny.ConnOf[Type])(
-      implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, DFAny.Of[Type]]
+      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, DFAny.Of[Type]]
     ): Unit = left.connectWith(op(left.dfType, right))
 
-    def ifdf[C, B](cond : C)(block : => left.dfType.OpAble[B])(
-      implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : left.dfType.`Op:=Builder`[Type, B]
+    def ifdf[C, B](cond : C)(block : => Precise[B])(
+      implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
     ) : ConditionalBlock.WithRetVal.IfElseBlock[Type, true] = {
       val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
       implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
@@ -981,35 +978,26 @@ object DFAny {
     def dontProduce()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontProduce(left)
     final def isNotFull(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotFull(left)
     def := [R](right : Precise[R])(
-      implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
+      implicit ctx : DFNet.Context, op : DFAny.`Op:=,<>`.Builder[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
-    def := (right : DFAny.Of[Type])(
-      implicit ctx : DFNet.Context
-    ) : Unit = {
-      left.dfType.assignCheck(right)
-      left.assign(right)
-    }
-    def := (bubble: Bubble)(implicit ctx : DFNet.Context) : Unit = {
-      left.assign(DFAny.Const(left.dfType, left.dfType.getBubbleToken))
-    }
   }
 
   type PortOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]]
   type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[IN]]
   type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[OUT]]
   implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
-    def <>[R](right: left.dfType.OpAble[R])(
-      implicit ctx: DFNet.Context, op: left.dfType.`Op<>Builder`[Type, R]
+    def <>[R](right: Precise[R])(
+      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, R]
     ): Unit = left.connectWith(op(left.dfType, right))
   }
   implicit class PortOps2[L](left : L) {
     def <>[Type <: DFAny.Type](right: PortOf[Type])(
-      implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, L]
+      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, L]
     ): Unit = right.connectWith(op(right.dfType, left))
   }
   implicit class PortOps3[Type <: DFAny.Type](left : Of[Type]) {
     def <>(right: PortOf[Type])(
-      implicit ctx: DFNet.Context, op: right.dfType.`Op<>Builder`[Type, Of[Type]]
+      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, Of[Type]]
     ): Unit = right.connectWith(op(right.dfType, left))
   }
 
@@ -1358,24 +1346,41 @@ object DFAny {
   object Op {
     trait Able[R]{val value : R}
     object Able {
-      implicit def fromAble[R](able : Able[R]) : R = able.value
+      implicit def fromAble[R](able : Precise[R]) : R = able.value
     }
-    trait Builder[L, R] extends HasOut {
+    trait Builder[-L, -R] extends HasOut {
       type Out <: DFAny
       def apply(left : L, rightR : R) : Out
     }
   }
   object `Op==` {
-    type Builder[L, R] = Op.Builder[L, R]{type Out = DFBool}
+    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
   }
   object `Op!=` {
-    type Builder[L, R] = Op.Builder[L, R]{type Out = DFBool}
+    type Builder[-L, -R] = Op.Builder[L, R]{type Out = DFBool}
   }
-  object `Op<>` {
-    type Builder[LType <: Type, R] = Op.Builder[LType, R]{type Out = Of[LType]}
-  }
-  object `Op:=` {
-    type Builder[LType <: Type, R] = Op.Builder[LType, R]{type Out = Of[LType]}
+  object `Op:=,<>` {
+    @scala.annotation.implicitNotFound("Dataflow variable of type ${LType} does not support assignment/connect operation with the type ${R}")
+    trait Builder[LType <: Type, -R] extends Op.Builder[LType, R]{type Out = Of[LType]}
+    object Builder {
+      implicit def __Type_ac_Type[LType <: Type](
+        implicit ctx : DFNet.Context
+      ) : Builder[LType, DFAny.Of[LType]] = (left, rightR) => {
+        left.assignCheck(rightR)
+        rightR
+      }
+      implicit def __Type_ac_DefaultRet[LType <: Type](
+        implicit ctx : DFNet.Context
+      ) : Builder[LType, DFAny.DefaultRet[LType]] = (left, rightR) => {
+        left.assignCheck(rightR.thisVal)
+        rightR
+      }
+      implicit def __Type_ac_Bubble[LType <: Type](
+        implicit ctx : DFNet.Context
+      ) : Builder[LType, ValueOf[Bubble.type]] = (left, _) => {
+        DFAny.Const(left, left.getBubbleToken)
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1405,17 +1410,6 @@ object DFAny {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // General Op
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    trait OpCO {
-      type Able[R] <: DFAny.Op.Able[R]
-      type Implicits
-      val Able : Implicits
-    }
-    val Op : OpCO
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Common Ops
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     trait `Op==` {
@@ -1426,14 +1420,6 @@ object DFAny {
       type Builder[L, R] <: DFAny.`Op!=`.Builder[L, R]
     }
     val `Op!=` : `Op!=`
-    trait `Op<>` {
-      type Builder[LType <: Type, R] <: DFAny.`Op<>`.Builder[LType, R]
-    }
-    val `Op<>` : `Op<>`
-    trait `Op:=` {
-      type Builder[LType <: Type, R] <: DFAny.`Op:=`.Builder[LType, R]
-    }
-    val `Op:=` : `Op:=`
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

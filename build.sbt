@@ -230,6 +230,7 @@ lazy val compilerOptions = Seq(
   "-language:higherKinds",
   "-language:implicitConversions",
   "-deprecation",
+//  "-Vimplicits",
   "-encoding",
   "utf8"
 )
