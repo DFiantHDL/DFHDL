@@ -980,7 +980,7 @@ object DFAny {
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     def dontProduce()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontProduce(left)
     final def isNotFull(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotFull(left)
-    def := [R](right : left.dfType.OpAble[R])(
+    def := [R](right : Precise[R])(
       implicit ctx : DFNet.Context, op : left.dfType.`Op:=Builder`[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
     def := (right : DFAny.Of[Type])(
