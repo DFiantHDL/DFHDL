@@ -32,7 +32,7 @@ object BackendEmitter {
     implicit ctx : DFAny.Context
   ) : BackendEmitter = {
     implicit lazy val ret : BackendEmitter with DFMember.RefOwner =
-      ctx.db.addMember(BackendEmitter(refSeq, backendStage, ctx.owner, ctx.meta)).asRefOwner
+      ctx.db.addMemberOf[BackendEmitter](BackendEmitter(refSeq, backendStage, ctx.owner, ctx.meta))
     lazy val refSeq : Seq[Either[Ref, String]] = seq.map {
       case Left(dfAny) => Left(DFMember.OwnedRef(dfAny))
       case Right(s) => Right(s)

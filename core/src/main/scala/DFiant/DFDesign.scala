@@ -694,6 +694,9 @@ object DFDesign {
       def addMember[M <: DFMember](member : M)(implicit ctx : DFMember.Context) : M =
         addMember(ctx.container, member)
 
+      def addMemberOf[M <: DFMember](member : DFMember)(implicit ctx : DFMember.Context) : M with DFMember.RefOwner =
+        addMember(ctx.container, member).asInstanceOf[M with DFMember.RefOwner]
+
       //same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
       def plantMember[M <: DFMember](container : DFOwner.Container, member : M) : M = {
         newRefFor[DFOwner, DFOwner.Ref.Type, DFOwner.Ref](member.ownerRef, container.owner) //now this reference will refer to meta design owner

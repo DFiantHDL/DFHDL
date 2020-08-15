@@ -100,7 +100,6 @@ object DFMember {
     def getTagOf[CT <: CustomTagOf[M] : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
     def isTaggedWith[CT <: CustomTagOf[M] : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined
     def setLateContruction(value : Boolean) : M = member.setTags(_.setLateContruction(value)).asInstanceOf[M]
-    def asRefOwner : M with RefOwner = member.asInstanceOf[M with RefOwner]
   }
 
   sealed trait CustomTag extends Product with Serializable
@@ -185,7 +184,7 @@ object DFMember {
     }
     def apply[M <: DFMember, T <: OwnedRef.Type, O <: DFMember](member: Option[M])(
       implicit ctx : DFMember.Context, rt : T, refOwner : => O with RefOwner
-    ) : OwnedRefOption[T, M] = member.map(m => OwnedRef[M, T, O](m.asRefOwner)(ctx, rt, refOwner))
+    ) : OwnedRefOption[T, M] = member.map(m => OwnedRef[M, T, O](m.asInstanceOf[M with RefOwner])(ctx, rt, refOwner))
   }
 }
 

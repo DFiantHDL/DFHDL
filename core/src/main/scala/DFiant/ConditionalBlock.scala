@@ -80,9 +80,10 @@ object ConditionalBlock {
     def apply(
       cond: Option[DFBool], prevBlock: Option[IfElseBlock]
     )(implicit ctx: DFBlock.Context) : IfElseBlock = {
-      implicit lazy val ret : IfElseBlock with DFMember.RefOwner = ctx.db.addMember(
-        IfElseBlock(OwnedRefOption(cond), OwnedRefOption(prevBlock), ctx.owner, ctx.meta)
-      ).asRefOwner
+      implicit lazy val ret : IfElseBlock with DFMember.RefOwner =
+        ctx.db.addMemberOf[IfElseBlock](
+          IfElseBlock(OwnedRefOption(cond), OwnedRefOption(prevBlock), ctx.owner, ctx.meta)
+        )
       ret
     }
   }
@@ -122,7 +123,9 @@ object ConditionalBlock {
       implicit ctx: DFMember.Context
     ): MatchHeader = {
       implicit lazy val ret : MatchHeader with DFMember.RefOwner =
-        ctx.db.addMember(MatchHeader(matchVal, matchConfig, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMemberOf[MatchHeader](
+          MatchHeader(matchVal, matchConfig, ctx.owner, ctx.meta)
+        )
       ret
     }
   }
@@ -151,7 +154,9 @@ object ConditionalBlock {
       matchHeader: MatchHeader, prevBlockOption: Option[CaseBlock], patternOption: Option[DFAny.Pattern]
     )(implicit ctx: DFBlock.Context): CaseBlock = {
       implicit lazy val ret : CaseBlock with DFMember.RefOwner =
-        ctx.db.addMember(CaseBlock(matchHeader, OwnedRefOption(prevBlockOption), patternOption, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMemberOf[CaseBlock](
+          CaseBlock(matchHeader, OwnedRefOption(prevBlockOption), patternOption, ctx.owner, ctx.meta)
+        )
       ret
     }
   }

@@ -52,7 +52,7 @@ object DFNet {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
     : Assignment = {
       implicit lazy val ret : Assignment with DFMember.RefOwner =
-        ctx.db.addMember(Assignment(to, from, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMemberOf[Assignment](Assignment(to, from, ctx.owner, ctx.meta))
       ret
     }
     object Unref {
@@ -76,7 +76,7 @@ object DFNet {
     def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
     : Connection = {
       implicit lazy val ret : Connection with DFMember.RefOwner =
-        ctx.db.addMember(Connection(to, from, ctx.owner, ctx.meta)).asRefOwner
+        ctx.db.addMemberOf[Connection](Connection(to, from, ctx.owner, ctx.meta))
       ret
     }
     object Unref {
