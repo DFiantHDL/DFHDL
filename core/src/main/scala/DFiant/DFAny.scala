@@ -188,7 +188,7 @@ object DFAny {
     ) = ccs(op => op(left, right), (left : Any) == (right : Any))
     final def != [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]]
-    ) = ccs(op => op(left, right), left.asInstanceOf[Any] != right.asInstanceOf[Any])
+    ) = ccs(op => op(left, right), (left : Any) != (right : Any))
     //////////////////////////////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////
@@ -211,10 +211,10 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     final def == [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]], getSet: MemberGetSet
-    ) = ccs(op => op(thisVal, right), thisVal.asInstanceOf[Any] == right.asInstanceOf[Any])
+    ) = ccs(op => op(thisVal, right), (thisVal : Any) == (right : Any))
     final def != [R](right : R)(
       implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]], getSet: MemberGetSet
-    ) = ccs(op => op(thisVal, right), thisVal.asInstanceOf[Any] != right.asInstanceOf[Any])
+    ) = ccs(op => op(thisVal, right), (thisVal : Any) != (right : Any))
     //////////////////////////////////////////////////////////////////////////
   }
   object DefaultRet {
@@ -247,8 +247,10 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  protected final case class CodeStringOverride(func : (CSPrinter, String) => String) extends DFMember.CustomTagOf[DFAny] with DFMember.InvisibleTag
-  protected final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny] with DFMember.InvisibleTag
+  protected final case class CodeStringOverride(
+    func : (CSPrinter, String) => String
+  ) extends DFMember.CustomTagOf[DFAny]
+  protected[DFiant] final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
 
   protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
     def setCodeStringOverride(func : (CSPrinter, String) => String) : T = member !! CodeStringOverride(func)
@@ -273,7 +275,8 @@ object DFAny {
     override def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = codeString
     override def show(implicit printer: CSPrinter) : String = s"Const($token) : $dfType"
 
-    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
+      getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Const {
     type Of[Type <: DFAny.Type] = Value[Type, Modifier.Val]{type TMod = Modifier.Val}

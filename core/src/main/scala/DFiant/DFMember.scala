@@ -104,7 +104,6 @@ object DFMember {
   }
 
   sealed trait CustomTag extends Product with Serializable
-  trait InvisibleTag extends CustomTag
   trait CustomTagOf[-T <: DFMember] extends CustomTag
   type CustomTagMap = Map[ClassTag[_], CustomTag]
   final case class Tags(meta : Meta, keep : Boolean, customTags : CustomTagMap) extends Product with Serializable {

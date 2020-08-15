@@ -4,8 +4,7 @@ package compiler.csprinter
 object CSPrinter {
   sealed trait Config extends compiler.printer.Printer.Config {
     import io.AnsiColor._
-    val showCustomTags : Boolean = true
-    val showInits : Boolean = false
+    val showTagsFilter : Option[DFMember.CustomTag => Boolean] = None
     val DELIM : String = "  "
     val maxAlignments : List[Int] = List(25, 25)
     val LIT : String = BLUE
@@ -18,7 +17,10 @@ object CSPrinter {
   object Config {
     implicit case object Default extends Config
     case object ShowInits extends Config {
-      override val showInits: Boolean = true
+      override val showTagsFilter : Option[DFMember.CustomTag => Boolean] = Some({
+        case _ : DFAny.Init => true
+        case _ => false
+      })
     }
   }
 }

@@ -36,20 +36,14 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       case sim : DFSimMember => Some(sim.codeString)
       case emitter : BackendEmitter => Some(emitter.codeString)
       case a : DFAny if !a.isAnonymous =>
-        val initInfo = if (showInits) a.getInit match {
-          case Some(init) => s"//init = ${init.codeString}"
-          case None => "//init = Unknown"
-        } else ""
-        val customTagInfo = {
-          val nonInvisibleTags = a.tags.customTags.values.filter {
-            case _ : DFMember.InvisibleTag => false
-            case _ => true
-          }
-          if (showCustomTags && nonInvisibleTags.nonEmpty)
-            nonInvisibleTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
-          else ""
+        val customTagInfo = showTagsFilter match {
+          case Some(tagsFilter) =>
+            val visibleTags = a.tags.customTags.values.filter(tagsFilter)
+            if (visibleTags.nonEmpty) visibleTags.mkString(s" ${DF}!! ", s" ${DF}!! ", "")
+            else ""
+          case None => ""
         }
-        Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo$initInfo")
+        Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo")
       case _ => None
     }
     membersCodeString.mkString("\n")
