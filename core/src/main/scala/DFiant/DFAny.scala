@@ -128,17 +128,13 @@ object DFAny {
       DFAny.Alias.BitsWL.bit(this, relBit.unsafeCheck(width))
 
     final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
-      DFAny.Alias.BitsWL(this, dfType.width, 0)
-        .setCodeStringOverride((_, rs) => s"$rs.bits")
+      DFAny.Alias.BitsWL(this, dfType.width, 0) !! cs"$this.bits"
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
     ) : AsType[DFBits.Type[relWidth.Out]] =
-      DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow)
-        .setCodeStringOverride { (printer, rs) =>
-          import printer.config.LIT
-          s"$rs.bits($LIT$relBitHigh, $LIT$relBitLow)"
-        }
+      DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow) !!
+        cs"$this.bits(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
@@ -247,14 +243,9 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  protected final case class CodeStringOverride(
-    func : (CSPrinter, String) => String
-  ) extends DFMember.CustomTagOf[DFAny]
   protected[DFiant] final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
 
   protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
-    def setCodeStringOverride(func : (CSPrinter, String) => String) : T = member !! CodeStringOverride(func)
-    def getCodeStringOverride : Option[(CSPrinter, String) => String] = member.getTagOf[CodeStringOverride].map(_.func)
     def setInit(seq : Seq[Token]) : T = member !! Init(seq)
     def clearInit : T = member.removeTagOf[Init]
     def getInit : Option[Seq[Token]] = member.getTagOf[Init].map(_.seq)
@@ -456,8 +447,8 @@ object DFAny {
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
     def relCodeString(cs : String)(implicit printer: CSPrinter) : String
     def codeString(implicit printer: CSPrinter): String = {
-      this.getCodeStringOverride match {
-        case Some(func) => func(printer, relValRef.refCodeString.applyBrackets())
+      this.getTagOf[CompactCodeString] match {
+        case Some(ccs) => ccs.codeString
         case None => relCodeString(relValRef.refCodeString.applyBrackets())
       }
     }

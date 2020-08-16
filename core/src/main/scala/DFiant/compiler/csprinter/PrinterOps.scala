@@ -23,14 +23,17 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : ConditionalBlock.MatchHeader => Some(mh.codeString)
       case cb : ConditionalBlock.Owner => Some(cb.codeString(blockBodyCodeString(cb, fixedDB.blockMemberTable(cb), lateConstruction)))
-      case DFDesign.Block.Internal(_,_,_,Some(_)) => None
-      case d : DFDesign.Block =>
-        val body = blockBodyCodeString(d, fixedDB.blockMemberTable(d), lateConstruction = true)
-        val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
-        Some(s"$finalStr$SC val ${d.name} ${ALGN(0)}= $SC new ${d.designType} $bodyBrackets") //TODO: fix
+      case DFDesign.Block.Internal(_,_,_,Some(_)) => None //inlined block
+      case d : DFDesign.Block => d.getTagOf[CompactCodeString] match {
+        case Some(ccs) => ccs.codeString(printer, owner)
+        case None =>
+          val body = blockBodyCodeString(d, fixedDB.blockMemberTable(d), lateConstruction = true)
+          val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
+          Some(s"$finalStr$SC val ${d.name} ${ALGN(0)}= $SC new ${d.designType} $bodyBrackets") //TODO: fix
+      }
       case n : DFNet => n.toRef.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
-        case _ => Some(n.codeString)
+        case _ => Some(n.codeString) //TODO: maybe CompactCodeString changes this or, alternatively, transparent ports
       }
       case dc @ DFAny.Dynamic(_,_ : DFAny.Dynamic.Func.Control,_,_) => Some(dc.codeString)
       case sim : DFSimMember => Some(sim.codeString)
@@ -50,15 +53,17 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
   }
   private def designBlockCodeString(block : DFDesign.Block, members : List[DFMember])(
     implicit printer : CSPrinter
-  ) : String = {
-    import printer.config._
-    val localEnumString = fixedDB.getLocalEnumTypes(block).map(e => e.codeString).mkString("","\n","\n")
-    val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
-    val classStr = block match {
-      case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimDesign"
-      case _ => "DFDesign"
-    }
-    s"$DF@df $SC class ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
+  ) : String = block.getTagOf[CompactCodeString] match {
+    case Some(_) => "" //If a block has a compact codestring representation then we don't display its declaration
+    case None =>
+      import printer.config._
+      val localEnumString = fixedDB.getLocalEnumTypes(block).map(e => e.codeString).mkString("","\n","\n")
+      val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
+      val classStr = block match {
+        case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimDesign"
+        case _ => "DFDesign"
+      }
+      s"$DF@df $SC class ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
   }
   def codeString(implicit printConfig : CSPrinter.Config) : String = {
     implicit val printer : CSPrinter = new CSPrinter {

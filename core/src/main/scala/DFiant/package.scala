@@ -18,7 +18,7 @@
 import DFiant.internals._
 import DFiant.compiler._
 import backend.BackendStage
-import csprinter.PrinterOps
+import csprinter.{CSPrinter, CompactCodeString, PrinterOps}
 
 import scala.language.experimental.macros
 import singleton.ops._
@@ -142,6 +142,17 @@ package object DFiant {
         case x => Right(x.toString)
       }
     def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
+    def cs(args : Any*)(implicit ctx : DFAny.Context) : CompactCodeString = {
+      val seq = Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
+        case x: String => x.nonEmpty
+        case _ => true
+      }).map {
+        case x : DFAny => CompactCodeString.MemberPart(x)
+        case CSFunc(func) => CompactCodeString.CSPrintPart(func)
+        case x => CompactCodeString.StringPart(x.toString)
+      }
+      CompactCodeString(seq)
+    }
     def vhdl(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.Backend)
     def verilog(args : Any*)(implicit ctx : DFAny.Context) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.verilog.Backend)
   }
@@ -155,6 +166,7 @@ package object DFiant {
     implicit def evb[W] : Interpolator.Aux[DFBits.Token, "b", DFBits.TokenW[W]] = macro DFBits.Token.binImplStringInterpolator
     implicit def evh[W] : Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] = macro DFBits.Token.hexImplStringInterpolator
   }
+  final case class CSFunc(func : CSPrinter.Config => String)
   ////////////////////////////////////////////////////////////////////////////////////
 
 

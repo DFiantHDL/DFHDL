@@ -446,27 +446,21 @@ object DFBits extends DFAny.Companion {
       }
       final implicit class __DFBitsAliases[LW, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LW], Mod]) {
         def uint(implicit ctx : DFAny.Context) : DFAny.Value[DFUInt.Type[LW], Mod] =
-          left.as(DFUInt.Type(left.width)).setCodeStringOverride((_, rs) => s"$rs.uint")
+          left.as(DFUInt.Type(left.width)) !! cs"$left.uint"
         def sint(implicit ctx : DFAny.Context) : DFAny.Value[DFSInt.Type[LW], Mod] =
-          left.as(DFSInt.Type(left.width)).setCodeStringOverride((_, rs) => s"$rs.sint")
+          left.as(DFSInt.Type(left.width)) !! cs"$left.sint"
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
         ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] =
-          left.bits(relBitHigh, relBitLow).setCodeStringOverride{(printer, rs) =>
-            import printer.config.LIT
-            s"$rs($LIT$relBitHigh, $LIT$relBitLow)"
-          }
+          left.bits(relBitHigh, relBitLow) !! cs"$left(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
         def apply[I](relBit: BitIndex.Checked[I, left.Width])(
           implicit ctx : DFAny.Context
         ) : DFAny.Value[DFBool.Type, Mod] =
-          left.bit(relBit).setCodeStringOverride{(printer, rs) =>
-            import printer.config.LIT
-            s"$rs($LIT$relBit)"
-          }
+          left.bit(relBit) !! cs"$left(${CSFunc(_.LIT)}$relBit)"
         def msbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
-          DFAny.Alias.BitsWL.bit(left, left.width-1).setCodeStringOverride((_, rs) => s"$rs.msbit")
+          DFAny.Alias.BitsWL.bit(left, left.width-1)!! cs"$left.msbit"
         def lsbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
-          DFAny.Alias.BitsWL.bit(left, 0).setCodeStringOverride((_, rs) => s"$rs.lsbit")
+          DFAny.Alias.BitsWL.bit(left, 0) !! cs"$left.lsbit"
       }
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

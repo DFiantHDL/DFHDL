@@ -17,6 +17,7 @@
 package example2
 
 import DFiant._
+import DFiant.compiler.csprinter.{CSPrinter, CompactCodeString}
 import DFiant.sim.DFSimDesign
 import internals._
 @df class ID extends DFDesign { //This our `ID` dataflow design
@@ -88,6 +89,9 @@ import lib.stream._
   matchdf(i)
     .casedf(b"1100????"){}
     .casedf_{}
+
+  val x = i.lsbit
+
 //  val ididid = new IDTop
 //  ididid.x <> fib.prev(2)
 //  sim.report(msg"Fib: ${ididid.y}")
