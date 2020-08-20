@@ -23,32 +23,32 @@ package object RISCV {
   }
   type DebugOp = DebugOp.type
 
-  implicit object BranchSel extends EnumType.Manual(4) {
+  implicit object BranchSel extends EnumType.Auto {
     val Next, BNE, BEQ, BGE,
-    BGEU, BLT, BLTU, JAL, JALR = EntryDelta()
+    BGEU, BLT, BLTU, JAL, JALR = Entry()
   }
   type BranchSel = BranchSel.type
 
-  implicit object RS1OpSel extends EnumType.Manual(2) {
-    val RegSource, Immediate  = EntryDelta()
+  implicit object RS1OpSel extends EnumType.Auto {
+    val RegSource, Immediate  = Entry()
     val DontCare = RegSource //Giving another name to an entry as a Don't Care value
   }
   type RS1OpSel = RS1OpSel.type
 
-  implicit object RS2OpSel extends EnumType.Manual(2) {
-    val RegSource, Immediate, PC  = EntryDelta()
+  implicit object RS2OpSel extends EnumType.Auto {
+    val RegSource, Immediate, PC  = Entry()
     val DontCare = RegSource
   }
   type RS2OpSel = RS2OpSel.type
 
-  implicit object ALUSel extends EnumType.Manual(4) {
-    val ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = EntryDelta()
+  implicit object ALUSel extends EnumType.Auto {
+    val ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = Entry()
     val DontCare = ADD
   }
   type ALUSel = ALUSel.type
 
-  implicit object WriteBackSel extends EnumType.Manual(2) {
-    val ALU, Mem, PCPlus4, CSR = EntryDelta()
+  implicit object WriteBackSel extends EnumType.Auto {
+    val ALU, Mem, PCPlus4, CSR = Entry()
     val DontCare = ALU
   }
   type WriteBackSel = WriteBackSel.type
