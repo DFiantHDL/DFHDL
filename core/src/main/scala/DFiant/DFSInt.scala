@@ -329,7 +329,7 @@ object DFSInt extends DFAny.Companion {
     }
 
     trait Implicits {
-      implicit def __DFSInt_ac_DFSInt[LW, RW](
+      final implicit def __DFSInt_ac_DFSInt[LW, RW](
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
@@ -338,7 +338,7 @@ object DFSInt extends DFAny.Companion {
         right.asInstanceOf[DFAny.Of[Type[LW]]]
       }
 
-      implicit def __DFSInt_ac_Const[LW, R, RW](
+      final implicit def __DFSInt_ac_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],

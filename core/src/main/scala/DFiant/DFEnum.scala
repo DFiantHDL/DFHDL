@@ -166,10 +166,10 @@ object DFEnum extends DFAny.Companion {
   object `Op:=,<>` {
     import DFAny.`Op:=,<>`.Builder
     trait Implicits {
-      implicit def __DFEnum_ac_DFEnum[E <: EnumType](implicit ctx : DFAny.Context)
+      final implicit def __DFEnum_ac_DFEnum[E <: EnumType](implicit ctx : DFAny.Context)
       : Builder[Type[E], DFEnum[E]] = (left, right) => right
 
-      implicit def __DFEnum_ac_Entry[E <: EnumType, Entry <: E#Entry](implicit ctx : DFAny.Context)
+      final implicit def __DFEnum_ac_Entry[E <: EnumType, Entry <: E#Entry](implicit ctx : DFAny.Context)
       : Builder[Type[E], Entry] =
         (left, rightEntry) => DFAny.Const[Type[E]](Type(left.enumType), Token(left.enumType, rightEntry))
     }

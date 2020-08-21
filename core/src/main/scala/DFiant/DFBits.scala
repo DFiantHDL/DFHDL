@@ -604,7 +604,7 @@ object DFBits extends DFAny.Companion {
     }
 
     trait Implicits {
-      implicit def __DFBits_ac_DFBits[LW, RW](
+      final implicit def __DFBits_ac_DFBits[LW, RW](
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
@@ -613,7 +613,7 @@ object DFBits extends DFAny.Companion {
         right.asInstanceOf[DFAny.Of[Type[LW]]]
       }
 
-      implicit def __DFBits_ac_SBV[LW, SBV](
+      final implicit def __DFBits_ac_SBV[LW, SBV](
         implicit
         ctx : DFAny.Context,
         rSBV : SameBitsVector.Builder[SBV, LW]
@@ -621,7 +621,7 @@ object DFBits extends DFAny.Companion {
         rSBV(left, right)
       }
 
-      implicit def __DFBits_ac_Const[LW, R, RW](
+      final implicit def __DFBits_ac_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder.Aux[R, RW],
