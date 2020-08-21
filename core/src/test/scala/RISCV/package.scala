@@ -15,7 +15,7 @@ package object RISCV {
   val caseDMem : Boolean = true //when true, implements the DMem for synthesis as a case statement
 
   final val NOPInst = h"00000013"
-  implicit object DebugOp extends EnumType.Auto {
+  object DebugOp extends EnumType.Auto {
     val Unsupported, LUI, AUIPC, JAL, JALR, BEQ, BNE, BLT, BGE, BLTU, BGEU,
     LB, LH, LW, LBU, LHU, SB, SH, SW, ADDI, SLTI, SLTIU, XORI, ORI, ANDI,
     SLLI, SRLI, SRAI, ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND,
@@ -23,37 +23,37 @@ package object RISCV {
   }
   type DebugOp = DebugOp.type
 
-  implicit object BranchSel extends EnumType.Auto {
+  object BranchSel extends EnumType.Auto {
     val Next, BNE, BEQ, BGE,
     BGEU, BLT, BLTU, JAL, JALR = Entry()
   }
   type BranchSel = BranchSel.type
 
-  implicit object RS1OpSel extends EnumType.Auto {
+  object RS1OpSel extends EnumType.Auto {
     val RegSource, Immediate  = Entry()
     val DontCare = RegSource //Giving another name to an entry as a Don't Care value
   }
   type RS1OpSel = RS1OpSel.type
 
-  implicit object RS2OpSel extends EnumType.Auto {
+  object RS2OpSel extends EnumType.Auto {
     val RegSource, Immediate, PC  = Entry()
     val DontCare = RegSource
   }
   type RS2OpSel = RS2OpSel.type
 
-  implicit object ALUSel extends EnumType.Auto {
+  object ALUSel extends EnumType.Auto {
     val ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1 = Entry()
     val DontCare = ADD
   }
   type ALUSel = ALUSel.type
 
-  implicit object WriteBackSel extends EnumType.Auto {
+  object WriteBackSel extends EnumType.Auto {
     val ALU, Mem, PCPlus4, CSR = Entry()
     val DontCare = ALU
   }
   type WriteBackSel = WriteBackSel.type
 
-  implicit object DMemSel extends EnumType.Auto {
+  object DMemSel extends EnumType.Auto {
     val LB, LH, LW, LBU, LHU, SB, SH, SW = Entry()
     val DontCare = LW
   }
