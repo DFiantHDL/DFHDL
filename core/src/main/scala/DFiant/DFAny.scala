@@ -1016,8 +1016,13 @@ object DFAny {
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
   implicit class ConnectableOps(left : DFAny){
     protected implicit class ConnectionExtras(that : DFAny) {
-      def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = that.getOwnerDesign.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
-      def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = that.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
+      def getPort(implicit ctx : DFNet.Context) : DFAny = that match {
+        case DFAny.Port.In() | DFAny.Port.Out() => that
+        case alias : DFAny.Alias[_,_,_] => alias.relValRef.get.getPort
+        case _ => ???
+      }
+      def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = getPort.getOwnerDesign.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
+      def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = getPort.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
     }
     private def connectPortInWithPortIn(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
