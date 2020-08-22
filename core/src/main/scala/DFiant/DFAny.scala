@@ -200,21 +200,23 @@ object DFAny {
   type Of[Type <: DFAny.Type] = Value[Type, Modifier]
 
   trait DefaultRet[Type <: DFAny.Type] {
-    def thisVal(implicit getSet: MemberGetSet) : DFAny.Of[Type]
+    def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[Type]
     val dfType : Type
     //////////////////////////////////////////////////////////////////////////
     // Equality
     //////////////////////////////////////////////////////////////////////////
     final def == [R](right : R)(
-      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]], getSet: MemberGetSet
+      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]], ctx : DFAny.Context
     ) = ccs(op => op(thisVal, right), (thisVal : Any) == (right : Any))
     final def != [R](right : R)(
-      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]], getSet: MemberGetSet
+      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]], ctx : DFAny.Context
     ) = ccs(op => op(thisVal, right), (thisVal : Any) != (right : Any))
     //////////////////////////////////////////////////////////////////////////
   }
   object DefaultRet {
-    implicit def getVal[Type <: DFAny.Type](v : DefaultRet[Type])(implicit getSet: MemberGetSet) : DFAny.Of[Type] = v.thisVal
+    implicit def getVal[Type <: DFAny.Type](v : DefaultRet[Type])(
+      implicit ctx : DFAny.Context
+    ) : DFAny.Of[Type] = v.thisVal
   }
 
   sealed trait Modifier extends Product with Serializable {

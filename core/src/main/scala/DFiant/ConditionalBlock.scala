@@ -166,7 +166,7 @@ object ConditionalBlock {
     val retVar : DFAny.VarOf[Type]
   ) extends ConditionalBlock.Of[Owner, DFAny.Of[Type]] with DFAny.DefaultRet[Type] {
     val dfType : Type = retVar.dfType
-    final def thisVal(implicit getSet: MemberGetSet) : DFAny.Of[Type] = retVar
+    final def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[Type] = retVar
 
     private[DFiant] def applyBlock(block : => DFAny.Of[Type])(
       implicit ctx : DFBlock.Context
