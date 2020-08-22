@@ -34,7 +34,7 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(logical = true))
+  def apply()(implicit ctx : DFAny.Context) : DFAny.NewVar[Type] = DFAny.NewVar(Type(logical = true))
   def unapply(arg: Any): Boolean = arg match {
     case dfAny : DFAny => dfAny.dfType match {
       case Type(logical) if logical => true
@@ -277,7 +277,7 @@ object DFBool extends DFAny.Companion {
     import DFAny.`Op:=,<>`.Builder
 
     trait Implicits {
-      implicit def __DFBool_ac_Const[L <: DFBool, R](
+      final implicit def __DFBool_ac_Const[L <: DFBool, R](
         implicit
         ctx : DFAny.Context,
         rConst : Const.Builder[R]

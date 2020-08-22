@@ -70,7 +70,7 @@ object DFDesign {
     }
     ///////////////////////////////////////////////////////////////////
 
-    implicit class __DesignExtender[D <: DFDesign](design : D) {
+    final implicit class __DesignExtender[D <: DFDesign](design : D) {
       private def onBlock(blockMod : Block => Block) : D = {
         blockMod(design.owner)
         design

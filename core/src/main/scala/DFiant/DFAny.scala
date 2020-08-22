@@ -372,34 +372,38 @@ object DFAny {
     object In {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
-      ) = Dcl(dfType, Modifier.Port(IN))
+      ) : In[Type] = Dcl(dfType, Modifier.Port(IN))
       def unapply(arg: Dcl) : Boolean = arg.modifier match {
         case Modifier.Port(IN) => true
         case _ => false
       }
     }
+    type In[Type <: DFAny.Type] = Value[Type, Modifier.Port[IN]] with Dcl.Uninitialized
     object Out {
       def apply[Type <: DFAny.Type](dfType: Type)(
         implicit ctx: DFAny.Context
-      ) = Dcl(dfType, Modifier.Port(OUT))
+      ) : Out[Type] = Dcl(dfType, Modifier.Port(OUT))
       def unapply(arg: Dcl) : Boolean = arg.modifier match {
         case Modifier.Port(OUT) => true
         case _ => false
       }
     }
+    type Out[Type <: DFAny.Type] = Value[Type, Modifier.Port[OUT]] with Dcl.Uninitialized
   }
+  type Port[Type <: DFAny.Type] = Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized
 
   object NewVar {
     def apply[Type <: DFAny.Type](dfType: Type)(
       implicit ctx: Context
-    ) = Dcl[Type, Modifier.NewVar](dfType, Modifier.DefaultDirVar)
+    ) : NewVar[Type] = Dcl[Type, Modifier.NewVar](dfType, Modifier.DefaultDirVar)
     def unapply(arg: Dcl) : Boolean = arg.modifier match {
       case Modifier.NewVar => true
       case _ => false
     }
   }
-  implicit class NewVarOps[Type <: DFAny.Type](val left : Value[Type, Modifier.NewVar] with Dcl.Uninitialized) {
-    def <> [D <: DclDir](dir : D)(implicit ctx : DFAny.Context) : Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized = {
+  type NewVar[Type <: DFAny.Type] = Value[Type, Modifier.NewVar] with Dcl.Uninitialized
+  implicit class NewVarOps[Type <: DFAny.Type](val left : NewVar[Type]) {
+    def <> [D <: DclDir](dir : D)(implicit ctx : DFAny.Context) : Port[Type] = {
       val modifier = ctx.dir match {
         case d : PortDir => Modifier.Port(d)
         case DFiant.VAR => Modifier.NewVar

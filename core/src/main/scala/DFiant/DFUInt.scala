@@ -40,16 +40,21 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) = DFAny.NewVar(Type(checkedWidth.unsafeCheck()))
+  def apply[W](checkedWidth : BitsWidth.Checked[W])(implicit ctx : DFAny.Context) : DFAny.NewVar[Type[W]] =
+    DFAny.NewVar(Type(checkedWidth.unsafeCheck()))
   def apply[W](
     implicit ctx : DFAny.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
-  ) = DFAny.NewVar(Type(checkedWidth.unsafeCheck()))
+  ) : DFAny.NewVar[Type[W]] = DFAny.NewVar(Type(checkedWidth.unsafeCheck()))
   def unapply(arg: DFAny): Option[Int] = arg.dfType match {
     case Type(width) => Some(width.getValue)
     case _ => None
   }
-  def max[U](maxValue : Positive.Checked[U])(implicit ctx : DFAny.Context, w : BitsWidthOf.Int[U]) = DFAny.NewVar(Type(w(maxValue.getValue)))
-  def until[U](supremum : Positive.Checked[U])(implicit ctx : DFAny.Context, w : BitsWidthOf.Int[U-1]) = DFAny.NewVar(Type(w(supremum.getValue-1)))
+  def max[U](maxValue : Positive.Checked[U])(
+    implicit ctx : DFAny.Context, w : BitsWidthOf.Int[U]
+  ) : DFAny.NewVar[Type[w.Out]] = DFAny.NewVar(Type(w(maxValue.getValue)))
+  def until[U](supremum : Positive.Checked[U])(
+    implicit ctx : DFAny.Context, w : BitsWidthOf.Int[U-1]
+  ) : DFAny.NewVar[Type[w.Out]] = DFAny.NewVar(Type(w(supremum.getValue-1)))
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -382,7 +387,7 @@ object DFUInt extends DFAny.Companion {
     }
 
     trait Implicits {
-      implicit def __DFUInt_ac_DFUInt[LW, RW](
+      final implicit def __DFUInt_ac_DFUInt[LW, RW](
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
@@ -391,7 +396,7 @@ object DFUInt extends DFAny.Companion {
         right.asInstanceOf[DFAny.Of[Type[LW]]]
       }
 
-      implicit def __DFUInt_ac_Const[LW, R, RW](
+      final implicit def __DFUInt_ac_Const[LW, R, RW](
         implicit
         ctx : DFAny.Context,
         rConst : Const.NatOnly.Aux[R, RW],
