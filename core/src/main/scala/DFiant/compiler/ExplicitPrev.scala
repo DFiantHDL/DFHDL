@@ -21,7 +21,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
       case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
       case DFAny.Port.Out() | DFAny.Var() =>
         designDB.getConnectionTo(value) match {
-          case Some(v) => consumeFrom(v, relWidth, relBitLow, assignMap, currentSet)
+          case Some(n) => consumeFrom(n.fromRef.get, relWidth, relBitLow, assignMap, currentSet)
           case None =>
             val scope = assignMap(value)
             if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet

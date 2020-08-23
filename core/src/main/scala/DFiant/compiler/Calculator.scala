@@ -38,13 +38,15 @@ final class Calculator[D <: DFDesign](c : IRCompilation[D]) {
           else calcInitRec(deps ++ remaining, calc, requestedCalc + m)
         case v : DFAny.Value[_,_] => designDB.getConnectionTo(v) match {
           //uses connection init
-          case Some(s) => getInit(s) match {
-            case Some(init) => calcInitRec(mList, calc + (m -> init), requestedCalc)
-            case None if requestedCalc.contains(m) =>
-              //Connection loop returns an empty initialization
-              calcInitRec(mList, calc + (m -> Seq()), requestedCalc - m)
-            case None => calcInitRec(s :: remaining, calc, requestedCalc + m)
-          }
+          case Some(n) =>
+            val s = n.fromRef.get
+            getInit(s) match {
+              case Some(init) => calcInitRec(mList, calc + (m -> init), requestedCalc)
+              case None if requestedCalc.contains(m) =>
+                //Connection loop returns an empty initialization
+                calcInitRec(mList, calc + (m -> Seq()), requestedCalc - m)
+              case None => calcInitRec(s :: remaining, calc, requestedCalc + m)
+            }
           //no connection and no external init, so use an empty sequence
           case None =>
             //TODO: add connection via alias init fetch support here

@@ -167,11 +167,11 @@ object DFDesign {
     def concat(db : DB) : DB = DB(this.members ++ db.members.drop(1), this.refTable ++ db.refTable, this.globalTags ++ db.globalTags)
     //There can only be a single connection to a value (but multiple assignments are possible)
     //                              To    From
-    lazy val connectionTable : Map[DFAny, DFAny] =
-      members.collect{case n : DFNet.Connection => (n.toRef.get, n.fromRef.get)}.toMap
+    lazy val connectionTable : Map[DFAny, DFNet.Connection] =
+      members.collect{case n : DFNet.Connection => (n.toRef.get, n)}.toMap
 
-    lazy val connectionTableInverted : Map[DFAny, Set[DFAny]] =
-      connectionTable.invert
+    lazy val connectionTableInverted : Map[DFAny, List[DFNet.Connection]] =
+      members.collect{case n : DFNet.Connection => n}.groupBy(n => n.fromRef.get)
 
     //                               To      From
     lazy val assignmentsTable : Map[DFAny, Set[DFAny]] =
@@ -189,8 +189,8 @@ object DFDesign {
         case (at, _) => at
       }
 
-    def getConnectionTo(v : DFAny) : Option[DFAny] = connectionTable.get(v)
-    def getConnectionFrom(v : DFAny) : Set[DFAny] = connectionTableInverted.getOrElse(v, Set())
+    def getConnectionTo(v : DFAny) : Option[DFNet.Connection] = connectionTable.get(v)
+    def getConnectionFrom(v : DFAny) : List[DFNet.Connection] = connectionTableInverted.getOrElse(v, List())
 
     def getAssignmentsTo(v : DFAny) : Set[DFAny] = assignmentsTable.getOrElse(v, Set())
     def getAssignmentsFrom(v : DFAny) : Set[DFAny] = assignmentsTableInverted.getOrElse(v, Set())

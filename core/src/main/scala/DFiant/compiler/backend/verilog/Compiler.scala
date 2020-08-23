@@ -99,7 +99,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
             (Port(p.name, Port.Dir.Out(), Type(p)) :: ports, wires, regs)
           case (RTL.IsClock() | RTL.IsReset(), pwr) if design.isTop && printer.inSimulation => pwr
           case (s : DFAny, (ports, wires, regs)) if !s.isAnonymous => designDB.getConnectionTo(s) match {
-            case Some(v) if v.isPortOut => (ports, Wire(s.name, Type(s)) :: wires, regs)
+            case Some(n) if n.fromRef.isPortOut => (ports, Wire(s.name, Type(s)) :: wires, regs)
             case _ => (ports, wires, Reg(s.name, Type(s), Init(s)) :: regs)
           }
           case (_, pwr) => pwr
