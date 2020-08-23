@@ -304,7 +304,7 @@ object DFAny {
     }
     override def refCodeString(implicit printer: CSPrinter, owner: DFOwner): String = getOwnerBlock match {
       case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep.inlineCodeString
-      case _ => super.refCodeString
+      case _ => super.refCodeString(printer, owner)
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
