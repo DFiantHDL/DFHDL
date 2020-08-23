@@ -335,6 +335,11 @@ object DFDesign {
           //add followed by a replacement is allowed via a tandem patch execution
           case (add : Patch.Add, Patch.Remove) =>
             tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
+          //add before/after followed by a reference replacement
+          case (
+              add @ Patch.Add(addDB, Patch.Add.Config.After | Patch.Add.Config.Before),
+              Patch.Replace(_,Patch.Replace.Config.ChangeRefOnly,_)
+            ) => tbl + (m -> Patch.Add(addDB, add.config))
           //allow the same member to be removed more than once by getting rid of the redundant removals
           case (Patch.Remove, Patch.Remove) => tbl + (m -> Patch.Remove)
           //don't allow using the same member for patching if it's not an addition of the same configuration

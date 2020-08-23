@@ -51,32 +51,35 @@ For example:
 */
 final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
+  import designDB.__getset
   def viaPortConnection : IRCompilation[D] = {
     val internalBlocks : List[DFDesign.Block.Internal] = designDB.members.collect {
       case d : DFDesign.Block.Internal if d.inlinedRep.isEmpty => d
     }
     val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
       //getting only ports that are not already connected to variables unless these are clock variables
-      val ports : List[DFAny] = designDB.designMemberTable(ib).flatMap {
-        case p @ DFAny.Port.Out() =>
-//          val conns = designDB.getConnectionFrom(p)
-//          conns.headOption match {
-//            case Some(DFAny.NewVar()) if conns.size == 1 => None
-//            case _ => Some(p)
-//          }
-          Some(p)
-        case p @ DFAny.Port.In() =>
-//          import designDB.__getset
-//          designDB.getConnectionTo(p) match {
-//            case Some(v @ DFAny.NewVar()) if v.tags.customTags.exists{case _ : RTL.Tag => true} => Some(p)
-//            case Some(v @ DFAny.NewVar()) => None
-//            case Some(_ @ DFAny.Port.In()) => Some(p)
-//            case Some(x) if x.isMemberOfDesign(ib) || x.isMemberOfDesign(ib.getOwnerDesign) => None
-//            case _ => Some(p)
-//          }
-          Some(p)
-        case _ => None
-      }
+      val (ports, nets) : (List[DFAny], List[DFNet]) =
+        designDB.designMemberTable(ib).foldRight((List.empty[DFAny], List.empty[DFNet])) {
+          case (p @ DFAny.Port.Out(), (ports, nets)) =>
+            val conns = designDB.getConnectionFrom(p)
+            conns.headOption match {
+              case Some(n) if n.hasLateConstruction => (ports, nets) //already has via connections
+              case Some(n @ DFNet.Connection.Unref(DFAny.NewVar(), _, _, _)) if conns.size == 1 =>
+                (ports, n :: nets)
+              case _ => (p :: ports, nets)
+            }
+          case (p @ DFAny.Port.In(), (ports, nets)) =>
+            designDB.getConnectionTo(p) match {
+              //we have a single net that is assigned not more than once
+              //(otherwise, for RTL purposes we require another value so an internal multi-assignment rtl variable/reg
+              //can be assigned into a signal/wire)
+              case Some(n) if n.hasLateConstruction => (ports, nets) //already has via connections
+              case Some(n @ DFNet.Connection.Unref(_, v @ DFAny.NewVar(), _, _)) if designDB.getAssignmentsTo(v).size <= 1 =>
+                (ports, n :: nets)
+              case _ => (p :: ports, nets)
+            }
+          case (_, x) => x
+        }
       //Meta design to construct the variables to be connected to the ports
       val addVarsDsn = new MetaDesign() {
         val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
@@ -93,9 +96,13 @@ final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
           }
           (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Outside(ib)))
         }
+        val movedNets : List[(DFMember, Patch)] = nets.map {n =>
+          plantMember(n.setTags(_.setLateContruction(true))(designDB.__getset)) //planet the net with a
+          (n -> Patch.Remove)
+        }
       }
       (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
-        (ib -> Patch.Add(connectDsn, Patch.Add.Config.Inside)) :: connectDsn.refPatches
+        (ib -> Patch.Add(connectDsn, Patch.Add.Config.Inside)) :: connectDsn.refPatches ++ connectDsn.movedNets
     }
     c.newStage(designDB.patch(patchList))
   }
