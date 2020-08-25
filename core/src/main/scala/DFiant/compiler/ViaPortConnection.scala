@@ -74,7 +74,7 @@ final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
               //(otherwise, for RTL purposes we require another value so an internal multi-assignment rtl variable/reg
               //can be assigned into a signal/wire)
               case Some(n) if n.hasLateConstruction => (ports, nets) //already has via connections
-              case Some(n @ DFNet.Connection.Unref(_, v @ DFAny.NewVar(), _, _)) if designDB.getAssignmentsTo(v).size <= 1 =>
+              case Some(n @ DFNet.Connection.Unref(_, v @ DFAny.NewVar(), _, _)) if designDB.getAssignmentsTo(v).isEmpty =>
                 (ports, n :: nets)
               case _ => (p :: ports, nets)
             }
