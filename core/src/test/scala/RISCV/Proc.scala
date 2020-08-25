@@ -22,7 +22,8 @@ import DFiant.sim._
 
 @df class Proc(program : Program) extends DFDesign {
   private val pc      = DFBits[32] init program.imem.startAddress
-  private val imem    = new IMem(program.imem)(pc)
+  private val ppc =  pc.prev
+  private val imem    = new IMem(program.imem)(ppc)
   private val decoder = new Decoder(imem.instOut)
   private val regFile = new RegFile(decoder.instOut)
   private val execute = new Execute(regFile.instOut)
@@ -34,7 +35,6 @@ import DFiant.sim._
   // Simulation Only
   ///////////////////////////////////////////////////////////////////////////////////////////////
   private val done = DFBit() <> OUT init false
-  private val ppc =  pc.prev
   sim.report(msg"PC=$ppc, instRaw=${imem.instOut.raw}, debugOp=${decoder.instOut.debugOp}")
 
   program.imem.failAddress match {

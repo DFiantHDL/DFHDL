@@ -20,6 +20,15 @@ object analysis {
         case v : DFAny => v
       }
     }
+    //true if and only is is assigned at any of its dealiasing stages
+    @tailrec final def isNonAliasAssigned : Boolean = {
+      value match {
+        case alias : DFAny.Alias[_,_,_] =>
+          if (getSet.designDB.getAssignmentsTo(alias).nonEmpty) true
+          else alias.relValRef.get.isNonAliasAssigned
+        case v : DFAny => getSet.designDB.getAssignmentsTo(v).nonEmpty
+      }
+    }
   }
 
   implicit class MatchHeaderAnalysis(mh : ConditionalBlock.MatchHeader)(implicit getSet: MemberGetSet) {

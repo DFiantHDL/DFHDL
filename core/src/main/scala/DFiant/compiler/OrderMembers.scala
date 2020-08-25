@@ -2,9 +2,11 @@ package DFiant
 package compiler
 
 import scala.annotation.tailrec
+import analysis.DFAnyAnalysis
 
 final class OrderMembers[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
+  import designDB.__getset
   @tailrec private def orderMembers(remaining : List[DFMember], retList : List[DFMember]) : List[DFMember] =
     remaining match {
       case (block : DFBlock) :: mList =>
@@ -13,9 +15,14 @@ final class OrderMembers[D <: DFDesign](c : IRCompilation[D]) {
           case _ : DFDesign.Block =>
             members.groupBy {
               case DFAny.Port.In() | DFAny.Port.Out() => 1
-              case DFAny.Var() => 2
+              case DFAny.NewVar() => 2
               case _ : DFDesign.Block.Internal => 3
-              case _ : CanBeGuarded | _ : DFNet.Connection => 5 //TODO: perhaps connection is not required if connections are treated better in backend compilation
+//              case net : DFNet.Connection if net.hasLateConstruction => 5
+//              case DFNet.Connection.Unref(DFAny.In(), DFAny.Out(), _, _) => 4
+//              case DFNet.Connection.Unref(_, DFAny.Out(), _, _) => 4
+//              case DFNet.Connection.Unref(DFAny.In(), _, _, _) => 6
+              case _ : DFNet.Connection => 5
+              case _ : CanBeGuarded => 5 //TODO: perhaps connection is not required if connections are treated better in backend compilation
               case _ => 4
             }.toList.sortBy(_._1).flatMap(_._2)
           case _ => members
