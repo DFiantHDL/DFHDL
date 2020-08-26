@@ -69,7 +69,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
         getImplicitPrevVars(rs, nextBlock, updatedScopeMap, updatedSet)
       case r :: rs if r.getOwnerBlock == currentBlock => //checking member consumers
         val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
-          case net : DFNet.Assignment =>
+          case net : DFNet =>
             (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
           case func : DFAny.Func2 =>
             val left = consumeFrom(func.leftArgRef.get, scopeMap, currentSet)
