@@ -37,7 +37,7 @@ final class UniqueNames[D <: DFDesign](c : IRCompilation[D]) {
         _.name,
         (e, n) => (e, classTag[EnumType.NameTag]) -> EnumType.NameTag(n)
       )
-      val patchList = renamer(members.filterNot(_.isAnonymous), globalNamesLC ++ localTagList.map(e => lowerCase(e._2.name)))(
+      val patchList = renamer(members.filterNot(_.isAnonymous), reservedNamesLC)(
         _.name,
         (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
       )
