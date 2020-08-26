@@ -86,6 +86,9 @@ object DFNet {
       }
     }
   }
+  case object LazyConnection extends DFMember.CustomTagOf[Connection] {
+    def unapply(net : Connection)(implicit getSet: MemberGetSet) : Boolean = net.getTagOf[LazyConnection.type].nonEmpty
+  }
 
   object Inlined {
     def unapply(arg : DFNet)(implicit getSet : MemberGetSet) : Boolean = arg match {

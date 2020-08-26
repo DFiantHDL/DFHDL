@@ -429,7 +429,7 @@ object DFAny {
 
     def <>[R](right: DFAny.ConnOf[Type])(
       implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, DFAny.Of[Type]]
-    ): Unit = left.connectWith(op(left.dfType, right))
+    ): DFNet.Connection = left.connectWith(op(left.dfType, right))
 
     def ifdf[C, B](cond : C)(block : => Precise[B])(
       implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
@@ -981,17 +981,17 @@ object DFAny {
   implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
     def <>[R](right: Precise[R])(
       implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, R]
-    ): Unit = left.connectWith(op(left.dfType, right))
+    ): DFNet.Connection = left.connectWith(op(left.dfType, right))
   }
   implicit class PortOps2[L](left : L) {
     def <>[Type <: DFAny.Type](right: PortOf[Type])(
       implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, L]
-    ): Unit = right.connectWith(op(right.dfType, left))
+    ): DFNet.Connection = right.connectWith(op(right.dfType, left))
   }
   implicit class PortOps3[Type <: DFAny.Type](left : Of[Type]) {
     def <>(right: PortOf[Type])(
       implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, Of[Type]]
-    ): Unit = right.connectWith(op(right.dfType, left))
+    ): DFNet.Connection = right.connectWith(op(right.dfType, left))
   }
 
   object In {
@@ -1089,7 +1089,7 @@ object DFAny {
       }
     }
 
-    protected[DFiant] def connectWith(right : DFAny)(implicit ctx : DFNet.Context) : Unit = {
+    protected[DFiant] def connectWith(right : DFAny)(implicit ctx : DFNet.Context) : DFNet.Connection = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
       val (toPort, from) : (DFAny, DFAny) = (left, right) match {
         case (p1@In(),  p2@In())  => connectPortInWithPortIn(p1, p2)

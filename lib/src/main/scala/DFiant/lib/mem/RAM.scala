@@ -23,9 +23,9 @@ import singleton.ops._
       wr_en := 0
       addr := ?
       data_wr := ?
-      vars.addr <> io.addr
-      vars.wr_en <> io.wr_en
-      io.data_wr <> data_wr.bits
+      (vars.addr <> io.addr) !! DFNet.LazyConnection
+      (vars.wr_en <> io.wr_en) !! DFNet.LazyConnection
+      (io.data_wr <> data_wr.bits) !! DFNet.LazyConnection
       cellTemplate <> io.data_rd.as(cellTemplate.dfType)
     }
   }

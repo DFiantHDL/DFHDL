@@ -87,7 +87,7 @@ final class MaxJNodeOps[D <: DFDesign](c : IRCompilation[D]) {
       .patch(pullInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst())))
       .patch(pushOutZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.ReplaceWithFirst())))
       .patch(scalaInZ.map((p, e) => p -> Patch.Add(e, Patch.Add.Config.Via)))
-      .orderMembers.db
+      .orderMembers(OrderMembers.Order.GuardedLast).db
     val guardedMembers = topMembers.collect{case m : CanBeGuarded => m}
     val guardedDB = extendedPortsDB
       .patch(guardedMembers.head -> Patch.Add(control, Patch.Add.Config.Before))

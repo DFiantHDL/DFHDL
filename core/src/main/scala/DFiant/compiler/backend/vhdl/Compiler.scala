@@ -85,7 +85,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
     val designDB =
       c.fixAnonymous
        .flattenNames
-//       .orderMembers.printCodeString
+       .orderMembers(OrderMembers.Order.LazyConnectionLast)
        .explicitPrev
        .forceOthersCaseCoverage(matchForceCover)
        .convertMatchToIf(matchToIfs)
