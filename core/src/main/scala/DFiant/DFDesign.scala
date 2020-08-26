@@ -1,5 +1,6 @@
 package DFiant
 import DFiant.DFDesign.DB.Patch
+import DFiant.compiler.evSanityCheck
 import compiler.csprinter.CSPrinter
 import DFiant.internals._
 
@@ -228,6 +229,7 @@ object DFDesign {
     @tailrec private def OMLGen[O <: DFOwner : ClassTag](getOwnerFunc : DFMember => O)(
       oml : List[(O, List[DFMember])], globalMembers : List[DFMember], localStack : List[(O, List[DFMember])]
     ) : List[(O, List[DFMember])] = {
+      if (localStack.isEmpty) this.sanityCheck
       val ((localOwner, localMembers), updatedStack0) = (localStack.head, localStack.drop(1))
       globalMembers match {
         case m :: mList if getOwnerFunc(m) == localOwner => //current member indeed belongs to current owner
@@ -317,12 +319,7 @@ object DFDesign {
         case (m, DB.Patch.Replace(r, DB.Patch.Replace.Config.FullReplacement, _)) if memberTable.contains(r) => Some((m, DB.Patch.Remove))
         //If we add after/inside an owner, we need to actually place after the last member of the owner
         case (owner : DFOwner, DB.Patch.Add(db, DB.Patch.Add.Config.After | DB.Patch.Add.Config.Inside)) =>
-          val lastMemberOption = owner match {
-            case block : DFDesign.Block => designMemberTable(block).lastOption
-            case block : DFBlock => blockMemberTable(block).lastOption
-            case _ => ownerMemberTable(owner).lastOption
-          }
-          lastMemberOption match {
+          owner.getVeryLastMember match {
             case Some(l) => Some((l, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
             case None => Some((owner, DB.Patch.Add(db, DB.Patch.Add.Config.After)))
           }

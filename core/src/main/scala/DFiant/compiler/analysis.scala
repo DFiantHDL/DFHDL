@@ -13,15 +13,15 @@ object analysis {
     dfVal : DFAny, relBitHigh : Int, relBitLow : Int, reversed : Boolean, inverted : Boolean, prevStep : Int
   )
 
-  implicit class DFAnyAnalysis(value : DFAny)(implicit getSet: MemberGetSet) {
-    @tailrec final def dealias : DFAny = {
+  final implicit class DFAnyAnalysis(value : DFAny)(implicit getSet: MemberGetSet) {
+    @tailrec def dealias : DFAny = {
       value match {
         case alias : DFAny.Alias[_,_,_] => alias.relValRef.get.dealias
         case v : DFAny => v
       }
     }
     //true if and only is is assigned at any of its dealiasing stages
-    @tailrec final def isNonAliasAssigned : Boolean = {
+    @tailrec def isNonAliasAssigned : Boolean = {
       value match {
         case alias : DFAny.Alias[_,_,_] =>
           if (getSet.designDB.getAssignmentsTo(alias).nonEmpty) true
@@ -31,7 +31,7 @@ object analysis {
     }
   }
 
-  implicit class MatchHeaderAnalysis(mh : ConditionalBlock.MatchHeader)(implicit getSet: MemberGetSet) {
+  final implicit class MatchHeaderAnalysis(mh : ConditionalBlock.MatchHeader)(implicit getSet: MemberGetSet) {
     import ConditionalBlock.CaseBlock
     def getCases : Iterable[CaseBlock] = {
       getSet.designDB.blockMemberTable(mh.getOwnerBlock).dropWhile(_ != mh).drop(1).takeWhile {
@@ -42,23 +42,31 @@ object analysis {
       }
     }
 
-    @tailrec final def anyCaseContains(member : DFMember) : Boolean = member match {
-      case cb : CaseBlock if cb.matchHeaderRef.get == mh => true
-      case _ : DFDesign.Block => false
-      case _ => anyCaseContains(member.getOwnerBlock)
+    @tailrec def caseOwnerOf(member : DFMember) : Option[CaseBlock] = member match {
+      case cb : CaseBlock if cb.matchHeaderRef.get == mh => Some(cb)
+      case _ : DFDesign.Block => None
+      case _ => caseOwnerOf(member.getOwnerBlock)
     }
-    //gets all the assigned variables within the match statement (at any level)
-    def getAssignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = {
+    def anyCaseContains(member : DFMember) : Boolean = caseOwnerOf(member).isDefined
+    //gets all the assignments within the match statement (at any level)
+    def getAssignments : Iterable[DFNet.Assignment] = {
       getSet.designDB.members.toIterable
         .dropWhile(_ != mh).drop(1) //reaching the match header
         .takeWhile(anyCaseContains) //taking all case members
-        .collect{case n : DFNet.Assignment => n.toRef.get} //collecting assigned values
-        .map(_.dealias.asInstanceOf[DFAny.VarOf[DFAny.Type]]) //dealiasing and casting
-        .distinct
+        .collect{case n : DFNet.Assignment => n} //collecting assigned values
     }
     //gets all the assigned variables within the match statement (at any level), but defined externally
-    def getExternalAssignedVars : Iterable[DFAny.VarOf[DFAny.Type]] =
-      getAssignedVars.filterNot(anyCaseContains)
+    def getExternalAssignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = {
+      val assignments = getAssignments
+      val casesNum = getCases.size
+      assignments
+        .map(a => (a.toRef.get.asInstanceOf[DFAny.VarOf[DFAny.Type]], caseOwnerOf(a).get)) //map to (toVar, caseOwner)
+        .filterNot(x => anyCaseContains(x._1)) //filtering out variables defined inside the cases
+        .groupBy(x => x._1) //group with toVar
+        .map(x => (x._1, x._2.map(_._2).toSet)) //map to (toVar -> Set[CaseBlock))
+        .filter(x => x._2.size == casesNum) //keeping only variables assigned in all cases (fully covered)
+        .keys
+    }
   }
 
   implicit class ConditionalBlockAnalysis(cb : ConditionalBlock.Owner)(implicit getSet: MemberGetSet) {

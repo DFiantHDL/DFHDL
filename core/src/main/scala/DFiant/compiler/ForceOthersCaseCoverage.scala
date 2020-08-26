@@ -8,7 +8,7 @@ final class ForceOthersCaseCoverage[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   def forceOthersCaseCoverage(matchHeaders : MemberGetSet => Iterable[ConditionalBlock.MatchHeader]) : IRCompilation[D] = {
-    val patchList = matchHeaders(designDB.__getset).flatMap { mh =>
+    val patchList = matchHeaders(__getset).flatMap { mh =>
       val cases = mh.getCases
       cases.last match {
         case ConditionalBlock.CaseBlock(_,_,None,_,_) => None //already has a case_ block

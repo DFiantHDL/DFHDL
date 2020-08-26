@@ -75,13 +75,11 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
         .casedf(b"01")    {dataFromMem := bram.douta(15,  8).sint.resize(32).bits}
         .casedf(b"10")    {dataFromMem := bram.douta(23, 16).sint.resize(32).bits}
         .casedf(b"11")    {dataFromMem := bram.douta(31, 24).sint.resize(32).bits}
-        .casedf_{}
     }
     .casedf(DMemSel.LH) {
       matchdf(wordSel)
         .casedf(b"0")     {dataFromMem := bram.douta(15,  0).sint.resize(32).bits}
         .casedf(b"1")     {dataFromMem := bram.douta(31, 16).sint.resize(32).bits}
-        .casedf_{}
     }
     .casedf(DMemSel.LW)   {dataFromMem := bram.douta}
     .casedf(DMemSel.LBU) {
@@ -90,13 +88,11 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
         .casedf(b"01")    {dataFromMem := bram.douta(15,  8).resize(32)}
         .casedf(b"10")    {dataFromMem := bram.douta(23, 16).resize(32)}
         .casedf(b"11")    {dataFromMem := bram.douta(31, 24).resize(32)}
-        .casedf_{}
     }
     .casedf(DMemSel.LHU) {
       matchdf(wordSel)
         .casedf(b"0")    {dataFromMem := bram.douta(15,  0).resize(32)}
         .casedf(b"1")    {dataFromMem := bram.douta(31, 16).resize(32)}
-        .casedf_{}
     }
     .casedf(DMemSel.SB) {
       dataToMemBH := (dataToMem(7,0), dataToMem(7,0), dataToMem(7,0), dataToMem(7,0)).bits
@@ -105,17 +101,14 @@ trait DMem_Bram_Ifc extends DFDesign.Abstract {
         .casedf(b"01")    {wrEnToMem := b"0010"}
         .casedf(b"10")    {wrEnToMem := b"0100"}
         .casedf(b"11")    {wrEnToMem := b"1000"}
-        .casedf_{}
     }
     .casedf(DMemSel.SH) {
       dataToMemBH := dataToMem(15,0) ++ dataToMem(15,0)
       matchdf(wordSel)
         .casedf(b"0")     {wrEnToMem := b"0011"}
         .casedf(b"1")     {wrEnToMem := b"1100"}
-        .casedf_{}
     }
     .casedf(DMemSel.SW)   {wrEnToMem := b"1111"}
-    .casedf_{}
 
   bram.addra <> dmem_addr(13, 2)
   bram.wea <> wrEnToMem

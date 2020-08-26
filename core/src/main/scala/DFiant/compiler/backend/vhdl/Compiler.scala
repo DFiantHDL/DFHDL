@@ -3,6 +3,7 @@ package compiler
 package backend
 package vhdl
 
+import DFiant.compiler.analysis.MatchHeaderAnalysis
 import DFiant.internals.BigIntExtrasCO
 import DFiant.sim._
 
@@ -75,6 +76,12 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           //Manual encoding force width check coverage.
           case _: EnumType.Manual[_] => true
         }
+        //Bits comparison doesn't cover "XXX" checks, so we need to force others clause for it
+        case v @ DFBits(width) =>
+          val cases = mh.getCases
+          val hasCase_ = cases.exists(c => c.patternOption.isEmpty)
+          if (!hasCase_ && ((BigInt.maxUnsignedFromWidth(width) + 1) == cases.size)) true
+          else false
         //Non-enumeration exhaustively coverage is already handled in the ExplicitPrev stage
         case _ => false
       }
@@ -136,12 +143,12 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         }
         val asyncStatements = getProcessStatements(design, m => !isSyncMember(m))
         val asyncSensitivityList : String = revision match {
-          case Revision.V93 => Process.Sensitivity.List(designDB.getSensitivityList(design))
-          case Revision.V2008 => Process.Sensitivity.All()
+          case Revision.V93 => Process.Sensitivity(designDB.getSensitivityList(design))
+          case Revision.V2008 => Process.Sensitivity(Nil)
         }
         val asyncProcess = Process("async_proc", asyncSensitivityList, variables, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
-        val syncSensitivityList = Process.Sensitivity.List(members.collect {
+        val syncSensitivityList = Process.Sensitivity(members.collect {
           case cb @ RTL.IfBlock(clkOrReset,_) if cb.getOwner == design => clkOrReset.name
           case RTL.ElseIfBlock(clk,_) => clk.name
         })

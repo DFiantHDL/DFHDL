@@ -15,11 +15,8 @@ private object Process {
        |$KW end $KW process;""".stripMargin
   }
   object Sensitivity {
-    object List {
-      def apply(names : scala.List[String])(implicit printer : Printer) : String = names.mkString(", ")
-    }
-    object All {
-      def apply()(implicit printer : Printer) : String = s"${printer.config.KW}all"
-    }
+    def apply(names : scala.List[String])(implicit printer : Printer) : String =
+      if (names.isEmpty) s"${printer.config.KW}all"
+      else names.mkString(", ")
   }
 }

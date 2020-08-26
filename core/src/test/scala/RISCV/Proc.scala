@@ -79,7 +79,7 @@ object ProcTest extends App {
   riscv_tb
     .printCodeString
     .compile
-//    .printCodeString.printGenFiles()
+    .printCodeString.printGenFiles()
     .toFolder("testProc")
     .simulation
     .run()

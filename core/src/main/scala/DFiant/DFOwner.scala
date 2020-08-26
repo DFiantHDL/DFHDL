@@ -52,9 +52,24 @@ object DFOwner {
     def nameAndType : String = s"${__ctx.meta.name} : $typeName"
   }
 
-  implicit class AbstractExt[T <: DFOwner](t : T) {
-    def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(t)
-    //    def <> (r : T)(implicit ctx : DFNet.Context) : Unit = t.owner.connectWith(r.owner)
+  final implicit class AbstractExt[T <: DFOwner](owner : T) {
+    def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(owner)
+    def getVeryLastMember(implicit getSet: MemberGetSet) : Option[DFMember] = {
+      import getSet.designDB
+      val last = owner match {
+        case block : DFDesign.Block => designDB.designMemberTable(block).lastOption
+        case block : DFBlock => designDB.blockMemberTable(block).lastOption
+        case _ => designDB.ownerMemberTable(owner).lastOption
+      }
+      last match {
+        //if last member is an owner then we search further
+        case Some(o : DFOwner) => o.getVeryLastMember match {
+          case None => Some(o) //found empty owner as last member ==> return the owner
+          case x => x //return the very last member
+        }
+        case x => x
+      }
+    }
   }
 
   type Ref = DFMember.Ref.Of[Ref.Type, DFOwner]

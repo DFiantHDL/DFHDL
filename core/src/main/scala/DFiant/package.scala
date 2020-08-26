@@ -186,12 +186,14 @@ package object DFiant {
     def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context) : Unit = {
       val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(0)(block(list.head))
-      list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1))).casedf_{}
+      val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+      if (sel.width.getValue != (list.size-1).bitsWidth) cases.casedf_{}
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
       val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(DFBits.Token(sel.width.getValue, BigInt(0)))(block(list.head))
-      list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1))).casedf_{}
+      val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1)))
+      if (sel.width.getValue != (list.size-1).bitsWidth) cases.casedf_{}
     }
   }
 
@@ -201,7 +203,8 @@ package object DFiant {
       val blockMatchDF = new ConditionalBlock.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
       if (list.nonEmpty) {
         val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
-        list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2}).casedf_{}
+        val cases = list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2})
+        if (matchValue.width.getValue != (list.size-1).bitsWidth) cases.casedf_{}
       }
     }
   }
