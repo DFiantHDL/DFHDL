@@ -8,7 +8,7 @@ abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
   val rep : DFInlineComponent.Rep
   override private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = Some(rep)
   final val outPort = DFAny.Port.Out(dfType)
-  final def thisVal(implicit ctx : DFAny.Context): DFAny.Of[Type] = outPort
+  final protected[DFiant] def thisVal(implicit ctx : DFAny.Context): DFAny.Of[Type] = outPort
 }
 object DFInlineComponent {
   trait Rep extends Product with Serializable {

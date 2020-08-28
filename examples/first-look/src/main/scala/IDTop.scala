@@ -82,20 +82,20 @@ import internals._
 }
 
 import lib.stream._
+import lib.mem._
 @df class IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
   val o = DFUInt(8) <> OUT
 
   val x = DFUInt(8)
-  val m = new lib.mem.RAM(x, 32, 5)
-  val sel = m(b"10001")
-  val sel2 = m(b"10000")
+  val m = Mem(Mem.RW(5, x.dfType, x.dfType))
+  val sel2 = m.portA(b"10000")
   ifdf(true) {
-    o := sel.thisVal
-    sel := 15
+//    o := m.portA(b"10001")
+    m.portA(b"10001") := 15
   }.elsedf {
-    o := sel2.thisVal
-    sel := 14
+//    o := m.portA(b"10000")
+    m.portA(b"10000") := 14
   }
 //  sel := 15
 

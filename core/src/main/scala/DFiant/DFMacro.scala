@@ -10,7 +10,9 @@ object DFMacro {
     val result = {
       annottees.map(_.tree).toList match {
         case q"$mods class $tpname[..$tparams] $ctorMods(...$paramss)(implicit ..$iparams) extends ..$parents { $self => ..$stats }" :: tail =>
-          val targs = tparams.map(t => tq"Nothing") //TODO: needs to fix for the general abstract type
+          val targs = tparams.map {
+            case t : TypeDef => tq"Nothing"//Ident(t.name)
+          }
           val iparamsWithCtx = iparams :+ q"private[this] val ctx : ContextOf[$tpname[..$targs]]"
           q"""$mods class $tpname[..$tparams] $ctorMods(...$paramss)(implicit ..$iparamsWithCtx) extends ..$parents {$self => ..$stats
           }; ..$tail"""

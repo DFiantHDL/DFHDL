@@ -127,8 +127,12 @@ object DFAny {
     final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : AsType[DFBool.Type] =
       DFAny.Alias.BitsWL.bit(this, relBit.unsafeCheck(width))
 
-    final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] =
-      DFAny.Alias.BitsWL(this, dfType.width, 0) !! cs"$this.bits"
+    final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] = (this : DFAny) match {
+      case DFAny.Const(_, token, _, _) =>
+        DFAny.Const.forced(DFBits.Type(token.width), token.bits).asInstanceOf[AsType[DFBits.Type[dfType.Width]]]
+      case _ =>
+        DFAny.Alias.BitsWL(this, dfType.width, 0) !! cs"$this.bits"
+    }
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
@@ -200,7 +204,7 @@ object DFAny {
   type Of[Type <: DFAny.Type] = Value[Type, Modifier]
 
   trait DefaultRet[Type <: DFAny.Type] {
-    def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[Type]
+    protected[DFiant] def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[Type]
     val dfType : Type
     //////////////////////////////////////////////////////////////////////////
     // Equality

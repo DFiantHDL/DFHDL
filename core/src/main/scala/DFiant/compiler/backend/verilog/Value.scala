@@ -78,7 +78,7 @@ private object Value {
         }
       case DFAny.Alias.Resize(dfType, _, _, _) =>
         dfType match {
-          case _ if dfType.width == relVal.width => relValStr
+          case _ if dfType.width.getValue == relVal.width.getValue => relValStr
           case _ if relVal.width.getValue == 1 => s"{${dfType.width-1}'b0, $relValStr}"
           case _ if dfType.width.getValue == 1 => s"$relValStr[0]"
           case DFUInt.Type(_) | DFBits.Type(_) if dfType.width < relVal.width =>

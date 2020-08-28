@@ -29,12 +29,20 @@ abstract class DFDesign(implicit ctx : DFDesign.Context) extends DFDesign.Abstra
   ///////////////////////////////////////////////////////////////////
 }
 
-abstract class MetaDesign(lateConstruction : Boolean = false)(implicit ctx : ContextOf[MetaDesign]) extends DFDesign {
+abstract class MetaDesign(lateConstruction : Boolean = false)(
+  implicit meta : Meta
+) extends DFDesign()(new MetaDesign.Context(meta)) {
   final def plantMember[T <: DFMember](member : T) : T = __db.plantMember(this, member)
   final def applyBlock(owner : DFOwner)(block : => Unit) : Unit =
-    ctx.db.OwnershipContext.injectOwnerAndRun(this, owner)(block)
+    __ctx.db.OwnershipContext.injectOwnerAndRun(this, owner)(block)
 
   final protected implicit val __lateConstructionConfig : LateConstructionConfig = LateConstructionConfig.Force(lateConstruction)
+}
+
+object MetaDesign {
+  class Context(meta : Meta) extends DFBlock.Context(
+    meta,implicitly[Meta.SymbolOf[MetaDesign]], null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty
+  )
 }
 
 object DFDesign {

@@ -433,7 +433,14 @@ object DFBits extends DFAny.Companion {
         def << [R](right: Exact[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
         def >> [R](right: Exact[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] =
-          DFAny.Alias.Resize.bits(left, toWidth)
+          (left : DFAny) match {
+            case DFAny.Const(_, token : Token, _, _) =>
+              DFAny.Const.forced(Type(toWidth), token.resize(toWidth))
+            case _ =>
+              if (left.width.getValue == toWidth.getValue) left.asInstanceOf[DFBits[RW]]
+              else DFAny.Alias.Resize.bits(left, toWidth)
+          }
+
         def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = {
           val ret = if (left.width < toWidth) {
             val zeroWidth = toWidth - left.width

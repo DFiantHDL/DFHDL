@@ -310,7 +310,13 @@ object DFSInt extends DFAny.Companion {
         def << [R](right: Exact[R])(implicit op: `Op<<`.Builder[DFSInt[LW], R]) = op(left, right)
         def >> [R](right: Exact[R])(implicit op: `Op>>`.Builder[DFSInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : SIntWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFSInt[RW] =
-          DFAny.Alias.Resize.sint(left, toWidth)
+          (left : DFAny) match {
+            case DFAny.Const(_, token : Token, _, _) =>
+              DFAny.Const.forced(Type(toWidth), token.resize(toWidth))
+            case _ =>
+              if (left.width.getValue == toWidth.getValue) left.asInstanceOf[DFSInt[RW]]
+              else DFAny.Alias.Resize.sint(left, toWidth)
+          }
         def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
       }
     }
@@ -336,7 +342,8 @@ object DFSInt extends DFAny.Companion {
         checkLWvRW : `LW >= RW`.CheckedShell[LW, RW]
       ) : Builder[Type[LW], DFSInt[RW]] = (left, right) => {
         checkLWvRW.unsafeCheck(left.width, right.width)
-        right.asInstanceOf[DFAny.Of[Type[LW]]]
+        import DFDesign.Implicits._
+        right.resize(left.width)
       }
 
       final implicit def __DFSInt_ac_Const[LW, R, RW](
@@ -347,7 +354,8 @@ object DFSInt extends DFAny.Companion {
       ) : Builder[Type[LW], R] = (left, rightNum) => {
         val right = rConst(rightNum)
         checkLWvRW.unsafeCheck(left.width, right.width)
-        right.asInstanceOf[DFAny.Of[Type[LW]]]
+        import DFDesign.Implicits._
+        right.resize(left.width)
       }
     }
   }

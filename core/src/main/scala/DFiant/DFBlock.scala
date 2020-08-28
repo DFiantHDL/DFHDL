@@ -22,6 +22,8 @@ object DFBlock {
   class Context(val meta : Meta, val symbol : Meta.SymbolOf[_], val container : DFOwner.Container, val dir : DFDir, val db : DFDesign.DB.Mutable, val args : ClassArgs[_])
     extends DFMember.Context {
     def setName(name : String) = new Context(meta.setName(name), symbol, container, dir, db, args)
+    def atOwnerDo(block : => Unit) : Unit =
+      db.OwnershipContext.injectOwnerAndRun(container, owner.getOwner(db.getSet))(block)
   }
   trait VeryLowPriority {
     implicit def evCtxDefs[T <: String with Singleton](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T], meta: Meta) : Context =

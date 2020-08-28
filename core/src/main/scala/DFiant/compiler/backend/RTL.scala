@@ -313,7 +313,7 @@ object RTL {
 
 
   abstract class ClkRstDesign(clkParams : ClockParams, rstParams : ResetParams, simulation : Boolean)(
-    implicit ctx : ContextOf[ClkRstDesign]
+    implicit meta : internals.Meta
   ) extends MetaDesign {
     private var _hasClk = false
     private var _hasRst = false
