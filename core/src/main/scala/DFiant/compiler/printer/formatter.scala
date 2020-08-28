@@ -11,7 +11,7 @@ object formatter {
   private val optionalSpaces = "[ \t]*"
   private val word = "([?`'0-9a-zA-Z_]+)"
   private val operator = "([<>+\\-*/=:!^&%|#]+)"
-  private val string = """(".*")"""
+  private val string = """(".*?")"""
   private val noreset = "\u001B{0}"
   private val singleChar = "([();{}\\[\\]])"
   private val coloredSymbol = s"($colorCode)$optionalSpaces(($word|$operator|$string|$singleChar){1})$noreset".r.unanchored
