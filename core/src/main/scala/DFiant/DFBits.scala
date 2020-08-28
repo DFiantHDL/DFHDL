@@ -423,15 +423,15 @@ object DFBits extends DFAny.Companion {
       final implicit def __DFBitsFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFBitsFromDefaultRet[W] = new __DFBitsFromDefaultRet(left)
       final implicit def __ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
       final implicit class __DFBitsOps[LW](val left : DFBits[LW]){
-        def |   [R](right : Precise[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
-        def &   [R](right : Precise[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
-        def ^   [R](right : Precise[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
-        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
-        def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
-        def ++  [R](right : Precise[R])(implicit op: `Op++`.Builder[DFBits[LW], R]) = op(left, right)
+        def |   [R](right : Exact[R])(implicit op: `Op|`.Builder[DFBits[LW], R]) = op(left, right)
+        def &   [R](right : Exact[R])(implicit op: `Op&`.Builder[DFBits[LW], R]) = op(left, right)
+        def ^   [R](right : Exact[R])(implicit op: `Op^`.Builder[DFBits[LW], R]) = op(left, right)
+        def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
+        def =!= [R](right : Exact[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
+        def ++  [R](right : Exact[R])(implicit op: `Op++`.Builder[DFBits[LW], R]) = op(left, right)
         def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
-        def << [R](right: Precise[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
-        def >> [R](right: Precise[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
+        def << [R](right: Exact[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
+        def >> [R](right: Exact[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] =
           DFAny.Alias.Resize.bits(left, toWidth)
         def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = {

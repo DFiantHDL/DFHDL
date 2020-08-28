@@ -258,11 +258,11 @@ object DFBool extends DFAny.Companion {
       implicit class __DFBoolOps(val left : DFBool) {
         final def rising()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Rising).outPort
         final def falling()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Falling).outPort
-        final def ||  [R](right : Precise[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
-        final def &&  [R](right : Precise[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
-        final def ^   [R](right : Precise[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
-        final def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
-        final def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
+        final def ||  [R](right : Exact[R])(implicit op: `Op||`.Builder[DFBool, R]) = op(left, right)
+        final def &&  [R](right : Exact[R])(implicit op: `Op&&`.Builder[DFBool, R]) = op(left, right)
+        final def ^   [R](right : Exact[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
+        final def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
+        final def =!= [R](right : Exact[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
         final def unary_!(implicit ctx : DFAny.Context) : DFBool = DFAny.Alias.Invert(left)
       }
     }

@@ -142,7 +142,7 @@ package object stream {
       ret
     }
 
-    @df def orElsedf[R](secondary : Precise[R])(
+    @df def orElsedf[R](secondary : Exact[R])(
       implicit op : DFAny.`Op:=,<>`.Builder[Type, R]
     ) : DFAny.Of[Type] = {
       val ret = left.asNewVar

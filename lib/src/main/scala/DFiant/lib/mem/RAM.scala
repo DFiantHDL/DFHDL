@@ -32,7 +32,7 @@ import singleton.ops._
   protected class Port(addrAssignment : => Unit) extends DFAny.DefaultRet[T]{
     val dfType : T = cellTemplate.dfType
     private lazy val doAddrAssignment : Unit = addrAssignment
-    def := [D](data : Precise[D])(implicit op : DFAny.`Op:=,<>`.Builder[T, D]) : Unit = {
+    def := [D](data : Exact[D])(implicit op : DFAny.`Op:=,<>`.Builder[T, D]) : Unit = {
       doAddrAssignment
       vars.wr_en := 1
       vars.data_wr := data
@@ -43,7 +43,7 @@ import singleton.ops._
     }
   }
   private var lastPortAccess : Option[(DFOwner, Any, Port)] = None
-  def apply[I](cellIdx : Precise[I])(
+  def apply[I](cellIdx : Exact[I])(
     implicit
     ctx : DFNet.Context,
     op : DFAny.`Op:=,<>`.Builder[DFBits.Type[W], I]

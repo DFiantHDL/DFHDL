@@ -369,11 +369,11 @@ package object internals {
   }
 
   implicit def fromValueOf[T](valueOf: ValueOf[T]) : T = valueOf.value
-  class Precise[T](val value : T)
-  object Precise {
-    implicit def fromValueSing[T <: Singleton](value : T) : Precise[ValueOf[T]] = new Precise[ValueOf[T]](new ValueOf(value))
-    implicit def fromValueNonSing[T](value : T)(implicit di : DummyImplicit) : Precise[T] = new Precise[T](value)
-    implicit def toValue[T](precise: Precise[T]) : T = precise.value
+  class Exact[T](val value : T)
+  object Exact {
+    implicit def fromValueSing[T <: Singleton](value : T) : Exact[ValueOf[T]] = new Exact[ValueOf[T]](new ValueOf(value))
+    implicit def fromValueNonSing[T](value : T)(implicit di : DummyImplicit) : Exact[T] = new Exact[T](value)
+    implicit def toValue[T](precise: Exact[T]) : T = precise.value
   }
 
   implicit class WhiteboxMacroExt(c : scala.reflect.macros.whitebox.Context) {

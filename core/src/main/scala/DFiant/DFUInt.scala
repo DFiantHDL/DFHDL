@@ -352,20 +352,20 @@ object DFUInt extends DFAny.Companion {
       final implicit def __DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFUIntFromDefaultRet[W] = new __DFUIntFromDefaultRet(left)
       final implicit def __ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
       implicit class __ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
-        final def +  [R](right : Precise[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
-        final def -  [R](right : Precise[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
+        final def +  [R](right : Exact[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
+        final def -  [R](right : Exact[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
       }
       final implicit class __DFUIntOps[LW](val left : DFUInt[LW]){
-        def +   [R](right : Precise[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
-        def -   [R](right : Precise[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
-        def <   [R](right : Precise[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
-        def >   [R](right : Precise[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
-        def <=  [R](right : Precise[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
-        def >=  [R](right : Precise[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
-        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFUInt[LW], R]) = op(left, right)
-        def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFUInt[LW], R]) = op(left, right)
-        def << [R](right: Precise[R])(implicit op: `Op<<`.Builder[DFUInt[LW], R]) = op(left, right)
-        def >> [R](right: Precise[R])(implicit op: `Op>>`.Builder[DFUInt[LW], R]) = op(left, right)
+        def +   [R](right : Exact[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        def -   [R](right : Exact[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        def <   [R](right : Exact[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >   [R](right : Exact[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
+        def <=  [R](right : Exact[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >=  [R](right : Exact[R])(implicit op: `Op>=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFUInt[LW], R]) = op(left, right)
+        def =!= [R](right : Exact[R])(implicit op: `Op=!=`.Builder[DFUInt[LW], R]) = op(left, right)
+        def << [R](right: Exact[R])(implicit op: `Op<<`.Builder[DFUInt[LW], R]) = op(left, right)
+        def >> [R](right: Exact[R])(implicit op: `Op>>`.Builder[DFUInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFUInt[RW] =
           DFAny.Alias.Resize.uint(left, toWidth)
         def extendable : DFUInt[LW] with Extendable = left.asInstanceOf[DFUInt[LW] with Extendable]

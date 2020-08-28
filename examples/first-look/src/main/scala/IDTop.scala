@@ -84,20 +84,29 @@ import internals._
 import lib.stream._
 @df class IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
-  val o = DFBits(3) <> OUT
-  o := ?
-  matchdf(i)
-    .casedf(b"1100????"){}
-    .casedf_{}
+  val o = DFUInt(8) <> OUT
 
-  val x = i.lsbit
+  val x = DFUInt(8)
+  val m = new lib.mem.RAM(x, 32, 5)
+  val sel = m(b"10001")
+  val sel2 = m(b"10000")
+  ifdf(true) {
+    o := sel.thisVal
+    sel := 15
+  }.elsedf {
+    o := sel2.thisVal
+    sel := 14
+  }
+//  sel := 15
 
+//  val fib = DFUInt(8) init (1, 0)
 //  val ididid = new IDTop
-//  ididid.x <> fib.prev(2)
+//  ididid.x <> fib
 //  sim.report(msg"Fib: ${ididid.y}")
 //  ifdf (ididid.y === 55) {
 //    sim.finish()
 //  }
+//  fib := fib.prev + fib.prev(2)
 }
 
 object IDTopApp extends App {

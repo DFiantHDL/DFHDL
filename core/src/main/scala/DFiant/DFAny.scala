@@ -431,7 +431,7 @@ object DFAny {
       implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, DFAny.Of[Type]]
     ): DFNet.Connection = left.connectWith(op(left.dfType, right))
 
-    def ifdf[C, B](cond : C)(block : => Precise[B])(
+    def ifdf[C, B](cond : C)(block : => Exact[B])(
       implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
     ) : ConditionalBlock.WithRetVal.IfElseBlock[Type, true] = {
       val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
@@ -970,7 +970,7 @@ object DFAny {
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     def dontProduce()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontProduce(left)
     final def isNotFull(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotFull(left)
-    def := [R](right : Precise[R])(
+    def := [R](right : Exact[R])(
       implicit ctx : DFNet.Context, op : DFAny.`Op:=,<>`.Builder[Type, R]
     ) : Unit = left.assign(op(left.dfType, right))
   }
@@ -979,7 +979,7 @@ object DFAny {
   type PortInOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[IN]]
   type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[OUT]]
   implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
-    def <>[R](right: Precise[R])(
+    def <>[R](right: Exact[R])(
       implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, R]
     ): DFNet.Connection = left.connectWith(op(left.dfType, right))
   }
@@ -1344,7 +1344,7 @@ object DFAny {
   object Op {
     trait Able[R]{val value : R}
     object Able {
-      implicit def fromAble[R](able : Precise[R]) : R = able.value
+      implicit def fromAble[R](able : Exact[R]) : R = able.value
     }
     trait Builder[-L, -R] extends HasOut {
       type Out <: DFAny

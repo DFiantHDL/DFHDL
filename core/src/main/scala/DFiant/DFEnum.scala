@@ -154,8 +154,8 @@ object DFEnum extends DFAny.Companion {
       final implicit def __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) : __DFEnumFromDefaultRet[E] = new __DFEnumFromDefaultRet(left)
       final implicit def __ofDFEnum[E <: EnumType](left : DFEnum[E]) : Able[DFEnum[E]] = new Able(left)
       final implicit class __DFEnumOps[E <: EnumType](val left : DFEnum[E]){
-        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFEnum[E], R]) = op(left, right)
-        def =!= [R](right : Precise[R])(implicit op: `Op=!=`.Builder[DFEnum[E], R]) = op(left, right)
+        def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFEnum[E], R]) = op(left, right)
+        def =!= [R](right : Exact[R])(implicit op: `Op=!=`.Builder[DFEnum[E], R]) = op(left, right)
       }
     }
   }
