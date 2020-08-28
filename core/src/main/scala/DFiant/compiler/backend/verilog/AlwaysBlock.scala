@@ -15,12 +15,8 @@ private object AlwaysBlock {
        |""".stripMargin
   }
   object Sensitivity {
-    object List {
-      def apply(names : scala.List[String])(implicit printer : Printer) : String =
-        names.mkString(s" ${printer.config.KW}or ")
-    }
-    object All {
-      def apply()(implicit printer : Printer) : String = s"${printer.config.KW}*"
-    }
+    def apply(names : scala.List[String])(implicit printer : Printer) : String =
+      if (names.isEmpty) s"${printer.config.KW}*"
+      else names.mkString(s" ${printer.config.KW}or ")
   }
 }

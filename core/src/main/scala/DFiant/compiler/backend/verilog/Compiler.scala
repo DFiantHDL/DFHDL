@@ -156,12 +156,12 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         }
         val asyncStatements = getProcessStatements(design, !isSyncMember(_)) ++ simGuardClearOption
         val asyncSensitivityList : String = revision match {
-          case Revision.V95 => AlwaysBlock.Sensitivity.List(designDB.getSensitivityList(design))
-          case Revision.V2005 => AlwaysBlock.Sensitivity.All()
+          case Revision.V95 => AlwaysBlock.Sensitivity(designDB.getSensitivityList(design))
+          case Revision.V2005 => AlwaysBlock.Sensitivity(Nil)
         }
         val asyncBlock = AlwaysBlock(asyncSensitivityList, asyncStatements)
         val syncStatements = getProcessStatements(design, isSyncMember)
-        val syncSensitivityList = AlwaysBlock.Sensitivity.List(members.collect {
+        val syncSensitivityList = AlwaysBlock.Sensitivity(members.collect {
           case cb @ RTL.IfBlock(clkOrRst, edge) if cb.getOwner == design =>
             if (edge) s"$KW posedge ${clkOrRst.name}"
             else s"$KW negedge ${clkOrRst.name}"
