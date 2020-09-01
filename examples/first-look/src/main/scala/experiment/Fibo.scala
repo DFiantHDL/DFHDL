@@ -14,7 +14,7 @@
  *     You should have received a copy of the Lesser GNU General Public License
  *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
  */
-package fpga2020
+package experiment
 import DFiant._
 import DFiant.sim.DFSimDesign
 

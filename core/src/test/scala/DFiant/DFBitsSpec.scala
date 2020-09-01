@@ -1,15 +1,5 @@
 package DFiant
-import org.scalatest.flatspec.AnyFlatSpec
-import DFiant.internals.{ClassArgs, Meta}
 import shapeless.test.illTyped
-
-abstract class DFSpec extends AnyFlatSpec with DFDesign.Abstract {
-  private[DFiant] final lazy val __ctx : DFDesign.Context = new DFBlock.Context(
-    implicitly[Meta], implicitly[Meta.SymbolOf[DFDesign]], null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty
-  ) {
-    def newInterface(updatedCtx : DFInterface.Context) : Any = ???
-  }
-}
 
 class DFBitsSpec extends DFSpec {
   val one = 1
@@ -105,14 +95,14 @@ class DFBitsSpec extends DFSpec {
     assertDoesNotCompile("""val aInit = a.init(b"1000", b"1001", b"10101")""")
   }
   it should "support special SameBitVectors b0s and b1s" in {
-    val aInit = a init b0s
-    val aInitManual = a init b"0000"
-    assert(aInit.asInstanceOf[DFAny.Dcl].externalInit == aInitManual.asInstanceOf[DFAny.Dcl].externalInit)
-    val bInit = a init b1s
-    val bInitManual = a init b"1111"
-    assert(bInit.asInstanceOf[DFAny.Dcl].externalInit == bInitManual.asInstanceOf[DFAny.Dcl].externalInit)
+    val aInit = (a init b0s).member.asInstanceOf[DFAny.Dcl]
+    val aInitManual = (a init b"0000").member.asInstanceOf[DFAny.Dcl]
+    assert(aInit.externalInit == aInitManual.externalInit)
+    val bInit = (a init b1s).member.asInstanceOf[DFAny.Dcl]
+    val bInitManual = (a init b"1111").member.asInstanceOf[DFAny.Dcl]
+    assert(bInit.externalInit == bInitManual.externalInit)
     //sanity check
-    assert(aInit.asInstanceOf[DFAny.Dcl].externalInit != bInit.asInstanceOf[DFAny.Dcl].externalInit)
+    assert(aInit.externalInit != bInit.externalInit)
   }
   it should "not be possible to apply twice" in {
     assertDoesNotCompile("""val aInit = a init b"1000"; val aInit2 = aInit init b"1001"""")

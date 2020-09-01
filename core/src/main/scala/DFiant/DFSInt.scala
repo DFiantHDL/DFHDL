@@ -268,7 +268,9 @@ object DFSInt extends DFAny.Companion {
     class AbleOps[L](value : L) extends Able[L](value) {
       val left = value
       final def +   [RW](right : DFSInt[RW])(implicit op: `Op+`.Builder[L, false, DFSInt[RW]]) = op(left, right)
+      final def +^  [RW](right : DFSInt[RW])(implicit op: `Op+`.Builder[L, false, DFSInt[RW]]) = op(left, right)
       final def -   [RW](right : DFSInt[RW])(implicit op: `Op-`.Builder[L, false, DFSInt[RW]]) = op(left, right)
+      final def -^  [RW](right : DFSInt[RW])(implicit op: `Op-`.Builder[L, false, DFSInt[RW]]) = op(left, right)
       final def <   [RW](right : DFSInt[RW])(implicit op: `Op<`.Builder[L, DFSInt[RW]]) = op(left, right)
       final def >   [RW](right : DFSInt[RW])(implicit op: `Op>`.Builder[L, DFSInt[RW]]) = op(left, right)
       final def <=  [RW](right : DFSInt[RW])(implicit op: `Op<=`.Builder[L, DFSInt[RW]]) = op(left, right)
@@ -293,14 +295,18 @@ object DFSInt extends DFAny.Companion {
       final implicit def __ofDFSInt[W](left : DFSInt[W]) : Able[DFSInt[W]] = new Able(left)
       implicit class __ExtendableDFSIntOps[LW](val left : DFSInt[LW] with Extendable){
         final def +  [R](right : Exact[R])(implicit op: `Op+`.Builder[DFSInt[LW], true, R]) = op(left, right)
+        final def +^ [R](right : Exact[R])(implicit op: `Op+`.Builder[DFSInt[LW], true, R]) = op(left, right)
         final def -  [R](right : Exact[R])(implicit op: `Op-`.Builder[DFSInt[LW], true, R]) = op(left, right)
+        final def -^ [R](right : Exact[R])(implicit op: `Op-`.Builder[DFSInt[LW], true, R]) = op(left, right)
       }
       final implicit class __DFSIntOps[LW](val left : DFSInt[LW]){
         def maxValue : BigInt = BigInt(2) << (left.width - 1) - 1
         def sign(implicit ctx : DFAny.Context) : DFBool = left.asInstanceOf[DFSInt[Int]].bit(left.width-1)
         def unary_- (implicit op: `Op-`.Builder[0, false, DFSInt[LW]]) = op(0, left)
         def +   [R](right : Exact[R])(implicit op: `Op+`.Builder[DFSInt[LW], false, R]) = op(left, right)
+        def +^  [R](right : Exact[R])(implicit op: `Op+`.Builder[DFSInt[LW], false, R]) = op(left, right)
         def -   [R](right : Exact[R])(implicit op: `Op-`.Builder[DFSInt[LW], false, R]) = op(left, right)
+        def -^  [R](right : Exact[R])(implicit op: `Op-`.Builder[DFSInt[LW], false, R]) = op(left, right)
         def <   [R](right : Exact[R])(implicit op: `Op<`.Builder[DFSInt[LW], R]) = op(left, right)
         def >   [R](right : Exact[R])(implicit op: `Op>`.Builder[DFSInt[LW], R]) = op(left, right)
         def <=  [R](right : Exact[R])(implicit op: `Op<=`.Builder[DFSInt[LW], R]) = op(left, right)

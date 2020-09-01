@@ -86,7 +86,7 @@ package object DFiant {
   }
   implicit val __memberFromDFMember : DFMember => DFMember = t => t
   implicit val __memberFromDFAny : DFAny => DFAny.Member = _.member
-  implicit val __memberFromDFDesign : DFDesign => DFDesign.Block = _.owner
+  implicit val __memberFromDFDesign : DFDesign => DFMember = _.owner
 
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
   type DFBool = DFAny.Of[DFBool.Type]

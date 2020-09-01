@@ -1,4 +1,4 @@
-package fpga2020
+package experiment
 import DFiant._
 
 trait MA extends DFDesign {

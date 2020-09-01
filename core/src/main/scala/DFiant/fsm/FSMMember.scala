@@ -7,6 +7,8 @@ import scala.collection.{immutable, mutable}
 import DFiant.internals._
 import singleton.ops.SafeBoolean
 
+import scala.collection.immutable.ListMap
+
 sealed trait FSMMember
 object FSMMember {
   sealed trait Complete
@@ -222,27 +224,27 @@ object FSMMember {
     }
     private lazy val steps = transitions.keys
     //returns:             fsmName     stepNames
-    private def genNames : (String, Map[Step, String]) = {
+    private def genNames : (String, ListMap[Step, String]) = {
       val headName = steps.head.ctx.meta.name.toString
       val nameGroups = steps.zipWithIndex.groupByOrdered(k => k._1.ctx.meta.name.toString)
       val suffixGen = s"%0${steps.size.toString.length}d"
       if (nameGroups.size == 1)
-        (headName, steps.zipWithIndex.map{case (s, i) => s -> s"S${suffixGen.format(i)}"}.toMap)
+        (headName, ListMap.from(steps.zipWithIndex.map{case (s, i) => s -> s"S${suffixGen.format(i)}"}))
       else
-        (headName, nameGroups.flatMap {
+        (headName, ListMap.from(nameGroups.flatMap {
           case (name, (head, i) :: Nil) =>
             if (name == headName) Some(head -> s"S${suffixGen.format(i)}")
             else Some(head -> name)
           case (name, steps) =>
             steps.map {case (s, i) => s -> s"${name}_${suffixGen.format(i)}"}
-        }.toMap)
+        }))
     }
     def elaborate : Elaboration = {
       val (fsmName, stepNames) = genNames
       implicit val ctx = steps.head.ctx
       import ctx.db.getSet
       object states extends EnumType.Auto()(ctx.meta.setName(s"${fsmName}_states"))
-      val entries : Map[Step, states.Entry] = stepNames.map(e => e._1 -> states.Entry()(ctx.meta.setName(e._2)))
+      val entries : ListMap[Step, states.Entry] = stepNames.map(e => e._1 -> states.Entry()(ctx.meta.setName(e._2)))
       val state = DFEnum(states) init(entries(steps.head)) setName (s"${fsmName}_state")
       val matchHeader = matchdf(state)
       steps.foldLeft[ConditionalBlock.NoRetVal.HasCaseDF[DFEnum.Type[states.type], true]](matchHeader) {

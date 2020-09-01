@@ -19,6 +19,7 @@ package DFiant
 
 import org.scalacheck.Prop
 import singleton.twoface.TwoFace
+import compiler.printer.formatter._
 
 object TestUtils {
   def sameType[A, B](implicit ev: A =:= B): Boolean = true
@@ -61,7 +62,7 @@ object TestUtils {
 
   implicit class StringEnhancer(s : String) {
     def =@= (that : String) : Boolean = {
-      val ret = trimWhites(s) == trimWhites(that)
+      val ret = trimWhites(s.uncolor) == trimWhites(that.uncolor)
       if (!ret) println(s)
       ret
     }

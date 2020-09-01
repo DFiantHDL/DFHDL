@@ -71,15 +71,18 @@ markdown_extensions:
         # See https://github.com/facelessuser/pymdown-extensions/issues/609
         permalink: "\ue157"
     - admonition
+    - pymdownx.snippets:
+        check_paths: true
     - pymdownx.arithmatex
     - pymdownx.superfences
     - pymdownx.tabbed
     - pymdownx.details
     - pymdownx.inlinehilite 
-    - codehilite:
-        guess_lang: false
+    - pymdownx.highlight:
+        use_pygments: true
+        linenums_style: pymdownx.inline
         linenums: true
-        
+      
 extra_css:
     - css/vs.css
     - css/extra.css
