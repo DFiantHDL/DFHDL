@@ -79,21 +79,21 @@ object DFDesign {
     }
     ///////////////////////////////////////////////////////////////////
 
-    final implicit class __DesignExtender[D <: DFDesign](design : D) {
-      private def onBlock(blockMod : Block => Block) : D = {
-        blockMod(design.owner)
-        design
-      }
-      def setName(value : String) : D = onBlock(_.setName(value))
-      def keep : D = onBlock(_.keep)
-      def !![CT <: DFMember.CustomTagOf[Block] : ClassTag](customTag : CT) : D = onBlock(_.!!(customTag))
-      def !!(tags : TagsOf[D]) : D = {
-        tags.attachDesign(design)
-        tags.getTagMap.foreach{case (member, tagMap) => member !! tagMap}
-        design
-      }
-      def getTagOf[CT <: DFMember.CustomTagOf[Block] : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
-    }
+//    final implicit class __DesignExtender[D <: DFDesign](design : D) {
+//      private def onBlock(blockMod : Block => Block) : D = {
+//        blockMod(design.owner)
+//        design
+//      }
+//      def setName(value : String) : D = onBlock(_.setName(value))
+//      def keep : D = onBlock(_.keep)
+//      def !![CT <: DFMember.CustomTagOf[Block] : ClassTag](customTag : CT) : D = onBlock(_.!!(customTag))
+//      def !!(tags : TagsOf[D]) : D = {
+//        tags.attachDesign(design)
+//        tags.getTagMap.foreach{case (member, tagMap) => member !! tagMap}
+//        design
+//      }
+//      def getTagOf[CT <: DFMember.CustomTagOf[Block] : ClassTag] : Option[CT] = design.owner.getTagOf[CT]
+//    }
 
     override lazy val typeName : String = __ctx.symbol.value
   }
@@ -175,34 +175,34 @@ object DFDesign {
     //concatenating design databases (dropping the top owner of the added database)
     def concat(db : DB) : DB = DB(this.members ++ db.members.drop(1), this.refTable ++ db.refTable, this.globalTags ++ db.globalTags)
     //There can only be a single connection to a value (but multiple assignments are possible)
-    //                              To    From
-    lazy val connectionTable : Map[DFAny, DFNet.Connection] =
+    //                                 To            From
+    lazy val connectionTable : Map[DFAny.Member, DFNet.Connection] =
       members.collect{case n : DFNet.Connection => (n.toRef.get, n)}.toMap
 
-    lazy val connectionTableInverted : Map[DFAny, List[DFNet.Connection]] =
+    lazy val connectionTableInverted : Map[DFAny.Member, List[DFNet.Connection]] =
       members.collect{case n : DFNet.Connection => n}.groupBy(n => n.fromRef.get)
 
-    //                               To      From
-    lazy val assignmentsTable : Map[DFAny, Set[DFAny]] =
-      members.foldLeft(Map.empty[DFAny, Set[DFAny]]){
+    //                                   To             From
+    lazy val assignmentsTable : Map[DFAny.Member, Set[DFAny.Member]] =
+      members.foldLeft(Map.empty[DFAny.Member, Set[DFAny.Member]]){
         case (at, DFNet.Assignment.Unref(toVal, fromVal, _, _)) =>
           at + (toVal -> (at.getOrElse(toVal, Set()) + fromVal))
         case (at, _) => at
       }
 
-    //                                       From      To
-    lazy val assignmentsTableInverted : Map[DFAny, Set[DFAny]] =
-      members.foldLeft(Map.empty[DFAny, Set[DFAny]]){
+    //                                         From             To
+    lazy val assignmentsTableInverted : Map[DFAny.Member, Set[DFAny.Member]] =
+      members.foldLeft(Map.empty[DFAny.Member, Set[DFAny.Member]]){
         case (at, DFNet.Assignment.Unref(toVal, fromVal, _, _)) =>
           at + (fromVal -> (at.getOrElse(fromVal, Set()) + toVal))
         case (at, _) => at
       }
 
-    def getConnectionTo(v : DFAny) : Option[DFNet.Connection] = connectionTable.get(v)
-    def getConnectionFrom(v : DFAny) : List[DFNet.Connection] = connectionTableInverted.getOrElse(v, List())
+    def getConnectionTo(v : DFAny.Member) : Option[DFNet.Connection] = connectionTable.get(v)
+    def getConnectionFrom(v : DFAny.Member) : List[DFNet.Connection] = connectionTableInverted.getOrElse(v, List())
 
-    def getAssignmentsTo(v : DFAny) : Set[DFAny] = assignmentsTable.getOrElse(v, Set())
-    def getAssignmentsFrom(v : DFAny) : Set[DFAny] = assignmentsTableInverted.getOrElse(v, Set())
+    def getAssignmentsTo(v : DFAny.Member) : Set[DFAny.Member] = assignmentsTable.getOrElse(v, Set())
+    def getAssignmentsFrom(v : DFAny.Member) : Set[DFAny.Member] = assignmentsTableInverted.getOrElse(v, Set())
 
     //Map of all enum types in the design with their design block owners.
     //If the enum type is global (used in IO or more than one design block),
@@ -417,7 +417,7 @@ object DFDesign {
     def setGlobalTags(tagList : List[((Any, ClassTag[_]), DFMember.CustomTag)]) : DB =
       copy(globalTags = globalTags ++ tagList)
     def patch(singlePatch : (DFMember, DB.Patch)) : DB = patch(List(singlePatch))
-    @tailrec private def getGuards(currentOwner : DFBlock, targetOwner : DFBlock, currentGuards : List[DFAny]) : List[DFAny] =
+    @tailrec private def getGuards(currentOwner : DFBlock, targetOwner : DFBlock, currentGuards : List[DFAny.Member]) : List[DFAny.Member] =
       currentOwner match {
         case _ : DFDesign.Block => currentGuards //reached the design block
         case o : DFBlock if o == targetOwner => currentGuards //can't go past the target owner
@@ -426,9 +426,9 @@ object DFDesign {
       }
 
     //for a given consumer, we get a set of its producers
-    lazy val consumerDependencyTable : Map[DFAny, Set[DFAny]] = {
+    lazy val consumerDependencyTable : Map[DFAny.Member, Set[DFAny.Member]] = {
       //first passing through all nets to get directionality of aliased values
-      val netPass = members.foldLeft(Map.empty[DFAny, Set[DFAny]])((dt, m) => m match {
+      val netPass = members.foldLeft(Map.empty[DFAny.Member, Set[DFAny.Member]])((dt, m) => m match {
         case n : DFNet =>
           val toVal = n.toRef.get
           val fromVal = n.fromRef.get
@@ -442,7 +442,7 @@ object DFDesign {
       })
       members.foldLeft(netPass)((dt, m) => m match {
         case f : DFAny.Func2 => dt + (f-> Set(f.leftArgRef.get, f.rightArgRef.get))
-        case a : DFAny.Alias[_,_,_] =>
+        case a : DFAny.Alias =>
           val relVal = a.relValRef.get
           (dt.get(a), dt.get(relVal)) match {
             //when alias is written to, then the relative value is also dependent on the alias
@@ -456,8 +456,8 @@ object DFDesign {
     }
 
     //for a given producer, we get a set of its consumers
-    lazy val producerDependencyTable : Map[DFAny, Set[DFAny]] = {
-      consumerDependencyTable.foldLeft(Map.empty[DFAny, Set[DFAny]]){case (dt, (consumer, producerSet)) =>
+    lazy val producerDependencyTable : Map[DFAny.Member, Set[DFAny.Member]] = {
+      consumerDependencyTable.foldLeft(Map.empty[DFAny.Member, Set[DFAny.Member]]){case (dt, (consumer, producerSet)) =>
         dt ++ producerSet.map(p => p -> (dt.getOrElse(p, Set()) + consumer))}
     }
 
@@ -714,7 +714,7 @@ object DFDesign {
       }
       private val memberTable : mutable.Map[DFMember, Int] = mutable.Map()
       private val refTable : mutable.Map[DFMember.Ref, DFMember] = mutable.Map()
-      def hasToConnectionFor(dfVar : DFAny) : Boolean = members(memberTable.getOrElse(dfVar, 0))._2.collectFirst {
+      def hasToConnectionFor(dfVar : DFAny.Member) : Boolean = members(memberTable.getOrElse(dfVar, 0))._2.collectFirst {
         case DFNet.ToRef() => true
       }.nonEmpty
       def getMembersOf(owner : DFOwner) : List[DFMember] = {

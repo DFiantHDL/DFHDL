@@ -14,7 +14,7 @@ final class NamedSelection[D <: DFDesign](c : IRCompilation[D]) {
   import designDB.__getset
   def namedSelection : IRCompilation[D] = {
     val membersToName = designDB.members.collect {
-      case DFAny.Alias.BitsWL.Unref(_,_,relVal,relWidth,_,_,_) if relVal.isAnonymous && relWidth != relVal.width.getValue => relVal
+      case DFAny.Alias.BitsWL.Unref(_,_,relVal,relWidth,_,_,_) if relVal.isAnonymous && relWidth != relVal.width => relVal
 //      case DFAny.Alias.AsIs.Unref(_,_,relVal,_,_) if relVal.isAnonymous => relVal
       case DFAny.Alias.Resize.Unref(_,relVal,_,_) if relVal.isAnonymous => relVal
     }.filter {

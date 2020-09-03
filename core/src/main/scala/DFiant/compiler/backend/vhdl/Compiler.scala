@@ -116,10 +116,10 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         designTypes += design.designType
         val (ports, signals, variables) = members.foldRight((List.empty[String],List.empty[String],List.empty[String])){
           case (p @ DFAny.Port.In(), (ports, signals, variables)) =>
-            (Port(p.name, Port.Dir.In(), Type(p), Init(p)) :: ports, signals, variables)
+            (Port(p.name, Port.Dir.In(), Type(p.dfType), Init(p)) :: ports, signals, variables)
           case (p @ DFAny.Port.Out(), (ports, signals, variables)) =>
-            (Port(p.name, Port.Dir.Out(), Type(p), Init(p)) :: ports, signals, variables)
-          case (s : DFAny, (ports, signals, variables))
+            (Port(p.name, Port.Dir.Out(), Type(p.dfType), Init(p)) :: ports, signals, variables)
+          case (s : DFAny.Member, (ports, signals, variables))
             if !s.isAnonymous && (
               designDB.getConnectionTo(s).isDefined ||
               s.tags.customTags.values.exists{
@@ -127,9 +127,9 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
                 case _ => false
               } ||
               designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(RTL.Tag.Mod.Reg))) =>
-            (ports, Signal(s.name, Type(s), Init(s)) :: signals, variables)
-          case (v : DFAny, (ports, signals, variables)) if !v.isAnonymous =>
-            (ports, signals, Variable(v.name, Type(v), Init(v)) :: variables)
+            (ports, Signal(s.name, Type(s.dfType), Init(s)) :: signals, variables)
+          case (v : DFAny.Member, (ports, signals, variables)) if !v.isAnonymous =>
+            (ports, signals, Variable(v.name, Type(v.dfType), Init(v)) :: variables)
           case (_, psv) => psv
         }
         val entityName = design.designType

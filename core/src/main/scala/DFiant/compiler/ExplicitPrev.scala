@@ -13,7 +13,10 @@ import analysis.ConditionalBlockAnalysis
 final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
-  @tailrec private def consumeFrom(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] = {
+  @tailrec private def consumeFrom(
+    value : DFAny.Member, relWidth : Int, relBitLow : Int,
+    assignMap : Map[DFAny.Member, AssignedScope], currentSet : Set[DFAny.Member]
+  ) : Set[DFAny.Member] = {
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match {
       case DFAny.Alias.AsIs(_,_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
@@ -29,10 +32,16 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
       case _ => currentSet
     }
   }
-  private def consumeFrom(value : DFAny, assignMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]) : Set[DFAny] =
+  private def consumeFrom(
+    value : DFAny.Member,
+    assignMap : Map[DFAny.Member, AssignedScope], currentSet : Set[DFAny.Member]
+  ) : Set[DFAny.Member] =
     consumeFrom(value, value.width, 0, assignMap, currentSet)
 
-  @tailrec private def assignTo(value : DFAny, relWidth : Int, relBitLow : Int, assignMap : Map[DFAny, AssignedScope]) : Map[DFAny, AssignedScope] = {
+  @tailrec private def assignTo(
+    value : DFAny.Member, relWidth : Int, relBitLow : Int,
+    assignMap : Map[DFAny.Member, AssignedScope]
+  ) : Map[DFAny.Member, AssignedScope] = {
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match {
       case DFAny.Alias.AsIs(_,_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
@@ -41,24 +50,27 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
       case x => assignMap.assignTo(x, access)
     }
   }
-  implicit class ScopeMap(sm : Map[DFAny, AssignedScope]) {
-    def assignTo(toVal : DFAny, assignBitSet : immutable.BitSet) : Map[DFAny, AssignedScope] =
+  final implicit class ScopeMap(sm : Map[DFAny.Member, AssignedScope]) {
+    def assignTo(toVal : DFAny.Member, assignBitSet : immutable.BitSet) : Map[DFAny.Member, AssignedScope] =
       sm + (toVal -> sm.getOrElse(toVal, AssignedScope.empty).assign(assignBitSet))
-    def branchEntry(firstBranch : Boolean) : Map[DFAny, AssignedScope] =
+    def branchEntry(firstBranch : Boolean) : Map[DFAny.Member, AssignedScope] =
       sm.view.mapValues(_.branchEntry(firstBranch)).toMap
-    def branchExit(lastBranch : Boolean, exhaustive : Boolean) : Map[DFAny, AssignedScope] =
+    def branchExit(lastBranch : Boolean, exhaustive : Boolean) : Map[DFAny.Member, AssignedScope] =
       sm.view.mapValues(_.branchExit(lastBranch, exhaustive)).toMap
   }
-  private def assignTo(value : DFAny, assignMap : Map[DFAny, AssignedScope]) : Map[DFAny, AssignedScope] =
+  private def assignTo(
+    value : DFAny.Member, assignMap : Map[DFAny.Member, AssignedScope]
+  ) : Map[DFAny.Member, AssignedScope] =
     assignTo(value, value.width, 0, assignMap)
   //retrieves a list of variables that are consumed as their implicit previous value.
   //the assignment stack map is pushed on every conditional block entry and popped on the block exit
   @tailrec private def getImplicitPrevVars(
-    remaining : List[DFMember], currentBlock : DFBlock, scopeMap : Map[DFAny, AssignedScope], currentSet : Set[DFAny]
-  ) : (Set[DFAny], Map[DFAny, AssignedScope]) = {
+    remaining : List[DFMember], currentBlock : DFBlock,
+    scopeMap : Map[DFAny.Member, AssignedScope], currentSet : Set[DFAny.Member]
+  ) : (Set[DFAny.Member], Map[DFAny.Member, AssignedScope]) = {
     remaining match {
       case (nextBlock : DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => //entering child block
-        val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = nextBlock match {
+        val (updatedSet, updatedScopeMap) : (Set[DFAny.Member], Map[DFAny.Member, AssignedScope]) = nextBlock match {
           case ConditionalBlock.IfElseBlock(Some(condRef),_,_,_) =>
             (consumeFrom(condRef.get, scopeMap, currentSet), scopeMap.branchEntry(firstBranch = true))
           case cb : ConditionalBlock.Owner =>
@@ -68,7 +80,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
         }
         getImplicitPrevVars(rs, nextBlock, updatedScopeMap, updatedSet)
       case r :: rs if r.getOwnerBlock == currentBlock => //checking member consumers
-        val (updatedSet, updatedScopeMap) : (Set[DFAny], Map[DFAny, AssignedScope]) = r match {
+        val (updatedSet, updatedScopeMap) : (Set[DFAny.Member], Map[DFAny.Member, AssignedScope]) = r match {
           case net : DFNet =>
             (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
           case func : DFAny.Func2 =>
@@ -76,9 +88,10 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
             val right = consumeFrom(func.rightArgRef.get, scopeMap, currentSet)
             (left union right, scopeMap)
           case assert : DFSimMember.Assert =>
-            val dfAnySet : Seq[DFMember.Ref] = assert.msgRef.seq.collect{case Left(x) => x} ++ assert.condOptionRef
+            val dfAnySet : Seq[DFAny.Member] =
+              (assert.msgRef.seq.collect{case Left(x) => x} ++ assert.condOptionRef).map(_.get)
             val consume = dfAnySet.foldLeft(currentSet){
-              case (set, x) => set union consumeFrom(x.get.asInstanceOf[DFAny], scopeMap, currentSet)
+              case (set, x) => set union consumeFrom(x, scopeMap, currentSet)
             }
             (consume, scopeMap)
           case matchBlock : ConditionalBlock.MatchHeader =>
@@ -94,7 +107,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
       case _ => //exiting child block or no more members
         val updatedSet = currentBlock match {
           case d : DFDesign.Block if remaining.isEmpty =>
-            val outPorts : List[DFAny] = designDB.designMemberTable(d).collect {
+            val outPorts : List[DFAny.Member] = designDB.designMemberTable(d).collect {
               case p @ DFAny.Port.Out() => p
               case p @ DFAny.NewVar() => p
             }
@@ -141,7 +154,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
           val dsn = new MetaDesign() {
             final val p_var = DFAny.NewVar(p.dfType) setName (s"${p.name}_var")
             private val p_sig_noinit = DFAny.NewVar(p.dfType) setName (s"${p.name}_sig")
-            final val p_sig = __getset.set[DFAny](p_sig_noinit)(_ => p_sig_noinit.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
+            final val p_sig = __getset.set[DFAny.Member](p_sig_noinit)(_ => p_sig_noinit.member.asInstanceOf[DFAny.Dcl].copy(externalInit = p.externalInit))
             DFNet.Assignment(p_var, DFAny.Alias.Prev(p_sig, 1))
           }
           (p, dsn)

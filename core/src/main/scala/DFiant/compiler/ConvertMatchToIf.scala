@@ -15,7 +15,7 @@ final class ConvertMatchToIf[D <: DFDesign](c : IRCompilation[D]) {
         //we declare all the match conditions
         val conds = cases.map {
           case mc @ ConditionalBlock.CaseBlock(_,_,Some(pattern),_,_) =>
-            Some(pattern.matchCond(matchVal.asInstanceOf[DFAny.Of[pattern.TType]]).anonymize)
+            Some(pattern.matchCond(matchVal.asValOf[pattern.TType]).anonymize.member)
           case _ => None
         }
       }

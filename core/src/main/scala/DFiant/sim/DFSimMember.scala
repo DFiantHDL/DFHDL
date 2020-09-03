@@ -36,7 +36,7 @@ object DFSimMember {
     ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Assert {
-    def apply(condOption : Option[DFBool], msg : Message, severity : Severity)(implicit ctx: DFAny.Context)
+    def apply(condOption : Option[DFAny.Member], msg : Message, severity : Severity)(implicit ctx: DFAny.Context)
     : Assert = {
       implicit lazy val ret : Assert with DFMember.RefOwner =
         ctx.db.addMemberOf[Assert](
@@ -53,18 +53,18 @@ object DFSimMember {
     }
     object Unref {
       def unapply(arg: Assert)(implicit getSet: MemberGetSet)
-      : Option[(Option[DFBool], Message, Severity, DFOwner.Ref, DFMember.Tags)] = {
+      : Option[(Option[DFAny.Member], Message, Severity, DFOwner.Ref, DFMember.Tags)] = {
         import arg._
         Some((condOptionRef.map(c => c.get), msgRef.get, severity, ownerRef, tags))
       }
     }
 
-    type CondRef = DFMember.OwnedRef.Of[CondRef.Type, DFBool]
+    type CondRef = DFMember.OwnedRef.Of[CondRef.Type, DFAny.Member]
     object CondRef {
       trait Type extends DFAny.Ref.ConsumeFrom.Type
       implicit val ev : Type = new Type {}
     }
-    type MsgRef = DFMember.OwnedRef.Of[MsgRef.Type, DFAny]
+    type MsgRef = DFMember.OwnedRef.Of[MsgRef.Type, DFAny.Member]
     object MsgRef {
       trait Type extends DFAny.Ref.ConsumeFrom.Type
       implicit val ev : Type = new Type {}
@@ -87,7 +87,7 @@ object DFSimMember {
         case Right(x) => x
       }.mkString + "\""
     }
-    final case class Message(seq : Seq[Either[DFAny, String]]) extends Product with Serializable
+    final case class Message(seq : Seq[Either[DFAny.Member, String]]) extends Product with Serializable
   }
 
   final case class Finish(

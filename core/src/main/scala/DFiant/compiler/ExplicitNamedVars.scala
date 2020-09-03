@@ -37,7 +37,7 @@ final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
   }
   def explicitNamedVars : IRCompilation[D] = {
     val patchList = designDB.members.flatMap {
-      case named : DFAny if !named.isAnonymous => named match { //all named values
+      case named : DFAny.Member if !named.isAnonymous => named match { //all named values
         case DFAny.Dcl(_,Modifier.MatchRetVar | Modifier.IfRetVar | Modifier.Port(_),_,_,_) => None //ignoring ports and match/if return variables
         case _ =>
           val anon = named.anonymize

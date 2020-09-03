@@ -13,7 +13,7 @@ final class ForceOthersCaseCoverage[D <: DFDesign](c : IRCompilation[D]) {
       cases.last match {
         case ConditionalBlock.CaseBlock(_,_,None,_,_) => None //already has a case_ block
         case cb =>
-          val assignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = mh.getExternalAssignedVars
+          val assignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = mh.getExternalAssignedVars.map(_.asVarOf[DFAny.Type])
           val dsn = new MetaDesign() {
             val case_ = ConditionalBlock.CaseBlock(mh, Some(cb), None)
             applyBlock(case_) {

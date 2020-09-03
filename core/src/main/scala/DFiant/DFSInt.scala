@@ -20,11 +20,11 @@ object DFSInt extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken.toSInt
     override def toString: String = s"DFSInt[$width]"
-    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
       case r @ DFSInt(_) =>
         import DFDesign.Implicits._
         val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFSInt[Int]]]
-        op(this, r.asInstanceOf[DFSInt[Int]])
+        op(this, r.asValOf[Type[Int]])
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -45,7 +45,7 @@ object DFSInt extends DFAny.Companion {
   def apply[W](
     implicit ctx : DFAny.Context, checkedWidth : SIntWidth.Checked[W], di: DummyImplicit
   ) : DFAny.NewVar[Type[W]] = DFAny.NewVar(Type(checkedWidth.unsafeCheck()))
-  def unapply(arg: DFAny): Option[Int] = arg.dfType match {
+  def unapply(arg: DFAny.Member): Option[Int] = arg.dfType match {
     case Type(width) => Some(width.getValue)
     case _ => None
   }
@@ -310,12 +310,12 @@ object DFSInt extends DFAny.Companion {
         def << [R](right: Exact[R])(implicit op: `Op<<`.Builder[DFSInt[LW], R]) = op(left, right)
         def >> [R](right: Exact[R])(implicit op: `Op>>`.Builder[DFSInt[LW], R]) = op(left, right)
         def resize[RW](toWidth : SIntWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFSInt[RW] =
-          (left : DFAny) match {
+          left.member match {
             case DFAny.Const(_, token : Token, _, _) =>
               DFAny.Const.forced(Type(toWidth), token.resize(toWidth))
             case _ =>
               if (left.width.getValue == toWidth.getValue) left.asInstanceOf[DFSInt[RW]]
-              else DFAny.Alias.Resize.sint(left, toWidth)
+              else DFAny.Alias.Resize.sint(left.member, toWidth)
           }
         def extendable : DFSInt[LW] with Extendable = left.asInstanceOf[DFSInt[LW] with Extendable]
       }

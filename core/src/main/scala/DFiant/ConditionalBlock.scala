@@ -48,7 +48,7 @@ object ConditionalBlock {
     }
   }
 
-  type CondRefOption = DFMember.OwnedRefOption[CondRefOption.Type, DFBool]
+  type CondRefOption = DFMember.OwnedRefOption[CondRefOption.Type, DFAny.Member]
   object CondRefOption {
     trait Type extends DFAny.Ref.ConsumeFrom.Type
     implicit val ev : Type = new Type {}
@@ -78,8 +78,9 @@ object ConditionalBlock {
   }
   object IfElseBlock {
     def apply(
-      cond: Option[DFBool], prevBlock: Option[IfElseBlock]
+      cond: Option[DFAny.Member], prevBlock: Option[IfElseBlock]
     )(implicit ctx: DFBlock.Context) : IfElseBlock = {
+
       implicit lazy val ret : IfElseBlock with DFMember.RefOwner =
         ctx.db.addMemberOf[IfElseBlock](
           IfElseBlock(OwnedRefOption(cond), OwnedRefOption(prevBlock), ctx.owner, ctx.meta)
@@ -88,7 +89,7 @@ object ConditionalBlock {
     }
   }
 
-  type MatchValRef = DFMember.OwnedRef.Of[MatchValRef.Type, DFAny]
+  type MatchValRef = DFMember.OwnedRef.Of[MatchValRef.Type, DFAny.Member]
   object MatchValRef {
     trait Type extends DFAny.Ref.ConsumeFrom.Type
     implicit val ev : Type = new Type {}
@@ -119,7 +120,7 @@ object ConditionalBlock {
       trait Type extends DFAny.Ref.ConsumeFrom.Type
       implicit val ev : Type = new Type {}
     }
-    def apply(matchVal: DFAny, matchConfig: MatchConfig)(
+    def apply(matchVal: DFAny.Member, matchConfig: MatchConfig)(
       implicit ctx: DFMember.Context
     ): MatchHeader = {
       implicit lazy val ret : MatchHeader with DFMember.RefOwner =
@@ -179,7 +180,7 @@ object ConditionalBlock {
     final class IfElseBlock[Type <: DFAny.Type, HasElse](
       retVar : DFAny.VarOf[Type], condOption : Option[DFBool], prevBlockOption : Option[ConditionalBlock.IfElseBlock]
     )(block: => DFAny.Of[Type])(implicit ctx : DFBlock.Context) extends WithRetVal[ConditionalBlock.IfElseBlock, Type](retVar) {
-      val owner : ConditionalBlock.IfElseBlock = ConditionalBlock.IfElseBlock(condOption, prevBlockOption)
+      val owner : ConditionalBlock.IfElseBlock = ConditionalBlock.IfElseBlock(condOption.map(_.member), prevBlockOption)
       applyBlock(block)
     }
     object IfElseBlock {
@@ -247,7 +248,7 @@ object ConditionalBlock {
     final class IfElseBlock[HasElse](
       condOption : Option[DFBool], prevBlockOption : Option[ConditionalBlock.IfElseBlock]
     )(block: => Unit)(implicit ctx : DFBlock.Context) extends NoRetVal[ConditionalBlock.IfElseBlock] {
-      val owner : ConditionalBlock.IfElseBlock = ConditionalBlock.IfElseBlock(condOption, prevBlockOption)
+      val owner : ConditionalBlock.IfElseBlock = ConditionalBlock.IfElseBlock(condOption.map(_.member), prevBlockOption)
       applyBlock(block)
     }
     object IfElseBlock {

@@ -7,7 +7,7 @@ final class Flatten[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
   private def flattenName(member : DFMember) : DFMember = member.setName(s"${member.getOwnerBlock.name}_${member.name}")
-  private def flattenPort(port : DFAny) : List[(DFMember, Patch)] = {
+  private def flattenPort(port : DFAny.Member) : List[(DFMember, Patch)] = {
     val incomingBlock = port match {
       case DFAny.In() => port.getOwnerDesign.getOwnerDesign
       case DFAny.Out() => port.getOwnerDesign

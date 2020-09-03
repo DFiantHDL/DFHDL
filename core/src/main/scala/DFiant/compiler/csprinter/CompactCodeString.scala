@@ -24,7 +24,7 @@ final case class CompactCodeString(
 ) extends DFMember.CustomTagOf[DFMember] {
   def codeString(implicit printer : CSPrinter, owner : DFOwner) : String = seq.map {
     case CompactCodeString.MemberPart(ref) => ref.get match {
-      case v : DFAny => v.refCodeString.applyBrackets()
+      case v : DFAny.Member => v.refCodeString.applyBrackets()
       case o : DFDesign.Block => o.designType
       case m : DFMember => m.typeName
     }

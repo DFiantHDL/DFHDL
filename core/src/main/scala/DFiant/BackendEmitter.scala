@@ -27,8 +27,8 @@ final case class BackendEmitter(
   ) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
 }
 object BackendEmitter {
-  type Ref = DFAny.Ref.ConsumeFrom[DFAny]
-  def apply(seq : Seq[Either[DFAny, String]], backendStage : BackendStage)(
+  type Ref = DFAny.Ref.ConsumeFrom[DFAny.Member]
+  def apply(seq : Seq[Either[DFAny.Member, String]], backendStage : BackendStage)(
     implicit ctx : DFAny.Context
   ) : BackendEmitter = {
     implicit lazy val ret : BackendEmitter with DFMember.RefOwner =

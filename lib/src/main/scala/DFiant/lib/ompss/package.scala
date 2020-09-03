@@ -13,8 +13,8 @@ package object ompss {
     (fromStage : IRCompilation[D]) => {
       //applying default ompss clock and reset constraints
       val constrained = fromStage !! new Tags {
-        dsn !! ClockParams("ap_clk", ClockParams.Edge.Rising)
-        dsn !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
+//        dsn !! ClockParams("ap_clk", ClockParams.Edge.Rising)
+//        dsn !! ResetParams("ap_rst", ResetParams.Mode.Sync, ResetParams.Active.High)
       }
       val top = constrained.db.top
       //the top level design should get a "_moved" suffix.

@@ -24,7 +24,7 @@ sealed abstract class DFNet(op : String) extends DFAny.CanBeAnonymous {
 object DFNet {
   type Context = DFAny.Context
 
-  type ToRef = DFMember.OwnedRef.Of[ToRef.Type, DFAny]
+  type ToRef = DFMember.OwnedRef.Of[ToRef.Type, DFAny.Member]
   object ToRef {
     trait Type extends DFAny.Ref.ProduceTo.Type
     implicit val ev : Type = new Type {}
@@ -33,7 +33,7 @@ object DFNet {
       case _ => false
     }
   }
-  type FromRef = DFMember.OwnedRef.Of[FromRef.Type, DFAny]
+  type FromRef = DFMember.OwnedRef.Of[FromRef.Type, DFAny.Member]
   object FromRef {
     trait Type extends DFAny.Ref.ConsumeFrom.Type
     implicit val ev : Type = new Type {}
@@ -49,14 +49,14 @@ object DFNet {
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Assignment {
-    def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
+    def apply(to: DFAny.Member, from: DFAny.Member)(implicit ctx: Context)
     : Assignment = {
       implicit lazy val ret : Assignment with DFMember.RefOwner =
         ctx.db.addMemberOf[Assignment](Assignment(to, from, ctx.owner, ctx.meta))
       ret
     }
     object Unref {
-      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def unapply(arg : Assignment)(implicit getSet: MemberGetSet) : Option[(DFAny.Member, DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Assignment(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
         case _ => None
       }
@@ -73,14 +73,14 @@ object DFNet {
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Connection {
-    def apply(to: DFAny, from: DFAny)(implicit ctx: Context)
+    def apply(to: DFAny.Member, from: DFAny.Member)(implicit ctx: Context)
     : Connection = {
       implicit lazy val ret : Connection with DFMember.RefOwner =
         ctx.db.addMemberOf[Connection](Connection(to, from, ctx.owner, ctx.meta))
       ret
     }
     object Unref {
-      def unapply(arg : Connection)(implicit getSet: MemberGetSet) : Option[(DFAny, DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def unapply(arg : Connection)(implicit getSet: MemberGetSet) : Option[(DFAny.Member, DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Connection(toRef, fromRef, ownerRef, tags) => Some(toRef.get, fromRef.get, ownerRef.get, tags)
         case _ => None
       }

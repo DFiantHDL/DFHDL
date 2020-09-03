@@ -15,7 +15,7 @@ object DFInlineComponent {
     protected[DFiant] def =~(that : DFInlineComponent.Rep)(implicit getSet : MemberGetSet) : Boolean
     def inlineCodeString(implicit printer: CSPrinter, owner: DFOwner) : String
   }
-  type Ref = DFMember.Ref.Of[Ref.Type, DFBit]
+  type Ref = DFMember.Ref.Of[Ref.Type, DFAny.Member]
   object Ref {
     trait Type extends DFMember.Ref.Type
     implicit val ev : Type = new Type {}
@@ -59,9 +59,9 @@ object EdgeDetect {
     }
   }
   object Rep {
-    def apply(bit : DFBit, edge : Edge)(implicit ctx : DFNet.Context) : Rep = new Rep(bit, edge)
+    def apply(bit : DFAny.Member, edge : Edge)(implicit ctx : DFNet.Context) : Rep = new Rep(bit, edge)
     object Unref {
-      def unapply(arg : Rep)(implicit getSet: MemberGetSet) : Option[(DFBit, Edge)] = arg match {
+      def unapply(arg : Rep)(implicit getSet: MemberGetSet) : Option[(DFAny.Member, Edge)] = arg match {
         case Rep(bitRef, edge) => Some((bitRef.get, edge))
         case _ => None
       }

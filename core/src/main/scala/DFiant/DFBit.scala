@@ -22,11 +22,8 @@ object DFBit {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(DFBool.Type(logical = false))
-  def unapply(arg: Any): Boolean = arg match {
-    case dfAny : DFAny => dfAny.dfType match {
-      case DFBool.Type(logical) if !logical => true
-      case _ => false
-    }
+  def unapply(arg: DFAny.Member): Boolean = arg.dfType match {
+    case DFBool.Type(logical) if !logical => true
     case _ => false
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

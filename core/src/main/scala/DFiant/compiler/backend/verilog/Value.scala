@@ -58,7 +58,7 @@ private object Value {
       case _ => s"${leftArgStr.applyBrackets()} $OP$opStr ${rightArgStr.applyBrackets()}"
     }
   }
-  def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer) : String = {
+  def alias(member : DFAny.Alias)(implicit printer : Printer) : String = {
     import printer.config._
     val relVal = member.relValRef.get
     val relValStr = ref(relVal)
@@ -68,7 +68,7 @@ private object Value {
         case _ => s"$$$FN unsigned($relValStr)"
       }
       case DFAny.Alias.BitsWL(dfType, _, _, relWidth, relBitLow, _, _) =>
-        if (relWidth == relVal.width.getValue) relValStr
+        if (relWidth == relVal.width) relValStr
         else {
           val relBitHigh = relBitLow + relWidth - 1
           dfType match {
@@ -78,8 +78,8 @@ private object Value {
         }
       case DFAny.Alias.Resize(dfType, _, _, _) =>
         dfType match {
-          case _ if dfType.width.getValue == relVal.width.getValue => relValStr
-          case _ if relVal.width.getValue == 1 => s"{${dfType.width-1}'b0, $relValStr}"
+          case _ if dfType.width.getValue == relVal.width => relValStr
+          case _ if relVal.width == 1 => s"{${dfType.width-1}'b0, $relValStr}"
           case _ if dfType.width.getValue == 1 => s"$relValStr[0]"
           case DFUInt.Type(_) | DFBits.Type(_) if dfType.width < relVal.width =>
             s"$relValStr[${dfType.width}:0]"
@@ -97,7 +97,7 @@ private object Value {
     }
   }
 
-  def ref(member : DFAny)(implicit printer : Printer) : String = {
+  def ref(member : DFAny.Member)(implicit printer : Printer) : String = {
     import printer.config._
     member match {
       case c : DFAny.Const => const(c.token)
@@ -113,10 +113,10 @@ private object Value {
       case m => m.name
     }
   }
-  def apply(member : DFAny)(implicit printer : Printer) : String = member match {
+  def apply(member : DFAny.Member)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
     case f : DFAny.Func2 => func2(f)
-    case a : DFAny.Alias[_,_,_] => alias(a)
+    case a : DFAny.Alias => alias(a)
     case _ : DFAny.Dcl => ??? //shouldn't occur
     case _ : DFAny.Dynamic => ??? //shouldn't occur
     case _ : DFAny.Fork => ??? //shouldn't occur

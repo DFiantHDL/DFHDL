@@ -22,7 +22,7 @@ object DFBool extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       if (fromToken.isBubble) Token.bubble(logical = false)
       else Token(logical = false, fromToken.valueBits(0))
-    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
       case DFBool() =>
       case DFBit() =>
     }
@@ -35,11 +35,8 @@ object DFBool extends DFAny.Companion {
   // Public Constructors
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   def apply()(implicit ctx : DFAny.Context) : DFAny.NewVar[Type] = DFAny.NewVar(Type(logical = true))
-  def unapply(arg: Any): Boolean = arg match {
-    case dfAny : DFAny => dfAny.dfType match {
-      case Type(logical) if logical => true
-      case _ => false
-    }
+  def unapply(arg: DFAny.Member): Boolean = arg.dfType match {
+    case Type(logical) if logical => true
     case _ => false
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -197,10 +194,9 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  type Const = DFAny.Const.Of[Type]
   object Const {
     trait Builder[C] {
-      def apply(value : C) : Const
+      def apply(value : C) : DFAny.Of[Type]
     }
     object Builder {
       implicit def fromValueOf[N](
@@ -263,7 +259,7 @@ object DFBool extends DFAny.Companion {
         final def ^   [R](right : Exact[R])(implicit op: `Op^`.Builder[DFBool, R]) = op(left, right)
         final def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFBool, R]) = op(left, right)
         final def =!= [R](right : Exact[R])(implicit op: `Op=!=`.Builder[DFBool, R]) = op(left, right)
-        final def unary_!(implicit ctx : DFAny.Context) : DFBool = DFAny.Alias.Invert(left)
+        final def unary_!(implicit ctx : DFAny.Context) : DFBool = DFAny.Alias.Invert[Type](left)
       }
     }
   }

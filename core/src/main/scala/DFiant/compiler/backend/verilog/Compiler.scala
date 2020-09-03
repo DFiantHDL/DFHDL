@@ -99,7 +99,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           case (p @ DFAny.Port.Out(), (ports, wires, regs)) =>
             (Port(p.name, Port.Dir.Out(), Type(p)) :: ports, wires, regs)
           case (RTL.IsClock() | RTL.IsReset(), pwr) if design.isTop && printer.inSimulation => pwr
-          case (s : DFAny, (ports, wires, regs)) if !s.isAnonymous => designDB.getConnectionTo(s) match {
+          case (s : DFAny.Member, (ports, wires, regs)) if !s.isAnonymous => designDB.getConnectionTo(s) match {
             case Some(n) if n.fromRef.isPortOut => (ports, Wire(s.name, Type(s)) :: wires, regs)
             case _ => (ports, wires, Reg(s.name, Type(s), Init(s)) :: regs)
           }
@@ -118,7 +118,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           Verilator.ifdef(clkRstMembers.map(cr => Port(cr.name, Port.Dir.In(), Type(cr))).mkString(",\n")) :: ports
         else ports
         object ClkSim {
-          def unapply(clk : DFAny) : Option[String] = clk match {
+          def unapply(clk : DFAny.Member) : Option[String] = clk match {
             case RTL.IsClock() =>
               val reg = Reg(clk.name, Type(clk), Init(clk))
               val sim = s"$KW always #5 ${Value.ref(clk)} = $OP!${Value.ref(clk)};"
@@ -127,7 +127,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           }
         }
         object RstSim {
-          def unapply(rst : DFAny) : Option[String] = rst match {
+          def unapply(rst : DFAny.Member) : Option[String] = rst match {
             case RTL.IsReset() =>
               val reg = Reg(rst.name, Type(rst), Init(rst))
               val sim = s"$KW initial #10 ${Value.ref(rst)} = $LIT${ResetParams.get.inactiveInt};"

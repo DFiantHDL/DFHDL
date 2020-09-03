@@ -3,7 +3,7 @@ package compiler.backend.verilog
 import compiler.printer.formatter._
 
 private object Init {
-  def apply(member : DFAny)(implicit printer : Printer) : String = {
+  def apply(member : DFAny.Member)(implicit printer : Printer) : String = {
     import printer.config._
     member match {
       case dcl : DFAny.Dcl => dcl.externalInit match {

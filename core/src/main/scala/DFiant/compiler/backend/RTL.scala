@@ -117,9 +117,9 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
 
   def toRTLForm : IRCompilation[D] = {
     final case class PrevReplacements(
-      prevRegDcl : DFAny.Dcl, relVal : DFAny, prevPatch : List[(DFMember, Patch)]
+      prevRegDcl : DFAny.Dcl, relVal : DFAny.Member, prevPatch : List[(DFMember, Patch)]
     ) {
-      private var sig : DFAny = _
+      private var sig : DFAny.Member = _
       def sigAssign(implicit ctx : DFBlock.Context) : Unit = sig = (relVal, prevRegDcl) match {
         case (DFAny.In(),_) => relVal
         case _ if !relVal.name.endsWith("_sig") =>
@@ -199,8 +199,8 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
         }
 
         //replacing the clock and reset with the ones already added in clockedDB
-        val clkPatch = (prevDsn.clk -> Patch.Replace(clockedDsn.clk, Patch.Replace.Config.ChangeRefAndRemove))
-        val rstPatch = if (hasPrevRst) List(prevDsn.rst -> Patch.Replace(clockedDsn.rst, Patch.Replace.Config.ChangeRefAndRemove)) else List()
+        val clkPatch = (prevDsn.clk.member -> Patch.Replace(clockedDsn.clk.member, Patch.Replace.Config.ChangeRefAndRemove))
+        val rstPatch = if (hasPrevRst) List(prevDsn.rst.member -> Patch.Replace(clockedDsn.rst.member, Patch.Replace.Config.ChangeRefAndRemove)) else List()
         val prevPatchList = clkPatch :: rstPatch
         val prevDB = prevDsn.getDB.patch(prevPatchList)
         //adding the clocked prev "signaling" with the clk-rst guards
@@ -217,16 +217,16 @@ object RTL {
     /**
       * Clock
       */
-    case object Clk extends Tag[DFAny] {
+    case object Clk extends Tag[DFAny.Member] {
       override def toString: String = "RTL.Tag.Clk"
     }
     /**
       * Reset
       */
-    case object Rst extends Tag[DFAny] {
+    case object Rst extends Tag[DFAny.Member] {
       override def toString: String = "RTL.Tag.Rst"
     }
-    sealed trait Mod extends Tag[DFAny]
+    sealed trait Mod extends Tag[DFAny.Member]
     object Mod {
       /**
         * In VHDL: Signal
@@ -256,20 +256,20 @@ object RTL {
   }
 
   object IsReset {
-    def unapply(arg: DFAny)(implicit getSet: MemberGetSet): Boolean =
+    def unapply(arg: DFAny.Member)(implicit getSet: MemberGetSet): Boolean =
       arg.isTaggedWith(Tag.Rst)
   }
   object IsClock {
-    def unapply(arg: DFAny)(implicit getSet: MemberGetSet): Boolean =
+    def unapply(arg: DFAny.Member)(implicit getSet: MemberGetSet): Boolean =
       arg.isTaggedWith(Tag.Clk)
   }
 
   object IfBlock {
     def unapply(
       cb: ConditionalBlock.IfElseBlock
-    )(implicit getSet: MemberGetSet): Option[(DFAny, Boolean)] = cb match {
+    )(implicit getSet: MemberGetSet): Option[(DFAny.Member, Boolean)] = cb match {
       case ConditionalBlock.IfElseBlock(Some(condRef), None, _, _) =>
-        (condRef.get : DFAny) match {
+        condRef.get match {
           case DFAny.Func2.Unref(
           _,
           rst @ IsReset(),
@@ -294,7 +294,7 @@ object RTL {
   object ElseIfBlock {
     def unapply(
       cb: ConditionalBlock.IfElseBlock
-    )(implicit getSet: MemberGetSet): Option[(DFAny, Boolean)] = cb match {
+    )(implicit getSet: MemberGetSet): Option[(DFAny.Member, Boolean)] = cb match {
       case ConditionalBlock.IfElseBlock(Some(condRef), Some(_), _, _) =>
         condRef.get.getOwnerBlock match {
           case DFInlineComponent.Block(
@@ -357,7 +357,7 @@ object RTL {
         case a @ DFNet.Assignment.Unref(_,fromVal,_,_) if !a.hasLateConstruction => Some(fromVal)
         case c @ DFNet.Connection.Unref(_,fromVal,_,_) if !c.hasLateConstruction => Some(fromVal)
         case DFAny.Func2.Unref(_,left,_,right,_,_) => List(left, right)
-        case a : DFAny.Alias[_,_,_] => Some(a.relValRef.get)
+        case a : DFAny.Alias => Some(a.relValRef.get)
         case DFSimMember.Assert.Unref(condOption,msg,_,_,_) => msg.seq ++ condOption
         case ConditionalBlock.IfElseBlock(Some(condRef),_,_,_) => Some(condRef.get)
         case mh : ConditionalBlock.MatchHeader => Some(mh.matchValRef.get)

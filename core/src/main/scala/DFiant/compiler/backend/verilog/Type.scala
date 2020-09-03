@@ -2,7 +2,7 @@ package DFiant
 package compiler.backend.verilog
 
 private object Type {
-  def apply(member : DFAny)(implicit printer : Printer) : String = {
+  def apply(member : DFAny.Member)(implicit printer : Printer) : String = {
     import printer.config._
     member match {
       case DFBits(width) => s"[$LIT${width-1}:$LIT 0]"

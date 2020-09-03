@@ -58,8 +58,8 @@ final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
     }
     val patchList : List[(DFMember, Patch)] = internalBlocks.flatMap{ib =>
       //getting only ports that are not already connected to variables unless these are clock variables
-      val (ports, nets) : (List[DFAny], List[DFNet]) =
-        designDB.designMemberTable(ib).foldRight((List.empty[DFAny], List.empty[DFNet])) {
+      val (ports, nets) : (List[DFAny.Member], List[DFNet]) =
+        designDB.designMemberTable(ib).foldRight((List.empty[DFAny.Member], List.empty[DFNet])) {
           case (p @ DFAny.Port.Out(), (ports, nets)) =>
             val conns = designDB.getConnectionFrom(p)
             conns.headOption match {
@@ -82,7 +82,7 @@ final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
         }
       //Meta design to construct the variables to be connected to the ports
       val addVarsDsn = new MetaDesign() {
-        val portsToVars : List[(DFAny, DFAny)] = ports.map {p =>
+        val portsToVars : List[(DFAny.Member, DFAny.Member)] = ports.map {p =>
           p -> (DFAny.NewVar(p.dfType) setName(s"${ib.name}_${p.name}"))
         }
       }
@@ -97,7 +97,7 @@ final class ViaPortConnection[D <: DFDesign](c : IRCompilation[D]) {
           (p, Patch.Replace(v, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Outside(ib)))
         }
         val movedNets : List[(DFMember, Patch)] = nets.map {n =>
-          plantMember(n.setTags(_.setLateContruction(true))(designDB.__getset)) //planet the net with a
+          plantMember(n.setTags(_.setLateConstruction(true))(designDB.__getset)) //planet the net with a
           (n -> Patch.Remove)
         }
       }

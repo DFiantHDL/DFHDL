@@ -42,7 +42,7 @@
 //  def apply[L](
 //    implicit ctx : DFAny.Context, checkedLength : Positive.Checked[L], di: DummyImplicit
 //  ) = DFAny.NewVar(Type(checkedLength))
-//  def unapply(arg: DFAny): Option[TwoFace.Int[Int]] = arg.dfType match {
+//  def unapply(arg: DFAny.Member): Option[TwoFace.Int[Int]] = arg.dfType match {
 //    case Type(length) => Some(length)
 //    case _ => None
 //  }
@@ -146,7 +146,7 @@
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  // Constant Builder
 //  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  type Const[L] = DFAny.Const.Of[Type[L]]
+//  type Const[L] = DFAny.Of[Type[L]]
 //  object Const {
 //    trait Builder[N] {
 //      type L

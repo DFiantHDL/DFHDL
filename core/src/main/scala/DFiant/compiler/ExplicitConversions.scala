@@ -5,25 +5,25 @@ import DFDesign.DB.Patch
 import DFDesign.Implicits._
 final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
-  private def resizeUInt(dfVal : DFAny, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny = dfVal match {
+  private def resizeUInt(dfVal : DFAny.Member, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
     case DFAny.Const(dfType, token : DFUInt.Token, ownerRef, tags) =>
       DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
     case _ =>
-      dfVal.asInstanceOf[DFUInt[Int]].resize(updatedWidth).anonymize
+      dfVal.asValOf[DFUInt.Type[Int]].resize(updatedWidth).anonymize.member
   }
-  private def resizeSInt(dfVal : DFAny, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny = dfVal match {
+  private def resizeSInt(dfVal : DFAny.Member, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
     case DFAny.Const(dfType, token : DFSInt.Token, ownerRef, tags) =>
       DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
     case _ =>
-      dfVal.asInstanceOf[DFSInt[Int]].resize(updatedWidth).anonymize
+      dfVal.asValOf[DFSInt.Type[Int]].resize(updatedWidth).anonymize.member
   }
-  private def toggleLogical(dfVal : DFAny)(implicit ctx : DFBlock.Context) : DFBool = dfVal match {
+  private def toggleLogical(dfVal : DFAny.Member)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
     case DFAny.Const(_, DFBool.Token(logical, value), ownerRef, tags) =>
-      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value), ownerRef, tags).asInstanceOf[DFBool]
+      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value), ownerRef, tags)
     case DFBit() =>
-      (dfVal.asInstanceOf[DFBit] === 1).anonymize
+      (dfVal.asValOf[DFBool.Type] === 1).anonymize.member
     case DFBool() =>
-      dfVal.asInstanceOf[DFBool].as(DFBool.Type(false)).anonymize
+      dfVal.asValOf[DFBool.Type].as(DFBool.Type(false)).anonymize.member
   }
 
   import designDB.__getset

@@ -25,7 +25,69 @@ import singleton.ops._
 import singleton.ops.impl.HasOut
 import DFiant.sim._
 
+import scala.reflect.ClassTag
+
 package object DFiant {
+  final implicit class __MemberSetExtender[T, M <: DFMember](t : T)(implicit tc : DFMember.TC.Aux[T, M]) {
+    private val member = tc(t)
+    def setName(value : String)(implicit getSet : MemberGetSet) : T =
+      member.setTags(_.setName(value))
+    def setNameSuffix(value : String)(implicit getSet : MemberGetSet) : T =
+      setName(s"${member.name}$value")
+    def setNamePrefix(value : String)(implicit getSet : MemberGetSet) : T =
+      setName(s"$value${member.name}")
+    def anonymize(implicit getSet : MemberGetSet) : T =
+      member.setTags(_.anonymize)
+    def keep(implicit getSet : MemberGetSet) : T =
+      member.setTags(_.setKeep(true))
+    def !![CT <: DFMember.CustomTagOf[M] : ClassTag](customTag : CT)(implicit getSet : MemberGetSet) : T =
+      member.setTags(_.!!(customTag))
+    def !!(customTags : DFMember.CustomTagMap)(implicit getSet : MemberGetSet) : T =
+      member.setTags(t => t.copy(customTags = t.customTags ++ customTags))
+    def removeTagOf[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : T =
+      member.setTags(_.removeTagOf[CT])
+    def getTagOf[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : Option[CT] =
+      member.tags.getTagOf[CT]
+    def isTaggedWith[CT <: DFMember.CustomTagOf[M] : ClassTag](ct : CT)(implicit getSet : MemberGetSet) : Boolean =
+      getTagOf[CT].isDefined
+    def setLateConstruction(value : Boolean)(implicit getSet : MemberGetSet) : T =
+      member.setTags(_.setLateConstruction(value))
+  }
+  final implicit class __MemberGetExtender[T](t : T)(implicit tc : T => DFMember) {
+    private val member = tc(t)
+    def isAnonymous : Boolean =
+      member.isAnonymous
+    def name : String =
+      member.name
+    def isNameForced : Boolean =
+      member.isNameForced
+    def hasLateConstruction : Boolean =
+      member.hasLateConstruction
+    def getFullName(implicit getSet : MemberGetSet) : String =
+      member.getFullName
+    def getOwner(implicit getSet: MemberGetSet) : DFOwner =
+      member.getOwner
+    def getOwnerBlock(implicit getSet : MemberGetSet) : DFBlock =
+      member.getOwnerBlock
+    def getOwnerDesign(implicit getSet : MemberGetSet) : DFDesign.Block =
+      member.getOwnerDesign
+    def getThisOrOwnerDesign(implicit getSet : MemberGetSet) : DFDesign.Block =
+      member.getThisOrOwnerDesign
+    def isMemberOfDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean =
+      member.isMemberOfDesign(that)
+    def isSameOwnerDesignAs[T2](that : T2)(implicit getSet : MemberGetSet, tc : T2 => DFMember) : Boolean =
+      member.isSameOwnerDesignAs(tc(that))
+    def isOneLevelBelow[T2](that : T2)(implicit getSet : MemberGetSet, tc : T2 => DFMember) : Boolean =
+      member.isOneLevelBelow(tc(that))
+    def isOutsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean =
+      member.isOutsideOwner(that)
+    def isInsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean =
+      member.isInsideOwner(that)
+  }
+  implicit val __memberFromDFMember : DFMember => DFMember = t => t
+  implicit val __memberFromDFAny : DFAny => DFAny.Member = _.member
+  implicit val __memberFromDFDesign : DFDesign => DFDesign.Block = _.owner
+
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
   type DFBool = DFAny.Of[DFBool.Type]
   type DFBit = DFAny.Of[DFBool.Type]
@@ -133,12 +195,12 @@ package object DFiant {
     def b[W](args: Any*)(implicit interpolator : Interpolator[DFBits.Token, "b"]) : interpolator.Out = interpolator.value
     def h[W](args: Any*)(implicit interpolator : Interpolator[DFBits.Token, "h"]) : interpolator.Out = interpolator.value
 
-    private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny, String]] =
+    private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny.Member, String]] =
       Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
         case x: String => x.nonEmpty
         case _ => true
       }).map {
-        case x : DFAny => Left(x)
+        case x : DFAny => Left(x.member)
         case x => Right(x.toString)
       }
     def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
@@ -147,7 +209,7 @@ package object DFiant {
         case x: String => x.nonEmpty
         case _ => true
       }).map {
-        case x : DFAny => CompactCodeString.MemberPart(x)
+        case x : DFAny => CompactCodeString.MemberPart(x.member)
         case CSFunc(func) => CompactCodeString.CSPrintPart(func)
         case x => CompactCodeString.StringPart(x.toString)
       }

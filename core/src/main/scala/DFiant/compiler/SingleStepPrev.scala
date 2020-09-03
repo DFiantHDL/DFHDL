@@ -13,7 +13,7 @@ final class SingleStepPrev[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.fixAnonymous.db
   import designDB.__getset
   //in case of a.prev.prev.prev, we treat it like a.prev(3)
-  @tailrec private def getRelValStep(relValRef : DFAny.Alias.RelValRef[DFAny], step : Int) : (DFAny, Int) = {
+  @tailrec private def getRelValStep(relValRef : DFAny.Alias.RelValRef, step : Int) : (DFAny.Member, Int) = {
     val relVal = relValRef.get
     relVal match {
       case DFAny.Alias.Prev(_, nextRelValRef, nextStep, _, _) => getRelValStep(nextRelValRef, step + nextStep)
@@ -21,7 +21,7 @@ final class SingleStepPrev[D <: DFDesign](c : IRCompilation[D]) {
     }
   }
   def singleStepPrev : IRCompilation[D] = {
-    val namedPrevTable : mutable.Map[DFAny, List[DFAny]] = mutable.Map()
+    val namedPrevTable : mutable.Map[DFAny.Member, List[DFAny.Member]] = mutable.Map()
     val prevNamePattern = "(.*_prev)([0-9]+)".r
     val sigNamePattern = "(.*)_sig".r
     val patchList = designDB.members.flatMap {
@@ -37,7 +37,7 @@ final class SingleStepPrev[D <: DFDesign](c : IRCompilation[D]) {
                   case sigNamePattern(pre) => s"${pre}_prev${s - prevList.length}"
                   case _ => s"${rv.name}_prev${s - prevList.length}"
                 }
-                val newPrev = rv.asInstanceOf[DFAny.Of[DFAny.Type]].prev.setName(prevName)
+                val newPrev = rv.asValOf[DFAny.Type].prev.setName(prevName)
                 (newPrev, newPrev :: list)
               }
             }

@@ -5,28 +5,28 @@ import scala.annotation.tailrec
 import internals._
 
 object analysis {
-  type AssignmentTable = Map[DFAny, AssignmentRev]
+  type AssignmentTable = Map[DFAny.Member, AssignmentRev]
   //DFMember = DFNet | DFAny.Dynamic.DontConsume | DFAny.Dynamic.Consume
   type AssignmentRev = Vector[AssignmentSource]
   type AssignmentSource = List[SourceElement]
   final case class SourceElement(
-    dfVal : DFAny, relBitHigh : Int, relBitLow : Int, reversed : Boolean, inverted : Boolean, prevStep : Int
+    dfVal : DFAny.Member, relBitHigh : Int, relBitLow : Int, reversed : Boolean, inverted : Boolean, prevStep : Int
   )
 
-  final implicit class DFAnyAnalysis(value : DFAny)(implicit getSet: MemberGetSet) {
-    @tailrec def dealias : DFAny = {
+  final implicit class DFAnyAnalysis(value : DFAny.Member)(implicit getSet: MemberGetSet) {
+    @tailrec def dealias : DFAny.Member = {
       value match {
-        case alias : DFAny.Alias[_,_,_] => alias.relValRef.get.dealias
-        case v : DFAny => v
+        case alias : DFAny.Alias => alias.relValRef.get.dealias
+        case v : DFAny.Member => v
       }
     }
     //true if and only is is assigned at any of its dealiasing stages
     @tailrec def isNonAliasAssigned : Boolean = {
       value match {
-        case alias : DFAny.Alias[_,_,_] =>
+        case alias : DFAny.Alias =>
           if (getSet.designDB.getAssignmentsTo(alias).nonEmpty) true
           else alias.relValRef.get.isNonAliasAssigned
-        case v : DFAny => getSet.designDB.getAssignmentsTo(v).nonEmpty
+        case v : DFAny.Member => getSet.designDB.getAssignmentsTo(v).nonEmpty
       }
     }
   }
@@ -56,11 +56,11 @@ object analysis {
         .collect{case n : DFNet.Assignment => n} //collecting assigned values
     }
     //gets all the assigned variables within the match statement (at any level), but defined externally
-    def getExternalAssignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = {
+    def getExternalAssignedVars : Iterable[DFAny.Member] = {
       val assignments = getAssignments
       val casesNum = getCases.size
       assignments
-        .map(a => (a.toRef.get.asInstanceOf[DFAny.VarOf[DFAny.Type]], caseOwnerOf(a).get)) //map to (toVar, caseOwner)
+        .map(a => (a.toRef.get, caseOwnerOf(a).get)) //map to (toVar, caseOwner)
         .filterNot(x => anyCaseContains(x._1)) //filtering out variables defined inside the cases
         .groupBy(x => x._1) //group with toVar
         .map(x => (x._1, x._2.map(_._2).toSet)) //map to (toVar -> Set[CaseBlock))

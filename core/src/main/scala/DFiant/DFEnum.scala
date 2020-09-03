@@ -40,8 +40,8 @@ object DFEnum extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       Token(enumType, enumType.entries(fromToken.valueBits.toBigInt))
-    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
-      case r @ DFEnum(_) if (enumType == r.asInstanceOf[DFEnum[_]].dfType.enumType) =>
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
+      case r @ DFEnum(enumType) if (this.enumType == enumType) =>
     }
     override def toString: String = s"DFEnum[$enumType]"
     def codeString(implicit printer: CSPrinter) : String = s"${printer.config.TP}DFEnum(${enumType.refCodeString})"
@@ -58,7 +58,7 @@ object DFEnum extends DFAny.Companion {
     DFAny.NewVar(Type(valueOf[E]))
   def apply[E <: EnumType](enumType : E)(implicit ctx : DFAny.Context) : DFAny.NewVar[Type[E]] =
     DFAny.NewVar(Type(enumType))
-  def unapply(arg: DFAny): Option[EnumType] = arg.dfType match {
+  def unapply(arg: DFAny.Member): Option[EnumType] = arg.dfType match {
     case Type(enumType) => Some(enumType)
     case _ => None
   }

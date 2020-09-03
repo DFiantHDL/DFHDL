@@ -24,11 +24,11 @@ object DFBits extends DFAny.Companion {
     type InitBuilder[L <: DFAny] = DFBits.Init.Builder[L, TToken]
     def getBubbleToken: TToken = Token.bubbleOfDFType(this)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken
-    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit = from match {
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
       case r @ DFBits(w) =>
         import DFDesign.Implicits._
         val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFBits[Int]]]
-        op(this, r.asInstanceOf[DFBits[Int]])
+        op(this, r.asValOf[Type[Int]])
     }
     def valueCodeString(value : BitVector)(implicit printer : CSPrinter) : String = ???
     def valueToBitVector(value : BitVector) : BitVector = value
@@ -52,7 +52,7 @@ object DFBits extends DFAny.Companion {
     implicit ctx : DFAny.Context, checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
   ) : DFAny.NewVar[Type[W]] = DFAny.NewVar(Type(checkedWidth))
 
-  def unapply(arg: DFAny): Option[Int] = arg.dfType match {
+  def unapply(arg: DFAny.Member): Option[Int] = arg.dfType match {
     case Type(width) => Some(width.getValue)
     case _ => None
   }
@@ -361,11 +361,10 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Constant Builder
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  type Const[W] = DFAny.Const.Of[Type[W]]
   object Const {
     trait Builder[N] {
       type W
-      def apply(value : N) : Const[W]
+      def apply(value : N) : DFAny.Of[Type[W]]
     }
     object Builder {
       type Aux[N, W0] = Builder[N]{type W = W0}
@@ -373,19 +372,19 @@ object DFBits extends DFAny.Companion {
         implicit const : Builder[N]
       ) : Aux[ValueOf[N], const.W] = new Builder[ValueOf[N]] {
         type W = const.W
-        def apply(value : ValueOf[N]) : Const[W] = const(value.value)
+        def apply(value : ValueOf[N]) : DFAny.Of[Type[W]] = const(value.value)
       }
       implicit def fromToken(implicit ctx : DFAny.Context)
       : Aux[Token, Int] = new Builder[Token] {
         type W = Int
-        def apply(value : Token) : Const[W] = {
+        def apply(value : Token) : DFAny.Of[Type[W]] = {
           DFAny.Const[Type[Int]](Type(value.width), value)
         }
       }
       implicit def fromTokenW[W0](implicit ctx : DFAny.Context)
       : Aux[TokenW[W0], W0] = new Builder[TokenW[W0]] {
         type W = W0
-        def apply(value : TokenW[W0]) : Const[W] = {
+        def apply(value : TokenW[W0]) : DFAny.Of[Type[W]] = {
           val width = TwoFace.Int.create[W0](value.width)
           DFAny.Const[Type[W0]](Type(width), value)
         }
@@ -429,16 +428,16 @@ object DFBits extends DFAny.Companion {
         def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFBits[LW], R]) = op(left, right)
         def =!= [R](right : Exact[R])(implicit op: `Op=!=`.Builder[DFBits[LW], R]) = op(left, right)
         def ++  [R](right : Exact[R])(implicit op: `Op++`.Builder[DFBits[LW], R]) = op(left, right)
-        def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert(left)
+        def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] = DFAny.Alias.Invert[Type[LW]](left)
         def << [R](right: Exact[R])(implicit op: `Op<<`.Builder[DFBits[LW], R]) = op(left, right)
         def >> [R](right: Exact[R])(implicit op: `Op>>`.Builder[DFBits[LW], R]) = op(left, right)
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] =
-          (left : DFAny) match {
+          left.member match {
             case DFAny.Const(_, token : Token, _, _) =>
               DFAny.Const.forced(Type(toWidth), token.resize(toWidth))
             case _ =>
               if (left.width.getValue == toWidth.getValue) left.asInstanceOf[DFBits[RW]]
-              else DFAny.Alias.Resize.bits(left, toWidth)
+              else DFAny.Alias.Resize.bits(left.member, toWidth)
           }
 
         def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = {
@@ -447,7 +446,8 @@ object DFBits extends DFAny.Companion {
             val zeros = DFAny.Const.forced(Type(zeroWidth), Token.zero(zeroWidth))
             `Op++`.forced(left, zeros)
           }
-          else if (left.width > toWidth) DFAny.Alias.BitsWL(left, toWidth, left.width - toWidth)
+          else if (left.width > toWidth)
+            DFAny.Alias.BitsWL[DFAny.Modifier.Val, RW](left.member, toWidth, left.width - toWidth)
           else left
           ret.asInstanceOf[DFBits[RW]]
         }
@@ -466,9 +466,9 @@ object DFBits extends DFAny.Companion {
         ) : DFAny.Value[DFBool.Type, Mod] =
           left.bit(relBit) !! cs"$left(${CSFunc(_.LIT)}$relBit)"
         def msbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
-          DFAny.Alias.BitsWL.bit(left, left.width-1)!! cs"$left.msbit"
+          DFAny.Alias.BitsWL.bit[Mod](left.member, left.width.getValue-1)!! cs"$left.msbit"
         def lsbit(implicit ctx : DFAny.Context): DFAny.Value[DFBool.Type, Mod] =
-          DFAny.Alias.BitsWL.bit(left, 0) !! cs"$left.lsbit"
+          DFAny.Alias.BitsWL.bit[Mod](left.member, 0) !! cs"$left.lsbit"
       }
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -587,7 +587,7 @@ object DFBits extends DFAny.Companion {
   protected[DFiant] sealed class SameBitsVector(val value : Boolean)
   object SameBitsVector {
     trait Builder[SBV, W] {
-      def apply(bits : Type[W], sbv : SBV) : Const[W]
+      def apply(bits : Type[W], sbv : SBV) : DFAny.Of[Type[W]]
     }
     object Builder {
       implicit def fromValueOf[SBV, W](
@@ -826,7 +826,7 @@ object DFBits extends DFAny.Companion {
     trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]
 
     def forced[LW, RW](left : DFBits[LW], right : DFBits[RW])(implicit ctx : DFAny.Context) : DFBits[Int] =
-      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.++, right)(_ ++ _).asInstanceOf[DFBits[Int]]
+      DFAny.Func2(Type(left.width.getValue + right.width.getValue), left, DFAny.Func2.Op.++, right)(_ ++ _)
     object Builder {
       type Aux[L, R, Comp0] = Builder[L, R] {
         type Out = Comp0

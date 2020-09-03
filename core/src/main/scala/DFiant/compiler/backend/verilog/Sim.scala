@@ -26,7 +26,7 @@ private object Sim {
     }
     s"""$KW if ($rstGuard && $clkGuard) $KW begin $statement $KW end"""
   }
-  private def guarded(cond : Option[DFBool], guardedStatement : String)(implicit printer: Printer) : String = {
+  private def guarded(cond : Option[DFAny.Member], guardedStatement : String)(implicit printer: Printer) : String = {
     import printer.config._
     cond match {
       case Some(value) =>

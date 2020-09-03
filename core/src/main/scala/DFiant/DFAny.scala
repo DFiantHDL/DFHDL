@@ -9,11 +9,12 @@ import compiler.printer.formatter._
 import compiler.csprinter._
 import singleton.ops.impl.HasOut
 
-sealed trait DFAny extends DFMember with HasWidth with Product with Serializable {
+sealed trait DFAny extends HasWidth {
   type TType <: DFAny.Type
   type TMod <: DFAny.Modifier
   val dfType : TType
   val modifier : TMod
+  val member : DFAny.Member
   type Width = dfType.Width
   type TToken = dfType.TToken
   final lazy val width = dfType.width
@@ -22,41 +23,51 @@ sealed trait DFAny extends DFMember with HasWidth with Product with Serializable
   protected type AsVar = DFAny.VarOf[TType]
   protected[DFiant] type AsType[T <: DFAny.Type] = DFAny.Value[T, TMod]
   protected type This = DFAny.Of[TType]
-  def isAssignable : Boolean = left match {
-    case DFAny.Out() | DFAny.Var() => true
-    case _ => false
-  }
-  def isPortOut : Boolean = left match {
-    case DFAny.Out() => true
-    case _ => false
-  }
-  def isPortIn : Boolean = left match {
-    case DFAny.In() => true
-    case _ => false
-  }
-  def isPort : Boolean = isPortIn || isPortOut
-  private[DFiant] def assign(that : DFAny)(implicit ctx : DFNet.Context) : DFNet.Assignment =
-    if (isAssignable) DFNet.Assignment(left, that)
-    else throw new IllegalArgumentException(
-      s"""
-         |Can only assign to a dataflow variable or an output port.
-         |Attempted assignment: ${left.getFullName} := ${that.getFullName} at ${ctx.owner.getFullName}
-         |""".stripMargin
-    )
-
-  def codeString(implicit printer: CSPrinter) : String
-  def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = {
-    val callOwner: DFBlock = owner match {
-      case b : DFBlock => b
-      case o => o.getOwnerBlock
-    }
-    if (isAnonymous) codeString
-    else getRelativeName(callOwner, printer.getSet)
-  }
-  override lazy val typeName: String = dfType.toString
 }
 
 object DFAny {
+  trait Member extends DFMember with Product with Serializable {
+    val dfType : DFAny.Type
+    val modifier : DFAny.Modifier
+    final lazy val width : Int = dfType.width.getValue
+    def codeString(implicit printer: CSPrinter) : String
+    def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = {
+      val callOwner: DFBlock = owner match {
+        case b : DFBlock => b
+        case o => o.getOwnerBlock
+      }
+      if (isAnonymous) codeString
+      else getRelativeName(callOwner, printer.getSet)
+    }
+    final def asValOf[Type <: DFAny.Type] : DFAny.Of[Type] =
+      new DFAny.Value[Type, Modifier](this)
+    final def asVarOf[Type <: DFAny.Type] : DFAny.VarOf[Type] =
+      new DFAny.Value[Type, Modifier.Assignable](this)
+    final def asValModOf[Type <: DFAny.Type, Mod <: DFAny.Modifier] : DFAny.Value[Type, Mod] =
+      new DFAny.Value[Type, Mod](this)
+    final def asUninitialized[Type <: DFAny.Type, Mod <: DFAny.Modifier] : DFAny.Value[Type, Mod] with Dcl.Uninitialized =
+      new DFAny.Value[Type, Mod](this).asInstanceOf[DFAny.Value[Type, Mod] with Dcl.Uninitialized]
+    final def asRefOwner[Type <: DFAny.Type, Mod <: DFAny.Modifier] : DFAny.Value[Type, Mod] with DFMember.RefOwner =
+      new DFAny.Value[Type, Mod](this).asInstanceOf[DFAny.Value[Type, Mod] with DFMember.RefOwner]
+    override lazy val typeName: String = dfType.toString
+    def isAssignable : Boolean = this match {
+      case DFAny.Out() | DFAny.Var() => true
+      case _ => false
+    }
+    def isPortOut : Boolean = this match {
+      case DFAny.Out() => true
+      case _ => false
+    }
+    def isPortIn : Boolean = this match {
+      case DFAny.In() => true
+      case _ => false
+    }
+    def isPort : Boolean = isPortIn || isPortOut
+  }
+//  object Member {
+//    implicit def fromAny(a : DFAny) : Member = a.member
+//  }
+
   trait Type extends Product with Serializable {
     type TToken <: DFAny.Token
     type Width
@@ -70,7 +81,7 @@ object DFAny {
     type InitBuilder[L <: DFAny] <: DFAny.Init.Builder[L, InitAble, TToken]
     def getBubbleToken : TToken
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token
-    def assignCheck(from : DFAny)(implicit ctx : DFAny.Context) : Unit
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit
     def codeString(implicit printer: CSPrinter) : String
   }
   object Type {
@@ -102,42 +113,44 @@ object DFAny {
     }
   }
 
-  type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+  type Ref[+M <: DFAny.Member] = DFMember.OwnedRef.Of[Ref.Type, M]
   object Ref {
     trait Type extends DFMember.OwnedRef.Type
     implicit val ev : Type = new Type {}
-    type ConsumeFrom[+M <: DFAny] = DFMember.OwnedRef.Of[ConsumeFrom.Type, M]
+    type ConsumeFrom[+M <: DFAny.Member] = DFMember.OwnedRef.Of[ConsumeFrom.Type, M]
     object ConsumeFrom {
       trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
-    type ProduceTo[+M <: DFAny] = DFMember.OwnedRef.Of[ProduceTo.Type, M]
+    type ProduceTo[+M <: DFAny.Member] = DFMember.OwnedRef.Of[ProduceTo.Type, M]
     object ProduceTo {
       trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
   }
 
-  sealed trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny {
+  class Value[Type <: DFAny.Type, +Mod <: Modifier](val member : DFAny.Member) extends DFAny {
     type TType = Type
+    val dfType : Type = member.dfType.asInstanceOf[Type]
+    val modifier : TMod = member.modifier.asInstanceOf[TMod]
     type TMod <: Mod
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
     //////////////////////////////////////////////////////////////////////////
     final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : AsType[DFBool.Type] =
-      DFAny.Alias.BitsWL.bit(this, relBit.unsafeCheck(width))
+      DFAny.Alias.BitsWL.bit[TMod](member, relBit.unsafeCheck(width).getValue)
 
-    final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[dfType.Width]] = (this : DFAny) match {
+    final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[Width]] = member match {
       case DFAny.Const(_, token, _, _) =>
-        DFAny.Const.forced(DFBits.Type(token.width), token.bits).asInstanceOf[AsType[DFBits.Type[dfType.Width]]]
+        DFAny.Const.forced(DFBits.Type(token.width), token.bits).asInstanceOf[AsType[DFBits.Type[Width]]]
       case _ =>
-        DFAny.Alias.BitsWL(this, dfType.width, 0) !! cs"$this.bits"
+        DFAny.Alias.BitsWL[TMod, Width](member, dfType.width, 0) !! cs"$this.bits"
     }
 
     final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
       implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
     ) : AsType[DFBits.Type[relWidth.Out]] =
-      DFAny.Alias.BitsWL(this, relWidth(relBitHigh, relBitLow), relBitLow) !!
+      DFAny.Alias.BitsWL[TMod, relWidth.Out](member, relWidth(relBitHigh, relBitLow), relBitLow) !!
         cs"$this.bits(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
 
     final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
@@ -149,7 +162,7 @@ object DFAny {
 
     final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
       implicit ctx : DFAny.Context
-    ) : AsType[DFBits.Type[W]] = DFAny.Alias.BitsWL(this, relWidth, relBitLow)
+    ) : AsType[DFBits.Type[W]] = DFAny.Alias.BitsWL[TMod, W](member, relWidth, relBitLow)
 
     final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
       implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Context
@@ -163,7 +176,7 @@ object DFAny {
     // Prev
     //////////////////////////////////////////////////////////////////////////
     final protected def protPrev(step : Int)(implicit ctx : DFAny.Context)
-    : AsVal = DFAny.Alias.Prev(this, step)
+    : AsVal = DFAny.Alias.Prev[TType](this.member, step)
     final def prev(implicit ctx : DFAny.Context) : AsVal = protPrev(1)
     final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal = protPrev(step)
     //////////////////////////////////////////////////////////////////////////
@@ -194,7 +207,7 @@ object DFAny {
     //////////////////////////////////////////////////////////////////////////
     // Dynamic Dataflow Control
     //////////////////////////////////////////////////////////////////////////
-    final def fork(implicit ctx : DFAny.Context) : Fork.Of[Type] = Fork(left)
+    final def fork(implicit ctx : DFAny.Context) : Value[Type, Modifier.Fork] = Fork(left)
     //fired only once for each new token
     final def isNotEmpty(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotEmpty(left)
     final def isStallBubble(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsStallBubble(left)
@@ -249,19 +262,31 @@ object DFAny {
 
   trait CanBeAnonymous extends DFMember
 
-  protected[DFiant] final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny]
+  protected[DFiant] final case class Init(seq : Seq[Token]) extends DFMember.CustomTagOf[DFAny.Member]
 
-  protected[DFiant] implicit class AnyExtender[T <: DFAny](member : T)(implicit getSet : MemberGetSet) {
-    def setInit(seq : Seq[Token]) : T = member !! Init(seq)
-    def clearInit : T = member.removeTagOf[Init]
-    def getInit : Option[Seq[Token]] = member.getTagOf[Init].map(_.seq)
+  final protected[DFiant] implicit class AnyExtender(value : DFAny.Member) {
+    def setInit(seq : Seq[Token])(implicit getSet : MemberGetSet) : DFAny.Member = value !! Init(seq)
+    def clearInit(implicit getSet : MemberGetSet) : DFAny.Member = value.removeTagOf[Init]
+    def getInit(implicit getSet : MemberGetSet) : Option[Seq[Token]] = value.getTagOf[Init].map(_.seq)
+  }
+  final protected[DFiant] implicit class AnyExtender2[T](t : T)(implicit tc : T => DFAny.Member) {
+    private val left = tc(t)
+    def assign[T2](t2 : T2)(implicit ctx : DFNet.Context, tc2 : T2 => DFAny.Member) : DFNet.Assignment = {
+      val right = tc2(t2)
+      if (left.isAssignable) DFNet.Assignment(left, right)
+      else throw new IllegalArgumentException(
+        s"""
+           |Can only assign to a dataflow variable or an output port.
+           |Attempted assignment: ${left.getFullName} := ${right.getFullName} at ${ctx.owner.getFullName}
+           |""".stripMargin
+      )
+    }
   }
 
   final case class Const(
     dfType : DFAny.Type, token : DFAny.Token, ownerRef : DFOwner.Ref, tags : DFMember.Tags
-  ) extends Value[DFAny.Type, Modifier.Val] with CanBeAnonymous {
-    type TMod = Modifier.Val
-    val modifier : TMod = Modifier.Val
+  ) extends DFAny.Member with CanBeAnonymous {
+    val modifier : Modifier = Modifier.Val
 
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Const(dfType, token, _, tags) =>
@@ -276,31 +301,15 @@ object DFAny {
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Const {
-    type Of[Type <: DFAny.Type] = Value[Type, Modifier.Val]{type TMod = Modifier.Val}
     def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
-    : Of[Type] =
-      ctx.db.addMemberOf[Of[Type]](Const(dfType, token, ctx.owner, ctx.meta.anonymize))
+    : DFAny.Of[Type] = ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asValOf[Type]
     private[DFiant] def forced[Type <: DFAny.Type](dfType: Type, token: DFAny.Token)(implicit ctx: Context)
-    : Of[Type] =
-      ctx.db.addMemberOf[Of[Type]](Const(dfType, token, ctx.owner, ctx.meta.anonymize))
+    : DFAny.Of[Type] = ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asValOf[Type]
   }
-
-//  final case class Variable[Type <: DFAny.Type, Mod <: DFAny.Modifier.Initializable](
-//    dfType : Type, modifier : Mod, ownerRef : DFOwner.Ref, tags : DFMember.Tags[Type#TToken]
-//  ) extends Value[Type, Mod] {
-//    type TMod = Mod
-//
-//    def codeString(implicit printer: Printer) : String = s"${dfType.codeString}${modifier.codeString}"
-//    override lazy val typeName: String = s"$dfType"
-//  }
-//
-
-
 
   final case class Dcl(
     dfType : DFAny.Type, modifier : DFAny.Modifier, externalInit : Option[Seq[DFAny.Token]], ownerRef : DFOwner.Ref, tags : DFMember.Tags
-  ) extends Value[Type, DFAny.Modifier] {
-    type TMod = DFAny.Modifier
+  ) extends DFAny.Member {
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Dcl(dfType, modifier, externalInit, _, tags) =>
         this.dfType == dfType && this.modifier == modifier && this.externalInit == externalInit && this.tags =~ tags
@@ -335,11 +344,11 @@ object DFAny {
       ) : Value[Type, Mod] = forcedInit(op(i, tokens))
 
       private[DFiant] def forcedInit(tokens : Seq[Token])(implicit ctx : DFAny.Context) : Value[Type, Mod] = {
-        val newMember = Dcl(i.dfType, i.modifier, Some(tokens), ctx.owner, ctx.meta).asInstanceOf[Value[Type, Mod]]
-        if (ctx.meta.namePosition == i.tags.meta.namePosition) {
-          implicitly[MemberGetSet].set[DFAny](i)(_ => newMember)
-          newMember
-        } else ctx.db.addMember(newMember)
+        val newMember = Dcl(i.dfType, i.modifier, Some(tokens), ctx.owner, ctx.meta)
+        if (ctx.meta.namePosition == i.member.tags.meta.namePosition) {
+          implicitly[MemberGetSet].set[DFAny.Member](i.member)(_ => newMember)
+          newMember.asValModOf[Type, Mod]
+        } else ctx.db.addMember(newMember).asValModOf[Type, Mod]
       }
     }
     def apply[Type <: DFAny.Type, Mod <: DFAny.Modifier](dfType: Type, modifier : Mod)(
@@ -370,7 +379,7 @@ object DFAny {
         }
         case ASIS => specifyDefaultModifier
       }
-      ctx.db.addMemberOf[Value[Type, Mod] with Uninitialized](Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta))
+      ctx.db.addMember(Dcl(dfType, actualModifier, None, ctx.owner, ctx.meta)).asUninitialized[Type, Mod]
     }
   }
 
@@ -424,11 +433,11 @@ object DFAny {
           case VAR => Modifier.NewVar
         }
       }
-      val newMember = Dcl(left.dfType, modifier, None, ctx.owner, ctx.meta).asInstanceOf[Value[Type, Modifier.Port[PortDir]] with Dcl.Uninitialized]
-      if (ctx.meta.namePosition == left.tags.meta.namePosition) {
-        implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-        newMember
-      } else ctx.db.addMember(newMember)
+      val newMember = Dcl(left.dfType, modifier, None, ctx.owner, ctx.meta)
+      if (ctx.meta.namePosition == left.member.tags.meta.namePosition) {
+        implicitly[MemberGetSet].set[DFAny.Member](left.member)(_ => newMember)
+        newMember.asUninitialized[Type, Modifier.Port[PortDir]]
+      } else ctx.db.addMember(newMember).asUninitialized[Type, Modifier.Port[PortDir]]
     }
 
     def <>[R](right: DFAny.ConnOf[Type])(
@@ -438,21 +447,21 @@ object DFAny {
     def ifdf[C, B](cond : C)(block : => Exact[B])(
       implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
     ) : ConditionalBlock.WithRetVal.IfElseBlock[Type, true] = {
-      val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
-      implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-      new ConditionalBlock.WithRetVal.IfElseBlock[Type, true](newMember, Some(condArg()), None)(blockConv(left.dfType, block))
+      val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.member.ownerRef, left.member.tags) //setting a RetVar modifier
+      implicitly[MemberGetSet].set[DFAny.Member](left.member)(_ => newMember)
+      new ConditionalBlock.WithRetVal.IfElseBlock[Type, true](newMember.asValModOf[Type, Modifier.NewVar], Some(condArg()), None)(blockConv(left.dfType, block))
     }
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
     ): ConditionalBlock.WithRetVal.MatchHeader[Type, MVType] = {
-      val newMember = Dcl(left.dfType, Modifier.MatchRetVar, None, left.ownerRef, left.tags).asInstanceOf[Value[Type, Modifier.NewVar]] //setting a RetVar modifier
-      implicitly[MemberGetSet].set[DFAny](left)(_ => newMember)
-      new ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](newMember, matchValue, matchConfig)
+      val newMember = Dcl(left.dfType, Modifier.MatchRetVar, None, left.member.ownerRef, left.member.tags)//setting a RetVar modifier
+      implicitly[MemberGetSet].set[DFAny.Member](left.member)(_ => newMember)
+      new ConditionalBlock.WithRetVal.MatchHeader[Type, MVType](newMember.asValModOf[Type, Modifier.NewVar], matchValue, matchConfig)
     }
   }
 
-  sealed trait Alias[Type <: DFAny.Type, RelVal <: DFAny, +Mod <: Modifier] extends Value[Type, Mod] with CanBeAnonymous {
-    val relValRef : Alias.RelValRef[RelVal]
+  sealed trait Alias extends DFAny.Member with CanBeAnonymous {
+    val relValRef : Alias.RelValRef
     def constFunc(t : DFAny.Token) : DFAny.Token
     def initFunc(t : Seq[DFAny.Token]) : Seq[DFAny.Token] = TokenSeq(t)(constFunc)
     def relCodeString(cs : String)(implicit printer: CSPrinter) : String
@@ -464,16 +473,15 @@ object DFAny {
     }
   }
   object Alias {
-    type RelValRef[+M <: DFAny] = DFMember.OwnedRef.Of[RelValRef.Type, M]
+    type RelValRef = DFMember.OwnedRef.Of[RelValRef.Type, DFAny.Member]
     object RelValRef {
       trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
-    type Of[Type <: DFAny.Type, RelVal <: DFAny, Mod <: Modifier] = Alias[Type, RelVal, Mod]{type TMod = Mod}
 
     final case class AsIs(
-      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
-    ) extends Alias[Type, DFAny, Modifier] {
+      dfType : Type, modifier : Modifier, relValRef : RelValRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+    ) extends Alias {
       type TMod = Modifier
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case AsIs(dfType, modifier, relValRef, _, tags) =>
@@ -489,22 +497,21 @@ object DFAny {
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object AsIs {
-      def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, refVal: RelVal)(
+      def apply[Type <: DFAny.Type, RelVal <: DFAny](dfType: Type, relVal: RelVal)(
         implicit ctx: Context
-      ): Of[Type, RelVal, refVal.TMod] = {
-        implicit lazy val ret : Of[Type, RelVal, refVal.TMod] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[Type, RelVal, refVal.TMod]](AsIs(dfType, refVal.modifier, refVal, ctx.owner, ctx.meta))
+      ): Value[Type, relVal.TMod] = {
+        implicit lazy val ret : Value[Type, relVal.TMod] with DFMember.RefOwner =
+          ctx.db.addMember(AsIs(dfType, relVal.modifier, relVal.member, ctx.owner, ctx.meta)).asRefOwner[Type, relVal.TMod]
         ret
       }
       object Unref {
-        def unapply(arg : AsIs)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, DFOwner, DFMember.Tags)] =
+        def unapply(arg : AsIs)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny.Member, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.ownerRef.get, arg.tags)
       }
     }
     final case class BitsWL(
-      dfType : Type, modifier : Modifier, relValRef : RelValRef[DFAny], relWidth : Int, relBitLow : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags
-    ) extends Alias[Type, DFAny, Modifier]{
-      type TMod = Modifier
+      dfType : Type, modifier : Modifier, relValRef : RelValRef, relWidth : Int, relBitLow : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+    ) extends Alias{
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case BitsWL(dfType, modifier, relValRef, relWidth, relBitLow, _, tags) =>
           this.dfType == dfType && this.modifier == modifier && this.relWidth == relWidth &&
@@ -526,34 +533,33 @@ object DFAny {
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object BitsWL {
-      def apply[W, L, RelVal <: DFAny](refVal: RelVal, relWidth: TwoFace.Int[W], relBitLow: TwoFace.Int[L])(
+      def apply[RelValMod <: Modifier, W](relVal: DFAny.Member, relWidth: TwoFace.Int[W], relBitLow: Int)(
         implicit ctx: Context
-      ): Of[DFBits.Type[W], RelVal, refVal.TMod] = {
-        implicit lazy val ret : Of[DFBits.Type[W], RelVal, refVal.TMod] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[DFBits.Type[W], RelVal, refVal.TMod]](
-            BitsWL(DFBits.Type(relWidth), refVal.modifier, refVal, relWidth, relBitLow, ctx.owner, ctx.meta)
-          )
+      ): Value[DFBits.Type[W], RelValMod] = {
+        implicit lazy val ret : Value[DFBits.Type[W], RelValMod] with DFMember.RefOwner =
+          ctx.db.addMember(
+            BitsWL(DFBits.Type(relWidth), relVal.modifier, relVal, relWidth, relBitLow, ctx.owner, ctx.meta)
+          ).asRefOwner[DFBits.Type[W], RelValMod]
         ret
       }
-      def bit[I, RelVal <: DFAny](refVal: RelVal, relBit: TwoFace.Int[I])(
+      def bit[RelValMod <: Modifier](relVal: DFAny.Member, relBit: Int)(
         implicit ctx: Context
-      ): Of[DFBool.Type, RelVal, refVal.TMod] = {
-        implicit lazy val ret : Of[DFBool.Type, RelVal, refVal.TMod] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[DFBool.Type, RelVal, refVal.TMod]](
-            BitsWL(DFBool.Type(logical = false), refVal.modifier, refVal, 1, relBit, ctx.owner, ctx.meta)
-          )
+      ): Value[DFBool.Type, RelValMod] = {
+        implicit lazy val ret : Value[DFBool.Type, RelValMod] with DFMember.RefOwner =
+          ctx.db.addMember(
+            BitsWL(DFBool.Type(logical = false), relVal.modifier, relVal, 1, relBit, ctx.owner, ctx.meta)
+          ).asRefOwner[DFBool.Type, RelValMod]
         ret
       }
       object Unref {
-        def unapply(arg : BitsWL)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny, Int, Int, DFOwner, DFMember.Tags)] =
+        def unapply(arg : BitsWL)(implicit getSet: MemberGetSet) : Option[(Type, Modifier, DFAny.Member, Int, Int, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.relWidth, arg.relBitLow, arg.ownerRef.get, arg.tags)
       }
     }
     final case class Prev(
-      dfType : Type, relValRef : RelValRef[DFAny], step : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags
-    ) extends Alias[Type, DFAny, Modifier.Val] {
-      type TMod = Modifier.Val
-      val modifier : TMod = Modifier.Val
+      dfType : Type, relValRef : RelValRef, step : Int, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+    ) extends Alias {
+      val modifier : Modifier = Modifier.Val
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Prev(dfType, relValRef, step, _, tags) =>
           this.dfType == dfType && this.relValRef =~ relValRef && this.step == step && this.tags =~ tags
@@ -569,81 +575,78 @@ object DFAny {
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Prev {
-      def apply[RelVal <: DFAny](refVal: RelVal, step: Int)(
+      def apply[RelValType <: DFAny.Type](relVal: DFAny.Member, step: Int)(
         implicit ctx: Context
-      ): Of[RelVal#TType, RelVal, Modifier.Val] = {
-        implicit lazy val ret : Of[RelVal#TType, RelVal, Modifier.Val] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[RelVal#TType, RelVal, Modifier.Val]](
-            Prev(refVal.dfType, refVal, step, ctx.owner, ctx.meta)
-          )
+      ): Value[RelValType, Modifier.Val] = {
+        implicit lazy val ret : Value[RelValType, Modifier.Val] with DFMember.RefOwner =
+          ctx.db.addMember(
+            Prev(relVal.dfType, relVal, step, ctx.owner, ctx.meta)
+          ).asRefOwner[RelValType, Modifier.Val]
         ret
       }
       object Unref {
-        def unapply(arg : Prev)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Int, DFOwner, DFMember.Tags)] =
+        def unapply(arg : Prev)(implicit getSet: MemberGetSet) : Option[(Type, DFAny.Member, Int, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.relValRef.get, arg.step, arg.ownerRef.get, arg.tags)
       }
     }
     final case class Resize(
-      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
-    ) extends Alias[Type, DFAny, Modifier.Val] {
-      type TMod = Modifier.Val
-      val modifier : TMod = Modifier.Val
-      private val toWidth : Int = dfType.width
+      dfType : Type, relValRef : RelValRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+    ) extends Alias {
+      val modifier : Modifier = Modifier.Val
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Resize(dfType, relValRef, _, tags) =>
           this.dfType == dfType && this.relValRef =~ relValRef && this.tags =~ tags
         case _ => false
       }
       def constFunc(t : DFAny.Token) : DFAny.Token = t match {
-        case b : DFBits.Token => b.resize(toWidth)
-        case u : DFUInt.Token => u.resize(toWidth)
-        case s : DFSInt.Token => s.resize(toWidth)
+        case b : DFBits.Token => b.resize(width)
+        case u : DFUInt.Token => u.resize(width)
+        case s : DFSInt.Token => s.resize(width)
       }
       def relCodeString(cs : String)(implicit printer: CSPrinter) : String = {
         import printer.config._
-        s"$cs.$DF resize($toWidth)"
+        s"$cs.$DF resize($width)"
       }
 
       def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Resize {
-      def bits[LW, RW](refVal: DFBits[LW], toWidth: TwoFace.Int[RW])(
+      def bits[RW](relVal: DFAny.Member, toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
-      ): Of[DFBits.Type[RW], DFBits[LW], Modifier.Val] = {
-        implicit lazy val ret : Of[DFBits.Type[RW], DFBits[LW], Modifier.Val] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[DFBits.Type[RW], DFBits[LW], Modifier.Val]](
-            Resize(DFBits.Type(toWidth), refVal, ctx.owner, ctx.meta)
-          )
+      ): Value[DFBits.Type[RW], Modifier.Val] = {
+        implicit lazy val ret : Value[DFBits.Type[RW], Modifier.Val] with DFMember.RefOwner =
+          ctx.db.addMember(
+            Resize(DFBits.Type(toWidth), relVal, ctx.owner, ctx.meta)
+          ).asRefOwner[DFBits.Type[RW], Modifier.Val]
         ret
       }
-      def uint[LW, RW](refVal: DFUInt[LW], toWidth: TwoFace.Int[RW])(
+      def uint[RW](relVal: DFAny.Member, toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
-      ): Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val] = {
-        implicit lazy val ret : Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[DFUInt.Type[RW], DFUInt[LW], Modifier.Val]](
-            Resize(DFUInt.Type(toWidth), refVal, ctx.owner, ctx.meta)
-          )
+      ): Value[DFUInt.Type[RW], Modifier.Val] = {
+        implicit lazy val ret : Value[DFUInt.Type[RW], Modifier.Val] with DFMember.RefOwner =
+          ctx.db.addMember(
+            Resize(DFUInt.Type(toWidth), relVal, ctx.owner, ctx.meta)
+          ).asRefOwner[DFUInt.Type[RW], Modifier.Val]
         ret
       }
-      def sint[LW, RW](refVal: DFSInt[LW], toWidth: TwoFace.Int[RW])(
+      def sint[RW](relVal: DFAny.Member, toWidth: TwoFace.Int[RW])(
         implicit ctx: Context
-      ): Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val] = {
-        implicit lazy val ret : Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[DFSInt.Type[RW], DFSInt[LW], Modifier.Val]](
-            Resize(DFSInt.Type(toWidth), refVal, ctx.owner, ctx.meta)
-          )
+      ): Value[DFSInt.Type[RW], Modifier.Val] = {
+        implicit lazy val ret : Value[DFSInt.Type[RW], Modifier.Val] with DFMember.RefOwner =
+          ctx.db.addMember(
+            Resize(DFSInt.Type(toWidth), relVal, ctx.owner, ctx.meta)
+          ).asRefOwner[DFSInt.Type[RW], Modifier.Val]
         ret
       }
       object Unref {
-        def unapply(arg : Resize)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, DFOwner, DFMember.Tags)] =
+        def unapply(arg : Resize)(implicit getSet: MemberGetSet) : Option[(Type, DFAny.Member, DFOwner, DFMember.Tags)] =
           Some(arg.dfType, arg.relValRef.get, arg.ownerRef.get, arg.tags)
       }
     }
     final case class Invert(
-      dfType : Type, relValRef : RelValRef[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
-    ) extends Alias[Type, DFAny, Modifier.Val] {
-      type TMod = Modifier.Val
-      val modifier : TMod = Modifier.Val
+      dfType : Type, relValRef : RelValRef, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+    ) extends Alias {
+      val modifier : Modifier = Modifier.Val
       protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
         case Invert(dfType, relValRef, _, tags) =>
           this.dfType == dfType && this.relValRef =~ relValRef && this.tags =~ tags
@@ -658,17 +661,16 @@ object DFAny {
         case _ : DFBool.Type => "!"
       }
       def relCodeString(cs : String)(implicit printer: CSPrinter) : String = s"$op$cs"
-
-  def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
+      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
     }
     object Invert {
-      def apply[RelVal <: DFAny](refVal: RelVal)(
+      def apply[RelValType <: DFAny.Type](relVal: DFAny.Member)(
         implicit ctx: Context
-      ): Of[RelVal#TType, RelVal, Modifier.Val] = {
-        implicit lazy val ret : Of[RelVal#TType, RelVal, Modifier.Val] with DFMember.RefOwner =
-          ctx.db.addMemberOf[Of[RelVal#TType, RelVal, Modifier.Val]](
-            Invert(refVal.dfType, refVal, ctx.owner, ctx.meta)
-          )
+      ): Value[RelValType, Modifier.Val] = {
+        implicit lazy val ret : Value[RelValType, Modifier.Val] with DFMember.RefOwner =
+          ctx.db.addMember(
+            Invert(relVal.dfType, relVal, ctx.owner, ctx.meta)
+          ).asRefOwner[RelValType, Modifier.Val]
         ret
       }
     }
@@ -689,14 +691,13 @@ object DFAny {
 //    )(implicit ctx: Context, ) : ConcatBits
 //  }
 
-  sealed abstract class Func[Type <: DFAny.Type] extends Value[Type, Modifier.Val] with CanBeAnonymous {
-    type TMod = Modifier.Val
-    val modifier : TMod = Modifier.Val
+  sealed abstract class Func extends DFAny.Member with CanBeAnonymous {
+    val modifier : Modifier = Modifier.Val
   }
 
   final case class Func2(
-    dfType: Type, leftArgRef : Func2.Ref.LeftArg[DFAny], op : Func2.Op, rightArgRef : Func2.Ref.RightArg[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
-  )(val tokenFunc : (Token, Token) => Token) extends Func[Type] {
+    dfType: Type, leftArgRef : Func2.Ref.LeftArg, op : Func2.Op, rightArgRef : Func2.Ref.RightArg, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+  )(val tokenFunc : (Token, Token) => Token) extends Func {
     val initFunc : (Seq[DFAny.Token], Seq[DFAny.Token]) => Seq[DFAny.Token] = (l, r) => TokenSeq(l, r)(tokenFunc)
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Func2(dfType, leftArgRef, op, rightArgRef, _, tags) =>
@@ -711,15 +712,15 @@ object DFAny {
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags))(tokenFunc))
   }
   object Func2 {
-    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+    type Ref = DFMember.OwnedRef.Of[Ref.Type, DFAny.Member]
     object Ref {
       trait Type extends DFAny.Ref.ConsumeFrom.Type
-      type LeftArg[+M <: DFAny] = DFMember.OwnedRef.Of[LeftArg.Type, M]
+      type LeftArg = DFMember.OwnedRef.Of[LeftArg.Type, DFAny.Member]
       object LeftArg {
         trait Type extends Ref.Type
         implicit val ev : Type = new Type {}
       }
-      type RightArg[+M <: DFAny] = DFMember.OwnedRef.Of[RightArg.Type, M]
+      type RightArg = DFMember.OwnedRef.Of[RightArg.Type, DFAny.Member]
       object RightArg {
         trait Type extends Ref.Type
         implicit val ev : Type = new Type {}
@@ -789,24 +790,26 @@ object DFAny {
 
     def apply[Type <: DFAny.Type, L <: DFAny, Op <: Func2.Op, R <: DFAny](
       dfType: Type, leftArg: L, op: Op, rightArg: R
-    )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context)
-    : Func[Type] = {
-      val func0 : (DFAny.Token, DFAny.Token) => DFAny.Token = (l, r) => func(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
+    )(func: (L#TToken, R#TToken) => Type#TToken)(implicit ctx: Context) : DFAny.Of[Type] = {
+      val func0 : (DFAny.Token, DFAny.Token) => DFAny.Token =
+        (l, r) => func(l.asInstanceOf[L#TToken], r.asInstanceOf[R#TToken])
       forced(dfType, leftArg, op, rightArg)(func0)
     }
     private[DFiant] def forced[Type <: DFAny.Type](
-      dfType: Type, leftArg: DFAny, op: Func2.Op, rightArg: DFAny
-    )(tokenFunc: (Token, Token) => Token)(implicit ctx: Context)
-    : Func[Type] = {
-      implicit lazy val ret : Func[Type] with DFMember.RefOwner =
-        ctx.db.addMemberOf[Func[Type]](
+      dfType: Type, leftArg: DFAny.Member, op: Func2.Op, rightArg: DFAny.Member
+    )(tokenFunc: (Token, Token) => Token)(implicit ctx: Context) : DFAny.Of[Type] = {
+      implicit lazy val ret : DFAny.Of[Type] with DFMember.RefOwner =
+        ctx.db.addMember(
           Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(tokenFunc)
-        )
+        ).asRefOwner[Type, Modifier.Val]
       ret
     }
     object Unref {
-      def unapply(arg : Func2)(implicit getSet: MemberGetSet) : Option[(Type, DFAny, Op, DFAny, DFOwner, DFMember.Tags)] = arg match {
-        case Func2(dfType, leftArgRef, op, rightArgRef, ownerRef, tags) => Some((dfType, leftArgRef.get, op, rightArgRef.get, ownerRef.get, tags))
+      def unapply(arg : Func2)(
+        implicit getSet: MemberGetSet
+      ) : Option[(Type, DFAny.Member, Op, DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
+        case Func2(dfType, leftArgRef, op, rightArgRef, ownerRef, tags) =>
+          Some((dfType, leftArgRef.get, op, rightArgRef.get, ownerRef.get, tags))
         case _ => None
       }
     }
@@ -818,10 +821,9 @@ object DFAny {
   // Dynamic Dataflow Constructs
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   final case class Fork(
-    dfType : Type, relValRef : Fork.Ref[DFAny], ownerRef : DFOwner.Ref, tags : DFMember.Tags
-  ) extends Value[DFAny.Type, Modifier.Fork] {
-    type TMod = Modifier.Fork
-    val modifier : TMod = Modifier.Fork
+    dfType : Type, relValRef : Fork.Ref, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+  ) extends DFAny.Member {
+    val modifier : Modifier = Modifier.Fork
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Fork(dfType, relValRef, _, tags) =>
         this.dfType == dfType && this.relValRef =~ relValRef && this.tags =~ tags
@@ -836,37 +838,37 @@ object DFAny {
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Fork {
-    type Of[Type <: DFAny.Type] = Value[Type, Modifier.Fork]
-    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+    type Ref = DFMember.OwnedRef.Of[Ref.Type, DFAny.Member]
     object Ref {
       trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
     }
-    def apply[RelVal <: DFAny](refVal: RelVal)(
+    def apply[RelVal <: DFAny](relVal: RelVal)(
       implicit ctx: DFAny.Context
-    ): Of[RelVal#TType] = {
-      implicit lazy val ret : Of[RelVal#TType] with DFMember.RefOwner =
-        ctx.db.addMemberOf[Of[RelVal#TType]](
-          Fork(refVal.dfType, refVal, ctx.owner, ctx.meta)
-        )
+    ): Value[RelVal#TType, Modifier.Fork] = {
+      implicit lazy val ret : Value[RelVal#TType, Modifier.Fork] with DFMember.RefOwner =
+        ctx.db.addMember(
+          Fork(relVal.dfType, relVal.member, ctx.owner, ctx.meta)
+        ).asRefOwner[RelVal#TType, Modifier.Fork]
       ret
     }
     object Unref {
-      def unapply(arg : Fork)(implicit getSet: MemberGetSet) : Option[(DFAny.Type, DFAny, DFOwner, DFMember.Tags)] =
+      def unapply(arg : Fork)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Type, DFAny.Member, DFOwner, DFMember.Tags)] =
         Some((arg.dfType, arg.relValRef.get, arg.ownerRef.get, arg.tags))
     }
   }
-  implicit class ForkOps[Type <: DFAny.Type](val left : Fork.Of[Type]) {
+  implicit class ForkOps[Type <: DFAny.Type](val left : Value[Type, Modifier.Fork]) {
     final def dontConsume()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontConsume(left)
     final def consume()(implicit ctx : DFAny.Context) : Unit = Dynamic.Consume(left)
   }
   //Dynamic is a always boolean for implementation simplification. Only `IsNotEmpty` and `IsNotFull` are
   //useable as boolean values.
   final case class Dynamic(
-    relValRef : Dynamic.Ref[DFAny], func : Dynamic.Func, ownerRef : DFOwner.Ref, tags : DFMember.Tags
-  ) extends DFBool with CanBeAnonymous {
-    type TMod = Modifier.Val
-    val modifier : TMod = Modifier.Val
+    relValRef : Dynamic.Ref, func : Dynamic.Func, ownerRef : DFOwner.Ref, tags : DFMember.Tags
+  ) extends DFAny.Member with CanBeAnonymous {
+    val modifier : Modifier = Modifier.Val
     val dfType : DFBool.Type = DFBool.Type(true)
     protected[DFiant] def =~(that : DFMember)(implicit getSet : MemberGetSet) : Boolean = that match {
       case Dynamic(relValRef, func, _, tags) =>
@@ -878,11 +880,11 @@ object DFAny {
       s"${relValRef.refCodeString.applyBrackets()}.$DF ${func.codeString}"
     }
 
-      def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Dynamic {
-    type Ref[+M <: DFAny] = DFMember.OwnedRef.Of[Ref.Type, M]
+    type Ref = DFMember.OwnedRef.Of[Ref.Type, DFAny.Member]
     object Ref {
       trait Type extends DFMember.OwnedRef.Type
       implicit val ev : Type = new Type {}
@@ -914,52 +916,72 @@ object DFAny {
       }
     }
 
-    def apply(relVal: DFAny, func : Func)(
+    def apply(relVal: DFAny.Member, func : Func)(
       implicit ctx: DFAny.Context
     ): DFBool = {
-      implicit lazy val ret : Dynamic with DFMember.RefOwner =
-        ctx.db.addMemberOf[Dynamic](Dynamic(relVal, func, ctx.owner, ctx.meta))
+      implicit lazy val ret : DFBool with DFMember.RefOwner =
+        ctx.db.addMember(Dynamic(relVal, func, ctx.owner, ctx.meta)).asRefOwner[DFBool.Type, Modifier.Val]
       ret
     }
 
     object Unref {
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, Func, DFOwner, DFMember.Tags)] =
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, Func, DFOwner, DFMember.Tags)] =
         Some((arg.relValRef.get, arg.func, arg.ownerRef.get, arg.tags))
     }
     object IsNotEmpty {
-      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotEmpty)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def apply(relVal : DFAny.Member)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotEmpty)
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.IsNotEmpty, owner, tags) => Some((relVal, owner, tags))
+        case _ => None
       }
     }
     object IsNotFull {
-      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotFull)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def apply(relVal : DFAny.Member)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsNotFull)
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.IsNotFull, owner, tags) => Some((relVal, owner, tags))
+        case _ => None
       }
     }
     object IsStallBubble {
-      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsStallBubble)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def apply(relVal : DFAny.Member)(implicit ctx : DFAny.Context) : DFBool = Dynamic(relVal, Func.IsStallBubble)
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.IsStallBubble, owner, tags) => Some((relVal, owner, tags))
+        case _ => None
       }
     }
     object Consume {
-      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.Consume)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def apply(relVal : DFAny.Member)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.Consume)
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.Consume, owner, tags) => Some((relVal, owner, tags))
+        case _ => None
       }
     }
     object DontConsume {
-      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontConsume)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def apply(relVal : DFAny.Member)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontConsume)
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.DontConsume, owner, tags) => Some((relVal, owner, tags))
+        case _ => None
       }
     }
     object DontProduce {
-      def apply(relVal : DFAny)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontProduce)
-      def unapply(arg : Dynamic)(implicit getSet: MemberGetSet) : Option[(DFAny, DFOwner, DFMember.Tags)] = arg match {
+      def apply(relVal : DFAny.Member)(implicit ctx : DFAny.Context) : DFMember = Dynamic(relVal, Func.DontProduce)
+      def unapply(arg : Dynamic)(
+        implicit getSet: MemberGetSet
+      ) : Option[(DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
         case Unref(relVal, Func.DontProduce, owner, tags) => Some((relVal, owner, tags))
+        case _ => None
       }
     }
   }
@@ -999,36 +1021,38 @@ object DFAny {
   }
 
   object In {
-    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+    def unapply(arg: DFAny.Member): Boolean = arg.modifier match {
       case Modifier.Port(IN) => true
       case _ => false
     }
   }
   object Out {
-    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+    def unapply(arg: DFAny.Member): Boolean = arg.modifier match {
       case Modifier.Port(OUT) => true
       case _ => false
     }
   }
   object Var {
-    def unapply[T <: DFAny.Type, M <: Modifier](arg: Value[T, M]): Boolean = arg.modifier match {
+    def unapply(arg: DFAny.Member): Boolean = arg.modifier match {
       case _ : Modifier.NewVar => true
       case _ => false
     }
   }
 
   type ConnectableOf[Type <: DFAny.Type] = Value[Type, Modifier.Connectable]
-  implicit class ConnectableOps(left : DFAny){
-    protected implicit class ConnectionExtras(that : DFAny) {
-      def getPort(implicit ctx : DFNet.Context) : DFAny = that match {
+  final implicit class ConnectableOps[L](left : L)(implicit tcL : L => DFAny.Member) {
+    protected implicit class ConnectionExtras[T](that : DFAny.Member) {
+      def getPort(implicit ctx : DFNet.Context) : DFAny.Member = that match {
         case DFAny.Port.In() | DFAny.Port.Out() => that
-        case alias : DFAny.Alias[_,_,_] => alias.relValRef.get.getPort
+        case alias : DFAny.Alias => alias.relValRef.get.getPort
         case _ => ???
       }
       def isConnectingExternally(implicit ctx : DFNet.Context) : Boolean = getPort.getOwnerDesign.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
       def isConnectingInternally(implicit ctx : DFNet.Context) : Boolean = getPort.getOwnerDesign == ctx.owner.getThisOrOwnerDesign
     }
-    private def connectPortInWithPortIn(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectPortInWithPortIn(left : DFAny.Member, right : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two input ports of the same design.")
       //Connecting owner and child design input ports, while child port is left and owner port is right.
@@ -1037,7 +1061,9 @@ object DFAny {
       else if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (right, left)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectPortOutWithPortOut(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectPortOutWithPortOut(left : DFAny.Member, right : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
       if (left isSameOwnerDesignAs right) throwConnectionError("Cannot connect two output ports of the same design.")
       //Connecting owner and child design output ports, while child port is left and owner port is right.
@@ -1046,7 +1072,9 @@ object DFAny {
       else if ((right isOneLevelBelow left) && (right.isConnectingExternally)) (left, right)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectPortOutWithPortIn(out : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectPortOutWithPortIn(out : DFAny.Member, in : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting input and output ports internally at the same design
       if ((out isSameOwnerDesignAs in) && out.isConnectingInternally) (out, in)
@@ -1054,7 +1082,9 @@ object DFAny {
       else if ((out.getOwnerDesign isSameOwnerDesignAs in.getOwnerDesign) && out.isConnectingExternally) (in, out)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectVarWithPortIn(dfVar : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectVarWithPortIn(dfVar : DFAny.Member, in : DFAny.Member)(
+      implicit ctx : DFNet.Context) : (DFAny.Member, DFAny.Member
+      ) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
       if ((in isOneLevelBelow dfVar) && (in.isConnectingExternally || in.isConnectingInternally)) (in, dfVar)
@@ -1062,7 +1092,9 @@ object DFAny {
       else if ((in isSameOwnerDesignAs dfVar) && (in.isConnectingInternally)) (dfVar, in)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectVarWithPortOut(dfVar : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectVarWithPortOut(dfVar : DFAny.Member, out : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVar.getFullName} <> ${out.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an output port internally
       if ((dfVar isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVar)
@@ -1070,20 +1102,26 @@ object DFAny {
       else if ((out isOneLevelBelow dfVar) && (out.isConnectingExternally || out.isConnectingInternally)) (dfVar, out)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectValWithPortIn(dfVal : DFAny, in : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectValWithPortIn(dfVal : DFAny.Member, in : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${dfVal.getFullName} <> ${in.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an input port externally
       if ((in isOneLevelBelow dfVal) && (in.isConnectingExternally || in.isConnectingInternally)) (in, dfVal)
       else if ((in isSameOwnerDesignAs dfVal) && (in.isConnectingInternally) && dfVal.isAnonymous) (in, dfVal)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectValWithPortOut(dfVal : DFAny, out : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectValWithPortOut(dfVal : DFAny.Member, out : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${out.getFullName} <> ${dfVal.getFullName} at ${ctx.owner.getFullName}")
       //Connecting a value to an output port internally
       if ((dfVal isSameOwnerDesignAs out) && (out.isConnectingInternally)) (out, dfVal)
       else throwConnectionError("Unsupported connection")
     }
-    private def connectVarWithVar(left : DFAny, right : DFAny)(implicit ctx : DFNet.Context) : (DFAny, DFAny) = {
+    private def connectVarWithVar(left : DFAny.Member, right : DFAny.Member)(
+      implicit ctx : DFNet.Context
+    ) : (DFAny.Member, DFAny.Member) = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName} at ${ctx.owner.getFullName}")
       (ctx.db.hasToConnectionFor(left), ctx.db.hasToConnectionFor(right)) match {
         case (true, false) => (right, left)
@@ -1093,9 +1131,9 @@ object DFAny {
       }
     }
 
-    protected[DFiant] def connectWith(right : DFAny)(implicit ctx : DFNet.Context) : DFNet.Connection = {
+    protected[DFiant] def connectWith[R](right : R)(implicit ctx : DFNet.Context, tcR : R => DFAny.Member) : DFNet.Connection = {
       def throwConnectionError(msg : String) = throw new IllegalArgumentException(s"\n$msg\nAttempted connection: ${left.getFullName} <> ${right.getFullName}")
-      val (toPort, from) : (DFAny, DFAny) = (left, right) match {
+      val (toPort, from) : (DFAny.Member, DFAny.Member) = (tcL(left), tcR(right)) match {
         case (p1@In(),  p2@In())  => connectPortInWithPortIn(p1, p2)
         case (p1@Out(), p2@Out()) => connectPortOutWithPortOut(p1, p2)
         case (p1@Out(), p2@In())  => connectPortOutWithPortIn(p1, p2)

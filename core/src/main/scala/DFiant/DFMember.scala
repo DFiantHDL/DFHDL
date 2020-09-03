@@ -88,18 +88,34 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
 
 object DFMember {
-  implicit class MemberExtender[M <: DFMember](member : M)(implicit getSet : MemberGetSet) {
-    def setName(value : String) : M = member.setTags(_.setName(value)).asInstanceOf[M]
-    def setNameSuffix(value : String) : M = setName(s"${member.name}$value")
-    def setNamePrefix(value : String) : M = setName(s"$value${member.name}")
-    def anonymize : M = member.setTags(_.anonymize).asInstanceOf[M]
-    def keep : M = member.setTags(_.setKeep(true)).asInstanceOf[M]
-    def !![CT <: CustomTagOf[M] : ClassTag](customTag : CT) : M = member.setTags(_.!!(customTag)).asInstanceOf[M]
-    def !!(customTags : CustomTagMap) : M = member.setTags(t => t.copy(customTags = t.customTags ++ customTags)).asInstanceOf[M]
-    def removeTagOf[CT <: CustomTagOf[M] : ClassTag] : M = member.setTags(_.removeTagOf[CT]).asInstanceOf[M]
-    def getTagOf[CT <: CustomTagOf[M] : ClassTag] : Option[CT] = member.tags.getTagOf[CT]
-    def isTaggedWith[CT <: CustomTagOf[M] : ClassTag](ct : CT) : Boolean = getTagOf[CT].isDefined
-    def setLateContruction(value : Boolean) : M = member.setTags(_.setLateContruction(value)).asInstanceOf[M]
+  final class MemberContainer[T, M <: DFMember](container : T, getMember : T => M, setMember : M => T) {
+    private val member : M = getMember(container)
+    def name : String = member.name
+    def tags : DFMember.Tags = member.tags
+    def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : T = {
+      setMember(member.setTags(tagsFunc).asInstanceOf[M])
+//      member.setTags(tagsFunc)
+//      container
+    }
+  }
+  trait TC[T] {
+    type M <: DFMember
+    def apply(t : T) : MemberContainer[T, M]
+  }
+  object TC {
+    type Aux[T, M0 <: DFMember] = TC[T]{type M = M0}
+    implicit def fromDFMember[M0 <: DFMember] : Aux[M0, M0] = new TC[M0] {
+      type M = M0
+      def apply(t : M) : MemberContainer[M0, M0] = new MemberContainer[M0, M0](t, t => t, m => m)
+    }
+    implicit def fromDFAny[A <: DFAny] : Aux[A, DFAny.Member] = new TC[A] {
+      type M = DFAny.Member
+      def apply(t : A) : MemberContainer[A, M] = new MemberContainer[A, M](t, _.member, _.asValModOf[t.TType, t.TMod].asInstanceOf[A])
+    }
+    implicit def fromDFDesign[D <: DFDesign] : Aux[D, DFDesign.Block] = new TC[D] {
+      type M = DFDesign.Block
+      def apply(t : D) : MemberContainer[D, M] = new MemberContainer[D, M](t, _.owner, _ => t)
+    }
   }
 
   sealed trait CustomTag extends Product with Serializable
@@ -114,7 +130,7 @@ object DFMember {
       customTags.get(classTag[CT]).asInstanceOf[Option[CT]]
     def =~(that : Tags) : Boolean = this.meta.name == that.meta.name && this.customTags == that.customTags
     def setName(value : String) : Tags = setMeta(meta.setName(value))
-    def setLateContruction(value : Boolean) : Tags = setMeta(meta.copy(lateConstruction = value))
+    def setLateConstruction(value : Boolean) : Tags = setMeta(meta.copy(lateConstruction = value))
     def anonymize : Tags = setMeta(meta.anonymize)
   }
   object Tags {
@@ -168,6 +184,16 @@ object DFMember {
         new OwnedRef.Of[T, M]{
           val refType: T = rt
           lazy val owner: Ref.Of[RefOwner.Type, DFMember] = refOwner
+        },
+        member
+      )
+    implicit def outDFAny[M <: DFMember, T <: Type, O <: DFAny](member: M)(
+      implicit ctx : DFMember.Context, rt : T, refOwner : => O with RefOwner, di : DummyImplicit
+    ) : OwnedRef.Of[T, M] =
+      Ref.newRefFor[M, T, OwnedRef.Of[T, M]](
+        new OwnedRef.Of[T, M]{
+          val refType: T = rt
+          lazy val owner: Ref.Of[RefOwner.Type, DFMember] = refOwner.member
         },
         member
       )

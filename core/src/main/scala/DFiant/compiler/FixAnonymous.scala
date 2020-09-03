@@ -3,7 +3,6 @@ package compiler
 
 import DFDesign.DB.Patch
 import scala.annotation.tailrec
-
 final class FixAnonymous[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset

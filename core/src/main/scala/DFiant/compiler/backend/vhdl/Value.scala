@@ -113,7 +113,7 @@ private object Value {
       case _ => s"${leftArgStr.applyBrackets()} $OP$opStr ${rightArgStr.applyBrackets()}"
     }
   }
-  def alias(member : DFAny.Alias[_ <: DFAny.Type,_ <: DFAny,_ <: DFAny.Modifier])(implicit printer : Printer) : String = {
+  def alias(member : DFAny.Alias)(implicit printer : Printer) : String = {
     import printer.config._
     val relVal = member.relValRef.get
     val relValStr = ref(relVal)
@@ -149,7 +149,7 @@ private object Value {
         dfType match {
           case DFBool.Type(false) => s"${bitsConv.applyBrackets()}($LIT$relBitLow)"
           case DFBits.Type(_) =>
-            if (relVal.width.getValue == relWidth) bitsConv
+            if (relVal.width == relWidth) bitsConv
             else s"${bitsConv.applyBrackets()}($LIT$relBitHigh $KW downto $LIT$relBitLow)"
         }
       case DFAny.Alias.Resize(dfType, _, _, _) => s"$FN resize($relValStr, $LIT${dfType.width})"
@@ -158,7 +158,7 @@ private object Value {
     }
   }
 
-  def ref(member : DFAny)(implicit printer : Printer) : String = {
+  def ref(member : DFAny.Member)(implicit printer : Printer) : String = {
     import printer.config._
     member match {
       case c : DFAny.Const => const(c.token)
@@ -174,10 +174,10 @@ private object Value {
       case m => m.name
     }
   }
-  def apply(member : DFAny)(implicit printer : Printer) : String = member match {
+  def apply(member : DFAny.Member)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
     case f : DFAny.Func2 => func2(f)
-    case a : DFAny.Alias[_,_,_] => alias(a)
+    case a : DFAny.Alias => alias(a)
     case _ : DFAny.Dcl => ??? //shouldn't occur
     case _ : DFAny.Dynamic => ??? //shouldn't occur
     case _ : DFAny.Fork => ??? //shouldn't occur
