@@ -12,11 +12,11 @@ module SeqDet(
   reg         [2:0]             detFsm_state = `E_detFsm_states_S0;
   reg         [2:0]             detFsm_state_prev1 = `E_detFsm_states_S0;
   reg         [2:0]             detFsm_state_sig;
-  `define E_detFsm_states_S1001 0
+  `define E_detFsm_states_S0    0
   `define E_detFsm_states_S1    1
-  `define E_detFsm_states_S0    2
+  `define E_detFsm_states_S10   2
   `define E_detFsm_states_S100  3
-  `define E_detFsm_states_S10   4
+  `define E_detFsm_states_S1001 4
   always @(*)
   begin
     detFsm_state                = detFsm_state_prev1;

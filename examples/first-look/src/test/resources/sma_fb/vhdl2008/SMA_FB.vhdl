@@ -32,7 +32,7 @@ begin
     x_prev2_sig      <= x_prev2;
     x_prev3_sig      <= x_prev3;
     acc_sig          <= acc;
-    y                <= resize(acc sra to_integer(2d"2"), 16);
+    y                <= resize(acc sra 2, 16);
   end process;
   sync_proc : process (rst, clk)
   begin

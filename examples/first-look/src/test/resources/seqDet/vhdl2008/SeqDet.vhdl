@@ -13,7 +13,13 @@ port (
 end SeqDet;
 
 architecture SeqDet_arch of SeqDet is  
-  type E_detFsm_states is (E_detFsm_states_S1001, E_detFsm_states_S1, E_detFsm_states_S0, E_detFsm_states_S100, E_detFsm_states_S10);
+  type E_detFsm_states is (
+    E_detFsm_states_S0,
+    E_detFsm_states_S1,
+    E_detFsm_states_S10,
+    E_detFsm_states_S100,
+    E_detFsm_states_S1001
+  );
   signal detFsm_state_prev1 : E_detFsm_states := E_detFsm_states_S0;
   signal detFsm_state_sig   : E_detFsm_states;
 begin

@@ -63,8 +63,10 @@ nav:
     - Acknowledgements: about/acknowledgements.md
 
 extra_javascript:
-    - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
-    - 'https://embed.scalafiddle.io/integration.js'
+  - javascripts/config.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - 'https://embed.scalafiddle.io/integration.js'
 
 markdown_extensions:
     - toc:
@@ -73,7 +75,8 @@ markdown_extensions:
     - admonition
     - pymdownx.snippets:
         check_paths: true
-    - pymdownx.arithmatex
+    - pymdownx.arithmatex:
+        generic: true
     - pymdownx.superfences
     - pymdownx.tabbed
     - pymdownx.details

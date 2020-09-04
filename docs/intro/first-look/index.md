@@ -1,7 +1,3 @@
----
-	typora-copy-images-to: ./
----
-
 # DFiant: First Look
 
 Your first encounter with the DFiant syntax, semantics and language features
@@ -61,8 +57,9 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
     ```
 
 <p align="center">
-  <b>Fig. 1b: A DFiant implementation of the identity function as a toplevel design and the generated VHDL files</b><br>
+  <b>Fig. 1b: A DFiant implementation of the identity function as a toplevel design and the generated VHDL/Verilog files</b><br>
 </p>
+
 
 The Scala code in Fig. 1b describes a program that runs the DFiant compiler on an identity function dataflow design, `ID`. Since DFiant is a Scala library some if its compilation process is done statically via the Scala compiler and the rest during the Scala runtime execution. 
 
@@ -140,7 +137,9 @@ The Scala code in Fig. 1b describes a program that runs the DFiant compiler on a
 In this [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA) example, the signed 16-bit input, $x$ 
 
 ### No feedback implementation
- $y_k=\left(x_k+x_{k-1}+x_{k-2}+x_{k-3}\right)/4$
+$$
+y_k=\left(x_k+x_{k-1}+x_{k-2}+x_{k-3}\right)/4
+$$
 
 === "SMA.scala"
 
@@ -162,11 +161,11 @@ In this [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (S
 
 ### Feedback implementation
 
-$$
-a_0 = 0 \\
-a_k = a_{k-1} - x_{k-4}+x_k \\
-y_k = a_k/4
-$$
+$$\begin{eqnarray} 
+a_0 &=& 0 \\
+a_k &=& a_{k-1} - x_{k-4}+x_k \\
+y_k &=& a_k/4
+\end{eqnarray}$$
 
 === "SMA_FB.scala"
 

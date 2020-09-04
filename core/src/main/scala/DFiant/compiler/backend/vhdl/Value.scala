@@ -86,9 +86,9 @@ private object Value {
       case _ => ref(leftArg)
     }
     val rightArgStr = (member.op, rightArg) match {
-      case (Op.<< | Op.>>, ra) => s"$FN to_integer(${ref(ra)})"
       case (_, DFAny.Const(_,DFUInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
       case (_, DFAny.Const(_,DFSInt.Token(_,Some(value)),_,_)) => s"$LIT$value"
+      case (Op.<< | Op.>>, ra) => s"$FN to_integer(${ref(ra)})"
       case (_, ra) => ref(ra)
     }
     val dontCareComparison = (leftArg, member.op, rightArg) match {
