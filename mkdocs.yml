@@ -72,7 +72,6 @@ markdown_extensions:
         permalink: "\ue157"
     - admonition
     - pymdownx.snippets:
-        base_path: ../
         check_paths: true
     - pymdownx.arithmatex
     - pymdownx.superfences
