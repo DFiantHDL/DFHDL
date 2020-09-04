@@ -33,31 +33,31 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
 === "ID.scala"
 
     ``` scala
-    --8<-- "examples\first-look\src\main\scala\ID.scala"
+    --8<-- "..\examples\first-look\src\main\scala\ID.scala"
     ```
 
 === "ID.vhdl"
 
     ``` vhdl
-    --8<-- "examples\first-look\src\test\resources\id\vhdl2008\ID.vhdl"
+    --8<-- "..\examples\first-look\src\test\resources\id\vhdl2008\ID.vhdl"
     ```
 
 === "ID_pkg.vhdl"
 
     ``` vhdl
-    --8<-- "examples\first-look\src\test\resources\id\vhdl2008\ID_pkg.vhdl"
+    --8<-- "..\examples\first-look\src\test\resources\id\vhdl2008\ID_pkg.vhdl"
     ```
 
 === "ID.v"
 
     ``` verilog
-    --8<-- "examples\first-look\src\test\resources\id\verilog2001\ID.v"
+    --8<-- "..\examples\first-look\src\test\resources\id\verilog2001\ID.v"
     ```
 
 === "ID_defs.v"
 
     ``` verilog
-    --8<-- "examples\first-look\src\test\resources\id\verilog2001\ID_defs.v"
+    --8<-- "..\examples\first-look\src\test\resources\id\verilog2001\ID_defs.v"
     ```
 
 <p align="center">
@@ -96,19 +96,19 @@ The Scala code in Fig. 1b describes a program that runs the DFiant compiler on a
 === "IDTop.scala"
 
     ``` scala
-    --8<-- "examples\first-look\src\main\scala\IDTop.scala"
+    --8<-- "..\examples\first-look\src\main\scala\IDTop.scala"
     ```
 
 === "IDTop.vhdl"
 
     ``` vhdl
-    --8<-- "examples\first-look\src\test\resources\idTop\vhdl2008\IDTop.vhdl"
+    --8<-- "..\examples\first-look\src\test\resources\idTop\vhdl2008\IDTop.vhdl"
     ```
 
 === "IDTop.v"
 
     ``` verilog
-    --8<-- "examples\first-look\src\test\resources\idTop\verilog2001\IDTop.v"
+    --8<-- "..\examples\first-look\src\test\resources\idTop\verilog2001\IDTop.v"
     ```
 
 ---
@@ -118,19 +118,19 @@ The Scala code in Fig. 1b describes a program that runs the DFiant compiler on a
 === "SeqDet.scala"
 
     ``` scala
-    --8<-- "examples\first-look\src\main\scala\SeqDet.scala"
+    --8<-- "..\examples\first-look\src\main\scala\SeqDet.scala"
     ```
 
 === "SeqDet.vhdl"
 
     ``` vhdl
-    --8<-- "examples\first-look\src\test\resources\seqDet\vhdl2008\SeqDet.vhdl"
+    --8<-- "..\examples\first-look\src\test\resources\seqDet\vhdl2008\SeqDet.vhdl"
     ```
 
 === "SeqDet.v"
 
     ``` verilog
-    --8<-- "examples\first-look\src\test\resources\seqDet\verilog2001\SeqDet.v"
+    --8<-- "..\examples\first-look\src\test\resources\seqDet\verilog2001\SeqDet.v"
     ```
 
 ---
@@ -145,46 +145,45 @@ In this [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (S
 === "SMA.scala"
 
     ``` scala
-    --8<-- "examples\first-look\src\main\scala\SMA.scala"
+    --8<-- "..\examples\first-look\src\main\scala\SMA.scala"
     ```
 
 === "SMA.vhdl"
 
     ``` vhdl
-    --8<-- "examples\first-look\src\test\resources\sma\vhdl2008\SMA.vhdl"
+    --8<-- "..\examples\first-look\src\test\resources\sma\vhdl2008\SMA.vhdl"
     ```
 
 === "SMA.v"
 
     ``` verilog
-    --8<-- "examples\first-look\src\test\resources\sma\verilog2001\SMA.v"
+    --8<-- "..\examples\first-look\src\test\resources\sma\verilog2001\SMA.v"
     ```
 
 ### Feedback implementation
 
-$a_0 = 0$
-
-$a_k = a_{k-1} - x_{k-4}+x_k$
-
-$y_k = a_k/4$
-
+$$
+a_0 = 0 \\
+a_k = a_{k-1} - x_{k-4}+x_k \\
+y_k = a_k/4
+$$
 
 === "SMA_FB.scala"
 
     ``` scala
-    --8<-- "examples\first-look\src\main\scala\SMA_FB.scala"
+    --8<-- "..\examples\first-look\src\main\scala\SMA_FB.scala"
     ```
 
 === "SMA_FB.vhdl"
 
     ``` vhdl
-    --8<-- "examples\first-look\src\test\resources\sma_fb\vhdl2008\SMA_FB.vhdl"
+    --8<-- "..\examples\first-look\src\test\resources\sma_fb\vhdl2008\SMA_FB.vhdl"
     ```
 
 === "SMA_FB.v"
 
     ``` verilog
-    --8<-- "examples\first-look\src\test\resources\sma_fb\verilog2001\SMA_FB.v"
+    --8<-- "..\examples\first-look\src\test\resources\sma_fb\verilog2001\SMA_FB.v"
     ```
 
 
