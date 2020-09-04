@@ -53,7 +53,9 @@ private object EnumTypeDcl {
     enumType match {
       case DefaultEncoding() =>
         val typeList = enumType.entries.toList.sortBy(x => x._1).map(x => EnumTypeDcl.enumEntryFullName(x._2))
-        s"$KW type ${enumTypeName(enumType)} $KW is (${typeList.mkString(", ")});"
+        s"""|$KW type ${enumTypeName(enumType)} $KW is (
+            |${typeList.mkString(",\n").delim()}
+            |);""".stripMargin
       case _ =>
         val uintType = Type(DFUInt.Type(enumType.width))
         val subtypeDcl = s"$KW subtype ${enumTypeName(enumType)} $KW is $uintType;"
