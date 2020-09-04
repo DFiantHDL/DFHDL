@@ -4,7 +4,7 @@ import scala.language.experimental.macros
 import scala.reflect.macros.blackbox
 import scala.annotation.StaticAnnotation
 
-object DFMacro {
+protected[DFiant] object DFMacro {
   def dfImpl(c: blackbox.Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
     val result = {
