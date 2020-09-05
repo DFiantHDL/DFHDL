@@ -73,6 +73,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         .orderMembers(OrderMembers.Order.LazyConnectionLast)
         .explicitPrev
         .forceOthersCaseCoverage(matchForceCover)
+        .carryMathConversion
         .uniqueDesigns
         .namedSelection
         .uniqueNames(reservedKeywords + Sim.guardName, caseSensitive = true)

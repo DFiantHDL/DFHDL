@@ -12,15 +12,15 @@ module SMA(
   reg         signed [15:0] x_prev1 = 16'sd0;
   reg         signed [15:0] x_prev2 = 16'sd0;
   reg         signed [15:0] x_prev3 = 16'sd0;
-  reg         signed [15:0] sum = 16'sd0;
+  reg         signed [17:0] sum = 18'sd0;
   reg         signed [15:0] x_prev1_sig;
   reg         signed [15:0] x_prev2_sig;
   always @(clk or x or x_prev1 or x_prev2 or x_prev3 or x_prev1 or x_prev2 or rst)
   begin
-    sum                     = (x + x_prev1) + (x_prev2 + x_prev3);
+    sum                     = (x +^ x_prev1) +^ (x_prev2 +^ x_prev3);
     x_prev1_sig             = x_prev1;
     x_prev2_sig             = x_prev2;
-    y                       = sum;
+    y                       = {sum[17], sum[14:0]};
   end
   always @(negedge rst or posedge clk)
   begin

@@ -96,6 +96,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
        .explicitPrev
        .forceOthersCaseCoverage(matchForceCover)
        .convertMatchToIf(matchToIfs)
+       .carryMathConversion
        .explicitConversions
        .uniqueDesigns
        .uniqueNames(reservedKeywords, caseSensitive = false)

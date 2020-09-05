@@ -3,6 +3,7 @@ package compiler
 
 import DFDesign.DB.Patch
 import DFDesign.Implicits._
+import DFiant.DFAny.Func2.Op
 final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
   private val designDB = c.db
   private def resizeUInt(dfVal : DFAny.Member, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
@@ -27,8 +28,46 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
   }
 
   import designDB.__getset
+  //with-carry arithmetics function on uint/sint
+  def carryMathConversion : IRCompilation[D] = {
+    val patchList = designDB.members.flatMap {
+      case func @ DFAny.Func2.Unref(dfType, leftArg, op : DFAny.Func2.Op.Carry, rightArg,_,_) =>
+        val dsn = new MetaDesign() {
+          private val opNC = op match {
+            case Op.+^ => Op.+
+            case Op.-^ => Op.-
+            case Op.*^ => Op.*
+          }
+          private val tokenFuncNC : (_ <: DFAny.Token, _ <: DFAny.Token) => DFAny.Token = (op, dfType) match {
+            case (Op.+^, DFUInt.Type(_)) => (l : DFUInt.Token, r : DFUInt.Token) => l + r
+            case (Op.-^, DFUInt.Type(_)) => (l : DFUInt.Token, r : DFUInt.Token) => l - r
+            case (Op.*^, DFUInt.Type(_)) => (l : DFUInt.Token, r : DFUInt.Token) => l * r
+            case (Op.+^, DFSInt.Type(_)) => (l : DFSInt.Token, r : DFSInt.Token) => l + r
+            case (Op.-^, DFSInt.Type(_)) => (l : DFSInt.Token, r : DFSInt.Token) => l - r
+            case (Op.*^, DFSInt.Type(_)) => (l : DFSInt.Token, r : DFSInt.Token) => l * r
+            case _ => ???
+          }
+          private val (left, right) = dfType match {
+            case DFUInt.Type(targetWidth) =>
+              if (leftArg.width >= rightArg.width)
+                (leftArg.asValOf[DFUInt.Type[Int]].resize(targetWidth).member.anonymize, rightArg)
+              else (leftArg, rightArg.asValOf[DFUInt.Type[Int]].resize(targetWidth).member.anonymize)
+            case DFSInt.Type(targetWidth) =>
+              if (leftArg.width >= rightArg.width)
+                (leftArg.asValOf[DFSInt.Type[Int]].resize(targetWidth).member.anonymize, rightArg)
+              else (leftArg, rightArg.asValOf[DFSInt.Type[Int]].resize(targetWidth).member.anonymize)
+          }
+          DFAny.Func2.forced(dfType, left, opNC, right)(tokenFuncNC) setTags(_ => func.tags)
+        }
+        Some(func -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
+      case _ => None
+    }
+    c.newStage(designDB.patch(patchList))
+  }
+
   def explicitConversions : IRCompilation[D] = {
     val patchList = designDB.members.flatMap {
+      //explicit widening when assigning/connecting to a wider variable or converting bit/bool
       case net : DFNet =>
         val toVal = net.toRef.get
         val fromVal = net.fromRef.get
@@ -42,8 +81,10 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
         if (conv) {
           val dsn = new MetaDesign() {
             val updatedFromVal = (toVal, fromVal) match {
-              case (DFUInt(toWidth), DFUInt(fromWidth)) if toWidth > fromWidth => resizeUInt(fromVal, toWidth)
-              case (DFSInt(toWidth), DFSInt(fromWidth)) if toWidth > fromWidth => resizeSInt(fromVal, toWidth)
+              case (DFUInt(toWidth), DFUInt(fromWidth)) if toWidth > fromWidth =>
+                fromVal.asValOf[DFUInt.Type[Int]].resize(toWidth).member.anonymize
+              case (DFSInt(toWidth), DFSInt(fromWidth)) if toWidth > fromWidth =>
+                fromVal.asValOf[DFSInt.Type[Int]].resize(toWidth).member.anonymize
               case (DFBool(), DFBit()) => toggleLogical(fromVal)
               case (DFBit(), DFBool()) => toggleLogical(fromVal)
             }
@@ -51,6 +92,7 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
           }
           Some(net -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
         } else None
+      //function between a bit and a boolean
       case func : DFAny.Func2 =>
         val leftArg = func.leftArgRef.get
         val rightArg = func.rightArgRef.get
@@ -71,6 +113,7 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
           }
           Some(func -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
         } else None
+      //conditional on bit
       case cb @ ConditionalBlock.IfElseBlock(Some(condRef),prevBlockRefOption,_,_) =>
         val cond = condRef.get
         val prevIfOption = prevBlockRefOption.map(r => r.get)
@@ -82,6 +125,7 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
             Some(cb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)))
           case _ => None
         }
+      //assert on bit
       case asrt @ sim.DFSimMember.Assert.Unref(Some(cond @ DFBit()), msg, severity, _, _) =>
         val dsn = new MetaDesign() {
           sim.DFSimMember.Assert(Some(toggleLogical(cond).asInstanceOf[DFBool]), msg, severity)

@@ -730,23 +730,32 @@ object DFAny {
     sealed trait Op
     //Dual Input, Single Output Operation
     object Op {
-      sealed trait Negateable extends Op {
+      sealed trait OptionalCarry extends Op {
+        type WC <: XBoolean
+      }
+      sealed trait NoCarry extends OptionalCarry {
+        type WC = false
+      }
+      sealed trait Carry extends OptionalCarry {
+        type WC = true
+      }
+      sealed trait Negateable extends OptionalCarry {
         def negate : Negateable
       }
-      sealed trait +  extends Negateable {
+      sealed trait +  extends Negateable with NoCarry {
         def negate : - = -
       }
-      sealed trait -  extends Negateable {
+      sealed trait -  extends Negateable with NoCarry {
         def negate : + = +
       }
-      sealed trait *  extends Op
-      sealed trait +^  extends Negateable {
+      sealed trait *  extends NoCarry
+      sealed trait +^  extends Negateable with Carry {
         def negate : -^ = -^
       }
-      sealed trait -^  extends Negateable {
+      sealed trait -^  extends Negateable with Carry {
         def negate : +^ = +^
       }
-      sealed trait *^  extends Op
+      sealed trait *^  extends OptionalCarry with Carry
       sealed trait == extends Op {
         override def toString: String = "==="
       }
@@ -797,10 +806,10 @@ object DFAny {
     }
     private[DFiant] def forced[Type <: DFAny.Type](
       dfType: Type, leftArg: DFAny.Member, op: Func2.Op, rightArg: DFAny.Member
-    )(tokenFunc: (Token, Token) => Token)(implicit ctx: Context) : DFAny.Of[Type] = {
+    )(tokenFunc: (_ <: Token, _ <: Token) => Token)(implicit ctx: Context) : DFAny.Of[Type] = {
       implicit lazy val ret : DFAny.Of[Type] with DFMember.RefOwner =
         ctx.db.addMember(
-          Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(tokenFunc)
+          Func2(dfType, leftArg, op, rightArg, ctx.owner, ctx.meta)(tokenFunc.asInstanceOf[(Token, Token) => Token])
         ).asRefOwner[Type, Modifier.Val]
       ret
     }

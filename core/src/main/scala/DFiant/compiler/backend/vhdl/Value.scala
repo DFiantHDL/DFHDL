@@ -78,7 +78,9 @@ private object Value {
         case _ => "srl"
       }
       case Op.++ => "&"
-      case _ => ???
+      case x =>
+        println(x)
+        ???
     }
     val leftArgStr = leftArg match {
       case DFAny.Const(_,DFUInt.Token(_,Some(value)),_,_) => s"$LIT$value"

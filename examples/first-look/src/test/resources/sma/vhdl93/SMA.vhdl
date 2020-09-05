@@ -20,12 +20,12 @@ architecture SMA_arch of SMA is
   signal x_prev2_sig : signed(15 downto 0);
 begin
   async_proc : process (clk, x, x_prev1, x_prev2, x_prev3, x_prev1, x_prev2, rst)  
-    variable sum     : signed(15 downto 0) := to_signed(0, 16);
+    variable sum     : signed(17 downto 0) := to_signed(0, 18);
   begin
-    sum              := (x + x_prev1) + (x_prev2 + x_prev3);
+    sum              := resize(resize(x, 17) + x_prev1, 18) + (resize(x_prev2, 17) + x_prev3);
     x_prev1_sig      <= x_prev1;
     x_prev2_sig      <= x_prev2;
-    y                <= sum;
+    y                <= resize(sum, 16);
   end process;
   sync_proc : process (rst, clk)
   begin

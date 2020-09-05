@@ -69,12 +69,15 @@ object DFUInt extends DFAny.Companion {
       }
     }
 
-    def + (right : Token) : Token = mkTokenU(right, _ + _, left.width max right.width)
-    def - (right : Token) : Token = mkTokenU(right, _ - _, left.width max right.width)
+    def +  (right : Token) : Token = mkTokenU(right, _ + _, left.width max right.width)
+    def +^ (right : Token) : Token = mkTokenU(right, _ + _, (left.width max right.width) + 1)
+    def -  (right : Token) : Token = mkTokenU(right, _ - _, left.width max right.width)
+    def -^ (right : Token) : Token = mkTokenU(right, _ - _, (left.width max right.width) + 1)
+    def *  (right : Token) : Token = mkTokenU(right, _ * _, left.width max right.width)
+    def *^ (right : Token) : Token = mkTokenU(right, _ * _, left.width + right.width)
+    def /  (right : Token) : Token = mkTokenU(right, _ / _, left.width)
+    def %  (right : Token) : Token = mkTokenU(right, _ % _, right.width)
 
-    //    final def * [RW](right : Token[RW]) : Token = mkTokenU(right, left.value * right.value, left.width + right.width)
-    //    final def / [RW](right : Token[RW]) : Token = mkTokenU(right, left.value / right.value, left.width)
-    //    final def % [RW](right : Token[RW]) : Token = mkTokenU(right, left.value % right.value, right.width)
     def <  (right : Token) : DFBool.Token = mkTokenB(right, _ < _)
     def >  (right : Token) : DFBool.Token = mkTokenB(right, _ > _)
     def <= (right : Token) : DFBool.Token = mkTokenB(right, _ <= _)
@@ -328,7 +331,9 @@ object DFUInt extends DFAny.Companion {
     class AbleOps[L](value : L) extends Able[L](value) {
       val left = value
       final def +   [RW](right : DFUInt[RW])(implicit op: `Op+`.Builder[L, false, DFUInt[RW]]) = op(left, right)
+      final def +^  [RW](right : DFUInt[RW])(implicit op: `Op+^`.Builder[L, true, DFUInt[RW]]) = op(left, right)
       final def -   [RW](right : DFUInt[RW])(implicit op: `Op-`.Builder[L, false, DFUInt[RW]]) = op(left, right)
+      final def -^  [RW](right : DFUInt[RW])(implicit op: `Op-^`.Builder[L, true, DFUInt[RW]]) = op(left, right)
       final def <   [RW](right : DFUInt[RW])(implicit op: `Op<`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def >   [RW](right : DFUInt[RW])(implicit op: `Op>`.Builder[L, DFUInt[RW]]) = op(left, right)
       final def <=  [RW](right : DFUInt[RW])(implicit op: `Op<=`.Builder[L, DFUInt[RW]]) = op(left, right)
@@ -351,13 +356,15 @@ object DFUInt extends DFAny.Companion {
       sealed class __DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFUInt[W]](left)
       final implicit def __DFUIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFUIntFromDefaultRet[W] = new __DFUIntFromDefaultRet(left)
       final implicit def __ofDFUInt[W](left : DFUInt[W]) : Able[DFUInt[W]] = new Able(left)
-      implicit class __ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
-        final def +  [R](right : Exact[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
-        final def -  [R](right : Exact[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
+      final implicit class __ExtendableDFUIntOps[LW](val left : DFUInt[LW] with Extendable){
+        def +  [R](right : Exact[R])(implicit op: `Op+`.Builder[DFUInt[LW], true, R]) = op(left, right)
+        def -  [R](right : Exact[R])(implicit op: `Op-`.Builder[DFUInt[LW], true, R]) = op(left, right)
       }
       final implicit class __DFUIntOps[LW](val left : DFUInt[LW]){
         def +   [R](right : Exact[R])(implicit op: `Op+`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        def +^  [R](right : Exact[R])(implicit op: `Op+^`.Builder[DFUInt[LW], true, R]) = op(left, right)
         def -   [R](right : Exact[R])(implicit op: `Op-`.Builder[DFUInt[LW], false, R]) = op(left, right)
+        def -^  [R](right : Exact[R])(implicit op: `Op-^`.Builder[DFUInt[LW], true, R]) = op(left, right)
         def <   [R](right : Exact[R])(implicit op: `Op<`.Builder[DFUInt[LW], R]) = op(left, right)
         def >   [R](right : Exact[R])(implicit op: `Op>`.Builder[DFUInt[LW], R]) = op(left, right)
         def <=  [R](right : Exact[R])(implicit op: `Op<=`.Builder[DFUInt[LW], R]) = op(left, right)
@@ -493,18 +500,7 @@ object DFUInt extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // +/- operation
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class `Ops+Or-`[Op <: Func2.Op.Negateable](op : Op) {
-    //NCW = No-carry width
-    //WCW = With-carry width
-//    final class Component[NCW, WCW](_wc : DFFunc2[_,_,_] with DFUInt[WCW])(implicit ctx : DFAny.Context) extends
-//      DFAny.Alias[DFUInt[NCW]](DFAny.Alias.Reference.Resize(_wc, _wc.width-1)) with DFUInt[NCW] with CompAlias { //,if (wc.isFolded) "" else s".bits(${wc.width-2}, 0).uint"
-//      lazy val wc = {_wc.usedAsWide = true; _wc}
-//      lazy val c = new DFBool.Alias(DFAny.Alias.Reference.BitsWL(wc, 1, wc.width-1, s".bit(${wc.width-1})")).setAutoName(s"${ctx}C")
-//      protected def protTokenBitsToTToken(token : DFBits.Token) : TToken = token.toUInt
-//      lazy val comp = wc
-//      //      lazy val bypassAlias = c.isNotDiscovered
-//    }
-
+  protected abstract class `Ops+Or-`[Op <: Func2.Op.Negateable](val op : Op) {
     @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `+` or `-` with the type ${R}")
     trait Builder[-L, LE, -R] extends DFAny.Op.Builder[L, R]
 
@@ -522,8 +518,8 @@ object DFUInt extends DFAny.Companion {
 
       object Inference {
         import singleton.ops.math.Max
-        type CalcNCW[LW, RW] = Max[LW, RW]
-        type NCW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcNCW, LW, Int, RW, Int, ResW]
+        type CalcW[LW, RW] = Max[LW, RW] + ITE[op.WC, 1, 0]
+        type OutW[LW, RW, ResW] = TwoFace.Int.Shell2Aux[CalcW, LW, Int, RW, Int, ResW]
       }
 
       trait DetailedBuilder[L, LW, LE, R, RW] {
@@ -531,27 +527,29 @@ object DFUInt extends DFAny.Companion {
         def apply(properLR : (L, R) => (Func2.Op.Negateable, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Out]
       }
       object DetailedBuilder {
-        implicit def ev[L, LW, LE, R, RW, NCW, WCW](
+        implicit def ev[L, LW, LE, R, RW, OutW](
           implicit
           ctx : DFAny.Context,
-          ncW : Inference.NCW[LW, RW, NCW],
+          outW : Inference.OutW[LW, RW, OutW],
           checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW]
-        ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = DFUInt[NCW]} =
+        ) : DetailedBuilder[L, LW, LE, R, RW]{type Out = DFUInt[OutW]} =
           new DetailedBuilder[L, LW, LE, R, RW]{
-            type Out = DFUInt[NCW]
+            type Out = DFUInt[OutW]
             def apply(properLR : (L, R) => (Func2.Op.Negateable, DFUInt[LW], DFUInt[RW])) : Builder.Aux[L, LE, R, Out] =
               new Builder[L, LE, R] {
-                type Out = DFUInt[NCW]
+                type Out = DFUInt[OutW]
                 def apply(leftL : L, rightR : R) : Out = {
                   val (updatedOp, left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)
                   // Constructing op
-                  val opWidth = ncW(left.width, right.width)
+                  val opWidth = outW(left.width, right.width)
                   val out = Type(opWidth)
-                  val func : (left.TToken, right.TToken) => out.TToken = updatedOp match {
+                  val func : (left.TToken, right.TToken) => out.TToken = op match {
                     case _ : Func2.Op.+ => _ + _
                     case _ : Func2.Op.- => _ - _
+                    case _ : Func2.Op.+^ => _ +^ _
+                    case _ : Func2.Op.-^ => _ -^ _
                     case _ => ???
                   }
                   DFAny.Func2(out, left, op, right)(func)
@@ -587,7 +585,9 @@ object DFUInt extends DFAny.Companion {
     }
   }
   object `Op+`  extends `Ops+Or-`(Func2.Op.+)
+  object `Op+^` extends `Ops+Or-`(Func2.Op.+^)
   object `Op-`  extends `Ops+Or-`(Func2.Op.-)
+  object `Op-^` extends `Ops+Or-`(Func2.Op.-^)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

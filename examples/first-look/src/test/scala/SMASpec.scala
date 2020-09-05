@@ -8,8 +8,8 @@ class SMASpec extends DFTopSpec {
     """|@df class SMA extends DFDesign {
        |  final val x   = DFSInt(16) <> IN  init 0
        |  final val y   = DFSInt(16) <> OUT
-       |  final val sum = (x + x.prev) + (x.prev(2) + x.prev(3))
-       |  y             := sum
+       |  final val sum = (x +^ x.prev) +^ (x.prev(2) +^ x.prev(3))
+       |  y             := sum.resize(16)
        |}""".stripMargin
 
   "codeString generation" should "match" in {
