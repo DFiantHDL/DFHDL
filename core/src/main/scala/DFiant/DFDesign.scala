@@ -402,7 +402,9 @@ object DFDesign {
               rc.replaceMember(origMember, repMember, DB.Patch.Replace.RefFilter.All)
             case _ => rc
           }
-          repRT.copy(refTable = repRT.refTable ++ dbPatched.refTable)
+          //updating the patched DB reference table members with the newest members kept by the replacement context
+          val updatedPatchRefTable = dbPatched.refTable.view.mapValues(m => rc.memberRepTable.getOrElse(m, m))
+          repRT.copy(refTable = repRT.refTable ++ updatedPatchRefTable)
         case (rc, (origMember, DB.Patch.Remove)) => memberTable.get(origMember) match {
           case Some(refs) => rc.copy(refTable = refs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
           case None => rc
