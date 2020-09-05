@@ -15,7 +15,7 @@ module SMA_FB(
   reg         signed [15:0] x_prev4 = 16'sd0;
   reg         signed [17:0] acc = 18'sd0;
   reg         signed [17:0] acc_prev1 = 18'sd0;
-  reg         signed [17:0] SMA_FB = 18'sd0;
+  reg         signed [17:0] y_part = 18'sd0;
   reg         signed [15:0] x_prev1_sig;
   reg         signed [15:0] x_prev2_sig;
   reg         signed [15:0] x_prev3_sig;
@@ -24,12 +24,12 @@ module SMA_FB(
   begin
     acc                     = acc_prev1;
     acc                     = (acc - x_prev4) + x;
-    SMA_FB                  = acc >>> 2;
+    y_part                  = acc >>> 2;
     x_prev1_sig             = x_prev1;
     x_prev2_sig             = x_prev2;
     x_prev3_sig             = x_prev3;
     acc_sig                 = acc;
-    y                       = {SMA_FB[17], SMA_FB[14:0]};
+    y                       = {y_part[17], y_part[14:0]};
   end
   always @(negedge rst or posedge clk)
   begin
