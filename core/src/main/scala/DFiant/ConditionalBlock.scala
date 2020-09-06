@@ -165,9 +165,8 @@ object ConditionalBlock {
 
   sealed abstract class WithRetVal[Owner <: ConditionalBlock.Owner, Type <: DFAny.Type](
     val retVar : DFAny.VarOf[Type]
-  ) extends ConditionalBlock.Of[Owner, DFAny.Of[Type]] with DFAny.DefaultRet[Type] {
-    val dfType : Type = retVar.dfType
-    final protected[DFiant] def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[Type] = retVar
+  ) extends ConditionalBlock.Of[Owner, DFAny.Of[Type]] with DFAny.Of[Type] {
+    val member : DFAny.Member = retVar
 
     private[DFiant] def applyBlock(block : => DFAny.Of[Type])(
       implicit ctx : DFBlock.Context

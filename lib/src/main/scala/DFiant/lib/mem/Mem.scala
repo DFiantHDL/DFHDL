@@ -45,7 +45,7 @@ object Mem {
 //  class TriPortMemConstructor
 
   sealed trait PortSel
-  trait ReadPortSel[R <: DFAny.Type] extends PortSel with DFAny.DefaultRet[R] {
+  trait ReadPortSel[R <: DFAny.Type] extends PortSel with DFAny.Of[R] {
     val readType : R
   }
   trait WritePortSel[W <: DFAny.Type] extends PortSel {
@@ -55,7 +55,7 @@ object Mem {
 
   final protected class __Port[A <: Mem.Access](val portIO : Mem.Port[A], val acs : A)(
     implicit ctx : DFBlock.Context
-  ) extends DFAny.DefaultRet[A#TReadType]{
+  ) extends DFAny.Of[A#TReadType]{
     import DFDesign.Implicits._
     private val prefix = s"${ctx.owner.name}_"
     private lazy val en         = DFBit() setNamePrefix(prefix) setNameSuffix("_var")
@@ -81,7 +81,6 @@ object Mem {
       }
     }
 
-    val dfType : A#TReadType = acs.readType
     private var lastAccess : Option[(DFOwner, Any)] = None
     def apply[I](cellIdx : Exact[I])(
       implicit
@@ -97,9 +96,7 @@ object Mem {
       }
       this
     }
-    protected[DFiant] def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[A#TReadType] = {
-      data_rd.as(acs.readType)
-    }
+    lazy val member : DFAny.Member = data_rd.as(acs.readType).anonymize
   }
   object __Port {
     import DFDesign.Implicits._

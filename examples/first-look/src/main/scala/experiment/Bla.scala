@@ -83,15 +83,14 @@ import DFiant.lib.mem._
 @df class IDTopTest extends DFSimDesign {
   val i = DFBits(8) <> IN
   val o = DFUInt(8) <> OUT
-
   val x = DFUInt(8)
   val m = Mem(Mem.RW(5, x.dfType, x.dfType))
   val sel2 = m.portA(b"10000")
   ifdf(true) {
-//    o := m.portA(b"10001")
+    o := m.portA(b"10001")
     m.portA(b"10001") := 15
   }.elsedf {
-//    o := m.portA(b"10000")
+    o := m.portA(b"10000")
     m.portA(b"10000") := 14
   }
 //  sel := 15

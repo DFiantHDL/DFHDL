@@ -40,15 +40,15 @@ object DFAny {
       else getRelativeName(callOwner, printer.getSet)
     }
     final def asValOf[Type <: DFAny.Type] : DFAny.Of[Type] =
-      new DFAny.Value[Type, Modifier](this)
+      DFAny.Value[Type, Modifier](this)
     final def asVarOf[Type <: DFAny.Type] : DFAny.VarOf[Type] =
-      new DFAny.Value[Type, Modifier.Assignable](this)
+      DFAny.Value[Type, Modifier.Assignable](this)
     final def asValModOf[Type <: DFAny.Type, Mod <: DFAny.Modifier] : DFAny.Value[Type, Mod] =
-      new DFAny.Value[Type, Mod](this)
+      DFAny.Value[Type, Mod](this)
     final def asUninitialized[Type <: DFAny.Type, Mod <: DFAny.Modifier] : DFAny.Value[Type, Mod] with Dcl.Uninitialized =
-      new DFAny.Value[Type, Mod](this).asInstanceOf[DFAny.Value[Type, Mod] with Dcl.Uninitialized]
+      DFAny.Value[Type, Mod](this).asInstanceOf[DFAny.Value[Type, Mod] with Dcl.Uninitialized]
     final def asRefOwner[Type <: DFAny.Type, Mod <: DFAny.Modifier] : DFAny.Value[Type, Mod] with DFMember.RefOwner =
-      new DFAny.Value[Type, Mod](this).asInstanceOf[DFAny.Value[Type, Mod] with DFMember.RefOwner]
+      DFAny.Value[Type, Mod](this).asInstanceOf[DFAny.Value[Type, Mod] with DFMember.RefOwner]
     override lazy val typeName: String = dfType.toString
     def isAssignable : Boolean = this match {
       case DFAny.Out() | DFAny.Var() => true
@@ -129,10 +129,10 @@ object DFAny {
     }
   }
 
-  class Value[Type <: DFAny.Type, +Mod <: Modifier](val member : DFAny.Member) extends DFAny {
+  trait Value[Type <: DFAny.Type, +Mod <: Modifier] extends DFAny {
     type TType = Type
-    val dfType : Type = member.dfType.asInstanceOf[Type]
-    val modifier : TMod = member.modifier.asInstanceOf[TMod]
+    lazy val dfType : Type = member.dfType.asInstanceOf[Type]
+    lazy val modifier : TMod = member.modifier.asInstanceOf[TMod]
     type TMod <: Mod
     //////////////////////////////////////////////////////////////////////////
     // Bit range selection
@@ -213,28 +213,14 @@ object DFAny {
     final def isStallBubble(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsStallBubble(left)
     //////////////////////////////////////////////////////////////////////////
   }
+  object Value {
+    def apply[Type <: DFAny.Type, Mod <: DFAny.Modifier](_member : DFAny.Member) : Value[Type, Mod] =
+      new Value[Type, Mod] {
+        val member : DFAny.Member = _member
+      }
+  }
 
   type Of[Type <: DFAny.Type] = Value[Type, Modifier]
-
-  trait DefaultRet[Type <: DFAny.Type] {
-    protected[DFiant] def thisVal(implicit ctx : DFAny.Context) : DFAny.Of[Type]
-    val dfType : Type
-    //////////////////////////////////////////////////////////////////////////
-    // Equality
-    //////////////////////////////////////////////////////////////////////////
-    final def == [R](right : R)(
-      implicit ccs: CaseClassSkipper[dfType.`Op==Builder`[DFAny.Of[Type], R]], ctx : DFAny.Context
-    ) = ccs(op => op(thisVal, right), (thisVal : Any) == (right : Any))
-    final def != [R](right : R)(
-      implicit ccs: CaseClassSkipper[dfType.`Op!=Builder`[DFAny.Of[Type], R]], ctx : DFAny.Context
-    ) = ccs(op => op(thisVal, right), (thisVal : Any) != (right : Any))
-    //////////////////////////////////////////////////////////////////////////
-  }
-  object DefaultRet {
-    implicit def getVal[Type <: DFAny.Type](v : DefaultRet[Type])(
-      implicit ctx : DFAny.Context
-    ) : DFAny.Of[Type] = v.thisVal
-  }
 
   sealed trait Modifier extends Product with Serializable {
     def codeString(implicit printer: CSPrinter) : String = ""
@@ -1418,15 +1404,9 @@ object DFAny {
         left.assignCheck(rightR)
         rightR
       }
-      implicit def __Type_ac_DefaultRet[LType <: Type](
-        implicit ctx : DFNet.Context
-      ) : Builder[LType, DFAny.DefaultRet[LType]] = (left, rightR) => {
-        left.assignCheck(rightR.thisVal)
-        rightR
-      }
       implicit def __Type_ac_Bubble[LType <: Type](
         implicit ctx : DFNet.Context
-      ) : Builder[LType, ValueOf[Bubble.type]] = (left, _) => {
+      ) : Builder[LType, Bubble] = (left, _) => {
         DFAny.Const(left, left.getBubbleToken)
       }
     }

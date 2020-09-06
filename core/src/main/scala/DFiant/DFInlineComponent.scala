@@ -2,13 +2,13 @@ package DFiant
 
 import DFiant.EdgeDetect.Edge
 import compiler.csprinter.CSPrinter
-abstract class DFInlineComponent[Type <: DFAny.Type](val dfType : Type)(
+abstract class DFInlineComponent[Type <: DFAny.Type](dfType : Type)(
   implicit ctx : ContextOf[DFInlineComponent[_]]
-) extends DFDesign with DFAny.DefaultRet[Type] {
+) extends DFDesign with DFAny.Of[Type] {
   val rep : DFInlineComponent.Rep
   override private[DFiant] lazy val inlinedRep : Option[DFInlineComponent.Rep] = Some(rep)
   final val outPort = DFAny.Port.Out(dfType)
-  final protected[DFiant] def thisVal(implicit ctx : DFAny.Context): DFAny.Of[Type] = outPort
+  final val member : DFAny.Member = outPort
 }
 object DFInlineComponent {
   trait Rep extends Product with Serializable {

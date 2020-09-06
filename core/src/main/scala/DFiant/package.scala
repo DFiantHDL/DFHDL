@@ -143,7 +143,7 @@ package object DFiant {
   //Direction of a Port
   sealed trait PortDir extends DclDir
   case object IN extends PortDir {
-    type Func[DF <: DFAny] = DFAny.DefaultRet[DF#TType]
+    type Func[DF <: DFAny] = DFAny.Of[DF#TType]
     override def toString: String = "IN "
   }
   type IN = IN.type

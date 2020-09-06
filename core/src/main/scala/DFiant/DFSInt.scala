@@ -293,8 +293,6 @@ object DFSInt extends DFAny.Companion {
       final implicit def __DFSIntFromXLong[L <: XLong](left: L)(implicit di: DummyImplicit): __DFSIntFromXLong[L] = new __DFSIntFromXLong(left)
       sealed class __DFSIntFromBigInt[L <: BigInt](left : L) extends AbleOps[L](left)
       final implicit def __DFSIntFromBigInt[L <: BigInt](left: L): __DFSIntFromBigInt[L] = new __DFSIntFromBigInt[L](left)
-      sealed class __DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFSInt[W]](left)
-      final implicit def __DFSIntFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFSIntFromDefaultRet[W] = new __DFSIntFromDefaultRet(left)
       final implicit def __ofDFSInt[W](left : DFSInt[W]) : Able[DFSInt[W]] = new Able(left)
       final implicit class __ExtendableDFSIntOps[LW](val left : DFSInt[LW] with Extendable){
         def +  [R](right : Exact[R])(implicit op: `Op+`.Builder[DFSInt[LW], true, R]) = op(left, right)

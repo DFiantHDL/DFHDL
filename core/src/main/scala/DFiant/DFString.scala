@@ -198,8 +198,6 @@
 //      final implicit def __DFStringFromString(left: String): __DFStringFromString = new __DFStringFromString(left)
 //      sealed class __DFStringFromXString[S <: XString](left : S) extends AbleOps[S](left)
 //      final implicit def __DFStringFromXString[S <: XString](left: S): __DFStringFromXString[S] = new __DFStringFromXString[S](left)
-//      sealed class __DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) extends AbleOps[DFString[W]](left)
-//      final implicit def __DFStringFromDefaultRet[W](left : DFAny.DefaultRet[Type[W]])(implicit ctx : DFAny.Context) : __DFStringFromDefaultRet[W] = new __DFStringFromDefaultRet(left)
 //      final implicit def __ofDFString[W](left : DFString[W]) : Able[DFString[W]] = new Able(left)
 //      final implicit class __DFStringOps[LL](val left : DFString[LL]){
 //        def === [R](right : Precise[R])(implicit op: `Op===`.Builder[DFString[LL], R]) = op(left, right)

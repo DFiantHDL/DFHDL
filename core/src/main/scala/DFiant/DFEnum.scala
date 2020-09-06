@@ -150,8 +150,6 @@ object DFEnum extends DFAny.Companion {
     trait Implicits extends `Op:=,<>`.Implicits  {
       sealed class __DFEnumFromEntry[L <: EnumType.Entry](left : L) extends AbleOps[L](left)
       final implicit def __DFEnumFromEntry[L <: EnumType.Entry](left: L): __DFEnumFromEntry[L] = new __DFEnumFromEntry(left)
-      sealed class __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) extends AbleOps[DFEnum[E]](left)
-      final implicit def __DFEnumFromDefaultRet[E <: EnumType](left : DFAny.DefaultRet[Type[E]])(implicit ctx : DFAny.Context) : __DFEnumFromDefaultRet[E] = new __DFEnumFromDefaultRet(left)
       final implicit def __ofDFEnum[E <: EnumType](left : DFEnum[E]) : Able[DFEnum[E]] = new Able(left)
       final implicit class __DFEnumOps[E <: EnumType](val left : DFEnum[E]){
         def === [R](right : Exact[R])(implicit op: `Op===`.Builder[DFEnum[E], R]) = op(left, right)

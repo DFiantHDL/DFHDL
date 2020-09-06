@@ -248,8 +248,6 @@ object DFBool extends DFAny.Companion {
       final implicit def __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
         implicit ctx : DFAny.Context, r : Require[LW == 1]
       ) : __DFBoolFromDFBitsW1[LW] = new __DFBoolFromDFBitsW1[LW](left)
-      sealed class __DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) extends AbleOps[DFBool](left)
-      final implicit def __DFBoolFromDefaultRet(left : DFAny.DefaultRet[Type])(implicit ctx : DFAny.Context) : __DFBoolFromDefaultRet = new __DFBoolFromDefaultRet(left)
       final implicit def __ofDFBool(left : DFBool) : Able[DFBool] = new Able(left)
       implicit class __DFBoolOps(val left : DFBool) {
         final def rising()(implicit ctx : ContextOf[EdgeDetect]) : DFBool = EdgeDetect(left, EdgeDetect.Edge.Rising).outPort
