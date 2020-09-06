@@ -190,13 +190,13 @@ object ConditionalBlock {
       implicit class IfElseBlockOps[Type <: DFAny.Type](notElse : IfElseBlock[Type, true]) {
         import notElse.{retVar, dfType, owner}
         def elsedf[B](block : => Exact[B])(
-          implicit ctx : DFBlock.Context, blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
+          implicit ctx : DFBlock.Context, blockConv : retVar.Arg[B]
         ) : IfElseBlock[Type, false] =
           new IfElseBlock[Type, false](retVar, None, Some(owner))(blockConv(dfType, block))
-        def elseifdf[C, B](cond : C)(block : => Exact[B])(
-          implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
+        def elseifdf[C, B](cond : Exact[C])(block : => Exact[B])(
+          implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C], blockConv : retVar.Arg[B]
         ) : IfElseBlock[Type, true] =
-          new IfElseBlock[Type, true](retVar, Some(condArg()), Some(owner))(blockConv(dfType, block))
+          new IfElseBlock[Type, true](retVar, Some(condArg(cond)), Some(owner))(blockConv(dfType, block))
       }
     }
 
@@ -207,7 +207,7 @@ object ConditionalBlock {
       val mvType : MVType = matchVal.dfType
       val member : ConditionalBlock.MatchHeader = ConditionalBlock.MatchHeader(matchVal, matchConfig)
       def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Exact[B])(
-        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : DFAny.`Op:=,<>`.Builder[Type, B]
+        implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : retVar.Arg[B]
       ) : CaseBlock[Type, MVType, true] = new CaseBlock[Type, MVType, true](
         this, None, Some(patternBld(mvType, pattern))
       )(retBld(dfType, block))
@@ -226,7 +226,7 @@ object ConditionalBlock {
       implicit class CaseBlockOps[Type <: DFAny.Type, MVType <: DFAny.Type](notOthers : CaseBlock[Type, MVType, true]) {
         import notOthers.{dfType, mvType, matchHeader, owner}
         def casedf[MC, B](pattern : mvType.TPatternAble[MC]*)(block : => Exact[B])(
-          implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : DFAny.`Op:=,<>`.Builder[Type, B]
+          implicit ctx : DFBlock.Context, patternBld : mvType.TPatternBuilder[MVType], retBld : notOthers.retVar.Arg[B]
         ) : CaseBlock[Type, MVType, true] = new CaseBlock[Type, MVType, true](
           matchHeader, Some(owner), Some(patternBld(mvType, pattern))
         )(retBld(dfType, block))
@@ -256,9 +256,9 @@ object ConditionalBlock {
         def elsedf[B](block : => Unit)(
           implicit ctx : DFBlock.Context
         ) : IfElseBlock[false] = new IfElseBlock[false](None, Some(owner))(block)
-        def elseifdf[C, B](cond : C)(block : => Unit)(
-          implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
-        ) : IfElseBlock[true] = new IfElseBlock[true](Some(condArg()), Some(owner))(block)
+        def elseifdf[C, B](cond : Exact[C])(block : => Unit)(
+          implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C]
+        ) : IfElseBlock[true] = new IfElseBlock[true](Some(condArg(cond)), Some(owner))(block)
       }
     }
 

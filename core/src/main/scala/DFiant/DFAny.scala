@@ -17,6 +17,7 @@ sealed trait DFAny extends HasWidth {
   val member : DFAny.Member
   type Width = dfType.Width
   type TToken = dfType.TToken
+  type Arg[R] = DFAny.`Op:=,<>`.Builder[TType, R]
   final lazy val width = dfType.width
   final protected val left : this.type = this
   protected type AsVal = DFAny.Value[TType, DFAny.Modifier.Val]
@@ -427,15 +428,15 @@ object DFAny {
     }
 
     def <>[R](right: DFAny.ConnOf[Type])(
-      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, DFAny.Of[Type]]
+      implicit ctx: DFNet.Context, op: left.Arg[DFAny.Of[Type]]
     ): DFNet.Connection = left.connectWith(op(left.dfType, right))
 
-    def ifdf[C, B](cond : C)(block : => Exact[B])(
-      implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
+    def ifdf[C, B](cond : Exact[C])(block : => Exact[B])(
+      implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C], blockConv : left.Arg[B]
     ) : ConditionalBlock.WithRetVal.IfElseBlock[Type, true] = {
       val newMember = Dcl(left.dfType, Modifier.IfRetVar, None, left.member.ownerRef, left.member.tags) //setting a RetVar modifier
       implicitly[MemberGetSet].set[DFAny.Member](left.member)(_ => newMember)
-      new ConditionalBlock.WithRetVal.IfElseBlock[Type, true](newMember.asValModOf[Type, Modifier.NewVar], Some(condArg()), None)(blockConv(left.dfType, block))
+      new ConditionalBlock.WithRetVal.IfElseBlock[Type, true](newMember.asValModOf[Type, Modifier.NewVar], Some(condArg(cond)), None)(blockConv(left.dfType, block))
     }
     def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
       implicit ctx : DFBlock.Context
@@ -992,7 +993,7 @@ object DFAny {
     def dontProduce()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontProduce(left)
     final def isNotFull(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotFull(left)
     def := [R](right : Exact[R])(
-      implicit ctx : DFNet.Context, op : DFAny.`Op:=,<>`.Builder[Type, R]
+      implicit ctx : DFNet.Context, op : left.Arg[R]
     ) : Unit = left.assign(op(left.dfType, right))
   }
 
@@ -1001,17 +1002,17 @@ object DFAny {
   type PortOutOf[Type <: DFAny.Type] = Value[Type, Modifier.Port[OUT]]
   implicit class PortOps1[Type <: DFAny.Type](left : PortOf[Type]) {
     def <>[R](right: Exact[R])(
-      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, R]
+      implicit ctx: DFNet.Context, op: left.Arg[R]
     ): DFNet.Connection = left.connectWith(op(left.dfType, right))
   }
   implicit class PortOps2[L](left : L) {
     def <>[Type <: DFAny.Type](right: PortOf[Type])(
-      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, L]
+      implicit ctx: DFNet.Context, op: right.Arg[L]
     ): DFNet.Connection = right.connectWith(op(right.dfType, left))
   }
   implicit class PortOps3[Type <: DFAny.Type](left : Of[Type]) {
     def <>(right: PortOf[Type])(
-      implicit ctx: DFNet.Context, op: DFAny.`Op:=,<>`.Builder[Type, Of[Type]]
+      implicit ctx: DFNet.Context, op: left.Arg[Of[Type]]
     ): DFNet.Connection = right.connectWith(op(right.dfType, left))
   }
 

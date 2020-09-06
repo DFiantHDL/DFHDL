@@ -13,20 +13,20 @@ package object fsm {
     implicit ctx : DFBlock.Context
   ) : FSMMember.BasicStep[R] = new FSMMember.BasicStep[R](block).track
 
-  def doWhile[C](cond : => C)(block : => Unit)(
-    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  def doWhile[C](cond : => Exact[C])(block : => Unit)(
+    implicit arg : => DFBool.Arg[C], ctx : DFBlock.Context
   ) = {
     import ctx.db.getSet
-    step(block) =?> (!arg()).anonymize
+    step(block) =?> (!arg(cond)).anonymize
   }
-  def waitWhile[C](cond : => C)(
-    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  def waitWhile[C](cond : => Exact[C])(
+    implicit arg : => DFBool.Arg[C], ctx : DFBlock.Context
   ) = doWhile(cond){}(arg, ctx)
-  def doUntil[C](cond : => C)(block : => Unit)(
-    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
-  ) = step(block) =?> arg()
-  def waitUntil[C](cond : => C)(
-    implicit arg : => DFBool.Arg[0], ctx : DFBlock.Context
+  def doUntil[C](cond : => Exact[C])(block : => Unit)(
+    implicit arg : => DFBool.Arg[C], ctx : DFBlock.Context
+  ) = step(block) =?> arg(cond)
+  def waitUntil[C](cond : => Exact[C])(
+    implicit arg : => DFBool.Arg[C], ctx : DFBlock.Context
   ) = doUntil(cond){}(arg, ctx)
   def waitForever()(implicit ctx : DFBlock.Context) = step({})
 

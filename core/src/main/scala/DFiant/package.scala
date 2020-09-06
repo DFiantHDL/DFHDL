@@ -235,10 +235,10 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // Conditional Constructs
   ////////////////////////////////////////////////////////////////////////////////////
-  def ifdf[C](cond : C)(block : => Unit)(
-    implicit ctx : DFBlock.Context, condArg : DFBool.Arg[0]
+  def ifdf[C](cond : Exact[C])(block : => Unit)(
+    implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C]
   ) : ConditionalBlock.NoRetVal.IfElseBlock[true] =
-    new ConditionalBlock.NoRetVal.IfElseBlock[true](Some(condArg()), None)(block)
+    new ConditionalBlock.NoRetVal.IfElseBlock[true](Some(condArg(cond)), None)(block)
   def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
     implicit ctx : DFBlock.Context
   ): ConditionalBlock.NoRetVal.MatchHeader[MVType] =

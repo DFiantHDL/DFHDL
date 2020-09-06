@@ -217,13 +217,13 @@ object DFBool extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Arg[Idx] {
-    def apply() : DFBool
+  trait Arg[R] {
+    def apply(arg : R) : DFBool
   }
   object Arg {
-    implicit def ev[Idx, B](
-      implicit arg : GetArg.Aux[Idx, B], conv : DFAny.`Op:=,<>`.Builder[DFBool.Type, B]
-    ) : Arg[Idx] = () => conv(DFBool.Type(logical = true), arg.value.asInstanceOf[B])
+    implicit def ev[R](
+      implicit conv : DFAny.`Op:=,<>`.Builder[DFBool.Type, R]
+    ) : Arg[R] = arg => conv(DFBool.Type(logical = true), arg)
   }
   object Op {
     class Able[L](val value : L) extends DFAny.Op.Able[L]

@@ -2,7 +2,7 @@ package DFiant
 
 import sim.DFSimMember.{Assert, Finish}
 import Assert.{Message}
-
+import internals._
 
 package object sim {
   ////////////////////////////////////////////////////////////////////////////////////
@@ -13,10 +13,10 @@ package object sim {
     case DFSimDesign.Mode.On => true
   }
 
-  def assert[C](cond : C, msg : Message, severity : Severity = Warning)(
-    implicit ctx : DFAny.Context, condArg : DFBool.Arg[0]
+  def assert[C](cond : Exact[C], msg : Message, severity : Severity = Warning)(
+    implicit ctx : DFAny.Context, condArg : DFBool.Arg[C]
   ) : Unit = {
-    if (inSimulation) Assert(Some(condArg()), msg, severity)
+    if (inSimulation) Assert(Some(condArg(cond)), msg, severity)
   }
   def report(msg : Message, severity : Severity = Note)(implicit ctx : DFAny.Context) : Unit = {
     if (inSimulation) Assert(None, msg, severity)
