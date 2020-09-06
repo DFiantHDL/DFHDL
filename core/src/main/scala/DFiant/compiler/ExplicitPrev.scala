@@ -147,7 +147,7 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
       )
       case _ => None
     }
-    val outs = explicitPrevSet.collect{case p @ DFAny.Port.Out() => p}.toList.groupBy(p => p.getOwnerDesign)
+    val outs = explicitPrevSet.collect{case p @ DFAny.Port.Out() => p}.toList.groupBy(p => p.getOwnerDesign).toList
     val outPrevPatchList = outs.flatMap {
       case (block, portSet) =>
         val portDsns = portSet.map { p =>
