@@ -17,18 +17,11 @@
 
 package DFiant
 
-import org.scalacheck.Prop
 import singleton.twoface.TwoFace
+import compiler.printer.formatter._
 
 object TestUtils {
   def sameType[A, B](implicit ev: A =:= B): Boolean = true
-
-  def wellTyped(body: => Unit): Prop = Prop.secure {
-    body
-    true
-  }
-
-  implicit def tfToProp[B](tf : TwoFace.Boolean[B]) : Prop = tf.getValue
 
   //nf = not-final. used to force a not-final value. e.g., nf(3) returns a non-literal 3
   def nf(t : Int) = t
@@ -61,7 +54,7 @@ object TestUtils {
 
   implicit class StringEnhancer(s : String) {
     def =@= (that : String) : Boolean = {
-      val ret = trimWhites(s) == trimWhites(that)
+      val ret = trimWhites(s.uncolor) == trimWhites(that.uncolor)
       if (!ret) println(s)
       ret
     }

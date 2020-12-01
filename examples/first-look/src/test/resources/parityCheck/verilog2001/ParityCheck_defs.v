@@ -1,0 +1,3 @@
+`ifndef PARITYCHECK_DEFS_H
+`define PARITYCHECK_DEFS_H
+`endif

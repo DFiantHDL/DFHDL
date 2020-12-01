@@ -1,143 +1,57 @@
-/*
- *     This file is part of DFiant.
- *
- *     DFiant is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU Lesser General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     any later version.
- *
- *     DFiant is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU Lesser General Public License for more details.
- *
- *     You should have received a copy of the GNU Lesser General Public License
- *     along with DFiant.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package DFiant
-
-import DFiant.targetlib.TargetLib
-import internals._
+import compiler.csprinter.CSPrinter
+import DFiant.internals._
 
 import scala.annotation.implicitNotFound
+import compiler.printer.formatter._
 
-abstract class DFBlock(implicit ctx0 : DFBlock.Context) extends DFAnyOwner with Implicits {self =>
-  final private[DFiant] lazy val ctx = ctx0
-  protected[DFiant] trait __DevDFBlock extends __DevDFAnyOwner {
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Ownership
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    final val topDsn : DFDesign =
-      ownerOption.map(o => o.asInstanceOf[DFBlock].topDsn).getOrElse(self.asInstanceOf[DFDesign])
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Naming
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    override protected def nameDefault: String = ctx.getName
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Simulation
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private[DFiant] def hasSimMembers : Boolean = members.collectFirst{
-      case m : DFAnySimMember => m
-      case m : DFBlock if m.hasSimMembers => m
-    }.nonEmpty
-  }
-  override private[DFiant] lazy val __dev : __DevDFBlock = ???
-  import __dev._
-
-  override protected[DFiant] type ThisOwner = DFBlock
-  private[DFiant] implicit val mutableOwner : MutableOwner = new MutableOwner(this)
-  final protected implicit val protInternalContext : DFBlock.InternalContext = DFBlock.InternalContext
-  override implicit def __theOwnerToBe : DFBlock = mutableOwner.value
-  implicit val targetLib = ctx.targetLib
-
-  final protected[DFiant] object ifdf extends ConditionalBlock.IfNoRetVal(mutableOwner)
-  final protected[DFiant] object matchdf extends ConditionalBlock.MatchNoRetVal(mutableOwner)
-  protected def selectdf[T <: DFAny](cond : DFBool)(thenSel : T, elseSel : T) : T = ???
-  protected def selectdf[SW, T <: DFAny](sel : DFUInt[SW], default : => Option[T] = None)(args : List[T]) : T = ???
-
-  protected object sim {
-    final val Note = Severity.Note
-    final val Warning = Severity.Warning
-    final val Error = Severity.Error
-    final val Failure = Severity.Failure
-    def assert(cond : DFBool, msg : Message, severity : Severity = Warning) : Unit = {
-      if (inSimulation) Assert(Some(cond.replacement()), msg, severity)(ctx.updateOwner(__theOwnerToBe))
-    }
-    def report(msg : Message, severity : Severity = Note) : Unit = {
-      if (inSimulation) Assert(None, msg, severity)(ctx.updateOwner(__theOwnerToBe))
-    }
-    def finish() : Unit = {
-      if (inSimulation) Finish()(ctx.updateOwner(__theOwnerToBe))
-    }
+trait DFBlock extends DFOwner {
+  def headerCodeString(implicit printer: CSPrinter) : String
+  final def codeString(body : String)(implicit printer: CSPrinter) : String = {
+    //if the body is a single row then no need for delimiters and extra new lines
+    //otherwise, we add delimitation and new lines
+    val delimitedBody =
+      if (!body.contains("\n")) body.removeAlignment //single line body ==> we remove alignment for better view
+      else s"\n${body.delim()}\n"
+    s"$headerCodeString {$delimitedBody}"
   }
 }
+
 object DFBlock {
-  implicit def fetchDev(from : DFBlock)(implicit devAccess: DFiant.dev.Access) : from.__dev.type = from.__dev
-  @implicitNotFound(errors.MissingContext.msg)
-  trait ContextOf[+T, +Owner <: DFAnyOwner] extends DFAnyOwner.ContextWithLibOf[T, Owner] {
-    self =>
-    def updateOwner[Owner0 <: DFAnyOwner](owner0 : Owner0)(implicit n0 : NameIt) : ContextOf[T, Owner0] = new ContextOf[T, Owner0] {
-      val ownerOption : Option[Owner0] = Some(owner0)
-      implicit val targetLib: TargetLib = self.targetLib
-      implicit val config: DFAnyConfiguration = self.config
-      val n: NameIt = n0
-    }
+  @implicitNotFound(Context.MissingError.msg)
+  class Context(val meta : Meta, val symbol : Meta.SymbolOf[_], val container : DFOwner.Container, val dir : DFDir, val db : DFDesign.DB.Mutable, val args : ClassArgs[_])
+    extends DFMember.Context {
+    def setName(name : String) = new Context(meta.setName(name), symbol, container, dir, db, args)
+    def atOwnerDo(block : => Unit) : Unit =
+      db.OwnershipContext.injectOwnerAndRun(container, owner.getOwner(db.getSet))(block)
   }
-  trait LowestPriority {
-    implicit def evTop[T, Owner <: DFAnyOwner](
-      implicit
-      lp : shapeless.LowPriority,
-      evAllowTop : DFDesign.AllowTOP, //Must have an implicit AllowTOP in scope
-      evBasicLib : TargetLib,
-      evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
-    ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-      val ownerOption : Option[Owner] = None
-      implicit val targetLib: TargetLib = evBasicLib
-      implicit val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
-    }
+  trait VeryLowPriority {
+    implicit def evCtxDefs[T <: String with Singleton](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T], meta: Meta) : Context =
+      new Context(meta, ctx.symbol, ctx.container, ctx.dir, ctx.db, ctx.args)
   }
-  trait LowPriority extends LowestPriority {
-    implicit def ev[T, Owner <: DFAnyOwner](
-      implicit
-      lp : shapeless.LowPriority,
-      evOwner : Owner,
-      evBasicLib : TargetLib,
-      evConfig : DFAnyConfiguration,
-      evNameIt : NameIt,
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
-    ) : ContextOf[T, Owner] = new ContextOf[T, Owner] {
-      val ownerOption : Option[Owner] = Option(evOwner)
-      implicit val targetLib: TargetLib = evBasicLib
-      implicit val config: DFAnyConfiguration = evConfig
-      val n: NameIt = evNameIt
-    }
+  trait LowPriority extends VeryLowPriority {
+    implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =
+      new Context(ctx.meta, ctx.symbol, ctx.container, ctx.dir, ctx.db, ctx.args)
   }
-  private[DFiant] sealed trait InternalContext
-  object InternalContext extends InternalContext
-  object ContextOf extends LowPriority {
-    implicit def evContext[T, T2](
-      implicit
-      lp : shapeless.LowPriority,
-      evContext : DFDesign.ContextOf[T2],
-      external : shapeless.Refute[InternalContext],
-      forceNotVar : NameIt.ForceNotVar[ContextOf[_,_]]
-    ) : ContextOf[T, DFBlock] = new ContextOf[T, DFBlock] {
-      val ownerOption : Option[DFBlock] = evContext.ownerOption
-      implicit val targetLib : TargetLib = evContext.targetLib
-      implicit val config : DFAnyConfiguration = evContext.config
-      val n : NameIt = evContext.n
-    }
+  object Context extends LowPriority {
+    final object MissingError extends ErrorMsg (
+      "Missing an implicit DFDesign Context.",
+      "missing-context"
+    ) {final val msg = getMsg}
+    implicit def evBlockContext(
+      implicit meta : Meta, container : DFOwner.Container, dir : DFDir, db : DFDesign.DB.Mutable
+    ) : DFBlock.Context = new DFBlock.Context(meta, implicitly[Meta.SymbolOf[DFDesign]], container, dir, db, ClassArgs.empty)
+//TODO: maybe bring back top-level DFBlock.Context
+//    implicit def evTop(implicit meta: Meta, topLevel : TopLevel, lp : shapeless.LowPriority) : Context =
+//      new Context(meta, null, ASIS, new DFDesign.DB.Mutable, ClassArgs.empty)
   }
-  type Context = ContextOf[Unit, DFBlock]
+
+  type Ref = DFMember.Ref.Of[Ref.Type, DFBlock]
+  object Ref {
+    trait Type extends DFOwner.Ref.Type
+    implicit val ev : Type = new Type {}
+  }
 }
 
 
-
-class MutableOwner(var value : DFBlock)
 
