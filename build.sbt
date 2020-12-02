@@ -252,10 +252,7 @@ lazy val commonSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
-  publishArtifact in (Compile, packageDoc) := false,
-  publishArtifact in packageDoc := false,
-  sources in (Compile,doc) := Seq.empty
-  //  libraryDependencies += dependencies.ammonite,
+//  libraryDependencies += dependencies.ammonite,
 //  sourceGenerators in Test += Def.task {
 //    val file = (sourceManaged in Test).value / "amm.scala"
 //    IO.write(file, """object amm extends App { ammonite.Main.main(args) }""")
