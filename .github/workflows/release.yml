@@ -13,8 +13,6 @@ jobs:
         with:
           fetch-depth: 0
       - uses: olafurpg/setup-scala@v10
-      - run: sbt test
-      - run: sbt publishLocal
       - uses: olafurpg/setup-gpg@v3
       - run: sbt ci-release
         env:
