@@ -1,0 +1,27 @@
+name: Scala CI
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+    branches: 
+      - master
+      - dev
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup AdoptOpenJDK
+        uses: joschi/setup-jdk@v2.3.0
+        with:
+          java-version: '11' 
+          architecture: 'x64' 
+      - name: Run tests
+        run: sbt test

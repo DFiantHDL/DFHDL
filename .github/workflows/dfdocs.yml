@@ -1,0 +1,42 @@
+name: DFDocs
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+    branches: 
+      - master
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.7 
+        uses: actions/setup-python@v2 
+        with: 
+          python-version: '3.x' 
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip 
+          pip install pygments
+          pip install mkdocs
+          pip install mkdocs-material
+          pip install pymdown-extensions
+          pip install mkdocs-redirects
+          mkdocs build --verbose --clean #--strict
+      - name: Deploy
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true 
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          ACCESS_TOKEN: ${{ secrets.DFDOCS_TOKEN }}
+          REPOSITORY_NAME: DFiantHDL/DFiantHDL.github.io
+          BRANCH: master
+          FOLDER: site 
+          CLEAN: true # Automatically remove deleted files from the deploy branch
