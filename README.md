@@ -18,4 +18,4 @@ Visit our webpage: https://dfianthdl.github.io/LEGaTO/
 
 This work has been supported by EU H2020 ICT project LEGaTO, contract #780681.
 
-![legato](https://dfianthdl.github.io/LEGaTO/about/02_legato_logo_colour_web.png)
+![LEGaTO](https://dfianthdl.github.io/about/02_legato_logo_colour_web.png)
