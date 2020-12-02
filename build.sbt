@@ -142,7 +142,7 @@ lazy val dependencies =
     private val continuumV      = "0.4-SNAPSHOT"
     private val macroParadiseV  = "2.1.1"
     private val macroCompatV    = "1.1.1"
-    private val ammoniteV       = "2.1.4"
+    private val ammoniteV       = "2.3.8"
     private val oscarV          = "4.1.0-SNAPSHOT"
     private val munitV          = "0.7.19"
 
