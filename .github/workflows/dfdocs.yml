@@ -19,13 +19,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Build
-        run: 
-          - pip install pygments
-          - pip install mkdocs
-          - pip install mkdocs-material
-          - pip install pymdown-extensions
-          - pip install mkdocs-redirects
-          - mkdocs build --verbose --clean #--strict
+        run: |
+          pip install pygments
+          pip install mkdocs
+          pip install mkdocs-material
+          pip install pymdown-extensions
+          pip install mkdocs-redirects
+          mkdocs build --verbose --clean #--strict
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@3.7.1
         with:
