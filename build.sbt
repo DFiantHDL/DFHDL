@@ -25,7 +25,6 @@ resolvers in ThisBuild += "scala-integration" at
 //enablePlugins(ScalaJSPlugin)
 
 // PROJECTS
-updateOptions := updateOptions.value.withGigahorse(false)
 
 lazy val global = project
   .in(file("."))
