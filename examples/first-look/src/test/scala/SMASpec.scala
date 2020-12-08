@@ -4,7 +4,7 @@ import DFiant._
 class SMASpec extends DFTopSpec {
   val sma = new SMA
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df class SMA extends DFDesign {
        |  final val x   = DFSInt(16) <> IN  init 0
        |  final val y   = DFSInt(16) <> OUT
@@ -37,4 +37,3 @@ class SMASpec extends DFTopSpec {
     true
   }
 }
-

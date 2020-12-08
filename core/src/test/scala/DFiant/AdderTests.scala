@@ -43,7 +43,6 @@ import shapeless.test.illTyped
 //  illTyped("""(uint8 + uint8) + (uint8 + uint8).wc""")
 }
 
-
 @df class OpComparisonTests extends DFDesign {
   val uint8 = DFUInt(8)
   val uint9 = DFUInt(9)

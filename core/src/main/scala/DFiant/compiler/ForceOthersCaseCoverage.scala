@@ -4,16 +4,20 @@ package compiler
 import DFiant.DFDesign.DB.Patch
 import analysis.MatchHeaderAnalysis
 
-final class ForceOthersCaseCoverage[D <: DFDesign](c : IRCompilation[D]) {
+final class ForceOthersCaseCoverage[D <: DFDesign](c: IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
-  def forceOthersCaseCoverage(matchHeaders : MemberGetSet => Iterable[DFConditional.MatchHeader]) : IRCompilation[D] = {
+  def forceOthersCaseCoverage(
+      matchHeaders: MemberGetSet => Iterable[DFConditional.MatchHeader]
+  ): IRCompilation[D] = {
     val patchList = matchHeaders(__getset).flatMap { mh =>
       val cases = mh.getCases
       cases.last match {
-        case DFConditional.CaseBlock(_,_,None,_,_) => None //already has a case_ block
+        case DFConditional.CaseBlock(_, _, None, _, _) =>
+          None //already has a case_ block
         case cb =>
-          val assignedVars : Iterable[DFAny.VarOf[DFAny.Type]] = mh.getExternalAssignedVars.map(_.asVarOf[DFAny.Type])
+          val assignedVars: Iterable[DFAny.VarOf[DFAny.Type]] =
+            mh.getExternalAssignedVars.map(_.asVarOf[DFAny.Type])
           val dsn = new MetaDesign() {
             val case_ = DFConditional.CaseBlock(mh, Some(cb), None)
             applyBlock(case_) {

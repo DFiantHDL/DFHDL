@@ -4,7 +4,7 @@ import DFiant._
 class ParityCheckSpec extends DFTopSpec {
   val parityCheck = new ParityCheck
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df class ParityCheck extends DFDesign {
        |  object fsm_states extends EnumType.Auto {
        |    val Even,Odd = Entry()
@@ -48,4 +48,3 @@ class ParityCheckSpec extends DFTopSpec {
     true
   }
 }
-

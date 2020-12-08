@@ -11,12 +11,14 @@ import scala.sys.process._
 import constraints.timing.sync._
 
 final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
-  db : DFDesign.DB,
-  fileNameSeq : Seq[String],
-  programFile : String = "verilator", //default: assumes the program 'verilator' is in path
-  workDir : String = "obj_dir",     //default: work folder at current path
-  userFlags : String = ""        //default: no additional user flags
-)(implicit revision: R) extends Simulation[D, Backend[R]] {
+    db: DFDesign.DB,
+    fileNameSeq: Seq[String],
+    programFile: String =
+      "verilator",               //default: assumes the program 'verilator' is in path
+    workDir: String = "obj_dir", //default: work folder at current path
+    userFlags: String = ""       //default: no additional user flags
+)(implicit revision: R)
+    extends Simulation[D, Backend[R]] {
   import db.__getset
   private val topVerilogFilePath = fileNameSeq.last
   private val dir = {
@@ -27,19 +29,19 @@ final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
     val f = new File(topVerilogFilePath)
     f.getName
   }
-  private val Mdir = s"$dir\\$workDir"
-  private val topName = db.top.designType
-  private val mainSimFileName : String = s"${topName}_sim.cpp"
-  private val mainSimFilePath : String = s"$dir\\$mainSimFileName"
-  private val clkName = ClockParams.get.name
-  private val clkActive : Int = ClockParams.get.activeInt
-  private val clkInactive : Int = ClockParams.get.inactiveInt
-  private val rstName = ResetParams.get.name
-  private val rstActive : Int = ResetParams.get.activeInt
-  private val rstInactive : Int = ResetParams.get.inactiveInt
-  private val VerilatedTop = s"V$topName"
-  private val simProgFilePath : String = s"$Mdir\\$VerilatedTop"
-  private val mainSimContents : String =
+  private val Mdir                    = s"$dir\\$workDir"
+  private val topName                 = db.top.designType
+  private val mainSimFileName: String = s"${topName}_sim.cpp"
+  private val mainSimFilePath: String = s"$dir\\$mainSimFileName"
+  private val clkName                 = ClockParams.get.name
+  private val clkActive: Int          = ClockParams.get.activeInt
+  private val clkInactive: Int        = ClockParams.get.inactiveInt
+  private val rstName                 = ResetParams.get.name
+  private val rstActive: Int          = ResetParams.get.activeInt
+  private val rstInactive: Int        = ResetParams.get.inactiveInt
+  private val VerilatedTop            = s"V$topName"
+  private val simProgFilePath: String = s"$Mdir\\$VerilatedTop"
+  private val mainSimContents: String =
     s"""#include <stdlib.h>
        |#include "$VerilatedTop.h"
        |#include "verilated.h"
@@ -68,31 +70,32 @@ final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
        |	} exit(EXIT_SUCCESS);
        |}
        |""".stripMargin
-  private def writeMainSimFile() : Unit = {
+  private def writeMainSimFile(): Unit = {
     println(s"Writing Verilator simulation file $mainSimFileName")
     val f = new FileWriter(new File(mainSimFilePath))
     f.write(mainSimContents)
     f.close()
   }
-  private val buildCmd = s"$programFile -Wall -Wno-UNUSED -cc $topVerilogFileName --exe --build $mainSimFileName"
-  private def bashRun(dir : String, cmd : String) : Unit = {
+  private val buildCmd =
+    s"$programFile -Wall -Wno-UNUSED -cc $topVerilogFileName --exe --build $mainSimFileName"
+  private def bashRun(dir: String, cmd: String): Unit = {
     s"""bash -l -c "cd '$dir'; $cmd" """ !!
   }
-  private def buildSim() : Unit = {
+  private def buildSim(): Unit = {
     print("Building Verilator simulation... ")
     println(buildCmd)
     bashRun(dir, buildCmd)
     println("Done!")
   }
-  private lazy val initSim : Unit = {
+  private lazy val initSim: Unit = {
     writeMainSimFile()
     buildSim()
   }
-  def run() : this.type = {
+  def run(): this.type = {
     initSim
     println("Running simulation...")
 
-    {simProgFilePath !}
+    { simProgFilePath ! }
     this
   }
 }

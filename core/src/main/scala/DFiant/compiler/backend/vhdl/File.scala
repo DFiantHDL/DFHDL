@@ -3,7 +3,9 @@ package compiler.backend.vhdl
 import compiler.printer.formatter._
 
 private object File {
-  def apply(packageName : String, entity: String, architecture: String)(implicit printer: Printer) : String = {
+  def apply(packageName: String, entity: String, architecture: String)(implicit
+      printer: Printer
+  ): String = {
     s"""
        |${Library(packageName)}
        |${SimLibrary()}
@@ -18,7 +20,7 @@ private object File {
 // Library
 //////////////////////////////////////////////////////////////////////////////////
 private object Library {
-  def apply(packageName : String)(implicit printer: Printer) : String = {
+  def apply(packageName: String)(implicit printer: Printer): String = {
     import printer.config._
     s"""$KW library $TP ieee;
        |$KW use $TP ieee.$TP std_logic_1164.$KW all;
@@ -28,7 +30,7 @@ private object Library {
   }
 }
 private object SimLibrary {
-  def apply()(implicit printer: Printer) : String = {
+  def apply()(implicit printer: Printer): String = {
     import printer.config._
     if (printer.inSimulation) revision match {
       case Revision.V93 => ""
@@ -37,7 +39,8 @@ private object SimLibrary {
            |$KW library $TP std;
            |$KW use $TP std.$TP env.$KW all;
            |""".stripMargin
-    } else ""
+    }
+    else ""
   }
 }
 //////////////////////////////////////////////////////////////////////////////////

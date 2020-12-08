@@ -1,6 +1,4 @@
 package DFiant
 package constraints.timing
 
-package object sync {
-
-}
+package object sync {}

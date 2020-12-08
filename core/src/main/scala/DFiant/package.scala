@@ -28,32 +28,37 @@ import DFiant.sim._
 import scala.reflect.ClassTag
 
 package object DFiant {
-  final implicit class __MemberSetExtender[T, M <: DFMember](t : T)(implicit tc : DFMember.TC.Aux[T, M]) {
+  final implicit class __MemberSetExtender[T, M <: DFMember](t: T)(implicit
+      tc: DFMember.TC.Aux[T, M]
+  ) {
     private val member = tc(t)
+
     /**
       * Force a name of a member.
       * @param value the new name value.
       * @return the member after the change
       */
-    def setName(value : String)(implicit getSet : MemberGetSet) : T =
+    def setName(value: String)(implicit getSet: MemberGetSet): T =
       member.setTags(_.setName(value))
+
     /**
       * Force a suffix attached to the current name
       * @param value the suffix
       * @return the member after the change
       */
-    def setNameSuffix(value : String)(implicit getSet : MemberGetSet) : T =
+    def setNameSuffix(value: String)(implicit getSet: MemberGetSet): T =
       setName(s"${member.name}$value")
+
     /**
       * Force a prefix attached to the current name
       * @param value the suffix
       * @return the member after the change
       */
-    def setNamePrefix(value : String)(implicit getSet : MemberGetSet) : T =
+    def setNamePrefix(value: String)(implicit getSet: MemberGetSet): T =
       setName(s"$value${member.name}")
-    def anonymize(implicit getSet : MemberGetSet) : T =
+    def anonymize(implicit getSet: MemberGetSet): T =
       member.setTags(_.anonymize)
-    def keep(implicit getSet : MemberGetSet) : T =
+    def keep(implicit getSet: MemberGetSet): T =
       member.setTags(_.setKeep(true))
 
     /**
@@ -63,59 +68,79 @@ package object DFiant {
       *                  If a custom tag of this type already exists, it will be overridden by the new tag.
       * @return the member after the change
       */
-    def tag[CT <: DFMember.CustomTagOf[M] : ClassTag](customTag : CT)(implicit getSet : MemberGetSet) : T =
+    def tag[CT <: DFMember.CustomTagOf[M]: ClassTag](
+        customTag: CT
+    )(implicit getSet: MemberGetSet): T =
       member.setTags(_.tag(customTag))
-    def tag(customTags : DFMember.CustomTagMap)(implicit getSet : MemberGetSet) : T =
+    def tag(
+        customTags: DFMember.CustomTagMap
+    )(implicit getSet: MemberGetSet): T =
       member.setTags(t => t.copy(customTags = t.customTags ++ customTags))
-    def removeTagOf[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : T =
+    def removeTagOf[CT <: DFMember.CustomTagOf[M]: ClassTag](implicit
+        getSet: MemberGetSet
+    ): T =
       member.setTags(_.removeTagOf[CT])
-    def getTagOf[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : Option[CT] =
+    def getTagOf[CT <: DFMember.CustomTagOf[M]: ClassTag](implicit
+        getSet: MemberGetSet
+    ): Option[CT] =
       member.tags.getTagOf[CT]
-    def isTaggedWith[CT <: DFMember.CustomTagOf[M] : ClassTag](ct : CT)(implicit getSet : MemberGetSet) : Boolean =
+    def isTaggedWith[CT <: DFMember.CustomTagOf[M]: ClassTag](
+        ct: CT
+    )(implicit getSet: MemberGetSet): Boolean =
       getTagOf[CT].isDefined
-    def setLateConstruction(value : Boolean)(implicit getSet : MemberGetSet) : T =
+    def setLateConstruction(value: Boolean)(implicit getSet: MemberGetSet): T =
       member.setTags(_.setLateConstruction(value))
   }
-  final implicit class __MemberGetExtender[T](t : T)(implicit tc : T => DFMember) {
+  final implicit class __MemberGetExtender[T](t: T)(implicit
+      tc: T => DFMember
+  ) {
     private val member = tc(t)
+
     /**
       * @return true if the member is anonymous
       */
-    def isAnonymous : Boolean =
+    def isAnonymous: Boolean =
       member.isAnonymous
+
     /**
       * @return the name of the member
       */
-    def name : String =
+    def name: String =
       member.name
-    def isNameForced : Boolean =
+    def isNameForced: Boolean =
       member.isNameForced
-    def hasLateConstruction : Boolean =
+    def hasLateConstruction: Boolean =
       member.hasLateConstruction
-    def getFullName(implicit getSet : MemberGetSet) : String =
+    def getFullName(implicit getSet: MemberGetSet): String =
       member.getFullName
-    def getOwner(implicit getSet: MemberGetSet) : DFOwner =
+    def getOwner(implicit getSet: MemberGetSet): DFOwner =
       member.getOwner
-    def getOwnerBlock(implicit getSet : MemberGetSet) : DFBlock =
+    def getOwnerBlock(implicit getSet: MemberGetSet): DFBlock =
       member.getOwnerBlock
-    def getOwnerDesign(implicit getSet : MemberGetSet) : DFDesign.Block =
+    def getOwnerDesign(implicit getSet: MemberGetSet): DFDesign.Block =
       member.getOwnerDesign
-    def getThisOrOwnerDesign(implicit getSet : MemberGetSet) : DFDesign.Block =
+    def getThisOrOwnerDesign(implicit getSet: MemberGetSet): DFDesign.Block =
       member.getThisOrOwnerDesign
-    def isMemberOfDesign(that : DFDesign.Block)(implicit getSet : MemberGetSet) : Boolean =
+    def isMemberOfDesign(
+        that: DFDesign.Block
+    )(implicit getSet: MemberGetSet): Boolean =
       member.isMemberOfDesign(that)
-    def isSameOwnerDesignAs[T2](that : T2)(implicit getSet : MemberGetSet, tc : T2 => DFMember) : Boolean =
+    def isSameOwnerDesignAs[T2](
+        that: T2
+    )(implicit getSet: MemberGetSet, tc: T2 => DFMember): Boolean =
       member.isSameOwnerDesignAs(tc(that))
-    def isOneLevelBelow[T2](that : T2)(implicit getSet : MemberGetSet, tc : T2 => DFMember) : Boolean =
+    def isOneLevelBelow[T2](
+        that: T2
+    )(implicit getSet: MemberGetSet, tc: T2 => DFMember): Boolean =
       member.isOneLevelBelow(tc(that))
-    def isOutsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean =
+    def isOutsideOwner(that: DFOwner)(implicit getSet: MemberGetSet): Boolean =
       member.isOutsideOwner(that)
-    def isInsideOwner(that : DFOwner)(implicit getSet : MemberGetSet) : Boolean =
+    def isInsideOwner(that: DFOwner)(implicit getSet: MemberGetSet): Boolean =
       member.isInsideOwner(that)
   }
-  implicit val __memberFromDFMember : DFMember => DFMember = t => t
-  implicit val __memberFromDFAny : DFAny => DFAny.Member = _.member
-  implicit val __memberFromDFDesign : DFDesign => DFMember = _.owner
+  implicit val __memberFromDFMember: DFMember => DFMember = t => t
+  implicit val __memberFromDFAny: DFAny => DFAny.Member   = _.member
+  implicit val __memberFromDFDesign: DFDesign => DFMember = _.owner
 
   /**
     * Dataflow Bit Vector
@@ -129,14 +154,17 @@ package object DFiant {
     * }}}
     */
   type DFBits[W] = DFAny.Of[DFBits.Type[W]]
+
   /**
     * Dataflow Boolean (equivalent to DFBit)
     */
   type DFBool = DFAny.Of[DFBool.Type]
+
   /**
     * Dataflow Bit (equivalent to DFBool)
     */
   type DFBit = DFAny.Of[DFBool.Type]
+
   /**
     * Dataflow Unsigned Integer
     * @tparam W The width of the integer. If the width is known at compile time, then this
@@ -149,6 +177,7 @@ package object DFiant {
     * }}}
     */
   type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
+
   /**
     * Dataflow Signed Integer
     * @tparam W The width of the integer, including the sign bit. If the width is known at compile time, then this
@@ -161,6 +190,7 @@ package object DFiant {
     * }}}
     */
   type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
+
   /**
     * Dataflow Enumeration
     * @tparam E The underlying type of the specific enumeration (an `EnumType` object).
@@ -173,6 +203,7 @@ package object DFiant {
     * }}}
     */
   type DFEnum[E <: EnumType] = DFAny.Of[DFEnum.Type[E]]
+
   /**
     * Dataflow General Vector (a vector/array of any other dataflow type)
     * @tparam T The dataflow type element in the vector
@@ -180,17 +211,20 @@ package object DFiant {
     */
   type DFVector[T <: DFAny.Type, N] = DFAny.Of[DFVector.Type[T, N]]
 
-  implicit def evPrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D])
-  : PrinterOps[D, C] = new PrinterOps[D, C](c)
-  implicit class evAddTagOps[D <: DFDesign, C](c : C)(
-    implicit conv : C => IRCompilation[D], externalExtension: ExternalExtension
+  implicit def evPrinterOps[D <: DFDesign, C](c: C)(implicit
+      conv: C => Compilation[D]
+  ): PrinterOps[D, C] = new PrinterOps[D, C](c)
+  implicit class evAddTagOps[D <: DFDesign, C](c: C)(implicit
+      conv: C => IRCompilation[D],
+      externalExtension: ExternalExtension
   ) {
-    def tag(tags : TagsOf[D]) = new AddTags[D](conv(c)).addTags(tags)
+    def tag(tags: TagsOf[D]) = new AddTags[D](conv(c)).addTags(tags)
   }
 
-  implicit class BackendExt[D <: DFDesign, T](t : T)(
-    implicit conv : T => IRCompilation[D]
+  implicit class BackendExt[D <: DFDesign, T](t: T)(implicit
+      conv: T => IRCompilation[D]
   ) {
+
     /**
       * Dataflow Design Compilation
       *
@@ -220,11 +254,16 @@ package object DFiant {
       *                     //in the folder "id"
       * }}}
       */
-    def compile[B <: BackendStage](
-      implicit preCompiler : PreCompiler[D], compiler : BackendStage.Compiler[B], postCompiler : PostCompiler[D, B]
-    ) : BackendStage.Compilation[D, B] = postCompiler(compiler(preCompiler(t)))
+    def compile[B <: BackendStage](implicit
+        preCompiler: PreCompiler[D],
+        compiler: BackendStage.Compiler[B],
+        postCompiler: PostCompiler[D, B]
+    ): BackendStage.Compilation[D, B] = postCompiler(compiler(preCompiler(t)))
   }
-  implicit class SimulatorExt[D <: DFSimDesign, B <: BackendStage](c : BackendStage.CommittedCompilation[D, B]) {
+  implicit class SimulatorExt[D <: DFSimDesign, B <: BackendStage](
+      c: BackendStage.CommittedCompilation[D, B]
+  ) {
+
     /**
       * For a committed design simulation [[sim.DFSimDesign]], using [[BackendExt.compile]],
       * we can automatically run simulation.
@@ -258,23 +297,27 @@ package object DFiant {
       *     .run() //runs verilator
       * }}}
       */
-    def simulation[S <: Simulation[D, B]](implicit simulator : Simulator[D, B, S]) : S = simulator(c)
+    def simulation[S <: Simulation[D, B]](implicit
+        simulator: Simulator[D, B, S]
+    ): S = simulator(c)
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
   // A Dataflow Bubble
   ////////////////////////////////////////////////////////////////////////////////////
   sealed trait Bubble
+
   /**
     * A named bubble construct. See [[?]].
     */
   object Bubble extends Bubble {
-    sealed trait Behaviour extends Product with Serializable
+    sealed trait Behaviour     extends Product with Serializable
     implicit case object Stall extends Behaviour
-    case object DontCare extends Behaviour
+    case object DontCare       extends Behaviour
   }
 
   type ? = Bubble
+
   /**
     * The bubble construct. Bubbles are used to declare either stalls or "don't cares",
     * depending on the context in which they are applied
@@ -333,7 +376,6 @@ package object DFiant {
   case object ASIS extends DFDir
   ////////////////////////////////////////////////////////////////////////////////////
 
-
   ////////////////////////////////////////////////////////////////////////////////////
   // Intervals
   ////////////////////////////////////////////////////////////////////////////////////
@@ -347,6 +389,7 @@ package object DFiant {
   // Various String Interpolators
   ////////////////////////////////////////////////////////////////////////////////////
   final implicit class BinStringSyntax(val sc: StringContext) {
+
     /**
       * Binary Bits Vector Token String Interpolator
       *
@@ -371,9 +414,10 @@ package object DFiant {
       * @note The string interpolator currently does not accept external arguments with `${arg}`
       * @return Bits vector token.
       */
-    def b[W](args: Any*)(
-      implicit interpolator : Interpolator[DFBits.Token, "b"]
-    ) : interpolator.Out = interpolator.value
+    def b[W](args: Any*)(implicit
+        interpolator: Interpolator[DFBits.Token, "b"]
+    ): interpolator.Out = interpolator.value
+
     /**
       * Hexadecimal Bits Vector Token String Interpolator
       *
@@ -402,18 +446,27 @@ package object DFiant {
       * @note The string interpolator currently does not accept external arguments with `${arg}`
       * @return Bits vector token.
       */
-    def h[W](args: Any*)(
-      implicit interpolator : Interpolator[DFBits.Token, "h"]
-    ) : interpolator.Out = interpolator.value
+    def h[W](args: Any*)(implicit
+        interpolator: Interpolator[DFBits.Token, "h"]
+    ): interpolator.Out = interpolator.value
 
-    private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny.Member, String]] =
-      Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
-        case x: String => x.nonEmpty
-        case _ => true
-      }).map {
-        case x : DFAny => Left(x.member)
-        case x => Right(x.toString)
-      }
+    private def commonInterpolation(
+        args: Seq[Any]
+    ): Seq[Either[DFAny.Member, String]] =
+      Seq(sc.parts, args)
+        .flatMap(_.zipWithIndex)
+        .sortBy(_._2)
+        .map(_._1)
+        .filter(p =>
+          p match {
+            case x: String => x.nonEmpty
+            case _         => true
+          }
+        )
+        .map {
+          case x: DFAny => Left(x.member)
+          case x        => Right(x.toString)
+        }
 
     /**
       * Simulation Message String Interpolator
@@ -431,47 +484,61 @@ package object DFiant {
       * }}}
       * @return `Message` for simulation printout
       */
-    def msg(args : Any*) : DFSimMember.Assert.Message = DFSimMember.Assert.Message(commonInterpolation(args))
-    def cs(args : Any*)(implicit ctx : DFAny.Context) : CompactCodeString = {
-      val seq = Seq(sc.parts,args).flatMap(_.zipWithIndex).sortBy(_._2).map(_._1).filter(p => p match {
-        case x: String => x.nonEmpty
-        case _ => true
-      }).map {
-        case x : DFAny => CompactCodeString.MemberPart(x.member)
-        case x : DFAny.Member => CompactCodeString.MemberPart(x)
-        case CSFunc(func) => CompactCodeString.CSPrintPart(func)
-        case x => CompactCodeString.StringPart(x.toString)
-      }
+    def msg(args: Any*): DFSimMember.Assert.Message =
+      DFSimMember.Assert.Message(commonInterpolation(args))
+    def cs(args: Any*)(implicit ctx: DFAny.Context): CompactCodeString = {
+      val seq = Seq(sc.parts, args)
+        .flatMap(_.zipWithIndex)
+        .sortBy(_._2)
+        .map(_._1)
+        .filter(p =>
+          p match {
+            case x: String => x.nonEmpty
+            case _         => true
+          }
+        )
+        .map {
+          case x: DFAny        => CompactCodeString.MemberPart(x.member)
+          case x: DFAny.Member => CompactCodeString.MemberPart(x)
+          case CSFunc(func)    => CompactCodeString.CSPrintPart(func)
+          case x               => CompactCodeString.StringPart(x.toString)
+        }
       CompactCodeString(seq)
     }
+
     /**
       * Experimental. Do not use.
       */
-    def vhdl(args : Any*)(
-      implicit ctx : DFAny.Context
-    ) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.Backend)
+    def vhdl(args: Any*)(implicit
+        ctx: DFAny.Context
+    ): BackendEmitter =
+      BackendEmitter(commonInterpolation(args), compiler.backend.vhdl.Backend)
+
     /**
       * Experimental. Do not use.
       */
-    def verilog(args : Any*)(
-      implicit ctx : DFAny.Context
-    ) : BackendEmitter = BackendEmitter(commonInterpolation(args), compiler.backend.verilog.Backend)
+    def verilog(args: Any*)(implicit
+        ctx: DFAny.Context
+    ): BackendEmitter =
+      BackendEmitter(
+        commonInterpolation(args),
+        compiler.backend.verilog.Backend
+      )
   }
   trait Interpolator[T, K] extends HasOut {
     type Out <: T
-    val value : Out
+    val value: Out
   }
 
   object Interpolator {
-    type Aux[T, K, Out0 <: T] = Interpolator[T, K]{type Out = Out0}
-    implicit def evb[W] : Interpolator.Aux[DFBits.Token, "b", DFBits.TokenW[W]] =
+    type Aux[T, K, Out0 <: T] = Interpolator[T, K] { type Out = Out0 }
+    implicit def evb[W]: Interpolator.Aux[DFBits.Token, "b", DFBits.TokenW[W]] =
       macro DFBits.Token.binImplStringInterpolator
-    implicit def evh[W] : Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] =
+    implicit def evh[W]: Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] =
       macro DFBits.Token.hexImplStringInterpolator
   }
-  final case class CSFunc(func : CSPrinter.Config => String)
+  final case class CSFunc(func: CSPrinter.Config => String)
   ////////////////////////////////////////////////////////////////////////////////////
-
 
   ////////////////////////////////////////////////////////////////////////////////////
   // Conditional Constructs
@@ -495,10 +562,13 @@ package object DFiant {
     *   }
     * }}}
     */
-  def ifdf[C](cond : Exact[C])(block : => Unit)(
-    implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C]
-  ) : DFConditional.NoRetVal.IfElseBlock[true] =
-    new DFConditional.NoRetVal.IfElseBlock[true](Some(condArg(cond)), None)(block)
+  def ifdf[C](cond: Exact[C])(block: => Unit)(implicit
+      ctx: DFBlock.Context,
+      condArg: DFBool.Arg[C]
+  ): DFConditional.NoRetVal.IfElseBlock[true] =
+    new DFConditional.NoRetVal.IfElseBlock[true](Some(condArg(cond)), None)(
+      block
+    )
 
   /**
     * Pattern Matching (Case) Construct
@@ -518,34 +588,75 @@ package object DFiant {
     *     .casedf_ {c := 3}
     * }}}
     */
-  def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
-    implicit ctx : DFBlock.Context
+  def matchdf[MVType <: DFAny.Type](
+      matchValue: DFAny.Of[MVType],
+      matchConfig: MatchConfig = MatchConfig.NoOverlappingCases
+  )(implicit
+      ctx: DFBlock.Context
   ): DFConditional.NoRetVal.MatchHeader[MVType] =
     new DFConditional.NoRetVal.MatchHeader[MVType](matchValue, matchConfig)
 
-  implicit class ListExtender[+T](val list : Iterable[T]) {
-    def foreachdf[W](sel : DFUInt[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context) : Unit = {
-      val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
+  implicit class ListExtender[+T](val list: Iterable[T]) {
+    def foreachdf[W](
+        sel: DFUInt[W]
+    )(block: PartialFunction[T, Unit])(implicit ctx: DFBlock.Context): Unit = {
+      val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFUInt.Type[W]](
+        sel,
+        MatchConfig.NoOverlappingCases
+      )
       val matcherFirstCase = blockMatchDF.casedf(0)(block(list.head))
-      val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+      val cases = list
+        .drop(1)
+        .zipWithIndex
+        .foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
+      if (sel.width.getValue != (list.size - 1).bitsWidth(false))
+        cases.casedf_ {}
     }
-    def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
-      val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
-      val matcherFirstCase = blockMatchDF.casedf(DFBits.Token(sel.width.getValue, BigInt(0)))(block(list.head))
-      val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1)))
-      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+    def foreachdf[W](sel: DFBits[W])(
+        block: PartialFunction[T, Unit]
+    )(implicit ctx: DFBlock.Context, di: DummyImplicit): Unit = {
+      val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFBits.Type[W]](
+        sel,
+        MatchConfig.NoOverlappingCases
+      )
+      val matcherFirstCase = blockMatchDF.casedf(
+        DFBits.Token(sel.width.getValue, BigInt(0))
+      )(block(list.head))
+      val cases = list
+        .drop(1)
+        .zipWithIndex
+        .foldLeft(matcherFirstCase)((a, b) =>
+          a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(
+            block(b._1)
+          )
+        )
+      if (sel.width.getValue != (list.size - 1).bitsWidth(false))
+        cases.casedf_ {}
     }
   }
 
-  implicit class MatchList(list : List[(DFBits.Token, DFBits.Token)]) {
+  implicit class MatchList(list: List[(DFBits.Token, DFBits.Token)]) {
     import DFDesign.Frontend._
-    def matchdf[MW, RW](matchValue : DFBits[MW], resultVar : DFAny.VarOf[DFBits.Type[RW]])(implicit ctx : DFBlock.Context) : Unit = {
-      val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFBits.Type[MW]](matchValue, MatchConfig.NoOverlappingCases)
+    def matchdf[MW, RW](
+        matchValue: DFBits[MW],
+        resultVar: DFAny.VarOf[DFBits.Type[RW]]
+    )(implicit ctx: DFBlock.Context): Unit = {
+      val blockMatchDF =
+        new DFConditional.NoRetVal.MatchHeader[DFBits.Type[MW]](
+          matchValue,
+          MatchConfig.NoOverlappingCases
+        )
       if (list.nonEmpty) {
-        val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
-        val cases = list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2})
-        if (matchValue.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+        val matcherFirstCase = blockMatchDF.casedf(list.head._1) {
+          resultVar := list.head._2
+        }
+        val cases = list
+          .drop(1)
+          .foldLeft(matcherFirstCase)((a, b) =>
+            a.casedf(b._1) { resultVar := b._2 }
+          )
+        if (matchValue.width.getValue != (list.size - 1).bitsWidth(false))
+          cases.casedf_ {}
       }
     }
   }
@@ -554,7 +665,7 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // FSM Operations
   ////////////////////////////////////////////////////////////////////////////////////
-  protected sealed class FSMOps(srcBlock : => Unit) {
+  protected sealed class FSMOps(srcBlock: => Unit) {
 
     /**
       * Destination Step Edge Connection
@@ -563,9 +674,11 @@ package object DFiant {
       * @param dstBlock A block of statements to become the body the first step in the RHS FSM.
       * @return an FSM with the additional exit condition edge
       */
-    def ==> [T2 <: FSM.Capable](dstBlock : => T2)(
-      implicit ctx : DFBlock.Context, ta : FSM.HasFSMAscription, di : DummyImplicit
-    ) : FSM = FSM(srcBlock) ==> dstBlock
+    def ==>[T2 <: FSM.Capable](dstBlock: => T2)(implicit
+        ctx: DFBlock.Context,
+        ta: FSM.HasFSMAscription,
+        di: DummyImplicit
+    ): FSM = FSM(srcBlock) ==> dstBlock
 
     /**
       * Exit-Condition Edge Connection
@@ -575,14 +688,18 @@ package object DFiant {
       * @param cond A dataflow boolean expression to condition the exit on.
       * @return an FSM with the additional exit condition edge
       */
-    def =?> [C](cond : Exact[C])(
-      implicit ctx : DFBlock.Context, ta : FSM.HasFSMAscription, arg : DFBool.Arg[C]
-    ) : FSM = FSM {
-      srcBlock
-      ifdf(arg(cond)) {
-        nextStep.goto()
+    def =?>[C](cond: Exact[C])(implicit
+        ctx: DFBlock.Context,
+        ta: FSM.HasFSMAscription,
+        arg: DFBool.Arg[C]
+    ): FSM =
+      FSM {
+        srcBlock
+        ifdf(arg(cond)) {
+          nextStep.goto()
+        }
       }
-    }
+
     /**
       * Destination Step Edge Connection
       *
@@ -590,34 +707,40 @@ package object DFiant {
       * @param dstFSM The destination FSM
       * @return an FSM with the additional exit condition edge
       */
-    def ==> (dstFSM : => FSM)(
-      implicit ctx : DFBlock.Context, ta : FSM.HasFSMAscription
-    ) : FSM = FSM(srcBlock) ==> dstFSM
+    def ==>(dstFSM: => FSM)(implicit
+        ctx: DFBlock.Context,
+        ta: FSM.HasFSMAscription
+    ): FSM = FSM(srcBlock) ==> dstFSM
   }
-  final implicit class FSMOpsUnit(srcBlock : => Unit) extends FSMOps(srcBlock)
-  final implicit class FSMOpsCapable[T <: FSM.Capable](srcBlock : => T) extends FSMOps(srcBlock)
+  final implicit class FSMOpsUnit(srcBlock: => Unit) extends FSMOps(srcBlock)
+  final implicit class FSMOpsCapable[T <: FSM.Capable](srcBlock: => T)
+      extends FSMOps(srcBlock)
 
   /**
     * @return a reference to the next step in the FSM, assuming one will be connected.
     *         If there is no connection for the next step, an error will be thrown.
     */
-  def nextStep(implicit ctx : DFAny.Context) : FSM.Step = ctx.db.getNextFSMStep match {
-    case Some(value) => value
-    case None => throw new IllegalArgumentException("\nMissing next step `==>` connection")
-  }
+  def nextStep(implicit ctx: DFAny.Context): FSM.Step =
+    ctx.db.getNextFSMStep match {
+      case Some(value) => value
+      case None =>
+        throw new IllegalArgumentException(
+          "\nMissing next step `==>` connection"
+        )
+    }
   ////////////////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////////////////////////////////////////////////////////
   // Collection Operations
   ////////////////////////////////////////////////////////////////////////////////////
-  implicit class IterableOps[T <: DFAny.Type](iter : Iterable[DFAny.Of[T]]) {
+  implicit class IterableOps[T <: DFAny.Type](iter: Iterable[DFAny.Of[T]]) {
     import DFDesign.Frontend._
 
     /**
       * @return a dataflow boolean true indication if all iteration elements are equal in value
       */
-    def allAreEqual(implicit ctx : DFBlock.Context) : DFBool = {
-      val split = iter.map(_.bits).splitAt(iter.size/2)
+    def allAreEqual(implicit ctx: DFBlock.Context): DFBool = {
+      val split = iter.map(_.bits).splitAt(iter.size / 2)
       (split._1 lazyZip split._2).map(_ === _).reduce(_ && _)
     }
 
@@ -625,9 +748,11 @@ package object DFiant {
       * @param sel the requested selection within the iteration
       * @return a selected element within the iteration
       */
-    def selectdf(sel : DFUInt[Int])(implicit ctx : DFBlock.Context) : DFAny.Of[T] = {
+    def selectdf(
+        sel: DFUInt[Int]
+    )(implicit ctx: DFBlock.Context): DFAny.Of[T] = {
       val ret = iter.head.asNewVar
-      iter.foreachdf(sel) {q => ret := q}
+      iter.foreachdf(sel) { q => ret := q }
       ret
     }
   }
@@ -636,10 +761,11 @@ package object DFiant {
   ////////////////////////////////////////////////////////////////////////////////////
   // Collection Operations
   ////////////////////////////////////////////////////////////////////////////////////
-  protected[DFiant] final case class OutsideOwner(op : DFDesign.Control.Op.Entry) extends DFMember.CustomTagOf[DFMember]
+  protected[DFiant] final case class OutsideOwner(op: DFDesign.Control.Op.Entry)
+      extends DFMember.CustomTagOf[DFMember]
   final val OutsideOwnerEnable = OutsideOwner(DFDesign.Control.Op.Enable)
-  final val OutsideOwnerStall = OutsideOwner(DFDesign.Control.Op.Stall)
-  final val OutsideOwnerInit = OutsideOwner(DFDesign.Control.Op.Init)
+  final val OutsideOwnerStall  = OutsideOwner(DFDesign.Control.Op.Stall)
+  final val OutsideOwnerInit   = OutsideOwner(DFDesign.Control.Op.Init)
   ////////////////////////////////////////////////////////////////////////////////////
 
 }

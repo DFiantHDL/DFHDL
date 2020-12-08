@@ -4,7 +4,9 @@ package compiler.backend.verilog
 import compiler.printer.formatter._
 
 private object File {
-  def apply(globalDefsFileName : String, localDefs : String, module: String)(implicit printer: Printer) : String = {
+  def apply(globalDefsFileName: String, localDefs: String, module: String)(
+      implicit printer: Printer
+  ): String = {
     s"""
        |${Header(globalDefsFileName)}
        |${SimHeader()}
@@ -19,7 +21,7 @@ private object File {
 // Library
 //////////////////////////////////////////////////////////////////////////////////
 private object Header {
-  def apply(globalDefsFileName : String)(implicit printer: Printer) : String = {
+  def apply(globalDefsFileName: String)(implicit printer: Printer): String = {
     import printer.config._
     s"""$FN`default_nettype	${ALGN(0)}$TP none
        |$FN`timescale $LIT 1ns/$LIT 1ps
@@ -28,7 +30,7 @@ private object Header {
   }
 }
 private object SimHeader {
-  def apply()(implicit printer: Printer) : String = {
+  def apply()(implicit printer: Printer): String = {
 //    import printer.config._
 //    if (printer.inSimulation) revision match {
 //      case Revision.V93 => ""

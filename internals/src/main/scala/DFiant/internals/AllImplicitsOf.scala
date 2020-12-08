@@ -4,19 +4,19 @@ import scala.reflect.internal.util
 import scala.reflect.macros.{blackbox, contexts}
 
 trait AllImplicitsOf[T] {
-  val list : List[T]
+  val list: List[T]
 }
 
 object AllImplicitsOf {
   implicit def get[T]: AllImplicitsOf[T] = macro getMacro[T]
 
-  def getMacro[T : c.WeakTypeTag](c: blackbox.Context): c.Tree = {
+  def getMacro[T: c.WeakTypeTag](c: blackbox.Context): c.Tree = {
     import c.universe._
 
-    val context = c.asInstanceOf[contexts.Context]
-    val global: context.universe.type = context.universe
+    val context                        = c.asInstanceOf[contexts.Context]
+    val global: context.universe.type  = context.universe
     val analyzer: global.analyzer.type = global.analyzer
-    val callsiteContext = context.callsiteTyper.context
+    val callsiteContext                = context.callsiteTyper.context
 
     val tpe = weakTypeOf[T]
 

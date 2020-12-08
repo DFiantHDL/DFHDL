@@ -2,7 +2,7 @@ package DFiant.internals
 
 class AllImplicitsOfSpec extends munit.FunSuite {
   trait Foo
-  implicit object Foo extends Foo
+  implicit object Foo  extends Foo
   implicit object Foo2 extends Foo
 
   test("find all implicits of Foo") {

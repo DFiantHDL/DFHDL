@@ -1,5 +1,3 @@
 package DFiant
 
-package object constraints {
-
-}
+package object constraints {}

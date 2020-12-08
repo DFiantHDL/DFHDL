@@ -21,22 +21,28 @@ import scala.reflect.macros.whitebox
 import singleton.ops.impl.HasOut
 sealed trait CaseClassSkipper[T <: HasOut] extends HasOut {
   type Out
-  def apply(value : T => Any, fallBack : => Boolean) : Out
+  def apply(value: T => Any, fallBack: => Boolean): Out
 }
 object CaseClassSkipper {
-  type Aux[T <: HasOut, Out0] = CaseClassSkipper[T]{type Out = Out0}
+  type Aux[T <: HasOut, Out0] = CaseClassSkipper[T] { type Out = Out0 }
   //Normal value retrieval
-  implicit def evNormal[T <: HasOut](implicit t : T) : Aux[T, t.Out] = new CaseClassSkipper[T] {
-    type Out = t.Out
-    def apply(value: T => Any, fallBack: => Boolean): t.Out = value(t).asInstanceOf[Out]
-  }
+  implicit def evNormal[T <: HasOut](implicit t: T): Aux[T, t.Out] =
+    new CaseClassSkipper[T] {
+      type Out = t.Out
+      def apply(value: T => Any, fallBack: => Boolean): t.Out =
+        value(t).asInstanceOf[Out]
+    }
   //Fallback value retrieval
   case class Fail[T <: HasOut]() extends CaseClassSkipper[T] {
     type Out = Boolean
     def apply(value: T => Any, fallBack: => Boolean): Boolean = fallBack
   }
-  implicit def evCC[T <: HasOut](implicit n : shapeless.Refute[T]) : Aux[T, Boolean] = macro evCCMacro[T]
-  def evCCMacro[T <: HasOut](c: whitebox.Context)(n : c.Tree)(implicit wt : c.WeakTypeTag[T]) : c.Tree = {
+  implicit def evCC[T <: HasOut](implicit
+      n: shapeless.Refute[T]
+  ): Aux[T, Boolean] = macro evCCMacro[T]
+  def evCCMacro[T <: HasOut](
+      c: whitebox.Context
+  )(n: c.Tree)(implicit wt: c.WeakTypeTag[T]): c.Tree = {
     import c.universe._
     val t = weakTypeOf[T]
     if (c.internal.enclosingOwner.owner.asClass.isCaseClass)

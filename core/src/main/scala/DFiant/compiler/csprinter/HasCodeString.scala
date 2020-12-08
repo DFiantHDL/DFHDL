@@ -20,56 +20,78 @@ package compiler.csprinter
 import internals._
 
 trait HasCodeString {
-  def codeString(implicit printer: CSPrinter) : String
+  def codeString(implicit printer: CSPrinter): String
 }
 
 trait CodeStringOf[T] {
-  def apply(t : T)(implicit printer: CSPrinter) : String
+  def apply(t: T)(implicit printer: CSPrinter): String
 }
 object CodeStringOf {
-  implicit def ev[T <: HasCodeString](implicit printer: CSPrinter) : CodeStringOf[T] = new CodeStringOf[T] {
-    override def apply(t : T)(implicit printer: CSPrinter) : String = t.codeString
-  }
-  implicit def evBoolean : CodeStringOf[Boolean] = new CodeStringOf[Boolean] {
-    override def apply(t : Boolean)(implicit printer: CSPrinter) : String = t.toString
-  }
-  implicit def evInt : CodeStringOf[Int] = new CodeStringOf[Int] {
-    override def apply(t : Int)(implicit printer: CSPrinter) : String = t.toString
-  }
-  implicit def evLong : CodeStringOf[Long] = new CodeStringOf[Long] {
-    override def apply(t : Long)(implicit printer: CSPrinter) : String = t.toString
-  }
-  implicit def evBigInt : CodeStringOf[BigInt] = new CodeStringOf[BigInt] {
-    override def apply(t : BigInt)(implicit printer: CSPrinter) : String = t.codeString
-  }
-  implicit def csoIntervalBigInt : CodeStringOf[Interval[BigInt]] = new CodeStringOf[Interval[BigInt]] {
-    def apply(t : Interval[BigInt])(implicit printer: CSPrinter) : String = {
-      import continuum.bound._
-      val lower = t.lower.bound match {
-        case Closed(v) => v
-        case Open(v) => v+1
-        case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
-      }
-      val upper = t.upper.bound match {
-        case Closed(v) => v
-        case Open(v) => v-1
-        case Unbounded() => throw new IllegalArgumentException("\nUnexpected unbounded interval")
-      }
-      if (lower == upper) lower.codeString
-      else s"${lower.codeString} to ${upper.codeString}"
+  implicit def ev[T <: HasCodeString](implicit
+      printer: CSPrinter
+  ): CodeStringOf[T] =
+    new CodeStringOf[T] {
+      override def apply(t: T)(implicit printer: CSPrinter): String =
+        t.codeString
     }
-  }
-  implicit def csoBitVector : CodeStringOf[BitVector] = new CodeStringOf[BitVector] {
-    def apply(vec : BitVector)(implicit printer: CSPrinter) : String =
-      if (vec.length % 4 == 0) s"""h"${vec.toHex}""""
-      else s"""b"${vec.toBin}""""
-  }
-  implicit class CodeStringExtension[T](t : T)(implicit codeStringOf: CodeStringOf[T]) {
-    def codeString(implicit printer: CSPrinter) : String = codeStringOf(t)
+  implicit def evBoolean: CodeStringOf[Boolean] =
+    new CodeStringOf[Boolean] {
+      override def apply(t: Boolean)(implicit printer: CSPrinter): String =
+        t.toString
+    }
+  implicit def evInt: CodeStringOf[Int] =
+    new CodeStringOf[Int] {
+      override def apply(t: Int)(implicit printer: CSPrinter): String =
+        t.toString
+    }
+  implicit def evLong: CodeStringOf[Long] =
+    new CodeStringOf[Long] {
+      override def apply(t: Long)(implicit printer: CSPrinter): String =
+        t.toString
+    }
+  implicit def evBigInt: CodeStringOf[BigInt] =
+    new CodeStringOf[BigInt] {
+      override def apply(t: BigInt)(implicit printer: CSPrinter): String =
+        t.codeString
+    }
+  implicit def csoIntervalBigInt: CodeStringOf[Interval[BigInt]] =
+    new CodeStringOf[Interval[BigInt]] {
+      def apply(t: Interval[BigInt])(implicit printer: CSPrinter): String = {
+        import continuum.bound._
+        val lower = t.lower.bound match {
+          case Closed(v) => v
+          case Open(v)   => v + 1
+          case Unbounded() =>
+            throw new IllegalArgumentException(
+              "\nUnexpected unbounded interval"
+            )
+        }
+        val upper = t.upper.bound match {
+          case Closed(v) => v
+          case Open(v)   => v - 1
+          case Unbounded() =>
+            throw new IllegalArgumentException(
+              "\nUnexpected unbounded interval"
+            )
+        }
+        if (lower == upper) lower.codeString
+        else s"${lower.codeString} to ${upper.codeString}"
+      }
+    }
+  implicit def csoBitVector: CodeStringOf[BitVector] =
+    new CodeStringOf[BitVector] {
+      def apply(vec: BitVector)(implicit printer: CSPrinter): String =
+        if (vec.length % 4 == 0) s"""h"${vec.toHex}""""
+        else s"""b"${vec.toBin}""""
+    }
+  implicit class CodeStringExtension[T](t: T)(implicit
+      codeStringOf: CodeStringOf[T]
+  ) {
+    def codeString(implicit printer: CSPrinter): String = codeStringOf(t)
   }
 
-  implicit class BigIntCodeString(value : BigInt) {
-    def codeString : String = {
+  implicit class BigIntCodeString(value: BigInt) {
+    def codeString: String = {
       if (value.isValidInt) s"$value"
       else if (value.isValidLong) s"${value}L"
       else s"""BigInt("$value")"""

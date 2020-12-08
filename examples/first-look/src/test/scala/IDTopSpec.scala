@@ -4,7 +4,7 @@ import DFiant._
 class IDTopSpec extends DFTopSpec {
   val idTop = new IDTop
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df class ID extends DFDesign {
        |  final val x   = DFSInt(16) <> IN
        |  final val y   = DFSInt(16) <> OUT
@@ -46,4 +46,3 @@ class IDTopSpec extends DFTopSpec {
     true
   }
 }
-

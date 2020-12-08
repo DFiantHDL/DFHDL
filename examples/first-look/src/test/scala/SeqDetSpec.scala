@@ -4,7 +4,7 @@ import DFiant._
 class SeqDetSpec extends DFTopSpec {
   val seqDet = new SeqDet
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df class SeqDet extends DFDesign {
        |  object fsm_states extends EnumType.Auto {
        |    val S0,S1,S10,S100,S1001 = Entry()
@@ -65,4 +65,3 @@ class SeqDetSpec extends DFTopSpec {
     true
   }
 }
-

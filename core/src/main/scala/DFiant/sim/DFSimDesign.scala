@@ -26,18 +26,19 @@ package sim
   *
   * @param ctx An implicit dataflow context for the design. Do not apply manually.
   */
-abstract class DFSimDesign(implicit ctx : DFBlock.Context) extends DFDesign {
-  final private[DFiant] override lazy val simMode : DFSimDesign.Mode = DFSimDesign.Mode.On
+abstract class DFSimDesign(implicit ctx: DFBlock.Context) extends DFDesign {
+  final private[DFiant] override lazy val simMode: DFSimDesign.Mode =
+    DFSimDesign.Mode.On
 }
 
 object DFSimDesign {
   private object Tag {
-    final case class After(time : Int) extends DFMember.CustomTagOf[DFAny.Member]
+    final case class After(time: Int) extends DFMember.CustomTagOf[DFAny.Member]
   }
 
   sealed trait Mode extends Product with Serializable
   object Mode {
     case object Off extends Mode
-    case object On extends Mode
+    case object On  extends Mode
   }
 }

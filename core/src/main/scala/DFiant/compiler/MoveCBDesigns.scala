@@ -41,15 +41,16 @@ For example:
       y := acc.o
     }
   }
-*/
-final class MoveCBDesigns[D <: DFDesign](c : IRCompilation[D]) {
+ */
+final class MoveCBDesigns[D <: DFDesign](c: IRCompilation[D]) {
   private val designDB = c.db
   import designDB.__getset
-  def moveCBDesigns : IRCompilation[D] = {
-    val patchList : List[(DFMember, Patch)] = designDB.members.flatMap {
-      case d @ DFDesign.Block.Internal.Unref(_, cb : DFConditional.Block, _, None) =>
+  def moveCBDesigns: IRCompilation[D] = {
+    val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
+      case d @ DFDesign.Block.Internal
+            .Unref(_, cb: DFConditional.Block, _, None) =>
         val topConditionalMember = cb.getTopConditionalMember
-        val outsideOp = d.getTagOf[OutsideOwner].getOrElse(OutsideOwnerInit).op
+        val outsideOp            = d.getTagOf[OutsideOwner].getOrElse(OutsideOwnerInit).op
         //for adding control after the new design position
         val outsideCBDsn = new MetaDesign() {
           DFDesign.Control(d, outsideOp)
@@ -59,32 +60,42 @@ final class MoveCBDesigns[D <: DFDesign](c : IRCompilation[D]) {
           DFDesign.Control(d, DFDesign.Control.Op.Enable)
         }
         val inputPatchList = designDB.designMemberTable(d).flatMap {
-          case port @ DFAny.Port.In() => designDB.getConnectionTo(port) match {
-            case Some(conn @ DFNet.Connection(_, connValue, _, _)) =>
-              val outsideCBDsn = new MetaDesign() {
-                final val portVar = DFAny.NewVar(port.dfType).setName(s"${d.name}_${port.name}_var")
-                portVar := ?
-                DFNet.LazyConnection(port, portVar).anonymize
-              }
-              val insideCBDsn = new MetaDesign() {
-                DFNet.Assignment(outsideCBDsn.portVar, connValue).anonymize
-              }
-              List (
-                topConditionalMember -> Patch.Add(outsideCBDsn, Patch.Add.Config.Before),
-                port -> Patch.Replace(outsideCBDsn.portVar, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Outside(d)),
-                conn -> Patch.Add(insideCBDsn, Patch.Add.Config.ReplaceWithLast())
-              )
-          }
+          case port @ DFAny.Port.In() =>
+            designDB.getConnectionTo(port) match {
+              case Some(conn @ DFNet.Connection(_, connValue, _, _)) =>
+                val outsideCBDsn = new MetaDesign() {
+                  final val portVar = DFAny
+                    .NewVar(port.dfType)
+                    .setName(s"${d.name}_${port.name}_var")
+                  portVar := ?
+                  DFNet.LazyConnection(port, portVar).anonymize
+                }
+                val insideCBDsn = new MetaDesign() {
+                  DFNet.Assignment(outsideCBDsn.portVar, connValue).anonymize
+                }
+                List(
+                  topConditionalMember -> Patch
+                    .Add(outsideCBDsn, Patch.Add.Config.Before),
+                  port -> Patch.Replace(
+                    outsideCBDsn.portVar,
+                    Patch.Replace.Config.ChangeRefOnly,
+                    Patch.Replace.RefFilter.Outside(d)
+                  ),
+                  conn -> Patch
+                    .Add(insideCBDsn, Patch.Add.Config.ReplaceWithLast())
+                )
+            }
           case _ => Nil
         }
 
-        List (
+        List(
           topConditionalMember -> Patch.Move(d, Patch.Move.Config.Before),
-          topConditionalMember -> Patch.Add(outsideCBDsn, Patch.Add.Config.Before),
+          topConditionalMember -> Patch
+            .Add(outsideCBDsn, Patch.Add.Config.Before),
           d -> Patch.Add(insideCBDsn, Patch.Add.Config.After)
         ) ++ inputPatchList
       case _ => Nil
     }
-    c.newStage(designDB.patch(patchList))//.printCodeString
+    c.newStage(designDB.patch(patchList)) //.printCodeString
   }
 }

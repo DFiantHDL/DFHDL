@@ -24,36 +24,41 @@ object TestUtils {
   def sameType[A, B](implicit ev: A =:= B): Boolean = true
 
   //nf = not-final. used to force a not-final value. e.g., nf(3) returns a non-literal 3
-  def nf(t : Int) = t
-  def nf(t : Long) = t
+  def nf(t: Int)  = t
+  def nf(t: Long) = t
 
-  def illRun(body: => Unit) : Boolean = {
-    val isIll = try {
-      body
-      false
-    } catch {
-      case _ : Throwable =>
-        true
-    }
+  def illRun(body: => Unit): Boolean = {
+    val isIll =
+      try {
+        body
+        false
+      } catch {
+        case _: Throwable =>
+          true
+      }
     if (!isIll)
       assert(false, "Expected assertion did not occur")
     true
   }
-  def illRunCompare(msg : String)(body: => Unit) : Boolean = {
-    val illMsg = try {
-      body
-      "Expected exception not raised"
-    } catch {
-      case e  : Throwable =>
-        e.getMessage
-    }
+  def illRunCompare(msg: String)(body: => Unit): Boolean = {
+    val illMsg =
+      try {
+        body
+        "Expected exception not raised"
+      } catch {
+        case e: Throwable =>
+          e.getMessage
+      }
     illMsg =@= msg
   }
 
-  def trimWhites(s : String) : String = s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "").trim.filter(_ >= ' ')
+  def trimWhites(s: String): String =
+    s.replaceAll("(?m)^[\\s&&[^\\n]]+|[\\s+&&[^\\n]]+$", "")
+      .trim
+      .filter(_ >= ' ')
 
-  implicit class StringEnhancer(s : String) {
-    def =@= (that : String) : Boolean = {
+  implicit class StringEnhancer(s: String) {
+    def =@=(that: String): Boolean = {
       val ret = trimWhites(s.uncolor) == trimWhites(that.uncolor)
       if (!ret) println(s)
       ret

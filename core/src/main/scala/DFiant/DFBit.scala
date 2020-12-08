@@ -29,12 +29,13 @@ object DFBit {
     * Construct a new dataflow bit
     * @param ctx An implicit dataflow design context
     */
-  def apply()(implicit ctx : DFAny.Context) = DFAny.NewVar(DFBool.Type(logical = false))
-  def unapply(arg: DFAny.Member): Boolean = arg.dfType match {
-    case DFBool.Type(logical) if !logical => true
-    case _ => false
-  }
+  def apply()(implicit ctx: DFAny.Context) =
+    DFAny.NewVar(DFBool.Type(logical = false))
+  def unapply(arg: DFAny.Member): Boolean =
+    arg.dfType match {
+      case DFBool.Type(logical) if !logical => true
+      case _                                => false
+    }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 }

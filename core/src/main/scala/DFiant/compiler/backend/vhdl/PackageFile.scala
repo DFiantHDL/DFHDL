@@ -3,19 +3,57 @@ package compiler.backend.vhdl
 import compiler.printer.formatter._
 
 object PackageFile {
-  def apply()(implicit printer: Printer) : String = {
+  def apply()(implicit printer: Printer): String = {
     import printer.config._
-    val kwWords = Set("library", "use", "package", "end", "begin", "package", "is", "body", "all", "function",
-    "return", "for", "loop", "if", "else", "elsif", "then", "variable", "in", "downto", "type")
-    val tpWords = Set("std_logic_vector", "std_logic", "boolean", "unsigned", "signed", "integer", "ieee",
-      "std_logic_1164", "numeric_std", "low", "high", "length", "std_logic_textio", "textio", "std", "line")
+    val kwWords = Set(
+      "library",
+      "use",
+      "package",
+      "end",
+      "begin",
+      "package",
+      "is",
+      "body",
+      "all",
+      "function",
+      "return",
+      "for",
+      "loop",
+      "if",
+      "else",
+      "elsif",
+      "then",
+      "variable",
+      "in",
+      "downto",
+      "type"
+    )
+    val tpWords = Set(
+      "std_logic_vector",
+      "std_logic",
+      "boolean",
+      "unsigned",
+      "signed",
+      "integer",
+      "ieee",
+      "std_logic_1164",
+      "numeric_std",
+      "low",
+      "high",
+      "length",
+      "std_logic_textio",
+      "textio",
+      "std",
+      "line"
+    )
     val fnWords = Set("bit_reverse", "to_sl", "to_slv")
     val simLibs = if (printer.inSimulation) revision match {
       case Revision.V93 =>
-      """use ieee.std_logic_textio.all;
+        """use ieee.std_logic_textio.all;
         |use std.textio.all;""".stripMargin
       case Revision.V2008 => ""
-    } else ""
+    }
+    else ""
     val name = Name()
     s"""library ieee;
        |use ieee.std_logic_1164.all;
@@ -32,23 +70,36 @@ object PackageFile {
        |${helperFunctionsBody.delim()}
        |${enumBodyDcl.delim()}
        |end package body $name;
-       |""".stripMargin.colorWords(kwWords, KW).colorWords(tpWords, TP).colorWords(fnWords, FN).formatted
+       |""".stripMargin
+      .colorWords(kwWords, KW)
+      .colorWords(tpWords, TP)
+      .colorWords(fnWords, FN)
+      .formatted
   }
-  def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pkg"
+  def Name()(implicit printer: Printer): String =
+    s"${printer.getSet.designDB.top.designType}_pkg"
 
-  private def enumDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl(e)).mkString("\n")
-  private def arrTypeDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalArrTypes.map(e => ArrayTypeDcl(e)).mkString("\n")
-  private def enumBodyDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl.body(e)).mkString("\n")
-  private def helperFunctions(implicit printer: Printer) : String = {
+  private def enumDcl(implicit printer: Printer): String =
+    printer.getSet.designDB.getGlobalEnumTypes
+      .map(e => EnumTypeDcl(e))
+      .mkString("\n")
+  private def arrTypeDcl(implicit printer: Printer): String =
+    printer.getSet.designDB.getGlobalArrTypes
+      .map(e => ArrayTypeDcl(e))
+      .mkString("\n")
+  private def enumBodyDcl(implicit printer: Printer): String =
+    printer.getSet.designDB.getGlobalEnumTypes
+      .map(e => EnumTypeDcl.body(e))
+      .mkString("\n")
+  private def helperFunctions(implicit printer: Printer): String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {
-        case Revision.V93 => "function to_hstring(arg : std_logic_vector) return string;"
+        case Revision.V93 =>
+          "function to_hstring(arg : std_logic_vector) return string;"
         case Revision.V2008 => ""
-      } else ""
+      }
+      else ""
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector;
        |function resize(arg : std_logic_vector; size : integer) return std_logic_vector;
        |function to_sl(b : boolean) return std_logic;
@@ -60,7 +111,7 @@ object PackageFile {
        |$to_hstring""".stripMargin
   }
 
-  private def helperFunctionsBody(implicit printer: Printer) : String = {
+  private def helperFunctionsBody(implicit printer: Printer): String = {
     import printer.config._
     val to_hstring =
       if (printer.inSimulation) revision match {
@@ -73,7 +124,8 @@ object PackageFile {
             |end function to_hstring;
             |""".stripMargin
         case Revision.V2008 => ""
-      } else ""
+      }
+      else ""
     s"""function bit_reverse(s : std_logic_vector) return std_logic_vector is
        |   variable v_s : std_logic_vector(s'high downto s'low);
        |begin
