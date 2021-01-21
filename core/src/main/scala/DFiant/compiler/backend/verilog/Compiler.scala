@@ -120,11 +120,7 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
         //For enumeration only, we check the bits-width exhaustively coverage, since RTL enumeration
         //is more limited than the DFiant enumeration coverage check. In Verilog, all enumerations are
         //manually encoded, so bits-width coverage is a must.
-        case DFEnum(enumType)
-            if BigInt.maxUnsignedFromWidth(
-              enumType.width
-            ) > enumType.entries.size =>
-          true
+        case DFEnum(entries) if BigInt.maxUnsignedFromWidth(entries.width) > entries.all.size => true
         //Non-enumeration exhaustively coverage is already handled in the ExplicitPrev stage
         case _ => false
       }
@@ -136,22 +132,23 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
 
   def verilogCompile[R <: Revision](implicit revision: R) = {
     val designDB =
-      c.dropUnreferenced.fixAnonymous.flattenNames.moveCBDesigns
-      //       .controlDesigns
-        .orderMembers(OrderMembers.Order.LazyConnectionLast)
-        .explicitPrev
-        .forceOthersCaseCoverage(matchForceCover)
-        .carryMathConversion
-        .uniqueDesigns
-        .namedSelection
-        .uniqueNames(
-          reservedKeywords ++ for_iterators + Sim.guardName,
-          caseSensitive = true
-        )
-        .toRTLForm
-        .viaPortConnection
-        .orderMembers
-        .db
+      c.dropUnreferenced
+       .fixAnonymous
+       .flattenNames
+       .flattenStruct
+       .moveCBDesigns
+//       .controlDesigns
+       .orderMembers(OrderMembers.Order.LazyConnectionLast)
+       .explicitPrev
+       .forceOthersCaseCoverage(matchForceCover)
+       .carryMathConversion
+       .uniqueDesigns
+       .namedSelection
+       .uniqueNames(reservedKeywords ++ for_iterators + Sim.guardName, caseSensitive = true)
+       .toRTLForm
+       .viaPortConnection
+       .orderMembers
+       .db
 
     import designDB.__getset
 
@@ -226,13 +223,9 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
           case m @ RTL.IsReset() => m
         }
         val enumInstances =
-          if (printer.inSimulation)
-            members
-              .collect {
-                case DFEnum(enumType) => enumType
-              }
-              .distinct
-              .map(e => EnumInstance(e))
+          if (printer.inSimulation) members.collect {
+            case DFEnum(entries) => entries
+          }.distinct.map(e => EnumInstance(e))
           else Nil
         val clkrstPorts =
           if (design.isTop && printer.inSimulation)
@@ -314,18 +307,17 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
             if (edge) s"$KW posedge ${clk.name}"
             else s"$KW negedge ${clk.name}"
         })
-        val emits = members
-          .collect {
-            case Emitter(emitStr) => emitStr
-          }
-          .mkString("\n")
-        val syncProcess    = AlwaysBlock(syncSensitivityList, syncStatements)
-        val localEnumTypes = designDB.getLocalEnumTypes(design)
-        val enumDefines    = localEnumTypes.map(e => EnumTypeDcl.defines(e)).toList
+        val emits = members.collect {
+          case Emitter(emitStr) => emitStr
+        }.mkString("\n")
+        val syncProcess = AlwaysBlock(syncSensitivityList, syncStatements)
+        val localEnumEntries = designDB.getLocalEnumEntries(design)
+        val enumDefines = localEnumEntries.map(e => EnumEntriesDcl.defines(e)).toList
         val enumModuleDcls =
-          if (printer.inSimulation)
-            localEnumTypes.map(e => s"""/* verilator lint_off DECLFILENAME */
-               |${EnumTypeDcl(e)}""".stripMargin).toList
+          if (printer.inSimulation) localEnumEntries.map(e =>
+            s"""/* verilator lint_off DECLFILENAME */
+               |${EnumEntriesDcl(e)}""".stripMargin
+          ).toList
           else Nil
         val declarations =
           wires ++ enumDefines ++ clkrstRegs ++ enumInstances ++ iteratorDcls ++ moduleInstances :+ asyncBlock ++ syncProcess ++ emits

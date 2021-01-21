@@ -25,56 +25,44 @@ final case class DependencyContext(
     dynamicConsumeMap: DynamicConsumeMap,
     dynamicProduceMap: DynamicProduceMap
 )(implicit val getSet: MemberGetSet) {
-  implicit val __this: DependencyContext = this
-  private def consumeFrom(
-      fromVal: DFAny.Member,
-      relWidth: Int,
-      relBitLow: Int,
-      byRef: Boolean
-  )(implicit currentBlock: DFBlock): Source =
-    fromVal match {
-      case alias: DFAny.Alias =>
-        def relSrc =
-          consumeFrom(alias.relValRef.get, relWidth, relBitLow, byRef)
-        alias match {
-          case DFAny.Alias.AsIs(dfType, _, _, _, _)     => relSrc.as(dfType)
-          case _: DFAny.Alias.Invert                    => relSrc.invert
-          case DFAny.Alias.Prev(_, _, step, kind, _, _) =>
-            //a previous value alias is using by reference only
-            val src = consumeFrom(
-              alias.relValRef.get,
-              relWidth,
-              relBitLow,
-              byRef = true
-            )
-            kind match {
-              case Prev.State => src.prev(step)
-              case Prev.Pipe  => src.pipe(step)
-            }
-          case DFAny.Alias.BitsWL(dfType, _, rv, rw, rbl, _, _) =>
-            consumeFrom(rv.get, rw, relBitLow + rbl, byRef).as(dfType)
-          case DFAny.Alias.ApplySel(dfType, _, rvRef, idxRef, _, _) =>
-            //For simplification, consuming the entirety of selection index and array
-            val relVal = rvRef.get
-            val relSrc = consumeFrom(relVal, relVal.width, 0, byRef)
-            val idxVal = idxRef.get
-            val idxSrc = consumeFrom(idxVal, idxVal.width, 0, byRef)
-            Source.ApplySel(dfType, relSrc, idxSrc).bitsWL(relWidth, relBitLow)
-        }
-      case DFAny.Fork(_, rv, _, _) =>
-        consumeFrom(rv.get, relWidth, relBitLow, byRef = false)
-      case dcl: DFAny.Dcl if !dcl.isPortIn && !byRef =>
-        getLatestSource(dcl).bitsWL(relWidth, relBitLow).as(dcl.dfType)
-      case DFAny.Const(_, token, _, _) => Source.Const(token)
-      case dfVal: DFAny.Member =>
-        Source.Latest(dfVal).bitsWL(relWidth, relBitLow).as(dfVal.dfType)
-    }
+  implicit val __this : DependencyContext = this
+//  private def consumeFrom(
+//    fromVal : DFAny.Member, relWidth : Int, relBitLow : Int, byRef : Boolean
+//  )(implicit currentBlock : DFBlock) : Source =
+//    fromVal match {
+//      case alias : DFAny.Alias =>
+//        def relSrc = consumeFrom(alias.relValRef.get, relWidth, relBitLow, byRef)
+//        alias match {
+//          case DFAny.Alias.AsIs(dfType,_,_,_,_) => relSrc.as(dfType)
+//          case DFAny.Alias.Prev(_,_,step,kind,_,_) =>
+//            //a previous value alias is using by reference only
+//            val src = consumeFrom(alias.relValRef.get, relWidth, relBitLow, byRef = true)
+//            kind match {
+//              case Prev.State => src.prev(step)
+//              case Prev.Pipe => src.pipe(step)
+//            }
+//          case DFAny.Alias.BitsWL(dfType,_,rv,rw,rbl,_,_) =>
+//            consumeFrom(rv.get, rw, relBitLow + rbl, byRef).as(dfType)
+//          case DFAny.ApplySel(dfType,_,rvRef,idxRef,_,_) =>
+//            //For simplification, consuming the entirety of selection index and array
+//            val relVal = rvRef.get
+//            val relSrc = consumeFrom(relVal, relVal.width, 0, byRef)
+//            val idxVal = idxRef.get
+//            val idxSrc = consumeFrom(idxVal, idxVal.width, 0, byRef)
+//            Source.ApplySel(dfType, relSrc, idxSrc).bitsWL(relWidth, relBitLow)
+//        }
+//      case DFAny.Fork(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, byRef = false)
+//      case dcl : DFAny.Dcl if !dcl.isPortIn && !byRef =>
+//        getLatestSource(dcl).bitsWL(relWidth, relBitLow).as(dcl.dfType)
+//      case DFAny.Const(_,token,_,_) => Source.Const(token)
+//      case dfVal : DFAny.Member => Source.Latest(dfVal).bitsWL(relWidth, relBitLow).as(dfVal.dfType)
+//    }
 
   protected[DependencyContext] def consumeFrom(fromRef: ConsumeRef)(implicit
       currentBlock: DFBlock
   ): DependencyContext = {
     val fromVal = fromRef.get
-    val fromSrc = consumeFrom(fromVal, fromVal.width, 0, byRef = false)
+    val fromSrc = getLatestSource(fromVal)
     copy(dependencyMap = dependencyMap.updated(fromRef, fromSrc))
   }
 
@@ -86,13 +74,9 @@ final case class DependencyContext(
       fromSrc: Source
   )(implicit currentBlock: DFBlock): DependencyContext = {
     toVal match {
-      case DFAny.Alias.AsIs(_, _, rv, _, _) =>
-        assignTo(rv.get, net, relWidth, relBitLow, fromSrc)
-      case DFAny.Alias.Invert(_, rv, _, _) =>
-        assignTo(rv.get, net, relWidth, relBitLow, fromSrc.invert)
-      case DFAny.Alias.BitsWL(_, _, rv, rw, rbl, _, _) =>
-        assignTo(rv.get, net, relWidth, rbl + relBitLow, fromSrc)
-      case DFAny.Alias.ApplySel(_, _, rv, _, _, _) =>
+      case DFAny.Alias.AsIs(_,_,rv,_,_) => assignTo(rv.get, net, relWidth, relBitLow, fromSrc)
+      case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => assignTo(rv.get, net, relWidth, rbl + relBitLow, fromSrc)
+      case DFAny.ApplySel(_,_,rv,_,_,_) =>
         assignTo(rv.get, net, relWidth, relBitLow, fromSrc)
       case dcl: DFAny.Dcl =>
         val withInit = net.op match {
@@ -125,10 +109,9 @@ final case class DependencyContext(
       case Op.LazyConnection             => true
       case Op.Assignment | Op.Connection => false
     }
-    val fromSrc = consumeFrom(fromVal, fromVal.width, 0, byRef)
-    val toVal   = net.toRef.get
-    copy(dependencyMap = dependencyMap.updated(net.fromRef, fromSrc))
-      .assignTo(toVal, net, toVal.width, 0, fromSrc)
+    val fromSrc = getLatestSource(fromVal)
+    val toVal = net.toRef.get
+    copy(dependencyMap = dependencyMap.updated(net.fromRef, fromSrc)).assignTo(toVal, net, toVal.width, 0, fromSrc)
   }
   protected[DependencyContext] def branchEntry(
       enterBlock: DFConditional.Block
@@ -218,25 +201,34 @@ final case class DependencyContext(
     } else this
   }
 
-  def getLatestSource(dcl: DFAny.Dcl)(implicit currentBlock: DFBlock): Source =
-    assignmentMap.get(dcl) match {
-      case Some(blockVersions) =>
-        Source(
-          dcl,
-          blockVersions.getLatestVersionIn(currentBlock),
-          withInit = true
-        )
-      case None => Source.Empty(dcl)
+  @tailrec def getLatestVersion(member : DFAny.Member)(implicit currentBlock : DFBlock) : SourceVersion = member match {
+    case dcl : DFAny.Dcl if !dcl.isPortIn => assignmentMap.get(dcl) match {
+      case Some(blockVersions) => blockVersions.getLatestVersionIn(currentBlock)
+      case None => SourceVersion.Empty
     }
+    case prev : DFAny.Alias.Prev => SourceVersion.Latest
+    case alias : DFAny.Alias => getLatestVersion(alias.relValRef.get)
+    case _ => SourceVersion.Latest
+  }
+
+  def getLatestSource(member : DFAny.Member, withInit : Boolean = true)(implicit currentBlock : DFBlock) : Source = {
+    val version = getLatestVersion(member)
+    Source(member, version, withInit)
+  }
+
 
   def printAssignmentMap: DependencyContext = {
     assignmentMap.foreach {
-      case (dcl, blockVersions) =>
-        blockVersions.foreach {
-          case (block, versions) =>
-            val isCB = block match {
-              case block: DFDesign.Block      => false
-              case block: DFConditional.Block => true
+      case (dcl, blockVersions) => blockVersions.foreach {
+        case (block, versions) =>
+          val isCB = block match {
+            case block : DFDesign.Block => false
+            case block : DFConditional.Block => true
+          }
+          if (versions.size > 1 || isCB)
+            versions.zipWithIndex.foreach {
+              case ((_, source), i) =>
+                println(f"${dcl.getFullName}%-40s ${source.codeString}")
             }
             if (versions.size > 1 || isCB)
               versions.zipWithIndex.foreach {
@@ -257,17 +249,11 @@ final case class DependencyContext(
     this
   }
 
-  lazy val initMap: EvaluationMap[Seq[DFAny.Token]] =
-    getSet.designDB.evaluate(InitEvaluator)
-  lazy val constMap: EvaluationMap[DFAny.Token] =
-    getSet.designDB.evaluate(ConstEvaluator)
-  lazy val stateVars: Set[DFAny.Dcl] = getSet.designDB
-    .evaluate(CyclicEvaluator)
-    .view
-    .collect {
-      case (SourceValue.Dcl(dcl, _), true) if dcl.isAssignable => dcl
-    }
-    .toSet
+  lazy val initMap : SourceValueEvaluation[Seq[DFAny.Token]] = getSet.designDB.evaluate(InitEvaluator)
+  lazy val constMap : SourceValueEvaluation[DFAny.Token] = getSet.designDB.evaluate(ConstEvaluator)
+//  lazy val stateVars : Set[DFAny.Dcl] = getSet.designDB.evaluate(CyclicEvaluator).view.collect {
+//    case (SourceValue.Dcl(dcl, _), true) if dcl.isAssignable => dcl
+//  }.toSet
 
   protected[DependencyContext] def dontProduce(
       toVal: DFAny.Member
@@ -281,7 +267,8 @@ final case class DependencyContext(
 }
 
 object DependencyContext {
-  type ConsumeRef    = DFAny.Ref[_ <: DFAny.Ref.ConsumeFrom.Type]
+  type DFAnyRef = DFAny.Ref[_ <: DFAny.Ref.Type]
+  type ConsumeRef = DFAny.Ref[_ <: DFAny.Ref.ConsumeFrom.Type]
   type DependencyMap = ListMap[ConsumeRef, Source]
   type Versions      = Vector[(DFMember, Source)]
   type BlockVersions = ListMap[DFBlock, Versions]
@@ -318,15 +305,16 @@ object DependencyContext {
           case _ => dependencyContext
         }
         getDependencies(rs, updatedDependency)(nextBlock)
-      case r :: rs
-          if r.getOwnerBlock == currentBlock => //checking member consumers
-        val updatedDependency: DependencyContext = r match {
-          case net: DFNet => dependencyContext.assignWith(net)
-          case func: DFAny.Func2 =>
-            dependencyContext
-              .consumeFrom(func.leftArgRef)
-              .consumeFrom(func.rightArgRef)
-          case assert: DFSimMember.Assert =>
+      case r :: rs if r.getOwnerBlock == currentBlock => //checking member consumers
+        val updatedDependency : DependencyContext = r match {
+          case net : DFNet => dependencyContext.assignWith(net)
+          case applySel : DFAny.ApplySel =>
+            dependencyContext.consumeFrom(applySel.idxRef)
+          case func : DFAny.Func1 =>
+            dependencyContext.consumeFrom(func.leftArgRef)
+          case func : DFAny.Func2 =>
+            dependencyContext.consumeFrom(func.leftArgRef).consumeFrom(func.rightArgRef)
+          case assert : DFSimMember.Assert =>
             val condDep =
               assert.condOptionRef.foldLeft(dependencyContext)((d, r) =>
                 d.consumeFrom(r)

@@ -1,9 +1,9 @@
 import DFiant._
 import lib.sequential._
 @df final class PatternGen extends DFDesign {
-  val sel  = DFBit() <> IN
-  val tick = DFBit() <> IN
-  val p    = DFBit() <> OUT
+  val sel     = DFBit <> IN
+  val tick    = DFBit <> IN
+  val p       = DFBit <> OUT
 
   val PatternChoice: FSM = FSM {
     ifdf(sel) { Pattern1.goto() }

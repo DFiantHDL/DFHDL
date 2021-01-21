@@ -4,12 +4,12 @@ import DFiant._
 class SMASpec extends DFTopSpec {
   val sma = new SMA
 
-  val expectedCodeString: String =
-    """|@df class SMA extends DFDesign {
-       |  final val x   = DFSInt(16) <> IN  init 0
-       |  final val y   = DFSInt(16) <> OUT
-       |  final val sum = (x +^ x.prev) +^ (x.prev(2) +^ x.prev(3))
-       |  y             := (sum >> 2).resize(16)
+  val expectedCodeString : String =
+    """|@df final class SMA extends DFDesign {
+       |  val x   = DFSInt(16) <> IN  init 0
+       |  val y   = DFSInt(16) <> OUT
+       |  val sum = (x +^ x.prev) +^ (x.prev(2) +^ x.prev(3))
+       |  y       := (sum >> 2).resize(16)
        |}""".stripMargin
 
   test("codeString generation") {

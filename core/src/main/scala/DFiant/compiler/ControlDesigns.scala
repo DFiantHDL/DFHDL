@@ -99,8 +99,8 @@ final class ControlDesigns[D <: DFDesign](c: IRCompilation[D]) {
     }
 
     //state designs are designs that have state variables
-    val stateDesigns: Map[DFDesign.Block, Set[DFAny.Dcl]] =
-      designDB.dependencyContext.stateVars.groupBy(_.getOwnerDesign)
+    val stateDesigns : Map[DFDesign.Block, Set[DFAny.Dcl]] = ???
+//      designDB.dependencyContext.stateVars.groupBy(_.getOwnerDesign)
 
     verbose {
       println("stateDesigns:")
@@ -125,8 +125,7 @@ final class ControlDesigns[D <: DFDesign](c: IRCompilation[D]) {
     }
 
     //save control ports for all designs that have it
-    val controlPortMap =
-      mutable.Map.empty[DFDesign.Block, DFAny.PortOf[DFEnum.Type[Op.type]]]
+    val controlPortMap = mutable.Map.empty[DFDesign.Block, DFAny.DclOf[DFEnum.Type[Op.type]]]
     //save control vars for all designs that have it
     val controlVarMap =
       mutable.Map.empty[DFDesign.Block, DFAny.VarOf[DFEnum.Type[Op.type]]]
@@ -175,7 +174,7 @@ final class ControlDesigns[D <: DFDesign](c: IRCompilation[D]) {
           case md if controlledDesigns.contains(md) =>
             verbose { println(s"Adding ${md.getFullName}_dsnCtrl_var") }
             val dsn = new MetaDesign() {
-              val dsnCtrl = DFEnum(Op) setName s"${md.name}_dsnCtrl_var"
+              val dsnCtrl = DFEnum(Op) <> VAR setName s"${md.name}_dsnCtrl_var"
               dsnCtrl := Op.Enable //default
               DFNet.LazyConnection(controlPortMap(md), dsnCtrl)
               controlVarMap += (md -> dsnCtrl)

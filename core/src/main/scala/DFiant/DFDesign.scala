@@ -159,14 +159,16 @@ object DFDesign {
     }
   }
 
-  trait Frontend
-      extends DFBits.Frontend
-      with DFUInt.Frontend
-      with DFSInt.Frontend
-      with DFEnum.Frontend
-      with DFBool.Frontend
-      with DFVector.Frontend
-//    DFString.Op.Frontend
+  trait Frontend extends
+    DFAny.Frontend.Inherited with
+    DFBits.Frontend.Inherited with
+    DFEnum.Frontend.Inherited with
+    DFBool.Frontend.Inherited with
+    DFDecimal.Frontend.Inherited with
+    DFVector.Frontend.Inherited with
+    DFStruct.Frontend.Inherited with
+    DFTuple.Frontend.Inherited with
+    DFOpaque.Frontend.Inherited
 
   /**
     * The entire standard DFiant syntax and implicit conversion required.
@@ -182,7 +184,16 @@ object DFDesign {
     * }}}
     *
     */
-  object Frontend extends Frontend
+  object Frontend extends
+    DFAny.Frontend.Imported with
+    DFBits.Frontend.Imported with
+    DFEnum.Frontend.Imported with
+    DFBool.Frontend.Imported with
+    DFDecimal.Frontend.Imported with
+    DFVector.Frontend.Imported with
+    DFStruct.Frontend.Imported with
+    DFTuple.Frontend.Imported with
+    DFOpaque.Frontend.Imported
 
   sealed trait Block extends DFBlock {
     val designType: String
@@ -313,7 +324,7 @@ object DFDesign {
         }
     }
 
-    object Op extends EnumType.Auto {
+    object Op extends DFEnum.Auto {
 //      sealed abstract class Status(implicit meta : Meta) extends Entry with Product with Serializable
       val Enable, Stall, Init = Entry()
     }
@@ -398,37 +409,28 @@ object DFDesign {
     //Map of all enum types in the design with their design block owners.
     //If the enum type is global (used in IO or more than one design block),
     //then its owner is set to None.
-    private lazy val enumTypes: Map[EnumType, Option[DFDesign.Block]] =
-      members.foldLeft(Map.empty[EnumType, Option[DFDesign.Block]]) {
-        case (enumMap, enumMember @ DFEnum(enumType)) => //an enum member
-          if (enumMember.isPort)
-            enumMap + (enumType -> None) //IO means a global enum type
-          else
-            enumMap.get(enumType) match {
-              case Some(Some(owner)) => //enum type already found
-                if (owner == enumMember.getOwnerDesign)
-                  enumMap //same design block -> nothing to do
-                else
-                  enumMap + (enumType -> None) //used in more than one block -> global enum type
-              case Some(None) => enumMap //known to be a global type
-              case None =>
-                enumMap + (enumType -> Some(
-                  enumMember.getOwnerDesign
-                )) //found new enum type
-            }
+    private lazy val enumEntries : Map[DFEnum.Entries, Option[DFDesign.Block]] =
+      members.foldLeft(Map.empty[DFEnum.Entries, Option[DFDesign.Block]]) {
+        case (enumMap, enumMember @ DFEnum(entries)) => //an enum member
+          if (enumMember.isPort) enumMap + (entries -> None) //IO means a global enum type
+          else enumMap.get(entries) match {
+            case Some(Some(owner)) => //enum type already found
+              if (owner == enumMember.getOwnerDesign) enumMap //same design block -> nothing to do
+              else enumMap + (entries -> None) //used in more than one block -> global enum type
+            case Some(None) => enumMap //known to be a global type
+            case None => enumMap + (entries -> Some(enumMember.getOwnerDesign)) //found new enum type
+          }
         case (enumMap, _) => enumMap //not an enum member
       }
 
-    private lazy val invertedEnumTypes = enumTypes.invert
-    lazy val getGlobalEnumTypes: Set[EnumType] =
-      invertedEnumTypes.getOrElse(None, Set())
-    private lazy val localEnumTypes: Map[DFDesign.Block, Set[EnumType]] =
-      invertedEnumTypes.flatMap {
-        case (Some(b), set) => Some(b -> set)
-        case _              => None
-      }
-    def getLocalEnumTypes(design: DFDesign.Block): Set[EnumType] =
-      localEnumTypes.getOrElse(design, Set())
+    private lazy val invertedEnumEntries = enumEntries.invert
+    lazy val getGlobalEnumEntries : Set[DFEnum.Entries] = invertedEnumEntries.getOrElse(None, Set())
+    private lazy val localEnumEntries : Map[DFDesign.Block, Set[DFEnum.Entries]] = invertedEnumEntries.flatMap{
+      case (Some(b), set) => Some(b -> set)
+      case _ => None
+    }
+    def getLocalEnumEntries(design : DFDesign.Block) : Set[DFEnum.Entries] =
+      localEnumEntries.getOrElse(design, Set())
 
     //Map of all arr types in the design with their design block owners.
     //If the arr type is global (used in IO or more than one design block),
@@ -883,21 +885,40 @@ object DFDesign {
     //for a given consumer, we get a set of its producers
     lazy val consumerDependencyTable: Map[DFAny.Member, Set[DFAny.Member]] = {
       //first passing through all nets to get directionality of aliased values
-      val netPass =
-        members.foldLeft(Map.empty[DFAny.Member, Set[DFAny.Member]])((dt, m) =>
-          m match {
-            case n: DFNet =>
-              val toVal   = n.toRef.get
-              val fromVal = n.fromRef.get
-              val depSet  = dt.getOrElse(toVal, Set()) + fromVal
-              val guards = n match {
-                case n: DFNet if n.isConnection =>
-                  List() //connections are insensitive to guards
-                case a: DFNet if a.isAssignment =>
-                  getGuards(a.getOwnerBlock, toVal.getOwnerBlock, List())
-              }
-              dt + (toVal -> (depSet ++ guards))
-            case _ => dt
+      val netPass = members.foldLeft(Map.empty[DFAny.Member, Set[DFAny.Member]])((dt, m) => m match {
+        case n : DFNet =>
+          val toVal = n.toRef.get
+          val fromVal = n.fromRef.get
+          val depSet = dt.getOrElse(toVal, Set()) + fromVal
+          val guards = n match {
+            case n : DFNet if n.isConnection  => List() //connections are insensitive to guards
+            case a : DFNet if a.isAssignment => getGuards(a.getOwnerBlock, toVal.getOwnerBlock, List())
+            case _ => ???
+          }
+          dt + (toVal -> (depSet ++ guards))
+        case _ => dt
+      })
+      members.foldLeft(netPass)((dt, m) => m match {
+        case f : DFAny.Func2 => dt + (f-> Set(f.leftArgRef.get, f.rightArgRef.get))
+        case asel : DFAny.ApplySel =>
+          val a : DFAny.Member = asel
+          val idxDep : DFAny.Member = asel.idxRef.get
+          val relVal : DFAny.Member = asel.relValRef.get
+          (dt.get(a), dt.get(relVal)) match {
+            //when alias is written to, then the relative value is also dependent on the alias
+            case (Some(aDeps), Some(relDeps)) => dt + (a -> (aDeps + relVal)) + (relVal -> (relDeps + a + idxDep))
+            case (Some(aDeps), None) => dt + (a -> (aDeps + relVal)) + (relVal -> (Set(a) + idxDep))
+            //the alias is just read, and therefore it's dependent only on the rel and possible idx of ApplySel
+            case (None, _) => dt + (a -> (Set(relVal) + idxDep))
+          }
+        case a : DFAny.Alias =>
+          val relVal = a.relValRef.get
+          (dt.get(a), dt.get(relVal)) match {
+            //when alias is written to, then the relative value is also dependent on the alias
+            case (Some(aDeps), Some(relDeps)) => dt + (a -> (aDeps + relVal)) + (relVal -> (relDeps + a))
+            case (Some(aDeps), None) => dt + (a -> (aDeps + relVal)) + (relVal -> Set(a))
+            //the alias is just read, and therefore it's dependent only on the rel and possible idx of ApplySel
+            case (None, _) => dt + (a -> Set(relVal))
           }
         )
       members.foldLeft(netPass)((dt, m) =>
@@ -1129,6 +1150,7 @@ object DFDesign {
       ///////////////////////////////////////////////////////////////
       //CheckPoint
       ///////////////////////////////////////////////////////////////
+      @nowarn("msg=The outer reference in this type test cannot be checked at run time")
       final case class CheckPoint(
           members: mutable.ArrayBuffer[(DFMember, Set[DFMember.Ref], Boolean)],
           tagMap: mutable.Map[(Any, ClassTag[_]), DFMember.CustomTag],

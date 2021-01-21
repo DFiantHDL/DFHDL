@@ -52,25 +52,16 @@ private object Case {
         if (lower == upper) lower.toString()
         else s"$LIT$lower ${printer.config.KW}to $LIT$upper"
       }
-      def apply(pattern: DFAny.Pattern)(implicit printer: Printer): String =
-        pattern match {
-          case x: DFBits.Pattern =>
-            x.patternSet.map(p => Value.const(p)).mkString("|")
-          case x: DFUInt.Pattern =>
-            x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
-          case x: DFSInt.Pattern =>
-            x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
-          case x: DFBool.Pattern =>
-            x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")
-          case x: DFEnum.Pattern =>
-            x.patternSet
-              .map(p => EnumTypeDcl.enumEntryFullName(p))
-              .mkString("|")
-          case _ =>
-            throw new IllegalArgumentException(
-              s"\nUnsupported pattern type for VHDL compilation: $pattern"
-            )
-        }
+      def apply(pattern : DFAny.Pattern)(implicit printer : Printer) : String = pattern match {
+        case x : DFBits.Pattern => x.patternSet.map(p => Value.const(p)).mkString("|")
+        case x : DFDecimal.Pattern if !x.dfType.signed.getValue && x.dfType.fractionWidth.getValue == 0 =>
+          x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
+        case x : DFDecimal.Pattern if x.dfType.signed.getValue && x.dfType.fractionWidth.getValue == 0 =>
+          x.patternSet.map(p => intervalBigIntToString(p)).mkString("|")
+        case x : DFBool.Pattern => x.patternSet.map(p => if (p) "'1'" else "'0'").mkString("|")
+        case x : DFEnum.Pattern => x.patternSet.map(p => EnumEntriesDcl.enumEntryFullName(p)).mkString("|")
+        case _ => throw new IllegalArgumentException(s"\nUnsupported pattern type for VHDL compilation: $pattern")
+      }
     }
   }
 }

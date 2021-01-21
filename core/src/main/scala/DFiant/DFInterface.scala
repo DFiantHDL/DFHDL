@@ -59,10 +59,7 @@ abstract class DFInterface(
       case _    => false
     }
   //Use to set the default directionality in the interface
-  protected[DFiant] object SET_DEFAULT_DIR {
-    private[DFiant] var currentDefault: DclDir = VAR
-    def <>(dir: DclDir): Unit                  = currentDefault = dir
-  }
+  protected[DFiant] object DEFAULT_DIR extends DEFAULT_DIR
 }
 
 object DFInterface {
@@ -141,12 +138,14 @@ object DFInterface {
       val dir: DFDir,
       val db: DFDesign.DB.Mutable
   ) extends DFAny.Context { self =>
-    def newInterface(updatedCtx: DFInterface.Context): Any
-    final def updateDir(updatedDir: DFDir): Context =
-      new Context(meta, symbol, container, updatedDir, db) {
-        override def newInterface(updatedCtx: DFInterface.Context): Any =
-          self.newInterface(updatedCtx)
-      }
+    def newInterface(updatedCtx : DFInterface.Context) : Any
+    final def updateDir(updatedDir : DFDir) : Context = new Context(meta, symbol, container, updatedDir, db) {
+      override def newInterface(updatedCtx : DFInterface.Context) : Any = self.newInterface(updatedCtx)
+    }
+    final def updateMeta(meta : Meta) : Context = new Context(meta, symbol, container, dir, db) {
+      override def newInterface(updatedCtx : DFInterface.Context) : Any = self.newInterface(updatedCtx)
+    }
+    def newInterface(updatedMeta : Meta) : Any = newInterface(updateMeta(updatedMeta))
   }
   object Context {
     final object MissingError

@@ -9,7 +9,28 @@ protected[DFiant] object DFMacro {
     import c.universe._
     val result =
       annottees.map(_.tree).toList match {
-        case q"$mods class $tpname[..$tparams] $ctorMods(...$paramss)(implicit ..$iparams) extends ..$parents { $self => ..$stats }" :: tail =>
+        case q"$mods object $tname extends DFOpaque.Of($template) { $self => ..$body }" :: Nil =>
+          q"""
+            $mods object $tname extends DFiant.DFOpaque.Fields { $self =>
+              protected lazy val __holder = new DFAny.Type.Holder($template)
+              type ActualType = __holder.TType
+              lazy val actualType = __holder.dfType
+              $body
+            }
+           """
+        case q"$mods class $tpname[..$tparams] $ctorMods(...$paramss) extends DFOpaque.Of($template) { $self => ..$stats }" :: tail =>
+          q"""
+            $mods class $tpname[..$tparams] $ctorMods(...$paramss) extends DFiant.DFOpaque.Fields { $self =>
+              protected lazy val __holder = new DFAny.Type.Holder($template)
+              type ActualType = __holder.TType
+              lazy val actualType = __holder.dfType
+              $stats
+            }; ..$tail
+           """
+        case x @ q"$mods class $tpname[..$tparams] $ctorMods(...$paramss)(implicit ..$iparams) extends ..$parents { $self => ..$stats }" :: tail =>
+//          val typeDefTree = c.typecheck(q"type T = ${parents.head}")
+//          val q"type T = ${checkedParent}" = typeDefTree
+//          println(checkedParent.tpe <:< typeOf[DFDesign])
           val targs = tparams.map {
             case t: TypeDef => tq"Nothing" //Ident(t.name)
           }
@@ -36,11 +57,7 @@ protected[DFiant] object DFMacro {
             else List(q"ctx : ContextOf[$cn]")
           val iparamsWithCtx = iparams ++ ctxTree
           q"$mods def $tname[..$tparams](...$paramss)(implicit ..$iparamsWithCtx) : $tpt = $defdfTree"
-        case _ =>
-          c.abort(
-            c.enclosingPosition,
-            "Annotation @df can be used only with classes or definitions"
-          )
+        case x => c.abort(c.enclosingPosition, "Annotation @df can be used only with classes, definitions or a DFOpaque object")
       }
     c.Expr[Any](result)
   }

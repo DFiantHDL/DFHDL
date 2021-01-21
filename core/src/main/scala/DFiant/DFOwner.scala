@@ -144,34 +144,23 @@ abstract class ContextOf[T](
     }
 }
 
-object ContextOf {
-  final object MissingError
-      extends ErrorMsg(
-        "Missing an implicit ContextOf[T].",
-        "missing-context"
-      ) { final val msg = getMsg }
-  implicit def evCtxContainer[T1, T2](implicit
-      runOnce: RunOnce,
-      ctx: ContextOf[T1],
-      mustBeTheClassOf: RequireMsg[ImplicitFound[
-        MustBeTheClassOf[T1]
-      ], MissingError.Msg],
-      symbol: Meta.SymbolOf[T2],
-      args: ClassArgs[T2]
-  ): ContextOf[T2] =
-    new ContextOf[T2](ctx.meta, symbol, ctx.container, ctx.dir, ctx.db, args) {
-      def newInterface(updatedCtx: ContextOf[T2]): Any =
-        ctx.newInterface(ctx.updateDir(updatedCtx.dir))
-    }
-  implicit def evTop[T <: DFDesign](implicit
-      topLevel: RequireMsg[ImplicitFound[TopLevel], MissingError.Msg],
-      meta: Meta,
-      symbol: Meta.SymbolOf[T],
-      mustBeTheClassOf: MustBeTheClassOf[T],
-      lp: shapeless.LowPriority,
-      args: ClassArgs[T]
-  ): ContextOf[T] =
-    new ContextOf[T](meta, symbol, null, ASIS, new DFDesign.DB.Mutable, args) {
-      def newInterface(updatedCtx: ContextOf[T]): Any = ???
-    }
+trait LowPriority {
+  implicit def evTop[T <: DFDesign](
+    implicit topLevel : RequireMsg[ImplicitFound[TopLevel], ContextOf.MissingError.Msg], meta: Meta, symbol : Meta.SymbolOf[T],
+    mustBeTheClassOf: MustBeTheClassOf[T], args : ClassArgs[T]
+  ) : ContextOf[T] = new ContextOf[T](meta, symbol, null, ASIS, new DFDesign.DB.Mutable, args) {
+    def newInterface(updatedCtx : ContextOf[T]) : Any = ???
+  }
+}
+object ContextOf extends LowPriority {
+  final object MissingError extends ErrorMsg (
+    "Missing an implicit ContextOf[T].",
+    "missing-context"
+  ) {final val msg = getMsg}
+  implicit def evCtxContainer[T1, T2](
+    implicit runOnce: RunOnce, ctx : ContextOf[T1], mustBeTheClassOf: RequireMsg[ImplicitFound[MustBeTheClassOf[T1]], MissingError.Msg],
+    symbol : Meta.SymbolOf[T2], args : ClassArgs[T2]
+  ) : ContextOf[T2] = new ContextOf[T2](ctx.meta, symbol, ctx.container, ctx.dir, ctx.db, args) {
+    def newInterface(updatedCtx : ContextOf[T2]) : Any = ctx.newInterface(ctx.updateDir(updatedCtx.dir))
+  }
 }

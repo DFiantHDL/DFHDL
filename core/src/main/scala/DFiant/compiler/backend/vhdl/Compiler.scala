@@ -125,23 +125,18 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
       mh.matchValRef.get match {
         //For enumeration only, we check the bits-width exhaustively coverage, since RTL enumeration
         //is more limited than the DFiant enumeration coverage check
-        case DFEnum(enumType)
-            if BigInt.maxUnsignedFromWidth(
-              enumType.width
-            ) > enumType.entries.size =>
-          enumType match {
-            case auto: EnumType.Auto[_] =>
-              auto.encoding match {
-                //In VHDL, the default encoding is be set by the synthesizer. Since the synthesizer knows the coverage,
-                //it will handle don't-care encoding automatically and we don't need to force them.
-                case EnumType.Encoding.Default => false
-                //Other encodings are implemented as constants when compiled to VHDL, and the underlying
-                //enumeration type is changed to std_logic_vector. In this case, a width coverage is required.
-                case _ => true
-              }
-            //Manual encoding force width check coverage.
-            case _: EnumType.Manual[_] => true
+        case DFEnum(entries) if BigInt.maxUnsignedFromWidth(entries.width) > entries.all.size => entries match {
+          case auto: DFEnum.Auto[_] => auto.encoding match {
+            //In VHDL, the default encoding is be set by the synthesizer. Since the synthesizer knows the coverage,
+            //it will handle don't-care encoding automatically and we don't need to force them.
+            case DFEnum.Encoding.Default => false
+            //Other encodings are implemented as constants when compiled to VHDL, and the underlying
+            //enumeration type is changed to std_logic_vector. In this case, a width coverage is required.
+            case _ => true
           }
+          //Manual encoding force width check coverage.
+          case _: DFEnum.Manual[_] => true
+        }
         //Bits comparison doesn't cover "XXX" checks, so we need to force others clause for it
         case v @ DFBits(width) =>
           val cases    = mh.getCases
@@ -165,20 +160,24 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
       revision: R
   ): BackendStage.Compilation[D, Backend[R]] = {
     val designDB =
-      c.dropUnreferenced.fixAnonymous.flattenNames.moveCBDesigns
-      //       .controlDesigns
-        .orderMembers(OrderMembers.Order.LazyConnectionLast)
-        .explicitPrev
-        .forceOthersCaseCoverage(matchForceCover)
-        .convertMatchToIf(matchToIfs)
-        .carryMathConversion
-        .explicitConversions
-        .uniqueDesigns
-        .uniqueNames(reservedKeywords, caseSensitive = false)
-        .toRTLForm
-        .viaPortConnection
-        .orderMembers
-        .db
+      c.dropUnreferenced
+       .fixAnonymous
+       .flattenNames
+       .flattenStruct
+       .moveCBDesigns
+//       .controlDesigns
+       .orderMembers(OrderMembers.Order.LazyConnectionLast)
+       .explicitPrev
+       .forceOthersCaseCoverage(matchForceCover)
+       .convertMatchToIf(matchToIfs)
+       .carryMathConversion
+       .explicitConversions
+       .uniqueDesigns
+       .uniqueNames(reservedKeywords, caseSensitive = false)
+       .toRTLForm
+       .viaPortConnection
+       .orderMembers
+       .db
 
     import designDB.__getset
     implicit val printer: Printer = new Printer {
@@ -258,30 +257,19 @@ final class Compiler[D <: DFDesign](c: IRCompilation[D]) {
             clkOrReset.name
           case RTL.ElseIfBlock(clk, _) => clk.name
         })
-        val emits = members
-          .collect {
-            case Emitter(emitStr) => emitStr
-          }
-          .mkString("\n")
-        val syncProcess =
-          Process("sync_proc", syncSensitivityList, List(), syncStatements)
-        val statements =
-          componentInstances ++ List(asyncProcess, syncProcess, emits)
-        val enumTypeDcls = designDB
-          .getLocalEnumTypes(design)
-          .map(e => s"${EnumTypeDcl(e)}\n${EnumTypeDcl.body(e)}")
-          .toList
-        val arrTypeDcls = designDB
-          .getLocalArrTypes(design)
-          .map(e => s"${ArrayTypeDcl(e)}\n")
-          .toList
-        val declarations = enumTypeDcls ++ arrTypeDcls ++ signals
-        val architecture = Architecture(
-          s"${entityName}_arch",
-          entityName,
-          declarations,
-          statements
-        )
+        val emits = members.collect {
+          case Emitter(emitStr) => emitStr
+        }.mkString("\n")
+        val syncProcess = Process("sync_proc", syncSensitivityList, List(), syncStatements)
+        val statements = componentInstances ++ List(asyncProcess, syncProcess, emits)
+        val entriesDcls = designDB.getLocalEnumEntries(design).map(e =>
+          s"${EnumEntriesDcl(e)}\n${EnumEntriesDcl.body(e)}"
+        ).toList
+        val arrTypeDcls = designDB.getLocalArrTypes(design).map(e =>
+          s"${ArrayTypeDcl(e)}\n"
+        ).toList
+        val declarations = entriesDcls ++ arrTypeDcls ++ signals
+        val architecture = Architecture(s"${entityName}_arch", entityName, declarations, statements)
         val file = File(s"${designDB.top.designType}_pkg", entity, architecture)
         Some(BackendStage.File(s"${design.designType}.vhdl", s"$file"))
       case _ => None

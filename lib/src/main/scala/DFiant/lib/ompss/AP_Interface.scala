@@ -8,10 +8,10 @@ import DFiant.internals.Exact
   * DFiant integrates with ompss via the kernel interface.
   */
 @df class AP_Interface extends DFInterface {
-  final val start = DFBit() <> IN
-  final val done  = DFBit() <> OUT
-  final val idle  = DFBit() <> OUT
-  final val ready = DFBit() <> OUT
+  final val start   = DFBit <> IN
+  final val done    = DFBit <> OUT
+  final val idle    = DFBit <> OUT
+  final val ready   = DFBit <> OUT
 
   /**
     * Use to start an FSM that handles a kernel run.

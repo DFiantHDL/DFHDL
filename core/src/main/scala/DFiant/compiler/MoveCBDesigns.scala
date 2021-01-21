@@ -60,31 +60,23 @@ final class MoveCBDesigns[D <: DFDesign](c: IRCompilation[D]) {
           DFDesign.Control(d, DFDesign.Control.Op.Enable)
         }
         val inputPatchList = designDB.designMemberTable(d).flatMap {
-          case port @ DFAny.Port.In() =>
-            designDB.getConnectionTo(port) match {
-              case Some(conn @ DFNet.Connection(_, connValue, _, _)) =>
-                val outsideCBDsn = new MetaDesign() {
-                  final val portVar = DFAny
-                    .NewVar(port.dfType)
-                    .setName(s"${d.name}_${port.name}_var")
-                  portVar := ?
-                  DFNet.LazyConnection(port, portVar).anonymize
-                }
-                val insideCBDsn = new MetaDesign() {
-                  DFNet.Assignment(outsideCBDsn.portVar, connValue).anonymize
-                }
-                List(
-                  topConditionalMember -> Patch
-                    .Add(outsideCBDsn, Patch.Add.Config.Before),
-                  port -> Patch.Replace(
-                    outsideCBDsn.portVar,
-                    Patch.Replace.Config.ChangeRefOnly,
-                    Patch.Replace.RefFilter.Outside(d)
-                  ),
-                  conn -> Patch
-                    .Add(insideCBDsn, Patch.Add.Config.ReplaceWithLast())
-                )
-            }
+          case port @ DFAny.Port.In() => designDB.getConnectionTo(port) match {
+            case Some(conn @ DFNet.Connection(_, connValue, _, _)) =>
+              val outsideCBDsn = new MetaDesign() {
+                final val portVar = DFAny.NewVar(port.dfType).setName(s"${d.name}_${port.name}_var")
+                portVar := ?
+                DFNet.LazyConnection(port, portVar).anonymize
+              }
+              val insideCBDsn = new MetaDesign() {
+                DFNet.Assignment(outsideCBDsn.portVar, connValue).anonymize
+              }
+              List (
+                topConditionalMember -> Patch.Add(outsideCBDsn, Patch.Add.Config.Before),
+                port -> Patch.Replace(outsideCBDsn.portVar, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Outside(d)),
+                conn -> Patch.Add(insideCBDsn, Patch.Add.Config.ReplaceWithLast())
+              )
+            case _ => Nil
+          }
           case _ => Nil
         }
 

@@ -4,7 +4,7 @@ import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
 import compiler.csprinter.CSPrinter
-import DFAny.Func2
+import DFAny.{Func2, `Op==,!=`}
 
 /**
   * A dataflow logical boolean companion object
@@ -16,11 +16,9 @@ object DFBool extends DFAny.Companion {
     type TPattern                             = DFBool.Pattern
     type TPatternAble[+R]                     = DFBool.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFBool.Pattern.Builder[LType]
-    type `Op==Builder`[-L, -R]                = DFBool.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R]                = DFBool.`Op!=`.Builder[L, R]
-    val width: TwoFace.Int[Width] = TwoFace.Int.create[1](1)
-    def getBubbleToken: TToken    = Token.bubbleOfDFType(this)
-    def getTokenFromBits(fromToken: DFBits.Token): DFAny.Token =
+    val width : TwoFace.Int[Width] = TwoFace.Int.create[1](1)
+    def getBubbleToken: TToken = Token.bubble(logical)
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       if (fromToken.isBubble) Token.bubble(logical = false)
       else Token(logical = false, fromToken.valueBits(0))
     def assignCheck(from: DFAny.Member)(implicit ctx: DFAny.Context): Unit =
@@ -29,9 +27,8 @@ object DFBool extends DFAny.Companion {
         case DFBit()  =>
       }
     override def toString: String = if (logical) "DFBool" else "DFBit"
-    def codeString(implicit printer: CSPrinter): String =
-      if (logical) s"${printer.config.TP}DFBool()"
-      else s"${printer.config.TP}DFBit()"
+    def codeString(implicit printer: CSPrinter) : String =
+      if (logical) s"${printer.config.TP}DFBool" else s"${printer.config.TP}DFBit"
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,19 +38,19 @@ object DFBool extends DFAny.Companion {
     * Construct a new dataflow logical boolean
     * @param ctx An implicit dataflow design context
     */
-  def apply()(implicit ctx: DFAny.Context): DFAny.NewVar[Type] =
-    DFAny.NewVar(Type(logical = true))
-  def unapply(arg: DFAny.Member): Boolean =
-    arg.dfType match {
-      case Type(logical) if logical => true
-      case _                        => false
-    }
+  def unapply(arg: DFAny.Member): Boolean = arg.dfType match {
+    case Type(logical) if logical => true
+    case _ => false
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Implicits
+  // Frontend
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Frontend extends Op.Implicits with Token.Implicits
+  object Frontend {
+    trait Inherited extends Op.Frontend.Inherited with Token.Frontend.Inherited
+    trait Imported extends Op.Frontend.Imported with Token.Frontend.Imported
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -139,32 +136,36 @@ object DFBool extends DFAny.Companion {
   }
 
   object Token {
-    implicit val bubbleOfToken: DFAny.Token.BubbleOfToken[Token] = t =>
-      Token.bubble(t.logical)
-    implicit val bubbleOfDFType: DFAny.Token.BubbleOfDFType[DFBool.Type] = t =>
-      Token.bubble(t.logical)
-    def apply(value: Int): Token =
-      value match {
-        case 0 => Token(logical = false, value = false)
-        case 1 => Token(logical = false, value = true)
-      }
-    def apply(logical: Boolean, value: Boolean): Token =
-      Token(logical, Some(value))
-    def bubble(logical: Boolean): Token = Token(logical, None)
+    def apply(value : Int) : Token = value match {
+      case 0 => Token(logical = false, value = false)
+      case 1 => Token(logical = false, value = true)
+    }
+    def apply(logical : Boolean, value : Boolean) : Token = Token(logical, Some(value))
+    def bubble(logical : Boolean) : Token = Token(logical, None)
 
     type Summon[V] = DFAny.Token.Exact.Summon.SAM[Type, V, TokenB]
-    trait Implicits {
-      implicit def __DFBoolTokenInt[V <: Int](implicit
-          checkBin: BinaryInt.CheckedShell[V]
-      ): Summon[V] =
-        (from, value) => {
-          checkBin.unsafeCheck(value)
-          Token(from.logical, value == 1).typeTag[Type]
-        }
-      implicit def __DFBoolTokenBoolean[V <: Boolean]: Summon[V] =
-        (from, value) => {
-          Token(from.logical, value).typeTag[Type]
-        }
+    sealed trait Frontend {
+      protected implicit def __DFBoolTokenInt[V <: Int](
+        implicit
+        checkBin : BinaryInt.CheckedShell[V]
+      ) : Summon[V] = (from, value) => {
+        checkBin.unsafeCheck(value)
+        Token(from.logical, value == 1).typeTag[Type]
+      }
+      protected implicit def __DFBoolTokenBoolean[V <: Boolean]
+      : Summon[V] = (from, value) => {
+        Token(from.logical, value).typeTag[Type]
+      }
+    }
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFBoolTokenBoolean[V <: Boolean] : Summon[V] = super.__DFBoolTokenBoolean
+        final override protected implicit def __DFBoolTokenInt[V <: Int](implicit checkBin : internals.BinaryInt.CheckedShell[V]) : Summon[V] = super.__DFBoolTokenInt
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFBoolTokenBoolean[V <: Boolean] : Summon[V] = super.__DFBoolTokenBoolean
+        final override implicit def __DFBoolTokenInt[V <: Int](implicit checkBin : internals.BinaryInt.CheckedShell[V]) : Summon[V] = super.__DFBoolTokenInt
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -251,38 +252,27 @@ object DFBool extends DFAny.Companion {
       /**
         * @return the dataflow comparison equality result.
         */
-      final def ===(right: DFBool)(implicit op: `Op===`.Builder[L, DFBool]) =
-        op(left, right)
-
+      final def === (right : DFBool)(implicit op: DFAny.`Op==`.Builder[L, DFBool]) = op(left, right)
       /**
         * @return the dataflow comparison inequality result.
         */
-      final def =!=(right: DFBool)(implicit op: `Op=!=`.Builder[L, DFBool]) =
-        op(left, right)
+      final def =!= (right : DFBool)(implicit op: DFAny.`Op!=`.Builder[L, DFBool]) = op(left, right)
     }
-    trait Implicits {
-      sealed class __DFBoolFrom0(left: 0) extends AbleOps[0](left)
-      final implicit def __DFBoolFrom0(left: 0): __DFBoolFrom0 =
-        new __DFBoolFrom0(left)
-      sealed class __DFBoolFrom1(left: 1) extends AbleOps[1](left)
-      final implicit def __DFBoolFrom1(left: 1): __DFBoolFrom1 =
-        new __DFBoolFrom1(left)
-      sealed class __DFBoolFromBoolean[L <: Boolean](left: L)
-          extends AbleOps[L](left)
-      final implicit def __DFBoolFromBoolean[L <: Boolean](
-          left: L
-      ): __DFBoolFromBoolean[L] = new __DFBoolFromBoolean[L](left)
-      sealed class __DFBoolFromDFBitsW1[LW](left: DFBits[LW])(implicit
-          ctx: DFAny.Context,
-          r: Require[LW == 1]
+    sealed trait Frontend {
+      sealed class __DFBoolFrom10[L <: XInt](left : L) extends AbleOps[ValueOf[L]](new ValueOf(left))
+      protected implicit def __DFBoolFrom10[L <: XInt](left: L): __DFBoolFrom10[L] = new __DFBoolFrom10[L](left)
+      sealed class __DFBoolFromBoolean[L <: Boolean](left : L) extends AbleOps[L](left)
+      protected implicit def __DFBoolFromBoolean[L <: Boolean](left: L): __DFBoolFromBoolean[L] = new __DFBoolFromBoolean[L](left)
+      sealed class __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
+        implicit ctx : DFAny.Context, r : Require[LW == 1]
       ) extends AbleOps[DFBool](DFAny.Alias.AsIs(Type(logical = false), left))
-      final implicit def __DFBoolFromDFBitsW1[LW](left: DFBits[LW])(implicit
-          ctx: DFAny.Context,
-          r: Require[LW == 1]
-      ): __DFBoolFromDFBitsW1[LW]                               = new __DFBoolFromDFBitsW1[LW](left)
-      final implicit def __ofDFBool(left: DFBool): Able[DFBool] = new Able(left)
-      implicit class __DFBoolOps(val left: DFBool) {
-
+      protected implicit def __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(
+        implicit ctx : DFAny.Context, r : Require[LW == 1]
+      ) : __DFBoolFromDFBitsW1[LW] = new __DFBoolFromDFBitsW1[LW](left)
+      protected implicit def __ofDFBool(left : DFBool) : Able[DFBool] = new Able(left)
+      protected implicit def __DFBool_eq_Capable : DFAny.`Op==,!=`.Capable[Type, Type] = (_, _) => {}
+      protected implicit def __DFBool_eq_ConstCapable : DFAny.`Op==,!=`.ConstCapable[Type, Type] = (_, _) => {}
+      protected implicit class __DFBoolOps(val left : DFBool) {
         /**
           * @return a dataflow rising edge boolean
           */
@@ -320,29 +310,43 @@ object DFBool extends DFAny.Companion {
         /**
           * @return the dataflow comparison equality result.
           */
-        final def ===[R](right: Exact[R])(implicit
-            op: `Op===`.Builder[DFBool, R]
-        ) = op(left, right)
-
+        final def === [R](right : Exact[R])(implicit op: DFAny.`Op==`.Builder[DFBool, R]) = op(left, right)
         /**
           * @return the dataflow comparison inequality result.
           */
-        final def =!=[R](right: Exact[R])(implicit
-            op: `Op=!=`.Builder[DFBool, R]
-        ) = op(left, right)
-
+        final def =!= [R](right : Exact[R])(implicit op: DFAny.`Op!=`.Builder[DFBool, R]) = op(left, right)
         /**
           * @return the dataflow Bit Inversion result.
           */
-        final def unary_!(implicit ctx: DFAny.Context): DFBool =
-          DFAny.Alias.Invert[Type](left)
+        final def unary_!(implicit ctx : DFAny.Context) : DFBool =
+          DFAny.Func1(left.dfType, left, DFAny.Func1.Op.unary_!)(!_)
+      }
+    }
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFBoolFrom10[L <: XInt](left : L) : __DFBoolFrom10[L] = super.__DFBoolFrom10(left)
+        final override protected implicit def __DFBoolFromBoolean[L <: Boolean](left : L) : __DFBoolFromBoolean[L] = super.__DFBoolFromBoolean(left)
+        final override protected implicit def __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Context, r : Require[LW == 1]) : __DFBoolFromDFBitsW1[LW] = super.__DFBoolFromDFBitsW1(left)
+        final override protected implicit def __ofDFBool(left : DFBool) : Able[DFBool] = super.__ofDFBool(left)
+        final override protected implicit def __DFBoolOps(left : DFBool) : __DFBoolOps = super.__DFBoolOps(left)
+        final override protected implicit def __DFBool_eq_Capable : `Op==,!=`.Capable[Type, Type] = super.__DFBool_eq_Capable
+        final override protected implicit def __DFBool_eq_ConstCapable : `Op==,!=`.ConstCapable[Type, Type] = super.__DFBool_eq_ConstCapable
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFBoolFrom10[L <: XInt](left : L) : __DFBoolFrom10[L] = super.__DFBoolFrom10(left)
+        final override implicit def __DFBoolFromBoolean[L <: Boolean](left : L) : __DFBoolFromBoolean[L] = super.__DFBoolFromBoolean(left)
+        final override implicit def __DFBoolFromDFBitsW1[LW](left : DFBits[LW])(implicit ctx : DFAny.Context, r : Require[LW == 1]) : __DFBoolFromDFBitsW1[LW] = super.__DFBoolFromDFBitsW1(left)
+        final override implicit def __ofDFBool(left : DFBool) : Able[DFBool] = super.__ofDFBool(left)
+        final override implicit def __DFBoolOps(left : DFBool) : __DFBoolOps = super.__DFBoolOps(left)
+        final override implicit def __DFBool_eq_Capable : `Op==,!=`.Capable[Type, Type] = super.__DFBool_eq_Capable
+        final override implicit def __DFBool_eq_ConstCapable : `Op==,!=`.ConstCapable[Type, Type] = super.__DFBool_eq_ConstCapable
       }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Comparison operations
+  // Logical/Binary operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class BoolOps[Op <: Func2.Op](op: Op)(
       func: (Token, Token) => DFBool.Token
@@ -353,17 +357,13 @@ object DFBool extends DFAny.Companion {
     trait Builder[-L, -R] extends DFAny.Op.Builder[L, R] { type Out = DFBool }
 
     object Builder {
-      def create[L, R](properLR: (L, R) => (DFBool, DFBool))(implicit
-          ctx: DFAny.Context
-      ): Builder[L, R] =
-        (leftL, rightR) => {
-          val (left, right) = properLR(leftL, rightR)
-          val logicalResult = op match {
-            case _: Func2.Op.== | _: Func2.Op.!= => true
-            case _                               => left.dfType.logical || right.dfType.logical
-          }
-          DFAny.Func2(Type(logicalResult), left, op, right)(func)
-        }
+      def create[L, R](properLR : (L, R) => (DFBool, DFBool))(
+        implicit ctx : DFAny.Context
+      ) : Builder[L, R] = (leftL, rightR) => {
+        val (left, right) = properLR(leftL, rightR)
+        val logicalResult = left.dfType.logical || right.dfType.logical
+        DFAny.Func2(Type(logicalResult), left, op, right)(func)
+      }
 
       implicit def evDFBool_op_DFBool[L <: DFBool, R <: DFBool](implicit
           ctx: DFAny.Context
@@ -389,13 +389,9 @@ object DFBool extends DFAny.Companion {
         })
     }
   }
-  object `Op==`  extends BoolOps(Func2.Op.==)((l, r) => l == r) with `Op==`
-  object `Op!=`  extends BoolOps(Func2.Op.!=)((l, r) => l != r) with `Op!=`
-  object `Op===` extends BoolOps(Func2.Op.==)((l, r) => l == r)
-  object `Op=!=` extends BoolOps(Func2.Op.!=)((l, r) => l != r)
-  object `Op||`  extends BoolOps(Func2.Op.||)((l, r) => l || r)
-  object `Op&&`  extends BoolOps(Func2.Op.&&)((l, r) => l && r)
-  object `Op^`   extends BoolOps(Func2.Op.^)((l, r) => l ^ r)
+  object `Op||` extends BoolOps(Func2.Op.||)((l, r) => l || r)
+  object `Op&&` extends BoolOps(Func2.Op.&&)((l, r) => l && r)
+  object `Op^` extends BoolOps(Func2.Op.^)((l, r) => l ^ r)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }

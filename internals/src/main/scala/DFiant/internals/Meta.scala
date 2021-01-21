@@ -174,9 +174,8 @@ object Meta {
         ) || enclosingOwnerName == "$anonfun"
       ) q"DFiant.internals.Meta.Name.Anonymous.On"
       else q"DFiant.internals.Meta.Name.Anonymous.Off"
-    c.Expr[Meta](
-      q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))"""
-    )
+//    println(name, anonymous, owner.isMethod, c.enclosingPosition)
+    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
   }
 
   import singleton.ops._

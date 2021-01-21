@@ -142,6 +142,16 @@ object DFNet {
       }
   }
 
+  object Unref {
+    def unapply(arg : DFNet)(
+      implicit getSet : MemberGetSet
+    ) : Option[(DFAny.Member, Op, DFAny.Member, DFOwner, DFMember.Tags)] = arg match {
+      case DFNet(toRef, op, fromRef, ownerRef, tags) =>
+        Some(toRef.get, op, fromRef.get, ownerRef.get, tags)
+      case _ => None
+    }
+  }
+
   object Inlined {
     def unapply(arg: DFNet)(implicit getSet: MemberGetSet): Boolean =
       arg match {

@@ -19,7 +19,7 @@ package sim
   *     val id  = new ID
   *     val cnt = DFUInt(8) init 0
   *     id.i <> cnt
-  *     sim.report(msg"$id.o") //will output the count value
+  *     sim.report(msg"${id.o}") //will output the count value
   *     cnt := cnt + 1
   *   }
   * }}}

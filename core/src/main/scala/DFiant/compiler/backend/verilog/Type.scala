@@ -5,17 +5,13 @@ private object Type {
   def apply(dfType: DFAny.Type)(implicit printer: Printer): String = {
     import printer.config._
     dfType match {
-      case DFBits.Type(width)    => s"[$LIT${width - 1}:$LIT 0]"
-      case DFUInt.Type(width)    => s"[$LIT${width - 1}:$LIT 0]"
-      case DFSInt.Type(width)    => s"$KW signed [$LIT${width - 1}:$LIT 0]"
-      case DFEnum.Type(enumType) => s"[$LIT${enumType.width - 1}:$LIT 0]"
-      case DFBool.Type(_)        => ""
-      case DFVector.Type(cellType, _) =>
-        Type(cellType) //the handling of array is done in Type.arrayDim
-      case _ =>
-        throw new IllegalArgumentException(
-          s"\nUnsupported type for Verilog compilation. Found type ${dfType}"
-        )
+      case DFBits.Type(width) => s"[$LIT${width-1}:$LIT 0]"
+      case DFUInt.Type(width) => s"[$LIT${width-1}:$LIT 0]"
+      case DFSInt.Type(width) => s"$KW signed [$LIT${width-1}:$LIT 0]"
+      case DFEnum.Type(entries) => s"[$LIT${entries.width-1}:$LIT 0]"
+      case DFBool.Type(_) => ""
+      case DFVector.Type(cellType, _) => Type(cellType) //the handling of array is done in Type.arrayDim
+      case _ => throw new IllegalArgumentException(s"\nUnsupported type for Verilog compilation. Found type ${dfType}")
     }
   }
   def arrayDim(dfType: DFAny.Type)(implicit printer: Printer): String = {

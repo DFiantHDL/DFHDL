@@ -448,19 +448,32 @@ package object internals {
   implicit def fromValueOf[T](valueOf: ValueOf[T]): T = valueOf.value
   class Exact[T](val value: T)
   object Exact {
-    implicit def fromAnyValSing[T <: Singleton with AnyVal](
-        value: T
-    ): Exact[ValueOf[T]] = new Exact[ValueOf[T]](new ValueOf(value))
-    implicit def fromStringSing[T <: Singleton with String](
-        value: T
-    ): Exact[ValueOf[T]] = new Exact[ValueOf[T]](new ValueOf(value))
-    implicit def fromNonSing[T](value: T)(implicit
-        di: DummyImplicit
-    ): Exact[T]                                   = new Exact[T](value)
-    implicit def toValue[T](precise: Exact[T]): T = precise.value
+    import scala.reflect.macros.blackbox
+    //For singleton integers we create a special macro that offers some protection from hex literals that
+    //overflow into negative values. E.g., 0x80000000
+    //This is no way close to a full protection from such incidents, but this is enough for most newbie cases
+    //that DFiant code may encounter.
+    implicit def fromIntSing[T <: Int with Singleton](value : T) : Exact[ValueOf[T]] = macro fromIntSingMacro[T]
+    def fromIntSingMacro[T : c.WeakTypeTag](c: blackbox.Context)(value : c.Tree) : c.Tree = {
+      import c.universe._
+      val tpe = weakTypeOf[T]
+      value match {
+        case Literal(Constant(i : Int)) if i < 0 =>
+          val content = new String(value.pos.source.content)
+          val startStr = content.splitAt(value.pos.start)._2
+          if (startStr.startsWith("0x") || startStr.startsWith("0X"))
+            c.abort(c.enclosingPosition, "Found a hex integer literal that overflows into a negative value. \nPlease use DFiant's built in string interpolator literals instead.")
+        case _ => //do nothing
+      }
+      q"new DFiant.internals.Exact[ValueOf[$tpe]](new ValueOf($value))"
+    }
+    implicit def fromAnyValSing[T <: Singleton with AnyVal](value : T) : Exact[ValueOf[T]] = new Exact[ValueOf[T]](new ValueOf(value))
+    implicit def fromStringSing[T <: Singleton with String](value : T) : Exact[ValueOf[T]] = new Exact[ValueOf[T]](new ValueOf(value))
+    implicit def fromNonSing[T](value : T)(implicit di : DummyImplicit) : Exact[T] = new Exact[T](value)
+    implicit def toValue[T](precise: Exact[T]) : T = precise.value
   }
 
-  implicit class WhiteboxMacroExt(c: scala.reflect.macros.whitebox.Context) {
+  implicit class WhiteboxMacroExt(c : scala.reflect.macros.whitebox.Context) {
     import c.universe._
     private val defaultAnnotatedSym: Option[TypeSymbol] =
       if (c.enclosingImplicits.isEmpty) None
@@ -498,10 +511,8 @@ package object internals {
       annotatedSym.setAnnotations(Annotation(tree))
       ()
     }
-    def setAnnotation(msg: String): Unit =
-      defaultAnnotatedSym.foreach(sym => setAnnotation(msg, sym))
-
-    def abort(msg: String): Nothing = {
+    def setAnnotation(msg : String) : Unit = defaultAnnotatedSym.foreach(sym => setAnnotation(msg, sym))
+    def abort(msg : String) : Nothing = {
       defaultAnnotatedSym.foreach(sym => setAnnotation(msg, sym))
       c.abort(c.enclosingPosition, msg)
     }

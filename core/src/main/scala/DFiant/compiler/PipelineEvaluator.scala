@@ -1,6 +1,7 @@
 package DFiant
 package compiler
 
+import DFiant.DFAny.Alias.Prev
 import DFiant.DFAny.Func2.Op
 import DFiant.compiler.csprinter.CSPrinter
 import DFiant.internals.IntExtras
@@ -10,72 +11,100 @@ class PipelineEvaluator(
     pipelineMethod: PipelineMethod,
     delayEstimator: PipeDelayEstimator
 ) extends ElementEvaluator[PipelineInfo] {
-  def applyElement(t: PipelineInfo, element: SourceElement): PipelineInfo =
-    t.bitsWL(element.relWidth, element.relBitLow).pipe(element.pipeStep)
+  def applyElement(t : => PipelineInfo, element : SourceElement) : PipelineInfo =
+    if (element.relWidth != element.srcVal.member.width) t.bitsWL(element.relWidth, element.relBitLow)
+    else t
 
-  def apply(element: SourceElement)(implicit
-      evaluationMap: EvaluationMap[PipelineInfo],
-      dependencyContext: DependencyContext
-  ): PipelineInfo = {
+  protected def concat(dfType : DFAny.Type, elements : List[PipelineInfo]) : PipelineInfo =
+    elements match {
+      case head :: Nil => head
+      case _ => PipelineInfo.Join(elements)
+    }
+
+  def apply(srcVal : SourceValue)(
+    implicit srcValEvaluation : SourceValueEvaluation[PipelineInfo], dependencyContext : DependencyContext
+  ) : PipelineInfo = {
     import dependencyContext.getSet
     implicit val constEvaluator = ConstEvaluator
-    dependencyContext.constMap.evaluate(element) match {
+    dependencyContext.constMap.evaluate(srcVal) match {
       //a constant (non bubble token value) will always yield no pipeline and no delay
-      case token if !token.isBubble =>
-        PipelineInfo.Node(element.relWidth, 0, Pipe.NA)
-      case _ =>
-        val pipeDelayInfo: PipelineInfo = element.srcVal match {
-          //new input yields a new pipeline path
-          case SourceValue.Dcl(dfVal, _) if dfVal.isTopLevelInput =>
-            PipelineInfo
-              .Node(element.relWidth, 0, Pipe.Accumulation(0))
-              .pipe(element.pipeStep)
-          case SourceValue.Dcl(dfVal, version) =>
-            PipelineInfo.Join(
-              getDependencies(element).map(evaluationMap.evaluate)
-            )
-          case SourceValue.Func2(func) =>
-            val leftJoin = PipelineInfo.Join(
-              func.leftArgRef.getSource.elements.map(evaluationMap.evaluate)
-            )
-            val rightJoin = PipelineInfo.Join(
-              func.rightArgRef.getSource.elements.map(evaluationMap.evaluate)
-            )
-            val funcInfo =
-              PipelineInfo.Func2(element.relWidth, leftJoin, rightJoin)
-            val manualPipeStages = element.pipeStep
-            val estimations      = delayEstimator.func2(func)
-            val extraPipe = pipelineMethod match {
+      case token if !token.isBubble => PipelineInfo.Node(token.width, 0, Pipe.NA)
+      case _ => srcVal match {
+        //new input yields a new pipeline path
+        case SourceValue(dcl : DFAny.Dcl, _) if dcl.isTopLevelInput =>
+          PipelineInfo.Node(dcl.width, 0, Pipe.Accumulation(0))
+        case SourceValue(dcl : DFAny.Dcl, version) => version match {
+          //no assignment means a commit state
+          case SourceVersion.Empty => PipelineInfo.Node(dcl.width, 0, Pipe.Cyclic)
+          //All other declaration accesses rely on the dependency of the relevant assignment
+          case SourceVersion.Idx(block, idx) =>
+            dependencyContext.assignmentMap(dcl)(block)(idx)._2.evaluate(dcl.dfType)
+          case SourceVersion.Latest =>
+            dcl.getSource.evaluate(dcl.dfType)
+          case SourceVersion.IfElse(_, branchVersions, fallbackVersion) =>
+            val branchInfos = branchVersions.map(bv => (bv._1.evaluate(DFBool.Type(true)), dcl.evaluate(bv._2)))
+            val fallBackInfo = dcl.evaluate(fallbackVersion)
+            PipelineInfo.IfElse(dcl.width, branchInfos, fallBackInfo)
+          case SourceVersion.Match(headCase, caseVersions, fallbackVersionOption) => ???
+        }
+        case SourceValue(member, SourceVersion.Latest) => member match {
+          //Currently an unary function has very little effect over delays, so we choose to ignore it
+          case func : DFAny.Func1 =>
+            func.leftArgRef.evaluate
+          case prev : DFAny.Alias.Prev =>
+            val relInfo = prev.relValRef.evaluate
+            (prev.kind, pipelineMethod) match {
+              //State prev only affects the delay, but not the pipeline
+              case (Prev.State, _) => relInfo.zeroDelay
+              //No pipelining is forced
+              case (Prev.Pipe, PipelineMethod.NoPipeline) => relInfo
+              //Manual pipelining
+              case (Prev.Pipe, _) => prev.relValRef.get match {
+                //Manually pipelined func2 overrides the stages set by the automatic pipelining
+                case func : DFAny.Func2 if func.tags.meta.namePosition == prev.tags.meta.namePosition | func.isAnonymous =>
+                  relInfo match {
+                    case funcInfo : PipelineInfo.Func2 => funcInfo.copy(extraStages = prev.step)
+                    case _ => ??? //unexpected
+                  }
+                case _ => relInfo.pipe(prev.step)
+              }
+            }
+          case func : DFAny.Func2 =>
+            val leftJoin = func.leftArgRef.evaluate
+            val rightJoin = func.rightArgRef.evaluate
+            val estimations = delayEstimator.func2(func)
+            val extraStages = pipelineMethod match {
               case PipelineMethod.NoPipeline => 0 //forced no pipeline
-              case _ if manualPipeStages > 0 =>
-                0 //manual stages already set, so no need for "extra" stages
-              case PipelineMethod.ManualPipeline =>
-                0 //no manual stages set, but only manual pipeline is possible
-              case PipelineMethod.AutoPipeline(
-                    targetMaxDelay
-                  ) => //automatic pipeline
+              case PipelineMethod.ManualPipeline => 0 //pipeline is set by the user only
+              case PipelineMethod.AutoPipeline(targetMaxDelay) => //automatic pipeline
+                val joinInfo = PipelineInfo.Join(List(leftJoin, rightJoin))
                 estimations.indexWhere { e =>
-                  e.maxDelay < targetMaxDelay && (e.consumeDelay + funcInfo.accDelay) < targetMaxDelay
+                  e.maxDelay < targetMaxDelay && (e.consumeDelay + joinInfo.accDelay) < targetMaxDelay
                 } match {
                   case extraPipe if extraPipe >= 0 => extraPipe
                   case _                           => estimations.length
                 }
             }
-            funcInfo
-              .delayBy(estimations.head.produceDelay)
-              .pipe(extraPipe)
-              .bitsWL(element.relWidth, element.relBitLow)
-          case SourceValue.ApplySel(_, dfVal, idxSrc) => ???
-          case SourceValue.Const(_)                   => ??? //already handled
+            PipelineInfo.Func2(func.width, leftJoin, rightJoin, extraStages, estimations)
+          case alias : DFAny.Alias.AsIs =>
+            alias.relValRef.evaluate.node.bitsWL(alias.width, 0)
+          case alias : DFAny.Alias.BitsWL =>
+            alias.relValRef.evaluate.node.bitsWL(alias.relWidth, alias.relBitLow)
+          case applySel : DFAny.ApplySel =>
+            val relValConst = applySel.relValRef.evaluate
+            val idxConst = applySel.idxRef.evaluate
+            ???
         }
-        if (element.prevStep > 0) pipeDelayInfo.zeroDelay else pipeDelayInfo
+        case x =>
+          println(x)
+          ???
+      }
     }
   }
 
-  def cyclic(element: SourceElement)(implicit
-      evaluationMap: EvaluationMap[PipelineInfo],
-      dependencyContext: DependencyContext
-  ): PipelineInfo = PipelineInfo.Node(element.relWidth, 0, Pipe.Cyclic)
+  def cyclic(srcVal : SourceValue)(
+    implicit srcValEvaluation : SourceValueEvaluation[PipelineInfo], dependencyContext : DependencyContext
+  ) : PipelineInfo = PipelineInfo.Node(srcVal.member.width, 0, Pipe.Cyclic)
 
   def codeString(t: PipelineInfo)(implicit printer: CSPrinter): String =
     t.toString
@@ -116,103 +145,75 @@ object PipelineEvaluator {
     final case class Accumulation(stages: Int) extends Pipe
   }
   sealed trait PipelineInfo extends Product with Serializable {
-    val width: Int
-    val accDelay: Int
-    val accPipe: Pipe
-    def zeroDelay: PipelineInfo
-    def pipe(extraStages: Int): PipelineInfo
-    def bitsWL(relWidth: Int, relBitLow: Int): PipelineInfo
-  }
-  final case class ExtraPipe(width: Int, extraStages: Int) {
-    def pipe(extraStages: Int): ExtraPipe =
-      copy(extraStages = this.extraStages + extraStages)
-    def pipe(extraPipe: ExtraPipe): ExtraPipe = pipe(extraPipe.extraStages)
-  }
-  implicit class ExtraPipeListOps(list: List[ExtraPipe]) {
-    def pipeRequired: Boolean = list.exists(ep => ep.extraStages > 0)
+    val width : Int
+    /**
+      * Accumulated delay
+      */
+    val accDelay : Int
+    /**
+      * Accumulated pipe
+      */
+    val accPipe : Pipe
+    final def zeroDelay : PipelineInfo.Node = PipelineInfo.Node(width, 0, accPipe)
+    final def pipe(extraStages : Int) : PipelineInfo.ExtraPipe =
+      PipelineInfo.ExtraPipe(this, extraStages)
+    final def node : PipelineInfo.Node = PipelineInfo.Node(width, accDelay, accPipe)
+    def bitsWL(relWidth : Int, relBitLow : Int) : PipelineInfo
   }
   object PipelineInfo {
     import Pipe._
-    final case class Node(width: Int, accDelay: Int, accPipe: Pipe)
-        extends PipelineInfo { left =>
-      def pipe(extraStages: Int): Node =
-        copy(accDelay = 0, accPipe = accPipe.pipe(extraStages))
-      def delayBy(extraDelay: Int): Node =
-        copy(accDelay = accDelay + extraDelay)
-      def zeroDelay: Node = copy(accDelay = 0)
-      def bitsWL(relWidth: Int, relBitLow: Int): PipelineInfo =
-        copy(width = relWidth)
+    final case class Node(width : Int, accDelay : Int, accPipe : Pipe) extends PipelineInfo {left =>
+      def delayBy(extraDelay : Int) : Node = copy(accDelay = accDelay + extraDelay)
+      def bitsWL(relWidth : Int, relBitLow : Int) : PipelineInfo = copy(width = relWidth)
     }
-    final case class Join(paths: List[PipelineInfo]) extends PipelineInfo {
-      val width: Int    = paths.map(_.width).sum
-      val accPipe: Pipe = paths.map(_.accPipe).reduce(_ max _)
-      val extraInputPipe: List[ExtraPipe] = {
+    final case class ExtraPipe(relInfo : PipelineInfo, extraStages : Int) extends PipelineInfo {
+      val width : Int = relInfo.width
+      val accDelay : Int = if (extraStages > 0) 0 else relInfo.accDelay
+      val accPipe : Pipe = relInfo.accPipe.pipe(extraStages)
+      def pipeRequired : Boolean = extraStages > 0
+      def bitsWL(relWidth : Int, relBitLow : Int) : PipelineInfo =
+        ExtraPipe(relInfo.bitsWL(relWidth, relBitLow), extraStages)
+    }
+    final case class Join(paths : List[PipelineInfo]) extends PipelineInfo {
+      val width : Int = paths.map(_.width).sum
+      val accPipe : Pipe = paths.map(_.accPipe).reduce(_ max _)
+      val extraInputPipe : List[ExtraPipe] = {
         accPipe match {
-          case Pipe.Cyclic | Pipe.NA => paths.map(p => ExtraPipe(p.width, 0))
+          case Pipe.Cyclic | Pipe.NA => paths.map(p => ExtraPipe(p, 0))
           case Accumulation(max) =>
-            paths.map(p =>
-              p.accPipe match {
-                case Pipe.Cyclic | Pipe.NA => ExtraPipe(p.width, 0)
-                case Accumulation(stages)  => ExtraPipe(p.width, max - stages)
-              }
-            )
+            paths.map(p => p.accPipe match {
+              case Pipe.Cyclic | Pipe.NA => ExtraPipe(p, 0)
+              case Accumulation(stages) => ExtraPipe(p, max - stages)
+            })
         }
       }
-      val accDelay: Int = paths
-        .map(_.accDelay)
-        .lazyZip(extraInputPipe)
-        .map {
-          case (delay, extraPipe) => if (extraPipe.extraStages > 0) 0 else delay
-        }
-        .max
-      def zeroDelay: PipelineInfo =
-        Node(width = width, accDelay = 0, accPipe = accPipe)
-      def pipe(extraStages: Int): PipelineInfo =
-        Node(width = width, accDelay = 0, accPipe = accPipe.pipe(extraStages))
-      def bitsWL(relWidth: Int, relBitLow: Int): PipelineInfo =
-        Node(width = relWidth, accDelay = accDelay, accPipe = accPipe)
+      def pipeRequired : Boolean = extraInputPipe.exists(ep => ep.extraStages > 0)
+      val accDelay : Int = paths.map(_.accDelay).lazyZip(extraInputPipe).map {
+        case (delay, extraPipe) => if (extraPipe.extraStages > 0) 0 else delay
+      }.max
+      def bitsWL(relWidth : Int, relBitLow : Int) : PipelineInfo = ???
     }
     final case class Func2(
-        width: Int,
-        leftExtraPipes: List[ExtraPipe],
-        rightExtraPipes: List[ExtraPipe],
-        internalExtraPipe: Int,
-        accDelay: Int,
-        accPipe: Pipe
+      width : Int, leftInfo : PipelineInfo, rightInfo : PipelineInfo, extraStages : Int,
+      pipeDelayEstimations: PipeDelayEstimations
     ) extends PipelineInfo {
-      def pipe(extraStages: Int): Func2 = {
-        val accDelay          = if (extraStages > 0) 0 else this.accDelay
-        val accPipe           = this.accPipe.pipe(extraStages)
-        val internalExtraPipe = this.internalExtraPipe + extraStages
-        copy(
-          internalExtraPipe = internalExtraPipe,
-          accDelay = accDelay,
-          accPipe = accPipe
-        )
-      }
-
-      def delayBy(extraDelay: Int): Func2 =
-        copy(accDelay = accDelay + extraDelay)
-      def zeroDelay: Func2 = copy(accDelay = 0)
-      def bitsWL(relWidth: Int, relBitLow: Int): PipelineInfo =
-        copy(width = relWidth)
+      val joinedInput = Join(List(leftInfo, rightInfo))
+      val leftExtraPipe = joinedInput.extraInputPipe.head
+      val rightExtraPipe = joinedInput.extraInputPipe.last
+      def pipeRequired : Boolean = extraStages > 0 || leftExtraPipe.pipeRequired || rightExtraPipe.pipeRequired
+      val estimation =
+        if (pipeDelayEstimations.length > extraStages) pipeDelayEstimations(extraStages)
+        else pipeDelayEstimations.last
+      val accDelay : Int = joinedInput.accDelay + estimation.produceDelay
+      val accPipe : Pipe = joinedInput.accPipe.pipe(extraStages)
+      def bitsWL(relWidth : Int, relBitLow : Int) : PipelineInfo = copy(width = relWidth)
     }
-    object Func2 {
-      def apply(width: Int, leftJoin: Join, rightJoin: Join): Func2 = {
-        val joined = Join(List(leftJoin, rightJoin))
-        val leftExtraPipes =
-          leftJoin.extraInputPipe.map(_.pipe(joined.extraInputPipe.head))
-        val rightExtraPipes =
-          rightJoin.extraInputPipe.map(_.pipe(joined.extraInputPipe.last))
-        Func2(
-          width,
-          leftExtraPipes,
-          rightExtraPipes,
-          0,
-          joined.accDelay,
-          joined.accPipe
-        )
-      }
+    object IfElse {
+      def apply(
+        width : Int,
+        branchInfos : List[(PipelineInfo, PipelineInfo)],
+        fallbackInfo : PipelineInfo
+      ) : PipelineInfo = ???
     }
   }
 

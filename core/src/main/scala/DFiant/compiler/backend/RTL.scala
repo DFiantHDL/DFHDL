@@ -393,19 +393,13 @@ object RTL {
     private val rstInit: Int = rstParams.activeInt
     final lazy val clk = {
       _hasClk = true
-      if (simulation)
-        DFBit()
-          .forcedInit(Seq(DFBool.Token(clkInit)))
-          .setName(clkParams.name) tag RTL.Tag.Clk
-      else DFBit() <> IN tag RTL.Tag.Clk setName (clkParams.name)
+      if (simulation) DFBit <> VAR forcedInit(Seq(DFBool.Token(clkInit))) setName(clkParams.name) tag RTL.Tag.Clk
+      else DFBit <> IN tag RTL.Tag.Clk setName(clkParams.name)
     }
     final lazy val rst = {
       _hasRst = true
-      if (simulation)
-        DFBit()
-          .forcedInit(Seq(DFBool.Token(rstInit)))
-          .setName(rstParams.name) tag RTL.Tag.Rst
-      else DFBit() <> IN tag RTL.Tag.Rst setName (rstParams.name)
+      if (simulation) DFBit <> VAR forcedInit(Seq(DFBool.Token(rstInit))) setName(rstParams.name) tag RTL.Tag.Rst
+      else DFBit <> IN tag RTL.Tag.Rst setName(rstParams.name)
     }
     final def hasClk: Boolean = _hasClk
     final def hasRst: Boolean = _hasRst

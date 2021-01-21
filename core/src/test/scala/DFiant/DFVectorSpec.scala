@@ -8,9 +8,8 @@ class DFVectorSpec extends DFSpec {
   val negOne = -1
   val a      = DFBits(4)
 
-  val boolArr = DFBool().X(5) init Vector(0, 1, 0, 1, 1)
-  val uintArr = DFUInt(8).X(5) init Vector(0, 1, 0, 1, 1)
-  val bitsArr =
-    DFBits(8).X(5) init Vector[DFBits.Token](h"21", h"92", h"77", h"33", h"11")
+  val boolArr = DFBool.X(5) <> VAR init Vector(0, 1, 0, 1, 1)
+  val uintArr = DFUInt(8).X(5) <> VAR init Vector(0, 1, 0, 1, 1)
+  val bitsArr = DFBits(8).X(5) <> VAR init Vector[DFBits.Token](h"21",h"92",h"77",h"33",h"11")
 
 }

@@ -43,36 +43,38 @@ object ExactType {
     ): c.Tree = {
       import c.universe._
       val uniqueTagTpe = weakTypeOf[UniqueTag]
-      val fromTpe      = weakTypeOf[From]
-      val toTpe        = weakTypeOf[To]
-      val summonSym    = symbolOf[SummonGen[_, _, _, _]]
-      val convSym      = symbolOf[ConvGen[_, _, _]]
-      val valueTpe     = value.tpe
-      val fresh        = Ident(TermName(c.freshName()))
-      val ret =
-        try {
-          c.typecheck(
-            q"shapeless.the[$summonSym[$uniqueTagTpe, $fromTpe, $valueTpe, $toTpe]]",
-            silent = false
-          )
-        } catch {
-          case e: Throwable =>
-            val msg = e.getMessage
-            val updatedMsg =
-              if (
-                msg.startsWith("Unsupported trait")
-              ) //workaround leftover message from singleton-ops in some cases
-                s"Unsupported value type $valueTpe (supported values are defined by $fromTpe)"
-              else msg
-            c.abort(c.enclosingPosition, updatedMsg)
-        }
+      val fromTpe = weakTypeOf[From]
+      val toTpe = weakTypeOf[To]
+      val summonSym = symbolOf[SummonGen[_,_,_,_]]
+      val convSym = symbolOf[ConvGen[_,_,_]]
+      def exactType(tree : Tree) : c.Type = tree.tpe match {
+        case x @ TypeRef(t, sym, _) if sym.fullName.startsWith("scala.Tuple") =>
+          val q"$ignore(..$args)" = tree
+          internal.typeRef(t, sym, args.map(exactType(_)))
+        case x => x
+      }
+      val valueTpe = exactType(value)
+      val fresh = Ident(TermName(c.freshName()))
+      val fresh2 = Ident(TermName(c.freshName()))
+      val ret = try {
+        c.typecheck(q"shapeless.the[$summonSym[$uniqueTagTpe, $fromTpe, $valueTpe, $toTpe]]", silent = false)
+      } catch {
+        case e : Throwable =>
+          val msg = e.getMessage
+          val updatedMsg =
+            if (msg.startsWith("Unsupported trait")) //workaround leftover message from singleton-ops in some cases
+              s"Unsupported value type $valueTpe (supported values are defined by $fromTpe)"
+            else msg
+          c.abort(c.enclosingPosition, updatedMsg)
+      }
 
       val genTree =
         q"""
         final val $fresh = $ret
+        final val $fresh2 = $value.asInstanceOf[$valueTpe]
         new $convSym[$uniqueTagTpe, $fromTpe, $toTpe]{
           type Out = $fresh.Out
-          def apply(from : $fromTpe) : Out = $fresh(from, $value)
+          def apply(from : $fromTpe) : Out = $fresh(from, $fresh2)
         }
      """
 //          println(genTree)

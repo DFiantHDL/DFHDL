@@ -33,12 +33,11 @@ package object sequential {
       }
     }
 
-  @df def doOnce(block: => Unit): FSM =
-    FSM {
-      val once = DFBool() init true
-      ifdf(once)(block)
-      once := false
-    }
+  @df def doOnce(block: => Unit): FSM = FSM {
+    val once = DFBool <> VAR init true
+    ifdf(once)(block)
+    once := false
+  }
 
   @df def waitUntil[C](cond: => Exact[C])(implicit arg: DFBool.Arg[C]): FSM =
     doUntil(cond) {}(arg, ctx, ta)
@@ -66,7 +65,7 @@ package object sequential {
         )
     }
     FSM {
-      val forCnt = DFUInt.max(range.head max range.last) init range.head
+      val forCnt = DFUInt.max(range.head max range.last) <> VAR init range.head
       block(forCnt)
       def cntBlock = {
         ifdf(forCnt === range.last) {

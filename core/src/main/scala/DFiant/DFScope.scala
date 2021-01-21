@@ -54,12 +54,17 @@ object DFScope {
 }
 
 object defdf {
-  def apply[R](block: => R)(implicit meta: Meta, ctx: DFBlock.Context): R = {
-    val scope = new DFScope(Some(meta.name)) {
+  def apply[R](block : => R)(implicit meta : Meta, ctx : DFBlock.Context) : R = {
+    new DFScope { //(Some(meta.name))
       ctx.db.OwnershipContext.injectContainer(this)
       val ret = block
       ctx.db.OwnershipContext.clearInjectedContainer()
-    }
-    scope.ret
+    }.ret
+
+//    scope.ret match {
+//      case dfVal : DFAny =>
+//        DFAny.Value(dfVal.setTags(_.copy(meta = ctx.meta)).asInstanceOf[DFAny.Member]).asInstanceOf[R]
+//      case x => x
+//    }
   }
 }

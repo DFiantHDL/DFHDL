@@ -11,20 +11,15 @@ final class NamedAliases[D <: DFDesign](c: IRCompilation[D]) {
 
   //Names an anonymous relative value which is aliased.
   //The aliasing is limited according to the criteria provided
-  def namedAliases(criteria: DFAny.Alias => Boolean): IRCompilation[D] = {
-    val membersToName = designDB.members
-      .collect {
-        case alias: DFAny.Alias
-            if alias.relValRef.get.isAnonymous && criteria(alias) =>
-          alias.relValRef.get
-      }
-      .filter {
-        case _: DFAny.Const => false //ignore constants
-        case _: DFAny.Alias.Prev =>
-          false //previous values will get proper names in another stage
-        case _: DFAny.Alias.ApplySel => false //ignore apply sel
-        case _                       => true
-      }
+  def namedAliases(criteria : DFAny.Alias => Boolean) : IRCompilation[D] = {
+    val membersToName = designDB.members.collect {
+      case alias : DFAny.Alias if alias.relValRef.get.isAnonymous && criteria(alias) => alias.relValRef.get
+    }.filter {
+      case _ : DFAny.Const => false //ignore constants
+      case _ : DFAny.Alias.Prev => false  //previous values will get proper names in another stage
+      case _ : DFAny.ApplySel => false //ignore apply sel
+      case _ => true
+    }
     //we force set the underlying original name before it was anonymized
     val patchList = membersToName.map(m =>
       m -> (Patch.Replace(

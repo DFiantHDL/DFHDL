@@ -113,9 +113,11 @@ object DFSimMember {
           case Right(x) => x
         }.mkString + "\""
     }
-    final case class Message(seq: Seq[Either[DFAny.Member, String]])
-        extends Product
-        with Serializable
+    final case class Message(seq : Seq[Either[DFAny.Member, String]]) extends Product with Serializable
+    object Message {
+      implicit val fromDFAny : DFAny => Message = t => msg"$t"
+      implicit val fromString : String => Message = t => msg"$t"
+    }
   }
 
   final case class Finish(

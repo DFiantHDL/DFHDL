@@ -83,7 +83,7 @@ final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
   }
   private def buildSim(): Unit = {
     print("Building Verilator simulation... ")
-    println(buildCmd)
+//    println(buildCmd)
     bashRun(dir, buildCmd)
     println("Done!")
   }

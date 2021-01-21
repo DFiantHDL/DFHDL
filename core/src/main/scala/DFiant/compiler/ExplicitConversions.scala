@@ -6,40 +6,26 @@ import DFDesign.Frontend._
 import DFiant.DFAny.Func2.Op
 final class ExplicitConversions[D <: DFDesign](c: IRCompilation[D]) {
   private val designDB = c.db
-  private def resizeUInt(dfVal: DFAny.Member, updatedWidth: Int)(implicit
-      ctx: DFBlock.Context
-  ): DFAny.Member =
-    dfVal match {
-      case DFAny.Const(dfType, token: DFUInt.Token, ownerRef, tags) =>
-        DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
-      case _ =>
-        dfVal.asValOf[DFUInt.Type[Int]].resize(updatedWidth).anonymize.member
-    }
-  private def resizeSInt(dfVal: DFAny.Member, updatedWidth: Int)(implicit
-      ctx: DFBlock.Context
-  ): DFAny.Member =
-    dfVal match {
-      case DFAny.Const(dfType, token: DFSInt.Token, ownerRef, tags) =>
-        DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
-      case _ =>
-        dfVal.asValOf[DFSInt.Type[Int]].resize(updatedWidth).anonymize.member
-    }
-  private def toggleLogical(
-      dfVal: DFAny.Member
-  )(implicit ctx: DFBlock.Context): DFAny.Member =
-    dfVal match {
-      case DFAny.Const(_, DFBool.Token(logical, value), ownerRef, tags) =>
-        DFAny.Const(
-          DFBool.Type(!logical),
-          DFBool.Token(!logical, value),
-          ownerRef,
-          tags
-        )
-      case DFBit() =>
-        (dfVal.asValOf[DFBool.Type] === 1).anonymize.member
-      case DFBool() =>
-        dfVal.asValOf[DFBool.Type].as(DFBit()).anonymize.member
-    }
+  private def resizeUInt(dfVal : DFAny.Member, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
+    case DFAny.Const(dfType, token : DFUInt.Token, ownerRef, tags) =>
+      DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
+    case _ =>
+      dfVal.asValOf[DFUInt.Type[Int]].resize(updatedWidth).anonymize.member
+  }
+  private def resizeSInt(dfVal : DFAny.Member, updatedWidth : Int)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
+    case DFAny.Const(dfType, token : DFSInt.Token, ownerRef, tags) =>
+      DFAny.Const(dfType, token.resize(updatedWidth), ownerRef, tags)
+    case _ =>
+      dfVal.asValOf[DFSInt.Type[Int]].resize(updatedWidth).anonymize.member
+  }
+  private def toggleLogical(dfVal : DFAny.Member)(implicit ctx : DFBlock.Context) : DFAny.Member = dfVal match {
+    case DFAny.Const(_, DFBool.Token(logical, value), ownerRef, tags) =>
+      DFAny.Const(DFBool.Type(!logical), DFBool.Token(!logical, value), ownerRef, tags)
+    case DFBit() =>
+      (dfVal.asValOf[DFBool.Type] === 1).anonymize.member
+    case DFBool() =>
+      DFAny.Alias.AsIs(DFBool.Type(false), dfVal.asValOf[DFBool.Type]).anonymize.member
+  }
 
   import designDB.__getset
   //with-carry arithmetics function on uint/sint

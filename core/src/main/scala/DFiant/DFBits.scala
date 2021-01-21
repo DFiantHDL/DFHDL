@@ -3,8 +3,9 @@ package DFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
-import DFAny.Func2
+import DFAny.{Func2, Modifier, `Op==,!=`}
 import compiler.csprinter._
+import singleton.ops.OpContainer.Eq
 
 import scala.annotation.nowarn
 
@@ -45,22 +46,18 @@ object DFBits extends DFAny.Companion {
     type TPattern                             = DFBits.Pattern
     type TPatternAble[+R]                     = DFBits.Pattern.Able[R]
     type TPatternBuilder[LType <: DFAny.Type] = DFBits.Pattern.Builder[LType]
-    type `Op==Builder`[-L, -R]                = DFBits.`Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R]                = DFBits.`Op!=`.Builder[L, R]
-    def getBubbleToken: TToken                                 = Token.bubbleOfDFType(this)
-    def getTokenFromBits(fromToken: DFBits.Token): DFAny.Token = fromToken
-    def assignCheck(from: DFAny.Member)(implicit ctx: DFAny.Context): Unit =
-      from match {
-        case r @ DFBits(w) =>
-          import DFDesign.Frontend._
-          val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFBits[Int]]]
-          op(this, r.asValOf[Type[Int]])
-      }
-    def valueCodeString(value: BitVector)(implicit printer: CSPrinter): String =
-      ???
-    def valueToBitVector(value: BitVector): BitVector = value
-    override def toString: String                     = s"DFBits[$width]"
-    def codeString(implicit printer: CSPrinter): String = {
+    def getBubbleToken: TToken = Token.bubble(width)
+    def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
+      case r @ DFBits(w) =>
+        import DFDesign.Frontend._
+        val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFBits[Int]]]
+        op(this, r.asValOf[Type[Int]])
+    }
+    def valueCodeString(value : BitVector)(implicit printer : CSPrinter) : String = ???
+    def valueToBitVector(value : BitVector) : BitVector = value
+    override def toString: String = s"DFBits[$width]"
+    def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
       s"$TP DFBits($LIT$width)"
     }
@@ -79,36 +76,31 @@ object DFBits extends DFAny.Companion {
     * @param checkedWidth the required width. Must be positive.
     * @param ctx An implicit dataflow design context
     */
-  def apply[W](
-      checkedWidth: BitsWidth.Checked[W]
-  )(implicit ctx: DFAny.Context): DFAny.NewVar[Type[W]] =
-    DFAny.NewVar(Type(checkedWidth.unsafeCheck()))
+  def apply[W](checkedWidth : BitsWidth.Checked[W]) : Type[W] =
+    Type(checkedWidth.unsafeCheck())
 
   /**
     * Construct a new dataflow bit vector according to the given width type argument.
     * @tparam W The required width. Must be positive.
     * @param ctx An implicit dataflow design context
     */
-  def apply[W](implicit
-      ctx: DFAny.Context,
-      checkedWidth: BitsWidth.Checked[W],
-      di: DummyImplicit
-  ): DFAny.NewVar[Type[W]] = DFAny.NewVar(Type(checkedWidth))
+  def apply[W](
+    implicit checkedWidth : BitsWidth.Checked[W], di: DummyImplicit
+  ) : Type[W] = Type(checkedWidth)
 
-  def unapply(arg: DFAny.Member): Option[Int] =
-    arg.dfType match {
-      case Type(width) => Some(width.getValue)
-      case _           => None
-    }
+  def unapply(arg: DFAny.Member): Option[Int] = arg.dfType match {
+    case Type(width) => Some(width.getValue)
+    case _ => None
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Implicits
+  // Frontend
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Frontend
-      extends Op.Implicits
-      with `Op:=,<>`.Implicits
-      with Token.Implicits
+  object Frontend {
+    trait Inherited extends Op.Frontend.Inherited with `Op:=,<>`.Frontend.Inherited with Token.Frontend.Inherited
+    trait Imported extends Op.Frontend.Imported with `Op:=,<>`.Frontend.Imported with Token.Frontend.Imported
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -192,24 +184,24 @@ object DFBits extends DFAny.Companion {
       else if (toWidth > width) (Token.zero(toWidth - width) ++ this)
       else this
     }
-    def ==(right: Token)(implicit bb: Bubble.Behaviour): DFBool.Token = {
-      assert(right.width == width)
-      bb match {
-        case Bubble.Stall =>
-          if (left.isBubble || right.isBubble)
-            DFBool.Token.bubble(logical = true)
-          else DFBool.Token(logical = true, left.valueBits == right.valueBits)
-        case Bubble.DontCare =>
-          val valueBits =
-            (left.bubbleMask | right.bubbleMask | (left.valueBits ^ right.valueBits)
-              .unary_~()) == BitVector.high(width)
-          DFBool.Token(logical = true, valueBits)
-      }
+    def bit(idx : DFUInt.Token) : DFBool.Token = idx.value match {
+      case Some(value) => DFBool.Token(valueBits.bit(value.toLong), bubbleMask.bit(value.toLong))
+      case None => DFBool.Token.bubble(false)
     }
-    def !=(that: Token)(implicit bb: Bubble.Behaviour): DFBool.Token =
-      !(this == that)
-
-    def toUInt: DFUInt.Token = {
+    def == (right : DFAny.Token)(implicit bb : Bubble.Behaviour) : DFBool.Token = right match {
+      case right : Token =>
+        assert(right.width == width)
+        bb match {
+          case Bubble.Stall =>
+            if (left.isBubble || right.isBubble) DFBool.Token.bubble(logical = true)
+            else DFBool.Token(logical = true, left.valueBits == right.valueBits)
+          case Bubble.DontCare =>
+            val valueBits = (left.bubbleMask | right.bubbleMask | (left.valueBits ^ right.valueBits).unary_~()) == BitVector.high(width)
+            DFBool.Token(logical = true, valueBits)
+        }
+      case _ => ???
+    }
+    def toUInt : DFUInt.Token = {
       if (isBubble) DFUInt.Token.bubble(width)
       else
         DFUInt.Token(
@@ -286,17 +278,10 @@ object DFBits extends DFAny.Companion {
     }
   }
   object Token {
-    implicit val bubbleOfToken: DFAny.Token.BubbleOfToken[Token] = t =>
-      bubble(t.width)
-    implicit def bubbleOfDFType[W]: DFAny.Token.BubbleOfDFType[Type[W]] =
-      t => bubble(t.width.getValue)
-    def zero(width: Int): Token = Token(BitVector.low(width))
-    def apply(value: BitVector): Token =
-      Token(value, BitVector.low(value.length))
-    def apply(width: Int, value: BigInt): Token =
-      Token(value.toBitVector(width))
-    def bubble(width: Int): Token =
-      Token(BitVector.low(width), BitVector.high(width))
+    def zero(width : Int) : Token = Token(BitVector.low(width))
+    def apply(value : BitVector) : Token = Token(value, BitVector.low(value.length))
+    def apply(width : Int, value : BigInt) : Token = Token(value.toBitVector(width))
+    def bubble(width : Int) : Token = Token(BitVector.low(width), BitVector.high(width))
 
     private val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(bin: String): Either[String, Token] = {
@@ -429,47 +414,58 @@ object DFBits extends DFAny.Companion {
        """
     }
     type ToFit[LW, V] = DFAny.Token.ToFit.Summon.SAM[Type[LW], V, TokenW[LW]]
-    type AsIs[LW, T, OW] =
-      DFAny.Token.AsIs.Summon.Aux[Type[LW], T, Token, TokenW[OW]]
-    trait Implicits {
-      implicit def __DFBitsTokenSBV[LW, V <: SameBitsVector]: AsIs[LW, V, LW] =
-        new DFAny.Token.AsIs.Summon[Type[LW], V, Token] {
-          type Out = TokenW[LW]
-          def apply(from: Type[LW], value: V): Out = {
-            Token(BitVector.fill(from.width.getValue)(value.value))
-              .typeTag[Type[LW]]
-              .@@[WidthTag[LW]]
-          }
+    type AsIs[LW, T, OW] = DFAny.Token.AsIs.Summon.Aux[Type[LW], T, Token, TokenW[OW]]
+    sealed trait Frontend {
+      protected implicit def __DFBitsTokenSBV[LW, V <: SameBitsVector]
+      : AsIs[LW, V, LW] = new DFAny.Token.AsIs.Summon[Type[LW], V, Token] {
+        type Out = TokenW[LW]
+        def apply(from : Type[LW], value : V) : Out = {
+        Token(BitVector.fill(from.width.getValue)(value.value)).typeTag[Type[LW]].@@[WidthTag[LW]]
         }
-      implicit def __DFBitsTokenTokenW[LW, RW](implicit
-          sameWidth: `LW == RW`.CheckedShell[LW, RW]
-      ): AsIs[LW, TokenW[RW], LW] =
-        new DFAny.Token.AsIs.Summon[Type[LW], TokenW[RW], Token] {
-          type Out = TokenW[LW]
-          def apply(from: Type[LW], value: TokenW[RW]): Out = {
-            sameWidth.unsafeCheck(from.width, value.width)
-            value.asInstanceOf[Out]
-          }
+      }
+      protected implicit def __DFBitsTokenTokenW[LW, RW](
+        implicit
+        sameWidth : `LW == RW`.CheckedShell[LW, RW]
+      ) : AsIs[LW, TokenW[RW], LW] = new DFAny.Token.AsIs.Summon[Type[LW], TokenW[RW], Token] {
+        type Out = TokenW[LW]
+        def apply(from : Type[LW], value : TokenW[RW]) : Out = {
+          sameWidth.unsafeCheck(from.width, value.width)
+          value.asInstanceOf[Out]
         }
-      implicit def __DFBitsTokenToken[LW](implicit
-          sameWidth: `LW == RW`.CheckedShell[LW, Int]
-      ): AsIs[LW, Token, LW] =
-        new DFAny.Token.AsIs.Summon[Type[LW], Token, Token] {
-          type Out = TokenW[LW]
-          def apply(from: Type[LW], value: Token): Out = {
-            sameWidth.unsafeCheck(from.width, value.width)
-            value.asInstanceOf[Out]
-          }
+      }
+      protected implicit def __DFBitsTokenToken[LW](
+        implicit
+        sameWidth : `LW == RW`.CheckedShell[LW, Int]
+      ) : AsIs[LW, Token, LW] = new DFAny.Token.AsIs.Summon[Type[LW], Token, Token] {
+        type Out = TokenW[LW]
+        def apply(from : Type[LW], value : Token) : Out = {
+          sameWidth.unsafeCheck(from.width, value.width)
+          value.asInstanceOf[Out]
         }
-      implicit def __DFBitsTokenToFit[LW, V, RW](implicit
-          summonedToken: AsIs[LW, V, RW],
-          fitsWidth: `LW == RW`.CheckedShell[LW, RW]
-      ): ToFit[LW, V] =
-        (from, value) => {
-          val token = summonedToken(from, value)
-          fitsWidth.unsafeCheck(from.width, token.width)
-          token.asInstanceOf[TokenW[LW]]
-        }
+      }
+      protected implicit def __DFBitsTokenToFit[LW, V, RW](
+        implicit
+        summonedToken : AsIs[LW, V, RW],
+        fitsWidth : `LW == RW`.CheckedShell[LW, RW]
+      ) : ToFit[LW, V] = (from, value) => {
+        val token = summonedToken(from, value)
+        fitsWidth.unsafeCheck(from.width, token.width)
+        token.asInstanceOf[TokenW[LW]]
+      }
+    }
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFBitsTokenSBV[LW, V <: SameBitsVector] : AsIs[LW, V, LW] = super.__DFBitsTokenSBV
+        final override protected implicit def __DFBitsTokenToFit[LW, V, RW](implicit summonedToken : AsIs[LW, V, RW], fitsWidth : internals.`LW == RW`.CheckedShell[LW, RW]) : ToFit[LW, V] = super.__DFBitsTokenToFit
+        final override protected implicit def __DFBitsTokenToken[LW](implicit sameWidth : internals.`LW == RW`.CheckedShell[LW, Int]) : AsIs[LW, Token, LW] = super.__DFBitsTokenToken
+        final override protected implicit def __DFBitsTokenTokenW[LW, RW](implicit sameWidth : internals.`LW == RW`.CheckedShell[LW, RW]) : AsIs[LW, TokenW[RW], LW] = super.__DFBitsTokenTokenW
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFBitsTokenSBV[LW, V <: SameBitsVector] : AsIs[LW, V, LW] = super.__DFBitsTokenSBV
+        final override implicit def __DFBitsTokenToFit[LW, V, RW](implicit summonedToken : AsIs[LW, V, RW], fitsWidth : internals.`LW == RW`.CheckedShell[LW, RW]) : ToFit[LW, V] = super.__DFBitsTokenToFit
+        final override implicit def __DFBitsTokenToken[LW](implicit sameWidth : internals.`LW == RW`.CheckedShell[LW, Int]) : AsIs[LW, Token, LW] = super.__DFBitsTokenToken
+        final override implicit def __DFBitsTokenTokenW[LW, RW](implicit sameWidth : internals.`LW == RW`.CheckedShell[LW, RW]) : AsIs[LW, TokenW[RW], LW] = super.__DFBitsTokenTokenW
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -597,17 +593,11 @@ object DFBits extends DFAny.Companion {
       /**
         * @return the dataflow comparison equality result.
         */
-      final def ===[RW](right: DFBits[RW])(implicit
-          op: `Op===`.Builder[L, DFBits[RW]]
-      ) = op(left, right)
-
+      final def === [RW](right : DFBits[RW])(implicit op: DFAny.`Op==`.Builder[L, DFBits[RW]]) = op(left, right)
       /**
         * @return the dataflow comparison inequality result.
         */
-      final def =!=[RW](right: DFBits[RW])(implicit
-          op: `Op=!=`.Builder[L, DFBits[RW]]
-      ) = op(left, right)
-
+      final def =!= [RW](right : DFBits[RW])(implicit op: DFAny.`Op!=`.Builder[L, DFBits[RW]]) = op(left, right)
       /**
         * @return the dataflow Bit Concatenation result.
         */
@@ -615,27 +605,25 @@ object DFBits extends DFAny.Companion {
           op: `Op++`.Builder[L, DFBits[RW]]
       ) = op(left, right)
     }
-    trait Implicits {
-      final implicit def __DFBitsWiden[FW, TW](c: DFBits[FW])(implicit
-          eq: OpContainer.Eq[FW, TW, Int]
-      ): DFBits[TW] = c.asInstanceOf[DFBits[TW]]
-      sealed class __DFBitsFromToken(left: Token) extends AbleOps[Token](left)
-      final implicit def __DFBitsFromToken(left: Token): __DFBitsFromToken =
-        new __DFBitsFromToken(left)
-      sealed class __DFBitsFromTokenW[W](left: TokenW[W])
-          extends AbleOps[TokenW[W]](left)
-      final implicit def __DFBitsFromTokenW[W](
-          left: TokenW[W]
-      ): __DFBitsFromTokenW[W] = new __DFBitsFromTokenW[W](left)
-      sealed class __DFBitsFromZeros[SBV <: SameBitsVector](left: SBV)
-          extends AbleOps[SBV](left)
-      final implicit def __DFBitsFromZeros[SBV <: SameBitsVector](
-          left: SBV
-      ): __DFBitsFromZeros[SBV] = new __DFBitsFromZeros(left)
-      final implicit def __ofDFBits[W](left: DFBits[W]): Able[DFBits[W]] =
-        new Able(left)
-      final implicit class __DFBitsOps[LW](val left: DFBits[LW]) {
+    sealed trait Frontend {
+      protected implicit def __DFBitsWiden[FW, TW](c : DFBits[FW])(implicit eq : OpContainer.Eq[FW, TW, Int]) : DFBits[TW] = c.asInstanceOf[DFBits[TW]]
+      sealed class __DFBitsFromToken(left : Token) extends AbleOps[Token](left)
+      protected implicit def __DFBitsFromToken(left: Token): __DFBitsFromToken = new __DFBitsFromToken(left)
+      sealed class __DFBitsFromTokenW[W](left : TokenW[W]) extends AbleOps[TokenW[W]](left)
+      protected implicit def __DFBitsFromTokenW[W](left: TokenW[W]): __DFBitsFromTokenW[W] = new __DFBitsFromTokenW[W](left)
+      sealed class __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) extends AbleOps[SBV](left)
+      protected implicit def __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : __DFBitsFromZeros[SBV] = new __DFBitsFromZeros(left)
+      protected implicit def __ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = new Able(left)
+      protected implicit def __DFBits_eq_Capable[LW, RW](
+        implicit checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op==,!=`.Capable[Type[LW], Type[RW]] =
+        (left, right) => checkLWvRW.unsafeCheck(left.width, right.width)
 
+      protected implicit def __DFBits_eq_ConstCapable[LW, RW](
+        implicit checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op==,!=`.ConstCapable[Type[LW], Type[RW]] =
+        (left, right) => checkLWvRW.unsafeCheck(left.width, right.width)
+      protected implicit class __DFBitsOps[LW](val left : DFBits[LW]){
         /**
           * @return the dataflow Bitwise Or result.
           */
@@ -657,17 +645,11 @@ object DFBits extends DFAny.Companion {
         /**
           * @return the dataflow comparison equality result.
           */
-        def ===[R](right: Exact[R])(implicit
-            op: `Op===`.Builder[DFBits[LW], R]
-        ) = op(left, right)
-
+        def === [R](right : Exact[R])(implicit op: DFAny.`Op==`.Builder[DFBits[LW], R]) = op(left, right)
         /**
           * @return the dataflow comparison inequality result.
           */
-        def =!=[R](right: Exact[R])(implicit
-            op: `Op=!=`.Builder[DFBits[LW], R]
-        ) = op(left, right)
-
+        def =!= [R](right : Exact[R])(implicit op: DFAny.`Op!=`.Builder[DFBits[LW], R]) = op(left, right)
         /**
           * @return the dataflow Bit Concatenation result.
           */
@@ -677,9 +659,8 @@ object DFBits extends DFAny.Companion {
         /**
           * @return the dataflow Bit Inversion result.
           */
-        def unary_~(implicit ctx: DFAny.Context): DFBits[LW] =
-          DFAny.Alias.Invert[Type[LW]](left)
-
+        def unary_~(implicit ctx : DFAny.Context) : DFBits[LW] =
+          DFAny.Func1(left.dfType, left, DFAny.Func1.Op.unary_~)(~_)
         /**
           * @return the dataflow logical Left-Shift result.
           */
@@ -711,9 +692,9 @@ object DFBits extends DFAny.Companion {
             case DFAny.Const(_, token: Token, _, _) =>
               DFAny.Const.forced[Type[RW]](token.resize(toWidth))
             case _ =>
-              if (left.width.getValue == toWidth.getValue)
-                left.asInstanceOf[DFBits[RW]]
-              else DFAny.Alias.Resize.bits(left.member, toWidth)
+              if (left.width.getValue == toWidth.getValue) left.asInstanceOf[DFBits[RW]]
+              else
+                DFAny.Alias.AsIs(Type(toWidth), left.asValOf[Type[RW]]) tag cs"$left.${CSFunc(_.DF)}resize($toWidth)"
           }
 
         /**
@@ -741,10 +722,7 @@ object DFBits extends DFAny.Companion {
           ret.asInstanceOf[DFBits[RW]]
         }
       }
-      final implicit class __DFBitsAliases[LW, Mod <: DFAny.Modifier](
-          val left: DFAny.Value[Type[LW], Mod]
-      ) {
-
+      protected implicit class __DFBitsAliases[LW, Mod <: DFAny.Modifier.Val](val left : DFAny.Value[Type[LW], Mod]) {
         /**
           * @return a dataflow alias as an unsigned integer.
           */
@@ -760,6 +738,24 @@ object DFBits extends DFAny.Companion {
             ctx: DFAny.Context
         ): DFAny.Value[DFSInt.Type[LW], Mod] =
           left.as(DFSInt(left.width)) tag cs"$left.sint"
+        /**
+          * Cast the dataflow variable as specified by the dataflow type
+          * @param dfTemplate The dataflow type to cast the variable as.
+          *                   Must match the same width as the current variable width.
+          * @return the casted variable
+          * @example
+          * {{{
+          *   val x = DFBits(8)
+          *   val y = x.as(DFSInt(8))
+          * }}}
+          */
+        final def as[TT, AT <: DFAny.Type](dfTemplate : TT)(
+          implicit tc : TT => AT, ctx : DFAny.Context, equalWidth : AsWidth.CheckedShell[AT#Width, LW]
+        ) : DFAny.Value[AT, Mod] = {
+          val dfType = tc(dfTemplate)
+          equalWidth.unsafeCheck(dfType.width, left.dfType.width)
+          DFAny.Alias.AsIs(dfType, left)
+        }
 
         /**
           * Partial Bit Vector Selection
@@ -830,14 +826,10 @@ object DFBits extends DFAny.Companion {
           case dfAny: DFAny => dfAny.width.getValue
           case token: Token => token.width
         }.sum
-        def bits(implicit
-            ctx: DFAny.Context,
-            w: TwoFace.Int.Shell1[Id, WSum, Int]
-        ): DFBits[w.Out] = {
-          val list: List[DFBits[Int]] = e.productIterator.toList.collect {
-            case dfAny: DFAny.Value[_, _] =>
-              dfAny.bits.asInstanceOf[DFBits[Int]]
-            case token: Token => DFAny.Const.forced[Type[Int]](token)
+        def bits(implicit ctx : DFAny.Context, w : TwoFace.Int.Shell1[Id, WSum, Int]) : DFBits[w.Out] = {
+          val list : List[DFBits[Int]] = e.productIterator.toList.collect{
+            case dfAny : DFAny.Value[_,DFAny.Modifier.Val @unchecked] => dfAny.bits.asInstanceOf[DFBits[Int]]
+            case token : Token => DFAny.Const.forced[Type[Int]](token)
           }
           list.reduce((l, r) => `Op++`.forced(l, r)).asInstanceOf[DFBits[w.Out]]
         }
@@ -852,9 +844,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width
 //      }
 
-      implicit class __ValTuple1[T1 <: HasWidth](
-          val e: Tuple1[T1]
-      ) extends __ValProductExtender(e) {
+      protected implicit class __ValTuple1[T1 <: HasWidth](
+        val e : Tuple1[T1]
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -868,9 +860,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width
 //      }
 
-      implicit class __ValTuple2[T1 <: HasWidth, T2 <: HasWidth](
-          val e: Tuple2[T1, T2]
-      ) extends __ValProductExtender(e) {
+      protected implicit class __ValTuple2[T1 <: HasWidth, T2 <: HasWidth](
+        val e : Tuple2[T1, T2]
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -884,11 +876,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width + e._3.Width
 //      }
 
-      implicit class __ValTuple3[
-          T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth
-      ](
-          val e: Tuple3[T1, T2, T3]
-      ) extends __ValProductExtender(e) {
+      protected implicit class __ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](
+        val e : Tuple3[T1, T2, T3]
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width + e._3.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -902,11 +892,9 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
 //      }
 
-      implicit class __ValTuple4[
-          T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth
-      ](
-          val e: Tuple4[T1, T2, T3, T4]
-      ) extends __ValProductExtender(e) {
+      protected implicit class __ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](
+        val e : Tuple4[T1, T2, T3, T4]
+      ) extends __ValProductExtender(e){
         type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
@@ -920,17 +908,47 @@ object DFBits extends DFAny.Companion {
 //        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
 //      }
 
-      implicit class __ValTuple5[
-          T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth,
-          T5 <: HasWidth
-      ](
-          val e: Tuple5[T1, T2, T3, T4, T5]
-      ) extends __ValProductExtender(e) {
-        type WSum =
-          e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
+      protected implicit class __ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](
+        val e : Tuple5[T1, T2, T3, T4, T5]
+      ) extends __ValProductExtender(e){
+        type WSum = e._1.Width + e._2.Width + e._3.Width + e._4.Width + e._5.Width
       }
       /////////////////////////////////////////////////////////////////////////////////////
 
+    }
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFBitsFromToken(left : Token) : __DFBitsFromToken = super.__DFBitsFromToken(left)
+        final override protected implicit def __DFBitsFromTokenW[W](left : TokenW[W]) : __DFBitsFromTokenW[W] = super.__DFBitsFromTokenW(left)
+        final override protected implicit def __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : __DFBitsFromZeros[SBV] = super.__DFBitsFromZeros(left)
+        final override protected implicit def __DFBitsWiden[FW, TW](c : DFBits[FW])(implicit eq : Eq[FW, TW, Int]) : DFBits[TW] = super.__DFBitsWiden(c)
+        final override protected implicit def __ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = super.__ofDFBits(left)
+        final override protected implicit def __DFBitsAliases[LW, Mod <: Modifier.Val](left : DFAny.Value[Type[LW], Mod]) : __DFBitsAliases[LW, Mod] = super.__DFBitsAliases(left)
+        final override protected implicit def __DFBitsOps[LW](left : DFBits[LW]) : __DFBitsOps[LW] = super.__DFBitsOps(left)
+        final override protected implicit def __DFBits_eq_Capable[LW, RW](implicit checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : `Op==,!=`.Capable[Type[LW], Type[RW]] = super.__DFBits_eq_Capable
+        final override protected implicit def __DFBits_eq_ConstCapable[LW, RW](implicit checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : `Op==,!=`.ConstCapable[Type[LW], Type[RW]] = super.__DFBits_eq_ConstCapable
+        final override protected implicit def __ValTuple1[T1 <: HasWidth](e : Tuple1[T1]) : __ValTuple1[T1] = super.__ValTuple1(e)
+        final override protected implicit def __ValTuple2[T1 <: HasWidth, T2 <: HasWidth](e : (T1, T2)) : __ValTuple2[T1, T2] = super.__ValTuple2(e)
+        final override protected implicit def __ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](e : (T1, T2, T3)) : __ValTuple3[T1, T2, T3] = super.__ValTuple3(e)
+        final override protected implicit def __ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](e : (T1, T2, T3, T4)) : __ValTuple4[T1, T2, T3, T4] = super.__ValTuple4(e)
+        final override protected implicit def __ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](e : (T1, T2, T3, T4, T5)) : __ValTuple5[T1, T2, T3, T4, T5] = super.__ValTuple5(e)
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFBitsFromToken(left : Token) : __DFBitsFromToken = super.__DFBitsFromToken(left)
+        final override implicit def __DFBitsFromTokenW[W](left : TokenW[W]) : __DFBitsFromTokenW[W] = super.__DFBitsFromTokenW(left)
+        final override implicit def __DFBitsFromZeros[SBV <: SameBitsVector](left : SBV) : __DFBitsFromZeros[SBV] = super.__DFBitsFromZeros(left)
+        final override implicit def __DFBitsWiden[FW, TW](c : DFBits[FW])(implicit eq : Eq[FW, TW, Int]) : DFBits[TW] = super.__DFBitsWiden(c)
+        final override implicit def __ofDFBits[W](left : DFBits[W]) : Able[DFBits[W]] = super.__ofDFBits(left)
+        final override implicit def __DFBitsAliases[LW, Mod <: Modifier.Val](left : DFAny.Value[Type[LW], Mod]) : __DFBitsAliases[LW, Mod] = super.__DFBitsAliases(left)
+        final override implicit def __DFBitsOps[LW](left : DFBits[LW]) : __DFBitsOps[LW] = super.__DFBitsOps(left)
+        final override implicit def __DFBits_eq_Capable[LW, RW](implicit checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : `Op==,!=`.Capable[Type[LW], Type[RW]] = super.__DFBits_eq_Capable
+        final override implicit def __DFBits_eq_ConstCapable[LW, RW](implicit checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : `Op==,!=`.ConstCapable[Type[LW], Type[RW]] = super.__DFBits_eq_ConstCapable
+        final override implicit def __ValTuple1[T1 <: HasWidth](e : Tuple1[T1]) : __ValTuple1[T1] = super.__ValTuple1(e)
+        final override implicit def __ValTuple2[T1 <: HasWidth, T2 <: HasWidth](e : (T1, T2)) : __ValTuple2[T1, T2] = super.__ValTuple2(e)
+        final override implicit def __ValTuple3[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth](e : (T1, T2, T3)) : __ValTuple3[T1, T2, T3] = super.__ValTuple3(e)
+        final override implicit def __ValTuple4[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth](e : (T1, T2, T3, T4)) : __ValTuple4[T1, T2, T3, T4] = super.__ValTuple4(e)
+        final override implicit def __ValTuple5[T1 <: HasWidth, T2 <: HasWidth, T3 <: HasWidth, T4 <: HasWidth, T5 <: HasWidth](e : (T1, T2, T3, T4, T5)) : __ValTuple5[T1, T2, T3, T4, T5] = super.__ValTuple5(e)
+      }
     }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -964,27 +982,25 @@ object DFBits extends DFAny.Companion {
   // Assign & Connect
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object `Op:=,<>` {
-    import DFAny.`Op:=,<>`.Builder
-
-    trait Implicits {
-      final implicit def __DFBits_ac_DFBits[LW, RW](implicit
-          ctx: DFAny.Context,
-          checkLWvRW: `LW == RW`.CheckedShell[LW, RW]
-      ): Builder[Type[LW], DFBits[RW]] =
-        (left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          import DFDesign.Frontend._
-          right.asValOf[Type[LW]]
-        }
-      final implicit def __DFBits_ac_DFUInt[LW, RW](implicit
-          ctx: DFAny.Context,
-          checkLWvRW: `LW == RW`.CheckedShell[LW, RW]
-      ): Builder[Type[LW], DFUInt[RW]] =
-        (left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          import DFDesign.Frontend._
-          right.bits.asValOf[Type[LW]]
-        }
+    sealed trait Frontend {
+      protected implicit def __DFBits_ac_DFBits[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = (left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        import DFDesign.Frontend._
+        right.asValOf[Type[LW]]
+      }
+      protected implicit def __DFBits_ac_DFUInt[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = (left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        import DFDesign.Frontend._
+        right.bits.asValOf[Type[LW]]
+      }
       //TODO: support DFUInt constant that will be made from a d"" string interpolation
 //      final implicit def __DFBits_ac_DFUIntConst[LW, R, RW](
 //        implicit
@@ -998,60 +1014,17 @@ object DFBits extends DFAny.Companion {
 //        right.bits.asValOf[Type[LW]]
 //      }
     }
-  }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Comparison operations
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: Func2.Op](op: Op)(
-      func: (Token, Token) => DFBool.Token
-  ) {
-    @scala.annotation.implicitNotFound(
-      "Dataflow variable ${L} does not support Comparison Ops with the type ${R}"
-    )
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R] { type Out = DFBool }
-    object Builder {
-      def create[L, LW, R, RW](properLR: (L, R) => (DFBits[LW], DFBits[RW]))(
-          implicit ctx: DFAny.Context
-      ): Builder[L, R] =
-        (leftL, rightR) => {
-          val (left, right) = properLR(leftL, rightR)
-          DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
-        }
-
-      implicit def evDFBits_op_DFBits[LW, RW](implicit
-          ctx: DFAny.Context,
-          checkLWvRW: `LW == RW`.CheckedShell[LW, RW]
-      ): Builder[DFBits[LW], DFBits[RW]] =
-        create[DFBits[LW], LW, DFBits[RW], RW]((left, right) => {
-          checkLWvRW.unsafeCheck(left.width, right.width)
-          (left, right)
-        })
-
-      implicit def evDFBits_op_Const[W, R](implicit
-          ctx: DFAny.Context,
-          rConst: DFAny.Const.ToFit[Type[W], R]
-      ): Builder[DFBits[W], R] =
-        create[DFBits[W], W, R, W]((left, rightValue) => {
-          val right = rConst(left.dfType, rightValue)
-          (left, right)
-        })
-
-      implicit def evConst_op_DFBits[L, W](implicit
-          ctx: DFAny.Context,
-          lConst: DFAny.Const.ToFit[Type[W], L]
-      ): Builder[L, DFBits[W]] =
-        create[L, W, DFBits[W], W]((leftValue, right) => {
-          val left = lConst(right.dfType, leftValue)
-          (left, right)
-        })
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFBits_ac_DFBits[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = super.__DFBits_ac_DFBits
+        final override protected implicit def __DFBits_ac_DFUInt[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = super.__DFBits_ac_DFUInt
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFBits_ac_DFBits[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = super.__DFBits_ac_DFBits
+        final override implicit def __DFBits_ac_DFUInt[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = super.__DFBits_ac_DFUInt
+      }
     }
   }
-  object `Op==`  extends OpsCompare(Func2.Op.==)((l, r) => l == r) with `Op==`
-  object `Op!=`  extends OpsCompare(Func2.Op.!=)((l, r) => l != r) with `Op!=`
-  object `Op===` extends OpsCompare(Func2.Op.==)((l, r) => l == r)
-  object `Op=!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1145,14 +1118,49 @@ object DFBits extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Shift operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  object `Op<<` extends OpsShift[Type](Func2.Op.<<) {
-    def tokenFunc[LW](left: DFBits.Token, right: DFUInt.Token): DFBits.Token =
-      left << right
+  protected abstract class OpsShift(op : Func2.Op.Shift) {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Shift Ops with the type ${R}")
+    trait Builder[L <: DFAny, -R] extends DFAny.Op.Builder[L, R] {
+      type Out = L
+    }
+
+    object Builder {
+      object SmallShift extends Checked1Param.Int {
+        type Cond[LW, RW] = BitsWidthOf.CalcInt[LW-1] >= RW
+        type Msg[LW, RW] = "The shift vector is too large. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type ParamFace = Int
+      }
+      def create[LW, RW](left : DFBits[LW], right : DFUInt[RW])(
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : SmallShift.CheckedShell[LW, RW]
+      ) : DFBits[LW] = {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+
+        val out = left.dfType
+        val func : (left.TToken, right.TToken) => out.TToken = op match {
+          case _ : Func2.Op.>> => _ >> _
+          case _ : Func2.Op.<< => _ << _
+        }
+        DFAny.Func2(out, left, op, right)(func)
+      }
+      implicit def evDFSInt_op_DFUInt[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : SmallShift.CheckedShell[LW, RW]
+      ) : Builder[DFBits[LW], DFUInt[RW]] = (left, right) => create(left, right)
+
+      implicit def evDFSInt_op_Const[LW, R, RW](
+        implicit
+        ctx : DFAny.Context,
+        rConst : DFAny.Const.AsIs.Aux[DFUInt.Type[LW], R, _ <: DFUInt.Type[RW]],
+        checkLWvRW : SmallShift.CheckedShell[LW, RW]
+      ) : Builder[DFBits[LW], R] = (left, rightR) =>
+        create(left, rConst(DFUInt.Type[LW](left.width), rightR).asValOf[DFUInt.Type[RW]])
+    }
   }
-  object `Op>>` extends OpsShift[Type](Func2.Op.>>) {
-    def tokenFunc[LW](left: DFBits.Token, right: DFUInt.Token): DFBits.Token =
-      left >> right
-  }
+  object `Op<<` extends OpsShift(Func2.Op.<<)
+  object `Op>>` extends OpsShift(Func2.Op.>>)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

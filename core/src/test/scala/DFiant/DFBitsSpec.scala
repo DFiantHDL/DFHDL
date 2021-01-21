@@ -7,16 +7,16 @@ class DFBitsSpec extends DFSpec {
   val three  = 3
   val four   = 4
   val negOne = -1
-  val a      = DFBits(4)
+  val a = DFBits(4) <> VAR
   test("Construction with positive widths") {
-    assert(compileErrors("""val a : DFBits[4] = DFBits(4)""").isEmpty)
-    assert(compileErrors("""val a : DFBits[4] = DFBits[4]""").isEmpty)
-    assert(compileErrors("""val a : DFBits[Int] = DFBits(four)""").isEmpty)
+    assert(compileErrors("""val a : DFBits[4] = DFBits(4) <> VAR""").isEmpty)
+    assert(compileErrors("""val a : DFBits[4] = DFBits[4] <> VAR""").isEmpty)
+    assert(compileErrors("""val a : DFBits[Int] = DFBits(four) <> VAR""").isEmpty)
   }
   test("Construction with negative or zero widths") {
-    assert(compileErrors("""val a = DFBits[0]""").nonEmpty)
-    assert(compileErrors("""val a = DFBits[-1]""").nonEmpty)
-    intercept[IllegalArgumentException] { val a = DFBits(negOne) }
+    assert(compileErrors("""val a = DFBits[0] <> VAR""").nonEmpty)
+    assert(compileErrors("""val a = DFBits[-1] <> VAR""").nonEmpty)
+    intercept[IllegalArgumentException] {val a = DFBits(negOne) <> VAR}
   }
   test("Bits High-Low Selection within its width boundary") {
     assert(compileErrors("""val b : DFBits[2] = a(1, 0)""").isEmpty)

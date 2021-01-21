@@ -33,32 +33,23 @@ final class UniqueNames[D <: DFDesign](c: IRCompilation[D]) {
     }
 
     val reservedNamesLC = lowerCases(reservedNames)
-    val globalTagList = renamer(designDB.getGlobalEnumTypes, reservedNamesLC)(
+    val globalTagList = renamer(designDB.getGlobalEnumEntries, reservedNamesLC)(
       _.name,
-      (e, n) => (e, classTag[EnumType.NameTag]) -> EnumType.NameTag(n)
+      (e, n) => (e, classTag[DFMember.NameTag]) -> DFMember.NameTag(n)
     )
-    val globalNames: Set[String] =
-      (designDB.getGlobalEnumTypes.map(e => e.name) ++ globalTagList.map(e =>
-        e._2.name
-      ) ++ reservedNames)
+    val globalNames : Set[String] =
+      (designDB.getGlobalEnumEntries.map(e => e.name) ++ globalTagList.map(e => e._2.name) ++ reservedNames)
     val globalNamesLC = lowerCases(globalNames)
-    val patchesAndTags = designDB.designMemberList.map {
-      case (design, members) =>
-        val localTagList =
-          renamer(designDB.getLocalEnumTypes(design), globalNamesLC)(
-            _.name,
-            (e, n) => (e, classTag[EnumType.NameTag]) -> EnumType.NameTag(n)
-          )
-        val patchList =
-          renamer(members.filterNot(_.isAnonymous), reservedNamesLC)(
-            _.name,
-            (m, n) =>
-              m -> Patch.Replace(
-                m.setName(n),
-                Patch.Replace.Config.FullReplacement
-              )
-          )
-        (patchList, localTagList)
+    val patchesAndTags = designDB.designMemberList.map {case (design, members) =>
+      val localTagList = renamer(designDB.getLocalEnumEntries(design), globalNamesLC)(
+        _.name,
+        (e, n) => (e, classTag[DFMember.NameTag]) -> DFMember.NameTag(n)
+      )
+      val patchList = renamer(members.filterNot(_.isAnonymous), reservedNamesLC)(
+        _.name,
+        (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
+      )
+      (patchList, localTagList)
     }.unzip
     val patchList = patchesAndTags._1.flatten
     val tagList   = patchesAndTags._2.flatten ++ globalTagList

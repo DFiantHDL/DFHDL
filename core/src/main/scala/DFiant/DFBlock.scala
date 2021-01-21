@@ -35,12 +35,8 @@ object DFBlock {
         .injectOwnerAndRun(container, owner.getOwner(db.getSet))(block)
   }
   trait VeryLowPriority {
-    implicit def evCtxDefs[T <: String with Singleton](implicit
-        ctx: ContextOf[T],
-        mustBeTheClassOf: MustBeTheClassOf[T],
-        meta: Meta
-    ): Context =
-      new Context(meta, ctx.symbol, ctx.container, ctx.dir, ctx.db, ctx.args)
+    implicit def evCtxDefs[T <: String with Singleton](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T], meta: Meta) : Context =
+      new Context(ctx.meta, ctx.symbol, ctx.container, ctx.dir, ctx.db, ctx.args)
   }
   trait LowPriority extends VeryLowPriority {
     implicit def evCtx[T <: DFDesign](implicit

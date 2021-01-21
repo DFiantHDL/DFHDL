@@ -219,64 +219,34 @@ object analysis {
           getLeadingCBChain(prevBlock, prevBlock :: chain)
         case None => chain
       }
-    def getLeadingChain: List[DFConditional.Block] =
-      getLeadingCBChain(cb, List(cb))
-    def isExhaustive: Boolean =
-      cb match {
-        case DFConditional.IfElseBlock(None, _, _, _)  => true //elsedf block
-        case DFConditional.CaseBlock(_, _, None, _, _) => true //casedf_ block
-        case x: DFConditional.CaseBlock if x.isLastCB =>
-          val matchVal = x.matchHeaderRef.matchValRef.get
-          val patterns = getPatterns(x, List())
-          matchVal.dfType match {
-            case _: DFUInt.Type[_] =>
-              val union = patterns
-                .asInstanceOf[List[DFUInt.Pattern]]
-                .foldLeft(IntervalSet.empty[BigInt]) {
-                  case (is, p) => is | p.patternSet
-                }
-              val fullRange = Interval.closed(
-                BigInt(0),
-                BigInt.maxUnsignedFromWidth(matchVal.width)
-              )
-              union.contains(fullRange)
-            case _: DFSInt.Type[_] =>
-              val union = patterns
-                .asInstanceOf[List[DFSInt.Pattern]]
-                .foldLeft(IntervalSet.empty[BigInt]) {
-                  case (is, p) => is | p.patternSet
-                }
-              val fullRange = Interval.closed(
-                BigInt.minSignedFromWidth(matchVal.width),
-                BigInt.maxSignedFromWidth(matchVal.width)
-              )
-              union.contains(fullRange)
-            case _: DFBits.Type[_] =>
-              val union = patterns
-                .asInstanceOf[List[DFBits.Pattern]]
-                .foldLeft(Set.empty[DFBits.Token]) {
-                  case (s, p) => s | p.patternSet
-                }
-              union.size == BigInt
-                .maxUnsignedFromWidth(matchVal.width)
-                .toInt + 1
-            case _: DFBool.Type =>
-              val union = patterns
-                .asInstanceOf[List[DFBool.Pattern]]
-                .foldLeft(Set.empty[Boolean]) {
-                  case (s, p) => s | p.patternSet
-                }
-              union.size == 2
-            case e: DFEnum.Type[_] =>
-              val union = patterns
-                .asInstanceOf[List[DFEnum.Pattern]]
-                .foldLeft(Set.empty[EnumType.Entry]) {
-                  case (s, p) => s | p.patternSet
-                }
-              union.size == e.enumType.entries.size
-          }
-        case _ => false
-      }
+    def getLeadingChain : List[DFConditional.Block] = getLeadingCBChain(cb, List(cb))
+    def isExhaustive : Boolean = cb match {
+      case DFConditional.IfElseBlock(None,_,_,_) => true //elsedf block
+      case DFConditional.CaseBlock(_,_,None,_,_) => true //casedf_ block
+      case x : DFConditional.CaseBlock if x.isLastCB =>
+        val matchVal = x.matchHeaderRef.matchValRef.get
+        val patterns = getPatterns(x, List())
+        matchVal.dfType match {
+          case dec : DFDecimal.Type[_,_,_] if !dec.signed.getValue && dec.fractionWidth.getValue == 0 =>
+            val union = patterns.asInstanceOf[List[DFDecimal.Pattern]].foldLeft(IntervalSet.empty[BigInt]){case (is, p) => is | p.patternSet}
+            val fullRange = Interval.closed(BigInt(0), BigInt.maxUnsignedFromWidth(matchVal.width))
+            union.contains(fullRange)
+          case dec : DFDecimal.Type[_,_,_] if dec.signed.getValue && dec.fractionWidth.getValue == 0 =>
+            val union = patterns.asInstanceOf[List[DFDecimal.Pattern]].foldLeft(IntervalSet.empty[BigInt]){case (is, p) => is | p.patternSet}
+            val fullRange = Interval.closed(BigInt.minSignedFromWidth(matchVal.width), BigInt.maxSignedFromWidth(matchVal.width))
+            union.contains(fullRange)
+          case _ : DFBits.Type[_] =>
+            val union = patterns.asInstanceOf[List[DFBits.Pattern]].foldLeft(Set.empty[DFBits.Token]){case (s, p) => s | p.patternSet}
+            union.size == BigInt.maxUnsignedFromWidth(matchVal.width).toInt + 1
+          case _ : DFBool.Type =>
+            val union = patterns.asInstanceOf[List[DFBool.Pattern]].foldLeft(Set.empty[Boolean]){case (s, p) => s | p.patternSet}
+            union.size == 2
+          case e : DFEnum.Type[_] =>
+            val union = patterns.asInstanceOf[List[DFEnum.Pattern]].foldLeft(Set.empty[DFEnum.Entries.Entry]){case (s, p) => s | p.patternSet}
+            union.size == e.entries.all.size
+        }
+      case _ => false
+    }
     //Gets the topmost member of an if/match chain.
     //For ifs it's the if owner, and for matches it's the match header.
     @tailrec private def getTopConditionalMember(

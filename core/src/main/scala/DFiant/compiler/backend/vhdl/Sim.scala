@@ -19,22 +19,18 @@ private object Sim {
         assert: DFSimMember.Assert
     )(implicit printer: Printer): Option[String] = {
       import printer.config._
-      val msg = assert.msgRef.seq
-        .map {
-          case Left(v) =>
-            val valueStr = Value.ref(v.get)
-            v.get match {
-              case DFBits(w) if w % 4 == 0 => s"$FN to_hstring($valueStr)"
-              case value =>
-                value match {
-                  case DFBits(_) => s"$TP std_logic_vector'image($valueStr)"
-                  case DFUInt(_) => s"$TP integer'image(to_integer($valueStr))"
-                  case DFSInt(_) => s"$TP integer'image(to_integer($valueStr))"
-                  case DFBool()  => s"$TP boolean'image($valueStr)"
-                  case DFBit()   => s"$TP std_logic'image($valueStr)"
-                  case DFEnum(enumType) =>
-                    s"${EnumTypeDcl.tostrFuncName(enumType)}($valueStr)"
-                }
+      val msg = assert.msgRef.seq.map {
+        case Left(v) =>
+          val valueStr = Value.ref(v.get)
+          v.get match {
+            case DFBits(w) if w % 4 == 0 => s"$FN to_hstring($valueStr)"
+            case value => value match {
+              case DFBits(_) => s"$TP std_logic_vector'image($valueStr)"
+              case DFUInt(_) => s"$TP integer'image(to_integer($valueStr))"
+              case DFSInt(_) => s"$TP integer'image(to_integer($valueStr))"
+              case DFBool() => s"$TP boolean'image($valueStr)"
+              case DFBit() => s"$TP std_logic'image($valueStr)"
+              case DFEnum(entries) => s"${EnumEntriesDcl.tostrFuncName(entries)}($valueStr)"
             }
           case Right(s) => s""""$s""""
         }
