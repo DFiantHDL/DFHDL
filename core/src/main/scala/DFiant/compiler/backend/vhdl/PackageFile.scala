@@ -37,11 +37,11 @@ object PackageFile {
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_pkg"
 
   private def enumDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl(e)).mkString("\n")
+    printer.getSet.designDB.getGlobalEnumEntries.map(e => EnumEntriesDcl(e)).mkString("\n")
   private def arrTypeDcl(implicit printer: Printer) : String =
     printer.getSet.designDB.getGlobalArrTypes.map(e => ArrayTypeDcl(e)).mkString("\n")
   private def enumBodyDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalEnumTypes.map(e => EnumTypeDcl.body(e)).mkString("\n")
+    printer.getSet.designDB.getGlobalEnumEntries.map(e => EnumEntriesDcl.body(e)).mkString("\n")
   private def helperFunctions(implicit printer: Printer) : String = {
     import printer.config._
     val to_hstring =

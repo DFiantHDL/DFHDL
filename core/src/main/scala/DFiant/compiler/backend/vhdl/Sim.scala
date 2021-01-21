@@ -28,7 +28,7 @@ private object Sim {
               case DFSInt(_) => s"$TP integer'image(to_integer($valueStr))"
               case DFBool() => s"$TP boolean'image($valueStr)"
               case DFBit() => s"$TP std_logic'image($valueStr)"
-              case DFEnum(enumType) => s"${EnumTypeDcl.tostrFuncName(enumType)}($valueStr)"
+              case DFEnum(entries) => s"${EnumEntriesDcl.tostrFuncName(entries)}($valueStr)"
             }
           }
         case Right(s) => s""""$s""""

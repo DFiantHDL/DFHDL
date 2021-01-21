@@ -22,10 +22,6 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     implicit printer : CSPrinter
   ) : String = {
     import printer.config._
-    val finalStr = owner match {
-      case _ : DFConditional.Block => "" //local values cannot be annotated as "final"
-      case _ => s"$SC final "
-    }
     val membersCodeString = members.flatMap {
       case m if m.hasLateConstruction != lateConstruction => None
       case mh : DFConditional.MatchHeader => Some(mh.codeString)
@@ -36,7 +32,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
         case None =>
           val body = blockBodyCodeString(d, fixedDB.blockMemberTable(d), lateConstruction = true)
           val bodyBrackets = if (body == "") "{}" else s"{\n${body.delim()}\n}"
-          Some(s"$finalStr$SC val ${d.name} ${ALGN(0)}= $SC new ${d.designType} $bodyBrackets") //TODO: fix
+          Some(s"$SC val ${d.name} ${ALGN(0)}= $SC new ${d.designType} $bodyBrackets") //TODO: fix
       }
       case n : DFNet => n.toRef.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(_)) => None //ignoring inlined block connection
@@ -54,7 +50,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
             else ""
           case None => ""
         }
-        Some(s"$finalStr$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo")
+        Some(s"$SC val ${a.name} ${ALGN(0)}= ${a.codeString}$customTagInfo")
       case _ => None
     }
     membersCodeString.mkString("\n")
@@ -65,13 +61,13 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     case Some(_) => "" //If a block has a compact codestring representation then we don't display its declaration
     case None =>
       import printer.config._
-      val localEnumString = fixedDB.getLocalEnumTypes(block).map(e => e.codeString).mkString("","\n","\n")
+      val localEnumString = fixedDB.getLocalEnumEntries(block).map(e => e.codeString).mkString("","\n","\n")
       val body = localEnumString + blockBodyCodeString(block, members, lateConstruction = false)
       val classStr = block match {
         case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => "DFSimDesign"
         case _ => "DFDesign"
       }
-      s"$DF@df $SC class ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
+      s"$DF@df $SC final $SC class ${block.designType} $SC extends $DF $classStr {\n${body.delim()}\n}"
   }
 
   /**
@@ -83,7 +79,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
       val config : CSPrinter.Config = printConfig
     }
     val uniqueDesigns = mutable.Set.empty[String]
-    val globalEnumString = fixedDB.getGlobalEnumTypes.map(e => e.codeString)
+    val globalEnumString = fixedDB.getGlobalEnumEntries.map(e => e.codeString)
     val codeStringList = fixedDB.blockMemberList.flatMap {
       case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
       case (block : DFDesign.Block, members) if !uniqueDesigns.contains(block.designType) =>

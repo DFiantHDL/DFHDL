@@ -5,20 +5,20 @@ class IDTopSpec extends DFTopSpec {
   val idTop = new IDTop
 
   val expectedCodeString : String =
-    """|@df class ID extends DFDesign {
-       |  final val x   = DFSInt(16) <> IN
-       |  final val y   = DFSInt(16) <> OUT
-       |  y             := x
+    """|@df final class ID extends DFDesign {
+       |  val x   = DFSInt(16) <> IN
+       |  val y   = DFSInt(16) <> OUT
+       |  y       := x
        |}
        |
-       |@df class IDTop extends DFDesign {
-       |  final val x   = DFSInt(16) <> IN
-       |  final val y   = DFSInt(16) <> OUT
-       |  final val id1 = new ID {}
-       |  final val id2 = new ID {}
-       |  id1.x         <> x
-       |  id2.x         <> id1.y
-       |  y             <> id2.y
+       |@df final class IDTop extends DFDesign {
+       |  val x   = DFSInt(16) <> IN
+       |  val y   = DFSInt(16) <> OUT
+       |  val id1 = new ID {}
+       |  val id2 = new ID {}
+       |  id1.x   <> x
+       |  id2.x   <> id1.y
+       |  y       <> id2.y
        |}""".stripMargin
 
   test("codeString generation") {

@@ -74,6 +74,7 @@ final class MoveCBDesigns[D <: DFDesign](c : IRCompilation[D]) {
                 port -> Patch.Replace(outsideCBDsn.portVar, Patch.Replace.Config.ChangeRefOnly, Patch.Replace.RefFilter.Outside(d)),
                 conn -> Patch.Add(insideCBDsn, Patch.Add.Config.ReplaceWithLast())
               )
+            case _ => Nil
           }
           case _ => Nil
         }

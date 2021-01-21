@@ -27,7 +27,7 @@ object DFBlock {
   }
   trait VeryLowPriority {
     implicit def evCtxDefs[T <: String with Singleton](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T], meta: Meta) : Context =
-      new Context(meta, ctx.symbol, ctx.container, ctx.dir, ctx.db, ctx.args)
+      new Context(ctx.meta, ctx.symbol, ctx.container, ctx.dir, ctx.db, ctx.args)
   }
   trait LowPriority extends VeryLowPriority {
     implicit def evCtx[T <: DFDesign](implicit ctx : ContextOf[T], mustBeTheClassOf: MustBeTheClassOf[T]) : Context =

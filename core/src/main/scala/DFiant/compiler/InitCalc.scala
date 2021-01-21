@@ -10,8 +10,9 @@ final class InitCalc[D <: DFDesign](c : IRCompilation[D]) {
   object CalcDep {
     def unapply(member : DFAny.Member) : Option[(List[DFAny.Member], List[Seq[DFAny.Token]] => Seq[DFAny.Token])] = member match {
       case c : DFAny.Const => Some(Nil, _ => Seq(c.token))
+      case f : DFAny.Func1 => Some(List(f.leftArgRef.get), args => f.initFunc(args.head))
       case f : DFAny.Func2 => Some(List(f.leftArgRef.get, f.rightArgRef.get), args => f.initFunc(args.head, args(1)))
-      case asel : DFAny.Alias.ApplySel => Some(Nil, _ => Seq()) //TODO: add support for init
+      case asel : DFAny.ApplySel => Some(Nil, _ => Seq()) //TODO: add support for init
       case a : DFAny.Alias if designDB.getConnectionTo(a).isEmpty => Some(List(a.relValRef.get), args => a.initFunc(args.head))
       case f : DFAny.Fork => Some(List(f.relValRef.get), args => args.head)
       case rv@DFAny.Dcl(_,DFAny.Modifier.MatchRetVar, _, _, _) => Some(Nil, _ => Seq()) //TODO: add support for init
