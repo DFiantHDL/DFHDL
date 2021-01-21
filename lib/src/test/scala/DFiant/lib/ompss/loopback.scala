@@ -13,11 +13,11 @@ import sim.DFSimDesign
   final val io = new loopback_ifc
   import io._
 
-  private val i = DFBits(31) //i.prev
-  private val i_plus1 = DFBits(31) //i+1
-  private val i_plus1_reg = DFBits(31) //(i+1).prev
-  private val d_addr_read_reg = DFBits(32)
-  private val notDataEnd = DFBit()
+  private val i = DFBits(31) <> VAR //i.prev
+  private val i_plus1 = DFBits(31) <> VAR //i+1
+  private val i_plus1_reg = DFBits(31) <> VAR //(i+1).prev
+  private val d_addr_read_reg = DFBits(32) <> VAR
+  private val notDataEnd = DFBit <> VAR
 
   o.AW.len := size
   o.AW.addr := o.offset.resize(32)
@@ -79,8 +79,8 @@ import sim.DFSimDesign
       d.AR.ready := 1
     } ==> waitUntil(d.AR.valid) ==> waitForever()
 
-  private val read_flag = DFBool() init false
-  private val read_first = DFBool() init true
+  private val read_flag = DFBool <> VAR init false
+  private val read_first = DFBool <> VAR init true
   private val read_addr_checker : FSM =
     doUntil(d.AR.ready && d.AR.valid) {
       ifdf (ap.done && !read_flag && !read_first) {
@@ -100,8 +100,8 @@ import sim.DFSimDesign
   def dataFunc(cnt : DFUInt[32])(implicit ctx : DFBlock.Context) : DFBits[32] = {
     cnt.bits
   }
-  private val read_cnt = DFUInt(32) init 0
-  private val read_size = DFUInt(32)
+  private val read_cnt = DFUInt(32) <> VAR init 0
+  private val read_size = DFUInt(32) <> VAR
   private val d_data_fsm : FSM =
     {
       d.R.valid := 0
@@ -123,8 +123,8 @@ import sim.DFSimDesign
       o.AW.ready := 1
     } ==> waitUntil(o.AW.valid) ==> waitForever()
 
-  private val write_cnt = DFUInt(32) init 0
-  private val write_size = DFUInt(32)
+  private val write_cnt = DFUInt(32) <> VAR init 0
+  private val write_size = DFUInt(32) <> VAR
   private val o_data_fsm : FSM =
     {
       o.W.ready := 0
@@ -143,8 +143,8 @@ import sim.DFSimDesign
       o.B.valid := 1
     } ==> o_data_fsm
 
-  private val write_flag = DFBool() init false
-  private val write_first = DFBool() init true
+  private val write_flag = DFBool <> VAR init false
+  private val write_first = DFBool <> VAR init true
   private val write_addr_checker : FSM =
     doUntil(o.AW.ready && o.AW.valid) {
       ifdf (ap.done && !write_flag && !write_first) {

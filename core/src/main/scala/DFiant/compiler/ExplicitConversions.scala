@@ -24,7 +24,7 @@ final class ExplicitConversions[D <: DFDesign](c : IRCompilation[D]) {
     case DFBit() =>
       (dfVal.asValOf[DFBool.Type] === 1).anonymize.member
     case DFBool() =>
-      dfVal.asValOf[DFBool.Type].as(DFBit()).anonymize.member
+      DFAny.Alias.AsIs(DFBool.Type(false), dfVal.asValOf[DFBool.Type]).anonymize.member
   }
 
   import designDB.__getset

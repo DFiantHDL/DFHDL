@@ -2,6 +2,7 @@ package DFiant
 
 import DFiant.FSM.Step
 import DFiant.internals.{GroupByOrderedImplicitImpl, IterableStringsOps}
+import DFDesign.Frontend._
 
 import scala.collection.immutable.ListMap
 sealed abstract class FSM(implicit protected[FSM] val ctx : DFBlock.Context) {
@@ -42,7 +43,7 @@ sealed abstract class FSM(implicit protected[FSM] val ctx : DFBlock.Context) {
     * Exit Block Edge Connection
     *
     * Adds an exit block edge at the last FSM step. The exit block is activated during exit from the step.
-    * The exit block statements must be followed by a connecting edge [[FSM.==>]] to set the destination step.
+    * The exit block statements must be followed by a connecting edge `==>` to set the destination step.
     * @param exitBlock the exit statement block
     * @return a new FSM with a dangling exit block edge
     */
@@ -241,9 +242,9 @@ object FSM {
       implicit val ctx = steps.head.ctx
       import DFDesign.Frontend.__DFEnumTokenEntry
       import ctx.db.getSet
-      object states extends EnumType.Auto()(ctx.meta.setName(s"${fsmName}_states"))
+      object states extends DFEnum.Auto()(ctx.meta.setName(s"${fsmName}_states"))
       val entries : ListMap[Step, states.Entry] = stepNames.map(e => e._1 -> states.Entry()(ctx.meta.setName(e._2)))
-      val state = DFEnum(states) init(entries(steps.head)) setName (s"${fsmName}_state")
+      val state = DFEnum(states) <> VAR init(entries(steps.head)) setName (s"${fsmName}_state")
       mutableDB.setPrevFSMStep(Some(steps.head))
       //injecting state change for goto calls
       steps.foreach(_.injectGotoFunc { ns =>

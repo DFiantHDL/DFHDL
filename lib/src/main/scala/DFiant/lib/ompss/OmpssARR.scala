@@ -2,7 +2,7 @@ package DFiant
 package lib.ompss
 
 import DFiant.internals._
-import singleton.twoface._
+import singleton.twoface.TwoFace
 import singleton.ops._
 
 /**
@@ -40,7 +40,11 @@ import singleton.ops._
     p.ce := 1
     p.address := addr
   }
-
+  @df def setAddress(addr : DFUInt[Int])(implicit di : DummyImplicit) : Unit = partitions.foreach{p =>
+    require(addr.width <= p.address.width)
+    p.ce := 1
+    p.address := addr.resize(p.address.width).bits
+  }
   /**
     * Reads from the selected partition
     * @param partSel the selected partition
@@ -74,8 +78,8 @@ object OmpssARR {
     dir : Either[PortDir, INOUT.type]
   ) extends DFInterface(new PartitionName(idx)) {
     lazy val address  = DFBits(addrWidth) <> OUT
-    lazy val ce       = DFBit()           <> OUT
-    lazy val we       = DFBit()           <> OUT
+    lazy val ce       = DFBit             <> OUT
+    lazy val we       = DFBit             <> OUT
     lazy val d        = DFBits(32)        <> OUT
     lazy val q        = DFBits(32)        <> IN
 

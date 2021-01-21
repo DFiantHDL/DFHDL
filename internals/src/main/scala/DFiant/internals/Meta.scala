@@ -137,6 +137,7 @@ object Meta {
     val anonymous =
       if (enclosingOwnerName.contains("<local") || enclosingOwnerName == "$anonfun") q"DFiant.internals.Meta.Name.Anonymous.On"
       else q"DFiant.internals.Meta.Name.Anonymous.Off"
+//    println(name, anonymous, owner.isMethod, c.enclosingPosition)
     c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
   }
 

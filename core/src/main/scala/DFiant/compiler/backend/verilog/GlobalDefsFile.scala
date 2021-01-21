@@ -14,7 +14,7 @@ object GlobalDefsFile {
   }
   def Name()(implicit printer: Printer) : String = s"${printer.getSet.designDB.top.designType}_defs"
   private def enumDcl(implicit printer: Printer) : String =
-    printer.getSet.designDB.getGlobalEnumTypes.map(e =>
-      s"${EnumTypeDcl.defines(e)}\n${if (printer.inSimulation) EnumTypeDcl(e) else ""}"
+    printer.getSet.designDB.getGlobalEnumEntries.map(e =>
+      s"${EnumEntriesDcl.defines(e)}\n${if (printer.inSimulation) EnumEntriesDcl(e) else ""}"
     ).mkString("\n")
 }
