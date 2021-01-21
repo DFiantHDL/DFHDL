@@ -5,12 +5,12 @@ class SMA_FBSpec extends DFTopSpec {
   val sma_fb = new SMA_FB
 
   val expectedCodeString : String =
-    """|@df class SMA_FB extends DFDesign {
-       |  final val x   = DFSInt(16) <> IN  init 0
-       |  final val y   = DFSInt(16) <> OUT
-       |  final val acc = DFSInt(18) init 0
-       |  acc           := (acc - x.prev(4)) + x
-       |  y             := (acc >> 2).resize(16)
+    """|@df final class SMA_FB extends DFDesign {
+       |  val x   = DFSInt(16) <> IN  init 0
+       |  val y   = DFSInt(16) <> OUT
+       |  val acc = DFSInt(18) <> VAR init 0
+       |  acc     := (acc - x.prev(4)) + x
+       |  y       := (acc >> 2).resize(16)
        |}""".stripMargin
 
   test("codeString generation") {

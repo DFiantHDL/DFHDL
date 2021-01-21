@@ -26,7 +26,7 @@ resolvers in ThisBuild += "scala-integration" at
 
 // PROJECTS
 
-lazy val global = project
+lazy val root = project
   .in(file("."))
   .settings(settings)
   .aggregate(
@@ -64,7 +64,7 @@ lazy val continuum = (project in file("modLibs/continuum"))
 
 lazy val internals = project
   .settings(
-    name := "internals",
+    name := s"$projectName-internals",
     settings,
     macroSettings,
     assemblySettings,
@@ -76,7 +76,7 @@ lazy val internals = project
 
 lazy val core = project
   .settings(
-    name := projectName,
+    name := s"$projectName-core",
     settings,
     macroSettings,
     assemblySettings,
@@ -88,7 +88,7 @@ lazy val core = project
 
 lazy val lib = project
   .settings(
-    name := "lib",
+    name := projectName,
     settings,
     macroSettings,
     assemblySettings,

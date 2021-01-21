@@ -10,53 +10,55 @@ final class Pipelining[D <: DFDesign](c : IRCompilation[D]) {
   import designDB.__getset
 
   abstract class PipeDesign(implicit meta : internals.Meta) extends MetaDesign() {
-    def addPipes(member : DFAny.Member, extraPipe : ExtraPipe) : DFAny.Member =
-      if (extraPipe.extraStages > 0) member.asVal.pipe[Int](extraPipe.extraStages).anonymize
+    def addPipes(member : DFAny.Member, extraStages : Int) : DFAny.Member =
+      if (extraStages > 0) member.asVal.pipe[Int](extraStages).anonymize
       else member
 
-    def addPipes(member : DFAny.Member, extraPipes : List[ExtraPipe]) : DFAny.Member = extraPipes match {
-      case head :: Nil => addPipes(member, head)
-      case Nil => member
-      case _  if !member.isAnonymous =>
-        val dfVal = member.asVal
-        var relBitHigh = member.width - 1
-        val pipedParts = extraPipes.map{ep =>
-          val relBitLow = relBitHigh - ep.width + 1
-          val relBits = dfVal.bitsWL(ep.width, relBitLow).anonymize
-          relBitHigh = relBitLow - 1
-          addPipes(relBits, ep)
-        }
-        val piped = pipedParts.map(p => p.asValOf[DFBits.Type[Int]]).reduce(_ ++ _).anonymize
-        member.dfType match {
-          case DFBits.Type(_) => piped
-          case _ => piped.as(DFAny.NewVar(member.dfType)).anonymize
-        }
-    }
+//    def addPipes(member : DFAny.Member, joinedPath : PipelineInfo.Join) : DFAny.Member = joinedPath.extraInputPipe match {
+//      case head :: Nil => addPipes(member, head)
+//      case Nil => member
+//      case extraPipes if !member.isAnonymous =>
+//        val dfVal = member.asVal
+//        var relBitHigh = member.width - 1
+//        val pipedParts = extraPipes.map{ep =>
+//          val relBitLow = relBitHigh - ep.width + 1
+//          val relBits = dfVal.bitsWL(ep.width, relBitLow).anonymize
+//          relBitHigh = relBitLow - 1
+//          addPipes(relBits, ep)
+//        }
+//        val piped = pipedParts.map(p => p.asValOf[DFBits.Type[Int]]).reduce(_ ++ _).anonymize
+//        member.dfType match {
+//          case DFBits.Type(_) => piped
+//          case _ => piped.as(member.dfType).anonymize
+//        }
+//      case _ => ???
+//    }
   }
 
   private def addPipelines(
     pipelineMethod : PipelineMethod, pipeDelayEstimator: PipeDelayEstimator = DefaultPipeDelayEstimator
   ) : IRCompilation[D] = {
     val pipeDelayMap = designDB.evaluate(new PipelineEvaluator(pipelineMethod, pipeDelayEstimator))
+    val manualPipeFuncSet = pipeDelayMap.view.keys.collect {
+      case SourceValue(DFAny.Alias.Prev.Unref(_,func : DFAny.Func2,_,DFAny.Alias.Prev.Pipe,_,_), _) => func
+    }.toSet
     val patchList = pipeDelayMap.flatMap {
-      case (SourceValue.Func2(dfVal), PipelineInfo.Func2(width, leftExtraPipes, rightExtraPipes, internalExtraPipe, _, _)) =>
-        assert(dfVal.width == width)
-        if (leftExtraPipes.pipeRequired || rightExtraPipes.pipeRequired || internalExtraPipe > 0) {
+      case (SourceValue(func : DFAny.Func2, _), funcInfo : PipelineInfo.Func2)
+        if !manualPipeFuncSet.contains(func) && funcInfo.pipeRequired =>
+        assert(func.width == funcInfo.width)
 //          println(leftExtraPipes, rightExtraPipes, internalExtraPipe)
-          val leftArg = dfVal.leftArgRef.get
-          val rightArg = dfVal.rightArgRef.get
-          val dsn = new PipeDesign() {
-            final val updatedLeftArg = addPipes(leftArg, leftExtraPipes)
-            final val updatedRightArg = addPipes(rightArg, rightExtraPipes)
-            final val updatedFunc =
-              DFAny.Func2.forced(
-                dfVal.dfType, updatedLeftArg, dfVal.op, updatedRightArg
-              )(dfVal.tokenFunc).anonymize
-            addPipes(updatedFunc, List(ExtraPipe(updatedFunc.width, internalExtraPipe))).setTags(_ => dfVal.tags)
-          }
-          Some(dfVal -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast()))
+        val leftArg = func.leftArgRef.get
+        val rightArg = func.rightArgRef.get
+        val dsn = new PipeDesign() {
+          final val updatedLeftArg = addPipes(leftArg, funcInfo.leftExtraPipe.extraStages)
+          final val updatedRightArg = addPipes(rightArg, funcInfo.rightExtraPipe.extraStages)
+          final val updatedFunc =
+            DFAny.Func2.forced(
+              func.dfType, updatedLeftArg, func.op, updatedRightArg
+            )(func.tokenFunc).anonymize
+          addPipes(updatedFunc, funcInfo.extraStages).setTags(_ => func.tags)
         }
-        else None
+        Some(func -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast()))
       case _ => None
     }
     c.newStage(designDB.patch(patchList))

@@ -66,6 +66,8 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
   final def isOneLevelBelow(that : DFMember)(implicit getSet : MemberGetSet) : Boolean =
     this match {
       case _ : DFDesign.Block.Top => false
+      case _ : DFDesign.Block => getOwnerDesign isSameOwnerDesignAs that
+      case _ if getOwnerDesign.isTop => false
       case _ => getOwnerDesign isSameOwnerDesignAs that
     }
   //true if and only if the member is outside the design at any level
@@ -136,6 +138,7 @@ object DFMember {
   object Tags {
     implicit def fromMeta(meta : Meta) : Tags = Tags(meta, keep = false, Map())
   }
+  final case class NameTag(name : String) extends DFMember.CustomTagOf[DFMember]
 
   trait Context {
     val meta : Meta

@@ -16,7 +16,7 @@ object TopLevel {
     val isTop =
       topOwner.isClass && topOwner.asClass.baseClasses.contains(symbolOf[App]) || //Top owner is the main object
         topOwner.name.toString == "$read" || //Top owner is REPL console
-        topOwner.name.toString == "cmd1" //ammonite console
+        topOwner.fullName.startsWith("ammonite.") //ammonite console
 
     if (isTop) q"new DFiant.internals.TopLevel"
     else c.abort(c.enclosingPosition, "Not a top-level")

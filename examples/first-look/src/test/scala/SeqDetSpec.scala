@@ -5,36 +5,36 @@ class SeqDetSpec extends DFTopSpec {
   val seqDet = new SeqDet
 
   val expectedCodeString : String =
-    """|@df class SeqDet extends DFDesign {
-       |  object fsm_states extends EnumType.Auto {
+    """|@df final class SeqDet extends DFDesign {
+       |  object fsm_states extends DFEnum.Auto {
        |    val S0,S1,S10,S100,S1001 = Entry()
        |  }
-       |  final val seqIn     = DFBit() <> IN
-       |  final val detOut    = DFBit() <> OUT
-       |  final val fsm_state = DFEnum(fsm_states) init fsm_states.S0
+       |  val seqIn     = DFBit      <> IN
+       |  val detOut    = DFBit      <> OUT
+       |  val fsm_state = fsm_states <> VAR init fsm_states.S0
        |  matchdf(fsm_state)
        |  .casedf(fsm_states.S0) {
-       |    detOut            := 0
+       |    detOut      := 0
        |    ifdf(seqIn) {fsm_state := fsm_states.S1}
        |    .elsedf {fsm_state := fsm_states.S0}
        |  }
        |  .casedf(fsm_states.S1) {
-       |    detOut            := 0
+       |    detOut      := 0
        |    ifdf(seqIn) {fsm_state := fsm_states.S1}
        |    .elsedf {fsm_state := fsm_states.S10}
        |  }
        |  .casedf(fsm_states.S10) {
-       |    detOut            := 0
+       |    detOut      := 0
        |    ifdf(seqIn) {fsm_state := fsm_states.S1}
        |    .elsedf {fsm_state := fsm_states.S100}
        |  }
        |  .casedf(fsm_states.S100) {
-       |    detOut            := 0
+       |    detOut      := 0
        |    ifdf(seqIn) {fsm_state := fsm_states.S1001}
        |    .elsedf {fsm_state := fsm_states.S0}
        |  }
        |  .casedf(fsm_states.S1001) {
-       |    detOut            := 1
+       |    detOut      := 1
        |    ifdf(seqIn) {fsm_state := fsm_states.S1}
        |    .elsedf {fsm_state := fsm_states.S10}
        |  }

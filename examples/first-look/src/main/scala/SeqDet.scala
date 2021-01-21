@@ -1,8 +1,8 @@
 import DFiant._
 
 @df class SeqDet extends DFDesign {
-  val seqIn  = DFBit() <> IN
-  val detOut = DFBit() <> OUT
+  val seqIn  = DFBit <> IN
+  val detOut = DFBit <> OUT
   @df def detStep(
     out : Int, trueNS : => FSM, falseNS : => FSM
   ) : FSM = FSM {

@@ -20,9 +20,8 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match {
       case DFAny.Alias.AsIs(_,_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
-      case DFAny.Alias.Invert(_,rv,_,_) => consumeFrom(rv.get, relWidth, relBitLow, assignMap, currentSet)
       case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => consumeFrom(rv.get, rw, relBitLow + rbl, assignMap, currentSet)
-      case DFAny.Alias.ApplySel(_,_,rv,idx,_,_) =>
+      case DFAny.ApplySel(_,_,rv,idx,_,_) =>
         //For simplification, consuming the entirety of selection index and array
         val rvSet = consumeFrom(rv.get, assignMap, currentSet)
         val idxSet = consumeFrom(idx.get, assignMap, currentSet)
@@ -50,9 +49,8 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match {
       case DFAny.Alias.AsIs(_,_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
-      case DFAny.Alias.Invert(_,rv,_,_) => assignTo(rv.get, relWidth, relBitLow, assignMap)
       case DFAny.Alias.BitsWL(_,_,rv,rw,rbl,_,_) => assignTo(rv.get, relWidth, rbl + relBitLow, assignMap)
-      case DFAny.Alias.ApplySel(_,_,rv,_,_,_) =>
+      case DFAny.ApplySel(_,_,rv,_,_,_) =>
         //for simplification, assigning the entirety of the array
         assignTo(rv.get, assignMap)
       case x => assignMap.assignTo(x, access)
@@ -91,6 +89,8 @@ final class ExplicitPrev[D <: DFDesign](c : IRCompilation[D]) {
         val (updatedSet, updatedScopeMap) : (Set[DFAny.Member], Map[DFAny.Member, AssignedScope]) = r match {
           case net : DFNet =>
             (consumeFrom(net.fromRef.get, scopeMap, currentSet), assignTo(net.toRef.get, scopeMap))
+          case func : DFAny.Func1 =>
+            (consumeFrom(func.leftArgRef.get, scopeMap, currentSet), scopeMap)
           case func : DFAny.Func2 =>
             val left = consumeFrom(func.leftArgRef.get, scopeMap, currentSet)
             val right = consumeFrom(func.rightArgRef.get, scopeMap, currentSet)

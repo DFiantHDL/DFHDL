@@ -7,10 +7,10 @@ class IDSpec extends DFTopSpec {
   val id = new ID
 
   val expectedCodeString : String =
-    """|@df class ID extends DFDesign {
-       |  final val x = DFSInt(16) <> IN
-       |  final val y = DFSInt(16) <> OUT
-       |  y           := x
+    """|@df final class ID extends DFDesign {
+       |  val x = DFSInt(16) <> IN
+       |  val y = DFSInt(16) <> OUT
+       |  y     := x
        |}""".stripMargin
 
   test("codeString generation") {

@@ -58,7 +58,7 @@ private object Sim {
         case Left(v) =>
           val vStr = Value.ref(v)
           v.get match {
-            case DFEnum(enumType) => s"${EnumTypeDcl.tostrFuncName(enumType)}($vStr)"
+            case DFEnum(entries) => s"${EnumEntriesDcl.tostrFuncName(entries)}($vStr)"
             case _ => vStr
           }
       }.mkString(", ")

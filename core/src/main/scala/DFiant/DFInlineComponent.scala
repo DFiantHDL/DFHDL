@@ -33,7 +33,7 @@ final case class EdgeDetect(bit : DFBit, edge : EdgeDetect.Edge)(
   implicit ctx : ContextOf[EdgeDetect]
 ) extends DFInlineComponent[DFBool.Type](DFBool.Type(logical = true)) {
   lazy val rep : DFInlineComponent.Rep = EdgeDetect.Rep(bit, edge)
-  private val boolIn = DFBit() <> IN
+  private val boolIn = DFBit <> IN
   edge match {
     case Edge.Falling => outPort <> (!boolIn && boolIn.prev)
     case Edge.Rising => outPort <> (boolIn && !boolIn.prev)

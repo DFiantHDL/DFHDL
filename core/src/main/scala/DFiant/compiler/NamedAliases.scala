@@ -17,7 +17,7 @@ final class NamedAliases[D <: DFDesign](c : IRCompilation[D]) {
     }.filter {
       case _ : DFAny.Const => false //ignore constants
       case _ : DFAny.Alias.Prev => false  //previous values will get proper names in another stage
-      case _ : DFAny.Alias.ApplySel => false //ignore apply sel
+      case _ : DFAny.ApplySel => false //ignore apply sel
       case _ => true
     }
     //we force set the underlying original name before it was anonymized

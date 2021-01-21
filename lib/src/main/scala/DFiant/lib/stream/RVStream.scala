@@ -13,7 +13,6 @@ abstract class RVStream(streamDir: StreamDir, nameFlatten: DFOwner.NameFlatten =
     }
     case FLOW => VAR
   }
-  final val valid       = DFBit() <> SourceDir(OUT) init false
-  final val ready       = DFBit() <> SourceDir(IN)  init false
-  SET_DEFAULT_DIR <> SourceDir(OUT)
-}
+  final val valid       = DFBit <> SourceDir(OUT) init false
+  final val ready       = DFBit <> SourceDir(IN)  init false
+  DEFAULT_DIR <> SourceDir(OUT)}

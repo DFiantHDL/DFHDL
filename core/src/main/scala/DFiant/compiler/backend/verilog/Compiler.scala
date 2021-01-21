@@ -59,7 +59,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         //For enumeration only, we check the bits-width exhaustively coverage, since RTL enumeration
         //is more limited than the DFiant enumeration coverage check. In Verilog, all enumerations are
         //manually encoded, so bits-width coverage is a must.
-        case DFEnum(enumType) if BigInt.maxUnsignedFromWidth(enumType.width) > enumType.entries.size => true
+        case DFEnum(entries) if BigInt.maxUnsignedFromWidth(entries.width) > entries.all.size => true
         //Non-enumeration exhaustively coverage is already handled in the ExplicitPrev stage
         case _ => false
       }
@@ -74,6 +74,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       c.dropUnreferenced
        .fixAnonymous
        .flattenNames
+       .flattenStruct
        .moveCBDesigns
 //       .controlDesigns
        .orderMembers(OrderMembers.Order.LazyConnectionLast)
@@ -118,7 +119,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
         }
         val enumInstances =
           if (printer.inSimulation) members.collect {
-            case DFEnum(enumType) => enumType
+            case DFEnum(entries) => entries
           }.distinct.map(e => EnumInstance(e))
           else Nil
         val clkrstPorts = if (design.isTop && printer.inSimulation)
@@ -184,12 +185,12 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
           case Emitter(emitStr) => emitStr
         }.mkString("\n")
         val syncProcess = AlwaysBlock(syncSensitivityList, syncStatements)
-        val localEnumTypes = designDB.getLocalEnumTypes(design)
-        val enumDefines = localEnumTypes.map(e => EnumTypeDcl.defines(e)).toList
+        val localEnumEntries = designDB.getLocalEnumEntries(design)
+        val enumDefines = localEnumEntries.map(e => EnumEntriesDcl.defines(e)).toList
         val enumModuleDcls =
-          if (printer.inSimulation) localEnumTypes.map(e =>
+          if (printer.inSimulation) localEnumEntries.map(e =>
             s"""/* verilator lint_off DECLFILENAME */
-               |${EnumTypeDcl(e)}""".stripMargin
+               |${EnumEntriesDcl(e)}""".stripMargin
           ).toList
           else Nil
         val declarations =
