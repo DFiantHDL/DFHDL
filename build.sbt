@@ -134,7 +134,7 @@ lazy val dependencies =
     private val scalaLoggingV   = "3.7.2"
     private val typesafeConfigV = "1.3.1"
     private val pureconfigV     = "0.8.0"
-    private val akkaV           = "2.5.32"
+    private val akkaV           = "2.6.10"
     private val singletonOpsV   = "0.5.2"
     private val shapelessV      = "2.3.3"
     private val scodecV         = "1.1.12"
@@ -144,7 +144,7 @@ lazy val dependencies =
     private val macroCompatV    = "1.1.1"
     private val ammoniteV       = "2.3.8"
     private val oscarV          = "4.1.0-SNAPSHOT"
-    private val munitV          = "0.7.19"
+    private val munitV          = "0.7.20"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
