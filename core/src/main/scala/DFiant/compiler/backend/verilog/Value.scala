@@ -88,7 +88,7 @@ private object Value {
             case _ => s"$$$FN unsigned($relValStr)"
           }
         case DFUInt.Type(_) | DFBits.Type(_) if dfType.width < relVal.width =>
-          s"$relValStr[${dfType.width}:0]"
+          s"$relValStr[${dfType.width-1}:0]"
         case DFUInt.Type(_) | DFBits.Type(_) if dfType.width > relVal.width =>
           val extensionWidth = dfType.width - relVal.width
           s"{$extensionWidth'b0, $relValStr[${relVal.width-1}:0]}"

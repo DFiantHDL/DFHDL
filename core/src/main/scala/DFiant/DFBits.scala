@@ -973,9 +973,9 @@ object DFBits extends DFAny.Companion {
       def create[LW, RW](left : DFBits[LW], right : DFUInt[RW])(
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : SmallShift.CheckedShell[LW, RW]
+//        checkLWvRW : SmallShift.CheckedShell[LW, RW]
       ) : DFBits[LW] = {
-        checkLWvRW.unsafeCheck(left.width, right.width)
+//        checkLWvRW.unsafeCheck(left.width, right.width)
 
         val out = left.dfType
         val func : (left.TToken, right.TToken) => out.TToken = op match {

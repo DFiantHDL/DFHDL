@@ -995,9 +995,9 @@ object DFDecimal extends DFAny.Companion {
       def create[LS, LW, LF, RW](left : DFDecimal[LS, LW, LF], right : DFUInt[RW])(
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : SmallShift.CheckedShell[LW, RW]
+//        checkLWvRW : SmallShift.CheckedShell[LW, RW]
       ) : DFDecimal[LS, LW, LF] = {
-        checkLWvRW.unsafeCheck(left.width, right.width)
+//        checkLWvRW.unsafeCheck(left.width, right.width)
 
         val out = left.dfType
         val func : (left.TToken, right.TToken) => out.TToken = op match {
