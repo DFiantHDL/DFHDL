@@ -72,6 +72,7 @@ markdown_extensions:
     - toc:
         # See https://github.com/facelessuser/pymdown-extensions/issues/609
         permalink: "\U0001F517"
+    - abbr
     - admonition
     - pymdownx.snippets:
         check_paths: true

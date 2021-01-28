@@ -1,15 +1,18 @@
+--8<-- "docs/include/abbr.md"
+
 # DFiant: First Look
 
 Your first encounter with the DFiant syntax, semantics and language features
 
 ---
 
-In this section we provide simple examples to demonstrate various DFiant syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the <u>Getting Started</u> chapter of this documentation. 
+In this section we provide simple examples to demonstrate various DFiant syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the [Getting Started](/getting-started/) chapter of this documentation. 
 
 ## Main Feature Overview
 
-* Target and timing agnostic dataflow hardware description
-* Strong bit-accurate type-safety
+* **Concise** and simple syntax
+* Write **portable** code: Target and timing agnostic dataflow hardware description
+* Strong **bit-accurate type-safety**
 * Simplified port connections
 * Automatic latency path balancing
 * Automatic/manual pipelining
@@ -24,6 +27,7 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
   <img src="../first-look/id.png"><br>
   <b>Fig. 1a: Functional drawing of the dataflow design 'ID' with an input port 'x' and an output port 'y'</b><br>
 </p>
+
 
 
 === "ID.scala"
@@ -61,34 +65,37 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
 </p>
 
 
-The Scala code in Fig. 1b describes a program that runs the DFiant compiler on an identity function dataflow design, `ID`. Since DFiant is a Scala library some if its compilation process is done statically via the Scala compiler and the rest during the Scala runtime execution. 
+The Scala code in Fig. 1b describes our ID design as a Scala class. To compile this further to RTL or simulate it we need to create a program that instantiates the class and invokes additional commands. See the [getting started](/getting-started/) guide for further details. 
 
-!!! summary "Writing a DFiant compilation program – easy as 1-2-3!"
+!!! summary "Defining a new dataflow design"
 
-	1. `#!scala import DFiant._` to import all the required namespace fields
-	2. `#!scala trait _design_name_ extends DFDesign {}` to define your dataflow design. Populate your design with the required dataflow functionality.
-	3. `#!scala object _program_name_ extends DFApp.VHDLCompiler[_design_name_]` to create your compilation program entry point.
+	1. `#!scala import DFiant._` once per source file.
+	2. `#!scala @df class _design_name_ extends DFDesign {}` to define your dataflow design. Populate your design with the required dataflow functionality.
 
 ??? info "ID.scala line-by-line breakdown"
-	* **Line 1**: This `#!scala import` statement summons all the DFiant classes, types and objects into the current scope. This is a must in every DFiant codebase.
 
-	* **Lines 3-7**: This `ID` Scala `#!scala trait` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. The reason why this is a `#!scala trait` and not a `#!scala class` is discussed [later]() in this documentation. Currently, the *rule of thumb* to describe dataflow designs is to use traits that extend `DFDesign`.
+	* **Line 1**: This `#!scala import` statement summons all the DFiant classes, types and objects into the current scope. This is a must for every dataflow design source file.
 	
-		* **Lines 4-5**: Here we construct the input port `x` and output port `y`.Both were set as a 16-bit signed integer dataflow variable via the `DFSInt[W]` constructor, where `W` is a width **type** argument that can accept any positive integer literal. It is also possible to use a width **term** argument via`DFSInt(width)`. DFiant also support various types such as `DFBits`, `DFUInt`, and `DFBool`. All these dataflow variable construction options and more are discussed [later](/getting-started/) in this documentation. <br />The syntax `#!scala val _name_ = _dataflow_variable_constructor_ <> _direction_` is used to construct a port and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
+	* **Lines 3-7**: The `ID` Scala `#!scala class` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. In addition, we also need to annotate the class with the `@df` dataflow context annotation. This annotation provides an `#!scala implicit` context that is required for the DFiant compilation. In case this annotation is missing, you will get a [missing context](/user-guide/errors/#missing-context) error. Note: currently in Scala 2.xx we populate a class within braces `{}`. For those of you who dislike braces, a braceless syntax is expected to be available in Scala 3, where DFiant will migrate to in the future. 
 	
-		* **Line 6**: The assignment operator `:=` set the dataflow output port to receive input port values as they are.
+		* **Lines 4-5**: Here we construct the input port `x` and output port `y`. Both were set as a 16-bit signed integer dataflow variable via the `DFSInt(width)` constructor, where `width` is any positive integer. DFiant also support various types such as `DFBits`, `DFUInt`, and `DFBool`. All these dataflow variable construction options and more are discussed [later](/user-guide/type-system) in this documentation. <br />The syntax `#!scala val _name_ = _dataflow_type_constructor_ <> _direction_` is used to construct a port and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
 	
-	* **Line 9**: This object is an extension of a [Scala `App` trait](https://www.scala-lang.org/api/current/scala/App.html) that creates a `main` entry point for the DFiant compilation program. By inheriting `DFApp.VHDLCompiler[_top_]` we also generate the top design and execute the compilation and commitment to VHDL files. 
+		* **Line 6**: The assignment operator `:=` sets the dataflow output port to consume all input port tokens as they are.
 
-??? info "Generated VHDL files observations"
-	* The id.vhdl file is readable and maintains the names set in the DFiant design. The generated files follow various writing conventions such as capitalized port names and proper code alignment.
-	* The id_pkg.vhdl is a package file that is shared between all VHDL files generated by DFiant and  contains common conversion functions that may be required. Additionally it may contain other definitions like enumeration types.
+??? info "Generated RTL files observations"
+	* The ID.vhdl/ID.v files are readable and maintain the names set in the DFiant design. The generated files follow various writing conventions such as lowercase keywords and proper code alignment.
+	* The ID_pkg.vhdl is a package file that is shared between all VHDL files generated by DFiant and  contains common conversion functions that may be required. Additionally it may contain other definitions like enumeration types.
 
 ---
 
 ## Hierarchy and Connection Example
 
-![idtop](idtop.png)
+One of the most qualifying characteristics of hardware design is the composition of modules/entities via hierarchies and IO port connections. DFiant is no exception and easily enables dataflow design compositions. Fig. 2a demonstrates such a composition that creates yet another identity function, but this time as a chained composition of two identity functions. The top-level design `IDTop` introduces two instances of `ID` we saw in the previous example and connects them accordingly.
+
+<p align="center">
+  <img src="../first-look/idtop.png"><br>
+  <b>Fig. 2a: Functional drawing of the dataflow design 'IDTop' with an input port 'x' and an output port 'y'</b><br>
+</p>
 
 === "IDTop.scala"
 
@@ -107,6 +114,9 @@ The Scala code in Fig. 1b describes a program that runs the DFiant compiler on a
     ``` verilog
     --8<-- "examples/first-look/src/test/resources/idTop/verilog2001/IDTop.v"
     ```
+<p align="center">
+  <b>Fig. 2b: A DFiant implementation of IDTop as a toplevel design and the generated VHDL/Verilog files</b><br>
+</p>
 
 ---
 
