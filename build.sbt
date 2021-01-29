@@ -144,7 +144,7 @@ lazy val dependencies =
     private val macroCompatV    = "1.1.1"
     private val ammoniteV       = "2.3.8"
     private val oscarV          = "4.1.0-SNAPSHOT"
-    private val munitV          = "0.7.20"
+    private val munitV          = "0.7.21"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
