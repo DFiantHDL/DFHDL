@@ -95,7 +95,7 @@ lazy val lib = project
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    core
+    core % "test->test;compile->compile"
   )
 
 //////////////////////////////////////////////////////////////////////////////////////

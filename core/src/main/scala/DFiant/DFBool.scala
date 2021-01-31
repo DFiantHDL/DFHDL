@@ -21,9 +21,11 @@ object DFBool extends DFAny.Companion {
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       if (fromToken.isBubble) Token.bubble(logical = false)
       else Token(logical = false, fromToken.valueBits(0))
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case DFBool() =>
-      case DFBit() =>
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case DFBool() =>
+        case DFBit() =>
+      }
     }
     override def toString: String = if (logical) "DFBool" else "DFBit"
     def codeString(implicit printer: CSPrinter) : String =
@@ -326,7 +328,7 @@ object DFBool extends DFAny.Companion {
     object Builder {
       def create[L, R](properLR : (L, R) => (DFBool, DFBool))(
         implicit ctx : DFAny.Context
-      ) : Builder[L, R] = (leftL, rightR) => {
+      ) : Builder[L, R] = (leftL, rightR) => trydf {
         val (left, right) = properLR(leftL, rightR)
         val logicalResult = left.dfType.logical || right.dfType.logical
         DFAny.Func2(Type(logicalResult), left, op, right)(func)

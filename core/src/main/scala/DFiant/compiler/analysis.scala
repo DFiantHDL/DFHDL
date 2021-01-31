@@ -174,7 +174,7 @@ object analysis {
     def getLeadingChain : List[DFConditional.Block] = getLeadingCBChain(cb, List(cb))
     def isExhaustive : Boolean = cb match {
       case DFConditional.IfElseBlock(None,_,_,_) => true //elsedf block
-      case DFConditional.CaseBlock(_,_,None,_,_) => true //casedf_ block
+      case DFConditional.CaseBlock(_,_,None,_,_) => true //casedf(?) block
       case x : DFConditional.CaseBlock if x.isLastCB =>
         val matchVal = x.matchHeaderRef.matchValRef.get
         val patterns = getPatterns(x, List())

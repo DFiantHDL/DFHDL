@@ -575,7 +575,7 @@ package object DFiant {
     * @param matchConfig To configure whether or not the match allows overlapping cases
     * @return a [[DFConditional.NoRetVal.MatchHeader]] instance that provides access to the additional
     *         [[DFConditional.NoRetVal.HasCaseDF.CaseBlockOps.casedf]] and
-    *         [[DFConditional.NoRetVal.HasCaseDF.CaseBlockOps.casedf_]] conditional branches.
+    *         [[DFConditional.NoRetVal.HasCaseDF.CaseBlockOps.casedf(?)]] conditional branches.
     * @example
     * {{{
     *   val b = DFUInt(8) <> IN
@@ -583,7 +583,7 @@ package object DFiant {
     *   matchdf(c)
     *     .casedf(1 to 10) {c := 1}
     *     .casedf(20 to 22, 27 to 29) {c := 2}
-    *     .casedf_ {c := 3}
+    *     .casedf(?) {c := 3}
     * }}}
     */
   def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
@@ -596,13 +596,13 @@ package object DFiant {
       val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(0)(block(list.head))
       val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf(?){}
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
       val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(DFBits.Token(sel.width.getValue, BigInt(0)))(block(list.head))
       val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1)))
-      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf(?){}
     }
   }
 
@@ -613,9 +613,29 @@ package object DFiant {
       if (list.nonEmpty) {
         val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
         val cases = list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2})
-        if (matchValue.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+        if (matchValue.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf(?){}
       }
     }
+  }
+  ////////////////////////////////////////////////////////////////////////////////////
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Exception handling for DFiant code errors
+  ////////////////////////////////////////////////////////////////////////////////////
+  def errordf(msg : String)(implicit ctx : DFMember.Context) : Nothing = {
+    import scala.io.AnsiColor.{RED, RESET}
+    val pos = ctx.meta.position
+    val fullName =
+      if (ctx.meta.isAnonymous) ctx.owner.getFullName
+      else s"${ctx.owner.getFullName}.${ctx.meta.name}"
+    println(s"${RED}DFiant compilation failed at:\n$pos\nin:\n$fullName\nwith:\n$msg$RESET")
+    sys.exit(1)
+  }
+  def trydf[T](block : => T)(implicit ctx : DFMember.Context) : T = try {
+    block
+  } catch {
+    case e : IllegalArgumentException =>
+      errordf(e.getMessage.replaceFirst("requirement failed: ", ""))
   }
   ////////////////////////////////////////////////////////////////////////////////////
 

@@ -52,7 +52,7 @@ For example:
     o := acc.prev
     matchdf(dsnCtrl)
      .casedf(Control.Op.Disable){acc := acc.prev}
-     .casedf_{}
+     .casedf(?){}
   }
 
   @df class AccumulateSmallerThan10 extends DFDesign {

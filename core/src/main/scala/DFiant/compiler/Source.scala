@@ -40,7 +40,7 @@ final case class SourceValue(member : DFAny.Member, version : SourceVersion) {
             case DFConditional.CaseBlock(_, _, Some(pattern), _, _) =>
               s"$$casedf(${pattern.codeString})"
             case DFConditional.CaseBlock(_, _, None, _, _) =>
-              s"$$casedf_"
+              s"$$casedf(?)"
             case _ => ??? //not possible
           }
         }

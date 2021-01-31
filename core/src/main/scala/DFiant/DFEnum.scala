@@ -40,8 +40,10 @@ object DFEnum extends DFAny.Companion {
     def getBubbleToken: TToken = Token.bubble(entries)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token =
       Token(entries, entries.all(fromToken.valueBits.toBigInt))
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case DFEnum(entries) if (this.entries == entries) =>
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case DFEnum(entries) if (this.entries == entries) =>
+      }
     }
     override def toString: String = s"DFEnum[$entries]"
     def codeString(implicit printer: CSPrinter) : String = entries.refCodeString

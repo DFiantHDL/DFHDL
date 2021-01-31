@@ -23,8 +23,10 @@ object DFVector extends DFAny.Companion {
       val cells = for (i <- 0 until cellNum) yield fromToken.bitsWL(cellType.width, i * cellType.width)
       Token(cellType, cells.toVector)
     }
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case r @ DFVector(cellType, cellNum) if cellType == this.cellType && cellNum == this.cellNum.getValue =>
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case r @ DFVector(cellType, cellNum) if cellType == this.cellType && cellNum == this.cellNum.getValue =>
+      }
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -141,7 +143,7 @@ object DFVector extends DFAny.Companion {
       protected implicit class __DFVectorAliases[LT <: DFAny.Type, LN, Mod <: DFAny.Modifier.Val](val left : DFAny.Value[Type[LT, LN], Mod]) {
         def apply[I, W](idx : Exact[I])(
           implicit ctx : DFAny.Context, w : BitsWidthOf.IntAux[LN-1, W], op : DFAny.`Op:=,<>`.Builder[DFUInt.Type[W], I]
-        ) : DFAny.Value[LT, Mod] = DFAny.ApplySel.fromArray(left, op(DFUInt.Type(w(left.dfType.cellNum-1)), idx))
+        ) : DFAny.Value[LT, Mod] = trydf{DFAny.ApplySel.fromArray(left, op(DFUInt.Type(w(left.dfType.cellNum-1)), idx))}
       }
     }
     object Frontend {

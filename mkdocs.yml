@@ -98,6 +98,8 @@ markdown_extensions:
 extra_css:
     - css/vs.css
     - css/extra.css
+    - css/dfiant-admonition.css
+    - css/rtl-admonition.css
 
 
 plugins:

@@ -120,6 +120,9 @@ object DFAny {
       val dfType : Type = tc(t)
       def <>[D <: DclDir](dir : D)(implicit ctx : DFAny.Context) : UninitializedDcl[Type] = dfType <> dir
       def <>(defaultDir : DEFAULT_DIR)(implicit ctx : DFAny.Context) : UninitializedDcl[Type] = dfType <> defaultDir.get
+      def :=(token : DFAny.Token.ToFit.Conv[Type, dfType.TToken])(
+        implicit ctx : DFAny.Context
+      ) : DFAny.Of[Type] = trydf{DFAny.Const(dfType, token(dfType))}
       def ifdf[C, B](cond : Exact[C])(block : => Exact[B])(
         implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
       ) : DFConditional.WithRetVal.IfElseBlock[Type, true] = {
@@ -240,15 +243,14 @@ object DFAny {
       try {
         c.typecheck(checkedTree.duplicate)
       } catch {
-        case e : TypecheckException =>
-          e.getMessage match {
-            case msgPattern1(valueStr,_,suggestion) =>
-              c.abort(c.enclosingPosition, s"value $valueStr is not a member of ${c.prefix.tree.tpe}\ndid you mean ${suggestion}?")
-            case msgPattern2(valueStr,_) =>
-              c.abort(c.enclosingPosition, s"value $valueStr is not a member of ${c.prefix.tree.tpe}")
-            case msg =>
-              c.abort(c.enclosingPosition, msg)
-          }
+        case e : TypecheckException => e.getMessage match {
+          case msgPattern1(valueStr,_,suggestion) =>
+            c.abort(c.enclosingPosition, s"value $valueStr is not a member of ${c.prefix.tree.tpe}\ndid you mean ${suggestion}?")
+          case msgPattern2(valueStr,_) =>
+            c.abort(c.enclosingPosition, s"value $valueStr is not a member of ${c.prefix.tree.tpe}")
+          case msg =>
+            c.abort(c.enclosingPosition, msg)
+        }
       }
       checkedTree
     }
@@ -277,7 +279,7 @@ object DFAny {
         * @return the dataflow bit at the given index
         */
       final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : AsType[DFBool.Type] =
-        DFAny.Alias.BitsWL.bit[Mod](member, relBit.unsafeCheck(width).getValue)
+        trydf{DFAny.Alias.BitsWL.bit[Mod](member, relBit.unsafeCheck(width).getValue)}
 
       /**
         * @return the dataflow variable cast as bits vector
@@ -291,9 +293,10 @@ object DFAny {
 
       final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
         implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-      ) : AsType[DFBits.Type[relWidth.Out]] =
+      ) : AsType[DFBits.Type[relWidth.Out]] = trydf {
         DFAny.Alias.BitsWL[Mod, relWidth.Out](member, relWidth(relBitHigh, relBitLow), relBitLow) tag
           cs"$left.bits(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
+      }
 
       /**
         * Partial Bit Vector Selection between high and low indexes
@@ -307,7 +310,7 @@ object DFAny {
         */
       final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
         implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-      ) : AsType[DFBits.Type[relWidth.Out]] = {
+      ) : AsType[DFBits.Type[relWidth.Out]] = trydf {
         checkHiLow.unsafeCheck(relBitHigh, relBitLow)
         protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
       }
@@ -326,7 +329,7 @@ object DFAny {
         */
       final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
         implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Context
-      ) : AsType[DFBits.Type[W]] = {
+      ) : AsType[DFBits.Type[W]] = trydf {
         checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
         protBitsWL(relWidth, relBitLow.unsafeCheck(width))
       }
@@ -349,7 +352,8 @@ object DFAny {
         *             Must be natural (0 steps create nothing).
         * @return the dataflow history at the chosen step.
         */
-      final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal = protPrev(step)
+      final def prev[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal =
+        trydf{protPrev(step)}
       //////////////////////////////////////////////////////////////////////////
 
       //////////////////////////////////////////////////////////////////////////
@@ -371,7 +375,8 @@ object DFAny {
         *             Must be natural (0 steps create nothing).
         * @return the dataflow variable after extra steps of pipelining.
         */
-      final def pipe[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal = protPipe(step)
+      final def pipe[P](step : Natural.Int.Checked[P])(implicit ctx : DFAny.Context) : AsVal =
+        trydf{protPipe(step)}
       //////////////////////////////////////////////////////////////////////////
 
       //////////////////////////////////////////////////////////////////////////
@@ -380,6 +385,25 @@ object DFAny {
       final def as[F <: DFOpaque.Fields](fields : F)(
         implicit ctx : DFAny.Context, sameType : fields.ActualType =:= Type, w : DFStruct.Fields.WidthOf[F]
       ) : DFAny.Value[DFOpaque.Type[F], Mod] = DFAny.Alias.AsIs(DFStruct.Type(fields), left)
+      //////////////////////////////////////////////////////////////////////////
+
+      //////////////////////////////////////////////////////////////////////////
+      // Assignment
+      //////////////////////////////////////////////////////////////////////////
+      private type ImmutableMsg = "This operation cannot be applied on an immutable value"
+      private type CheckMutable = RequireMsg[ImplicitFound[Mod <:< Modifier.Assignable], ImmutableMsg]
+      def := [RType <: DFAny.Type](right : DFAny.Of[RType])(
+        implicit ctx : DFNet.Context, mutable : CheckMutable, op : left.Arg[DFAny.Of[RType]]
+      ) : Value[Type, Mod] with FSM.Capable = trydf {
+        left.assign(op(left.dfType, right))
+        left.@@[FSM.Capable]
+      }
+      def := [R](right : Exact[R])(
+        implicit ctx : DFNet.Context, mutable : CheckMutable, op : left.Arg[R]
+      ) : Value[Type, Mod] with FSM.Capable = trydf {
+        left.assign(op(left.dfType, right))
+        left.@@[FSM.Capable]
+      }
       //////////////////////////////////////////////////////////////////////////
 
       /**
@@ -513,7 +537,7 @@ object DFAny {
         tokenSummon : DFAny.Token.AsIs.Summon.Aux[Type, V, Type#TToken, DFAny.TokenT[Type#TToken, TypeOut]]
       ) : Aux[Type, V, TypeOut]  = new AsIs[Type, V] {
         type Out = DFAny.Of[TypeOut]
-        def apply(dfType : Type, value : V) : Out = {
+        def apply(dfType : Type, value : V) : Out = trydf {
           val token = tokenSummon(dfType, value)
           Const(token.dfType.asInstanceOf[TypeOut], token.asInstanceOf[TypeOut#TToken])
         }
@@ -555,7 +579,7 @@ object DFAny {
     implicit class InitializableOps[Type <: DFAny.Type, Mod <: DFAny.Modifier](val i : Value[Type, Mod] with Uninitialized) {
       def init[T](tokens : DFAny.Token.ToFit.Conv[Type, i.dfType.TToken]*)(
         implicit ctx : DFAny.Context
-      ) : Value[Type, Mod] = forcedInit(tokens.map(_.apply(i.dfType)))
+      ) : Value[Type, Mod] = trydf{forcedInit(tokens.map(_.apply(i.dfType)))}
 
       private[DFiant] def forcedInit(tokens : Seq[Token])(implicit ctx : DFAny.Context) : Value[Type, Mod] = {
         val newMember = Dcl(i.dfType, i.modifier, Some(tokens), ctx.owner, ctx.meta)
@@ -603,20 +627,20 @@ object DFAny {
   implicit class DclOps1[Type <: DFAny.Type](left : DclOf[Type]) {
     def <>[RType <: DFAny.Type](right: DFAny.Of[RType])(
       implicit ctx: DFNet.Context, op: left.Arg[DFAny.Of[RType]]
-    ): DFNet = left.connect(op(left.dfType, right))
+    ): DFNet = trydf{left.connect(op(left.dfType, right))}
     def <>[R](right: Exact[R])(
       implicit ctx: DFNet.Context, op: left.Arg[R]
-    ): DFNet = left.connect(op(left.dfType, right))
+    ): DFNet = trydf{left.connect(op(left.dfType, right))}
   }
   implicit class DclOps2[L](left : L) {
     def <>[Type <: DFAny.Type](right: DclOf[Type])(
       implicit ctx: DFNet.Context, op: right.Arg[L]
-    ): DFNet = right.connect(op(right.dfType, left))
+    ): DFNet = trydf{right.connect(op(right.dfType, left))}
   }
   implicit class DclOps3[Type <: DFAny.Type](left : Of[Type]) {
     def <>(right: DclOf[Type])(
       implicit ctx: DFNet.Context, op: left.Arg[Of[Type]]
-    ): DFNet = right.connect(op(right.dfType, left))
+    ): DFNet = trydf{right.connect(op(right.dfType, left))}
   }
 
   object Port {
@@ -1240,18 +1264,6 @@ object DFAny {
   implicit class VarOps[Type <: DFAny.Type](left : DFAny.VarOf[Type]) {
     def dontProduce()(implicit ctx : DFAny.Context) : Unit = Dynamic.DontProduce(left)
     final def isNotFull(implicit ctx : DFAny.Context) : DFBool = Dynamic.IsNotFull(left)
-    def := [RType <: DFAny.Type](right : DFAny.Of[RType])(
-      implicit ctx : DFNet.Context, op : left.Arg[DFAny.Of[RType]]
-    ) : DFAny.VarOf[Type] with FSM.Capable = {
-      left.assign(op(left.dfType, right))
-      left.@@[FSM.Capable]
-    }
-    def := [R](right : Exact[R])(
-      implicit ctx : DFNet.Context, op : left.Arg[R]
-    ) : DFAny.VarOf[Type] with FSM.Capable = {
-      left.assign(op(left.dfType, right))
-      left.@@[FSM.Capable]
-    }
   }
 
   object In {
@@ -1631,7 +1643,7 @@ object DFAny {
       (properLR : (L, R) => (DFAny.Of[LType], DFAny.Of[RType]))(
         implicit ctx : DFAny.Context, op : Op
       ) : Builder[L, Op, R] = new Builder[L, Op, R] {
-        def apply(leftL : L, rightR : R) : DFBool = {
+        def apply(leftL : L, rightR : R) : DFBool = trydf {
           val (left, right) = properLR(leftL, rightR)
           val tokenFunc : (Token, Token) => DFBool.Token = op match {
             case Func2.Op.== => _ == _

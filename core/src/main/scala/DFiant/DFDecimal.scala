@@ -114,11 +114,13 @@ object DFDecimal extends DFAny.Companion {
       case (false, _) => s"DFUFix[$magnitudeWidth, $fractionWidth]"
       case (true, _) => s"DFSFix[$magnitudeWidth, $fractionWidth]"
     }
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case r @ DFDecimal(_,_,_) =>
-        import DFDesign.Frontend._
-        val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[S, W, F], DFDecimal[Boolean, Int, Int]]]
-        op(this, r.asValOf[Type[Boolean, Int, Int]])
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case r @ DFDecimal(_,_,_) =>
+          import DFDesign.Frontend._
+          val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[S, W, F], DFDecimal[Boolean, Int, Int]]]
+          op(this, r.asValOf[Type[Boolean, Int, Int]])
+      }
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -571,7 +573,7 @@ object DFDecimal extends DFAny.Companion {
           implicit
           ctx : DFAny.Context,
           resizeCheck : TwoFace.Boolean.Shell3[ResizeCheck, LS, scala.Boolean, RW, scala.Int, LF, scala.Int]
-        ) = {
+        ) = trydf {
           resizeCheck(left.dfType.signed, toWidth, left.dfType.fractionWidth)
           resizeWF(toWidth, left.dfType.fractionWidth)
         }
@@ -580,7 +582,7 @@ object DFDecimal extends DFAny.Companion {
           implicit
           ctx : DFAny.Context,
           resizeCheck : TwoFace.Boolean.Shell3[ResizeCheck, LS, scala.Boolean, RW, scala.Int, RF, scala.Int]
-        ) = {
+        ) = trydf {
           resizeCheck(left.dfType.signed, toWidth, toFractionWidth)
           resizeWF(toWidth, toFractionWidth)
         }
@@ -590,7 +592,7 @@ object DFDecimal extends DFAny.Companion {
           implicit
           ctx : DFAny.Context,
           widthPlus1 : TwoFace.Int.Shell2[+,LW,Int,0,Int]
-        ) : DFDecimal[true, widthPlus1.Out, LF] = {
+        ) : DFDecimal[true, widthPlus1.Out, LF] = trydf {
           val width = widthPlus1(left.width, 1)
           DFAny.Alias.AsIs(Type(true, width, left.dfType.fractionWidth), left.resizeWF(width, left.dfType.fractionWidth))
         }
@@ -665,7 +667,7 @@ object DFDecimal extends DFAny.Companion {
         signMatch : `LS == RS`.CheckedShell[LS, RS],
         fitsWidth : `LW >= RW`.CheckedShell[LW, RW],
         fitsFractionWidth : `LF >= RF`.CheckedShell[LF, RF],
-      ) : Builder[Type[LS, LW, LF], DFDecimal[RS, RW, RF]] = (left, right) => {
+      ) : Builder[Type[LS, LW, LF], DFDecimal[RS, RW, RF]] = (left, right) => trydf {
         signMatch.unsafeCheck(left.signed, right.dfType.signed)
         fitsWidth.unsafeCheck(left.width, right.width)
         fitsFractionWidth.unsafeCheck(left.fractionWidth, right.dfType.fractionWidth)
@@ -722,7 +724,7 @@ object DFDecimal extends DFAny.Companion {
     object Builder {
       def create[L, LS, LW, LF, R, RS, RW, RF](properLR : (L, R) => (DFDecimal[LS, LW, LF], DFDecimal[RS, RW, RF]))(
         implicit ctx : DFAny.Context
-      ) : Builder[L, R] = (leftL, rightR) => {
+      ) : Builder[L, R] = (leftL, rightR) => trydf {
         val (left, right) = properLR(leftL, rightR)
         DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
       }
@@ -817,7 +819,7 @@ object DFDecimal extends DFAny.Companion {
           ctx : DFAny.Context,
           outW : Inference.OutW[LW, RW, OutW],
           outF : Inference.OutF[LF, RF, OutF],
-          doCheck : SafeBoolean[LE],
+          doCheck : SafeBoolean[![LE]],
           checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW],
           checkLFvRF : `LF >= RF`.CheckedExtendable[LF, LE, RF]
         ) : DetailedBuilder[L, LS, LW, LF, LE, R, RS, RW, RF]{type Out = DFDecimal[LS, OutW, OutF]} =
@@ -826,7 +828,7 @@ object DFDecimal extends DFAny.Companion {
             def apply(properLR : (L, R) => (DFDecimal[LS, LW, LF], DFDecimal[RS, RW, RF])) : Builder.Aux[L, LE, R, Out] =
               new Builder[L, LE, R] {
                 type Out = DFDecimal[LS, OutW, OutF]
-                def apply(leftL : L, rightR : R) : Out = {
+                def apply(leftL : L, rightR : R) : Out = trydf {
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   if (doCheck) {
@@ -914,7 +916,7 @@ object DFDecimal extends DFAny.Companion {
           signMatch : `LS == RS`.CheckedShell[LS, RS],
           outW : Inference.OutW[LW, RW, OutW],
           outF : Inference.OutW[LF, RF, OutF],
-          doCheck : SafeBoolean[LE],
+          doCheck : SafeBoolean[![LE]],
           checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW],
           checkLFvRF : `LF >= RF`.CheckedExtendable[LF, LE, RF]
         ) : DetailedBuilder[L, LS, LW, LF, LE, R, RS, RW, RF]{type Out = DFDecimal[LS, OutW, OutF]} =
@@ -923,7 +925,7 @@ object DFDecimal extends DFAny.Companion {
             def apply(properLR : (L, R) => (DFDecimal[LS, LW, LF], DFDecimal[RS, RW, RF])) : Builder.Aux[L, LE, R, Out] =
               new Builder[L, LE, R] {
                 type Out = DFDecimal[LS, OutW, OutF]
-                def apply(leftL : L, rightR : R) : Out = {
+                def apply(leftL : L, rightR : R) : Out = trydf {
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   signMatch.unsafeCheck(left.dfType.signed, right.dfType.signed)

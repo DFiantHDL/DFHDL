@@ -226,8 +226,10 @@ object DFStruct extends DFAny.Companion {
     type TPatternBuilder[LType <: DFAny.Type] = Nothing
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](fields.__width)
     def getBubbleToken : TToken = Token.bubble(fields)
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case DFStruct(fields) if this.fields == fields =>
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case DFStruct(fields) if this.fields == fields =>
+      }
     }
     def codeString(implicit printer : CSPrinter) : String = {
       import printer.config._

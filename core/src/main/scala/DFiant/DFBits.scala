@@ -47,11 +47,13 @@ object DFBits extends DFAny.Companion {
     type TPatternBuilder[LType <: DFAny.Type] = DFBits.Pattern.Builder[LType]
     def getBubbleToken: TToken = Token.bubble(width)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = fromToken
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case r @ DFBits(w) =>
-        import DFDesign.Frontend._
-        val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFBits[Int]]]
-        op(this, r.asValOf[Type[Int]])
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case r @ DFBits(w) =>
+          import DFDesign.Frontend._
+          val op = implicitly[DFAny.`Op:=,<>`.Builder[Type[W], DFBits[Int]]]
+          op(this, r.asValOf[Type[Int]])
+      }
     }
     def valueCodeString(value : BitVector)(implicit printer : CSPrinter) : String = ???
     def valueToBitVector(value : BitVector) : BitVector = value
@@ -565,7 +567,7 @@ object DFBits extends DFAny.Companion {
           * @param toWidth the required target width. Must be positive.
           * @return the resized dataflow bitvector.
           */
-        def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] =
+        def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = trydf {
           left.member match {
             case DFAny.Const(_, token : Token, _, _) =>
               DFAny.Const.forced[Type[RW]](token.resize(toWidth))
@@ -574,6 +576,7 @@ object DFBits extends DFAny.Companion {
               else
                 DFAny.Alias.AsIs(Type(toWidth), left.asValOf[Type[RW]]) tag cs"$left.${CSFunc(_.DF)}resize($toWidth)"
           }
+        }
 
         /**
           * Bit Vector Resizing, on the right (LSbits)
@@ -583,7 +586,7 @@ object DFBits extends DFAny.Companion {
           * @param toWidth the required target width. Must be positive.
           * @return the resized dataflow bitvector.
           */
-        def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = {
+        def resizeRight[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = trydf {
           val ret = if (left.width < toWidth) {
             val zeroWidth = toWidth - left.width
             val zeros = DFAny.Const.forced[Type[Int]](Token.zero(zeroWidth))
@@ -619,7 +622,7 @@ object DFBits extends DFAny.Companion {
           */
         final def as[TT, AT <: DFAny.Type](dfTemplate : TT)(
           implicit tc : TT => AT, ctx : DFAny.Context, equalWidth : AsWidth.CheckedShell[AT#Width, LW]
-        ) : DFAny.Value[AT, Mod] = {
+        ) : DFAny.Value[AT, Mod] = trydf {
           val dfType = tc(dfTemplate)
           equalWidth.unsafeCheck(dfType.width, left.dfType.width)
           DFAny.Alias.AsIs(dfType, left)
@@ -637,8 +640,9 @@ object DFBits extends DFAny.Companion {
           */
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-        ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] =
+        ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] = trydf {
           left.bits(relBitHigh, relBitLow) tag cs"$left(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
+        }
 
         /**
           * Bit Selection
@@ -648,8 +652,9 @@ object DFBits extends DFAny.Companion {
           */
         def apply[I](relBit: BitIndex.Checked[I, left.Width])(
           implicit ctx : DFAny.Context
-        ) : DFAny.Value[DFBool.Type, Mod] =
+        ) : DFAny.Value[DFBool.Type, Mod] = trydf {
           left.bit(relBit) tag cs"$left(${CSFunc(_.LIT)}$relBit)"
+        }
 
         /**
           * @return the most (left) significant dataflow bit
@@ -836,7 +841,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
-      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = (left, right) => {
+      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = (left, right) => trydf {
         checkLWvRW.unsafeCheck(left.width, right.width)
         import DFDesign.Frontend._
         right.asValOf[Type[LW]]
@@ -845,7 +850,7 @@ object DFBits extends DFAny.Companion {
         implicit
         ctx : DFAny.Context,
         checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
-      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = (left, right) => {
+      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = (left, right) => trydf {
         checkLWvRW.unsafeCheck(left.width, right.width)
         import DFDesign.Frontend._
         right.bits.asValOf[Type[LW]]
@@ -904,7 +909,7 @@ object DFBits extends DFAny.Companion {
             def apply(properLR : (L, R) => (DFBits[LW], DFBits[RW])) : Builder.Aux[L, R, Out] =
               new Builder[L, R] {
                 type Out = DFBits[LW]
-                def apply(leftL : L, rightR : R) : Out = {
+                def apply(leftL : L, rightR : R) : Out = trydf {
                   val (left, right) = properLR(leftL, rightR)
                   // Completing runtime checks
                   checkLWvRW.unsafeCheck(left.width, right.width)

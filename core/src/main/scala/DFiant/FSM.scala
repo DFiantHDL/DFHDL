@@ -203,13 +203,15 @@ object FSM {
       currentStep = step
       val savedNS = mutableDB.getNextFSMStep
       mutableDB.setNextFSMStep(nextStep)
-      step.alwaysBlock()
+      trydf {
+        step.alwaysBlock()
+      }(step.ctx)
       mutableDB.setNextFSMStep(savedNS)
       nextStep match {
         //A nextStep connection is allowed if the current step has an explicit nextStep.goto()
         //or if it has no goto calls
         case Some(ns) if !step.getDstSteps.contains(ns) && step.getDstSteps.nonEmpty =>
-          throw new IllegalArgumentException(s"\nFSM step $step has a nextStep `==>` connection without an internal `nextStep.goto`")
+          errordf(s"FSM step $step has a nextStep `==>` connection without an internal `nextStep.goto`")(step.ctx)
         //There is a nextStep connection and no goto calls, so we assume an implicit goto call
         //and add the nextStep as a destination. Later in code we will handle this special case
         //when elaborating the FSM.
