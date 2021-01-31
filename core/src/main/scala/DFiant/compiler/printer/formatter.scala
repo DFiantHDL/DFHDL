@@ -59,7 +59,7 @@ object formatter {
           case _ =>
         }
       }
-      false
+      text.startsWith("!") || text.startsWith("~") || text.startsWith("-")
     }
     def applyBrackets(onlyIfRequired : Boolean = true) : String = {
       val uncolored = text.replaceAll(s"($colorCode)$optionalSpaces", "")

@@ -136,7 +136,7 @@ package object DFiant {
   /**
     * Dataflow Bit (equivalent to DFBool)
     */
-  type DFBit = DFAny.Of[DFBool.Type]
+  type DFBit = DFAny.Of[DFBit.Type]
   /**
     * Dataflow Unsigned Integer
     * @tparam W The width of the integer. If the width is known at compile time, then this
@@ -148,7 +148,7 @@ package object DFiant {
     *                       //and checked during DFiant compilation
     * }}}
     */
-  type DFUInt[W] = DFAny.Of[DFUInt.Type[W]]
+  type DFUInt[W] = DFDecimal[false, W, 0]
   /**
     * Dataflow Signed Integer
     * @tparam W The width of the integer, including the sign bit. If the width is known at compile time, then this
@@ -160,25 +160,63 @@ package object DFiant {
     *                       //and checked during DFiant compilation
     * }}}
     */
-  type DFSInt[W] = DFAny.Of[DFSInt.Type[W]]
+  type DFSInt[W] = DFDecimal[true, W, 0]
   /**
     * Dataflow Enumeration
-    * @tparam E The underlying type of the specific enumeration (an `EnumType` object).
+    * @tparam E The underlying type of the specific enumeration (an `DFEnum.Entries` object).
     * @example
     * {{{
-    *   object Fruit extends EnumType.Auto {
+    *   object Fruit extends DFEnum.Auto {
     *     val Apple, Orange, Peach = Entry()
     *   }
     *   val e : DFEnum[Fruit.type]
     * }}}
     */
-  type DFEnum[E <: EnumType] = DFAny.Of[DFEnum.Type[E]]
+  type DFEnum[E <: DFEnum.Entries] = DFAny.Of[DFEnum.Type[E]]
   /**
     * Dataflow General Vector (a vector/array of any other dataflow type)
     * @tparam T The dataflow type element in the vector
     * @tparam N The number of elements in the vector
     */
   type DFVector[T <: DFAny.Type, N] = DFAny.Of[DFVector.Type[T, N]]
+  type DFStruct[F <: DFStruct.Fields] = DFAny.Of[DFStruct.Type[F]]
+  type DFDecimal[S, W, F] = DFAny.Of[DFDecimal.Type[S, W, F]]
+  type DFTuple2[T1 <: DFAny.Type, T2 <: DFAny.Type] = DFAny.Of[DFTuple2.Type[T1, T2]]
+  type DFTuple3[T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type] = DFAny.Of[DFTuple3.Type[T1, T2, T3]]
+  type DFOpaque[F <: DFOpaque.Fields] = DFAny.Of[DFOpaque.Type[F]]
+
+  implicit class __DFOpaqueValue[Mod <: DFAny.Modifier, O <: DFOpaque.Fields](
+    val dfOpaque: DFAny.Value[DFStruct.Type[O], Mod],
+  )(implicit ctx : DFAny.Context) {
+    def actual : DFAny.Value[dfOpaque.dfType.fields.ActualType, Mod] =
+      DFStruct.Selector(dfOpaque.dfType.fields.actualType, dfOpaque, "actual")
+  }
+  implicit class __DFStructFields[F <: DFStruct.Fields, Mod <: DFAny.Modifier](
+    val left : DFAny.Value[DFStruct.Type[F], Mod]
+  ) {
+    def fields : DFStruct.DFFields[F, Mod] = macro DFStruct.DFFields.applyMacro[F, Mod]
+  }
+  implicit def __DFTuple2Type[
+    TO <: DFAny.Type,
+    TT1, TT2,
+    T1 <: DFAny.Type, T2 <: DFAny.Type
+  ](implicit
+    tc1 : TT1 => T1, tc2 : TT2 => T2,
+    tc : DFTuple2.Fields[T1, T2] => TO
+  ) : Tuple2[TT1, TT2] => TO = tuple => tc(new DFTuple2.Fields(
+    tc1(tuple._1), tc2(tuple._2)
+  ))
+  implicit def __DFTuple3Type[
+    TO <: DFAny.Type,
+    TT1, TT2, TT3,
+    T1 <: DFAny.Type, T2 <: DFAny.Type, T3 <: DFAny.Type
+  ](implicit
+    tc1 : TT1 => T1, tc2 : TT2 => T2, tc3 : TT3 => T3,
+    tc : DFTuple3.Fields[T1, T2, T3] => TO
+  ) : Tuple3[TT1, TT2, TT3] => TO = tuple => tc(new DFTuple3.Fields(
+    tc1(tuple._1), tc2(tuple._2), tc3(tuple._3)
+  ))
+
 
   implicit def evPrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation[D])
   : PrinterOps[D, C] = new PrinterOps[D, C](c)
@@ -196,7 +234,7 @@ package object DFiant {
       *
       * The dataflow DFiant design can be compiled into various backends that are available under [[compiler.backend]].
       * After this step we get a compiled design which can be committed to a folder
-      * via [[BackendStage.Compilation.toFolder]].
+      * via [[BackendStage.Compilation.toFolder()]].
       * @param compiler The main backend stage compiler that is implicitly imported into the building program scope.
       *                 E.g., `import compiler.backend.vhdl.v2008`
       * @param preCompiler An optional precompiler that is executed automatically before the backend stage.
@@ -244,7 +282,7 @@ package object DFiant {
       *     val id  = new ID
       *     val cnt = DFUInt(8) init 0
       *     id.i <> cnt
-      *     sim.report(msg"$id.o") //will output the count value
+      *     sim.report(msg"\$id.o") //will output the count value
       *     cnt := cnt + 1
       *   }
       *
@@ -292,7 +330,25 @@ package object DFiant {
 //  protected[DFiant] type <~>[DF <: DFAny, Dir <: DFDir] = DFAny.Port[DF#TType, Dir]
 
   //Declaration directionality (Var/PortDir)
-  sealed trait DclDir extends DFDir
+  sealed trait DclDir extends DFDir {
+    import DFAny.Modifier
+    private[DFiant] def getModifier(implicit ctx : DFAny.Context) : DFAny.Modifier = {
+      ctx.dir match {
+        case d : PortDir => Modifier.Port(d)
+        case DFiant.VAR => Modifier.NewVar
+        case DFiant.FLIP => this match {
+          case IN => Modifier.Port(OUT)
+          case OUT => Modifier.Port(IN)
+          case VAR => Modifier.NewVar
+        }
+        case DFiant.ASIS => this match {
+          case IN => Modifier.Port(IN)
+          case OUT => Modifier.Port(OUT)
+          case VAR => Modifier.NewVar
+        }
+      }
+    }
+  }
   //Direction of a Port
   sealed trait PortDir extends DclDir
 
@@ -315,7 +371,7 @@ package object DFiant {
   type OUT = OUT.type
 
   /**
-    * Variable Declaration (usually for forcing a port to be a variable)
+    * Variable Declaration
     */
   case object VAR extends DclDir {
     type Func[DF <: DFAny] = DFAny.VarOf[DF#TType]
@@ -331,6 +387,12 @@ package object DFiant {
     * Leaving the Direction of a Port/Interface as-is
     */
   case object ASIS extends DFDir
+
+  protected[DFiant] trait DEFAULT_DIR {
+    private[DFiant] var currentDefault : DclDir = VAR
+    def get : DclDir = currentDefault
+    def <> (dir : DclDir) : Unit = currentDefault = dir
+  }
   ////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -368,7 +430,7 @@ package object DFiant {
       *   b"1?11"     //value = 1?11 (? is a bubble bit)
       *   b"11_00"    //value = 1100
       * }}}
-      * @note The string interpolator currently does not accept external arguments with `${arg}`
+      * @note The string interpolator currently does not accept external arguments with `\${arg}`
       * @return Bits vector token.
       */
     def b[W](args: Any*)(
@@ -399,11 +461,15 @@ package object DFiant {
       *   h"F{00}F"   //value = 1111001111
       *   h"3_3"      //value = 00110011
       * }}}
-      * @note The string interpolator currently does not accept external arguments with `${arg}`
+      * @note The string interpolator currently does not accept external arguments with `\${arg}`
       * @return Bits vector token.
       */
     def h[W](args: Any*)(
       implicit interpolator : Interpolator[DFBits.Token, "h"]
+    ) : interpolator.Out = interpolator.value
+
+    def d[W](args: Any*)(
+      implicit interpolator : Interpolator[DFDecimal.Token, "d"]
     ) : interpolator.Out = interpolator.value
 
     private def commonInterpolation(args : Seq[Any]) : Seq[Either[DFAny.Member, String]] =
@@ -427,7 +493,7 @@ package object DFiant {
       *   val a = DFUInt(8)
       *   a := 55
       *   val x = "nice!"
-      *   sim.report(msg"a = $a $x") //In simulation prints out: a = 55 nice!
+      *   sim.report(msg"a = \$a \$x") //In simulation prints out: a = 55 nice!
       * }}}
       * @return `Message` for simulation printout
       */
@@ -468,6 +534,8 @@ package object DFiant {
       macro DFBits.Token.binImplStringInterpolator
     implicit def evh[W] : Interpolator.Aux[DFBits.Token, "h", DFBits.TokenW[W]] =
       macro DFBits.Token.hexImplStringInterpolator
+    implicit def evd[S, W, F] : Interpolator.Aux[DFDecimal.Token, "d", DFDecimal.TokenW[S, W, F]] =
+      macro DFDecimal.Token.decImplStringInterpolator
   }
   final case class CSFunc(func : CSPrinter.Config => String)
   ////////////////////////////////////////////////////////////////////////////////////
@@ -507,7 +575,7 @@ package object DFiant {
     * @param matchConfig To configure whether or not the match allows overlapping cases
     * @return a [[DFConditional.NoRetVal.MatchHeader]] instance that provides access to the additional
     *         [[DFConditional.NoRetVal.HasCaseDF.CaseBlockOps.casedf]] and
-    *         [[DFConditional.NoRetVal.HasCaseDF.CaseBlockOps.casedf_]] conditional branches.
+    *         [[DFConditional.NoRetVal.HasCaseDF.CaseBlockOps.casedf(?)]] conditional branches.
     * @example
     * {{{
     *   val b = DFUInt(8) <> IN
@@ -515,7 +583,7 @@ package object DFiant {
     *   matchdf(c)
     *     .casedf(1 to 10) {c := 1}
     *     .casedf(20 to 22, 27 to 29) {c := 2}
-    *     .casedf_ {c := 3}
+    *     .casedf(?) {c := 3}
     * }}}
     */
   def matchdf[MVType <: DFAny.Type](matchValue : DFAny.Of[MVType], matchConfig : MatchConfig = MatchConfig.NoOverlappingCases)(
@@ -528,13 +596,13 @@ package object DFiant {
       val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFUInt.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(0)(block(list.head))
       val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(b._2 + 1)(block(b._1)))
-      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf(?){}
     }
     def foreachdf[W](sel : DFBits[W])(block : PartialFunction[T, Unit])(implicit ctx : DFBlock.Context, di : DummyImplicit) : Unit = {
       val blockMatchDF = new DFConditional.NoRetVal.MatchHeader[DFBits.Type[W]](sel, MatchConfig.NoOverlappingCases)
       val matcherFirstCase = blockMatchDF.casedf(DFBits.Token(sel.width.getValue, BigInt(0)))(block(list.head))
       val cases = list.drop(1).zipWithIndex.foldLeft(matcherFirstCase)((a, b) => a.casedf(DFBits.Token(sel.width.getValue, BigInt(b._2 + 1)))(block(b._1)))
-      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+      if (sel.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf(?){}
     }
   }
 
@@ -545,9 +613,29 @@ package object DFiant {
       if (list.nonEmpty) {
         val matcherFirstCase = blockMatchDF.casedf(list.head._1){resultVar := list.head._2}
         val cases = list.drop(1).foldLeft(matcherFirstCase)((a, b) => a.casedf(b._1){resultVar := b._2})
-        if (matchValue.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf_{}
+        if (matchValue.width.getValue != (list.size-1).bitsWidth(false)) cases.casedf(?){}
       }
     }
+  }
+  ////////////////////////////////////////////////////////////////////////////////////
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  // Exception handling for DFiant code errors
+  ////////////////////////////////////////////////////////////////////////////////////
+  def errordf(msg : String)(implicit ctx : DFMember.Context) : Nothing = {
+    import scala.io.AnsiColor.{RED, RESET}
+    val pos = ctx.meta.position
+    val fullName =
+      if (ctx.meta.isAnonymous) ctx.owner.getFullName
+      else s"${ctx.owner.getFullName}.${ctx.meta.name}"
+    println(s"${RED}DFiant compilation failed at:\n$pos\nin:\n$fullName\nwith:\n$msg$RESET")
+    sys.exit(1)
+  }
+  def trydf[T](block : => T)(implicit ctx : DFMember.Context) : T = try {
+    block
+  } catch {
+    case e : IllegalArgumentException =>
+      errordf(e.getMessage.replaceFirst("requirement failed: ", ""))
   }
   ////////////////////////////////////////////////////////////////////////////////////
 

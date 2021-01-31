@@ -20,13 +20,27 @@ private object Value {
         else s"""-${width}'sd${-value}"""
       case DFBool.Token(true, Some(value)) => if (value) "1" else "0"
       case DFBool.Token(false, Some(value)) => if (value) "1'b1" else "1'b0"
-      case DFEnum.Token(_, entry) => EnumTypeDcl.enumEntryRefName(entry.get)
+      case DFEnum.Token(_, entry) => EnumEntriesDcl.enumEntryRefName(entry.get)
 //      case DFVector.Token(_, value) => //this syntax is only relevant for SystemVerilog
 //        value.map(const(_)).mkString("'{", ", ", "}")
       case t =>
         println(t)
         ???
     }
+  }
+  def func1(member : DFAny.Func1)(implicit printer : Printer) : String = {
+    import printer.config._
+    val leftArg = member.leftArgRef.get
+    val opStr = member.op match {
+      case DFAny.Func1.Op.unary_! => "!"
+      case DFAny.Func1.Op.unary_~ => "~"
+      case DFAny.Func1.Op.unary_- => "-"
+      case op => ???
+    }
+    val leftArgStr = leftArg match {
+      case _ => ref(leftArg)
+    }
+    s"$OP$opStr${leftArgStr.applyBrackets()}"
   }
   def func2(member : DFAny.Func2)(implicit printer : Printer) : String = {
     import printer.config._
@@ -74,7 +88,7 @@ private object Value {
             case _ => s"$$$FN unsigned($relValStr)"
           }
         case DFUInt.Type(_) | DFBits.Type(_) if dfType.width < relVal.width =>
-          s"$relValStr[${dfType.width}:0]"
+          s"$relValStr[${dfType.width-1}:0]"
         case DFUInt.Type(_) | DFBits.Type(_) if dfType.width > relVal.width =>
           val extensionWidth = dfType.width - relVal.width
           s"{$extensionWidth'b0, $relValStr[${relVal.width-1}:0]}"
@@ -101,9 +115,6 @@ private object Value {
             case DFBits.Type(_) => s"${relValStr.applyBrackets()}[$LIT$relBitHigh:$LIT$relBitLow]"
           }
         }
-      case DFAny.Alias.ApplySel(_, _, _,idxRef, _, _) =>
-        s"${relValStr.applyBrackets()}[${Value.ref(idxRef)}]"
-      case _ : DFAny.Alias.Invert => s"$OP!${relValStr.applyBrackets()}"
       case _ : DFAny.Alias.Prev => ??? //should not happen since prev is removed via clocking phase
     }
   }
@@ -126,8 +137,11 @@ private object Value {
   }
   def apply(member : DFAny.Member)(implicit printer : Printer) : String = member match {
     case c : DFAny.Const => const(c.token)
+    case f : DFAny.Func1 => func1(f)
     case f : DFAny.Func2 => func2(f)
     case a : DFAny.Alias => alias(a)
+    case DFAny.ApplySel(_, _, relValRef,idxRef, _, _) =>
+      s"${Value.ref(relValRef).applyBrackets()}[${Value.ref(idxRef)}]"
     case _ : DFAny.Dcl => ??? //shouldn't occur
     case _ : DFAny.Dynamic => ??? //shouldn't occur
     case _ : DFAny.Fork => ??? //shouldn't occur

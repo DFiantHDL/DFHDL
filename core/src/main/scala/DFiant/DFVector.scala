@@ -3,7 +3,8 @@ package DFiant
 import singleton.ops._
 import singleton.twoface._
 import DFiant.internals._
-import DFiant.DFAny.Func2
+import DFiant.DFAny.{Func2, Modifier, TokenT, `Op==,!=`}
+import DFiant.DFVector.`LN == RN`
 import compiler.csprinter._
 
 object DFVector extends DFAny.Companion {
@@ -14,18 +15,18 @@ object DFVector extends DFAny.Companion {
     type TPattern = Nothing
     type TPatternAble[+R] = Nothing
     type TPatternBuilder[LType <: DFAny.Type] = Nothing
-    type `Op==Builder`[-L, -R] = `Op==`.Builder[L, R]
-    type `Op!=Builder`[-L, -R] = `Op!=`.Builder[L, R]
     val width : TwoFace.Int[Width] = TwoFace.Int.create[Width](cellType.width * cellNum)
-    def getBubbleToken: TToken = Token.bubbleOfDFType(this)
+    def getBubbleToken: TToken = Token.bubble(cellType, cellNum)
     def getTokenFromBits(fromToken : DFBits.Token) : DFAny.Token = {
       assert(fromToken.width == width.getValue)
       val cellNum = fromToken.width / cellType.width
       val cells = for (i <- 0 until cellNum) yield fromToken.bitsWL(cellType.width, i * cellType.width)
       Token(cellType, cells.toVector)
     }
-    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = from match {
-      case r @ DFVector(cellType, cellNum) if cellType == this.cellType && cellNum == this.cellNum.getValue =>
+    def assignCheck(from : DFAny.Member)(implicit ctx : DFAny.Context) : Unit = trydf {
+      from match {
+        case r @ DFVector(cellType, cellNum) if cellType == this.cellType && cellNum == this.cellNum.getValue =>
+      }
     }
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -49,7 +50,10 @@ object DFVector extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Implicits
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  trait Frontend extends Op.Implicits with `Op:=,<>`.Implicits with Token.Implicits
+  object Frontend {
+    trait Inherited extends Op.Frontend.Inherited with `Op:=,<>`.Frontend.Inherited with Token.Frontend.Inherited
+    trait Imported extends Op.Frontend.Imported with `Op:=,<>`.Frontend.Imported with Token.Frontend.Imported
+  }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -60,14 +64,21 @@ object DFVector extends DFAny.Companion {
   final case class Token(cellType : DFAny.Type, value : Vector[DFAny.Token]) extends DFAny.Token { left =>
     val dfType : DFAny.Type = Type(cellType, value.length)
     val width : Int = value.length * cellType.width
-    lazy val valueBits : BitVector = value.map(_.valueBits).reduce(_ ++ _)
-    lazy val bubbleMask: BitVector = value.map(_.bubbleMask).reduce(_ ++ _)
+    lazy val valueBits : BitVector = value.view.map(_.valueBits).reduce(_ ++ _)
+    lazy val bubbleMask: BitVector = value.view.map(_.bubbleMask).reduce(_ ++ _)
     def ++ (that : Token) : Token = {
       assert(cellType == that.cellType)
       Token(cellType, this.value ++ that.value)
     }
-    def == (that : Token) : DFBool.Token = DFBool.Token(logical = true, this.value equals that.value)
-    def != (that : Token) : DFBool.Token = DFBool.Token(logical = true, !(this.value equals that.value))
+    def sel(idx : DFUInt.Token) : DFAny.Token = idx.value match {
+      case Some(i) => value(i.toInt)
+      case None => cellType.getBubbleToken
+    }
+    def == (that : DFAny.Token)(implicit bb : Bubble.Behaviour) : DFBool.Token = that match {
+      case right : Token =>
+        DFBool.Token(logical = true, this.value equals right.value)
+      case _ => ???
+    }
 
     def codeString(implicit printer: CSPrinter) : String = {
       import printer.config._
@@ -76,17 +87,13 @@ object DFVector extends DFAny.Companion {
   }
 
   object Token {
-    implicit val bubbleOfToken : DFAny.Token.BubbleOfToken[Token] =
-      t => Token.bubble(t.cellType, t.value.length)
-    implicit def bubbleOfDFType[T <: DFAny.Type, N] : DFAny.Token.BubbleOfDFType[Type[T, N]] =
-      t => Token.bubble(t.cellType, t.cellNum.getValue)
     def bubble(cellType : DFAny.Type, cellNum : Int) : Token =
       Token(cellType, Vector.fill(cellNum)(cellType.getBubbleToken))
 
     type ToFit[LT <: DFAny.Type, LN, V] = DFAny.Token.ToFit.Summon.SAM[Type[LT, LN], Vector[V], TokenN[LT, LN]]
     type AsIs[LT <: DFAny.Type, LN, V] = DFAny.Token.AsIs.Summon.SAM[Type[LT, LN], Vector[V], TokenN[LT, LN]]
-    trait Implicits {
-      implicit def __DFVectorTokenVectorToFit[LT <: DFAny.Type, LN, V](
+    sealed trait Frontend {
+      protected implicit def __DFVectorTokenVectorToFit[LT <: DFAny.Type, LN, V](
         implicit
         tokenOf : DFAny.Token.ToFit.Summon[LT, V, DFAny.TokenT[LT#TToken, LT]],
         sameLength : `LN == RN`.CheckedShell[LN, Int]
@@ -95,7 +102,7 @@ object DFVector extends DFAny.Companion {
         val tokenVec : Vector[DFAny.Token] = value.map(tokenOf(from.cellType, _))
         Token(from.cellType, tokenVec).typeTag[Type[LT, LN]]
       }
-      implicit def __DFVectorTokenVectorAsIs[LT <: DFAny.Type, LN, V](
+      protected implicit def __DFVectorTokenVectorAsIs[LT <: DFAny.Type, LN, V](
         implicit
         tokenOf : DFAny.Token.AsIs.Summon[LT, V, DFAny.TokenT[LT#TToken, LT]],
         sameLength : `LN == RN`.CheckedShell[LN, Int]
@@ -105,7 +112,16 @@ object DFVector extends DFAny.Companion {
         Token(from.cellType, tokenVec).typeTag[Type[LT, LN]]
       }
     }
-
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFVectorTokenVectorToFit[LT <: DFAny.Type, LN, V](implicit tokenOf : DFAny.Token.ToFit.Summon[LT, V, TokenT[LT#TToken, LT]], sameLength : `LN == RN`.CheckedShell[LN, Int]) : ToFit[LT, LN, V] = super.__DFVectorTokenVectorToFit
+        final override protected implicit def __DFVectorTokenVectorAsIs[LT <: DFAny.Type, LN, V](implicit tokenOf : DFAny.Token.AsIs.Summon[LT, V, TokenT[LT#TToken, LT]], sameLength : `LN == RN`.CheckedShell[LN, Int]) : AsIs[LT, LN, V] = super.__DFVectorTokenVectorAsIs
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFVectorTokenVectorToFit[LT <: DFAny.Type, LN, V](implicit tokenOf : DFAny.Token.ToFit.Summon[LT, V, TokenT[LT#TToken, LT]], sameLength : `LN == RN`.CheckedShell[LN, Int]) : ToFit[LT, LN, V] = super.__DFVectorTokenVectorToFit
+        final override implicit def __DFVectorTokenVectorAsIs[LT <: DFAny.Type, LN, V](implicit tokenOf : DFAny.Token.AsIs.Summon[LT, V, TokenT[LT#TToken, LT]], sameLength : `LN == RN`.CheckedShell[LN, Int]) : AsIs[LT, LN, V] = super.__DFVectorTokenVectorAsIs
+      }
+    }
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -117,17 +133,27 @@ object DFVector extends DFAny.Companion {
   // Op
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object Op {
-    trait Implicits {
-      final implicit class __DFVectorOps[LT <: DFAny.Type, LN](val left : DFVector[LT, LN]){
-        def === [RN](right : DFVector[LT, RN])(implicit op: `Op===`.Builder[DFVector[LT, LN], DFVector[LT, RN]]) = op(left, right)
-        def =!= [RN](right : DFVector[LT, RN])(implicit op: `Op=!=`.Builder[DFVector[LT, LN], DFVector[LT, RN]]) = op(left, right)
+    sealed trait Frontend {
+      protected implicit class __DFVectorOps[LT <: DFAny.Type, LN](val left : DFVector[LT, LN]){
+        def === [RN](right : DFVector[LT, RN])(implicit op: DFAny.`Op==`.Builder[DFVector[LT, LN], DFVector[LT, RN]]) = op(left, right)
+        def =!= [RN](right : DFVector[LT, RN])(implicit op: DFAny.`Op!=`.Builder[DFVector[LT, LN], DFVector[LT, RN]]) = op(left, right)
 //        def ++  [RN](right : DFVector[LT, RN])(implicit op: `Op++`.Builder[DFVector[LT, LN], DFVector[LT, RN]]) = op(left, right)
       }
 
-      final implicit class __DFVectorAliases[LT <: DFAny.Type, LN, Mod <: DFAny.Modifier](val left : DFAny.Value[Type[LT, LN], Mod]) {
+      protected implicit class __DFVectorAliases[LT <: DFAny.Type, LN, Mod <: DFAny.Modifier.Val](val left : DFAny.Value[Type[LT, LN], Mod]) {
         def apply[I, W](idx : Exact[I])(
           implicit ctx : DFAny.Context, w : BitsWidthOf.IntAux[LN-1, W], op : DFAny.`Op:=,<>`.Builder[DFUInt.Type[W], I]
-        ) : DFAny.Value[LT, Mod] = DFAny.Alias.ApplySel.fromArray(left, op(DFUInt.Type(w(left.dfType.cellNum-1)), idx))
+        ) : DFAny.Value[LT, Mod] = trydf{DFAny.ApplySel.fromArray(left, op(DFUInt.Type(w(left.dfType.cellNum-1)), idx))}
+      }
+    }
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFVectorAliases[LT <: DFAny.Type, LN, Mod <: Modifier.Val](left : DFAny.Value[Type[LT, LN], Mod]) : __DFVectorAliases[LT, LN, Mod] = super.__DFVectorAliases(left)
+        final override protected implicit def __DFVectorOps[LT <: DFAny.Type, LN](left : DFVector[LT, LN]) : __DFVectorOps[LT, LN] = super.__DFVectorOps(left)
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFVectorAliases[LT <: DFAny.Type, LN, Mod <: Modifier.Val](left : DFAny.Value[Type[LT, LN], Mod]) : __DFVectorAliases[LT, LN, Mod] = super.__DFVectorAliases(left)
+        final override implicit def __DFVectorOps[LT <: DFAny.Type, LN](left : DFVector[LT, LN]) : __DFVectorOps[LT, LN] = super.__DFVectorOps(left)
       }
     }
   }
@@ -139,15 +165,34 @@ object DFVector extends DFAny.Companion {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   object `Op:=,<>` {
     import DFAny.`Op:=,<>`.Builder
-    trait Implicits {
-      implicit def __DFVector_op_DFVector[T <: DFAny.Type, LN, RN](
+    sealed trait Frontend {
+      protected implicit def __DFVector_op_DFVector[T <: DFAny.Type, LN, RN](
         implicit
         ctx : DFAny.Context,
-        checkLWvRW : `LN == RN`.CheckedShell[LN, RN]
+        checkLNvRN : `LN == RN`.CheckedShell[LN, RN]
       ) : Builder[Type[T, LN], DFVector[T, RN]] = (left, right) => {
         assert(left.cellType == right.dfType.cellType)
-        checkLWvRW.unsafeCheck(left.cellNum, right.dfType.cellNum)
+        checkLNvRN.unsafeCheck(left.cellNum, right.dfType.cellNum)
         right.asInstanceOf[DFAny.Of[Type[T, LN]]]
+      }
+
+      protected implicit def __DFVector_eq_Capable[T <: DFAny.Type, LN, RN](
+        implicit
+        checkLNvRN : `LN == RN`.CheckedShell[LN, RN]
+      ) : DFAny.`Op==,!=`.Capable[Type[T, LN], Type[T, RN]] = (left, right) => {
+        assert(left.cellType == right.cellType)
+        checkLNvRN.unsafeCheck(left.cellNum, right.dfType.cellNum)
+      }
+
+    }
+    object Frontend {
+      trait Inherited extends Frontend {
+        final override protected implicit def __DFVector_op_DFVector[T <: DFAny.Type, LN, RN](implicit ctx : DFAny.Context, checkLNvRN : `LN == RN`.CheckedShell[LN, RN]) : Builder[Type[T, LN], DFVector[T, RN]] = super.__DFVector_op_DFVector
+        final override protected implicit def __DFVector_eq_Capable[T <: DFAny.Type, LN, RN](implicit checkLNvRN : `LN == RN`.CheckedShell[LN, RN]) : `Op==,!=`.Capable[Type[T, LN], Type[T, RN]] = super.__DFVector_eq_Capable
+      }
+      trait Imported extends Frontend {
+        final override implicit def __DFVector_op_DFVector[T <: DFAny.Type, LN, RN](implicit ctx : DFAny.Context, checkLNvRN : `LN == RN`.CheckedShell[LN, RN]) : Builder[Type[T, LN], DFVector[T, RN]] = super.__DFVector_op_DFVector
+        final override implicit def __DFVector_eq_Capable[T <: DFAny.Type, LN, RN](implicit checkLNvRN : `LN == RN`.CheckedShell[LN, RN]) : `Op==,!=`.Capable[Type[T, LN], Type[T, RN]] = super.__DFVector_eq_Capable
       }
     }
   }
@@ -156,31 +201,6 @@ object DFVector extends DFAny.Companion {
     type Msg[LN, RN] = "This operation does not permit applying different element numbers. Found: LHS-width = "+ ToString[LN] + " and RHS-width = " + ToString[RN]
     type ParamFace = Int
   }
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Comparison operations
-  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  protected abstract class OpsCompare[Op <: Func2.Op](op : Op)(func : (Token, Token) => DFBool.Token) {
-    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Comparison Ops with the type ${R}")
-    trait Builder[-L, -R] extends DFAny.Op.Builder[L, R]{type Out = DFBool}
-    object Builder {
-      implicit def evDFVector_op_DFVector[T <: DFAny.Type, LN, RN](
-        implicit
-        ctx : DFAny.Context,
-        checkLWvRW : `LN == RN`.CheckedShell[LN, RN]
-      ) : Builder[DFVector[T, LN], DFVector[T, RN]] = (left, right) => {
-        assert(left.dfType.cellType == right.dfType.cellType)
-        checkLWvRW.unsafeCheck(left.dfType.cellNum, right.dfType.cellNum)
-        DFAny.Func2(DFBool.Type(logical = true), left, op, right)(func)
-      }
-    }
-  }
-  object `Op==` extends OpsCompare(Func2.Op.==)((l, r) => l == r) with `Op==`
-  object `Op!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r) with `Op!=`
-  object `Op===` extends OpsCompare(Func2.Op.==)((l, r) => l == r)
-  object `Op=!=` extends OpsCompare(Func2.Op.!=)((l, r) => l != r)
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

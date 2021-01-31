@@ -4,6 +4,7 @@ package backend
 import compiler.printer.formatter
 
 import scala.annotation.implicitNotFound
+import printer.formatter._
 
 trait BackendStage {
   def codeString : String
@@ -12,14 +13,15 @@ object BackendStage {
   final case class Compilation[D <: DFDesign, B <: BackendStage](
     dsn : D, db : DFDesign.DB, fileSeq : Seq[File]
   ) extends compiler.Compilation[D] {
-    def printGenFiles(includeGlobalDefsPackage : Boolean = false) : this.type = {
+    def printGenFiles : this.type = printGenFiles(includeGlobalDefsPackage = false, colored = true)
+    def printGenFiles(includeGlobalDefsPackage : Boolean, colored : Boolean) : this.type = {
       val printSeq = if (includeGlobalDefsPackage) fileSeq else fileSeq.drop(1)
       printSeq.foreach {
         case BackendStage.File(fileName, contents) => println(
           s"""\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
              |@ Contents of $fileName
              |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-             |$contents
+             |${if (colored) contents else contents.uncolor}
              |""".stripMargin
         )
       }

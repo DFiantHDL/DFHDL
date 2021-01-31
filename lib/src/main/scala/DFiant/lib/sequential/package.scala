@@ -28,7 +28,7 @@ package object sequential {
   }
 
   @df def doOnce(block: => Unit): FSM = FSM {
-    val once = DFBool() init true
+    val once = DFBool <> VAR init true
     ifdf(once)(block)
     once := false
   }
@@ -48,7 +48,7 @@ package object sequential {
         assert(range.last == range.end-1, s"\nThe last doFor value ${range.last} does not match the exclusive supremum value ${range.end}")
     }
     FSM {
-      val forCnt = DFUInt.max(range.head max range.last) init range.head
+      val forCnt = DFUInt.max(range.head max range.last) <> VAR init range.head
       block(forCnt)
       def cntBlock = {
         ifdf (forCnt === range.last) {

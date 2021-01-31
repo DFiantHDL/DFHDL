@@ -145,7 +145,7 @@ object DFConditional {
       import printer.config._
       patternOption match {
         case Some(pattern) => s".$DF casedf(${pattern.codeString})"
-        case None => s".$DF casedf_"
+        case None => s".$DF casedf(?)"
       }
     }
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember = getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
@@ -230,7 +230,7 @@ object DFConditional {
         ) : CaseBlock[Type, MVType, true] = new CaseBlock[Type, MVType, true](
           matchHeader, Some(owner), Some(patternBld(mvType, pattern))
         )(retBld(dfType, block))
-        def casedf_[MC, B](block : => Exact[B])(
+        def casedf[B](others : ?)(block : => Exact[B])(
           implicit ctx : DFBlock.Context, retBld : DFAny.`Op:=,<>`.Builder[Type, B]
         ) : CaseBlock[Type, MVType, false] = new CaseBlock[Type, MVType, false](
           matchHeader, Some(owner), None
@@ -275,7 +275,7 @@ object DFConditional {
         ) : CaseBlock[MVType, true] = new CaseBlock[MVType, true](
           matchHeader, thisBlockOption, Some(patternBld(mvType, pattern))
         )(block)
-        def casedf_[MC, B](block : => Unit)(
+        def casedf(others : ?)(block : => Unit)(
           implicit ctx : DFBlock.Context
         ) : CaseBlock[MVType, false] = new CaseBlock[MVType, false](
           matchHeader, thisBlockOption, None

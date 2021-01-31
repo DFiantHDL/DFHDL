@@ -37,7 +37,7 @@
 //
 ////  matchdf (i)
 ////    .casedf(1 to 5, 20 to 25) {temp2 := 1}
-////    .casedf_(temp2 := 5)
+////    .casedf(?)(temp2 := 5)
 //
 ////  o2 <> temp2_b
 ////  o <> i
@@ -87,13 +87,13 @@
 //    .casedf(1 to 5, 10 to 20) {o1 := i1}
 //    .casedf(7){o1 := i2}
 //    .casedf(11){o1 := i2}
-//    .casedf_{o1 := i2}
+//    .casedf(?){o1 := i2}
 //
 //  val o2 = DFUInt(8) <> OUT
 //  val ret = DFUInt(8).matchdf(i2)
 //    .casedf(1 to 5, 10 to 20) {i1}
 //    .casedf(7){75}
-//    .casedf_{88}
+//    .casedf(?){88}
 //  o2 <> ret
 //
 //  val i3 = DFEnum(Foo) <> IN init (Foo.Baz0, Foo.Baz3)

@@ -5,20 +5,20 @@ class ParityCheckSpec extends DFTopSpec {
   val parityCheck = new ParityCheck
 
   val expectedCodeString : String =
-    """|@df class ParityCheck extends DFDesign {
-       |  object fsm_states extends EnumType.Auto {
+    """|@df final class ParityCheck extends DFDesign {
+       |  object fsm_states extends DFEnum.Auto {
        |    val Even,Odd = Entry()
        |  }
-       |  final val seqIn     = DFBit() <> IN
-       |  final val detOut    = DFBit() <> OUT
-       |  final val fsm_state = DFEnum(fsm_states) init fsm_states.Even
+       |  val seqIn     = DFBit      <> IN
+       |  val detOut    = DFBit      <> OUT
+       |  val fsm_state = fsm_states <> VAR init fsm_states.Even
        |  matchdf(fsm_state)
        |  .casedf(fsm_states.Even) {
-       |    detOut            := 1
+       |    detOut      := 1
        |    ifdf(seqIn) {fsm_state := fsm_states.Odd}
        |  }
        |  .casedf(fsm_states.Odd) {
-       |    detOut            := 0
+       |    detOut      := 0
        |    ifdf(seqIn) {fsm_state := fsm_states.Even}
        |  }
        |}""".stripMargin

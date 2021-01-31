@@ -26,7 +26,7 @@ resolvers in ThisBuild += "scala-integration" at
 
 // PROJECTS
 
-lazy val global = project
+lazy val root = project
   .in(file("."))
   .settings(settings)
   .aggregate(
@@ -64,7 +64,7 @@ lazy val continuum = (project in file("modLibs/continuum"))
 
 lazy val internals = project
   .settings(
-    name := "internals",
+    name := s"$projectName-internals",
     settings,
     macroSettings,
     assemblySettings,
@@ -76,7 +76,7 @@ lazy val internals = project
 
 lazy val core = project
   .settings(
-    name := projectName,
+    name := s"$projectName-core",
     settings,
     macroSettings,
     assemblySettings,
@@ -88,14 +88,14 @@ lazy val core = project
 
 lazy val lib = project
   .settings(
-    name := "lib",
+    name := projectName,
     settings,
     macroSettings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    core
+    core % "test->test;compile->compile"
   )
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -134,17 +134,17 @@ lazy val dependencies =
     private val scalaLoggingV   = "3.7.2"
     private val typesafeConfigV = "1.3.1"
     private val pureconfigV     = "0.8.0"
-    private val akkaV           = "2.6.10"
+    private val akkaV           = "2.6.12"
     private val singletonOpsV   = "0.5.2"
     private val shapelessV      = "2.3.3"
-    private val scodecV         = "1.1.23"
-    private val oslibV          = "0.7.1"
+    private val scodecV         = "1.1.12"
+    private val oslibV          = "0.7.2"
     private val continuumV      = "0.4-SNAPSHOT"
     private val macroParadiseV  = "2.1.1"
     private val macroCompatV    = "1.1.1"
     private val ammoniteV       = "2.3.8"
     private val oscarV          = "4.1.0-SNAPSHOT"
-    private val munitV          = "0.7.19"
+    private val munitV          = "0.7.21"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
