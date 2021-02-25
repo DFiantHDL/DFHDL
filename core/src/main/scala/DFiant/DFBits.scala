@@ -641,7 +641,8 @@ object DFBits extends DFAny.Companion {
         def apply[H, L](relBitHigh : BitIndex.Checked[H, left.Width], relBitLow : BitIndex.Checked[L, left.Width])(
           implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
         ) : DFAny.Value[DFBits.Type[relWidth.Out], Mod] = trydf {
-          left.bits(relBitHigh, relBitLow) tag cs"$left(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
+          left.bits(relBitHigh, relBitLow).asValModOf[DFBits.Type[relWidth.Out], Mod] tag
+            cs"$left(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
         }
 
         /**
@@ -653,7 +654,7 @@ object DFBits extends DFAny.Companion {
         def apply[I](relBit: BitIndex.Checked[I, left.Width])(
           implicit ctx : DFAny.Context
         ) : DFAny.Value[DFBool.Type, Mod] = trydf {
-          left.bit(relBit) tag cs"$left(${CSFunc(_.LIT)}$relBit)"
+          left.bit(relBit).asValModOf[DFBool.Type, Mod] tag cs"$left(${CSFunc(_.LIT)}$relBit)"
         }
 
         /**

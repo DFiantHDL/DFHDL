@@ -120,7 +120,7 @@ object DFAny {
       val dfType : Type = tc(t)
       def <>[D <: DclDir](dir : D)(implicit ctx : DFAny.Context) : UninitializedDcl[Type] = dfType <> dir
       def <>(defaultDir : DEFAULT_DIR)(implicit ctx : DFAny.Context) : UninitializedDcl[Type] = dfType <> defaultDir.get
-      def :=(token : DFAny.Token.ToFit.Conv[Type, dfType.TToken])(
+      def init(token : DFAny.Token.ToFit.Conv[Type, dfType.TToken])(
         implicit ctx : DFAny.Context
       ) : DFAny.Of[Type] = trydf{DFAny.Const(dfType, token(dfType))}
       def ifdf[C, B](cond : Exact[C])(block : => Exact[B])(
@@ -206,14 +206,14 @@ object DFAny {
       * @return the dataflow comparison equality result.
       */
     final def == [R](right : R)(
-      implicit ccs: CaseClassSkipper[`Op==`.Builder[DFAny.Of[Type], R]]
-    ) = ccs(op => op(left.asValOf[Type], right), (left : Any) == (right : Any))
+      implicit op: `Op==`.Builder[DFAny.Of[Type], R]
+    ) = op(left.asValOf[Type], right)
     /**
       * @return the dataflow comparison inequality result.
       */
     final def != [R](right : R)(
-      implicit ccs: CaseClassSkipper[`Op!=`.Builder[DFAny.Of[Type], R]]
-    ) = ccs(op => op(left.asValOf[Type], right), (left : Any) != (right : Any))
+      implicit op: `Op!=`.Builder[DFAny.Of[Type], R]
+    ) = op(left.asValOf[Type], right)
     //////////////////////////////////////////////////////////////////////////
   }
 
@@ -278,22 +278,22 @@ object DFAny {
         * @param relBit relative bit index. Must be within bound of [0 : width-1]
         * @return the dataflow bit at the given index
         */
-      final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : AsType[DFBool.Type] =
+      final def bit[I](relBit : BitIndex.Checked[I, Width])(implicit ctx : DFAny.Context) : DFBool =
         trydf{DFAny.Alias.BitsWL.bit[Mod](member, relBit.unsafeCheck(width).getValue)}
 
       /**
         * @return the dataflow variable cast as bits vector
         */
-      final def bits(implicit ctx : DFAny.Context) : AsType[DFBits.Type[Width]] = member match {
+      final def bits(implicit ctx : DFAny.Context) : DFBits[Width] = member match {
         case DFAny.Const(_, token, _, _) =>
-          DFAny.Const.forced(token.bits).asInstanceOf[AsType[DFBits.Type[Width]]]
+          DFAny.Const.forced(token.bits).asInstanceOf[DFBits[Width]]
         case _ =>
           DFAny.Alias.BitsWL[Mod, Width](member, dfType.width, 0) tag cs"$left.bits"
       }
 
       final protected def protBits[H, L](relBitHigh : TwoFace.Int[H], relBitLow : TwoFace.Int[L])(
         implicit relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-      ) : AsType[DFBits.Type[relWidth.Out]] = trydf {
+      ) : DFBits[relWidth.Out] = trydf {
         DFAny.Alias.BitsWL[Mod, relWidth.Out](member, relWidth(relBitHigh, relBitLow), relBitLow) tag
           cs"$left.bits(${CSFunc(_.LIT)}$relBitHigh, ${CSFunc(_.LIT)}$relBitLow)"
       }
@@ -310,14 +310,14 @@ object DFAny {
         */
       final def bits[H, L](relBitHigh : BitIndex.Checked[H, Width], relBitLow : BitIndex.Checked[L, Width])(
         implicit checkHiLow : BitsHiLo.CheckedShell[H, L], relWidth : RelWidth.TF[H, L], ctx : DFAny.Context
-      ) : AsType[DFBits.Type[relWidth.Out]] = trydf {
+      ) : DFBits[relWidth.Out] = trydf {
         checkHiLow.unsafeCheck(relBitHigh, relBitLow)
         protBits(relBitHigh.unsafeCheck(width), relBitLow.unsafeCheck(width))
       }
 
       final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
         implicit ctx : DFAny.Context
-      ) : AsType[DFBits.Type[W]] = DFAny.Alias.BitsWL[Mod, W](member, relWidth, relBitLow)
+      ) : DFBits[W] = DFAny.Alias.BitsWL[Mod, W](member, relWidth, relBitLow)
 
       /**
         * Partial Bit Vector Selection at given low index and a relative width
@@ -329,7 +329,7 @@ object DFAny {
         */
       final def bitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : BitIndex.Checked[L, Width])(
         implicit checkRelWidth : PartWidth.CheckedShell[W, Width - L], ctx : DFAny.Context
-      ) : AsType[DFBits.Type[W]] = trydf {
+      ) : DFBits[W] = trydf {
         checkRelWidth.unsafeCheck(relWidth, width-relBitLow)
         protBitsWL(relWidth, relBitLow.unsafeCheck(width))
       }
@@ -392,12 +392,6 @@ object DFAny {
       //////////////////////////////////////////////////////////////////////////
       private type ImmutableMsg = "This operation cannot be applied on an immutable value"
       private type CheckMutable = RequireMsg[ImplicitFound[Mod <:< Modifier.Assignable], ImmutableMsg]
-      def := [RType <: DFAny.Type](right : DFAny.Of[RType])(
-        implicit ctx : DFNet.Context, mutable : CheckMutable, op : left.Arg[DFAny.Of[RType]]
-      ) : Value[Type, Mod] with FSM.Capable = trydf {
-        left.assign(op(left.dfType, right))
-        left.@@[FSM.Capable]
-      }
       def := [R](right : Exact[R])(
         implicit ctx : DFNet.Context, mutable : CheckMutable, op : left.Arg[R]
       ) : Value[Type, Mod] with FSM.Capable = trydf {
