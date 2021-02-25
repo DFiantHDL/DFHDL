@@ -311,7 +311,7 @@ object matmulBlock {
   */
 object matmulBlockTestApp extends App {
   val top_test = new matmulBlockTest
-  import sim.tools.modelsim
+  import sim.tools.ghdl
   top_test.printCodeString
     .compile.printCodeString.toFolder("matmulBlock")
 //    .removeFiles(_.contains("matmulBlock.vhdl"))
