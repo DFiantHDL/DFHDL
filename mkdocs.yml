@@ -96,6 +96,7 @@ markdown_extensions:
         linenums: true
       
 extra_css:
+    - css/scastie.css
     - css/vs.css
     - css/extra.css
     - css/dfiant-admonition.css

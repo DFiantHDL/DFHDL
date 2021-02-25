@@ -14,7 +14,7 @@ inThisBuild(List(
 
 name := projectName
 organization in ThisBuild := "io.github.dfianthdl"
-scalaVersion in ThisBuild := "2.13.4"
+scalaVersion in ThisBuild := "2.13.5"
 //resolvers in ThisBuild += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
 resolvers in ThisBuild += "scala-integration" at
   "https://scala-ci.typesafe.com/artifactory/scala-integration/"
@@ -134,17 +134,17 @@ lazy val dependencies =
     private val scalaLoggingV   = "3.7.2"
     private val typesafeConfigV = "1.3.1"
     private val pureconfigV     = "0.8.0"
-    private val akkaV           = "2.6.12"
+    private val akkaV           = "2.6.13"
     private val singletonOpsV   = "0.5.2"
     private val shapelessV      = "2.3.3"
-    private val scodecV         = "1.1.24"
-    private val oslibV          = "0.7.2"
+    private val scodecV         = "1.1.12"
+    private val oslibV          = "0.7.3"
     private val continuumV      = "0.4-SNAPSHOT"
     private val macroParadiseV  = "2.1.1"
     private val macroCompatV    = "1.1.1"
     private val ammoniteV       = "2.3.8"
     private val oscarV          = "4.1.0-SNAPSHOT"
-    private val munitV          = "0.7.21"
+    private val munitV          = "0.7.22"
 
     val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
     val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
