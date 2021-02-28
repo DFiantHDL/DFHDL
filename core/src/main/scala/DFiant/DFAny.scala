@@ -122,7 +122,7 @@ object DFAny {
       def <>(defaultDir : DEFAULT_DIR)(implicit ctx : DFAny.Context) : UninitializedDcl[Type] = dfType <> defaultDir.get
       def init(token : DFAny.Token.ToFit.Conv[Type, dfType.TToken])(
         implicit ctx : DFAny.Context
-      ) : DFAny.Of[Type] = trydf{DFAny.Const(dfType, token(dfType))}
+      ) : DFAny.Of[Type] = trydf{DFAny.Const(dfType, token(dfType), named = true)}
       def ifdf[C, B](cond : Exact[C])(block : => Exact[B])(
         implicit ctx : DFBlock.Context, condArg : DFBool.Arg[C], blockConv : DFAny.`Op:=,<>`.Builder[Type, B]
       ) : DFConditional.WithRetVal.IfElseBlock[Type, true] = {
@@ -206,14 +206,14 @@ object DFAny {
       * @return the dataflow comparison equality result.
       */
     final def == [R](right : R)(
-      implicit op: `Op==`.Builder[DFAny.Of[Type], R]
-    ) = op(left.asValOf[Type], right)
+      implicit ccs: CaseClassSkipper[`Op==`.Builder[DFAny.Of[Type], R]]
+    ) = ccs(op => op(left.asValOf[Type], right), (left : Any) == (right : Any))
     /**
       * @return the dataflow comparison inequality result.
       */
     final def != [R](right : R)(
-      implicit op: `Op!=`.Builder[DFAny.Of[Type], R]
-    ) = op(left.asValOf[Type], right)
+      implicit ccs: CaseClassSkipper[`Op!=`.Builder[DFAny.Of[Type], R]]
+    ) = ccs(op => op(left.asValOf[Type], right), (left : Any) != (right : Any))
     //////////////////////////////////////////////////////////////////////////
   }
 
@@ -484,16 +484,25 @@ object DFAny {
         this.dfType == dfType && this.token == token && this.tags =~ tags
       case _ => false
     }
-    def codeString(implicit printer: CSPrinter) : String = token.codeString
-    override def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = codeString
+    def codeString(implicit printer: CSPrinter) : String = {
+      import printer.config._
+      s"${dfType.codeString} $DF init ${token.codeString}"
+    }
+    override def refCodeString(implicit printer: CSPrinter, owner : DFOwner) : String = {
+      if (isAnonymous) token.codeString
+      else super.refCodeString
+    }
     override def show(implicit printer: CSPrinter) : String = s"Const($token) : $dfType"
 
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : DFMember =
       getSet.set(this)(m => m.copy(tags = tagsFunc(m.tags)))
   }
   object Const {
-    def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken)(implicit ctx: Context)
-    : DFAny.Of[Type] = ctx.db.addMember(Const(dfType, token, ctx.owner, ctx.meta.anonymize)).asValOf[Type]
+    def apply[Type <: DFAny.Type](dfType: Type, token: Type#TToken, named : Boolean = false)(implicit ctx: Context)
+    : DFAny.Of[Type] = {
+      val meta = if (named) ctx.meta else ctx.meta.anonymize
+      ctx.db.addMember(Const(dfType, token, ctx.owner, meta)).asValOf[Type]
+    }
     private[DFiant] def forced[Type <: DFAny.Type](token: DFAny.Token)(implicit ctx: Context)
     : DFAny.Of[Type] = ctx.db.addMember(Const(token.dfType, token, ctx.owner, ctx.meta.anonymize)).asValOf[Type]
     trait ToFit[Type <: DFAny.Type, V] {
@@ -1001,6 +1010,7 @@ object DFAny {
         def negate : + = +
       }
       sealed trait *  extends NoCarry
+      sealed trait /  extends NoCarry
       sealed trait +^  extends Negateable with Carry {
         def negate : -^ = -^
       }
@@ -1031,6 +1041,7 @@ object DFAny {
       implicit case object +  extends +
       implicit case object -  extends -
       implicit case object *  extends *
+      implicit case object /  extends /
       implicit case object +^  extends +^
       implicit case object -^  extends -^
       implicit case object *^  extends *^

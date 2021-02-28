@@ -9,14 +9,14 @@ module SeqDet(
   input  wire                seqIn,
   output reg                 detOut
 );
-  reg         [2:0]          fsm_state = `E_fsm_states_S0;
-  reg         [2:0]          fsm_state_prev1 = `E_fsm_states_S0;
-  reg         [2:0]          fsm_state_sig;
   `define E_fsm_states_S0    0
   `define E_fsm_states_S1    1
   `define E_fsm_states_S10   2
   `define E_fsm_states_S100  3
   `define E_fsm_states_S1001 4
+  reg         [2:0]          fsm_state;
+  reg         [2:0]          fsm_state_prev1 = `E_fsm_states_S0;
+  reg         [2:0]          fsm_state_sig;
   always @(*)
   begin
     fsm_state                = fsm_state_prev1;

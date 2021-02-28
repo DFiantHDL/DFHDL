@@ -141,6 +141,8 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
               } ||
               designDB.getAssignmentsFrom(s).exists(x => x.isTaggedWith(RTL.Tag.Mod.Reg))) =>
             (ports, Signal(s.name, Type(s.dfType), Init(s)) :: signals, variables)
+          case (c : DFAny.Const, (ports, signals, variables)) if !c.isAnonymous =>
+            (ports, Constant(c.name, Type(c.dfType), Init(c)) :: signals, variables)
           case (v : DFAny.Member, (ports, signals, variables)) if !v.isAnonymous =>
             (ports, signals, Variable(v.name, Type(v.dfType), Init(v)) :: variables)
           case (_, psv) => psv

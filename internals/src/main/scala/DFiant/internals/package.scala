@@ -314,12 +314,12 @@ package object internals {
 
   object BitsWidth extends Checked0Param.Int {
     type Cond[W] = (W > 0)
-    type Msg[W] = "DFBits/DFUInt width must be positive. Found width = " + ToString[W]
+    type Msg[W] = "DFBits/DFUInt width must be positive.\nFound width = " + ToString[W]
   }
 
   object SIntWidth extends Checked0Param.Int {
     type Cond[W] = (W > 1)
-    type Msg[W] = "DFSInt width must be 2 or larger. Found width = " + ToString[W]
+    type Msg[W] = "DFSInt width must be 2 or larger.\nFound width = " + ToString[W]
   }
 
   object Positive extends Checked0Param.Int {
@@ -348,18 +348,18 @@ package object internals {
 
   object BinaryInt extends Checked0Param.Int {
     type Cond[N] = (N == 0) || (N == 1)
-    type Msg[N] = "Number must be binary (0 or 1). Found = " + ToString[N]
+    type Msg[N] = "Number must be binary (0 or 1).\nFound = " + ToString[N]
   }
 
   object `LW >= RW` extends Checked1Param.Int {
     type Cond[LW, RW] = LW >= RW
-    type Msg[LW, RW] = "This operation does not permit applying a wider RHS expression. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+    type Msg[LW, RW] = "This operation does not permit applying a wider RHS expression.\nFound: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
     type ParamFace = Int
     type CheckedExtendable[LW, LE, RW] = CheckedShell[LW, ITE[LE, 0, RW]]
   }
   object `LW == RW` extends Checked1Param.Int {
     type Cond[LW, RW] = LW == RW
-    type Msg[LW, RW] = "This operation does not permit applying different width DF variables. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+    type Msg[LW, RW] = "This operation does not permit applying different width DF variables.\nFound: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
     type ParamFace = Int
   }
 

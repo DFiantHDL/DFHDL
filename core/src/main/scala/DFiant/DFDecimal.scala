@@ -215,13 +215,13 @@ object DFDecimal extends DFAny.Companion {
     def == (right : Token) : DFBool.Token = mkTokenB(right, _ == _)
     def != (right : Token) : DFBool.Token = mkTokenB(right, _ != _)
     def << (right : Token) : Token = right match {
-      case DFUInt.Token(width, _) if width < 31 =>
+      case DFUInt.Token(w, _) if w < 31 =>
         if (signed) mkToken(right, _ << _.toInt, width, fractionWidth)
         else (left.bits << right).toUInt
       case _ => ???
     }
     def >> (right : Token) : Token = right match {
-      case DFUInt.Token(width, _) if width < 31 =>
+      case DFUInt.Token(w, _) if w < 31 =>
         if (signed) mkToken(right, _ >> _.toInt, width, fractionWidth)
         else (left.bits >> right).toUInt
       case _ => ???
@@ -246,21 +246,23 @@ object DFDecimal extends DFAny.Companion {
     def valueToBitVector(value : BigInt) : BitVector = value.toBitVector(width)
     def valueCodeString(value : BigInt)(implicit printer: CSPrinter) : String = {
       import printer.config._
+      import io.AnsiColor.BOLD
+      assert(fractionWidth == 0) //TODO: ufix/sfix support
+      //choosing the simpler representation for readability
       if (value.isValidInt) s"$LIT$value"
-      else if (value.isValidLong) s"$LIT${value}L"
-      else s"""$LIT BigInt($STR"$value")"""
+      else s"""$BOLD d$STR"$value""""
     }
   }
 
   protected object `LF >= RF` extends Checked1Param.Int {
     type Cond[LF, RF] = LF >= RF
-    type Msg[LF, RF] = "This operation does not permit applying a wider RHS fraction width. Found: LHS-fractionWidth = "+ ToString[LF] + " and RHS-fractionWidth = " + ToString[RF]
+    type Msg[LF, RF] = "This operation does not permit applying a wider RHS fraction width.\nFound: LHS-fractionWidth = "+ ToString[LF] + " and RHS-fractionWidth = " + ToString[RF]
     type ParamFace = Int
     type CheckedExtendable[LF, LE, RF] = CheckedShell[LF, ITE[LE, 0, RF]]
   }
   protected object `LF == RF` extends Checked1Param.Int {
     type Cond[LF, RF] = LF == RF
-    type Msg[LF, RF] = "This operation does not permit applying different fraction width. Found: LHS-fractionWidth = "+ ToString[LF] + " and RHS-fractionWidth = " + ToString[RF]
+    type Msg[LF, RF] = "This operation does not permit applying different fraction width.\nFound: LHS-fractionWidth = "+ ToString[LF] + " and RHS-fractionWidth = " + ToString[RF]
     type ParamFace = Int
   }
   protected object `LS signMatch RS` extends Checked1Param.Boolean {
@@ -519,6 +521,7 @@ object DFDecimal extends DFAny.Companion {
         def -^  [R](right : Exact[R])(implicit op: `Op-^`.Builder[DFDecimal[LS, LW, LF], true, R]) = op(left, right)
         def *   [R](right : Exact[R])(implicit op: `Op*`.Builder[DFDecimal[LS, LW, LF], false, R]) = op(left, right)
         def *^  [R](right : Exact[R])(implicit op: `Op*^`.Builder[DFDecimal[LS, LW, LF], true, R]) = op(left, right)
+        def /   [R](right : Exact[R])(implicit op: `Op/`.Builder[DFDecimal[LS, LW, LF], false, R]) = op(left, right)
         def <   [R](right : Exact[R])(implicit op: `Op<`.Builder[DFDecimal[LS, LW, LF], R]) = op(left, right)
         def >   [R](right : Exact[R])(implicit op: `Op>`.Builder[DFDecimal[LS, LW, LF], R]) = op(left, right)
         def <=  [R](right : Exact[R])(implicit op: `Op<=`.Builder[DFDecimal[LS, LW, LF], R]) = op(left, right)
@@ -533,7 +536,7 @@ object DFDecimal extends DFAny.Companion {
           implicit ctx : DFAny.Context
         ) : DFDecimal[LS, RW, RF] = {
           left.member match {
-            case DFAny.Const(_, token : Token, _, _) =>
+            case const @ DFAny.Const(_, token : Token, _, _) if const.isAnonymous =>
               DFAny.Const.forced[Type[LS, RW, RF]](token.resize(toWidth, toFractionWidth))
             case _ =>
               if (
@@ -644,12 +647,12 @@ object DFDecimal extends DFAny.Companion {
   }
   object `VarW >= ConstW` extends Checked1Param.Int {
     type Cond[VW, CW] = VW >= CW
-    type Msg[VW, CW] = "A static boolean result detected, due to a comparison between a DF variable and a wider constant. Found: DFVar-width = "+ ToString[VW] + " and Num-width = " + ToString[CW]
+    type Msg[VW, CW] = "A static boolean result detected, due to a comparison between a DF variable and a wider constant.\nFound: DFVar-width = "+ ToString[VW] + " and Num-width = " + ToString[CW]
     type ParamFace = Int
   }
   object `VarF >= ConstF` extends Checked1Param.Int {
     type Cond[VF, CF] = VF >= CF
-    type Msg[VF, CF] = "A static boolean result detected, due to a comparison between a DF variable and a wider fraction constant. Found: DFVar-width = "+ ToString[VF] + " and Num-width = " + ToString[CF]
+    type Msg[VF, CF] = "A static boolean result detected, due to a comparison between a DF variable and a wider fraction constant.\nFound: DFVar-width = "+ ToString[VF] + " and Num-width = " + ToString[CF]
     type ParamFace = Int
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -980,6 +983,84 @@ object DFDecimal extends DFAny.Companion {
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // / operation
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  object `Op/` {
+    @scala.annotation.implicitNotFound("Dataflow variable ${L} does not support Ops `/` with the type ${R}")
+    trait Builder[-L, LE, -R] extends DFAny.Op.Builder[L, R]
+
+    object Builder {
+      type Aux[L, LE, R, Comp0] = Builder[L, LE, R] {
+        type Out = Comp0
+      }
+
+      trait DetailedBuilder[L, LS, LW, LF, LE, R, RS, RW, RF] {
+        type Out
+        def apply(properLR : (L, R) => (DFDecimal[LS, LW, LF], DFDecimal[RS, RW, RF])) : Builder.Aux[L, LE, R, Out]
+      }
+      object DetailedBuilder {
+        implicit def ev[L, LS, LW, LF, LE, R, RS, RW, RF](
+          implicit
+          ctx : DFAny.Context,
+          signMatch : `LS signMatch RS`.CheckedShell[LS, RS],
+          doCheck : SafeBoolean[![LE]],
+          checkLWvRW : `LW >= RW`.CheckedExtendable[LW, LE, RW],
+          checkLFvRF : `LF >= RF`.CheckedExtendable[LF, LE, RF]
+        ) : DetailedBuilder[L, LS, LW, LF, LE, R, RS, RW, RF]{type Out = DFDecimal[LS, LW, LF]} =
+          new DetailedBuilder[L, LS, LW, LF, LE, R, RS, RW, RF]{
+            type Out = DFDecimal[LS, LW, LF]
+            def apply(properLR : (L, R) => (DFDecimal[LS, LW, LF], DFDecimal[RS, RW, RF])) : Builder.Aux[L, LE, R, Out] =
+              new Builder[L, LE, R] {
+                type Out = DFDecimal[LS, LW, LF]
+                def apply(leftL : L, rightR : R) : Out = trydf {
+                  val (left, right) = properLR(leftL, rightR)
+                  // Completing runtime checks
+                  signMatch.unsafeCheck(left.dfType.signed, right.dfType.signed)
+                  if (doCheck) {
+                    checkLWvRW.unsafeCheck(left.width, right.width)
+                    checkLFvRF.unsafeCheck(left.dfType.fractionWidth, right.dfType.fractionWidth)
+                  }
+                  // Constructing op
+                  val opWidth = left.width
+                  val opFractionWidth = left.dfType.fractionWidth
+                  val out = Type(left.dfType.signed, opWidth, opFractionWidth)
+                  val func : (left.TToken, right.TToken) => out.TToken = _ / _
+                  DFAny.Func2(out, left, Func2.Op./, right)(func)
+                }
+              }
+          }
+      }
+
+      implicit def evDFDecimal_op_DFDecimal[LS, LW, LF, LE, RS, RW, RF](
+        implicit
+        detailedBuilder: DetailedBuilder[DFDecimal[LS, LW, LF], LS, LW, LF, LE, DFDecimal[RS, RW, RF], RS, RW, RF]
+      ) = detailedBuilder((left, right) => (left, right))
+
+      implicit def evDFDecimal_op_Const[LS, LW, LF, LE, R, RS, RW, RF](
+        implicit
+        ctx : DFAny.Context,
+        rConst : DFAny.Const.AsIs.Aux[Type[LS, LW, LF], R, _ <: Type[RS, RW, RF]],
+        detailedBuilder: DetailedBuilder[DFDecimal[LS, LW, LF], LS, LW, LF, LE, R, RS, RW, RF]
+      ) = detailedBuilder((left, rightNum) => {
+        val right = rConst(left.dfType, rightNum).asValOf[Type[RS, RW, RF]]
+        (left, right)
+      })
+
+      implicit def evConst_op_DFDecimal[L, LS, LW, LF, LE, RS, RW, RF](
+        implicit
+        ctx : DFAny.Context,
+        lConst : DFAny.Const.AsIs.Aux[Type[RS, RW, RF], L, _ <: Type[LS, LW, LF]],
+        detailedBuilder: DetailedBuilder[L, LS, LW, LF, LE, DFDecimal[RS, RW, RF], RS, RW, RF]
+      ) = detailedBuilder((leftNum, right) => {
+        val left = lConst(right.dfType, leftNum).asValOf[Type[LS, LW, LF]]
+        (left, right)
+      })
+    }
+  }
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Shift operations
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   protected abstract class OpsShift(op : Func2.Op.Shift) {
@@ -991,7 +1072,7 @@ object DFDecimal extends DFAny.Companion {
     object Builder {
       object SmallShift extends Checked1Param.Int {
         type Cond[LW, RW] = BitsWidthOf.CalcInt[LW-1] >= RW
-        type Msg[LW, RW] = "The shift vector is too large. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type Msg[LW, RW] = "The shift vector is too large.\nFound: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
       def create[LS, LW, LF, RW](left : DFDecimal[LS, LW, LF], right : DFUInt[RW])(

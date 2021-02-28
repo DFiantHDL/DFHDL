@@ -141,9 +141,11 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
     val patchList = clockedDB.designMemberList.flatMap {case(block, members) =>
       import clockedDB.__getset
       var hasPrevRst = false
+      val handledPrevDcls = mutable.Set.empty[DFAny.Dcl]
       //Locating all xyz_prev := xyz.prev assignments
       val prevReplacements : List[PrevReplacements] = members.collect {
         case prevNet @ DFNet.Assignment(xyz_prev @ DFAny.NewVar(), xyzDOTprev @ DFAny.Alias.Prev.Unref(_, relVal, _, _, _, _), _, _) =>
+          handledPrevDcls += xyz_prev
           val prevVarInit = relVal.getInit match {
             case Some(i +: _) if !i.isBubble => Some(Seq(i))
             case _ => None
@@ -175,6 +177,14 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
         case DFDesign.Block.Top(_, _, DFSimDesign.Mode.On) => true
         case _ => false
       }
+
+      //we remove all initializations except for register initialization or where a declaration is initialized but
+      //is not assigned to and therefore can be considered a constant
+      val dclInitRemovals = members.collect {
+        case dcl @ DFAny.Dcl(_,_,Some(_),_,_) if !handledPrevDcls.contains(dcl) && designDB.getAssignmentsTo(dcl).nonEmpty =>
+          dcl -> Patch.Replace(dcl.copy(externalInit = None), Patch.Replace.Config.FullReplacement)
+      }
+
       if (prevReplacements.nonEmpty) {
         val clockedDsn = addedClkRst(block)
         val prevDsn = new RTL.ClkRstDesign(clockParams, resetParams, topSimulation) {
@@ -204,7 +214,7 @@ final class RTL[D <: DFDesign](c : IRCompilation[D]) {
         val prevPatchList = clkPatch :: rstPatch
         val prevDB = prevDsn.getDB.patch(prevPatchList)
         //adding the clocked prev "signaling" with the clk-rst guards
-        (block -> Patch.Add(prevDB, Patch.Add.Config.InsideLast)) :: prevReplacements.flatMap(_.prevPatch)
+        dclInitRemovals ++ ((block -> Patch.Add(prevDB, Patch.Add.Config.InsideLast)) :: prevReplacements.flatMap(_.prevPatch))
       } else None
     }
     c.newStage(clockedDB.patch(patchList)).clearInitCalc
