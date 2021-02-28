@@ -79,6 +79,7 @@ private object Value {
       case Op.+ => "+"
       case Op.- => "-"
       case Op.* => "*"
+      case Op./ => "/"
       case Op.== => "="
       case Op.!= => "/="
       case Op.< => "<"
@@ -184,7 +185,6 @@ private object Value {
   def ref(member : DFAny.Member)(implicit printer : Printer) : String = {
     import printer.config._
     member match {
-      case c : DFAny.Const => const(c.token)
       case d : DFAny.Dcl => d.getOwnerBlock match {
         case DFDesign.Block.Internal(_,_,_,Some(rep)) => rep match {
           case EdgeDetect.Rep(bitRef, EdgeDetect.Edge.Rising) => s"$OP rising_edge(${ref(bitRef)})"

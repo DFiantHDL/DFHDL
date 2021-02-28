@@ -569,7 +569,7 @@ object DFBits extends DFAny.Companion {
           */
         def resize[RW](toWidth : BitsWidth.Checked[RW])(implicit ctx : DFAny.Context) : DFBits[RW] = trydf {
           left.member match {
-            case DFAny.Const(_, token : Token, _, _) =>
+            case const @ DFAny.Const(_, token : Token, _, _) if const.isAnonymous =>
               DFAny.Const.forced[Type[RW]](token.resize(toWidth))
             case _ =>
               if (left.width.getValue == toWidth.getValue) left.asInstanceOf[DFBits[RW]]
@@ -973,7 +973,7 @@ object DFBits extends DFAny.Companion {
     object Builder {
       object SmallShift extends Checked1Param.Int {
         type Cond[LW, RW] = BitsWidthOf.CalcInt[LW-1] >= RW
-        type Msg[LW, RW] = "The shift vector is too large. Found: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
+        type Msg[LW, RW] = "The shift vector is too large.\nFound: LHS-width = "+ ToString[LW] + " and RHS-width = " + ToString[RW]
         type ParamFace = Int
       }
       def create[LW, RW](left : DFBits[LW], right : DFUInt[RW])(

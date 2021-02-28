@@ -12,7 +12,7 @@ private object Type {
       case DFBool.Type(false) => s"$TP std_logic"
       case DFBool.Type(true) => s"$TP boolean"
       case arr : DFVector.Type[_,_] => ArrayTypeDcl.arrayTypeName(arr)
-      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. Found type ${dfType}")
+      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation.\nFound type ${dfType}")
     }
   }
   def typeName(dfType : DFAny.Type)(implicit printer : Printer) : String = {
@@ -24,6 +24,6 @@ private object Type {
       case DFBool.Type(false) => "std_logic"
       case DFBool.Type(true) => "boolean"
       case arr : DFVector.Type[_,_] => ArrayTypeDcl.arrayTypeName(arr)
-      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation. Found type ${dfType}")
+      case _ => throw new IllegalArgumentException(s"\nUnsupported type for VHDL compilation.\nFound type ${dfType}")
     }
   }}

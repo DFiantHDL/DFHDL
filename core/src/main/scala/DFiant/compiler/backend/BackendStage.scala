@@ -13,8 +13,8 @@ object BackendStage {
   final case class Compilation[D <: DFDesign, B <: BackendStage](
     dsn : D, db : DFDesign.DB, fileSeq : Seq[File]
   ) extends compiler.Compilation[D] {
-    def printGenFiles : this.type = printGenFiles(includeGlobalDefsPackage = false, colored = true)
-    def printGenFiles(includeGlobalDefsPackage : Boolean, colored : Boolean) : this.type = {
+    def printGenFiles : this.type = printGenFiles()
+    def printGenFiles(includeGlobalDefsPackage : Boolean = false, colored : Boolean = true) : this.type = {
       val printSeq = if (includeGlobalDefsPackage) fileSeq else fileSeq.drop(1)
       printSeq.foreach {
         case BackendStage.File(fileName, contents) => println(

@@ -95,7 +95,7 @@ final class PrinterOps[D <: DFDesign, C](c : C)(implicit conv : C => Compilation
     * @return this unmodified compilation context / design
     */
   def printCodeString(implicit printConfig : CSPrinter.Config) : C = printCodeString(colored = true)
-  def printCodeString(colored : Boolean)(implicit printConfig : CSPrinter.Config) : C = {
+  def printCodeString(colored : Boolean = true)(implicit printConfig : CSPrinter.Config) : C = {
     println(if (colored) codeString else codeString.uncolor)
     c
   }

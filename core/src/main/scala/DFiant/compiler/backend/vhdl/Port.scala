@@ -28,6 +28,15 @@ object Signal {
   }
 }
 
+object Constant {
+  def apply(name : String, rtType : String, initStr : String)(
+    implicit printer: Printer
+  ) : String = {
+    import printer.config._
+    s"$KW constant $name ${ALGN(0)}: $rtType$initStr;"
+  }
+}
+
 object Variable {
   def apply(name : String, rtType : String, initStr : String)(
     implicit printer: Printer

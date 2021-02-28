@@ -198,7 +198,7 @@ object DFVector extends DFAny.Companion {
   }
   object `LN == RN` extends Checked1Param.Int {
     type Cond[LN, RN] = LN == RN
-    type Msg[LN, RN] = "This operation does not permit applying different element numbers. Found: LHS-width = "+ ToString[LN] + " and RHS-width = " + ToString[RN]
+    type Msg[LN, RN] = "This operation does not permit applying different element numbers.\nFound: LHS-width = "+ ToString[LN] + " and RHS-width = " + ToString[RN]
     type ParamFace = Int
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

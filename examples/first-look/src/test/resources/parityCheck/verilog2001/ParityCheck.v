@@ -9,11 +9,11 @@ module ParityCheck(
   input  wire               seqIn,
   output reg                detOut
 );
-  reg         [0:0]         fsm_state = `E_fsm_states_Even;
-  reg         [0:0]         fsm_state_prev1 = `E_fsm_states_Even;
-  reg         [0:0]         fsm_state_sig;
   `define E_fsm_states_Even 0
   `define E_fsm_states_Odd  1
+  reg         [0:0]         fsm_state;
+  reg         [0:0]         fsm_state_prev1 = `E_fsm_states_Even;
+  reg         [0:0]         fsm_state_sig;
   always @(*)
   begin
     fsm_state               = fsm_state_prev1;

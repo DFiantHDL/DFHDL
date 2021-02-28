@@ -13,6 +13,7 @@ final class ExplicitNamedVars[D <: DFDesign](c : IRCompilation[D]) {
     val patchList = designDB.members.flatMap {
       case named : DFAny.Member if !named.isAnonymous => named match { //all named values
         case DFAny.Dcl(_,Modifier.MatchRetVar | Modifier.IfRetVar | Modifier.Port(_),_,_,_) => None //ignoring ports and match/if return variables
+        case _ : DFAny.Const => None //named constants remain as they are
         case _ : DFAny.ApplySel => None //array selection
         case _ =>
           val anon = named.anonymize

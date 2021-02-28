@@ -80,3 +80,4 @@ Semantically, every DFiant dataflow variable references a token stream (TS).
 
 
 
+## Time Invariance

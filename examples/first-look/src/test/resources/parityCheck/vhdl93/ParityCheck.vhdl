@@ -21,7 +21,7 @@ architecture ParityCheck_arch of ParityCheck is
   signal fsm_state_sig   : E_fsm_states;
 begin
   async_proc : process (clk, fsm_state_prev1, seqIn, rst)  
-    variable fsm_state   : E_fsm_states := E_fsm_states_Even;
+    variable fsm_state   : E_fsm_states;
   begin
     fsm_state            := fsm_state_prev1;
     case fsm_state is

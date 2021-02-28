@@ -2,47 +2,77 @@ div.output-console * {
   color: white
 }
 
-html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
-padding-top: 0px;
-padding-bottom: 0px;
-margin-bottom: 0px;
-margin-top: 0px;
-}
-
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.code ul.embedded-menu {
-top: -60px;
-left: 200px;
-right: 300px;
+  margin-top: 0px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  margin-right: 0px;
+  top: -37px;
+  left: 170px;
+  right: 360px;
 }
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.code ul.embedded-menu li.btn.run-button {
-margin-top: 5px;
-padding-bottom: 0px;
-padding-top: 0px;
-background-color: #ecf3ff;
+  margin-top: 5px;
+  margin-left: 0px;
+  padding-left: 0px;
+  padding-bottom: 0px;
+  padding-top: 0px;
+  background-color: #ecf3ff;
+  width: 110px;
 }
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.code ul.embedded-menu li.logo {
-margin-top: -43px;
-margin-left: 120px;
-padding-top: 0px;
-padding-bottom: 0px;
-background-color: #ecf3ff;
+  margin-top: -35px;
+  margin-left: 100px;
+  padding-right: 0px;
+  margin-right: 0px;
+  padding-left: 0px;
+  padding-top: 0px;
+  padding-bottom: 0px;
+  background-color: #ecf3ff;
+  width: 110px;
 }
 
-.md-typeset .admonition, .md-typeset details {
-padding: 0 0rem;
+html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.code ul.embedded-menu li.logo img {
+  background-color: black;
+  padding-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 2px;
+  padding-right: 2px;
+  height: 20px;
+  line-height: 20px;
 }
-.md-typeset .admonition-title, .md-typeset summary {
-margin: 0 -.6rem 0 -0.2rem;
+html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.code ul.embedded-menu li.btn.run-button i.fa.fa-play {
+  background-color: black;
+  color: white;
+  margin-left: 5px;
+  margin-right: 5px;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
 }
-
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
-padding-right: 35px;
+  margin-left: -13px;
+  padding-right: 46px;
 }
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant p {
-margin-bottom: 0px;
-margin-top: 0px;
+  margin-bottom: 0px;
+  margin-top: 0px;
+}
+
+html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.code ul.embedded-menu > *{
+  font-size: 15px;
+  color: #2000ff;
+}
+
+html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
+  padding-top: 0px;
+  padding-bottom: 0px;
+  margin-bottom: 0px;
+  margin-top: 0px;
+  width: 103.8%;
+  padding-right: 0px;
 }
