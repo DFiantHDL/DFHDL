@@ -12,11 +12,11 @@ var settings = {
       "-Ymacro-annotations"
     )
     libraryDependencies ++= Seq(
-      "io.github.dfianthdl" %% "dfiant" % "0.1.1"
+      "io.github.dfianthdl" %% "dfiant" % "0.1.2"
     )
   `,
   targetType: 'jvm',
-  scalaVersion: '2.13.4'
+  scalaVersion: '2.13.5
 }
 window.addEventListener('load', function() {
   scastie.Embedded('.scastie', settings);
