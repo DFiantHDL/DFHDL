@@ -16,7 +16,7 @@ var settings = {
     )
   `,
   targetType: 'jvm',
-  scalaVersion: '2.13.5
+  scalaVersion: '2.13.5'
 }
 window.addEventListener('load', function() {
   scastie.Embedded('.scastie', settings);
