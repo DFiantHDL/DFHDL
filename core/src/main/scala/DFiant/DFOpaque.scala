@@ -3,7 +3,6 @@ import DFiant.DFAny.UninitializedDcl
 import DFiant.compiler.csprinter.CSPrinter
 import internals._
 import singleton.ops.RequireMsg
-import singleton.twoface._
 
 object DFOpaque {
   trait Fields extends DFStruct.Fields {

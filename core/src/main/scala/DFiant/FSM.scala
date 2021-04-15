@@ -1,7 +1,7 @@
 package DFiant
 
 import DFiant.FSM.Step
-import DFiant.internals.{GroupByOrderedImplicitImpl, IterableStringsOps}
+import DFiant.internals.{GroupByOrderedImplicitImpl, IntExtras, IterableStringsOps, Meta}
 import DFDesign.Frontend._
 
 import scala.collection.immutable.ListMap
@@ -174,16 +174,15 @@ object FSM {
       }
       val nameGroups = steps.zipWithIndex.groupByOrdered(k => k._1.ctx.meta.name.toString.stripPrefix(s"${headName}_"))
 
-      val suffixGen = s"%0${steps.size.toString.length}d"
       if (nameGroups.size == 1)
-        (headName, ListMap.from(steps.zipWithIndex.map{case (s, i) => s -> s"S${suffixGen.format(i)}"}))
+        (headName, ListMap.from(steps.zipWithIndex.map{case (s, i) => s -> s"S${i.toPaddedString(steps.size)}"}))
       else
         (headName, ListMap.from(nameGroups.flatMap {
           case (name, (head, i) :: Nil) =>
-            if (name.isEmpty) Some(head -> s"S${suffixGen.format(i)}")
+            if (name.isEmpty) Some(head -> s"S${i.toPaddedString(steps.size)}")
             else Some(head -> name)
-          case (name, steps) =>
-            steps.map {case (s, i) => s -> s"${name}_${suffixGen.format(i)}"}
+          case (name, groupSteps) =>
+            groupSteps.map {case (s, i) => s -> s"${name}_${i.toPaddedString(steps.size)}"}
         }))
     }
   }
@@ -256,7 +255,7 @@ object FSM {
       val matchHeader = matchdf(state)
       steps.foldLeft[DFConditional.NoRetVal.HasCaseDF[DFEnum.Type[states.type], true]](matchHeader) {
         case (pm, step) => pm.casedf(entries(step)) {
-          val scope = new DFScope(Some(s"${fsmName}_${entries(step).name}")) {
+          val scope = new DFScope()(ctx.setName(s"${fsmName}_${entries(step).name}")) {
             __db.OwnershipContext.injectContainer(this)
             val savedNS = mutableDB.getNextFSMStep
             val savedPS = mutableDB.getPrevFSMStep

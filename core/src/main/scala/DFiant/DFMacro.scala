@@ -20,7 +20,7 @@ protected[DFiant] object DFMacro {
            """
         case q"$mods class $tpname[..$tparams] $ctorMods(...$paramss) extends DFOpaque.Of($template) { $self => ..$stats }" :: tail =>
           q"""
-            $mods class $tpname[..$tparams] $ctorMods(...$paramss) extends DFiant.DFOpaque.Fields { $self =>
+            $mods class $tpname[..$tparams] $ctorMods(...$paramss)(implicit meta : internals.Meta) extends DFiant.DFOpaque.Fields { $self =>
               protected lazy val __holder = new DFAny.Type.Holder($template)
               type ActualType = __holder.TType
               lazy val actualType = __holder.dfType

@@ -114,8 +114,8 @@ object DFDesign {
       Control(owner, Control.Op.Stall)
       dsn.@@[FSM.Capable]
     }
-    def init()(implicit ctx : DFAny.Context) : D with FSM.Capable = {
-      Control(owner, Control.Op.Init)
+    def clear()(implicit ctx : DFAny.Context) : D with FSM.Capable = {
+      Control(owner, Control.Op.Clear)
       dsn.@@[FSM.Capable]
     }
   }
@@ -224,7 +224,7 @@ object DFDesign {
       val opStr = op match {
         case Op.Enable => "enable"
         case Op.Stall => "stall"
-        case Op.Init => "init"
+        case Op.Clear => "clear"
       }
       s"${designRef.getRelativeName}.$DF$opStr()"
     }
@@ -233,7 +233,7 @@ object DFDesign {
     def apply(design: Block, op : Op.Entry)(implicit ctx: DFAny.Context)
     : Control = {
       implicit lazy val ret : Control with DFMember.RefOwner =
-        ctx.db.addMemberOf[Control](Control(design, op, ctx.owner, ctx.meta))
+        ctx.db.addMemberOf[Control](Control(design, op, ctx.owner, ctx.meta.anonymize))
       ret
     }
 
@@ -249,7 +249,7 @@ object DFDesign {
 
     object Op extends DFEnum.Auto {
 //      sealed abstract class Status(implicit meta : Meta) extends Entry with Product with Serializable
-      val Enable, Stall, Init = Entry()
+      val Enable, Stall, Clear = Entry()
     }
   }
 
@@ -423,23 +423,54 @@ object DFDesign {
     @nowarn("msg=The outer reference in this type test cannot be checked at run time")
     private final case class ReplacementContext(
       refTable : Map[DFMember.Ref, DFMember],
-      memberRepTable : Map[DFMember, DFMember]
+      memberRepTable : Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]]
     ) {
       def changeRef(origRef : DFMember.Ref, updateMember : DFMember) : ReplacementContext = {
+//        println("changeRef", origRef, updateMember)
         copy(refTable = refTable.updated(origRef, updateMember))
       }
+      def getLatestRepOf(member : DFMember) : DFMember = {
+        memberRepTable.get(member) match {
+          case Some((repMember, refFilter) :: _) =>
+            assert(refFilter == Patch.Replace.RefFilter.All)
+            repMember
+          case _ => member
+        }
+      }
+      def getUpdatedRefTable(refTable : Map[DFMember.Ref, DFMember]) : Map[DFMember.Ref, DFMember] = {
+        refTable.map {
+          case (ref : DFMember.OwnedRef, member) =>
+            val replacementHistory = memberRepTable.getOrElse(member, List())
+            replacementHistory.collectFirst {
+              case (repMember, Patch.Replace.RefFilter.All) => ref -> repMember
+              case (repMember, Patch.Replace.RefFilter.Outside(owner)) if member.isOutsideOwner(owner) => ref -> repMember
+              case (repMember, Patch.Replace.RefFilter.Inside(owner)) if member.isInsideOwner(owner) => ref -> repMember
+            }.getOrElse(ref -> member)
+          case x => x
+        }
+      }
       def replaceMember(origMember : DFMember, repMember : DFMember, refFilter : Patch.Replace.RefFilter) : ReplacementContext = {
-        if (origMember == repMember) this else memberTable.get(origMember) match {
+        if (origMember == repMember) this //nothing to do if the member is replacing itself
+        else memberTable.get(origMember) match {
+          //the member exists, so we need to update its references to point to the new member
+          //by updating the reference table
           case Some(refs) =>
             //in case the replacement member already was replaced in the past, then we used the previous replacement
             //as the most updated member
-            val actualReplacement = this.memberRepTable.getOrElse(repMember, repMember)
-            ReplacementContext(
-              refFilter(refs).foldLeft(refTable)((rt2, r) => rt2.updated(r, actualReplacement)),
-              memberRepTable + (origMember -> actualReplacement)
-            )
-          case None =>
-            this
+            val replacementHistory = (repMember, refFilter) :: this.memberRepTable.getOrElse(repMember, List())
+            val updatedRefTable : Map[DFMember.Ref, DFMember] = replacementHistory.foldRight(refTable) {
+              case ((rm, rf), rt) => rf(refs).foldLeft(rt)((rt2, r) => rt2.updated(r, rm))
+            }
+            val updatedMemberRepTable : Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]] = refFilter match {
+              //An all inclusive filter is purging all other replacement histories, so we only save it alone
+              case Patch.Replace.RefFilter.All =>
+                memberRepTable + (origMember -> List((repMember, refFilter)))
+              case _ =>
+                memberRepTable + (origMember -> replacementHistory)
+            }
+            ReplacementContext(updatedRefTable, updatedMemberRepTable)
+          //nothing to do if the member does not exist anymore
+          case None => this
         }
       }
     }
@@ -449,7 +480,8 @@ object DFDesign {
     }
 
     //replaces all members and references according to the patch list
-    def patch(patchList : Iterable[(DFMember, Patch)]) : DB = if (patchList.isEmpty) this else {
+    def patch(patchList : Iterable[(DFMember, Patch)], debug : Boolean = false) : DB = if (patchList.isEmpty) this else {
+      def patchDebug(block : => Unit) : Unit = if (debug) block
       val patchTable = patchList.flatMap {
         //Replacement of reference only does not require patching the member list, so we remove this from the table
         case (_, Patch.Replace(_, Patch.Replace.Config.ChangeRefOnly, _)) => None
@@ -502,6 +534,9 @@ object DFDesign {
           //add followed by a replacement is allowed via a tandem patch execution
           case (add : Patch.Add, Patch.Remove) =>
             tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
+          //replacement followed by an add via a tandem patch execution
+          case (replace : Patch.Replace, add : Patch.Add) if add.config == Patch.Add.Config.After =>
+            tbl + (m -> Patch.Add(add.db.copy(add.db.members.head :: replace.updatedMember :: add.db.members.drop(1)), Patch.Add.Config.ReplaceWithFirst()))
           //allow the same member to be removed more than once by getting rid of the redundant removals
           case (Patch.Remove, Patch.Remove) => tbl + (m -> Patch.Remove)
           //don't allow using the same member for patching if it's not an addition of the same configuration
@@ -513,6 +548,15 @@ object DFDesign {
           )
         }
         case (tbl, pair) => tbl + pair
+      }
+
+      patchDebug {
+        println("patchList:")
+        println(patchList.mkString("\n"))
+        println("----------------------------------------------------------------------------")
+        println("patchTable:")
+        println(patchTable.mkString("\n"))
+        println("----------------------------------------------------------------------------")
       }
       //Patching member list
       val patchedMembers = members.flatMap(m => patchTable.get(m) match {
@@ -545,17 +589,38 @@ object DFDesign {
         case Some(_ : Patch.ChangeRef[_]) => Some(m)
         case None => Some(m) //not in the patch table, therefore remain as-is
       })
+      patchDebug {
+        println("----------------------------------------------------------------------------")
+        println("members:")
+        println(members.mkString("\n"))
+        println("----------------------------------------------------------------------------")
+        println("refTable:")
+        println(refTable.mkString("\n"))
+        println("----------------------------------------------------------------------------")
+        println("patchedMembers:")
+        println(patchedMembers.mkString("\n"))
+        println("----------------------------------------------------------------------------")
+      }
       //Patching reference table
       val patchedRefTable = patchList.foldLeft(ReplacementContext.fromRefTable(refTable)) {
-        case (rc, (origMember, Patch.Replace(repMember, _, refFilter))) if (origMember != repMember) => rc.replaceMember(origMember, repMember, refFilter)
+        case (rc, (origMember, Patch.Replace(repMember, _, refFilter))) if (origMember != repMember) => {
+          val ret = rc.replaceMember(origMember, repMember, refFilter)
+          patchDebug {
+            println("rc.refTable:")
+            println(ret.refTable.mkString("\n"))
+          }
+          ret
+        }
         case (rc, (origMember, Patch.Add(db, config))) =>
           val newOwner = config match {
             case Patch.Add.Config.InsideFirst => origMember
             case Patch.Add.Config.InsideLast => origMember
             case _ => origMember.getOwnerBlock
           }
-          val actualNewOwner = rc.memberRepTable.getOrElse(newOwner, newOwner) //owner may have been replaced before
+          val actualNewOwner = rc.getLatestRepOf(newOwner) //owner may have been replaced before
           val dbPatched = db.patch(db.top -> Patch.Replace(actualNewOwner, Patch.Replace.Config.ChangeRefOnly))
+          //updating the patched DB reference table members with the newest members kept by the replacement context
+          val updatedPatchRefTable = rc.getUpdatedRefTable(dbPatched.refTable)
           val repRT = config match {
             case Patch.Add.Config.ReplaceWithFirst(_, refFilter) =>
               val repMember = db.members(1) //At index 0 we have the Top. We don't want that.
@@ -568,9 +633,24 @@ object DFDesign {
               rc.replaceMember(origMember, repMember, Patch.Replace.RefFilter.All)
             case _ => rc
           }
-          //updating the patched DB reference table members with the newest members kept by the replacement context
-          val updatedPatchRefTable = dbPatched.refTable.view.mapValues(m => rc.memberRepTable.getOrElse(m, m))
-          repRT.copy(refTable = repRT.refTable ++ updatedPatchRefTable)
+//          patchDebug {
+//            println("repRT.refTable:")
+//            println(repRT.refTable.mkString("\n"))
+//          }
+//          patchDebug {
+//            println("dbPatched.refTable:")
+//            println(dbPatched.refTable.mkString("\n"))
+//          }
+//          patchDebug {
+//            println("updatedPatchRefTable:")
+//            println(updatedPatchRefTable.mkString("\n"))
+//          }
+          val ret = repRT.copy(refTable = repRT.refTable ++ updatedPatchRefTable)
+//          patchDebug {
+//            println("rc.refTable:")
+//            println(ret.refTable.mkString("\n"))
+//          }
+          ret
         //a move patch just requires change of the owner reference of the head moved members
         case (rc, (origMember, Patch.Move(movedMembers, config))) =>
           val newOwner = config match {
@@ -578,7 +658,7 @@ object DFDesign {
             case Patch.Move.Config.InsideLast => origMember
             case _ => origMember.getOwnerBlock
           }
-          val actualNewOwner = rc.memberRepTable.getOrElse(newOwner, newOwner) //owner may have been replaced before
+          val actualNewOwner = rc.getLatestRepOf(newOwner) //owner may have been replaced before
           val headRef = movedMembers.head.ownerRef
           rc.changeRef(headRef, actualNewOwner)
         case (rc, (origMember, Patch.Remove)) => memberTable.get(origMember) match {
@@ -590,6 +670,12 @@ object DFDesign {
           rc.copy(refTable = rc.refTable + (ref -> updatedRefMember))
         case (rc, _) => rc
       }.refTable
+      patchDebug {
+        println("----------------------------------------------------------------------------")
+        println("patchedRefTable:")
+        println(patchedRefTable.mkString("\n"))
+        println("----------------------------------------------------------------------------")
+      }
       DB(patchedMembers, patchedRefTable, globalTags)
     }
     def setGlobalTags(tagList : List[((Any, ClassTag[_]), DFMember.CustomTag)]) : DB =
@@ -666,7 +752,7 @@ object DFDesign {
       println(members.map {
         case m : DFDesign.Block.Top => s"${m.name} <top>"
         case m =>
-          val owner = m.getOwnerBlock
+          val owner = m.getOwner
           s"${m.name}_${m.hashCode().toHexString} : ${m.typeName}   ->   ${owner.name}_${owner.hashCode().toHexString} : ${owner.typeName}"
       }.mkString("\n"))
       this
@@ -701,13 +787,13 @@ object DFDesign {
           object All extends RefFilter {
             def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref] = refs
           }
-          //Only references from outside the given block are replaced
-          final case class Outside(block : DFDesign.Block.Internal) extends RefFilter {
+          //Only references from outside the given owner are replaced
+          final case class Outside(block : DFOwner) extends RefFilter {
             def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref] =
               refs.collect{case r : DFMember.OwnedRef if r.owner.get.isOutsideOwner(block) => r}
           }
-          //Only references from inside the given block are replaced
-          final case class Inside(block : DFDesign.Block) extends RefFilter {
+          //Only references from inside the given owner are replaced
+          final case class Inside(block : DFOwner) extends RefFilter {
             def apply(refs : Set[DFMember.Ref])(implicit getSet: MemberGetSet) : Set[DFMember.Ref] =
               refs.collect{case r : DFMember.OwnedRef if r.owner.get.isInsideOwner(block) => r}
           }
@@ -926,11 +1012,10 @@ object DFDesign {
         }
 
         def checkContainerExits(container : DFOwner.Container) : Unit = {
-          val actualContainer = injectedContainer.getOrElse(container)
           while (
             !duringExitContainer &&
             stack.nonEmpty &&
-            !actualContainer.isInsideParent(stack.head.container)
+            !injectedContainer.getOrElse(container).isInsideParent(stack.head.container)
           ) exitContainer(stack.head.container)
         }
 

@@ -91,7 +91,7 @@ trait DFMember extends HasTypeName with Product with Serializable {self =>
 
 object DFMember {
   final class MemberContainer[T, M <: DFMember](container : T, getMember : T => M, setMember : M => T) {
-    private val member : M = getMember(container)
+    val member : M = getMember(container)
     def name : String = member.name
     def tags : DFMember.Tags = member.tags
     def setTags(tagsFunc : DFMember.Tags => DFMember.Tags)(implicit getSet : MemberGetSet) : T = {

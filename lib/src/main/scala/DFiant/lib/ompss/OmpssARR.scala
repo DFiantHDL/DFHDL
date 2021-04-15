@@ -2,7 +2,6 @@ package DFiant
 package lib.ompss
 
 import DFiant.internals._
-import singleton.twoface.TwoFace
 import singleton.ops._
 
 /**

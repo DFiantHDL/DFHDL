@@ -1,7 +1,6 @@
 package DFiant
 
 import singleton.ops._
-import singleton.twoface._
 import DFiant.internals._
 import DFAny.{Func2, `Op==,!=`}
 import DFiant.DFDecimal.{`LF == RF`, `LF >= RF`, `LS == RS`, `LS signMatch RS`, `VarF >= ConstF`, `VarS signMatch ConstS`, `VarW >= ConstW`}
@@ -678,6 +677,26 @@ object DFDecimal extends DFAny.Companion {
         right.resize(left.width, left.fractionWidth).asValOf[Type[LS, LW, LF]]
       }
 
+      protected implicit def __DFUInt_ac_DFBits[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op:=,<>`.Builder[DFUInt.Type[LW], DFBits[RW]] = (left, right) => trydf {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        import DFDesign.Frontend._
+        right.uint.asValOf[DFUInt.Type[LW]]
+      }
+
+      protected implicit def __DFUInt_ac_DFBitsToken[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op:=,<>`.Builder[DFUInt.Type[LW], DFBits.TokenW[RW]] = (left, right) => trydf {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        import DFDesign.Frontend._
+        DFAny.Const.forced(right.toUInt).asValOf[DFUInt.Type[LW]]
+      }
+
       protected implicit def __DFDecimal_eq_Capable[LS, LW, LF, RS, RW, RF](
         implicit
         signMatch : `LS == RS`.CheckedShell[LS, RS],
@@ -704,11 +723,15 @@ object DFDecimal extends DFAny.Companion {
     object Frontend {
       trait Inherited extends Frontend {
         final override protected implicit def __DFDecimal_ac_DFDecimal[LS, LW, LF, RS, RW, RF](implicit ctx : DFAny.Context, signMatch : `LS == RS`.CheckedShell[LS, RS], fitsWidth : internals.`LW >= RW`.CheckedShell[LW, RW], fitsFractionWidth : `LF >= RF`.CheckedShell[LF, RF]) : Builder[Type[LS, LW, LF], DFDecimal[RS, RW, RF]] = super.__DFDecimal_ac_DFDecimal
+        final override protected implicit def __DFUInt_ac_DFBits[LW, RW](implicit ctx: DFAny.Context, checkLWvRW: internals.`LW == RW`.CheckedShell[LW, RW]): Builder[DFUInt.Type[LW], DFBits[RW]] = super.__DFUInt_ac_DFBits
+        final override protected implicit def __DFUInt_ac_DFBitsToken[LW, RW](implicit ctx: DFAny.Context, checkLWvRW: internals.`LW == RW`.CheckedShell[LW, RW]): Builder[DFUInt.Type[LW], DFBits.TokenW[RW]] = super.__DFUInt_ac_DFBitsToken
         final override protected implicit def __DFDecimal_eq_Capable[LS, LW, LF, RS, RW, RF](implicit signMatch : `LS == RS`.CheckedShell[LS, RS], checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW], checkLFvRF : `LF == RF`.CheckedShell[LF, RF]) : `Op==,!=`.Capable[Type[LS, LW, LF], Type[RS, RW, RF]] = super.__DFDecimal_eq_Capable
         final override protected implicit def __DFDecimal_eq_ConstCapable[VS, VW, VF, CS, CW, CF](implicit checkVSvCS : `VarS signMatch ConstS`.CheckedShellSym[Warn, VS, CS], checkVWvCW : `VarW >= ConstW`.CheckedShellSym[Warn, VW, CW], checkVFvCF : `VarF >= ConstF`.CheckedShellSym[Warn, VF, CF]) : `Op==,!=`.ConstCapable[Type[VS, VW, VF], Type[CS, CW, CF]] = super.__DFDecimal_eq_ConstCapable
       }
       trait Imported extends Frontend {
         final override implicit def __DFDecimal_ac_DFDecimal[LS, LW, LF, RS, RW, RF](implicit ctx : DFAny.Context, signMatch : `LS == RS`.CheckedShell[LS, RS], fitsWidth : internals.`LW >= RW`.CheckedShell[LW, RW], fitsFractionWidth : `LF >= RF`.CheckedShell[LF, RF]) : Builder[Type[LS, LW, LF], DFDecimal[RS, RW, RF]] = super.__DFDecimal_ac_DFDecimal
+        final override implicit def __DFUInt_ac_DFBits[LW, RW](implicit ctx: DFAny.Context, checkLWvRW: internals.`LW == RW`.CheckedShell[LW, RW]): Builder[DFUInt.Type[LW], DFBits[RW]] = super.__DFUInt_ac_DFBits
+        final override implicit def __DFUInt_ac_DFBitsToken[LW, RW](implicit ctx: DFAny.Context, checkLWvRW: internals.`LW == RW`.CheckedShell[LW, RW]): Builder[DFUInt.Type[LW], DFBits.TokenW[RW]] = super.__DFUInt_ac_DFBitsToken
         final override implicit def __DFDecimal_eq_Capable[LS, LW, LF, RS, RW, RF](implicit signMatch : `LS == RS`.CheckedShell[LS, RS], checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW], checkLFvRF : `LF == RF`.CheckedShell[LF, RF]) : `Op==,!=`.Capable[Type[LS, LW, LF], Type[RS, RW, RF]] = super.__DFDecimal_eq_Capable
         final override implicit def __DFDecimal_eq_ConstCapable[VS, VW, VF, CS, CW, CF](implicit checkVSvCS : `VarS signMatch ConstS`.CheckedShellSym[Warn, VS, CS], checkVWvCW : `VarW >= ConstW`.CheckedShellSym[Warn, VW, CW], checkVFvCF : `VarF >= ConstF`.CheckedShellSym[Warn, VF, CF]) : `Op==,!=`.ConstCapable[Type[VS, VW, VF], Type[CS, CW, CF]] = super.__DFDecimal_eq_ConstCapable
       }

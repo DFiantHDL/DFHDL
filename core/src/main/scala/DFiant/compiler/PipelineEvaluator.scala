@@ -262,6 +262,18 @@ object PipelineEvaluator {
         case Op.== | Op.!= => gateLogicDelay(2, 1, maxWidth.bitsWidth(false), 2)
         case Op.< | Op.> | Op.<= | Op.>= => gateLogicDelay(maxWidth*2, maxWidth, 1, 2)
         case Op.| | Op.& | Op.|| | Op.&& | Op.^ => gateLogicDelay(2, 1, 1, 2)
+        case Op./ =>
+          val isPowerOfTwo = {
+            val intValue = func2.rightArgRef.get match {
+              case DFAny.Const(_,DFUInt.Token(_,value),_,_) => value
+              case DFAny.Const(_,DFSInt.Token(_,value),_,_) => value
+              case _ => None
+            }
+            intValue.exists(v => (v & (v - 1)) == 0)
+          }
+
+          if (isPowerOfTwo) noDelay
+          else gateLogicDelay(maxWidth*2, maxWidth, maxWidth, maxWidth.bitsWidth(false))
         case shift : Op.Shift =>
           if (rightIsConstant) noDelay else gateLogicDelay(maxWidth*2, maxWidth, maxWidth.bitsWidth(false), 2)
         case Op.++ => noDelay

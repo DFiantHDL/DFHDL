@@ -38,7 +38,8 @@ object OrderMembers {
         case DFNet.Connection(_, DFAny.In(), _, _) => 4
         case DFNet.Connection(DFAny.NewVar(), v @ DFAny.NewVar(), _, _) if !v.isNonAliasAssigned => 4
         case DFNet.Connection(DFAny.Out(), _, _, _) => 6
-        case DFNet.Assignment(v @ DFAny.Out(), _, _, _) if getSet.designDB.getAssignmentsTo(v).size == 1 => 6
+          //TODO: needs to fix. Does not work well for arrays.
+//        case DFNet.Assignment(v @ DFAny.Out(), _, _, _) if v.getNonAliasAssignCount == 1 => 6
         case _ => 5
       }
     }

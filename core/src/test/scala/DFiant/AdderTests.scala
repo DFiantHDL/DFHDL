@@ -19,7 +19,7 @@ package DFiant
 
 import shapeless.test.illTyped
 
-@df class `Op+Tests` extends DFDesign {
+@df class OpPlusTests extends DFDesign {
   val uint8 = DFUInt(8) <> VAR
   val uint9 = DFUInt(9) <> VAR
   uint8.extendable + uint9

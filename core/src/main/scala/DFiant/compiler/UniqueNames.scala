@@ -2,6 +2,7 @@ package DFiant
 package compiler
 
 import DFDesign.DB.Patch
+import DFiant.internals.IntExtras
 
 import scala.reflect.classTag
 
@@ -16,8 +17,7 @@ final class UniqueNames[D <: DFDesign](c : IRCompilation[D]) {
     : Iterable[R] = {
       iter.groupBy(e => lowerCase(nameAccess(e))).flatMap {
         case (name, list) if list.size > 1 || existingNamesLC.contains(name) => list.zipWithIndex.map{case (renamed, i) =>
-          val suffix = s"%0${list.size.toString.length}d".format(i)
-          val updatedName = s"${nameAccess(renamed)}_$suffix"
+          val updatedName = s"${nameAccess(renamed)}_${i.toPaddedString(list.size)}"
           updateFunc(renamed, updatedName)
         }
         case _ => Nil

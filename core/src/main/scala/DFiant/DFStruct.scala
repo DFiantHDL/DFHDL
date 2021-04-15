@@ -4,7 +4,6 @@ import DFiant.DFAny.{UninitializedDcl, `Op==,!=`}
 import DFiant.DFStruct.Fields
 import DFiant.compiler.csprinter.CSPrinter
 import internals._
-import singleton.twoface.TwoFace
 import compiler.printer.formatter._
 import shapeless.LowPriority
 
@@ -215,6 +214,11 @@ object DFStruct extends DFAny.Companion {
           Selector(dfType, struct.member.modifier, struct.member, fieldName, ctx.owner, ctx.meta.anonymize)
         ).asRefOwner[Type, Mod]
       ret
+    }
+    object Unref {
+      def unapply(arg : Selector)(implicit getSet: MemberGetSet)
+      : Option[(DFAny.Type, DFAny.Modifier, DFAny.Member, String, DFOwner, DFMember.Tags)] =
+        Some(arg.dfType, arg.modifier, arg.structRef.get, arg.fieldName, arg.ownerRef.get, arg.tags)
     }
   }
 

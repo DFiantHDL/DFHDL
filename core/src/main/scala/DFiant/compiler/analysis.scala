@@ -12,9 +12,23 @@ object analysis {
         case v : DFAny.Member => v
       }
     }
+    //return the number of assignments at any of its dealiasing stages
+    @tailrec protected def getNonAliasAssignCount(cnt : Int) : Int = {
+      value match {
+        case applySel : DFAny.ApplySel =>
+          applySel.relValRef.get.getNonAliasAssignCount(cnt + getSet.designDB.getAssignmentsTo(applySel).size)
+        case alias : DFAny.Alias =>
+          alias.relValRef.get.getNonAliasAssignCount(cnt + getSet.designDB.getAssignmentsTo(alias).size)
+        case v : DFAny.Member => cnt + getSet.designDB.getAssignmentsTo(v).size
+      }
+    }
+    def getNonAliasAssignCount : Int = getNonAliasAssignCount(0)
     //true if and only it is assigned at any of its dealiasing stages
     @tailrec def isNonAliasAssigned : Boolean = {
       value match {
+        case applySel : DFAny.ApplySel =>
+          if (getSet.designDB.getAssignmentsTo(applySel).nonEmpty) true
+          else applySel.relValRef.get.isNonAliasAssigned
         case alias : DFAny.Alias =>
           if (getSet.designDB.getAssignmentsTo(alias).nonEmpty) true
           else alias.relValRef.get.isNonAliasAssigned

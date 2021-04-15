@@ -45,13 +45,13 @@ final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
        |#include "verilated.h"
        |
        |int main(int argc, char **argv) {
-       |	// Initialize Verilators variables
-       |	Verilated::commandArgs(argc, argv);
+       |  // Initialize Verilators variables
+       |  Verilated::commandArgs(argc, argv);
        |
-       |	// Create an instance of our module under test
-       |	$VerilatedTop *tb = new $VerilatedTop;
+       |  // Create an instance of our module under test
+       |  $VerilatedTop *tb = new $VerilatedTop;
        |
-       |	// Toggle initial reset with clock
+       |  // Toggle initial reset with clock
        |  tb->$rstName = $rstActive;
        |  tb->$clkName = $clkInactive;
        |  tb->eval();
@@ -61,11 +61,11 @@ final case class VerilatorSimulation[D <: DFSimDesign, R <: Revision](
        |  tb->$rstName = $rstInactive;
        |  tb->eval();
        |  while(!Verilated::gotFinish()) {
-       |		tb->$clkName = $clkActive;
-       |		tb->eval();
-       |		tb->$clkName = $clkInactive;
-       |		tb->eval();
-       |	} exit(EXIT_SUCCESS);
+       |    tb->$clkName = $clkActive;
+       |    tb->eval();
+       |    tb->$clkName = $clkInactive;
+       |    tb->eval();
+       |  } exit(EXIT_SUCCESS);
        |}
        |""".stripMargin
   private def writeMainSimFile() : Unit = {

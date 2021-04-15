@@ -18,7 +18,6 @@
 //package DFiant
 //import shapeless.test.illTyped
 //import TestUtils._
-//import singleton.twoface._
 //import DFiant.internals.Meta
 //
 //class SafeBitsSelectionFromSafeVarSpec extends DFProperties("SafeBitsSelectionFromSafeVarSpec") {

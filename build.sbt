@@ -13,10 +13,10 @@ inThisBuild(List(
 )))
 
 name := projectName
-organization in ThisBuild := "io.github.dfianthdl"
-scalaVersion in ThisBuild := "2.13.5"
-//resolvers in ThisBuild += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
-resolvers in ThisBuild += "scala-integration" at
+ThisBuild / organization := "io.github.dfianthdl"
+ThisBuild / scalaVersion := "2.13.5"
+//ThisBuild / resolvers += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
+ThisBuild / resolvers += "scala-integration" at
   "https://scala-ci.typesafe.com/artifactory/scala-integration/"
 
 //resolvers in ThisBuild += "Oscar Snapshots" at "http://artifactory.info.ucl.ac.be/artifactory/libs-snapshot/"
@@ -45,14 +45,14 @@ lazy val continuum = (project in file("modLibs/continuum"))
     name := "continuum",
     settings,
     assemblySettings,
-    unmanagedSourceDirectories in Compile ++= {
+    Compile / unmanagedSourceDirectories ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, v)) if v >= 13 =>
           Seq(baseDirectory.value / "src" / "main" / "scala_2.13+")
         case _ =>
           Seq(baseDirectory.value / "src" / "main" / "scala_2.12-")
     }},
-    unmanagedSourceDirectories in Test ++= {
+    Test / unmanagedSourceDirectories ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, v)) if v >= 13 =>
           Seq(baseDirectory.value / "src" / "test" / "scala_2.13+")
@@ -104,7 +104,7 @@ lazy val lib = project
 lazy val `first-look` = (project in file("examples/first-look"))
   .settings(
     name := "first-look",
-    skip in publish := true,
+    publish / skip := true,
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies
@@ -116,7 +116,7 @@ lazy val `first-look` = (project in file("examples/first-look"))
 
 lazy val examples = project
   .settings(
-    skip in publish := true,
+    publish / skip := true,
     settings
   )
   .aggregate(
@@ -261,8 +261,8 @@ lazy val commonSettings = Seq(
 )
 
 lazy val assemblySettings = Seq(
-  assemblyJarName in assembly := name.value + ".jar",
-  assemblyMergeStrategy in assembly := {
+  assembly / assemblyJarName := name.value + ".jar",
+  assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs @ _*) => MergeStrategy.discard
     case _                             => MergeStrategy.first
   }
